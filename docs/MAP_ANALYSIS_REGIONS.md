@@ -25,14 +25,18 @@ This quadrant-everywhere experiment was not enabled. It is superseded by the req
 
 ## Active Qwen gate, 5 October 2026
 
+- Qwen checks apply only to automatic **Analyze selected features** / **Run all again**. Individual wall, door, window and light runs, retries, and **Run [feature] directly** bypass Qwen. Individual window runs retain the four context-padded API quadrants.
 - Walls, natural/cave interiors, doors and lights use the full original map for local yes/no checks. Their accepted masking prompts and separate API requests are unchanged.
 - Windows use four quadrants, with 4% of map width/height as surrounding context on internal edges. Positive quadrants proceed to the simple window mask prompt, with matching context around API crops and exact restoration into map coordinates.
 - Choose the configured installed Qwen model when applicable, otherwise the newest installed Qwen name. No model is downloaded automatically. The tested machine selected `qwen3.8:27b-q4_K_M`.
 - A clear `no` skips that API pass and returns an empty review. Missing local service/model, timeout or an ambiguous reply proceeds through the existing image API instead. Operational notices explain checks, skips and fallback; JSON receipts retain the decision and image hash.
 - Disabled passes still do not run. The optional natural pass is gated independently, so a map without structural walls can still receive cave boundaries.
 - Local answers are a cost filter, not proof of correct detection. Negative answers can miss features. Review the final mask and use manual editing where necessary.
+- The review retains each Qwen decision and scope, including skipped window quadrants. Clear negatives display **Skipped: none found; no image API request**. Uncertain or unavailable checks display the image API fallback. A fully skipped workflow is marked **Skipped**, with a direct-run button available to override it.
 
 Fresh generated inn/cave map: 8 local checks, all positive; 8 image masking calls (walls, caves, doors, four window crops, lights). No cloud-request saving on this particular map. The normal sequential UI fitting policy applied 24 wall pieces, 4 of 7 door candidates, 19 fitted window pieces from 23 blue components, and 22 lights in a disposable save. Blue panes split several physical windows into multiple pieces; 3 door candidates lacked adequate jamb support. No masks or map geometry were manually corrected. See `docs/QWEN_FULL_MAP_GATE_TEST_2026_10_05.md`.
+
+The subsequent conversion repair replays those exact masks with no new API calls: divided panes become 11 windows, fitted to aligned wall faces with bounded local thickness. All 11 apply in a fresh disposable campaign. The 24 wall pieces, 4 doors and 22 lights remain unchanged; no manual edits are used.
 
 ## Verification
 

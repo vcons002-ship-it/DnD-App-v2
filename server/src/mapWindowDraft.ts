@@ -7,17 +7,17 @@ import {gateWindowRegions} from './mapFeatureGate.js';
 import {fitWindow} from '../../shared/windowGeometry.js';
 import {sanitizeWalls,type MapWall} from '../../shared/mapWalls.js';
 import type {MapWindowDraft} from '../../shared/mapWindowDraft.js';
-export async function suggestMapWindows(mapId:string,rawRegions?:unknown):Promise<MapWindowDraft>{
+export async function suggestMapWindows(mapId:string,rawRegions?:unknown,automatic=false):Promise<MapWindowDraft>{
  const {map,image,source}=await geometrySource(mapId);
  const regions=parseMapAnalysisRegions(rawRegions);
  if(!config.geminiApiKey)throw Error('Configure the image API in Settings before suggesting windows.');
- const filtered=await gateWindowRegions(image,source.width,source.height,regions);
- if(!filtered.regions.length)return {version:1,id:randomUUID(),source,maskImagePath:map.imagePath!,windows:[]};
+ const filtered=await gateWindowRegions(image,source.width,source.height,regions,automatic);
+ if(!filtered.regions.length)return {version:1,id:randomUUID(),source,qwenChecks:filtered.checks,maskImagePath:map.imagePath!,windows:[]};
  reportAi('Marking windows with the simple image prompt. Review candidates before applying.');
  const r=await generateMapRegionMask(WINDOW_MASK_PROMPT,image,source.width,source.height,filtered.regions,{contextFraction:.04});
  if('error' in r)throw Error(r.error);
  const windows=await windowsFromMask(await fs.readFile(path.join(config.uploadsDir,path.basename(r.path))),image,source.width,source.height,source.gridSizePx);
- return {version:1,id:randomUUID(),source,maskImagePath:r.path,windows};
+ return {version:1,id:randomUUID(),source,qwenChecks:filtered.checks,maskImagePath:r.path,windows};
 }
 export function prepareWindowDraft(raw:unknown,selection:unknown,source:MapWindowDraft['source'],walls:readonly MapWall[]):MapWall[]{
  const d=raw as MapWindowDraft;

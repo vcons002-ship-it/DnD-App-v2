@@ -33,15 +33,24 @@ describe('map geometry draft',()=>{
     await sharp(Buffer.from('<svg width="1000" height="600"><rect width="1000" height="600" fill="#777"/><path d="M100 200V100H700V500H100V400" fill="none" stroke="#00ff00" stroke-width="10"/></svg>')).png().toFile(path.join(config.uploadsDir,name));
     try{vi.mocked(gateMapFeature).mockResolvedValueOnce({allowed:false} as never).mockResolvedValueOnce({allowed:true} as never);
       vi.mocked(generateApiImage).mockResolvedValue({path:'/uploads/'+name});
-      const draft=await suggestMapGeometry(f.map.id);expect(draft.items.length).toBeGreaterThan(0);expect(generateApiImage).toHaveBeenCalledTimes(1);
+      const draft=await suggestMapGeometry(f.map.id,'ai',{automatic:true});expect(draft.items.length).toBeGreaterThan(0);expect(generateApiImage).toHaveBeenCalledTimes(1);
       expect(vi.mocked(generateApiImage).mock.calls[0][0]).toContain('interior cave');expect(getMap(f.map.id)!.walls).toEqual([]);
     }finally{config.geminiApiKey=oldKey;}
   });
   it('does not request cloud masks or alter walls after clear negative full-map filters',async()=>{
     const f=await fixture(),oldKey=config.geminiApiKey;config.geminiApiKey='test';
     try{vi.mocked(gateMapFeature).mockResolvedValueOnce({allowed:false} as never).mockResolvedValueOnce({allowed:false} as never);
-      const draft=await suggestMapGeometry(f.map.id);expect(draft.items).toEqual([]);expect(generateApiImage).not.toHaveBeenCalled();expect(getMap(f.map.id)!.walls).toEqual([]);
+      const draft=await suggestMapGeometry(f.map.id,'ai',{automatic:true});expect(draft.items).toEqual([]);expect(generateApiImage).not.toHaveBeenCalled();expect(getMap(f.map.id)!.walls).toEqual([]);
     }finally{config.geminiApiKey=oldKey;}
+  });
+  it('individual wall analysis bypasses Qwen even when its mocked answer is negative',async()=>{
+    const f=await fixture(),oldKey=config.geminiApiKey;config.geminiApiKey='test';
+    const name='individual-wall-'+f.session.id+'.png';
+    await sharp(Buffer.from('<svg width="1000" height="600"><rect width="1000" height="600" fill="#777"/><rect x="200" y="100" width="30" height="300" fill="#ffff00"/></svg>')).png().toFile(path.join(config.uploadsDir,name));
+    try{vi.mocked(gateMapFeature).mockResolvedValue({allowed:false} as never);vi.mocked(generateApiImage).mockResolvedValue({path:'/uploads/'+name});
+      const draft=await suggestMapGeometry(f.map.id,'ai',{naturalBoundaries:false});
+      expect(draft.items.length).toBeGreaterThan(0);expect(gateMapFeature).not.toHaveBeenCalled();expect(generateApiImage).toHaveBeenCalledTimes(1);
+    }finally{config.geminiApiKey=oldKey;vi.mocked(gateMapFeature).mockResolvedValue({allowed:true} as never);}
   });
   it('closes small paint breaks while keeping wider passages through normal draft application',async()=>{
     const f=wallMaskStressFixture(),session=createSession('Narrow gap draft'),oldKey=config.geminiApiKey;

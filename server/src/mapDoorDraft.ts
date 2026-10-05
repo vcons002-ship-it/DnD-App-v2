@@ -17,11 +17,12 @@ import {sanitizeWalls} from '../../shared/mapWalls.js';
 import type {MapDoorDraft} from '../../shared/mapDoorDraft.js';
 import type {MapWall} from '../../shared/mapWalls.js';
 
-export async function suggestMapDoors(mapId:string,rawRegions?:unknown):Promise<MapDoorDraft> {
+export async function suggestMapDoors(mapId:string,rawRegions?:unknown,automatic=false):Promise<MapDoorDraft> {
   const {map,image,source}=await geometrySource(mapId);
   const regions=parseMapAnalysisRegions(rawRegions);
   if(!config.geminiApiKey)throw new Error('Configure the image API in Settings before suggesting doors.');
-  if(!(await gateMapFeature(image,'doors')).allowed)return {version:1,id:randomUUID(),source,maskImagePath:map.imagePath!,doors:[]};
+  const qwenChecks=automatic?[await gateMapFeature(image,'doors')]:[];
+  if(qwenChecks.some(check=>!check.allowed))return {version:1,id:randomUUID(),source,qwenChecks,maskImagePath:map.imagePath!,doors:[]};
   reportAi('Marking visible doors with the image API. This is a separate request from walls and lights.');
   const preview=await sharp(image).rotate().png().toBuffer();
   const result=regions?await generateMapRegionMask(DOOR_MASK_PROMPT,image,source.width,source.height,regions):await generateApiImage(DOOR_MASK_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
@@ -31,7 +32,7 @@ export async function suggestMapDoors(mapId:string,rawRegions?:unknown):Promise<
   const markers=await doorsFromMask(await fs.readFile(file),image,source.width,source.height);
   const doors=markers.map(marker=>({...marker,...fitDoorMarker(marker,map.walls??[],source.gridSizePx)}));
   reportAi(`Door draft ready: ${doors.length} suggestions. Check that each marker represents a door, not an open passage.`);
-  return {version:1,id:randomUUID(),source,maskImagePath:result.path,doors};
+  return {version:1,id:randomUUID(),source,qwenChecks,maskImagePath:result.path,doors};
 }
 
 /** Fit selected markers to the final reviewed walls, including newly drafted walls. */

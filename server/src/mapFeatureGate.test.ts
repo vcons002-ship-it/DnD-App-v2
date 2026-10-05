@@ -27,3 +27,8 @@ it('intersects positive quadrants with DM-selected regions instead of expanding 
  const result=await gateWindowRegions(await image(),400,300,[{ax:.4,ay:.1,bx:.6,by:.3}]);
  expect(result.regions).toEqual([{ax:.4,ay:.1,bx:.5,by:.3},{ax:.5,ay:.1,bx:.6,by:.3}]);expect(ollamaChat).toHaveBeenCalledTimes(2);
 });
+it('individual window runs keep quadrant crops without asking Qwen',async()=>{
+ const result=await gateWindowRegions(await image(),400,300,undefined,false);
+ expect(result.regions).toHaveLength(4);expect(result.checks).toEqual([]);
+ expect(listOllamaModels).not.toHaveBeenCalled();expect(ollamaChat).not.toHaveBeenCalled();
+});

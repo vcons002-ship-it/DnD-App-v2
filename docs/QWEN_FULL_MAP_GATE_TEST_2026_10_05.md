@@ -70,3 +70,40 @@ Full-map input and clear-negative skipping, local failure/ambiguity fallback,
 quadrant selection, selected-region intersections and a window crossing the
 central crop seam are covered. Existing map setup browser tests retain real
 authorization, application, geometry freshness, editing and disabled-pass behavior.
+
+## Same-mask conversion repair
+
+The masks themselves were accurate. The original converter used a 2.88-pixel
+pane merge distance at this grid size, leaving 23 components for 11 physical
+windows. Then `fitWindow` chose the closest boundary segment without checking
+its direction. At a masked window gap, that was often a perpendicular endcap
+or tiny corner. Its normal ray reached another wall section, producing openings
+135–178 pixels long instead of a local window.
+
+The fix groups aligned panes across bounded frame gaps, selects wall faces that
+follow the painted opening, and samples only bounded local wall thickness,
+including the neighboring jamb when the center falls in a gap. It does not
+rewrite the prompts, alter the masks, or change saved structural walls.
+
+Replaying the same blue mask and saved wall/door/light drafts through actual
+application in a new disposable campaign produced 24 walls, 4 doors, **11 windows**,
+and 22 lights. All 11 windows fitted without manual selection or geometry edits.
+The previous 155-pixel-wide horizontal opening now has a 37-pixel width and
+38-pixel wall thickness; the 135-pixel-tall vertical opening is now 35 pixels tall
+and 8 pixels thick. No additional paid requests were made.
+
+Automatic mode now retains Qwen decisions in the review and clearly labels
+negative checks with feature and scope. Individual runs bypass Qwen, including
+the new direct-run button for a skipped feature. Window quadrant cropping stays
+the same in either mode.
+
+Same-mask comparison:
+https://dnd.nic024i.app/uploads/previews/qwen-full-map-gate-20261005/repair.html
+
+Verification: all 11 applied windows pass local sight rays and stop swept
+movement through their centers. The actual DM map/editing view loads with no
+browser errors. Type checking, Vite production client build, 1,694 tests across
+156 files, and eight focused map-setup browser tests pass. Browser coverage checks
+automatic request flags, clear skip messages, direct-run override and real Apply;
+paid image analysis is stubbed in those browser tests. The same-mask replay uses
+the real converter and server application without AI stubs or new paid calls.

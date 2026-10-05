@@ -35,13 +35,14 @@ export async function gateMapFeature(image:Buffer,feature:MapFeature,scope='full
  reportAi(decision==='no'?`Qwen found no ${feature} (${scope}); skipping that image-API pass.`:decision==='yes'?`Qwen found ${feature} (${scope}); proceeding to masking.`:`Qwen ${model?'did not return a clear answer':'is unavailable'} for ${feature}; using the image API instead.`);
  return result;
 }
-export async function gateWindowRegions(image:Buffer,width:number,height:number,selected?:readonly MapAnalysisRegion[]){
+export async function gateWindowRegions(image:Buffer,width:number,height:number,selected?:readonly MapAnalysisRegion[],useQwen=true){
  const normalized=await sharp(image).rotate().resize(width,height,{fit:'fill'}).png().toBuffer();
  const regions:MapAnalysisRegion[]=[],checks=[];
  for(let i=0;i<WINDOW_QUADRANTS.length;i++){
   const q=WINDOW_QUADRANTS[i];
   const portions=(selected??[q]).map(r=>({ax:Math.max(q.ax,r.ax),ay:Math.max(q.ay,r.ay),bx:Math.min(q.bx,r.bx),by:Math.min(q.by,r.by)})).filter(r=>r.bx>r.ax&&r.by>r.ay);
   if(!portions.length)continue;
+  if(!useQwen){regions.push(...portions);continue;}
   // Context overlap prevents windows at a quadrant seam being cut in the local check.
   const left=Math.floor(Math.max(0,q.ax-.04)*width),top=Math.floor(Math.max(0,q.ay-.04)*height);
   const right=Math.ceil(Math.min(1,q.bx+.04)*width),bottom=Math.ceil(Math.min(1,q.by+.04)*height);

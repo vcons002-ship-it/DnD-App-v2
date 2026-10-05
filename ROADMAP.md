@@ -6,6 +6,12 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Repair window conversion without changing masks: group divided panes,
+  follow aligned wall faces and bound local thickness instead of spanning rooms.
+  Replay the same inn/cave masks with 11 fitted windows; verify sight passes and
+  movement blocks. Limit Qwen gates to automatic analysis, retain skip decisions
+  in review and offer individual direct runs that bypass the filter.
+
 - [x] Enable the requested local Qwen map-feature gate: full-map checks for walls,
   cave interiors, doors and lights, quadrant checks for windows with seam context.
   Clear negative answers skip that pass; unavailable/uncertain local answers fall
