@@ -14,7 +14,7 @@ export type PlayerVisionHandle={memoryCanvas:()=>HTMLCanvasElement|null;frame:()
  * desaturation remains above both. Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
 type MemoryTerrain={environment?:MapEnvironment;explored?:ExploredTerrain;tiles:TerrainTile[];bounds:{x:number;y:number;w:number;h:number};grid?:{size:number;x:number;y:number}};
-export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
+export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;mapFogOfWar?:boolean;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
  const shade=useRef<HTMLDivElement>(null);
  const root=useRef<HTMLDivElement>(null);
  const lightPaths=useRef<SVGGElement>(null),originPaths=useRef<SVGGElement>(null);
@@ -30,9 +30,9 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const memoryId=`vision-memory-${id}`;
  useLayoutEffect(()=>{
   const parent=root.current?.parentElement;
-  parent?.style.setProperty('--player-vision-cover',`url(#${coverId})`);
+  parent?.style.setProperty('--player-vision-cover',props.mapFogOfWar===false?'none':`url(#${coverId})`);
   return ()=>{parent?.style.removeProperty('--player-vision-cover');};
- },[coverId]);
+ },[coverId,props.mapFogOfWar]);
  const state=useRef(props);const live=useRef(new Map<string,{x:number;y:number}>());
  const renderedLights=useRef<VisionLight[]|null>(null);
  const pendingDraw=useRef(0);
@@ -129,7 +129,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
     <rect width={props.width} height={props.height} fill="white"/><g ref={originPaths}/>{props.vision.origins.length>0&&<g clipPath={`url(#${sightId})`}><use href={`#${lightId}`}/></g>}
    </mask>
   </defs></svg>
-  <div style={{position:'absolute',inset:0,background:'#050608',maskImage:`url(#${coverId})`}}>
+  <div data-testid="automatic-map-fog" style={{display:props.mapFogOfWar===false?'none':undefined,position:'absolute',inset:0,background:'#050608',maskImage:`url(#${coverId})`}}>
    {terrain&&b&&<div data-testid="explored-terrain" style={{position:'absolute',inset:0,clipPath:`url(#${memoryId})`}}>
     <div ref={memoryPlane} data-testid="explored-terrain-grade" style={{position:'absolute',width:props.width,height:props.height,transformOrigin:'50% 50%',filter:`grayscale(1) brightness(${exploredTerrainBrightness(terrain.environment,props.vision.heavy)})`}}>
      <div ref={memoryMap} style={{position:'absolute',transformOrigin:'0 0'}}>

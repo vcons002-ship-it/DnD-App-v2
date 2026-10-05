@@ -2,6 +2,7 @@ import {linkedSpellProfile,spellKey,type LinkedSpellContext} from '../../shared/
 import type {SpellAreaPlacement} from '../../shared/spellAreas.js';
 import {resolvePlacedSpell} from './areaSpells.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
+import {hasLineOfSight} from '../../shared/mapWalls.js';
 import {mirrorIntercept,startSpellUse,spellCondition,sorcerousBonus,linkedHit,linkedDamageComplete,mixedSpellDamage,heatMetalDamage,resolveSpellArea,summonSpiritualWeapon,spiritualWeaponPlacementError} from './linkedSpells.js';
 import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
 import {isValidDiceExpression,withDiceMetadata,usingPhysicalDice} from '../../shared/dice.js';
@@ -236,6 +237,10 @@ export function spellControlTargetError(sessionId: string, ability: SheetAbility
 
 export function spellApplyTargetError(sessionId: string, entry: RollEntry, tokenId: string): string | undefined {
   const apply = entry.apply, effect = apply?.effect;
+  const origin=apply?.attack?.attacker??(effect?{kind:effect.casterKind,refId:effect.casterId}:apply?.owner?{kind:'pc' as const,refId:apply.owner}:undefined);
+  const destination=spellTarget(sessionId,tokenId);
+  const source=origin&&destination&&listTokens(destination.mapId).find(t=>t.kind===origin.kind&&t.refId===origin.refId);
+  if(source&&destination&&!hasLineOfSight(source,destination,getMap(destination.mapId)?.walls))return 'A wall or closed door blocks this target.';
   if (apply?.healing) {
     const token = spellTarget(sessionId, tokenId);
     if (!token || (token.kind === 'monster' && getMonster(token.refId)?.objectKind))
@@ -450,6 +455,7 @@ export function resolveAttack(
   const at = liveResume?.state?.at ?? getToken(attackerTokenId);
   const tt = liveResume?.state?.tt ?? getToken(targetTokenId);
   if (!at || !tt) return false;
+  if(!liveResume&&!hasLineOfSight(at,tt,getMap(at.mapId)?.walls))return false;
   const a = liveResume?.state?.a ?? resolve(at);
   const t = liveResume?.state?.t ?? resolve(tt);
   if (!a || !t) return false;
@@ -1069,6 +1075,7 @@ export function resolveOrbLeap(sessionId: string, rollId: string, targetTokenId?
   if (!target || target.mapId !== orb.origin.mapId || map?.sessionId !== sessionId ||
       getSessionById(sessionId)?.activeMapId !== target.mapId || orb.visited.includes(`${target.kind}:${target.refId}`) ||
       tokenDistanceFt(orb.origin,target,map) > (orb.initial ? 90 : 30) + 1e-6 ||
+      !hasLineOfSight(orb.origin,target,map?.walls) ||
       (target.kind === 'monster' && getMonster(target.refId)?.objectKind))
     return {ok:false,reason:'Choose a new creature within range of the orb.'};
   const caster = apply.attack.attacker.kind === 'pc' ? getCharacter(apply.attack.attacker.refId) : getMonster(apply.attack.attacker.refId);
@@ -1795,6 +1802,7 @@ export function resolveTargetedSpellAttack(opts: {
     token.kind === opts.attacker!.kind && token.refId === opts.attacker!.refId);
   const attacker = opts.attacker && (opts.attacker.kind === 'pc'
     ? getCharacter(opts.attacker.refId) : getMonster(opts.attacker.refId));
+  if(!opts.liveResume&&attackerToken&&(!opts.orb||opts.orb.visited.length===0)&&!hasLineOfSight(attackerToken,tt!,getMap(tt!.mapId)?.walls))return false;
   // An orb leap originates at the previous victim; it does not turn its caster.
   if(attackerToken&&!opts.liveResume&&(!opts.orb||opts.orb.visited.length===0))faceTokenToward(opts.sessionId,attackerToken.id,tt!.id);
   const within5 = !!attackerToken && tokensWithin5ft(attackerToken, tt!, getMap(tt!.mapId));
@@ -2059,6 +2067,11 @@ function resolveSheetAbilityFor(
 ): boolean {
   // Validate before concentration, rolls, HP changes or the caller's slot spend.
   if (targetTokenId && !spellTarget(sessionId, targetTokenId)) return false;
+  if(targetTokenId){
+    const target=getToken(targetTokenId)!;
+    const source=listTokens(target.mapId).find(t=>t.kind===kind&&t.refId===entity.id);
+    if(source&&!hasLineOfSight(source,target,getMap(target.mapId)?.walls))return false;
+  }
   if (targetTokenId && spellControlTargetError(sessionId, ability, targetTokenId)) return false;
   const linkedProfile=linkedSpellProfile(ability),reuse=(ability as SheetAbility&{linkedReuse?:string}).linkedReuse;
   const linkedContext:LinkedSpellContext|undefined=linkedProfile?{spell:ability.name,abilityId:ability.id,casterKind:kind,casterId:entity.id,castLevel:castLevel??linkedProfile.level,

@@ -1,6 +1,7 @@
 import { markSpell, abilityKey } from '../../shared/hitFeatures.js';
 import type { TokenKind, SheetAbility, Token, RevealStep, Character, Monster } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
+import {hasLineOfSight} from '../../shared/mapWalls.js';
 import { rollDicePool, withDiceMetadata } from '../../shared/dice.js';
 import { damageMultiplier } from '../../shared/combatMath.js';
 import { getCharacter, getMonster, getToken, getSessionById, getMap, listTokens, listCharacters, listMonsters, queueSpellImpact, setSheetAbility, setConcentration, addRollLog } from './sessions.js';
@@ -12,6 +13,7 @@ export function castMark(sessionId:string,kind:TokenKind,id:string,ability:Sheet
   const source=mapId ? listTokens(mapId).find(t=>t.kind===kind && t.refId===id) : null;
   if (!caster || caster.sessionId!==sessionId || !markSpell(ability) || !source || !target || target.mapId!==mapId ||
       tokenDistanceFt(source,target,getMap(target.mapId))>90 ||
+      !hasLineOfSight(source,target,getMap(target.mapId)?.walls) ||
       markedEntity(target.kind,target.refId)?.sessionId!==sessionId ||
       (target.kind==='monster' && getMonster(target.refId)?.objectKind)) return false;
   if (hexAbility && !['STR','DEX','CON','INT','WIS','CHA'].includes(hexAbility.toUpperCase())) return false;

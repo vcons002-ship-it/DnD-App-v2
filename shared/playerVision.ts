@@ -10,6 +10,9 @@ export function lightCoverage(distance:number,light:Pick<VisionLight,'radius'|'h
  return lightColorCoverage((light.transient?spellEmissionIrradiance:lightIrradiance)(Math.hypot(distance,light.height),light.radius,light.strength));
 }
 export type PlayerVision={rangeFt:60;radius:number;heavy:boolean;origins:VisionPoint[];lights:VisionLight[];walls?:MapWall[];daylight?:boolean};
+/** Map cover also conceals creatures on unseen terrain. Painted cover is separate. */
+export const usesMapVision=(map:Pick<MapState,'mapVisionEnabled'>|null|undefined)=>map?.mapVisionEnabled!==false;
+export const usesTokenVision=(map:Pick<MapState,'mapVisionEnabled'|'tokenVisionEnabled'>|null|undefined)=>usesMapVision(map)||map?.tokenVisionEnabled!==false;
 /** Campaign rule: 60 feet reveals unlit darkness; unobscured illuminated areas remain visible at any distance. */
 export function usesDarknessVision(map:Pick<MapState,'environment'>|null|undefined){
  const e=map?.environment;return !!e?.enabled&&(e.lighting==='dungeon'||e.lighting==='night');

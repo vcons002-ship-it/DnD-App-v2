@@ -1,4 +1,6 @@
 import { tokenDistanceFt } from '../../../shared/distance';
+import {hasLineOfSight} from '../../../shared/mapWalls';
+import {visionContains} from '../../../shared/playerVision';
 import { resolveToken } from './entities';
 import type { StateSnapshot, Token } from '../../../shared/types';
 
@@ -14,6 +16,8 @@ export function validTargets(snapshot: StateSnapshot, attacker: Token, showDead 
       t.mapId === attacker.mapId && t.id !== attacker.id &&
       !(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.modelType==='spiritual-weapon') &&
       (showDead || !resolveToken(snapshot, t).dead) &&
+      hasLineOfSight(attacker,t,snapshot.map?.walls) &&
+      (snapshot.role!=='player'||visionContains(snapshot.playerVision,t.x,t.y)) &&
       (snapshot.role !== 'player' || (!t.sharedSightOnly && !isFriendly(snapshot, t))),
   ).sort((a, b) => tokenDistanceFt(attacker, a, snapshot.map) - tokenDistanceFt(attacker, b, snapshot.map) || targetLabel(snapshot, a).localeCompare(targetLabel(snapshot, b)));
 }
@@ -36,6 +40,8 @@ export function healTargets(snapshot: StateSnapshot, caster: Token, showDead = f
         t.id !== caster.id && t.mapId === caster.mapId &&
         !(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.modelType==='spiritual-weapon') &&
         (showDead || !resolveToken(snapshot, t).dead) &&
+        hasLineOfSight(caster,t,snapshot.map?.walls) &&
+        (snapshot.role!=='player'||visionContains(snapshot.playerVision,t.x,t.y)) &&
         (snapshot.role !== 'player' || (!t.sharedSightOnly && isFriendly(snapshot, t))),
     ),
   ];

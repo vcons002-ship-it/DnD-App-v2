@@ -2906,6 +2906,59 @@ async function personalTokenView(page:Page,id:string){
  const view=await tokenView(page,id);return view?.sharedSightOnly?null:view;
 }
 
+test('DM automatic fog switches reveal terrain and tokens independently in daylight and darkness',async({page,request,browser},info)=>{
+ test.setTimeout(150000);await page.setViewportSize({width:1500,height:1000});
+ const art=await sharp({create:{width:1200,height:800,channels:3,background:'#b6caaa'}}).png().toBuffer();
+ const f=await fixture(page,request,art),[druk,varis,vanec]=f.ready.tokens;
+ f.socket.emit('character:update',{characterId:druk.refId,weapons:[{name:'Longbow',kind:'ranged',damage:'1d8',attackBonus:5}]});
+ for(const [i,t] of [druk,varis,vanec].entries())f.socket.emit('token:move',{tokenId:t.id,x:200,y:200+i*200});
+ f.socket.emit('monster:create',{name:'Fog test Goblin',maxHp:7,modelType:'goblin'});
+ const template=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Fog test Goblin')!;
+ f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:800,y:360});
+ const enemy=(await f.snapshot()).tokens.find(t=>t.kind==='monster')!;
+ f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'barrier',kind:'rectangle',ax:500,ay:-10000,bx:520,by:10000,door:true,open:false}});
+ await expect.poll(async()=>(await f.snapshot()).map!.walls!.length).toBe(1);
+ await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+ await page.getByTitle('Fog of war',{exact:true}).click();
+ const mapToggle=page.getByRole('button',{name:'Map fog of war on',exact:true}),tokenToggle=page.getByRole('button',{name:/^Token fog of war (on|off)$/});
+ await expect(mapToggle).toHaveAttribute('aria-pressed','true');await expect(tokenToggle).toHaveAttribute('aria-pressed','true');
+ await page.screenshot({path:info.outputPath('fog-switches-dm.png')});
+ const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}}),player=await context.newPage(),errors:string[]=[];
+ player.on('pageerror',e=>errors.push(e.message));
+ try{
+  await enter(player,f.code,'Druk',false);await expect.poll(async()=>(await tokenView(player,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
+  const sample=async()=>{const view=(await tokenView(player,druk.id))!,point=offsetPoint(view,850-200,250-200),shot=await player.screenshot();const patch=await sharp(shot).extract({left:Math.round(point.x)-4,top:Math.round(point.y)-4,width:8,height:8}).toBuffer();const {channels}=await sharp(patch).stats();return channels.slice(0,3).map(c=>c.mean);};
+  const receipts=[];
+  for(const mode of ['day','regular','heavy']){
+   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:mode!=='day',lighting:mode==='day'?'day':'dungeon',lightLevel:.2,heavyDarkness:mode==='heavy',mist:false,shadows:false,lights:[]}});
+   await expect(player.getByTestId('automatic-map-fog')).toBeVisible();
+   expect(await tokenView(player,enemy.id)).toBeNull();
+   await player.screenshot({path:info.outputPath(mode+'-both-on.png')});
+   const covered=await sample();expect(Math.max(...covered)).toBeLessThan(10);
+   await page.getByRole('button',{name:'Map fog of war on',exact:true}).click();
+   await expect(player.getByTestId('automatic-map-fog')).toBeHidden();
+   await expect.poll(async()=>(await f.snapshot()).map!.mapVisionEnabled).toBe(false);
+   await player.waitForTimeout(500);const terrain=await sample();expect(Math.max(...terrain)).toBeGreaterThan(Math.max(...covered)+5);
+   expect(await tokenView(player,enemy.id)).toBeNull();
+   await player.screenshot({path:info.outputPath(mode+'-tokens-only.png')});
+   await tokenToggle.click();await expect.poll(async()=>(await tokenView(player,enemy.id))?.miniatureReady,{timeout:60000}).toBe(true);
+   await player.screenshot({path:info.outputPath(mode+'-both-off.png')});
+   // A visible creature through a closed door remains absent from the attack list.
+   expect(await player.getByLabel('Attack target',{exact:true}).locator('option').allTextContents()).not.toEqual(expect.arrayContaining([expect.stringContaining('Fog test Goblin')]));
+   const socketSnapshot=await f.snapshot();expect(socketSnapshot.map).toMatchObject({mapVisionEnabled:false,tokenVisionEnabled:false});
+   await player.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await player.waitForTimeout(600);
+   await expect.poll(async()=>(await tokenView(player,enemy.id))?.miniatureReady).toBe(true);
+   await player.screenshot({path:info.outputPath(mode+'-both-off-tilted.png')});
+   await player.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
+   await page.getByRole('button',{name:'Map fog of war off',exact:true}).click();await tokenToggle.click();
+   await expect.poll(async()=>tokenView(player,enemy.id)).toBeNull();receipts.push({mode,covered,terrain});
+  }
+  await page.reload();await expect(page.getByTitle('Fog of war',{exact:true})).toBeVisible();
+  expect((await f.snapshot()).map).toMatchObject({mapVisionEnabled:true,tokenVisionEnabled:true});expect(errors).toEqual([]);
+  writeFileSync(info.outputPath('fog-switches-result.json'),JSON.stringify({receipts,errors},null,2));
+ }finally{await context.close();}
+});
+
 test('shared creature awareness stays grayscale and noninteractive until personal sight, then vanishes with last observer',async({page,request,browser},info)=>{
  test.setTimeout(180000);await page.setViewportSize({width:1500,height:1000});
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});

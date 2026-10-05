@@ -6,6 +6,7 @@ import {
   createToken, getCharacter, getMonster, getRollEntry, instantiateMonster, listRollLog, listTokens,
   setActiveMap, setSheetAbility, setTokenHidden,
   setManualDamage, setFogLayer,
+  setVisionFog,getMap,
 } from './sessions.js';
 import { getSpell } from './spells/srd.js';
 import {editMapWalls} from './mapWalls.js';
@@ -51,6 +52,30 @@ function fixture() {
 }
 
 describe('spell socket target and ownership boundaries', () => {
+  it('only the campaign DM can change automatic fog, and visible targets behind walls still cannot be attacked or cast at',()=>{
+    const f=fixture(),player=harness(f.session.id,f.map.id),dm=harness(f.session.id,f.map.id,'dm'),target=f.target();
+    claimCharacter(f.caster.id,player.id);
+    const actor=createToken({mapId:f.map.id,kind:'pc',refId:f.caster.id,x:50,y:100});
+    updateCharacter(f.caster.id,{weapons:[{name:'Dagger',kind:'melee',damage:'1d4',attackBonus:5}]});
+    editMapWalls(f.session.id,f.map.id,{add:{id:'wall',ax:75,ay:-1000,bx:75,by:1000}});
+    player.send('fog:setVision',{mapId:f.map.id,layer:'map',enabled:false});
+    expect(getMap(f.map.id)!.mapVisionEnabled).toBe(true);
+    const other=createSession('Other fog owner'),otherMap=createMap(other.id,{name:'Other'});
+    dm.send('fog:setVision',{mapId:otherMap.id,layer:'map',enabled:false});expect(getMap(otherMap.id)!.mapVisionEnabled).toBe(true);
+    dm.send('fog:setVision',{mapId:f.map.id,layer:'map',enabled:false});
+    dm.send('fog:setVision',{mapId:f.map.id,layer:'tokens',enabled:false});
+    expect(buildSnapshot(f.session.id,'player',null,player.id)!.tokens.find(t=>t.id===target.token.id)?.sharedSightOnly).toBeUndefined();
+    expect(buildSnapshot(f.session.id,'player',null,player.id)!.tokens.map(t=>t.id)).toContain(target.token.id);
+    const slots=getCharacter(f.caster.id)!.spellSlots;
+    for(const client of [player,dm]){
+      client.send('combat:attack',{attackerTokenId:actor.id,targetTokenId:target.token.id,weaponIndex:0});
+      client.send('ability:roll',{kind:'pc',refId:f.caster.id,abilityId:f.ability.id,castLevel:1,targetTokenId:target.token.id});
+      expect(client.emit).toHaveBeenCalledWith('notice',expect.objectContaining({message:expect.stringMatching(/blocks|see/i)}));
+    }
+    expect(listRollLog(f.session.id)).toEqual([]);expect(getCharacter(f.caster.id)!.spellSlots).toEqual(slots);
+    player.send('token:move',{tokenId:actor.id,x:120,y:100});
+    expect(listTokens(f.map.id).find(t=>t.id===actor.id)!.x).toBeLessThan(75);
+  });
   it('Spiritual Weapon rejects invalid placement before spending and only its owner can drag the summoned force',()=>{
     const f=fixture(),owner=harness(f.session.id,f.map.id),other=harness(f.session.id,f.map.id);
     claimCharacter(f.caster.id,owner.id);setFogLayer(f.map.id,'map',false);setFogLayer(f.map.id,'tokens',false);

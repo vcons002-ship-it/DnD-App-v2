@@ -342,6 +342,8 @@ if (ensureColumn('maps', 'fog_mode', "fog_mode TEXT NOT NULL DEFAULT 'off'")) {
 // fog_mode (single layer) -> two independent layers (map fog + token fog).
 ensureColumn('maps', 'map_fog_enabled', 'map_fog_enabled INTEGER NOT NULL DEFAULT 0');
 ensureColumn('maps', 'token_fog_enabled', 'token_fog_enabled INTEGER NOT NULL DEFAULT 0');
+ensureColumn('maps', 'map_vision_enabled', 'map_vision_enabled INTEGER NOT NULL DEFAULT 1');
+ensureColumn('maps', 'token_vision_enabled', 'token_vision_enabled INTEGER NOT NULL DEFAULT 1');
 // Real-world map width in feet (0 = unset → fall back to feet-per-square scale).
 ensureColumn('maps', 'width_ft', 'width_ft REAL NOT NULL DEFAULT 0');
 // Grid alignment + lock/hide (line the overlay up with a printed map grid).
@@ -654,6 +656,8 @@ type MapRow = {
   grid_hidden: number | null;
   map_fog_enabled: number;
   token_fog_enabled: number;
+  map_vision_enabled?: number;
+  token_vision_enabled?: number;
   map_fog_revealed: string;
   token_fog_revealed: string;
 };
@@ -682,6 +686,8 @@ export function rowToMap(r: MapRow): MapState {
     gridHidden: !!r.grid_hidden,
     mapFogEnabled: !!r.map_fog_enabled,
     tokenFogEnabled: !!r.token_fog_enabled,
+    mapVisionEnabled: r.map_vision_enabled!==0,
+    tokenVisionEnabled: r.token_vision_enabled!==0,
     mapFogRevealed: JSON.parse(r.map_fog_revealed ?? '[]') as string[],
     tokenFogRevealed: JSON.parse(r.token_fog_revealed ?? '[]') as string[],
   };

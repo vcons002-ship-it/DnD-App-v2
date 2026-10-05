@@ -7,6 +7,9 @@ import type { FogLayer } from '../../../shared/types';
  * popover pattern. Presentational — all state lives in MapStage.
  */
 export function FogMenu({
+  mapVisionEnabled,
+  tokenVisionEnabled,
+  onToggleVision,
   mapFogEnabled,
   tokenFogEnabled,
   paintLayer,
@@ -19,6 +22,9 @@ export function FogMenu({
   onCoverAll,
   onRevealAll,
 }: {
+  mapVisionEnabled:boolean;
+  tokenVisionEnabled:boolean;
+  onToggleVision:(layer:FogLayer)=>void;
   mapFogEnabled: boolean;
   tokenFogEnabled: boolean;
   paintLayer: FogLayer;
@@ -60,7 +66,7 @@ export function FogMenu({
       <button
         ref={btn}
         type="button"
-        className={`btn tiny ${anyFog ? 'on' : ''}`}
+        className={`btn tiny ${anyFog||mapVisionEnabled||tokenVisionEnabled ? 'on' : ''}`}
         onClick={toggle}
         title="Fog of war"
       >
@@ -70,18 +76,28 @@ export function FogMenu({
         <>
           <div className="popover-backdrop" onClick={() => setOpen(false)} />
           <div className="measure-menu" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
+            <div className="measure-label">Automatic fog of war</div>
+            <button className={`measure-row ${mapVisionEnabled?'on':''}`} aria-pressed={mapVisionEnabled} onClick={()=>onToggleVision('map')}>
+              <span>Map fog of war</span><span className="muted">{mapVisionEnabled?'on':'off'}</span>
+            </button>
+            <button className={`measure-row ${tokenVisionEnabled?'on':''}`} aria-pressed={tokenVisionEnabled} onClick={()=>onToggleVision('tokens')}>
+              <span>Token fog of war</span><span className="muted">{tokenVisionEnabled?'on':'off'}</span>
+            </button>
+            <div className="measure-label">Daylight and darkness. Walls and closed doors always block movement and targeting.</div>
+            <div className="measure-sep" />
+            <div className="measure-label">Manual cover</div>
             <button
               className={`measure-row ${mapFogEnabled ? 'on' : ''}`}
               onClick={() => onToggleLayer('map')}
             >
-              <span>🗺 Map fog</span>
+              <span>🗺 Manual map cover</span>
               <span className="muted">{mapFogEnabled ? 'on' : 'off'}</span>
             </button>
             <button
               className={`measure-row ${tokenFogEnabled ? 'on' : ''}`}
               onClick={() => onToggleLayer('tokens')}
             >
-              <span>👤 Token fog</span>
+              <span>👤 Manual token cover</span>
               <span className="muted">{tokenFogEnabled ? 'on' : 'off'}</span>
             </button>
 

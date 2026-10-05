@@ -6,6 +6,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Independent automatic map and token fog switches in the DM Fog menu,
+  enabled by default and saved per map. Apply the same choices in daylight,
+  regular darkness and heavy darkness. Token-only fog keeps terrain visible;
+  disabling both shows creatures while retaining wall/door collision and
+  targeting restrictions. Keep manual painted cover and explicit hiding as
+  separate controls. Cover all mode combinations, role permissions, backup
+  restoration and actual DM/player views with regressions.
+
 - [x] Regular player darkvision now uses naturally dark map artwork with subtle
   color instead of a pale wash. Keep lit areas in full color, retain the grid,
   and leave the accepted heavy-darkness sight treatment unchanged. Improve

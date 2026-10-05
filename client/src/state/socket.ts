@@ -271,6 +271,7 @@ type Store = {
     mapIds: string[],
   ) => Promise<ImportCharConflict[]>;
   setFogLayer: (mapId: string, layer: FogLayer, enabled: boolean) => void;
+  setVisionFog: (mapId:string,layer:FogLayer,enabled:boolean)=>void;
   paintFog: (
     mapId: string,
     layer: FogLayer,
@@ -1049,6 +1050,7 @@ export const useStore = create<Store>((set, get) => ({
     }),
   setFogLayer: (mapId, layer, enabled) =>
     get().socket?.emit('fog:setLayer', { mapId, layer, enabled }),
+  setVisionFog: (mapId,layer,enabled)=>get().socket?.emit('fog:setVision',{mapId,layer,enabled}),
   paintFog: (mapId, layer, cells, reveal) =>
     get().socket?.emit('fog:paint', { mapId, layer, cells, reveal }),
   coverFog: (mapId, layer) =>
