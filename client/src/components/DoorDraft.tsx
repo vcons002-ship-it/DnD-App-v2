@@ -22,7 +22,7 @@ export function DoorDraft({map,onClose}:{map:MapState;onClose:()=>void}){
       <button className="btn" disabled={!!busy} onClick={()=>request()}>{busy==='analyze'?'Finding doors...':draft?'Analyze again':'Find doors'}</button>
       {draft&&<><button className="btn" disabled={!!busy||!selected.length} onClick={()=>request(true)}>Apply {selected.length} doors</button><button className="btn" disabled={!!busy} onClick={()=>setSelected([])}>Deselect all</button><label><input type="checkbox" checked={mask} onChange={e=>setMask(e.target.checked)}/>Show AI door mask</label></>}
     </div>
-    {busy&&<div role="status">{busy==='apply'?'Saving selected doors...':'The image API is marking door widths and angles. This may take a few minutes.'}</div>}
+    {busy&&<div role="status">{busy==='apply'?'Saving selected doors...':'The image API is painting complete doors cyan. This may take a few minutes.'}</div>}
     {error&&<div role="alert">{error}</div>}
     <WallPerformanceNotice walls={[...(map.walls??[]),...(draft?.doors.filter(d=>selected.includes(d.id)&&d.wall).map(d=>d.wall!)??[])]}/>
     {draft?.doors.length===0&&<p>No door markers found. Use Draw door opening to add one manually.</p>}
@@ -31,6 +31,7 @@ export function DoorDraft({map,onClose}:{map:MapState;onClose:()=>void}){
         {draft?<svg aria-label="Door draft overlay" viewBox={`0 0 ${draft.source.width} ${draft.source.height}`} style={{position:'absolute',inset:0,width:'100%',height:'100%',display:'block'}}>
           <image href={mask?draft.maskImagePath:map.imagePath!} width={draft.source.width} height={draft.source.height} preserveAspectRatio="none"/>
           {!mask&&draft.doors.map((d,i)=>{const active=selected.includes(d.id),color=d.issue?'#ffb65c':active?'#00ffff':'#a1a1aa';return <g key={d.id} style={{cursor:d.issue?'default':'pointer'}} onClick={()=>!busy&&!d.issue&&toggle(d.id)}>
+            {d.footprint&&<polygon points={d.footprint.map(p=>`${p.x},${p.y}`).join(' ')} fill={color} fillOpacity={.18} stroke={color} strokeWidth={1}/>}
             {d.wall?<path d={wallSvgPath(d.wall)} fill={color} fillOpacity={.5} stroke={color} strokeWidth={2}/>:<line x1={d.ax} y1={d.ay} x2={d.bx} y2={d.by} stroke={color} strokeWidth={d.thickness}/>}
             <text x={(d.ax+d.bx)/2+draft.source.width*.009} y={(d.ay+d.by)/2-draft.source.width*.01} fill={color} stroke="#000" strokeWidth={4} paintOrder="stroke" fontSize={draft.source.width*.016}>{i+1}</text>
           </g>;})}

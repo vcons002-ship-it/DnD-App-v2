@@ -4,6 +4,25 @@ import {insideWallGeometry,wallBoundarySegments} from './wallGeometry.js';
 
 /** Fit the detected line to nearby jambs. Never cut or move existing wall art. */
 export function fitDoorMarker(marker:DoorMarker,walls:readonly MapWall[],gridSizePx:number):{wall?:MapWall;issue?:string} {
+  const direct=fitDoorLine(marker,walls,gridSizePx);
+  if(direct.wall||!marker.footprint||direct.issue?.includes('already exists'))return direct;
+  if(!Array.isArray(marker.footprint)||marker.footprint.length<3||marker.footprint.length>32||marker.footprint.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)))return {issue:'Invalid door footprint.'};
+  const cx=(Math.min(...marker.footprint.map(p=>p.x))+Math.max(...marker.footprint.map(p=>p.x)))/2,cy=(Math.min(...marker.footprint.map(p=>p.y))+Math.max(...marker.footprint.map(p=>p.y)))/2;
+  const candidates:{marker:DoorMarker;distance:number}[]=[];
+  for(const wall of walls.filter(w=>!w.door&&!w.window))for(const {a,b} of wallBoundarySegments(wall)){
+    const dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);if(l<2)continue;
+    const tx=dx/l,ty=dy/l,nx=-ty,ny=tx,along=(cx-a.x)*tx+(cy-a.y)*ty,across=(cx-a.x)*nx+(cy-a.y)*ny;
+    const distance=Math.hypot(across,along<0?-along:along>l?along-l:0);if(distance>gridSizePx*.9)continue;
+    // Shift only across the wall, retaining the painted position along it.
+    const x=cx-nx*across,y=cy-ny*across,span=marker.footprint.map(p=>(p.x-cx)*tx+(p.y-cy)*ty),lo=Math.min(...span),hi=Math.max(...span);
+    candidates.push({distance,marker:{...marker,footprint:undefined,ax:x+tx*lo,ay:y+ty*lo,bx:x+tx*hi,by:y+ty*hi,thickness:Math.min(marker.thickness,gridSizePx*.2)}});
+  }
+  for(const candidate of candidates.sort((a,b)=>a.distance-b.distance)){
+    const fit=fitDoorLine(candidate.marker,walls,gridSizePx);if(fit.wall)return fit;
+  }
+  return {issue:'The filled door does not meet nearby walls on both sides. Add or adjust the jambs first.'};
+}
+function fitDoorLine(marker:DoorMarker,walls:readonly MapWall[],gridSizePx:number):{wall?:MapWall;issue?:string} {
   const dx=marker.bx-marker.ax,dy=marker.by-marker.ay,length=Math.hypot(dx,dy);
   if(!Number.isFinite(length)||length<2)return {issue:'The door marker is too short.'};
   const x=(marker.ax+marker.bx)/2,y=(marker.ay+marker.by)/2,tx=dx/length,ty=dy/length;

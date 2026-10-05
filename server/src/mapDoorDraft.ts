@@ -40,6 +40,7 @@ export function prepareDoorDraft(raw:unknown,selection:unknown,source:MapDoorDra
   if(JSON.stringify(draft.source)!==JSON.stringify(source))throw new Error('The map image, grid or walls changed. Generate a new door draft.');
   const chosen=draft.doors.filter(d=>selection.includes(d.id));
   if(chosen.some(d=>![d.ax,d.ay,d.bx,d.by,d.thickness].every(v=>typeof v==='number'&&Number.isFinite(v))||d.ax<0||d.bx<0||d.ay<0||d.by<0||d.ax>source.width||d.bx>source.width||d.ay>source.height||d.by>source.height||d.thickness<=0||d.thickness>source.width*.04))throw new Error('Invalid door positions.');
+  if(chosen.some(d=>d.footprint!==undefined&&(!Array.isArray(d.footprint)||d.footprint.length<3||d.footprint.length>32||d.footprint.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.y<0||p.x>source.width||p.y>source.height))))throw new Error('Invalid door footprint.');
   const walls=[...existing],added:MapWall[]=[];
   for(const marker of chosen){
     const {wall,issue}=fitDoorMarker(marker,walls,source.gridSizePx);

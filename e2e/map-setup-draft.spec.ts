@@ -7,7 +7,7 @@ import type {StateSnapshot} from '../shared/types';
 
 const connections:Socket[]=[];
 test.afterEach(()=>connections.splice(0).forEach(s=>s.disconnect()));
-async function fixture(page:Page,request:APIRequestContext,failLights=false,start=true,scope:'full'|'regions'='full'){
+async function fixture(page:Page,request:APIRequestContext,failLights=false,start=true,scope:'full'|'regions'='full',filledDoor=false){
   const headers={'x-dm-passphrase':DM_SECRET};
   const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Combined setup test'}})).json();
   const image=await sharp({create:{width:400,height:300,channels:3,background:'#343a44'}}).png().toBuffer();
@@ -23,7 +23,7 @@ async function fixture(page:Page,request:APIRequestContext,failLights=false,star
       {id:'item-0',kind:'wall',label:'Left jamb',ax:0,ay:140/300,bx:.4,by:160/300,heightFt:10,confidence:1},
       {id:'item-1',kind:'wall',label:'Right jamb',ax:.6,ay:140/300,bx:1,by:160/300,heightFt:10,confidence:1},
     ]},
-    doors:{version:1,id:'e2e-doors',source,maskImagePath:map.imagePath,doors:[{id:'ai-door-1',ax:160,ay:150,bx:240,by:150,thickness:6,issue:'No saved walls yet'}]},
+    doors:{version:1,id:'e2e-doors',source,maskImagePath:map.imagePath,doors:[filledDoor?{id:'ai-door-1',ax:200,ay:164,bx:200,by:194,thickness:14,footprint:[{x:160,y:164},{x:240,y:164},{x:240,y:194},{x:160,y:194}],issue:'No saved walls yet'}:{id:'ai-door-1',ax:160,ay:150,bx:240,by:150,thickness:6,issue:'No saved walls yet'}]},
     windows:{version:1,id:'e2e-windows',source,maskImagePath:map.imagePath,windows:[]},
     lights:{version:1,id:'e2e-lights',source:{...lightSource,lightsHash:hash('[]')},maskImagePath:map.imagePath,lights:[100,300].map((x,i)=>({id:`ai-light-${i+1}`,x,y:220,radiusFt:20,heightFt:8,color:'warm',intensity:1,flicker:true}))},
   };
@@ -101,4 +101,10 @@ test('DM draws separate regions and sends them only to enabled analyses',async({
  await options.getByRole('button',{name:'Analyze selected features',exact:true}).click();
  await expect.poll(()=>f.calls).toEqual({walls:0,doors:0,windows:0,lights:1});
  expect(f.bodies[0].body.regions).toHaveLength(2);expect(f.bodies[0].body.regions[0].ax).toBeCloseTo(.1,2);expect(f.bodies[0].body.regions[1].bx).toBeCloseTo(.85,2);
+});
+test('filled door faces show their footprint and fit above their art before real Apply',async({page,request})=>{
+ const f=await fixture(page,request,false,true,'full',true),dialog=page.getByRole('dialog',{name:'Map setup draft'});
+ await dialog.getByRole('button',{name:'Doors draft',exact:true}).click();await expect(dialog.getByLabel('Door 1',{exact:true})).toBeChecked();await expect(dialog.locator('svg polygon')).toBeVisible();
+ const response=page.waitForResponse(r=>r.url().endsWith('/setup-draft/apply'));await dialog.getByRole('button',{name:'Apply selected setup',exact:true}).click();expect((await response).ok()).toBe(true);
+ const door=(await f.snapshot()).map!.walls!.find(w=>w.door)!;expect(door).toBeTruthy();expect(door.by).toBeLessThan(175);expect(door.tokenId).toBeTruthy();
 });

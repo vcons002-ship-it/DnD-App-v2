@@ -69,3 +69,16 @@ it('fits an angled doorway and refuses distant jambs or a solid wall through its
   expect(fitDoorMarker(marker,[],50).issue).toContain('jambs');
   expect(fitDoorMarker(marker,[{id:'solid',ax:60,ay:60,bx:220,by:220,thickness:12}],50).issue).toContain('covers');
 });
+it('projects a complete door face onto nearby wall caps, preserving closed/open collision and sight',()=>{
+ const walls=[{id:'left',kind:'rectangle' as const,ax:0,ay:100,bx:160,by:120},{id:'right',kind:'rectangle' as const,ax:200,ay:100,bx:400,by:120}];
+ const marker={id:'ai-door-1',ax:180,ay:124,bx:180,by:170,thickness:14,footprint:[{x:160,y:124},{x:200,y:124},{x:200,y:170},{x:160,y:170}]};
+ const fit=fitDoorMarker(marker,walls,50);expect(fit.issue).toBeUndefined();expect(fit.wall).toBeTruthy();
+ const a={x:180,y:70},b={x:180,y:180};expect(hasLineOfSight(a,b,[...walls,fit.wall!])).toBe(false);expect(stopAtWalls(a,b,5,[...walls,fit.wall!])).not.toEqual(b);
+ expect(hasLineOfSight(a,b,[...walls,{...fit.wall!,open:true}])).toBe(true);expect(stopAtWalls(a,b,5,[...walls,{...fit.wall!,open:true}])).toEqual(b);
+ expect(fitDoorMarker({...marker,footprint:marker.footprint.map(p=>({x:p.x,y:p.y+150}))},walls,50).wall).toBeUndefined();
+ expect(fitDoorMarker(marker,[{id:'solid',kind:'rectangle',ax:0,ay:100,bx:400,by:120}],50).wall).toBeUndefined();
+});
+it('rejects invalid filled footprints before applying any door',async()=>{
+ const {map}=await fixture(),draft=await suggestMapDoors(map.id);draft.doors[0].footprint=[{x:-1,y:100},{x:200,y:100},{x:200,y:170}];
+ await expect(applyDoorDraft(map.id,draft,[draft.doors[0].id])).rejects.toThrow('footprint');expect(listTokens(map.id)).toHaveLength(0);
+});

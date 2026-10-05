@@ -18,6 +18,11 @@ it('extracts door widths and angles without marking original cyan artwork',async
 it('allows maps without doors, rejects broad cyan areas and changed framing',async()=>{
   const source=await png('');
   expect(await doorsFromMask(source,source,400,300)).toEqual([]);
-  await expect(doorsFromMask(await png('<circle cx="100" cy="100" r="25" fill="#00ffff"/>'),source,400,300)).rejects.toThrow('thin lines');
+  await expect(doorsFromMask(await png('<rect x="30" y="40" width="180" height="160" fill="#00ffff"/>'),source,400,300)).rejects.toThrow('broad rooms');
   await expect(doorsFromMask(source,source,800,300)).rejects.toThrow('framing');
+});
+it('retains a full filled door face even when its height exceeds its width',async()=>{
+ const source=await png(''),mask=await png('<rect x="160" y="100" width="40" height="65" fill="#00ffff"/>');
+ const doors=await doorsFromMask(mask,source,400,300);expect(doors).toHaveLength(1);expect(doors[0].footprint).toHaveLength(4);
+ expect(Math.min(...doors[0].footprint!.map(p=>p.x))).toBeCloseTo(160,0);expect(Math.max(...doors[0].footprint!.map(p=>p.y))).toBeCloseTo(165,0);
 });

@@ -113,6 +113,7 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
             {(map.walls??[]).map(w=><path key={w.id} d={wallSvgPath(w)} fill="none" stroke="#aaa" strokeWidth={2} fillRule="evenodd"/>)}
             {wallShapes.map(({item,wall})=>{const active=selected.walls.includes(item.id);return <path key={item.id} d={wallSvgPath(wall)} fillRule="evenodd" fill={active?'#ffe068':'#ff974d'} fillOpacity={active?.25:.08} stroke={active?'#ffe068':'#ff974d'} strokeWidth={2} strokeDasharray={active?undefined:'6 3'} style={{cursor:tab==='walls'&&!busy?'pointer':'default'}} onClick={()=>tab==='walls'&&!busy&&toggle('walls',item.id)}/>;})}
             {fittedDoors.map((d,i)=>{const color=d.issue?'#ff974d':effective.doors.includes(d.id)?'#00ffff':'#999';return <g key={d.id} onClick={()=>tab==='doors'&&!busy&&!d.issue&&toggle('doors',d.id)} style={{cursor:tab==='doors'&&!busy&&!d.issue?'pointer':'default'}}>
+              {d.footprint&&<polygon points={d.footprint.map(p=>`${p.x},${p.y}`).join(' ')} fill={color} fillOpacity={.18} stroke={color} strokeWidth={1}/>}
               {d.wall?<path d={wallSvgPath(d.wall)} fill={color} fillOpacity={.5} stroke={color} strokeWidth={2}/>:<line x1={d.ax} y1={d.ay} x2={d.bx} y2={d.by} stroke={color} strokeWidth={d.thickness}/>}
               {tab==='doors'&&<text x={(d.ax+d.bx)/2+source.width*.009} y={(d.ay+d.by)/2-source.width*.01} fill={color} stroke="#000" strokeWidth={4} paintOrder="stroke" fontSize={source.width*.016}>{i+1}</text>}
             </g>;})}
