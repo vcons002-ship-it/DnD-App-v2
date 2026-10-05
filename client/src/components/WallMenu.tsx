@@ -17,6 +17,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
   const [draftOpen,setDraftOpen]=useState(false);
   const [doorsDraftOpen,setDoorsDraftOpen]=useState(false);
   const [setupDraftOpen,setSetupDraftOpen]=useState(false);
+  const [setupScope,setSetupScope]=useState<'full'|'regions'>('full');
   const button=useRef<HTMLButtonElement>(null);
   const [position,setPosition]=useState<{left:number;top:number}|null>(null);
   const warnedMaps=useRef(new Set<string>());
@@ -33,13 +34,14 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
   return <>
     {draftOpen&&map&&<WallDraft key={map.id} map={map} onClose={()=>setDraftOpen(false)}/>}
     {doorsDraftOpen&&map&&<DoorDraft key={map.id} map={map} onClose={()=>setDoorsDraftOpen(false)}/>}
-    {setupDraftOpen&&map&&<MapSetupDraft key={map.id} map={map} onClose={()=>setSetupDraftOpen(false)}/>}
+    {setupDraftOpen&&map&&<MapSetupDraft key={map.id+setupScope} map={map} scope={setupScope} onClose={()=>setSetupDraftOpen(false)}/>}
     <button ref={button} className={`btn tiny ${tool!=='off'?'on':''}`} onClick={()=>{
       const rect=button.current!.getBoundingClientRect();setPosition(position?null:{left:Math.max(8,Math.min(rect.left,window.innerWidth-254)),top:rect.bottom+4});
     }} aria-label="Walls" title="Draw walls that block player movement, light and sight">Walls{tool!=='off'?`: ${toolNames[tool]}`:''} ▾</button>
     {position&&<><div className="popover-backdrop" onClick={()=>setPosition(null)}/>
       <div className="measure-menu" style={{...position,width:238}}>
-        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setSetupDraftOpen(true);}}>Suggest walls, doors, windows &amp; lights</button>
+        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setSetupScope('full');setSetupDraftOpen(true);}}>Suggest walls, doors, windows &amp; lights</button>
+        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setSetupScope('regions');setSetupDraftOpen(true);}}>Analyze selected regions</button>
         <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDraftOpen(true);}}>Suggest walls from map art</button>
         <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDoorsDraftOpen(true);}}>Suggest doors from map art</button>
         <div className="measure-label">{count} saved wall pieces</div>

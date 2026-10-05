@@ -2,7 +2,7 @@ import {doorApproachPoints} from '../../shared/mapWalls.js';
 import {chatForViewer} from './privateChat.js';
 import {activeMarks} from './marks.js';
 import {rememberTerrain} from './exploration.js';
-import {createPlayerVision,visionContains} from '../../shared/playerVision.js';
+import {createPlayerVision,visionContains,fogVisionContains,usesMapVision,usesTokenVision} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
 import { resolveMonsterModelType } from '../../shared/monsterAppearance.js';
@@ -341,18 +341,18 @@ export function createSnapshotBuilder(
       tokens = tokens.flatMap(t => {
         if(t.isHidden)return [];
         const door=map?.walls?.find(w=>w.door&&w.tokenId===t.id);
-        if(door)return doorApproachPoints(door).some(p=>tokenVisibleAt({role,hidden:false,owned:false,foe:true,mapFog,tokenFog,grid,x:p.x,y:p.y})&&visionContains(playerVision,p.x,p.y))?[t]:[];
+        if(door)return doorApproachPoints(door).some(p=>tokenVisibleAt({role,hidden:false,owned:false,foe:true,mapFog,tokenFog,grid,x:p.x,y:p.y})&&fogVisionContains(playerVision,p.x,p.y,usesTokenVision(map)))?[t]:[];
         const personallyVisible = tokenVisibleAt({ role, hidden: false,
         owned: t.kind === 'pc' && owned.has(t.refId),
         foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
-        mapFog, tokenFog, grid, x: t.x, y: t.y }) && visionContains(playerVision,t.x,t.y);
+        mapFog, tokenFog, grid, x: t.x, y: t.y }) && fogVisionContains(playerVision,t.x,t.y,usesTokenVision(map));
         if(personallyVisible)return [t];
         // Party positions are always known. Explicit DM hiding still wins.
         // Objects remain personal; remembered terrain never retains enemies.
         if(t.kind==='pc')return [{...t,sharedSightOnly:true}];
         if(monById.get(t.refId)?.objectKind || !party.size)return [];
         const partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
-          foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && visionContains(partyVision,t.x,t.y);
+          foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map));
         return partyVisible?[{...t,sharedSightOnly:true}]:[];
       });
       // Sources were fog/hidden-gated in createPlayerVision. A placed source
@@ -362,7 +362,7 @@ export function createSnapshotBuilder(
       // ID/position never leaks through a lighting payload.
       // Visibility is personal: never share a shaped monster cache between viewers.
       if(map?.environment&&playerVision)map={...map,environment:{...map.environment,
-        lights:map.environment.lights.map(l=>visionContains(playerVision,l.x,l.y)?l:{...l,visibleTorch:false})}};
+        lights:map.environment.lights.map(l=>fogVisionContains(playerVision,l.x,l.y,usesMapVision(map))?l:{...l,visibleTorch:false})}};
       const visibleMonIds = new Set(
         tokens.filter((t) => t.kind === 'monster').map((t) => t.refId),
       );

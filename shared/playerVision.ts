@@ -10,15 +10,30 @@ export function lightCoverage(distance:number,light:Pick<VisionLight,'radius'|'h
  return lightColorCoverage((light.transient?spellEmissionIrradiance:lightIrradiance)(Math.hypot(distance,light.height),light.radius,light.strength));
 }
 export type PlayerVision={rangeFt:60;radius:number;heavy:boolean;origins:VisionPoint[];lights:VisionLight[];walls?:MapWall[];daylight?:boolean};
-/** Campaign rule: 60 feet reveals unlit darkness; unobscured illuminated areas remain visible at any distance. */
+/** Map cover also conceals creatures on unseen terrain. Painted cover is separate. */
+export const usesMapVision=(map:Pick<MapState,'mapVisionEnabled'>|null|undefined)=>map?.mapVisionEnabled!==false;
+export const usesTokenVision=(map:Pick<MapState,'mapVisionEnabled'|'tokenVisionEnabled'>|null|undefined)=>usesMapVision(map)||map?.tokenVisionEnabled!==false;
+/** Dim light has no distance cap. Heavy darkness permits nearby darkvision
+ * and distant illuminated areas; walls remain physical targeting obstacles. */
 export function usesDarknessVision(map:Pick<MapState,'environment'>|null|undefined){
  const e=map?.environment;return !!e?.enabled&&(e.lighting==='dungeon'||e.lighting==='night');
 }
 export function visionContains(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
+ return fogVisionContains(vision,x,y,true);
+}
+/** Fog switches control wall concealment, never the heavy-darkness range. */
+export function fogVisionContains(vision:PlayerVision|undefined|null,x:number,y:number,wallFog:boolean):boolean{
  if(!vision)return true;
  const point={x,y};
- const visibleOrigins=vision.origins.filter(o=>hasLineOfSight(o,point,vision.walls));
- return visibleOrigins.length>0&&(!!vision.daylight||visibleOrigins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6)||visionLit(vision,x,y));
+ const visibleOrigins=vision.origins.filter(o=>!wallFog||hasLineOfSight(o,point,vision.walls));
+ return visibleOrigins.length>0&&(!vision.heavy||visibleOrigins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6)||visionLit(vision,x,y));
+}
+export function visionHasDarkvision(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
+ return !!vision?.origins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6);
+}
+/** Dim-light darkvision shows affinity; heavy-darkness affinity needs actual light. */
+export function visionShowsAffinity(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
+ return visionLit(vision,x,y)||(!vision?.heavy&&visionHasDarkvision(vision,x,y));
 }
 export function visionLit(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
  return !vision||!!vision.daylight||vision.lights.some(l=>lightCoverage(Math.hypot(x-l.x,y-l.y),l)>.10&&hasLineOfSight(l,{x,y},vision.walls));

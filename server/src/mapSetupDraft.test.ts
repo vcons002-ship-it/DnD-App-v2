@@ -44,6 +44,15 @@ it('fits doors to the selected new walls and saves all three workflows together'
   expect(setWallDoor(f.session.id,map.id,door.id,true)).toBeNull();expect(hasLineOfSight(a,b,getMap(map.id)!.walls)).toBe(true);expect(stopAtWalls(a,b,10,getMap(map.id)!.walls)).toEqual(b);
   await expect(applyMapSetupDraft(f.map.id,f.drafts,f.selected)).rejects.toThrow('changed');expect(listTokens(map.id)).toHaveLength(1);
 });
+
+it('combined Apply saves reviewed door connections and creates only one door object',async()=>{
+ const f=await fixture();f.drafts.walls!.items[0].bx=110/400;f.drafts.walls!.items[1].ax=290/400;
+ f.drafts.doors!.doors=[{id:'ai-door-1',ax:200,ay:164,bx:200,by:194,thickness:14,footprint:[{x:160,y:164},{x:240,y:164},{x:240,y:194},{x:160,y:194}]}];
+ expect(await applyMapSetupDraft(f.map.id,f.drafts,f.selected)).toEqual({walls:4,doors:1,lights:1});
+ const saved=getMap(f.map.id)!.walls!,door=saved.find(w=>w.door)!;expect(saved).toHaveLength(5);expect(listTokens(f.map.id)).toHaveLength(1);
+ const a={x:200,y:80},b={x:200,y:220};expect(hasLineOfSight(a,b,saved)).toBe(false);setWallDoor(f.session.id,f.map.id,door.id,true);
+ expect(hasLineOfSight(a,b,getMap(f.map.id)!.walls)).toBe(true);expect(stopAtWalls(a,b,5,getMap(f.map.id)!.walls)).toEqual(b);
+});
 it('applies windows to new walls without cutting saved movement geometry, and removing a window restores the view barrier',async()=>{
  const f=await fixture(),source=f.drafts.walls!.source;
  f.drafts.windows={version:1,id:'windows-test',source,maskImagePath:'/uploads/windows.png',windows:[{id:'ai-window-1',kind:'rectangle',ax:80,ay:150,bx:110,by:180}]};

@@ -68,7 +68,8 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 **Maps & fog**
 - Upload any image as a map; DM stages tokens, grid, and fog without players seeing it, then **Make active** to reveal.
 - **Map scale & grid:** set the real-world scale by dragging a reference line; **match the grid to a printed map** (drag one square — sets size + origin and locks it), nudge its offset, **hide it**, or lock/unlock it.
-- Fog of war per map: `off` / `map` / `tokens-only` modes, reveal/hide brush at 1×/3×/5×, and **Cover all** for a DM "curtain".
+- **Automatic fog of war:** separate map and token switches, both on by default in daylight and darkness. They control whether walls conceal terrain and creatures; heavy-darkness sight range still applies with fog off. Regular darkness is dim light with unlimited sight and better brightness/color/affinity within 60-foot darkvision. Walls and closed doors always block movement and targeting. See [automatic fog options](docs/AUTOMATIC_FOG_OF_WAR.md).
+- **Manual cover:** independent map/token cover, reveal/hide brush at 1×/3×/5×, and **Cover all** for a DM "curtain".
 - **Draw on the map** (everyone): freehand pen + text labels in per-person colors, with Clear mine/all. The DM can also **paste images (Ctrl+V)** as **scenery decals** — cropped/background-cut in a preview, drawn under the tokens, draggable/resizable, and lockable click-through.
 - Zoom toward the cursor (wheel), **−/+ zoom buttons** and two-finger **pinch-to-zoom** on touch, drag-to-pan, **Fit** to reset; resizable/collapsible side panels with **drag-reorderable sections** (tap ▲/▼ on touch), remembered per session — tuned for **tablet/iPad** use.
 

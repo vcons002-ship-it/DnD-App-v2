@@ -1,9 +1,21 @@
 import sharp from 'sharp';
 import type {DoorMarker} from '../../shared/mapDoorDraft.js';
 
-export const DOOR_MASK_PROMPT='Annotate the supplied top-down battle map with a solid bright cyan (#00FFFF) straight line over each visible door. Draw each line along the closed door from jamb to jamb, covering its full width, about 8 pixels thick. Follow diagonal doors at their actual angle. A visible wooden or metal door leaf or gate is required: an empty opening with only side posts must stay unmarked. Do not mark empty passages, arches, chests, furniture, walls or cave edges. Preserve the original map, framing and aspect ratio. No labels, other marks or invented doors.';
+/** Convex pixel outline avoids a PCA bounding box expanding skewed door faces. */
+function footprint(pixels:number[],width:number){
+ const rows=new Map<number,[number,number]>();for(const p of pixels){const y=Math.floor(p/width),x=p%width,r=rows.get(y);rows.set(y,r?[Math.min(r[0],x),Math.max(r[1],x)]:[x,x]);}
+ const points=[...rows].flatMap(([y,[lo,hi]])=>[{x:lo,y},{x:hi+1,y},{x:lo,y:y+1},{x:hi+1,y:y+1}]).sort((a,b)=>a.x-b.x||a.y-b.y);
+ const cross=(a:{x:number;y:number},b:{x:number;y:number},c:{x:number;y:number})=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+ const half=(points:{x:number;y:number}[])=>{const result:typeof points=[];for(const p of points){while(result.length>1&&cross(result.at(-2)!,result.at(-1)!,p)<=0)result.pop();result.push(p);}return result;};
+ const lower=half(points),upper=half([...points].reverse());lower.pop();upper.pop();const hull=[...lower,...upper];
+ while(hull.length>32){let index=0,area=Infinity;for(let i=0;i<hull.length;i++){const a=Math.abs(cross(hull[(i+hull.length-1)%hull.length],hull[i],hull[(i+1)%hull.length]));if(a<area){area=a;index=i;}}hull.splice(index,1);}
+ return hull;
+}
 
-/** Fit the long axis of each cyan stroke, preserving diagonal door orientation. */
+export const DOOR_MASK_PROMPT='Paint every visible door and gate in this overhead/isometric battle map completely solid opaque cyan (#00FFFF). Cover the entire door, including its frame, with a flat mask that hides all texture and details. Mark only doors and gates actually shown. Keep the map unchanged otherwise.';
+
+/** Retain each filled door's footprint; fitting derives its crossing direction
+ * from the adjoining wall caps, since a visible door face may be taller than wide. */
 export async function doorsFromMask(mask:Buffer,source:Buffer,width:number,height:number):Promise<DoorMarker[]> {
   if(![width,height].every(v=>Number.isFinite(v)&&v>0&&v<=20000))throw new Error('Invalid map dimensions.');
   const meta=await sharp(mask).metadata();
@@ -29,10 +41,11 @@ export async function doorsFromMask(mask:Buffer,source:Buffer,width:number,heigh
     let lo=Infinity,hi=-Infinity,acrossLo=Infinity,acrossHi=-Infinity;
     for(const q of queue){const x=q%w+.5-cx,y=Math.floor(q/w)+.5-cy,along=x*tx+y*ty,across=-x*ty+y*tx;lo=Math.min(lo,along);hi=Math.max(hi,along);acrossLo=Math.min(acrossLo,across);acrossHi=Math.max(acrossHi,across);}
     const length=hi-lo+1,thickness=acrossHi-acrossLo+1;
-    // Round dots or broad painted rooms do not encode a reliable doorway.
-    if(length<8||length/thickness<2.5||length>w*.25||thickness>w*.035)throw new Error('Door markers must be separate thin lines across each door, not dots or broad areas.');
+    if(length<8)continue;
+    if(length>w*.25||thickness>w*.25)throw new Error('Door masks must cover separate doors, not broad rooms or map areas.');
     const clamp=(v:number,max:number)=>Math.max(0,Math.min(max,v));
-    doors.push({id:`ai-door-${doors.length+1}`,ax:clamp((cx+tx*(lo-.5))*width/w,width),ay:clamp((cy+ty*(lo-.5))*height/h,height),bx:clamp((cx+tx*(hi+.5))*width/w,width),by:clamp((cy+ty*(hi+.5))*height/h,height),thickness:thickness*width/w});
+    const point=(along:number,across:number)=>({x:clamp((cx+tx*along-ty*across)*width/w,width),y:clamp((cy+ty*along+tx*across)*height/h,height)});
+    doors.push({id:`ai-door-${doors.length+1}`,ax:point(lo-.5,0).x,ay:point(lo-.5,0).y,bx:point(hi+.5,0).x,by:point(hi+.5,0).y,thickness:Math.min(thickness*width/w,width*.035),footprint:footprint(queue,w).map(p=>({x:p.x*width/w,y:p.y*height/h}))});
   }
   if(doors.length>64)throw new Error('Too many door markers; review the mask.');
   return doors;

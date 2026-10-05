@@ -823,7 +823,10 @@ export type MapState = {
   gridLocked: boolean;
   /** Hide the grid overlay entirely. */
   gridHidden: boolean;
-  /** Whether each fog layer is active on this map. */
+  /** Automatic sight-based fog. Missing legacy values default to enabled. */
+  mapVisionEnabled?: boolean;
+  tokenVisionEnabled?: boolean;
+  /** Whether each manually painted cover layer is active on this map. */
   mapFogEnabled: boolean;
   tokenFogEnabled: boolean;
   /** Revealed "col,row" cells per layer; everything else on an enabled layer is
@@ -1379,6 +1382,7 @@ export type FogSetLayerPayload = {
   layer: FogLayer;
   enabled: boolean;
 };
+export type FogSetVisionPayload = {mapId:string;layer:FogLayer;enabled:boolean};
 /** Reveal (true) or re-hide (false) cells on one fog layer of a map. */
 export type FogPaintPayload = {
   mapId: string;
@@ -1728,6 +1732,7 @@ export interface ClientToServerEvents {
     ack: (conflicts: ImportCharConflict[]) => void,
   ) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
+  'fog:setVision': (payload: FogSetVisionPayload) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload, placed?: (p: {x:number;y:number}) => void) => void;

@@ -5,7 +5,7 @@ import {spellcastingMod} from '../../shared/spellMath.js';
 import {shapeSaveFrame} from './liveSaveFrame.js';
 import {chatAudience,privateChatVisible} from './privateChat.js';
 import {chatImageForSend} from './chatImages.js';
-import {doorApproachPoints} from '../../shared/mapWalls.js';
+import {doorApproachPoints,hasLineOfSight} from '../../shared/mapWalls.js';
 import {doorInReach} from '../../shared/doorInteraction.js';
 import {visionContains} from '../../shared/playerVision.js';
 import {areaPlacementError} from './areaSpells.js';
@@ -152,6 +152,7 @@ import {
   setEntityIcon,
   paintFog,
   setFogLayer,
+  setVisionFog,
   setTokenHidden,
   setTokenInCombat,
   setTokensHideCombatRole,
@@ -841,6 +842,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
+    on('fog:setVision', ({mapId,layer,enabled})=>{
+      const sid=sessionId();
+      if(!sid||!isDm()||!setVisionFog(sid,mapId,layer,enabled))return;
+      afterChange();
+    });
+
     on('fog:paint', ({ mapId, layer, cells, reveal }) => {
       if (!isDm() || !getMap(mapId) || !Array.isArray(cells)) return;
       paintFog(mapId, layer, cells, reveal);
@@ -1317,7 +1324,17 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const conn = commandConnection();
       if (!conn) return false;
       const snapshot = buildSnapshot(conn.sessionId, conn.role, conn.viewMapId, socket.id, conn.playerId);
-      return !!snapshot?.tokens.some((token) => token.id === tokenId && !token.sharedSightOnly);
+      return !!snapshot?.tokens.some((token) => token.id === tokenId && !token.sharedSightOnly &&
+        (conn.role==='dm'||visionContains(snapshot.playerVision,token.x,token.y)));
+    };
+
+    const targetBehindWall=(targetId:string,origin:{kind:'pc'|'monster';refId:string}|string):boolean=>{
+      const target=getToken(targetId);
+      const actor=typeof origin==='string'?getToken(origin):target&&listTokens(target.mapId).find(t=>t.kind===origin.kind&&t.refId===origin.refId);
+      if(!target||!actor||actor.mapId!==target.mapId)return false;
+      if(hasLineOfSight(actor,target,getMap(actor.mapId)?.walls))return false;
+      socket.emit('notice',{message:'A wall or closed door blocks this target. Move or open the door first.'});
+      return true;
     };
 
     on('resource:set', ({ characterId, group, key, max, used, remove, preserveMax, recharge }) => {
@@ -1541,6 +1558,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const tgt = typeof targetTokenId === 'string' ? targetTokenId : undefined;
+      if(tgt&&targetBehindWall(tgt,{kind,refId}))return;
       if (tgt !== undefined && !canDirectlyTargetToken(tgt)) {
         socket.emit('notice', { message: 'Choose a creature you can see yourself. Party sightings cannot be targeted.' });
         return;
@@ -2320,6 +2338,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         if (!sid) return;
         const at = getToken(attackerTokenId);
         if (!at) return;
+        if(targetBehindWall(targetTokenId,attackerTokenId))return;
         const attackerEntity=at.kind==='pc'?getCharacter(at.refId):getMonster(at.refId);
         const blocked=attackerEntity && spellActionBlockMessage(attackerEntity,{inCombat:!!getSessionById(sid)?.combatRound});
         if(blocked) {

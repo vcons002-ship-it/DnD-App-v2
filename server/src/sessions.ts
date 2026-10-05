@@ -323,6 +323,13 @@ export function setFogLayer(
   ).run(enabled ? 1 : 0, mapId);
 }
 
+/** Independent automatic sight fog, with the same ownership scope as map edits. */
+export function setVisionFog(sessionId:string,mapId:string,layer:FogLayer,enabled:boolean):boolean {
+  if((layer!=='map'&&layer!=='tokens')||typeof enabled!=='boolean')return false;
+  const column=layer==='map'?'map_vision_enabled':'token_vision_enabled';
+  return db.prepare(`UPDATE maps SET ${column}=? WHERE id=? AND session_id=?`).run(enabled?1:0,mapId,sessionId).changes>0;
+}
+
 /** Reveal or re-hide "col,row" cells on one fog layer of a map. */
 export function paintFog(
   mapId: string,

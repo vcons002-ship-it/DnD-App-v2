@@ -230,7 +230,7 @@ export function createApiRouter(io: IOServer): Router {
     if(!getMap(mapId)){res.status(404).json({error:'Map not found.'});return;}
     if(draftingLights.has(mapId)){res.status(409).json({error:'Light analysis is already running for this map.'});return;}
     draftingLights.add(mapId);
-    try{res.json(await suggestMapLights(mapId));}
+    try{res.json(await suggestMapLights(mapId,req.body?.regions));}
     catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not draft map lights.'});}
     finally{draftingLights.delete(mapId);}
   });
@@ -249,7 +249,7 @@ export function createApiRouter(io: IOServer): Router {
     if(!getMap(mapId)){res.status(404).json({error:'Map not found.'});return;}
     if(draftingDoors.has(mapId)){res.status(409).json({error:'Door analysis is already running for this map.'});return;}
     draftingDoors.add(mapId);
-    try{res.json(await suggestMapDoors(mapId));}
+    try{res.json(await suggestMapDoors(mapId,req.body?.regions));}
     catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not draft map doors.'});}
     finally{draftingDoors.delete(mapId);}
   });
@@ -268,7 +268,7 @@ export function createApiRouter(io: IOServer): Router {
     if(!getMap(mapId)){res.status(404).json({error:'Map not found.'});return;}
     if(draftingWindows.has(mapId)){res.status(409).json({error:'Window analysis is already running.'});return;}
     draftingWindows.add(mapId);
-    try{res.json(await suggestMapWindows(mapId));}
+    try{res.json(await suggestMapWindows(mapId,req.body?.regions));}
     catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not draft windows.'});}
     finally{draftingWindows.delete(mapId);}
   });

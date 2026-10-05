@@ -3,7 +3,7 @@ import {db} from './db.js';
 import {describe,it,expect} from 'vitest';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,moveToken,setTokenHidden,setFogLayer,setFogRevealed} from './sessions.js';
 import {createSnapshotBuilder,buildSnapshot} from './visibility.js';
-import {visionContains,visionLit,lightCoverage} from '../../shared/playerVision.js';
+import {visionContains,visionLit,visionShowsAffinity,lightCoverage} from '../../shared/playerVision.js';
 
 describe('personal dungeon vision',()=>{
  it('color reveal fades with physical light attenuation instead of a hard radius',()=>{
@@ -53,12 +53,14 @@ describe('personal dungeon vision',()=>{
   expect(buildSnapshot(f.s.id,'dm',f.map.id)!.tokens).toHaveLength(4);
   expect(buildSnapshot(f.s.id,'player',null,'unclaimed')!.tokens.every(t=>t.sharedSightOnly)).toBe(true);
  });
- it('applies the same strict boundary in dim and complete darkness and updates after movement',()=>{
+ it('dim light is unlimited, with affinity in darkvision range; heavy darkness keeps the strict boundary',()=>{
   const f=setup();
   for(const heavyDarkness of [false,true]){
    updateMapEnvironment(f.s.id,f.map.id,{heavyDarkness});
    const v=buildSnapshot(f.s.id,'player',null,'vision-a')!.playerVision!;
-   expect(v.heavy).toBe(heavyDarkness);expect(visionContains(v,700,100)).toBe(true);expect(visionContains(v,700.1,100)).toBe(false);
+   expect(v.heavy).toBe(heavyDarkness);expect(visionContains(v,700,100)).toBe(true);expect(visionContains(v,700.1,100)).toBe(!heavyDarkness);
+   expect(visionShowsAffinity(v,500,100)).toBe(!heavyDarkness);
+   expect(visionShowsAffinity(v,1000,100)).toBe(false);
    expect(visionLit(v,500,100)).toBe(false);
   }
   moveToken(f.ta.id,1000,100);
@@ -72,7 +74,7 @@ describe('personal dungeon vision',()=>{
    const snap=buildSnapshot(f.s.id,'player',null,'vision-a')!;
    expect(snap.map!.environment!.lights.map(l=>l.id)).toEqual(['distant']);
    expect(visionContains(snap.playerVision,1400,100)).toBe(true);
-   expect(visionContains(snap.playerVision,1000,100)).toBe(false);
+   expect(visionContains(snap.playerVision,1000,100)).toBe(!heavyDarkness);
    expect(snap.tokens.some(t=>t.id===f.far.id)).toBe(true);
    expect(snap.monsters.some(m=>m.id===f.far.refId)).toBe(true);
    expect(snap.tokens.find(t=>t.id===f.far.id)?.revealTag).not.toBe('U');

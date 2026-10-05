@@ -11,7 +11,7 @@ import {WallMenu,type WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {doorInReach,doorInteractionArea} from '../../../shared/doorInteraction';
 import {wallVertices,wallCenter,wallSvgPath,wallBoundarySegments,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
-import {visionContains,visionLit} from '../../../shared/playerVision';
+import {fogVisionContains,visionShowsAffinity,usesMapVision,usesTokenVision} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
@@ -683,6 +683,7 @@ export function MapStage({
   const setCombatTarget = useStore((s) => s.setCombatTarget);
   const clearSaveResolve = useStore((s) => s.clearSaveResolve);
   const setFogLayer = useStore((s) => s.setFogLayer);
+  const setVisionFog = useStore((s)=>s.setVisionFog);
   const paintFog = useStore((s) => s.paintFog);
   const coverFog = useStore((s) => s.coverFog);
   const setMapGrid = useStore((s) => s.setMapGrid);
@@ -826,7 +827,7 @@ export function MapStage({
     const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden&&!t.sharedSightOnly).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
     if(!map || (!saved.enabled&&!carriedLanterns.length) || environmentQuality==='off' || map.slidesUrl)return undefined;
     const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
-    return {...settings,dmVisibility:isDm&&!dmSceneLighting,...(snapshot.playerVision?.heavy?{darkvisionTerrain:[...(map.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],darkvisionGrid:{size:map.gridHidden?0:grid,x:map.gridOffsetX??0,y:map.gridOffsetY??0}}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
+    return {...settings,dmVisibility:isDm&&!dmSceneLighting,...(snapshot.playerVision&&!snapshot.playerVision.daylight?{darkvisionTerrain:[...(map.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],darkvisionGrid:{size:map.gridHidden?0:grid,x:map.gridOffsetX??0,y:map.gridOffsetY??0}}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
       walls:map.walls,lights:[...settings.lights,...(snapshot.playerVision?.lights??[]).filter(l=>!settings.lights.some(s=>s.id===l.id)&&!carriedLanterns.some(c=>c.id===l.id)).map(l=>({id:l.id,x:l.x,y:l.y,radiusFt:l.radius/pxPerFoot,heightFt:l.height/pxPerFoot,intensity:l.strength,color:'warm' as const,flicker:false,visibleTorch:false}))],
       scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:environmentQuality,
       fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
@@ -1149,7 +1150,7 @@ export function MapStage({
   }, [view, size, groundScaleY]);
 
   const doors=(map?.walls??[]).filter(w=>w.door);
-  const doorVisible=(door:typeof doors[number])=>isDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>visionContains(snapshot.playerVision,p.x,p.y)&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
+  const doorVisible=(door:typeof doors[number])=>isDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
   const nearbyDoors=doors.filter(d=>doorVisible(d)&&(isDm?d.id===selectedDoor:snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
   const operateDoor=(id:string,open:boolean)=>{if(map)useStore.getState().socket?.emit('map:setDoor',{mapId:map.id,doorId:id,open});};
   const miniatureVisibleAt = useMemo(() => {
@@ -1160,8 +1161,8 @@ export function MapStage({
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
-      return !!token && (token.sharedSightOnly ? (token.kind==='pc' || visionContains(presentation.partyVision(),x,y)) :
-        (token.owned || visionContains(presentation.personalVision(),x,y)) && tokenVisibleAt({ ...token, role: snapshot.role,
+      return !!token && (token.sharedSightOnly ? (token.kind==='pc' || fogVisionContains(presentation.partyVision(),x,y,usesTokenVision(snapshot.map))) :
+        (token.owned || fogVisionContains(presentation.personalVision(),x,y,usesTokenVision(snapshot.map))) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
     };
   }, [snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
@@ -1217,7 +1218,7 @@ export function MapStage({
       combatRole: !dead && !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
       hunterMarked: !dead && !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
       conditionColors: dead || token.sharedSightOnly ? [] : presentAuras(display.conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
-      outline: token.sharedSightOnly || !visionLit(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
+      outline: token.sharedSightOnly || !visionShowsAffinity(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: !dead && monster ? monsterTint(monster) : undefined,
       shade: !dead && monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
@@ -1971,7 +1972,7 @@ export function MapStage({
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
         miniaturePending={!miniatures && !miniaturesUnavailable && !failedMiniatures.has(t.id) && miniatureTokens.some(m => m.id === t.id)}
-        hideAffinity={!!t.sharedSightOnly || !visionLit(snapshot.playerVision,t.x,t.y)}
+        hideAffinity={!!t.sharedSightOnly || !visionShowsAffinity(snapshot.playerVision,t.x,t.y)}
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         movementWalls={isDm?undefined:map?.walls}
@@ -2251,6 +2252,9 @@ export function MapStage({
                       onFinish={cancelWallStroke}
                       onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>
                     <FogMenu
+                      mapVisionEnabled={usesMapVision(map)}
+                      tokenVisionEnabled={map?.tokenVisionEnabled!==false}
+                      onToggleVision={layer=>map&&setVisionFog(map.id,layer,!(layer==='map'?usesMapVision(map):map.tokenVisionEnabled!==false))}
                       mapFogEnabled={mapFogEnabled}
                       tokenFogEnabled={tokenFogEnabled}
                       paintLayer={paintLayer}
@@ -2663,12 +2667,12 @@ export function MapStage({
             </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
+            <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment} spellImpacts={spellImpacts} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
-          {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} presentation={presentation} vision={snapshot.playerVision} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+          {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} presentation={presentation} vision={snapshot.playerVision} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>}
           {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
           {!wallActive&&nearbyDoors.length>0&&!doorDragPreview&&<div data-testid="door-controls" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,display:'flex',gap:8,padding:8,background:'#161b23ee',border:'1px solid #aa8550',borderRadius:6}}>

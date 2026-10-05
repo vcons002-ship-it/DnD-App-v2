@@ -6,6 +6,28 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Regular darkness behaves as dim light with unlimited unobstructed sight;
+  nearby darkvision improves brightness/color and reveals affinity. Heavy
+  darkness keeps its unlit 60-foot sight limit even with automatic fog off.
+  Fog switches only control wall concealment, while physical targeting and
+  movement remain blocked. Preserve distant illuminated sight, party memory
+  and shared creature awareness; test range and wall switches independently.
+
+- [x] Independent automatic map and token fog switches in the DM Fog menu,
+  enabled by default and saved per map. Apply the same choices in daylight,
+  regular darkness and heavy darkness. Token-only fog keeps terrain visible;
+  disabling both shows creatures while retaining wall/door collision and
+  targeting restrictions. Keep manual painted cover and explicit hiding as
+  separate controls. Cover all mode combinations, role permissions, backup
+  restoration and actual DM/player views with regressions.
+
+- [x] Regular player darkvision now uses naturally dark map artwork with subtle
+  color instead of a pale wash. Keep lit areas in full color, retain the grid,
+  and leave the accepted heavy-darkness sight treatment unchanged. Improve
+  remembered terrain readability in regular darkness and slightly in heavy
+  darkness; memory remains grayscale and contains no old light sources.
+  Re-record the crossroads darkness sections using disposable campaigns.
+
 - [x] Remove the wall-face clause from the window prompt. Same-map real API
   retry detects/fits four cabin windows (two front, two back), compared with
   two previously; conversion, natural boundaries and structural walls unchanged.
@@ -2448,3 +2470,6 @@ Smaller refinements on top of the shipped Phase 2 work.
   docs/MAP_GEOMETRY_DRAFT.md for the earlier cave-gap finding and successful retest.
 
 - [x] Independent AI window pass using the accepted simple prompt; full map setup reviews windows alongside walls, doors and lights. Windows pass sight/light but block movement, with individual removal restoring the original opaque wall. See docs/AI_WINDOWS_2026_10_03.md.
+- [x] Map setup preflight checkboxes skip unchecked workflows before any API calls. Separate **Analyze selected regions** control supports up to eight drawn regions, cropped API inputs and restoration into original map coordinates. Live two-region light drafting and browser regressions verified. Qwen feature gating remains experimental after cave false negatives and extra window/light suggestions; see [selective map analysis](docs/MAP_ANALYSIS_REGIONS.md).
+- [x] Door image pass paints complete opaque cyan door shapes. Filled-footprint review and bounded fitting to nearby wall caps preserve linked door/lock behavior and legacy line markers. Crossroads cottage door passed saved closed/open sight and movement checks; other candidates remain rejected when jambs do not align. See [filled door masks](docs/FILLED_DOOR_MASKS.md).
+- [x] Door fitting can connect two nearby facing wall ends to a filled door with short editable wall extensions, shown before Apply. Reusing the Crossroads masks now fits the watchhouse door; closed/open/lock and side-gap collision checks pass. Unsupported candidates remain rejected.
