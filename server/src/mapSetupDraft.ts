@@ -32,12 +32,12 @@ export async function applyMapSetupDraft(mapId:string,raw:unknown,selection:unkn
     const addedLights=selected.lights.length?prepareLightDraft(drafts.lights,selected.lights,lightDraftSource(source,map.environment?.lights??[])):[];
     if(sanitizeWalls(walls).length!==walls.length)throw new Error('This setup contains invalid geometry. Review the selected walls and doors.');
     // No writes occur until every selected workflow has passed validation.
-    for(const door of addedDoors){
+    for(const door of addedDoors.filter(w=>w.door)){
       const token=createWallDoorObject(map.sessionId,mapId,(door.ax+door.bx)/2,(door.ay+door.by)/2);
       door.tokenId=token.id;
     }
     if(addedWalls.length||addedDoors.length||addedWindows.length)db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify(walls),mapId);
     if(addedLights.length)updateMapEnvironment(map.sessionId,mapId,{enabled:true,lights:[...(map.environment?.lights??[]),...addedLights]});
-    return {walls:addedWalls.length,doors:addedDoors.length,lights:addedLights.length,...(selected.windows!==undefined?{windows:addedWindows.length}:{})};
+    return {walls:addedWalls.length+addedDoors.filter(w=>!w.door).length,doors:addedDoors.filter(w=>w.door).length,lights:addedLights.length,...(selected.windows!==undefined?{windows:addedWindows.length}:{})};
   })();
 }

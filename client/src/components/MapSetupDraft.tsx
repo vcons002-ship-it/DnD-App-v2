@@ -50,18 +50,18 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
     const walls=[...(map.walls??[]),...wallShapes.filter(w=>selected.walls.includes(w.item.id)).map(w=>w.wall)];
     return drafts.doors?.doors.map(d=>{
       const fit=fitDoorMarker(d,walls,map.gridSizePx);
-      if(fit.wall&&selected.doors.includes(d.id))walls.push(fit.wall);
-      return {...d,wall:fit.wall,issue:fit.issue};
+      if(fit.wall&&selected.doors.includes(d.id))walls.push(...(fit.extensions??[]),fit.wall);
+      return {...d,wall:fit.wall,extensions:fit.extensions,issue:fit.issue};
     })??[];
   },[map.walls,map.gridSizePx,wallShapes,selected.walls,selected.doors,drafts.doors]);
   const fittedWindows=useMemo(()=>{
-    const walls=[...(map.walls??[]),...wallShapes.filter(w=>selected.walls.includes(w.item.id)).map(w=>w.wall)];
+    const walls=[...(map.walls??[]),...wallShapes.filter(w=>selected.walls.includes(w.item.id)).map(w=>w.wall),...fittedDoors.filter(d=>selected.doors.includes(d.id)&&d.wall).flatMap(d=>[...(d.extensions??[]),d.wall!])];
     return drafts.windows?.windows.map(marker=>{
       const fit=fitWindow(marker,walls,map.gridSizePx);
       if(fit.wall&&selected.windows?.includes(marker.id))walls.push(fit.wall);
       return {marker,...fit};
     })??[];
-  },[map.walls,map.gridSizePx,wallShapes,selected.walls,selected.windows,drafts.windows]);
+  },[map.walls,map.gridSizePx,wallShapes,selected.walls,selected.windows,selected.doors,fittedDoors,drafts.windows]);
   const effective:MapSetupSelection={...selected,doors:fittedDoors.filter(d=>selected.doors.includes(d.id)&&d.wall&&!d.issue).map(d=>d.id),windows:fittedWindows.filter(d=>selected.windows?.includes(d.marker.id)&&d.wall&&!d.issue).map(d=>d.marker.id)};
   const counts={walls:wallShapes.length,doors:fittedDoors.length,windows:fittedWindows.length,lights:drafts.lights?.lights.length??0};
   const total=steps.reduce((n,s)=>n+(effective[s]?.length??0),0);
@@ -93,7 +93,7 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
     <div role="status">{applying?'Saving selected walls, doors, windows and lights...':running?'Analyzing the map. Completed results appear below while the other masks finish.':'Review complete masks below. Doors and windows fit to your selected walls; lights use the existing map art.'}</div>
     {steps.filter(s=>progress[s].state==='error').map(step=><div key={step} role="alert" style={{color:'#ffd39a'}}>{names[step]}: {progress[step].error} <button className="btn tiny" disabled={busy} onClick={()=>void runStep(step)}>Retry {names[step].toLowerCase()}</button></div>)}
     {error&&<div role="alert" style={{color:'#ffb6a1'}}>{error}</div>}
-    <WallPerformanceNotice walls={[...(map.walls??[]),...wallShapes.filter(w=>effective.walls.includes(w.item.id)).map(w=>w.wall),...fittedDoors.filter(d=>effective.doors.includes(d.id)&&d.wall).map(d=>d.wall!)]}/>
+    <WallPerformanceNotice walls={[...(map.walls??[]),...wallShapes.filter(w=>effective.walls.includes(w.item.id)).map(w=>w.wall),...fittedDoors.filter(d=>effective.doors.includes(d.id)&&d.wall).flatMap(d=>[...(d.extensions??[]),d.wall!])]}/>
     {drafts.walls?.maskWarnings?.map(warning=><div key={warning} role="alert" style={{color:'#ffd39a'}}>{warning}</div>)}
     <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
       <button className="btn" disabled={busy||!total} onClick={apply}>Apply selected setup</button>
@@ -114,6 +114,7 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
             {wallShapes.map(({item,wall})=>{const active=selected.walls.includes(item.id);return <path key={item.id} d={wallSvgPath(wall)} fillRule="evenodd" fill={active?'#ffe068':'#ff974d'} fillOpacity={active?.25:.08} stroke={active?'#ffe068':'#ff974d'} strokeWidth={2} strokeDasharray={active?undefined:'6 3'} style={{cursor:tab==='walls'&&!busy?'pointer':'default'}} onClick={()=>tab==='walls'&&!busy&&toggle('walls',item.id)}/>;})}
             {fittedDoors.map((d,i)=>{const color=d.issue?'#ff974d':effective.doors.includes(d.id)?'#00ffff':'#999';return <g key={d.id} onClick={()=>tab==='doors'&&!busy&&!d.issue&&toggle('doors',d.id)} style={{cursor:tab==='doors'&&!busy&&!d.issue?'pointer':'default'}}>
               {d.footprint&&<polygon points={d.footprint.map(p=>`${p.x},${p.y}`).join(' ')} fill={color} fillOpacity={.18} stroke={color} strokeWidth={1}/>}
+              {d.extensions?.map(w=><path key={w.id} aria-label="Door wall extension" d={wallSvgPath(w)} fill="#ffe068" fillOpacity={.45} stroke="#ffe068" strokeWidth={2} strokeDasharray="4 2"/>)}
               {d.wall?<path d={wallSvgPath(d.wall)} fill={color} fillOpacity={.5} stroke={color} strokeWidth={2}/>:<line x1={d.ax} y1={d.ay} x2={d.bx} y2={d.by} stroke={color} strokeWidth={d.thickness}/>}
               {tab==='doors'&&<text x={(d.ax+d.bx)/2+source.width*.009} y={(d.ay+d.by)/2-source.width*.01} fill={color} stroke="#000" strokeWidth={4} paintOrder="stroke" fontSize={source.width*.016}>{i+1}</text>}
             </g>;})}
@@ -125,7 +126,7 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
       <div style={{flex:'0 1 260px',overflow:'auto'}}>
         {progress[tab].state==='ready'&&counts[tab]===0&&<p>No new {tab} found.</p>}
         {tab==='walls'&&wallShapes.map(({item})=><label key={item.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy} checked={selected.walls.includes(item.id)} onChange={()=>toggle('walls',item.id)}/>{item.label}</label>)}
-        {tab==='doors'&&fittedDoors.map((d,i)=><label key={d.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy||!!d.issue} checked={effective.doors.includes(d.id)} onChange={()=>toggle('doors',d.id)}/>Door {i+1}{d.issue&&<small style={{display:'block',color:'#ffd39a'}}>{d.issue}</small>}</label>)}
+        {tab==='doors'&&fittedDoors.map((d,i)=><label key={d.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy||!!d.issue} checked={effective.doors.includes(d.id)} onChange={()=>toggle('doors',d.id)}/>Door {i+1}{!!d.extensions?.length&&<small style={{display:'block',color:'#ffe068'}}>Connects {d.extensions.length} wall ends</small>}{d.issue&&<small style={{display:'block',color:'#ffd39a'}}>{d.issue}</small>}</label>)}
         {tab==='lights'&&drafts.lights?.lights.map((l,i)=><label key={l.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy} checked={selected.lights.includes(l.id)} onChange={()=>toggle('lights',l.id)}/>Light source {i+1}</label>)}
         {tab==='windows'&&fittedWindows.map(({marker,issue},i)=><label key={marker.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy||!!issue} checked={effective.windows?.includes(marker.id)??false} onChange={()=>toggle('windows',marker.id)}/>Window {i+1}{issue&&<small style={{display:'block',color:'#ffd39a'}}>{issue}</small>}</label>)}
       </div>

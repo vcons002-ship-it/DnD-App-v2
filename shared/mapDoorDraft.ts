@@ -7,5 +7,5 @@ export type MapDoorDraft = {
   id:string;
   source:MapGeometryDraft['source'];
   maskImagePath:string;
-  doors:(DoorMarker&{wall?:MapWall;issue?:string})[];
+  doors:(DoorMarker&{wall?:MapWall;extensions?:MapWall[];issue?:string})[];
 };

@@ -82,3 +82,23 @@ it('rejects invalid filled footprints before applying any door',async()=>{
  const {map}=await fixture(),draft=await suggestMapDoors(map.id);draft.doors[0].footprint=[{x:-1,y:100},{x:200,y:100},{x:200,y:170}];
  await expect(applyDoorDraft(map.id,draft,[draft.doors[0].id])).rejects.toThrow('footprint');expect(listTokens(map.id)).toHaveLength(0);
 });
+
+it('connects under-masked wall ends without widening the door or leaving leaks beside it',async()=>{
+ const {session,map}=await fixture();
+ editMapWalls(session.id,map.id,{update:{id:'left',kind:'rectangle',ax:0,ay:140,bx:110,by:160}});
+ editMapWalls(session.id,map.id,{update:{id:'right',kind:'rectangle',ax:290,ay:140,bx:400,by:160}});
+ const {geometrySource}=await import('./mapGeometryDraft.js'),{source}=await geometrySource(map.id),original=getMap(map.id)!.walls!;
+ const marker={id:'ai-door-1',ax:200,ay:164,bx:200,by:194,thickness:14,footprint:[{x:160,y:164},{x:240,y:164},{x:240,y:194},{x:160,y:194}]};
+ const fit=fitDoorMarker(marker,original,50);expect(fit.extensions).toHaveLength(2);expect(fit.wall!.bx-fit.wall!.ax).toBeLessThan(85);
+ const draft={version:1,id:'connection-test',source,maskImagePath:'/uploads/doors.png',doors:[{...marker,extensions:[{id:'injected',ax:0,ay:0,bx:400,by:300}]}]};
+ expect(await applyDoorDraft(map.id,draft,[marker.id])).toBe(1);
+ const saved=getMap(map.id)!.walls!,door=saved.find(w=>w.door)!;
+ expect(saved.slice(0,2)).toEqual(original);expect(saved).toHaveLength(5);expect(saved.some(w=>w.id==='injected')).toBe(false);expect(listTokens(map.id)).toHaveLength(1);
+ const start={x:200,y:80},end={x:200,y:220};expect(hasLineOfSight(start,end,saved)).toBe(false);expect(stopAtWalls(start,end,5,saved)).not.toEqual(end);
+ setWallDoor(session.id,map.id,door.id,true);const opened=getMap(map.id)!.walls!;
+ expect(hasLineOfSight(start,end,opened)).toBe(true);expect(stopAtWalls(start,end,5,opened)).toEqual(end);
+ for(const x of [112,135,158,242,265,288]){const a={x,y:80},b={x,y:220};expect(hasLineOfSight(a,b,opened)).toBe(false);expect(stopAtWalls(a,b,2,opened)).not.toEqual(b);}
+ expect(fitDoorMarker(marker,[original[0]],50).wall).toBeUndefined();
+ expect(fitDoorMarker(marker,original,40).wall).toBeUndefined();
+ expect(fitDoorMarker(marker,[...original,{id:'other-opening',ax:135,ay:90,bx:135,by:210,door:true,open:true}],50).wall).toBeUndefined();
+});

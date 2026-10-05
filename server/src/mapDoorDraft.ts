@@ -43,9 +43,11 @@ export function prepareDoorDraft(raw:unknown,selection:unknown,source:MapDoorDra
   if(chosen.some(d=>d.footprint!==undefined&&(!Array.isArray(d.footprint)||d.footprint.length<3||d.footprint.length>32||d.footprint.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.y<0||p.x>source.width||p.y>source.height))))throw new Error('Invalid door footprint.');
   const walls=[...existing],added:MapWall[]=[];
   for(const marker of chosen){
-    const {wall,issue}=fitDoorMarker(marker,walls,source.gridSizePx);
+    const {wall,extensions,issue}=fitDoorMarker(marker,walls,source.gridSizePx);
     if(!wall)throw new Error(`${marker.id}: ${issue}`);
     const door={...wall,id:`door-${draft.id}-${marker.id}`};
+    const connections=(extensions??[]).map((w,i)=>({...w,id:`jamb-${draft.id}-${marker.id}-${i+1}`}));
+    walls.push(...connections);added.push(...connections);
     walls.push(door);added.push(door);
   }
   return added;
@@ -59,11 +61,11 @@ export async function applyDoorDraft(mapId:string,raw:unknown,selection:unknown)
     if(!map||createHash('sha256').update(JSON.stringify(map.walls??[])).digest('hex')!==source.wallsHash)throw new Error('Walls changed during review. Generate a new door draft.');
     const added=prepareDoorDraft(raw,selection,source,map.walls??[]),walls=[...(map.walls??[]),...added];
     if(sanitizeWalls(walls).length!==walls.length)throw new Error('These doors could not be fitted safely. Review the selected door geometry.');
-    for(const door of added){
+    for(const door of added.filter(w=>w.door)){
       const token=createWallDoorObject(map.sessionId,mapId,(door.ax+door.bx)/2,(door.ay+door.by)/2);
       door.tokenId=token.id;
     }
     db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify(walls),mapId);
-    return added.length;
+    return added.filter(w=>w.door).length;
   })();
 }

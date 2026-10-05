@@ -7,7 +7,7 @@ import type {StateSnapshot} from '../shared/types';
 
 const connections:Socket[]=[];
 test.afterEach(()=>connections.splice(0).forEach(s=>s.disconnect()));
-async function fixture(page:Page,request:APIRequestContext,failLights=false,start=true,scope:'full'|'regions'='full',filledDoor=false){
+async function fixture(page:Page,request:APIRequestContext,failLights=false,start=true,scope:'full'|'regions'='full',filledDoor=false,connectJambs=false){
   const headers={'x-dm-passphrase':DM_SECRET};
   const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Combined setup test'}})).json();
   const image=await sharp({create:{width:400,height:300,channels:3,background:'#343a44'}}).png().toBuffer();
@@ -20,8 +20,8 @@ async function fixture(page:Page,request:APIRequestContext,failLights=false,star
   const {wallsHash,...lightSource}=source;
   const drafts={
     walls:{version:1,id:'e2e-walls',method:'ai',source,maskImagePath:map.imagePath,wallMaskImagePath:map.imagePath+'?walls',naturalMaskImagePath:map.imagePath+'?natural',items:[
-      {id:'item-0',kind:'wall',label:'Left jamb',ax:0,ay:140/300,bx:.4,by:160/300,heightFt:10,confidence:1},
-      {id:'item-1',kind:'wall',label:'Right jamb',ax:.6,ay:140/300,bx:1,by:160/300,heightFt:10,confidence:1},
+      {id:'item-0',kind:'wall',label:'Left jamb',ax:0,ay:140/300,bx:connectJambs?110/400:.4,by:160/300,heightFt:10,confidence:1},
+      {id:'item-1',kind:'wall',label:'Right jamb',ax:connectJambs?290/400:.6,ay:140/300,bx:1,by:160/300,heightFt:10,confidence:1},
     ]},
     doors:{version:1,id:'e2e-doors',source,maskImagePath:map.imagePath,doors:[filledDoor?{id:'ai-door-1',ax:200,ay:164,bx:200,by:194,thickness:14,footprint:[{x:160,y:164},{x:240,y:164},{x:240,y:194},{x:160,y:194}],issue:'No saved walls yet'}:{id:'ai-door-1',ax:160,ay:150,bx:240,by:150,thickness:6,issue:'No saved walls yet'}]},
     windows:{version:1,id:'e2e-windows',source,maskImagePath:map.imagePath,windows:[]},
@@ -107,4 +107,12 @@ test('filled door faces show their footprint and fit above their art before real
  await dialog.getByRole('button',{name:'Doors draft',exact:true}).click();await expect(dialog.getByLabel('Door 1',{exact:true})).toBeChecked();await expect(dialog.locator('svg polygon')).toBeVisible();
  const response=page.waitForResponse(r=>r.url().endsWith('/setup-draft/apply'));await dialog.getByRole('button',{name:'Apply selected setup',exact:true}).click();expect((await response).ok()).toBe(true);
  const door=(await f.snapshot()).map!.walls!.find(w=>w.door)!;expect(door).toBeTruthy();expect(door.by).toBeLessThan(175);expect(door.tokenId).toBeTruthy();
+});
+
+test('reviewed wall extensions connect a door and are saved by real Apply',async({page,request})=>{
+ const f=await fixture(page,request,false,true,'full',true,true),dialog=page.getByRole('dialog',{name:'Map setup draft'});
+ await dialog.getByRole('button',{name:'Doors draft',exact:true}).click();await expect(dialog.getByLabel(/^Door 1/)).toBeChecked();
+ await expect(dialog.getByText('Connects 2 wall ends',{exact:true})).toBeVisible();await expect(dialog.locator('svg [aria-label="Door wall extension"]')).toHaveCount(2);
+ const response=page.waitForResponse(r=>r.url().endsWith('/setup-draft/apply'));await dialog.getByRole('button',{name:'Apply selected setup',exact:true}).click();expect(await(await response).json()).toEqual({walls:4,doors:1,windows:0,lights:2});
+ const walls=(await f.snapshot()).map!.walls!;expect(walls).toHaveLength(5);expect(walls.filter(w=>w.door)).toHaveLength(1);expect(walls.filter(w=>w.tokenId)).toHaveLength(1);
 });
