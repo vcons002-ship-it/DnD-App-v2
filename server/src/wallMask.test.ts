@@ -4,6 +4,23 @@ import {wallsFromYellowMask} from './wallMask.js';
 import {hasLineOfSight,stopAtWalls,sanitizeWalls,wallEdgeCount} from '../../shared/mapWalls.js';
 import {wallMaskStressFixture} from './testFixtures/wallMaskStress.js';
 import {contourWallMask} from './wallMaskContours.js';
+import fs from 'node:fs/promises';
+import {gunzipSync} from 'node:zlib';
+import {parseGeometrySuggestions} from '../../shared/mapGeometryDraft.js';
+
+it('validates clipped contours before accepting a protected-gap candidate',async()=>{
+ // A jagged circular boundary with protected openings. Gap subtraction can
+ // leave a contour rejected by saved-wall validation despite passing coverage.
+ const fixture=JSON.parse(gunzipSync(await fs.readFile(new URL('./testFixtures/protected-gap-contour.json.gz',import.meta.url))).toString()) as {width:number;height:number;solid:string;protected:string};
+ const result=await contourWallMask(Buffer.from(fixture.solid,'base64'),Buffer.from(fixture.protected,'base64'),fixture.width,fixture.height);
+ expect(result).not.toBeNull();
+ const {walls}=result!;
+ expect(walls.length).toBeGreaterThan(0);
+ expect(sanitizeWalls(walls)).toHaveLength(walls.length);
+ const normalize=(p:{x:number;y:number})=>({x:p.x/fixture.width,y:p.y/fixture.height});
+ expect(()=>parseGeometrySuggestions({items:walls.map(w=>({kind:'wall',label:'Wall',...{ax:w.ax/fixture.width,ay:w.ay/fixture.height,bx:w.bx/fixture.width,by:w.by/fixture.height},heightFt:10,confidence:1,shape:'polygon',points:w.points!.map(normalize),holes:w.holes?.map(r=>r.map(normalize))}))})).not.toThrow();
+});
+
 it('does not return collapsed zero-area contours as invalid wall pieces',async()=>{
  const w=80,h=80,mask=new Uint8Array(w*h);
  for(let y=10;y<70;y++)for(let x=10;x<24;x++)mask[y*w+x]=1;

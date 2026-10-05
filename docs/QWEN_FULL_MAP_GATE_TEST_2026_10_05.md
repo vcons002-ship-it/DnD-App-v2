@@ -107,3 +107,22 @@ browser errors. Type checking, Vite production client build, 1,694 tests across
 automatic request flags, clear skip messages, direct-run override and real Apply;
 paid image analysis is stubbed in those browser tests. The same-mask replay uses
 the real converter and server application without AI stubs or new paid calls.
+
+## Manual correction walkthrough
+
+The natural-boundary mask enclosed the hearth and closed the cave entrance.
+These remain reviewable AI mistakes, rather than being silently repaired during
+the automatic test. A separate disposable campaign demonstrates the existing DM
+tools: erase wall sections, draw replacement rectangles and joining lines, cut
+a door opening, open it, then walk Druk through as a player. Closed-door sight
+and movement blocking and the final player position were checked against the
+server state. The recorded browser reported no errors.
+
+Chaptered, mobile-compatible walkthrough:
+https://dnd.nic024i.app/uploads/previews/hearth-cave-edit-20261005/
+
+Wall contours are also revalidated after protected-gap clipping, before raster
+coverage is accepted or a draft is serialized. A compact 64-by-64 jagged circular
+mask fixture reproduces a candidate that previously passed coverage but failed
+saved-wall validation. The regression fails without the safeguard and passes
+with it; it does not depend on local experiment images or paid API requests.
