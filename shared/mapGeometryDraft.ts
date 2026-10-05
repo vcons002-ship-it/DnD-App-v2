@@ -1,3 +1,4 @@
+import type {MapFeatureCheck} from './mapFeatureGate.js';
 import {sanitizeWalls,type MapWall,type WallPoint} from './mapWalls.js';
 /** Version 1: footprints in normalized ORIGINAL-image coordinates.
  * Heights are estimates in feet, independent of image resolution or camera tilt. */
@@ -12,6 +13,7 @@ export type GeometrySuggestion = {
   shape?:'polygon'; points?:WallPoint[]; holes?:WallPoint[][];
 };
 export type MapGeometryDraft = {
+  qwenChecks?:MapFeatureCheck[];
   version: 1;
   method?: 'ai' | 'local';
   id: string;

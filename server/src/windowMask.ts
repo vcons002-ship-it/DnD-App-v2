@@ -23,10 +23,13 @@ export async function windowsFromMask(mask:Buffer,source:Buffer,width:number,hei
  }
  // Narrow mullions can split one painted window into separate panes. Combine
  // only immediately adjacent regions; never bridge a wall-sized empty span.
- const gap=Math.max(2,Math.min(4,grid*.06));
+ const gap=Math.max(2,Math.min(32,grid*.5));
  for(let i=0;i<regions.length;i++)for(let j=i+1;j<regions.length;j++){
   const a=regions[i],b=regions[j],dx=Math.max(0,a.ax-b.bx,b.ax-a.bx),dy=Math.max(0,a.ay-b.by,b.ay-a.by);
-  if(Math.hypot(dx,dy)>gap)continue;
+  const overlapX=Math.min(a.bx,b.bx)-Math.max(a.ax,b.ax),overlapY=Math.min(a.by,b.by)-Math.max(a.ay,b.ay);
+  const aligned=overlapX>=Math.min(a.bx-a.ax,b.bx-b.ax)*.6||overlapY>=Math.min(a.by-a.ay,b.by-b.ay)*.6;
+  const span=Math.max(Math.max(a.bx,b.bx)-Math.min(a.ax,b.ax),Math.max(a.by,b.by)-Math.min(a.ay,b.ay));
+  if(!aligned||Math.hypot(dx,dy)>gap||span>grid*1.25)continue;
   regions[i]={ax:Math.min(a.ax,b.ax),ay:Math.min(a.ay,b.ay),bx:Math.max(a.bx,b.bx),by:Math.max(a.by,b.by),pixels:a.pixels+b.pixels};regions.splice(j,1);j=i;
  }
  return regions.map((r,i):MapWall=>({id:`ai-window-${i+1}`,kind:'rectangle',ax:r.ax,ay:r.ay,bx:r.bx,by:r.by}));

@@ -10,6 +10,7 @@ import {generateApiImage} from './ai/imageGateway.js';
 import {wallsFromYellowMask} from './wallMask.js';
 import {NATURAL_BOUNDARY_PROMPT,mergeNaturalBoundaryMask} from './naturalBoundaryMask.js';
 import {reportAi} from './ai/status.js';
+import {gateMapFeature} from './mapFeatureGate.js';
 import {parseMapAnalysisRegions} from '../../shared/mapAnalysisRegions.js';
 import {generateMapRegionMask} from './mapRegionMask.js';
 import {parseGeometrySuggestions,draftWallShape,type MapGeometryDraft} from '../../shared/mapGeometryDraft.js';
@@ -39,10 +40,17 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
   if(!config.geminiApiKey)throw new Error('Configure the image API in Settings before generating a yellow wall mask.');
   const preview=await sharp(image).rotate().resize({width:2048,height:2048,fit:'inside',withoutEnlargement:true}).png().toBuffer();
   const includeNatural=(options as {naturalBoundaries?:boolean}|undefined)?.naturalBoundaries!==false;
-  reportAi('Generating the structural wall mask with the image API. The original map will remain unchanged.');
+  const automatic=(options as {automatic?:boolean}|undefined)?.automatic===true;
+  const qwenChecks=automatic?[await gateMapFeature(image,'walls'),...(includeNatural?[await gateMapFeature(image,'caves')]:[])]:[];
+  const structuralAllowed=qwenChecks[0]?.allowed!==false;
+  const naturalAllowed=includeNatural&&qwenChecks[1]?.allowed!==false;
+  if(!structuralAllowed&&!naturalAllowed)return {version:1,method:'ai',id:randomUUID(),source,qwenChecks,items:[],maskWarnings:['Qwen found no requested wall features; no image-API masks were requested.']};
+  reportAi(structuralAllowed?'Generating the structural wall mask with the image API. The original map will remain unchanged.':'Structural wall mask skipped; proceeding with natural boundaries.');
   for(let attempt=0;attempt<2;attempt++){
   const prompt=YELLOW_WALL_PROMPT+(attempt?' Use solid opaque yellow bands across masonry wall caps. Connect their joins and keep real doorway gaps clear.':'');
-  const result=regions?await generateMapRegionMask(prompt,image,source.width,source.height,regions):await generateApiImage(prompt,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
+  const originalPath=`/uploads/wall-source-${randomUUID()}.png`;
+  if(!structuralAllowed)await fs.writeFile(path.join(config.uploadsDir,path.basename(originalPath)),await sharp(image).rotate().png().toBuffer());
+  const result=!structuralAllowed?{path:originalPath}:regions?await generateMapRegionMask(prompt,image,source.width,source.height,regions):await generateApiImage(prompt,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
   if('error' in result)throw new Error(result.error);
   const root=path.resolve(config.uploadsDir),file=path.resolve(root,result.path.slice('/uploads/'.length));
   if(!result.path.startsWith('/uploads/')||!file.startsWith(root+path.sep))throw new Error('Invalid generated mask path.');
@@ -52,7 +60,7 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
   let conversionMask:Buffer=mask,naturalImage:Buffer|undefined;
   let maskImagePath=result.path,naturalMaskImagePath:string|undefined;
   const maskWarnings:string[]=[];
-  if(includeNatural){
+  if(naturalAllowed){
     reportAi('Wall mask ready. Running a separate pass for caves and other natural interiors.');
     try{
       const reference=await sharp(mask).resize({width:2048,height:2048,fit:'inside',withoutEnlargement:true}).png().toBuffer();
@@ -75,6 +83,7 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
     }
   }
   reportAi('Converting yellow wall regions into an editable draft.');
+  if(!structuralAllowed&&!naturalImage)return {version:1,method:'ai',id:randomUUID(),source,qwenChecks,items:[],maskImagePath,naturalMaskImagePath,maskWarnings};
   let converted;
   const separateLayers=async()=>{
     if(!naturalImage)return undefined;
@@ -111,7 +120,7 @@ export async function suggestMapGeometry(mapId:string,method:'ai'|'local'='ai',o
   const items=parseGeometrySuggestions({items:converted.walls.map((wall,index)=>({kind:'wall',label:`Wall ${index+1}`,ax:wall.ax/source.width,ay:wall.ay/source.height,bx:wall.bx/source.width,by:wall.by/source.height,heightFt:10,confidence:1,
     ...(wall.kind==='polygon'?{shape:'polygon',points:wall.points!.map(normalize),holes:wall.holes?.map(r=>r.map(normalize))}:{})}))});
   reportAi(`Yellow-mask draft ready: ${items.length} walls. Review alignment and doorway gaps before applying.`);
-  return {version:1,method:'ai',id:randomUUID(),source,items,maskImagePath,wallMaskImagePath:result.path,naturalMaskImagePath,maskWarnings,maskCoverage:converted.coverage,
+  return {version:1,method:'ai',id:randomUUID(),source,qwenChecks,items,maskImagePath,wallMaskImagePath:result.path,naturalMaskImagePath,maskWarnings,maskCoverage:converted.coverage,
     maskGeometry:converted.walls.every(w=>w.kind==='polygon')?'outlines':'rectangles'};
   }
   throw new Error('Could not produce a usable wall mask. No walls were applied.');

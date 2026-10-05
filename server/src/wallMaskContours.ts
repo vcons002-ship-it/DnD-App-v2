@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import clipping from 'polygon-clipping';
 import {pointInRing,simplifyWallPath,wallSvgPath} from '../../shared/wallGeometry.js';
-import {wallEdgeCount,type WallPoint,type MapWall} from '../../shared/mapWalls.js';
+import {sanitizeWalls,wallEdgeCount,type WallPoint,type MapWall} from '../../shared/mapWalls.js';
 import {polygonWall} from './wallPolygonDoor.js';
 
 const signedArea=(r:WallPoint[])=>r.reduce((sum,p,i)=>{const q=r[(i+1)%r.length];return sum+p.x*q.y-q.x*p.y;},0)/2;
@@ -71,6 +71,9 @@ export async function contourWallMask(solid:Uint8Array,protectedPixels:Uint8Arra
   let raster=await render();
   if(protectedPixels.some((n,p)=>n&&raster[p]>100)){
    try{walls=restoreGaps(walls,protectedPixels,raster,w,h);}catch{continue;}
+   // Gap clipping can create subpixel slivers after the earlier ring cleanup.
+   // Validate again before raster coverage checks and draft serialization.
+   walls=sanitizeWalls(walls);
    if(walls.length>120)continue;
    raster=await render();
   }

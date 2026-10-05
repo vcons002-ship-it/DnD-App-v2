@@ -1,8 +1,10 @@
+import type {MapFeatureCheck} from './mapFeatureGate.js';
 import type {MapGeometryDraft} from './mapGeometryDraft.js';
 import type {MapWall,WallPoint} from './mapWalls.js';
 
 export type DoorMarker = {id:string;ax:number;ay:number;bx:number;by:number;thickness:number;footprint?:WallPoint[]};
 export type MapDoorDraft = {
+  qwenChecks?:MapFeatureCheck[];
   version:1;
   id:string;
   source:MapGeometryDraft['source'];

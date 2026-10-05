@@ -34,7 +34,10 @@ async function fixture(page:Page,request:APIRequestContext,failLights=false,star
     await page.route(`**/api/maps/${map.id}/${endpoint}`,async route=>{
       calls[step]++;bodies.push({step,body:route.request().postDataJSON()});expect(route.request().headers()['x-dm-passphrase']).toBe(DM_SECRET);
       if(step==='lights'&&failLights&&calls.lights===1)await route.fulfill({status:503,json:{error:'Image API connection failed'}});
-      else await route.fulfill({json:drafts[step]});
+      else {
+        const {qwenChecks,...directDraft}=drafts[step] as typeof drafts[typeof step]&{qwenChecks?:unknown[]};
+        await route.fulfill({json:route.request().postDataJSON().automatic?drafts[step]:directDraft});
+      }
     });
   }
   await page.setViewportSize({width:1440,height:1000});await page.goto(`/dm?code=${code}`);
@@ -42,12 +45,13 @@ async function fixture(page:Page,request:APIRequestContext,failLights=false,star
   await page.getByRole('button',{name:'Walls',exact:true}).click();
   await page.getByRole('button',{name:scope==='regions'?'Analyze selected regions':'Suggest walls, doors, windows & lights',exact:true}).click();
   if(start)await page.getByRole('button',{name:'Analyze selected features',exact:true}).click();
-  return {map,snapshot,calls,bodies};
+  return {map,snapshot,calls,bodies,drafts};
 }
 
 test('selected analyses fit doors to reviewed walls and apply together',async({page,request})=>{
   const f=await fixture(page,request);
   await expect.poll(()=>f.calls).toEqual({walls:1,doors:1,windows:1,lights:1});
+  expect(f.bodies.every(b=>b.body.automatic===true)).toBe(true);
   const dialog=page.getByRole('dialog',{name:'Map setup draft'});
   await expect(dialog.getByRole('button',{name:'Apply selected setup'})).toBeEnabled();
   await dialog.getByLabel('Show walls mask').check();
@@ -71,6 +75,7 @@ test('retrying one failed workflow preserves successful drafts and selections',a
   await dialog.getByLabel('Right jamb').uncheck();
   await dialog.getByRole('button',{name:'Retry lights',exact:true}).click();
   await expect.poll(()=>f.calls).toEqual({walls:1,doors:1,windows:1,lights:2});
+  expect(f.bodies.at(-1)?.body.automatic).toBe(false);
   await expect(dialog.getByRole('button',{name:'Apply selected setup'})).toBeEnabled();
   await expect(dialog.getByLabel('Right jamb')).not.toBeChecked();await expect(dialog.getByRole('alert')).toHaveCount(0);
   await dialog.getByRole('button',{name:'Lights draft',exact:true}).click();await expect(dialog.getByLabel('Light source 1')).toBeChecked();
@@ -86,8 +91,21 @@ test('opening full-map setup makes no requests until feature selection; caves an
  await options.getByRole('checkbox',{name:'Cave boundaries (second wall pass)',exact:true}).uncheck();
  for(const name of ['Doors','Windows','Lights'])await options.getByRole('checkbox',{name,exact:true}).uncheck();
  await options.getByRole('button',{name:'Analyze selected features',exact:true}).click();
- await expect.poll(()=>f.calls).toEqual({walls:1,doors:0,windows:0,lights:0});expect(f.bodies).toEqual([{step:'walls',body:{method:'ai',options:{naturalBoundaries:false}}}]);
+ await expect.poll(()=>f.calls).toEqual({walls:1,doors:0,windows:0,lights:0});expect(f.bodies).toEqual([{step:'walls',body:{automatic:true,method:'ai',options:{naturalBoundaries:false}}}]);
  await expect(page.getByRole('button',{name:'Doors draft',exact:true})).toContainText('Skipped');
+});
+
+test('automatic review explains Qwen skips and a direct run bypasses the filter',async({page,request})=>{
+ const f=await fixture(page,request,false,false);
+ Object.assign(f.drafts.lights,{lights:[],qwenChecks:[{feature:'lights',scope:'full map',decision:'no',allowed:false}]});
+ await page.getByRole('button',{name:'Analyze selected features',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Map setup draft'});
+ await expect(dialog.getByRole('button',{name:'Lights draft',exact:true})).toContainText('Skipped');
+ await expect(dialog.getByText('Qwen: lights (full map): Skipped: none found; no image API request.',{exact:true})).toBeVisible();
+ await dialog.getByRole('button',{name:'Lights draft',exact:true}).click();
+ await dialog.getByRole('button',{name:'Run lights directly',exact:true}).click();
+ await expect.poll(()=>f.calls.lights).toBe(2);expect(f.bodies.at(-1)?.body.automatic).toBe(false);
+ await expect(dialog.getByText(/^Qwen: lights/)).toHaveCount(0);
 });
 
 test('DM draws separate regions and sends them only to enabled analyses',async({page,request})=>{

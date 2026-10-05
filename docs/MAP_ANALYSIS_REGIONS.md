@@ -13,7 +13,7 @@ Include the whole feature and adjoining wall context in each rectangle. Remove i
 
 Regions use normalized original-image coordinates, independent of map scale, tilt and rotation. The server rejects empty, overlapping and out-of-range rectangles, with a maximum of eight. Every crop must be at least 16 pixels wide and tall. Crops are padded to a supported image-API aspect ratio, then the returned mask is resized and unpadded into its exact original position. Pixels outside the selections are preserved. Raw responses and crop/padding metadata are saved with uploads.
 
-Each enabled masking pass makes one image request per region. For example, Lights alone in two regions makes two image requests. Walls with cave boundaries enabled makes two requests per region. Full-map analysis retains its existing prompts and one request per enabled pass. Existing source-hash, grid and geometry freshness checks still prevent applying a stale draft.
+Each enabled non-window masking pass makes one image request per selected region after its full-map Qwen check. Full-map analysis retains one image request per allowed non-window pass. Windows check four context-padded quadrants and mask positive/uncertain quadrants only, intersecting them with DM-selected regions when present. Context pixels help identify windows at seams but only the selected rectangle is copied into the final mask. Existing source-hash, grid and geometry freshness checks still prevent applying a stale draft.
 
 ## Qwen filtering experiment, 4 October 2026
 
@@ -21,7 +21,22 @@ The installed `qwen3.8:27b-q4_K_M` was asked simple yes/no questions about walls
 
 The filter missed a cave in every quadrant but recognized it with the full map. A full-map cave-mask fallback then incorrectly painted cabin walls green instead of tracing the cave. Qwen also claimed a light in the stream quadrant, where Gemini returned no light markers. Some positive crops produced extra window and light suggestions. No hand cleanup was used in these evidence images.
 
-**Qwen gating is not enabled in the production workflow.** A negative answer is not yet safe grounds for silently skipping a requested feature. Manual feature selection and region cropping work independently of Qwen.
+This quadrant-everywhere experiment was not enabled. It is superseded by the requested full-map gate below.
+
+## Active Qwen gate, 5 October 2026
+
+- Qwen checks apply only to automatic **Analyze selected features** / **Run all again**. Individual wall, door, window and light runs, retries, and **Run [feature] directly** bypass Qwen. Individual window runs retain the four context-padded API quadrants.
+- Walls, natural/cave interiors, doors and lights use the full original map for local yes/no checks. Their accepted masking prompts and separate API requests are unchanged.
+- Windows use four quadrants, with 4% of map width/height as surrounding context on internal edges. Positive quadrants proceed to the simple window mask prompt, with matching context around API crops and exact restoration into map coordinates.
+- Choose the configured installed Qwen model when applicable, otherwise the newest installed Qwen name. No model is downloaded automatically. The tested machine selected `qwen3.8:27b-q4_K_M`.
+- A clear `no` skips that API pass and returns an empty review. Missing local service/model, timeout or an ambiguous reply proceeds through the existing image API instead. Operational notices explain checks, skips and fallback; JSON receipts retain the decision and image hash.
+- Disabled passes still do not run. The optional natural pass is gated independently, so a map without structural walls can still receive cave boundaries.
+- Local answers are a cost filter, not proof of correct detection. Negative answers can miss features. Review the final mask and use manual editing where necessary.
+- The review retains each Qwen decision and scope, including skipped window quadrants. Clear negatives display **Skipped: none found; no image API request**. Uncertain or unavailable checks display the image API fallback. A fully skipped workflow is marked **Skipped**, with a direct-run button available to override it.
+
+Fresh generated inn/cave map: 8 local checks, all positive; 8 image masking calls (walls, caves, doors, four window crops, lights). No cloud-request saving on this particular map. The normal sequential UI fitting policy applied 24 wall pieces, 4 of 7 door candidates, 19 fitted window pieces from 23 blue components, and 22 lights in a disposable save. Blue panes split several physical windows into multiple pieces; 3 door candidates lacked adequate jamb support. No masks or map geometry were manually corrected. See `docs/QWEN_FULL_MAP_GATE_TEST_2026_10_05.md`.
+
+The subsequent conversion repair replays those exact masks with no new API calls: divided panes become 11 windows, fitted to aligned wall faces with bounded local thickness. All 11 apply in a fresh disposable campaign. The 24 wall pieces, 4 doors and 22 lights remain unchanged; no manual edits are used.
 
 ## Verification
 
