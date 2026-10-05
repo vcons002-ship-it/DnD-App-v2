@@ -11,6 +11,8 @@ import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
 import {isValidDiceExpression,withDiceMetadata,usingPhysicalDice} from '../../shared/dice.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 import {isLiveCommand} from './liveRollContext.js';
+import {commandTargetError} from './commandSpell.js';
+import {commandInstruction} from '../../shared/commandSpell.js';
 import type {AttackOutcome} from '../../shared/combatMath.js';
 import { consumeHitAdvantage } from './hitEffectTurns.js';
 import { hitOptions, turnKey } from './hitFeatures.js';
@@ -250,6 +252,7 @@ export function spellApplyTargetError(sessionId: string, entry: RollEntry, token
       return 'Choose a creature for healing, not an object.';
   }
   if (!effect) return;
+  if(effect.commandWord)return commandTargetError(sessionId,entry,tokenId);
   const caster = effect.casterKind === 'pc' ? getCharacter(effect.casterId) : getMonster(effect.casterId);
   const concentration = caster?.conditions.find(c => c.id === effect.concentrationConditionId && c.isConcentration);
   const round = getSessionById(sessionId)?.combatRound ?? 0;
@@ -1542,7 +1545,8 @@ export function resolveForcedSave(
       appliedSpellCondition=true;
       setCondition(tok.kind, tok.refId, {id:newId(),label:effect.condition,aura:'red',isConcentration:false,
         combatEffect:{casterKind:effect.casterKind,casterId:effect.casterId,spell:effect.spell,
-          castId:effect.castId,visualRollId:resolutionRollId,concentration:true,expiresAt:effect.expiresAt,expiresRound:effect.expiresRound,
+          castId:effect.castId,visualRollId:resolutionRollId,concentration:!effect.commandWord,expiresAt:effect.commandWord?Date.now()+6000:effect.expiresAt,expiresRound:effect.expiresRound,
+          commandWord:effect.commandWord,commandStarted:effect.commandWord&&!getSessionById(sessionId)?.combatRound?true:undefined,
           save:effect.repeatSave,dc:apply.dc,phase:effect.repeatSave ? 'end' : undefined,dice:effect.repeatDamage,damageType:effect.damageType,saveBeforeDamage:!!effect.repeatDamage,attackDisadvantage:effect.attackDisadvantage,checkDisadvantage:effect.checkDisadvantage}});
     } else if (apply.onFail) setTokensCondition([tokenId], {label:apply.onFail,aura:'red',isConcentration:false});
   };
@@ -1681,13 +1685,14 @@ export function resolveForcedSave(
       );
       const sb = saveBonus(r, ability);
       const saveEffect=(pass:boolean)=>{
+        if(apply.effect?.commandWord)return pass?'Command resisted.':`Command: ${apply.effect.commandWord} takes effect next turn. ${commandInstruction(apply.effect.commandWord)}`;
         if(apply.amount>0)return `${pass?'Save passed':'Save failed'} - ${defended(pass)} ${apply.damageType??''} damage${pass?(apply.saveDamage==='none'?' (avoided)':' (save for half)'):''}.`;
         if(src?.label.trim().toLowerCase()==='pushing attack')return pass?'Push resisted - target stays in place.':'Push succeeds - move the target up to 15 ft.';
         if(apply.effect)return pass?`${apply.effect.spell} resisted - not ${apply.effect.condition}.`:`${apply.effect.spell} successful - ${apply.effect.condition}; repeat the save at the end of each turn.`;
         if(apply.onFail)return pass?`${src?.label??'Effect'} resisted - no ${apply.onFail}.`:`${src?.label??'Effect'} successful - ${apply.onFail}.`;
         return `${src?.label??'Effect'} ${pass?'resisted':'successful'}!`;
       };
-      const [out] = rollSaveBatch([{target:tok,c:r.c,ability,dc:apply.dc,mode:adv.state,proficient,extra:sb.add,autoFail:false,passEffect:saveEffect(true),failEffect:saveEffect(false)}],`${src?.label??'Effect'} — ${ability.toUpperCase()} Saving Throw`);
+      const [out] = rollSaveBatch([{target:tok,c:r.c,ability,dc:apply.dc,mode:adv.state,proficient,extra:sb.add,autoFail:false,passEffect:saveEffect(true),failEffect:saveEffect(false)}],`${apply.effect?.commandWord?src?.expr:src?.label??'Effect'} — ${ability.toUpperCase()} Saving Throw`);
       const total = out.total + sb.add;
       const pass = total >= apply.dc;
       const savedAmount = apply.saveDamage === 'none' ? 0 : Math.floor(apply.amount / 2);
@@ -1700,7 +1705,7 @@ export function resolveForcedSave(
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
       saveReveal = checkReveal({
         who: r.name,
-        title: `${src?.label ?? 'Effect'} — ${ability.toUpperCase()} Saving Throw`,
+        title: `${apply.effect?.commandWord?src?.expr:src?.label ?? 'Effect'} — ${ability.toUpperCase()} Saving Throw`,
         face: out.face,
         total,
         steps: [
@@ -1715,6 +1720,7 @@ export function resolveForcedSave(
       if (apply.amount === 0 && src?.label) {
         saveReveal.effectOutcome = pass ? `${src.label} resisted!` : `${src.label} successful!`;
         if(src.label.trim().toLowerCase()==='pushing attack')saveReveal.effectOutcome=pass?'Push resisted - target stays in place.':'Push succeeds - move the target up to 15 ft.';
+        else if(apply.effect?.commandWord)saveReveal.effectOutcome=saveEffect(pass);
         else if(apply.effect) saveReveal.effectOutcome=pass?`${apply.effect.spell} resisted - not ${apply.effect.condition}.`:`${apply.effect.spell} successful - ${apply.effect.condition}; repeat the save at the end of each turn.`;
         else if(apply.onFail)saveReveal.effectOutcome=pass?`${src.label} resisted - no ${apply.onFail}.`:`${src.label} successful - ${apply.onFail}.`;
 

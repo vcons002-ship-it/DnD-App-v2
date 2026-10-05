@@ -296,6 +296,7 @@ ensureColumn('sessions', 'hide_dm_rolls', 'hide_dm_rolls INTEGER NOT NULL DEFAUL
 // Weapon damage is a separate, clickable second roll (default ON) instead of
 // auto-applying with the to-hit. Old saves adopt it; the DM can switch it off.
 ensureColumn('sessions', 'manual_damage', 'manual_damage INTEGER NOT NULL DEFAULT 1');
+ensureColumn('sessions', 'command_custom_words', 'command_custom_words INTEGER NOT NULL DEFAULT 0');
 ensureColumn('sessions', 'initiative_pending', 'initiative_pending INTEGER NOT NULL DEFAULT 0');
 ensureColumn('measurements', 'spell_area', 'spell_area TEXT');
 // Per-roll flag: a DM roll captured while hide_dm_rolls was on (filtered for players).

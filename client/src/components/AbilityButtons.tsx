@@ -1,4 +1,5 @@
 import {partySpell} from '../../../shared/partySpells';
+import {COMMAND_WORDS,commandWord,commandInstruction,isCommandSpell} from '../../../shared/commandSpell';
 import {linkedSpellProfile,spellKey} from '../../../shared/linkedSpells';
 import {spellAreaFor} from '../../../shared/spellAreas';
 import { hitFeature, markSpell, abilityKey } from '../../../shared/hitFeatures';
@@ -72,8 +73,13 @@ export function AbilityButtons({
     return choices.includes(chosen) ? chosen : choices[0];
   };
   const menu = variant === 'menu';
+  const customWords=useStore(s=>s.snapshot?.commandCustomWords??false);
+  const [commandAbility,setCommandAbility]=useState<SheetAbility|null>(null);
+  const [chosenCommand,setChosenCommand]=useState('Halt');
+  const [customWord,setCustomWord]=useState('');
 
-  const cast = (a: SheetAbility) => {
+  const cast = (a: SheetAbility, word?:string) => {
+    if(isCommandSpell(a)&&!word){setCommandAbility(a);setChosenCommand('Halt');return;}
     if (!confirmConcentration(caster, a)) return;
     const level = upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined;
     const execution = effectiveSheetAbility(a, level);
@@ -82,6 +88,7 @@ export function AbilityButtons({
       kind,
       refId: caster.id,
       abilityId: a.id,
+      commandWord:word,
       castLevel: level,
       // A pool only when the player picked one, or for an upcastable spell at its
       // real cast level. Otherwise the server chooses — a level-0 lookup here
@@ -121,7 +128,7 @@ export function AbilityButtons({
             key={menu ? a.id : 'btn'}
             className={`${menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}${spent ? ' recharge-spent' : ''}`}
             title={[a.description || 'Ability', workflow, support?.manual.length ? `You handle: ${support.manual.join('; ')}` : '', manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
-            disabled={!!spellActionBlock(caster) || (!area && !manualCast && !menu && !selfSpell && !['misty step','pass without trace'].includes(partySpell(a)??'') && !multiple && (execution.roll?.kind === 'heal' ? execution.roll.healTarget !== 'self' && !healTargetId : !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId)))}
+            disabled={!!spellActionBlock(caster) || (!isCommandSpell(a)&&!area && !manualCast && !menu && !selfSpell && !['misty step','pass without trace'].includes(partySpell(a)??'') && !multiple && (execution.roll?.kind === 'heal' ? execution.roll.healTarget !== 'self' && !healTargetId : !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId)))}
             onClick={() => cast(a)}
           >
             {manualCast ? 'Cast manually ·' : (isCanonicalHasteProfile(a) || markSpell(a) ? '\u2726' : execution.roll ? ROLL_ICON[execution.roll.kind] : undefined) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}
@@ -182,6 +189,15 @@ export function AbilityButtons({
           </div>
         );
       })}
+      {commandAbility&&<div className="modal-backdrop" onClick={()=>setCommandAbility(null)}><div className="modal" role="dialog" aria-label="Choose Command" onClick={e=>e.stopPropagation()}>
+        <div className="modal-head"><h3>Command</h3><button className="btn tiny" onClick={()=>setCommandAbility(null)}>Cancel</button></div>
+        <p>Choose one word. Failed Wisdom saves make the target obey on its next turn.</p>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{COMMAND_WORDS.map(word=><button className={`btn ${chosenCommand===word?'active':''}`} key={word} aria-pressed={chosenCommand===word} onClick={()=>setChosenCommand(word)}>{word}</button>)}
+          {customWords&&<button className="btn" aria-pressed={chosenCommand==='Custom'} onClick={()=>setChosenCommand('Custom')}>Custom word</button>}</div>
+        <p>{commandInstruction(chosenCommand)}</p>
+        {chosenCommand==='Custom'&&<label>One word <input aria-label="Custom Command word" maxLength={32} value={customWord} onChange={e=>setCustomWord(e.target.value)}/><small>The DM interprets and resolves this command.</small></label>}
+        <button className="btn" disabled={chosenCommand==='Custom'&&!commandWord(customWord)} onClick={()=>{const a=commandAbility;setCommandAbility(null);cast(a,chosenCommand==='Custom'?commandWord(customWord):chosenCommand);}}>Cast Command</button>
+      </div></div>}
     </>
   );
 }

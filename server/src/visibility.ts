@@ -458,6 +458,7 @@ export function createSnapshotBuilder(
       round: session.combatRound,
       hideDmRolls: session.hideDmRolls,
       manualDamage: session.manualDamage,
+      commandCustomWords: !!session.commandCustomWords,
       // DM-only: what the next undo would reverse (drives the DM's Undo button).
       undoLabel: role === 'dm' ? peekUndo(sessionId) : null,
       // The map LIST is only a picker (name/active) — the client reads fog cells

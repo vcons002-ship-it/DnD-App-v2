@@ -6,6 +6,12 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Command: five 2024 choices, optional DM-enabled custom word, selected-target
+  Wisdom saves with upcast limits, next-turn instructions, Halt restrictions,
+  Grovel Prone, turn-end cleanup, and preserved manual/custom spell entries.
+  Movement routes and dropped items remain table-managed. Custom-word outcomes
+  are resolved by the DM without AI controlling a creature.
+
 - [x] Repair window conversion without changing masks: group divided panes,
   follow aligned wall faces and bound local thickness instead of spanning rooms.
   Replay the same inn/cave masks with 11 fitted windows; verify sight passes and

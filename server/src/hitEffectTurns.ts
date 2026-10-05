@@ -1,4 +1,5 @@
 import {syncPassWithoutTrace} from './partySpellEffects.js';
+import {commandInstruction} from '../../shared/commandSpell.js';
 import {newId} from './db.js';
 import { abilityKey } from '../../shared/hitFeatures.js';
 import { rollDice, withDiceMetadata } from '../../shared/dice.js';
@@ -23,6 +24,7 @@ export function expireTimedSpellEffects(sid:string) {
       // Recovery is tied to the affected creature's next completed turn, not
       // the round boundary. Its six-second timer only applies outside combat.
       if(round>0 && c.label==='Haste lethargy')continue;
+      if(round>0 && fx.spell==='Command')continue; // Wait for the target's own next turn.
       // A one-minute spell begun before initiative retains its remaining
       // duration when combat begins rather than becoming an endless effect.
       if(round>0 && !fx.expiresRound && fx.expiresAt) {
@@ -52,6 +54,14 @@ export function processHitEffects(sid:string,token:Token,phase:'start'|'end') {
   const e=markedEntity(token.kind,token.refId); if(!e) return;
   for(const c of e.conditions) {
     const fx=c.combatEffect; if(!fx || fx.parentConditionId) continue;
+    if(fx.spell==='Command'){
+      if(phase==='start'&&!fx.commandStarted){
+        setCondition(token.kind,token.refId,{...c,combatEffect:{...fx,commandStarted:true}});
+        if(fx.commandWord==='Grovel'&&!e.conditions.some(v=>v.label.toLowerCase()==='prone'))setCondition(token.kind,token.refId,{id:newId(),label:'Prone',aura:'red',isConcentration:false});
+        addRollLog(sid,{roller:'Command',label:'Command turn',expr:c.label,total:0,detail:`${e.name}: ${c.label}. ${commandInstruction(fx.commandWord??'')}`});
+      }else if(phase==='end'&&fx.commandStarted)clearCondition(token.kind,token.refId,c.id);
+      continue;
+    }
     if(phase==='start' && fx.untilTargetStart){clearCondition(token.kind,token.refId,c.id);continue;}
     if(c.label==='Haste lethargy') {
       if(phase==='start') setCondition(token.kind,token.refId,{...c,combatEffect:{...fx,lethargyTurnStarted:true}});

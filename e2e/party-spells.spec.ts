@@ -10,7 +10,7 @@ async function setup(request:APIRequestContext,page:Page){
  const snapshot=async():Promise<StateSnapshot>=>{const result=await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(result.ok).toBe(true);return result.snapshot;};
  const first=await snapshot(),caster=first.characters.find(c=>c.name==='Vanec')!,ally=first.characters.find(c=>c.name==='Varis')!;
  const catalog=(await (await request.get('/api/spells/all')).json()).results as SheetAbility[];
- const abilities=['Shield','Misty Step','Hypnotic Pattern','Pass without Trace'].map(name=>({...catalog.find(a=>a.name===name)!,id:name,source:'srd' as const,sourceClass:'sorcerer' as const}));
+ const abilities=['Shield','Misty Step','Hypnotic Pattern','Pass without Trace','Command'].map(name=>({...catalog.find(a=>a.name===name)!,id:name,source:'srd' as const,sourceClass:'sorcerer' as const}));
  socket.emit('character:update',{characterId:caster.id,className:'Sorcerer',level:6,maxHp:100,curHp:100,armorClass:16,conditions:[],stats:{CHA:30,INT:10,DEX:10,WIS:10,CON:10,STR:10},sheetAbilities:abilities,spellSlots:{L1:{max:4,used:0},L2:{max:4,used:0},L3:{max:4,used:0}}});
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1000;c.height=600;const ctx=c.getContext('2d')!;ctx.fillStyle='#302a29';ctx.fillRect(0,0,1000,600);return c.toDataURL('image/png').split(',')[1];});
  const map=await (await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Spell arena',image:{name:'arena.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')}}})).json();
@@ -51,4 +51,31 @@ test('a real attack offers Shield to its defender and grouped Hypnotic Pattern s
  await expect.poll(async()=>(await f.snapshot()).monsters.find(m=>m.id===f.enemy.refId)?.conditions.some(c=>c.label==='Hypnotic Pattern'),{timeout:20000}).toBe(true);
  const conditions=(await f.snapshot()).monsters.find(m=>m.id===f.enemy.refId)!.conditions;expect(conditions.map(c=>c.label)).toEqual(expect.arrayContaining(['Charmed','Incapacitated']));
  await page.screenshot({path:test.info().outputPath('hypnotic-pattern-live.png'),fullPage:true});
+});
+
+test('Command offers the five words, spends once, and shows a next-turn instruction with DM-gated custom words',async({page,request})=>{
+ test.setTimeout(120000);const f=await setup(request,page);
+ await page.getByLabel('Attack target',{exact:true}).selectOption(f.enemy.id);
+ await page.locator('.compact-player-combat').getByRole('button',{name:/Command/}).click();
+ const choice=page.getByRole('dialog',{name:'Choose Command'});await expect(choice).toBeVisible();
+ for(const word of ['Approach','Drop','Flee','Grovel','Halt'])await expect(choice.getByRole('button',{name:word,exact:true})).toBeVisible();
+ await expect(choice.getByRole('button',{name:'Custom word',exact:true})).toHaveCount(0);
+ await choice.getByRole('button',{name:'Halt',exact:true}).click();await page.screenshot({path:test.info().outputPath('command-choices.png'),fullPage:true});
+ await choice.getByRole('button',{name:'Cast Command',exact:true}).click();
+ await expect.poll(async()=>(await f.character()).spellSlots.L1.used,{timeout:20000}).toBe(1);
+ await expect.poll(async()=>(await f.snapshot()).monsters.find(m=>m.id===f.enemy.refId)?.conditions.some(c=>c.label==='Command: Halt')).toBe(true);
+ f.socket.emit('session:setCommandCustomWords',{enabled:true});await expect.poll(async()=>(await f.snapshot()).commandCustomWords).toBe(true);
+ await page.locator('.compact-player-combat').getByRole('button',{name:/Command/}).click();await choice.getByRole('button',{name:'Custom word',exact:true}).click();await choice.getByLabel('Custom Command word').fill('Dance away');await expect(choice.getByRole('button',{name:'Cast Command',exact:true})).toBeDisabled();await choice.getByLabel('Custom Command word').fill('Dance');await choice.getByRole('button',{name:'Cancel',exact:true}).click();expect((await f.character()).spellSlots.L1.used).toBe(1);
+ // A real creature casting Command on the PC exercises the owner-facing reminder.
+ f.socket.emit('ability:set',{kind:'monster',refId:f.enemy.refId,ability:{id:'command-npc',name:'Command',type:'spell',source:'srd',level:1,description:'Command',roll:{kind:'save',save:'WIS',saveDamage:'none',dc:30}}});
+ f.socket.emit('initiative:set',{tokenId:f.enemy.id,initiative:20});f.socket.emit('initiative:set',{tokenId:f.actor.id,initiative:10});f.socket.emit('initiative:setRound',{round:1});f.socket.emit('initiative:next');
+ await expect.poll(async()=>(await f.snapshot()).activeTurnTokenId).toBe(f.enemy.id);
+ // Halt consumes this creature's turn; it cannot cast back until that turn ends.
+ f.socket.emit('initiative:next');await expect.poll(async()=>(await f.snapshot()).activeTurnTokenId).toBe(f.actor.id);
+ f.socket.emit('initiative:next');await expect.poll(async()=>(await f.snapshot()).activeTurnTokenId).toBe(f.enemy.id);
+ f.socket.emit('ability:roll',{kind:'monster',refId:f.enemy.refId,abilityId:'command-npc',commandWord:'Grovel',targetTokenId:f.actor.id});
+ await expect.poll(async()=>(await f.character()).conditions.some(c=>c.label==='Command: Grovel'),{timeout:20000}).toBe(true);
+ f.socket.emit('initiative:next');await expect.poll(async()=>(await f.snapshot()).activeTurnTokenId).toBe(f.actor.id);
+ const reminder=page.getByRole('region',{name:'Command turn reminder'});await expect(reminder).toContainText('Grovel');await expect(reminder).toContainText('Prone');await page.screenshot({path:test.info().outputPath('command-next-turn.png'),fullPage:true});await reminder.getByRole('button',{name:'Mark command resolved'}).click();await expect(reminder).toHaveCount(0);
+ f.socket.emit('initiative:next');await expect.poll(async()=>(await f.character()).conditions.some(c=>c.combatEffect?.spell==='Command')).toBe(false);expect((await f.character()).conditions.some(c=>c.label==='Prone')).toBe(true);
 });

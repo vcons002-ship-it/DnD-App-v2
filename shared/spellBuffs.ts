@@ -2,6 +2,7 @@
 // creature's base statistics. Ending a spell therefore removes its benefits
 // without undoing equipment bonuses or a DM's subsequent sheet edits.
 import type { Condition } from './types.js';
+import {activeCommand,commandInstruction} from './commandSpell.js';
 
 export type SpellBuffSource = { conditions?: readonly Condition[]; speed?: string };
 const label = (value: string): string => value.trim().toLowerCase();
@@ -30,6 +31,7 @@ function holdPersonCondition(source: SpellBuffSource): Condition | undefined {
 /** Only the newly automated spell conditions enforce action restrictions. Other
  * manual conditions retain the app's existing table-managed action economy. */
 export function spellActionBlock(source: SpellBuffSource): string | undefined {
+  const command=activeCommand(source);if(command)return `Command: ${command.combatEffect!.commandWord}`;
   if(isHypnotized(source))return 'Hypnotic Pattern';
   if (hasHasteLethargy(source)) return 'Haste lethargy';
   return holdPersonCondition(source) ? `${holdPersonCondition(source)!.combatEffect!.spell} paralysis` : undefined;
@@ -53,6 +55,7 @@ export function spellActionRecoveryMessage(source: SpellBuffSource, { inCombat =
 }
 
 export function spellActionBlockMessage(source: SpellBuffSource, options: { inCombat?: boolean } = {}): string | undefined {
+  const command=activeCommand(source);if(command)return `Command: ${command.combatEffect!.commandWord}. ${commandInstruction(command.combatEffect!.commandWord!)} Attacks and spells are blocked until the end of this turn.`;
   if(isHypnotized(source))return `Hypnotic Pattern has you Charmed and Incapacitated. Movement, attacks, and spells are blocked. ${spellActionRecoveryMessage(source,options)}`;
   const recovery = spellActionRecoveryMessage(source, options);
   if (!recovery) return undefined;
@@ -62,6 +65,7 @@ export function spellActionBlockMessage(source: SpellBuffSource, options: { inCo
 
 const ZERO_SPEED = new Set(['grappled', 'restrained', 'paralyzed', 'petrified', 'unconscious', 'haste lethargy']);
 export function speedIsZero(source: SpellBuffSource): boolean {
+  const command=activeCommand(source);if(command&&(command.combatEffect!.commandResolved||['Halt','Grovel','Drop'].includes(command.combatEffect!.commandWord!)))return true;
   if(isHypnotized(source))return true;
   return (source.conditions ?? []).some(c => ZERO_SPEED.has(label(c.label)));
 }

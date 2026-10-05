@@ -25,6 +25,7 @@ export type Condition = {
    *  applied independently. Absent = applied by a person or a spell. */
   source?: 'down';
   combatEffect?: {
+    commandWord?: string; commandStarted?: boolean; commandResolved?: boolean;
     casterKind: 'pc' | 'monster'; casterId: string; spell: string;
     dc?: number; dice?: string; damageType?: string; phase?: 'start' | 'end'; save?: string;
     expiresAt?: number; expiresRound?: number; lastTick?: string; untilCasterTurn?: boolean;
@@ -893,6 +894,7 @@ export type StateSnapshot = {
   /** Weapon damage is a separate, clickable second roll (everyone sees it — it
    *  changes what happens after their attack lands). */
   manualDamage: boolean;
+  commandCustomWords?: boolean;
   /** DM-only: label of the action `session:undo` would reverse (e.g. "Delete
    *  token"), or null when the undo stack is empty. Players always get null. */
   undoLabel: string | null;
@@ -1185,6 +1187,7 @@ export type RollEntry = {
     damageBonus?: { label: string; value: number };
     /** Server-created condition attached after a failed initial saving throw. */
     effect?: {
+      commandWord?: string;
       casterKind: TokenKind; casterId: string; spell: string; condition: string;
       eligibleCreatureType?: string; durationRounds: number; expiresAt: number;
       expiresRound?: number; castId: string; concentrationConditionId: string;
@@ -1499,6 +1502,7 @@ export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds
  * the DC/to-hit derive from its CR (no spell-slot spend).
  */
 export type AbilityRollPayload = {
+  commandWord?: string;
   destination?: {mapId:string;x:number;y:number};
   area?: import('./spellAreas.js').SpellAreaPlacement;
   kind: TokenKind;
@@ -1893,6 +1897,8 @@ export interface ClientToServerEvents {
   'combat:smite': (payload: { rollId: string; level: number | 'free' | `pact:${number}` }) => void;
   /** DM: weapon damage is a separate, clickable second roll (default on). */
   'session:setManualDamage': (payload: { manual: boolean }) => void;
+  'session:setCommandCustomWords': (payload: { enabled: boolean }) => void;
+  'spell:commandResolve': (payload: {kind:TokenKind;refId:string;conditionId:string}) => void;
   'combat:save': (payload: CombatSavePayload) => void;
 }
 

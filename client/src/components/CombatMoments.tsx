@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
 import { playInitiative, playRest, playYourTurn } from '../lib/sfx';
 import {ShieldReactionPrompt} from './ShieldReactionPrompt';
+import {CommandTurnPrompt} from './CommandTurnPrompt';
 
 /** Live announcements only: mounting/reconnecting never replays an old turn. */
 export function CombatMoments() {
@@ -91,6 +92,7 @@ export function CombatMoments() {
   const dmWaiting = snapshot?.initiativePending && snapshot.role === 'dm';
   return <>
     <ShieldReactionPrompt/>
+    <CommandTurnPrompt/>
     {(mine || dmWaiting) && !initiativeSubmitted && !liveDice && !rollFx && <div className={`combat-moment combat-moment-initiative initiative-persistent ${animate ? '' : 'no-motion'}`}
       role="region" aria-label="Initiative roll request">
       <span className="combat-moment-kicker">Combat is starting</span>

@@ -11,10 +11,11 @@ import {getCharacter,getMonster,getSessionById,getToken,getMap,listTokens,listCh
 import {resolveAttackDamage} from './combat.js';
 
 const entity=(kind:TokenKind,id:string)=>kind==='pc'?getCharacter(id):getMonster(id);
+const reactionBlock=(e:{conditions:import('../../shared/types.js').Condition[]})=>spellActionBlockMessage({conditions:e.conditions.filter(c=>c.combatEffect?.spell!=='Command')});
 export const reactionSpent=(conditions:readonly {label:string}[])=>conditions.some(c=>/^reaction spent|^(incapacitated|paralyzed|petrified|stunned|unconscious)$/i.test(c.label));
 export function shieldGate(sid:string,kind:TokenKind,id:string,attackTotal?:number,natural20=false):PendingDamage['shield'] {
   const e=entity(kind,id);
-  if(!e||e.sessionId!==sid||e.curHp<=0||isDeadEntity(kind,e)||shieldAcBonus(e)||reactionSpent(e.conditions)||spellActionBlockMessage(e))return;
+  if(!e||e.sessionId!==sid||e.curHp<=0||isDeadEntity(kind,e)||shieldAcBonus(e)||reactionSpent(e.conditions)||reactionBlock(e))return;
   const a=e.sheetAbilities.find(a=>partySpell(a)==='shield');
   if(!a||kind==='pc'&&!spellSlotOptions(getCharacter(id)!,1).some(o=>o.remaining>0))return;
   return {abilityId:a.id,attackTotal,natural20,automatic:!getSessionById(sid)?.manualDamage};
@@ -26,7 +27,7 @@ export function resolveShield(sid:string,roller:string,rollId:string,pass=false,
   const e=entity(p.target.kind,p.target.refId);
   if(!e||e.sessionId!==sid)return {ok:false,reason:'The defender is no longer available.'};
   if(!pass) {
-    if(!e.sheetAbilities.some(a=>a.id===gate.abilityId&&partySpell(a)==='shield')||reactionSpent(e.conditions)||e.curHp<=0||spellActionBlockMessage(e))return {ok:false,reason:'Shield requires an available reaction.'};
+    if(!e.sheetAbilities.some(a=>a.id===gate.abilityId&&partySpell(a)==='shield')||reactionSpent(e.conditions)||e.curHp<=0||reactionBlock(e))return {ok:false,reason:'Shield requires an available reaction.'};
     if(p.target.kind==='pc') {
       const ch=getCharacter(e.id)!,slot=selectSpellSlot(ch,level,pool);
       if(!Number.isInteger(level)||level<1||level>9||!slot?.remaining||!spendSpellSlot(ch.id,slot.level,pool))return {ok:false,reason:'Choose an available spell slot for Shield.'};

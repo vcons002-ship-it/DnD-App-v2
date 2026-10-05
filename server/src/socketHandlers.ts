@@ -1,4 +1,6 @@
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
+import {isCommandSpell,commandWord,isStandardCommand,activeCommand} from '../../shared/commandSpell.js';
+import {castCommand,resolveCommandInstruction} from './commandSpell.js';
 import {linkedSpellProfile,spellKey} from '../../shared/linkedSpells.js';
 import {spellcastingKeyFor} from '../../shared/spellExecution.js';
 import {spellcastingMod} from '../../shared/spellMath.js';
@@ -26,7 +28,7 @@ import { selectSpellSlot } from '../../shared/spellSlotPools.js';
 import { listRipostes } from './reactions.js';
 import { config } from './config.js';
 import { invokeSafely } from './safeHandler.js';
-import { newId } from './db.js';
+import { newId,db } from './db.js';
 import { parseRollCommand, rollDice, isValidDiceExpression } from '../../shared/dice.js';
 import { diceReveal } from '../../shared/rollReveal.js';
 import { effectiveSheetAbility, spellDamageTypeChoices } from '../../shared/spellExecution.js';
@@ -916,7 +918,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const t = getToken(tokenId);
         const m = t && t.kind === 'monster' ? getMonster(t.refId) : null;
         const creature=t?.kind==='pc'?getCharacter(t.refId):m;
-        const blocked=creature && spellActionBlockMessage(creature,{inCombat:!!getSessionById(creature.sessionId)?.combatRound});
+        const command=creature&&activeCommand(creature);
+        const commandMoves=command&&!command.combatEffect!.commandResolved&&['Approach','Flee'].includes(command.combatEffect!.commandWord!);
+        const blocked=creature && spellActionBlockMessage(commandMoves?{...creature,conditions:creature.conditions.filter(c=>c.combatEffect?.spell!=='Command')}:creature,{inCombat:!!getSessionById(creature.sessionId)?.combatRound});
         if(blocked) {
           socket.emit('notice',{message:blocked,durationMs:8000});
           sendSnapshot(io,socket.id); return;
@@ -957,7 +961,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!isDm()) {
         if (t.isHidden) return;
         const creature=t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId);
-        if(creature && spellActionBlock(creature)) return;
+        const command=creature&&activeCommand(creature);
+        const commandMoves=command&&!command.combatEffect!.commandResolved&&['Approach','Flee'].includes(command.combatEffect!.commandWord!);
+        if(creature && spellActionBlock(commandMoves?{...creature,conditions:creature.conditions.filter(c=>c.combatEffect?.spell!=='Command')}:creature)) return;
         if (t.kind === 'monster') {
           const m = getMonster(t.refId);
           if (!m || m.disposition !== 'friendly' || m.objectKind) return;
@@ -1555,7 +1561,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
-    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType,area,destination }) => {
+    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType,area,destination,commandWord:word }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
@@ -1595,6 +1601,18 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       }
 
       const selectedAbility=casterEntity?.sheetAbilities.find(a=>a.id===abilityId);
+      if(selectedAbility&&isCommandSpell(selectedAbility)){
+        const chosen=commandWord(word);
+        if(!chosen){socket.emit('notice',{message:'Choose a command or enter one word.'});return;}
+        if(!isStandardCommand(chosen)&&!getSessionById(sid)?.commandCustomWords){socket.emit('notice',{message:'The DM must enable custom Command words in Combat settings.'});return;}
+        const slot=kind==='pc'?selectSpellSlot(getCharacter(refId)!,Math.max(1,cast??1),slotPool):undefined;
+        if(kind==='pc'&&!slot?.remaining){socket.emit('notice',{message:'No spell slot available for Command.'});return;}
+        const error=castCommand(sid,roller,kind,refId,selectedAbility,slot?.level??Math.max(1,cast??1),chosen,tgt);
+        if(error){socket.emit('notice',{message:error});return;}
+        if(slot)spendSpellSlot(refId,slot.level,slot.pool);
+        setAbilityRechargeSpent(kind,refId,selectedAbility.id,true);
+        afterChange();broadcastSpellCast(io,sid,kind,refId);return;
+      }
       if(selectedAbility&&partySpell(selectedAbility)==='shield'){
         socket.emit('notice',{message:'Shield is offered as a reaction when an attack hits you or Magic Missile targets you.'});return;
       }
@@ -2525,6 +2543,17 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid || !isDm()) return;
       setManualDamage(sid, !!manual);
       afterChange();
+    });
+
+    on('session:setCommandCustomWords',({enabled})=>{
+      const sid=sessionId();if(!sid||!isDm()||typeof enabled!=='boolean')return;
+      db.prepare('UPDATE sessions SET command_custom_words=? WHERE id=?').run(enabled?1:0,sid);afterChange();
+    });
+    on('spell:commandResolve',({kind,refId,conditionId})=>{
+      const sid=sessionId(),e=kind==='pc'?getCharacter(refId):getMonster(refId),c=e?.conditions.find(c=>c.id===conditionId);
+      if(!sid||!ownsCreature(kind,refId)||!c?.combatEffect?.commandWord)return;
+      if(!isStandardCommand(c.combatEffect.commandWord)&&!isDm()){socket.emit('notice',{message:'The DM resolves custom Command words.'});return;}
+      const error=resolveCommandInstruction(sid,kind,refId,conditionId);if(error)socket.emit('notice',{message:error});else afterChange();
     });
 
     on('combat:save', ({ tokenIds, ability, dc, advantage, advantageByToken }) => {

@@ -77,6 +77,7 @@ export type Session = {
   hideDmRolls: boolean;
   /** Weapon damage is a SECOND click (roll + apply) instead of auto-applying. */
   manualDamage: boolean;
+  commandCustomWords?: boolean;
   initiativePending: boolean;
 };
 
@@ -89,6 +90,7 @@ type SessionRow = {
   combat_round: number | null;
   hide_dm_rolls: number | null;
   manual_damage: number | null;
+  command_custom_words?: number;
   initiative_pending: number | null;
 };
 
@@ -104,6 +106,7 @@ const rowToSession = (r: SessionRow): Session => ({
   // Default ON for a session that predates the column (NULL) — the two-step
   // damage roll is the intended behavior; the DM can switch it off in Settings.
   manualDamage: r.manual_damage === null ? true : !!r.manual_damage,
+  commandCustomWords: !!r.command_custom_words,
 });
 
 // ---- Sessions ----
