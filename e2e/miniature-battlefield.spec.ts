@@ -2910,12 +2910,15 @@ test('DM automatic fog switches reveal terrain and tokens independently in dayli
  test.setTimeout(150000);await page.setViewportSize({width:1500,height:1000});
  const art=await sharp({create:{width:1200,height:800,channels:3,background:'#b6caaa'}}).png().toBuffer();
  const f=await fixture(page,request,art),[druk,varis,vanec]=f.ready.tokens;
+ f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:120,locked:false});
  f.socket.emit('character:update',{characterId:druk.refId,weapons:[{name:'Longbow',kind:'ranged',damage:'1d8',attackBonus:5}]});
  for(const [i,t] of [druk,varis,vanec].entries())f.socket.emit('token:move',{tokenId:t.id,x:200,y:200+i*200});
  f.socket.emit('monster:create',{name:'Fog test Goblin',maxHp:7,modelType:'goblin'});
  const template=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Fog test Goblin')!;
- f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:800,y:360});
+ f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:750,y:200});
  const enemy=(await f.snapshot()).tokens.find(t=>t.kind==='monster')!;
+ f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:1100,y:200});
+ const farEnemy=(await f.snapshot()).tokens.find(t=>t.kind==='monster'&&t.id!==enemy.id)!;
  f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'barrier',kind:'rectangle',ax:500,ay:-10000,bx:520,by:10000,door:true,open:false}});
  await expect.poll(async()=>(await f.snapshot()).map!.walls!.length).toBe(1);
  await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
@@ -2927,7 +2930,7 @@ test('DM automatic fog switches reveal terrain and tokens independently in dayli
  player.on('pageerror',e=>errors.push(e.message));
  try{
   await enter(player,f.code,'Druk',false);await expect.poll(async()=>(await tokenView(player,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
-  const sample=async()=>{const view=(await tokenView(player,druk.id))!,point=offsetPoint(view,850-200,250-200),shot=await player.screenshot();const patch=await sharp(shot).extract({left:Math.round(point.x)-4,top:Math.round(point.y)-4,width:8,height:8}).toBuffer();const {channels}=await sharp(patch).stats();return channels.slice(0,3).map(c=>c.mean);};
+  const sample=async(x=700,y=250)=>{const view=(await tokenView(player,druk.id))!,point=offsetPoint(view,x-200,y-200),shot=await player.screenshot();const patch=await sharp(shot).extract({left:Math.round(point.x)-4,top:Math.round(point.y)-4,width:8,height:8}).toBuffer();const {channels}=await sharp(patch).stats();return channels.slice(0,3).map(c=>c.mean);};
   const receipts=[];
   for(const mode of ['day','regular','heavy']){
    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:mode!=='day',lighting:mode==='day'?'day':'dungeon',lightLevel:.2,heavyDarkness:mode==='heavy',mist:false,shadows:false,lights:[]}});
@@ -2936,12 +2939,22 @@ test('DM automatic fog switches reveal terrain and tokens independently in dayli
    await player.screenshot({path:info.outputPath(mode+'-both-on.png')});
    const covered=await sample();expect(Math.max(...covered)).toBeLessThan(10);
    await page.getByRole('button',{name:'Map fog of war on',exact:true}).click();
-   await expect(player.getByTestId('automatic-map-fog')).toBeHidden();
+   if(mode==='heavy')await expect(player.getByTestId('automatic-map-fog')).toBeVisible();
+   else await expect(player.getByTestId('automatic-map-fog')).toBeHidden();
    await expect.poll(async()=>(await f.snapshot()).map!.mapVisionEnabled).toBe(false);
    await player.waitForTimeout(500);const terrain=await sample();expect(Math.max(...terrain)).toBeGreaterThan(Math.max(...covered)+5);
    expect(await tokenView(player,enemy.id)).toBeNull();
    await player.screenshot({path:info.outputPath(mode+'-tokens-only.png')});
    await tokenToggle.click();await expect.poll(async()=>(await tokenView(player,enemy.id))?.miniatureReady,{timeout:60000}).toBe(true);
+   await expect(player.getByTestId('player-vision')).toHaveAttribute('data-range-ft',mode==='heavy'?'60':'unlimited');
+   if(mode==='heavy'){
+    expect(await tokenView(player,farEnemy.id)).toBeNull();
+    expect(Math.max(...await sample(1000,700))).toBeLessThan(10);
+   }else await expect.poll(async()=>(await tokenView(player,farEnemy.id))?.miniatureReady,{timeout:60000}).toBe(true);
+   if(mode==='regular'){
+    await expect(player.getByTestId('dim-light-darkvision')).toHaveCSS('backdrop-filter','grayscale(0.45) brightness(1.18)');
+    expect(Math.max(...await sample())).toBeGreaterThan(Math.max(...await sample(1000,700)));
+   }
    await player.screenshot({path:info.outputPath(mode+'-both-off.png')});
    // A visible creature through a closed door remains absent from the attack list.
    expect(await player.getByLabel('Attack target',{exact:true}).locator('option').allTextContents()).not.toEqual(expect.arrayContaining([expect.stringContaining('Fog test Goblin')]));

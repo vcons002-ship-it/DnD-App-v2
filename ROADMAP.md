@@ -6,6 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Regular darkness behaves as dim light with unlimited unobstructed sight;
+  nearby darkvision improves brightness/color and reveals affinity. Heavy
+  darkness keeps its unlit 60-foot sight limit even with automatic fog off.
+  Fog switches only control wall concealment, while physical targeting and
+  movement remain blocked. Preserve distant illuminated sight, party memory
+  and shared creature awareness; test range and wall switches independently.
+
 - [x] Independent automatic map and token fog switches in the DM Fog menu,
   enabled by default and saved per map. Apply the same choices in daylight,
   regular darkness and heavy darkness. Token-only fog keeps terrain visible;

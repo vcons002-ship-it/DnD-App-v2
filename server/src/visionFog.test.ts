@@ -1,8 +1,8 @@
 import {describe,it,expect} from 'vitest';
-import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,setVisionFog,getMap,setTokenHidden,setFogLayer} from './sessions.js';
+import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,setVisionFog,getMap,setTokenHidden,setFogLayer,moveToken} from './sessions.js';
 import {buildSnapshot} from './visibility.js';
 import {editMapWalls,setWallDoor} from './mapWalls.js';
-import {usesMapVision,usesTokenVision,visionContains} from '../../shared/playerVision.js';
+import {usesMapVision,usesTokenVision,visionContains,fogVisionContains} from '../../shared/playerVision.js';
 import {stopAtWalls,hasLineOfSight} from '../../shared/mapWalls.js';
 import {exportSession,importSession} from './backup.js';
 
@@ -35,6 +35,18 @@ describe('independent automatic map and token fog',()=>{
    expect(f.snapshot().tokens.some(t=>t.id===f.enemy.id&&!t.sharedSightOnly)).toBe(true);
   });
  }
+ for(const [mapOn,tokenOn] of [[true,true],[false,true],[false,false],[true,false]])it(`heavy range survives map ${mapOn}, token ${tokenOn} switches while dim sight remains unlimited`,()=>{
+  const f=fixture();moveToken(f.enemy.id,1000,200);
+  setVisionFog(f.session.id,f.map.id,'map',mapOn);setVisionFog(f.session.id,f.map.id,'tokens',tokenOn);
+  setWallDoor(f.session.id,f.map.id,'closed-door',true);
+  updateMapEnvironment(f.session.id,f.map.id,{enabled:true,lighting:'dungeon',heavyDarkness:true,lights:[]});
+  let snap=f.snapshot();
+  expect(fogVisionContains(snap.playerVision,1000,200,usesTokenVision(snap.map))).toBe(false);
+  expect(snap.tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  updateMapEnvironment(f.session.id,f.map.id,{heavyDarkness:false});
+  snap=f.snapshot();expect(snap.tokens.some(t=>t.id===f.enemy.id&&!t.sharedSightOnly)).toBe(true);
+  expect(visionContains(snap.playerVision,1000,200)).toBe(true);
+ });
  it('defaults new and legacy maps on, scopes edits per campaign, and restores saved choices',()=>{
   const f=fixture(),other=createSession('Other'),m2=createMap(f.session.id,{name:'Another map'});
   expect(getMap(f.map.id)).toMatchObject({mapVisionEnabled:true,tokenVisionEnabled:true});

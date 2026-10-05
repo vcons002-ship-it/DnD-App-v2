@@ -83,7 +83,7 @@ export function FogMenu({
             <button className={`measure-row ${tokenVisionEnabled?'on':''}`} aria-pressed={tokenVisionEnabled} onClick={()=>onToggleVision('tokens')}>
               <span>Token fog of war</span><span className="muted">{tokenVisionEnabled?'on':'off'}</span>
             </button>
-            <div className="measure-label">Daylight and darkness. Walls and closed doors always block movement and targeting.</div>
+            <div className="measure-label">Controls wall concealment. Heavy-darkness sight range still applies. Walls and closed doors always block movement and targeting.</div>
             <div className="measure-sep" />
             <div className="measure-label">Manual cover</div>
             <button

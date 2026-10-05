@@ -4,7 +4,7 @@ const opacity={day:0,dusk:.32,night:.73,dungeon:.84};
 /** Current heavy-darkness sight keeps muted color; memory stays grayscale. */
 export const HEAVY_DARKVISION_DESATURATION=.20;
 /** Regular darkvision keeps a trace of the artwork's color without pale haze. */
-export const REGULAR_DARKVISION_DESATURATION=.70;
+export const REGULAR_DARKVISION_DESATURATION=.45;
 export const REGULAR_DARKVISION_TERRAIN_BRIGHTNESS=.28;
 /** Readable memory contours; current heavy sight retains its stronger colored detail. */
 export const HEAVY_DARKVISION_MEMORY_BRIGHTNESS=1.02;

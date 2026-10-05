@@ -11,7 +11,7 @@ import {WallMenu,type WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {doorInReach,doorInteractionArea} from '../../../shared/doorInteraction';
 import {wallVertices,wallCenter,wallSvgPath,wallBoundarySegments,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
-import {visionContains,visionLit,usesMapVision,usesTokenVision} from '../../../shared/playerVision';
+import {fogVisionContains,visionShowsAffinity,usesMapVision,usesTokenVision} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
@@ -1150,7 +1150,7 @@ export function MapStage({
   }, [view, size, groundScaleY]);
 
   const doors=(map?.walls??[]).filter(w=>w.door);
-  const doorVisible=(door:typeof doors[number])=>isDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>(!usesTokenVision(map)||visionContains(snapshot.playerVision,p.x,p.y))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
+  const doorVisible=(door:typeof doors[number])=>isDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
   const nearbyDoors=doors.filter(d=>doorVisible(d)&&(isDm?d.id===selectedDoor:snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
   const operateDoor=(id:string,open:boolean)=>{if(map)useStore.getState().socket?.emit('map:setDoor',{mapId:map.id,doorId:id,open});};
   const miniatureVisibleAt = useMemo(() => {
@@ -1161,8 +1161,8 @@ export function MapStage({
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
-      return !!token && (token.sharedSightOnly ? (token.kind==='pc' || visionContains(presentation.partyVision(),x,y)) :
-        (token.owned || !usesTokenVision(snapshot.map) || visionContains(presentation.personalVision(),x,y)) && tokenVisibleAt({ ...token, role: snapshot.role,
+      return !!token && (token.sharedSightOnly ? (token.kind==='pc' || fogVisionContains(presentation.partyVision(),x,y,usesTokenVision(snapshot.map))) :
+        (token.owned || fogVisionContains(presentation.personalVision(),x,y,usesTokenVision(snapshot.map))) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
     };
   }, [snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
@@ -1218,7 +1218,7 @@ export function MapStage({
       combatRole: !dead && !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
       hunterMarked: !dead && !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
       conditionColors: dead || token.sharedSightOnly ? [] : presentAuras(display.conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
-      outline: token.sharedSightOnly || !visionLit(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
+      outline: token.sharedSightOnly || !visionShowsAffinity(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: !dead && monster ? monsterTint(monster) : undefined,
       shade: !dead && monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
@@ -1972,7 +1972,7 @@ export function MapStage({
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
         miniaturePending={!miniatures && !miniaturesUnavailable && !failedMiniatures.has(t.id) && miniatureTokens.some(m => m.id === t.id)}
-        hideAffinity={!!t.sharedSightOnly || !visionLit(snapshot.playerVision,t.x,t.y)}
+        hideAffinity={!!t.sharedSightOnly || !visionShowsAffinity(snapshot.playerVision,t.x,t.y)}
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         movementWalls={isDm?undefined:map?.walls}
@@ -2667,7 +2667,7 @@ export function MapStage({
             </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision&&usesMapVision(map)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
+            <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment} spellImpacts={spellImpacts} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />

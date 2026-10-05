@@ -1,4 +1,4 @@
-import {visionContains,usesTokenVision} from '../../shared/playerVision.js';
+import {fogVisionContains,usesTokenVision} from '../../shared/playerVision.js';
 import {randomBytes} from 'node:crypto';
 import {isLiveCommand,afterRollCommit} from './liveRollContext.js';
 import { tokenVisibleAt } from '../../shared/fog.js';
@@ -152,7 +152,7 @@ export function broadcastTokenDrag(
     if (token.mapId !== viewMapId) continue;
     const personal=conn.role==='dm'?undefined:build?.(conn.role,null,socketId,conn.playerId);
     if(personal&&!personal.tokens.some(t=>t.id===token.id))continue;
-    const visible = (px: number, py: number) => (!usesTokenVision(map)||visionContains(personal?.playerVision,px,py)) && tokenVisibleAt({ role: conn.role,
+    const visible = (px: number, py: number) => fogVisionContains(personal?.playerVision,px,py,usesTokenVision(map)) && tokenVisibleAt({ role: conn.role,
       hidden: token.isHidden, owned: owner === socketId, foe, mapFog, tokenFog, grid, x: px, y: py });
     // Never reveal an unknown token merely because its preview crosses open ground.
     if (!visible(token.x, token.y)) continue;

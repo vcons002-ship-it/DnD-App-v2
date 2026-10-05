@@ -20,7 +20,7 @@ const polygon=(vision:PlayerVision,point:{x:number;y:number},radius:number):Expl
 export function visibleTerrain(vision:PlayerVision):ExploredTerrain {
  if(!vision.origins.length)return [];
  const sight=union(vision.origins.map(o=>polygon(vision,o,SIGHT_EXTENT)));
- if(vision.daylight)return sight;
+ if(!vision.heavy)return sight;
  const nearby=union(vision.origins.map(o=>polygon(vision,o,vision.radius)));
  const lights=union(vision.lights.map(l=>{
   let lo=0,hi=l.radius*1.5;
