@@ -52,11 +52,11 @@ export function createSpellImpactEffects(scene:Scene){
       bolt=new Mesh(new TubeGeometry(path,30,.023,5,false),bright);bolt.userData.path=path;root.add(bolt);
     }
     // Drifting points help carry the impact and the mark without emoji glyphs.
-    for(let i=0;i<(['haunt','aura'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
+    for(let i=0;i<(['haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
       const point=new Mesh(spark,bright);point.userData={angle:i*2.399963,seed:(i%4)/4};root.add(point);sparks.push(point);
     }
     const color=new Color(style.color);
-    scene.add(root);effects.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:now,root,materials:[body,bright,haloMaterial,white],arrows,vines,sparks,bolt,halo,shape});
+    scene.add(root);effects.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
   }
   return {
     sync(inputs:readonly SpellImpact[],now:number){
@@ -78,6 +78,8 @@ export function createSpellImpactEffects(scene:Scene){
         e.materials[0].opacity=fade*(reduced?.5:.85);e.materials[1].opacity=emission*(reduced?.4:1);
         e.materials[2].opacity=e.style.kind==='mark'?emission*.4:0;
         e.materials[3].opacity=emission*(reduced?.4:1);
+        for(const material of e.shape.materials)material.opacity=emission*(material.userData.opacityScale??(reduced?.4:1));
+        if(e.style.kind==='veil'){e.materials[0].opacity=fade*.18;e.materials[1].opacity=emission*.12;}
         e.halo.scale.setScalar(e.style.kind==='mark'?1.6:2.4);e.halo.rotation.z=reduced?0:t*.7;
         const areaScale=e.input.event.areaWidthFt?e.input.event.areaWidthFt*pixelsPerFoot/size:0;
         e.shape.update(t,!!e.input.persistent,reduced,areaScale);
@@ -107,10 +109,11 @@ export function createSpellImpactEffects(scene:Scene){
         }else if(e.bolt){
           for(const u of [.18,.5,.86])samples.push({object:e.bolt,local:e.bolt.userData.path.getPoint(u),weight:1/3});
         }else for(const i of [0,3,6])samples.push({object:e.sparks[i],local:new Vector3(),weight:1/3});
-        if(emission>.002&&!reduced)for(let i=0;i<samples.length&&lights.length<24;i++){
+        if(emission>.002&&e.style.strength>0&&!reduced)for(let i=0;i<samples.length&&lights.length<24;i++){
           const sample=samples[i];worldPoint.copy(sample.local).applyMatrix4(sample.object.matrixWorld);
+          const hue=e.style.kind==='pattern'&&sample.object instanceof Mesh?(sample.object.material as MeshBasicMaterial).color:undefined;
           lights.push({id:`spell-${id}-${i}`,x:worldPoint.x,y:worldPoint.z,height:Math.max(0,worldPoint.y),radius:e.style.radiusFt*pixelsPerFoot,
-            strength:e.style.strength*emission*sample.weight*(e.input.persistent?.45:2),color:e.color,visibleTorch:false,transient:true});
+            strength:e.style.strength*emission*sample.weight*(e.input.persistent?.45:2),color:hue?new Vector3(hue.r,hue.g,hue.b):e.color,visibleTorch:false,transient:true});
         }
       }
       return lights;

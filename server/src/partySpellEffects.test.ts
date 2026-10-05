@@ -9,7 +9,7 @@ import {getSpell} from './spells/srd.js';
 import {resolveAttack,resolveAttackDamage,resolveAbilityRoll,resolveForcedSave,resolveTargetedSpellAttack} from './combat.js';
 import {resolveShield,shieldGate,mistyStepError,teleportMistyStep,syncPassWithoutTrace,shakeAwake} from './partySpellEffects.js';
 import {expireTimedSpellEffects} from './hitEffectTurns.js';
-import {createSession,createMap,setActiveMap,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,getToken,listRollLog,setSheetAbility,setManualDamage,setCombatRound,setActiveTurn,setTempHp,setCondition,applyDamage,endConcentration,moveToken,claimCharacter,updateCharacter} from './sessions.js';
+import {createSession,createMap,setActiveMap,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,getToken,listRollLog,setSheetAbility,setManualDamage,setCombatRound,setActiveTurn,setTempHp,setCondition,applyDamage,endConcentration,moveToken,claimCharacter,updateCharacter,drainHpFx} from './sessions.js';
 import {registerSocketHandlers} from './socketHandlers.js';
 import {setConn,dropConn,type IOServer} from './connections.js';
 import {buildSnapshot} from './visibility.js';
@@ -85,6 +85,7 @@ describe('Hypnotic Pattern linked conditions',()=>{
 describe('Pass without Trace',()=>{
  it('grants a labelled, non-stacking bonus to chosen creatures inside the moving aura; leave/re-enter and concentration cleanup',()=>{
   const f=fixture();resolveAbilityRoll(f.session.id,'Vanec',f.now(),spell('Pass without Trace'),2,undefined,undefined,undefined,{mapId:f.map.id,points:[f.actor],angle:0,selected:[f.actor.id,f.enemy.id]});
+  expect(drainHpFx(f.session.id)).toEqual([expect.objectContaining({spell:'Pass without Trace',delta:0,refId:f.caster.id})]);
   expect(skillExtra(f.now(),'Stealth')).toEqual({total:10,parts:[{source:'Pass without Trace',value:10}]});expect(skillExtra(getMonster(f.monster.id)!,'stealth').total).toBe(10);
   syncPassWithoutTrace(f.session.id);expect(skillExtra(f.now(),'stealth').total).toBe(10);
   moveToken(f.enemy.id,1000,100);syncPassWithoutTrace(f.session.id);expect(skillExtra(getMonster(f.monster.id)!,'Stealth').total).toBe(0);

@@ -20,6 +20,8 @@ export function createLinkedSpellGeometry(){
   geometries.push(bolt,core);
   const dagger=new ConeGeometry(.065,.48,4),auraArc=new TorusGeometry(.44,.012,5,36,Math.PI*1.45);
   geometries.push(dagger,auraArc);
+  const shell=new SphereGeometry(.55,18,12,0,Math.PI*2,0,Math.PI/2),ring=new TorusGeometry(.48,.014,5,40),wisp=new TorusGeometry(.38,.025,5,26,Math.PI*1.25);
+  geometries.push(shell,ring,wisp);
   const chainLinks:BufferGeometry[]=[],placement=new Mesh(link);
   const place=()=>{placement.updateMatrix();chainLinks.push(link.clone().applyMatrix4(placement.matrix));};
   for(let row=0;row<3;row++)for(let i=0;i<12;i++){
@@ -31,9 +33,23 @@ export function createLinkedSpellGeometry(){
   }
   const chains=mergeGeometries(chainLinks)!;chainLinks.forEach(g=>g.dispose());geometries.push(chains);
   function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,white=bright){
-    const root=new Group(),parts:Mesh[]=[];
+    const root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
     const add=(geometry:BufferGeometry,material=bright)=>{const m=new Mesh(geometry,material);root.add(m);parts.push(m);return m;};
-    if(style.kind==='bolts'){
+    if(style.kind==='shield'){
+      const surface=body.clone();materials.push(surface);surface.opacity=.12;surface.userData.opacityScale=.15;
+      const dome=add(shell,surface);dome.position.y=.46;dome.scale.y=1.5;
+      for(let i=0;i<3;i++){const m=add(auraArc);m.userData.index=i;}
+    }else if(style.kind==='mist'||style.kind==='veil'){
+      for(let i=0;i<8;i++){const m=add(wisp,i%2?body:bright);m.userData={index:i,seed:i/8};}
+    }else if(style.kind==='pattern'){
+      for(let i=0;i<5;i++){
+        const rainbow=bright.clone();rainbow.color.setHSL(i/5,.85,.66);materials.push(rainbow);
+        const m=add(ring,rainbow);m.userData.index=i;
+      }
+    }else if(style.kind==='command'){
+      for(let i=0;i<3;i++){const m=add(ring);m.scale.setScalar(.42+i*.17);m.userData={index:i,crown:true};}
+      for(let i=0;i<6;i++){const m=add(drop,body);m.scale.set(.17,.8,.17);m.userData={index:i};}
+    }else if(style.kind==='bolts'){
       for(let i=0;i<14;i++){const m=add(bolt);m.add(new Mesh(core,white));m.userData={index:i,emitterPoint:new Vector3(0,1,0)};}
     }else if(style.kind==='chains'){
       // Three interlocking chains surround the body, with vertical chains joining
@@ -61,7 +77,28 @@ export function createLinkedSpellGeometry(){
         if(['poison','drain'].includes(style.kind))m.scale.set(1.3,2.6,1.3);
       }
     }
-    return {root,parts,update(t:number,persistent:boolean,reduced:boolean,areaScale:number){
+    return {root,parts,materials,update(t:number,persistent:boolean,reduced:boolean,areaScale:number){
+      if(style.kind==='shield'){
+        parts.slice(1).forEach((m,i)=>{m.position.y=.38+i*.28;m.rotation.set(Math.PI/2,i*.35,i*2.1+(reduced?0:t*.4));m.scale.setScalar(.95-i*.13);});return;
+      }
+      if(style.kind==='mist'||style.kind==='veil'){
+        parts.forEach((m,i)=>{
+          const phase=reduced?.4:persistent?(t*.18+m.userData.seed)%1:Math.min(1,t+m.userData.seed*.2);
+          const a=i*2.399963+(reduced?0:t*(i%2?-.35:.35)),r=style.kind==='veil'?.28:.25+phase*.38;
+          m.position.set(Math.cos(a)*r,style.kind==='veil'?.12+(i%3)*.08:.15+phase*.85,Math.sin(a)*r);
+          m.rotation.set(Math.PI/2+.14*Math.sin(i),0,a);m.scale.set(1+phase*.3,.45+phase*.3,1);
+        });return;
+      }
+      if(style.kind==='pattern'){
+        parts.forEach((m,i)=>{m.position.y=.48+i*.1;m.rotation.set(.7+i*.55,(reduced?0:t*.35)+i*.8,i*.6);m.scale.setScalar(.65+i*.12);});return;
+      }
+      if(style.kind==='command'){
+        parts.forEach((m,i)=>{
+          if(m.userData.crown){m.position.y=1.32+i*.035;m.rotation.set(Math.PI/2,0,reduced?0:t*.2);return;}
+          const phase=reduced?.5:(t*.45+(i-3)/6)%1,a=i*Math.PI/3;
+          m.position.set(Math.cos(a)*.27,1.22-phase*.5,Math.sin(a)*.27);
+        });return;
+      }
       if(style.kind==='bolts'){
         parts.forEach((m,i)=>{const angle=i*2.399963,r=i===0?0:Math.sqrt(i/13)*.46*(areaScale||2);
           m.position.set(Math.cos(angle)*r,0,Math.sin(angle)*r);m.rotation.y=angle;

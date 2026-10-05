@@ -7,7 +7,7 @@ import {castCommand,resolveCommandInstruction} from './commandSpell.js';
 import {resolveForcedSave,spellApplyTargetError} from './combat.js';
 import {expireTimedSpellEffects} from './hitEffectTurns.js';
 import {getSpell} from './spells/srd.js';
-import {createSession,createMap,setActiveMap,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,getToken,listRollLog,setSheetAbility,setCombatRound,setActiveTurn,setCondition,endConcentration,claimCharacter} from './sessions.js';
+import {createSession,createMap,setActiveMap,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,getToken,listRollLog,setSheetAbility,setCombatRound,setActiveTurn,setCondition,endConcentration,claimCharacter,drainHpFx} from './sessions.js';
 import {registerSocketHandlers} from './socketHandlers.js';
 import {setConn,dropConn,type IOServer} from './connections.js';
 import {buildSnapshot} from './visibility.js';
@@ -36,6 +36,7 @@ describe('Command',()=>{
  });
  it('a failed save waits for the target next turn, blocks Halt, and clears at its end',()=>{
   const f=fixture();expect(f.cast()).toBeUndefined();expect(activeCommand(f.now())).toBeUndefined();expect(spellActionBlock(f.now())).toBeUndefined();
+  expect(drainHpFx(f.session.id)).toEqual([expect.objectContaining({spell:'Command',refId:f.monster.id,delta:0,rollId:expect.any(String)})]);
   const pending=f.now().conditions.find(c=>c.combatEffect?.commandWord)!;
   expect(resolveCommandInstruction(f.session.id,'monster',f.monster.id,pending.id)).toMatch(/next turn/);
   setActiveTurn(f.session.id,f.target.id);expect(spellActionBlock(f.now())).toBe('Command: Halt');expect(effectiveSpeed(f.now())).toBe('0 ft.');
@@ -44,6 +45,7 @@ describe('Command',()=>{
  });
  it('a successful save does not attach an effect and reports Command resisted',()=>{
   const f=fixture();f.cast('Halt',1,20);expect(f.now().conditions).toHaveLength(0);expect(listRollLog(f.session.id).find(r=>r.reveal)?.reveal?.effectOutcome).toBe('Command resisted.');
+  expect(drainHpFx(f.session.id)).toEqual([]);
  });
  it('Grovel applies Prone on the target turn and leaves Prone after Command ends',()=>{
   const f=fixture();f.cast('Grovel');expect(f.now().conditions.some(c=>c.label==='Prone')).toBe(false);setActiveTurn(f.session.id,f.target.id);expect(f.now().conditions.some(c=>c.label==='Prone')).toBe(true);setActiveTurn(f.session.id,f.actor.id);expect(f.now().conditions.map(c=>c.label)).toEqual(['Prone']);

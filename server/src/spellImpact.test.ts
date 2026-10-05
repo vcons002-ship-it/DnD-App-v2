@@ -7,6 +7,21 @@ import {getSpell} from './spells/srd.js';
 afterEach(()=>vi.restoreAllMocks());
 
 describe('spell impact identity and lighting',()=>{
+ it('gives all five repaired party spells distinct visuals without illuminating a stealth veil',()=>{
+   const expected={'Shield':'shield','Misty Step':'mist','Hypnotic Pattern':'pattern','Pass without Trace':'veil','Command':'command'};
+   for(const [spell,kind] of Object.entries(expected))expect(spellImpactStyle({spell,delta:0})?.kind).toBe(kind);
+   expect(spellImpactStyle({spell:'Pass without Trace',delta:0})?.strength).toBe(0);
+ });
+ it('tracks the primary Shield, stealth recipient and Command conditions without duplicating bookkeeping or implied conditions',()=>{
+   const condition={id:'effect',label:'Shield',aura:'blue' as const,isConcentration:false,combatEffect:{spell:'Shield',casterId:'mage',casterKind:'pc' as const}};
+   expect(persistentSpellVisual(condition)).toBe('Shield');
+   expect(persistentSpellVisual({...condition,label:'Reaction spent (Shield)'})).toBeUndefined();
+   const veil={...condition,label:'Pass without Trace',combatEffect:{...condition.combatEffect,spell:'Pass without Trace',stealthBonus:10}};
+   expect(persistentSpellVisual(veil)).toBe('Pass without Trace');
+   expect(persistentSpellVisual({...veil,isConcentration:true})).toBeUndefined();
+   expect(persistentSpellVisual({...veil,combatEffect:{...veil.combatEffect,stealthBonus:undefined}})).toBeUndefined();
+   expect(persistentSpellVisual({...condition,label:'Command: Halt',combatEffect:{...condition.combatEffect,spell:'Command',commandWord:'Halt'}})).toBe('Command');
+ });
  it('Call Lightning uses jagged area bolts while Ice Storm keeps falling shards',()=>{
    expect(spellImpactStyle({spell:'Call Lightning',damageType:'lightning',delta:-10})).toMatchObject({kind:'bolts',color:'#96cfff'});
    expect(spellImpactStyle({spell:'Ice Storm',delta:-10})?.kind).toBe('storm');

@@ -2137,6 +2137,7 @@ function resolveSheetAbilityFor(
     const recipients=listTokens(area.mapId).filter(t=>area.selected?.includes(t.id)).map(t=>({kind:t.kind,refId:t.refId}));
     if(!recipients.some(t=>t.kind===kind&&t.refId===entity.id))recipients.push({kind,refId:entity.id});
     setCondition(kind,entity.id,{...c,combatEffect:{...c.combatEffect!,auraRecipients:recipients}});
+    queueSpellImpact(sessionId,kind,entity.id,'Pass without Trace');
     addRollLog(sessionId,{roller,label:'Pass without Trace',expr:'Pass without Trace',total:0,detail:'Chosen creatures gain +10 Stealth and leave no tracks while in the caster?s 30 ft emanation. Concentration, up to 1 hour.'});
     return true;
   }

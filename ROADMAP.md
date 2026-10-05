@@ -6,6 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Spell-specific effects for the repaired party spells: blue Shield barrier,
+  silver Misty Step wisps, multicolor Hypnotic Pattern loops, a subtle moving
+  Pass without Trace veil, and a gold Command sigil above the target. Persistent
+  effects follow their primary conditions, disappear on expiry/concentration
+  cleanup, and respect personal visibility and roll completion. The stealth veil
+  emits no light; all effects share the existing reduced-motion renderer.
+
 - [x] Command: five 2024 choices, optional DM-enabled custom word, selected-target
   Wisdom saves with upcast limits, next-turn instructions, Halt restrictions,
   Grovel Prone, turn-end cleanup, and preserved manual/custom spell entries.
