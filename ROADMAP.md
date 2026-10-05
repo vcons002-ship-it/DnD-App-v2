@@ -6,6 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Regular player darkvision now uses naturally dark map artwork with subtle
+  color instead of a pale wash. Keep lit areas in full color, retain the grid,
+  and leave the accepted heavy-darkness sight treatment unchanged. Improve
+  remembered terrain readability in regular darkness and slightly in heavy
+  darkness; memory remains grayscale and contains no old light sources.
+  Re-record the crossroads darkness sections using disposable campaigns.
+
 - [x] Remove the wall-face clause from the window prompt. Same-map real API
   retry detects/fits four cabin windows (two front, two back), compared with
   two previously; conversion, natural boundaries and structural walls unchanged.

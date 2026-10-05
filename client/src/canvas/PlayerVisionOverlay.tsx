@@ -6,11 +6,11 @@ import type {ExploredTerrain} from '../../../shared/exploration';
 import {wallVisibilityPolygon,SIGHT_EXTENT,type WallPoint} from '../../../shared/mapWalls';
 import type {TokenPresentation} from './tokenPresentation';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
-import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
+import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
 export type PlayerVisionHandle={memoryCanvas:()=>HTMLCanvasElement|null;frame:()=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
-/** Terrain visibility stays below lifted miniature pixels; heavy-darkness
+/** Terrain visibility stays below lifted miniature pixels; darkvision
  * desaturation remains above both. Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
 type MemoryTerrain={environment?:MapEnvironment;explored?:ExploredTerrain;tiles:TerrainTile[];bounds:{x:number;y:number;w:number;h:number};grid?:{size:number;x:number;y:number}};
@@ -103,8 +103,9 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   // Cosmetic flashes restore color only inside already-visible terrain. They
   // never enter the sight-cover mask or authorize/persist exploration.
   if(spellPaths.current)spellPaths.current.innerHTML=spellBands.join('');
-  shade.current.style.backdropFilter=vision.heavy?`grayscale(${HEAVY_DARKVISION_DESATURATION})`:'none';
-  shade.current.style.setProperty('-webkit-backdrop-filter',vision.heavy?`grayscale(${HEAVY_DARKVISION_DESATURATION})`:'none');
+  const filter=vision.daylight?'none':`grayscale(${vision.heavy?HEAVY_DARKVISION_DESATURATION:REGULAR_DARKVISION_DESATURATION})`;
+  shade.current.style.backdropFilter=filter;
+  shade.current.style.setProperty('-webkit-backdrop-filter',filter);
  };
  // Movement, camera following and flickering lights can all update in one
  // frame. Rebuild the SVG masks once using the final state, not for every event.
