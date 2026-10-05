@@ -6,6 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Enable the requested local Qwen map-feature gate: full-map checks for walls,
+  cave interiors, doors and lights, quadrant checks for windows with seam context.
+  Clear negative answers skip that pass; unavailable/uncertain local answers fall
+  back to the image API with notices. Preserve accepted masking prompts, optional
+  passes and selected-region scope. Verify a brand-new overhead inn/cave map with
+  unchanged masks and normal automatic fitting; retain rejected proposals in review.
+
 - [x] Regular darkness behaves as dim light with unlimited unobstructed sight;
   nearby darkvision improves brightness/color and reveals affinity. Heavy
   darkness keeps its unlit 60-foot sight limit even with automatic fog off.

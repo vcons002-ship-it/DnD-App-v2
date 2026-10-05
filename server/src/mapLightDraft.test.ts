@@ -1,3 +1,4 @@
+vi.mock('./mapFeatureGate.js',()=>({gateMapFeature:vi.fn(async()=>({allowed:true})),gateWindowRegions:vi.fn(async(_image:Buffer,_width:number,_height:number,regions:any)=>({regions:regions??[{ax:0,ay:0,bx:1,by:1}]}))}));
 ﻿import {it,expect,vi,afterEach} from 'vitest';
 import fs from 'node:fs/promises';import path from 'node:path';import sharp from 'sharp';
 import {config} from './config.js';import {createSession,createMap,getMap,updateMapEnvironment} from './sessions.js';import {editMapWalls} from './mapWalls.js';

@@ -1,3 +1,4 @@
+vi.mock('./mapFeatureGate.js',()=>({gateMapFeature:vi.fn(async()=>({allowed:true})),gateWindowRegions:vi.fn(async(_image:Buffer,_width:number,_height:number,regions:any)=>({regions:regions??[{ax:0,ay:0,bx:1,by:1}]}))}));
 import {it,expect,vi,afterEach} from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -10,6 +11,7 @@ import {suggestMapDoors,applyDoorDraft} from './mapDoorDraft.js';
 import {fitDoorMarker} from '../../shared/doorMaskFit.js';
 import {hasLineOfSight,stopAtWalls} from '../../shared/mapWalls.js';
 import {translateWall} from '../../shared/wallGeometry.js';
+import {gateMapFeature} from './mapFeatureGate.js';
 vi.mock('./ai/imageGateway.js',()=>({generateApiImage:vi.fn()}));
 const oldKey=config.geminiApiKey;
 afterEach(()=>{config.geminiApiKey=oldKey;vi.resetAllMocks();});
@@ -102,3 +104,5 @@ it('connects under-masked wall ends without widening the door or leaving leaks b
  expect(fitDoorMarker(marker,original,40).wall).toBeUndefined();
  expect(fitDoorMarker(marker,[...original,{id:'other-opening',ax:135,ay:90,bx:135,by:210,door:true,open:true}],50).wall).toBeUndefined();
 });
+
+it('returns an empty review without spending an image request when Qwen says no doors',async()=>{const f=await fixture();vi.mocked(gateMapFeature).mockResolvedValueOnce({allowed:false} as never);expect((await suggestMapDoors(f.map.id)).doors).toEqual([]);expect(generateApiImage).not.toHaveBeenCalled();expect(listTokens(f.map.id)).toEqual([]);});

@@ -74,6 +74,9 @@ export async function ollamaChat(
     signal?: AbortSignal;
     timeoutMs?: number;
     temperature?: number;
+    think?: boolean;
+    numPredict?: number;
+    numCtx?: number;
   } = {},
 ): Promise<string | null> {
   const model = opts.model?.trim() || config.ollamaModel;
@@ -89,12 +92,14 @@ export async function ollamaChat(
       body: JSON.stringify({
         model,
         stream: false,
+        ...(opts.think !== undefined ? {think:opts.think} : {}),
         ...(opts.json ? { format: 'json' } : {}),
         options: {
           temperature: opts.temperature ?? (opts.json ? 0 : 0.2),
           // Enlarge the context window so the grounding excerpts aren't truncated
           // (a too-small window is a top cause of "hallucinated" rules).
-          num_ctx: config.ollamaNumCtx,
+          num_ctx: opts.numCtx ?? config.ollamaNumCtx,
+          ...(opts.numPredict !== undefined ? {num_predict:opts.numPredict} : {}),
         },
         messages: [
           { role: 'system', content: system },

@@ -8,6 +8,7 @@ import {generateApiImage} from './ai/imageGateway.js';
 import {generateMapRegionMask} from './mapRegionMask.js';
 import {parseMapAnalysisRegions} from '../../shared/mapAnalysisRegions.js';
 import {reportAi} from './ai/status.js';
+import {gateMapFeature} from './mapFeatureGate.js';
 import {LIGHT_MASK_PROMPT,lightsFromMask} from './lightMask.js';
 import {updateMapEnvironment} from './sessions.js';
 import type {MapGeometryDraft} from '../../shared/mapGeometryDraft.js';
@@ -20,6 +21,7 @@ export async function suggestMapLights(mapId:string,rawRegions?:unknown):Promise
  const {map,image,source}=await lightSource(mapId);
  const regions=parseMapAnalysisRegions(rawRegions);
  if(!config.geminiApiKey)throw new Error('Configure the image API in Settings before suggesting lights.');
+ if(!(await gateMapFeature(image,'lights')).allowed)return {version:1,id:randomUUID(),source,maskImagePath:map.imagePath!,lights:[]};
  reportAi('Marking visible light emitters with the image API. This is separate from wall drafting.');
  const preview=await sharp(image).rotate().png().toBuffer();
  const result=regions?await generateMapRegionMask(LIGHT_MASK_PROMPT,image,source.width,source.height,regions):await generateApiImage(LIGHT_MASK_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
