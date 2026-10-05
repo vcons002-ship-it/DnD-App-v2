@@ -20,6 +20,8 @@ import {afterRollCommit} from './liveRollContext.js';
 import { resolveHitFeature } from './hitFeatures.js';
 import { castMark } from './marks.js';
 import { markSpell } from '../../shared/hitFeatures.js';
+import {partySpell} from '../../shared/partySpells.js';
+import {resolveShield,mistyStepError,teleportMistyStep,shakeAwake} from './partySpellEffects.js';
 import { selectSpellSlot } from '../../shared/spellSlotPools.js';
 import { listRipostes } from './reactions.js';
 import { config } from './config.js';
@@ -298,7 +300,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
       const timer=setTimeout(finish,2500);trayReady.set(id,finish);
     });
-    const liveEvents=new Set(['spell:repeat','dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
+    const liveEvents=new Set(['spell:shield','spell:repeat','dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
     const on = ((event: string, handler: (...args: unknown[]) => void) =>
       rawOn(event, (...args: unknown[]) => {
         const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
@@ -1553,7 +1555,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
-    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType,area }) => {
+    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType,area,destination }) => {
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
@@ -1592,6 +1594,25 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         socket.emit('notice',{message:blocked,durationMs:8000}); return;
       }
 
+      const selectedAbility=casterEntity?.sheetAbilities.find(a=>a.id===abilityId);
+      if(selectedAbility&&partySpell(selectedAbility)==='shield'){
+        socket.emit('notice',{message:'Shield is offered as a reaction when an attack hits you or Magic Missile targets you.'});return;
+      }
+      if(selectedAbility&&partySpell(selectedAbility)==='misty step'){
+        const error=mistyStepError(sid,kind,refId,destination);
+        if(error){socket.emit('notice',{message:error});return;}
+        if(!isDm()){
+          const view=buildSnapshot(sid,'player',null,socket.id),map=view?.map,d=destination!;
+          if(!map||map.id!==d.mapId||!visionContains(view.playerVision,d.x,d.y)||map.mapFogEnabled&&!map.mapFogRevealed.includes(`${Math.floor(d.x/map.gridSizePx)},${Math.floor(d.y/map.gridSizePx)}`)){
+            socket.emit('notice',{message:'Choose a destination you can see yourself.'});return;
+          }
+        }
+        if(kind==='pc'){
+          const slot=selectSpellSlot(getCharacter(refId)!,Math.max(2,cast??2),slotPool);
+          if(!slot?.remaining||!spendSpellSlot(refId,slot.level,slotPool)){socket.emit('notice',{message:'No spell slot available for Misty Step.'});return;}
+        }
+        teleportMistyStep(sid,kind,refId,destination!);afterChange();broadcastSpellCast(io,sid,kind,refId);return;
+      }
       if (kind === 'monster') {
         const m = getMonster(refId);
         const ability = m?.sheetAbilities.find((a) => a.id === abilityId);
@@ -1623,6 +1644,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const requested = castSlotLevel(ability, cast);
       const slot = requested === null ? undefined : selectSpellSlot(c,requested,preferredPool);
       const castAt = slot?.level ?? cast;
+      if(partySpell(ability)&&requested!==null&&!slot?.remaining){socket.emit('notice',{message:`No spell slot available for ${ability.name}.`});return;}
       if (markSpell(ability)) {
         const needed=castAt??1;
         if (!slot || slot.remaining<=0) {
@@ -2397,11 +2419,24 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
 
     // The second half of a two-step attack: roll the parked damage and apply it.
     // The DM may resolve any of them; a player only their own attack's.
+    on('spell:shield', ({rollId,pass,level,slotPool})=>{
+      const sid=sessionId(),entry=sid&&typeof rollId==='string'?getRollEntry(rollId,sid):undefined,p=entry?.pending;
+      if(!sid||!p?.shield||!ownsCreature(p.target.kind,p.target.refId))return;
+      const result=resolveShield(sid,rollerName(sid,socket.id,isDm()),rollId,!!pass,level??1,slotPool);
+      if(!result.ok)socket.emit('notice',{message:result.reason!});afterChange();
+    });
+    on('spell:wake', ({actorTokenId,targetTokenId})=>{
+      const sid=sessionId(),actor=typeof actorTokenId==='string'?getToken(actorTokenId):null;
+      if(!sid||!actor||!ownsCreature(actor.kind,actor.refId)||typeof targetTokenId!=='string'||!canDirectlyTargetToken(targetTokenId))return;
+      const error=shakeAwake(sid,actorTokenId,targetTokenId);if(error)socket.emit('notice',{message:error});else afterChange();
+    });
+
     on('combat:damage', ({ rollId }) => {
       const sid = sessionId();
       if (!sid || typeof rollId !== 'string') return;
       const entry = getRollEntry(rollId, sid);
       if (!entry?.pending) return;
+      if(entry.pending.shield){socket.emit('notice',{message:'Waiting for the defender to cast Shield or pass.'});return;}
       const owner = entry.pending.owner;
       const caster = owner ? getCharacter(owner) : null;
       const allowed =

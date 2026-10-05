@@ -1,3 +1,4 @@
+import {partySpell} from '../../../shared/partySpells';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import {spellAreaFor,type SpellArea} from '../../../shared/spellAreas';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
@@ -87,6 +88,8 @@ const heldHpFx = new Map<string, HpFloater[]>();
 
 type Store = {
   liveDice: LiveDiceFrame | null;
+  teleportCast:AbilityRollPayload|null;
+  clearTeleportCast:()=>void;
   areaCast:{payload:AbilityRollPayload;spec:SpellArea;name:string;repeat?:import('../../../shared/types').SpellRepeatPayload}|null;
   clearAreaCast:()=>void;
   socket: TypedSocket | null;
@@ -488,6 +491,8 @@ export function isRollImpactPending(rollId:string|undefined){
 }
 export const useStore = create<Store>((set, get) => ({
   liveDice: null,
+  teleportCast:null,
+  clearTeleportCast:()=>set({teleportCast:null}),
   areaCast:null,
   clearAreaCast:()=>set({areaCast:null}),
   socket: null,
@@ -681,7 +686,7 @@ export const useStore = create<Store>((set, get) => ({
     }
     set({
       status: 'connecting',
-      areaCast:null,
+      areaCast:null,teleportCast:null,
       error: null,
       dmPassphrase: dmPassphrase ?? null,
       chatAccessToken: null,
@@ -974,7 +979,7 @@ export const useStore = create<Store>((set, get) => ({
     // Keep the last snapshot on screen during a blip; flag reconnecting unless we
     // intentionally left (disconnect()/leave sets status to 'idle' separately).
     socket.on('disconnect', (reason) => {
-      set({liveDice:null, areaCast:null, chatAccessToken: null});
+      set({liveDice:null, areaCast:null,teleportCast:null, chatAccessToken: null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });
@@ -997,7 +1002,7 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   selectMap: (mapId) => {
-    set({ viewMapId: mapId, areaCast:null });
+    set({ viewMapId: mapId, areaCast:null,teleportCast:null });
     get().socket?.emit('map:select', { mapId });
   },
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
@@ -1137,6 +1142,7 @@ export const useStore = create<Store>((set, get) => ({
   rollAbility: (payload) => {
     const view=get().snapshot,caster=payload.kind==='pc'?view?.characters.find(c=>c.id===payload.refId):view?.monsters.find(c=>c.id===payload.refId);
     const a=caster&&'sheetAbilities'in caster?caster.sheetAbilities.find(a=>a.id===payload.abilityId):undefined,spec=a&&spellAreaFor(a,payload.castLevel);
+    if(a&&partySpell(a)==='misty step'&&!payload.destination){set({teleportCast:{...payload,targetTokenId:undefined},areaCast:null,saveResolve:null,orbTarget:null});return;}
     if(spec&&!payload.area){set({areaCast:{payload:{...payload,targetTokenId:undefined},spec,name:a!.name},saveResolve:null,orbTarget:null});return;}
     get().socket?.emit('ability:roll',payload);
   },

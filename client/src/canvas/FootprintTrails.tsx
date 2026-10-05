@@ -58,7 +58,7 @@ export function FootprintLayer({
       nextPos.set(t.id, { x: t.x, y: t.y });
       const moved = prev ? Math.hypot(t.x - prev.x, t.y - prev.y) : 0;
       const steps = footstepLayout(moved, t.widthFt, pxPerFoot);
-      if (prev && steps.length) {
+      if (prev && steps.length && !t.leavesNoTracks && !(t.teleportedAt && t0-t.teleportedAt<1000)) {
         fresh.push({
           id: `${t.id}-${t0}`,
           tokenId: t.id,

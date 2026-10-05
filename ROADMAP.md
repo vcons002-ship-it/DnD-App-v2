@@ -2486,3 +2486,12 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Map setup preflight checkboxes skip unchecked workflows before any API calls. Separate **Analyze selected regions** control supports up to eight drawn regions, cropped API inputs and restoration into original map coordinates. Live two-region light drafting and browser regressions verified. Qwen feature gating remains experimental after cave false negatives and extra window/light suggestions; see [selective map analysis](docs/MAP_ANALYSIS_REGIONS.md).
 - [x] Door image pass paints complete opaque cyan door shapes. Filled-footprint review and bounded fitting to nearby wall caps preserve linked door/lock behavior and legacy line markers. Crossroads cottage door passed saved closed/open sight and movement checks; other candidates remain rejected when jambs do not align. See [filled door masks](docs/FILLED_DOOR_MASKS.md).
 - [x] Door fitting can connect two nearby facing wall ends to a filled door with short editable wall extensions, shown before Apply. Reusing the Crossroads masks now fits the watchhouse door; closed/open/lock and side-gap collision checks pass. Unsupported candidates remain rejected.
+
+
+### Current-party spell workflows (5 Oct 2026)
+
+- [x] Shield: persistent post-hit reaction choice, slot/reaction spending, triggering-hit recheck, +5 AC until the caster?s next turn, natural-20 handling, and Magic Missile protection. Automatic and manual damage modes use the same gate; private attack math is withheld from reaction offers.
+- [x] Misty Step: visible map destination picker, confirmation/cancellation, 30-foot range and occupancy checks, player-specific sight/fog validation, and immediate teleport presentation without walking or footsteps through a wall/window. Invalid destinations and empty slots leave the token and resources unchanged.
+- [x] Hypnotic Pattern: measured 30-foot cube, grouped Wisdom saves, linked Charmed/Incapacitated and speed zero, action-block explanation, wake-up on damage (including temporary-HP absorption) or an adjacent creature?s Shake awake action, and concentration/duration cleanup. No repeat saving throw is invented.
+- [x] Pass without Trace: chosen recipients in a moving 30-foot emanation, named +10 Stealth modifier, automatic leave/re-entry updates, no stacking, suppressed footprint trails, and one-hour/concentration cleanup.
+- [x] Runtime profiles recognize unchanged saved entries; explicit custom/manual mechanics remain table-managed. Command and Alter Self are unchanged.

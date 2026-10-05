@@ -7,7 +7,7 @@
 import type { Condition, InventoryItem, ModTarget, SheetModifier, Weapon } from './types.js';
 import type { AbilityKey } from './skills.js';
 import { rollDice } from './dice.js';
-import { hasteAcBonus } from './spellBuffs.js';
+import { hasteAcBonus,shieldAcBonus } from './spellBuffs.js';
 
 const ABILITIES: AbilityKey[] = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 
@@ -101,7 +101,7 @@ export function effectiveAc(c: ModSource): number {
     (c.armorClass ?? 0) +
     activeModifiers(c)
       .filter((m) => m.target.kind === 'ac')
-      .reduce((s, m) => s + m.value, 0) + hasteAcBonus(c)
+      .reduce((s, m) => s + m.value, 0) + hasteAcBonus(c) + shieldAcBonus(c)
   );
 }
 
@@ -125,10 +125,14 @@ export function saveExtra(c: ModSource, ability: string) {
 /** Flat bonus to a skill check (matches that skill or all-skills). */
 export function skillExtra(c: ModSource, skillName: string) {
   const sk = skillName.trim().toLowerCase();
-  return extras(
+  const result=extras(
     c,
     (t) => t.kind === 'skill' && (!t.skill || t.skill.trim().toLowerCase() === sk),
   );
+  if(sk==='stealth'&&(c.conditions??[]).some(v=>v.combatEffect?.stealthBonus===10)){
+    result.total+=10;result.parts.push({source:'Pass without Trace',value:10});
+  }
+  return result;
 }
 
 /** Flat bonus to every attack roll. */

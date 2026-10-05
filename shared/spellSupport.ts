@@ -1,3 +1,4 @@
+import {partySpell} from './partySpells.js';
 import {linkedSpellProfile} from './linkedSpells.js';
 import {spellAreaFor} from './spellAreas.js';
 import type { SheetAbility } from './types.js';
@@ -186,6 +187,11 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
   if (input.type !== 'spell') return null;
   const ability: SheetAbility = { id: 'support-audit', description: '', ...input };
   const key = abilityKey(ability);
+  const party=partySpell(ability);
+  if(party){
+    const descriptions:Record<string,string>={shield:'Post-hit reaction choice, slot/reaction spending, +5 AC through the next turn, triggering-hit recheck and Magic Missile immunity.', 'misty step':'Choose and confirm a visible, unoccupied destination within 30 feet; teleport without walking through intervening walls.', 'hypnotic pattern':'Measured cube and grouped Wisdom saves; linked Charmed/Incapacitated, speed zero, wake-up on damage or an action, concentration and expiry cleanup.', 'pass without trace':'Choose recipients; moving 30-foot emanation grants +10 Stealth only while inside, with concentration and duration cleanup.'};
+    return {status:'ready',label:'Combat ready',automated:[descriptions[party]],manual:[],manualCastOnly:false};
+  }
   const linked=linkedSpellProfile(ability);
   if(linked) {
     const automated:Record<string,string>={

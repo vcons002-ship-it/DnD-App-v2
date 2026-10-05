@@ -8,6 +8,7 @@ import {isLiveCommand,noteRollFacing} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
 import { abilityKey, markSpell } from '../../shared/hitFeatures.js';
 import { checkReveal } from '../../shared/rollReveal.js';
+import {teleportTime,clearTeleport} from './tokenTeleports.js';
 import { clearRipostes, RIPOSTE_SPENT } from './reactions.js';
 import { creatureBaseline, readCreatureBaseline, scaleCreature, scaledCurrentHp, validCR } from "../../shared/creatureScaling.js";
 import { requestCreatureAsset } from './assets/hooks.js';
@@ -473,14 +474,14 @@ export function listTokens(mapId: string): Token[] {
   const rows = db
     .prepare('SELECT * FROM tokens WHERE map_id = ? ORDER BY created_at ASC')
     .all(mapId) as Parameters<typeof rowToToken>[0][];
-  return rows.map(rowToToken);
+  return rows.map(row=>({...rowToToken(row),teleportedAt:teleportTime(row.id)}));
 }
 
 export function getToken(tokenId: string): Token | null {
   const row = db.prepare('SELECT * FROM tokens WHERE id = ?').get(tokenId) as
     | Parameters<typeof rowToToken>[0]
     | undefined;
-  return row ? rowToToken(row) : null;
+  return row ? {...rowToToken(row),teleportedAt:teleportTime(row.id)} : null;
 }
 
 export function createToken(opts: {
@@ -627,6 +628,7 @@ export function wallLimitedMove(token:Token,x:number,y:number) {
 }
 
 export function moveToken(tokenId: string, x: number, y: number, blockWalls=false): Token | null {
+  clearTeleport(tokenId);
   // Never trust client coordinates: reject NaN/Infinity and clamp to a sane
   // canvas range so a buggy/forged payload can't park a token at ±1e9 (which
   // would break the map view for everyone) or bind a non-finite value.
@@ -1222,7 +1224,7 @@ export function setActiveTurn(sessionId: string, tokenId: string | null): void {
   if (token?.kind === 'pc') {
     const ch = getCharacter(token.refId);
     for (const condition of ch?.conditions ?? [])
-      if (condition.label === RIPOSTE_SPENT) clearCondition('pc', token.refId, condition.id);
+      if (/^reaction spent/i.test(condition.label)) clearCondition('pc', token.refId, condition.id);
   }
   db.prepare(
     'UPDATE sessions SET active_turn_token_id = ? WHERE id = ?',
@@ -1591,7 +1593,7 @@ export function advanceTurn(sessionId: string): void {
 export function clearInitiative(sessionId: string): void {
   setInitiativePending(sessionId, false);
   for (const ch of listCharacters(sessionId)) for (const condition of ch.conditions)
-    if (condition.label === RIPOSTE_SPENT) clearCondition('pc', ch.id, condition.id);
+    if (/^reaction spent/i.test(condition.label)) clearCondition('pc', ch.id, condition.id);
   const session = getSessionById(sessionId);
   if (session?.activeMapId) {
     db.prepare(
@@ -3470,6 +3472,10 @@ export function applyDamage(
       );
     }
     entity = kind === 'pc' ? getCharacter(refId)! : getMonster(refId)!;
+  }
+  if(amount>0){
+    for(const c of entity.conditions)if(c.label==='Hypnotic Pattern'&&c.combatEffect?.spell==='Hypnotic Pattern')clearCondition(kind,refId,c.id);
+    entity=kind==='pc'?getCharacter(refId)!:getMonster(refId)!;
   }
   // 2024 rules: damage drains the temporary-HP buffer first, then real HP;
   // healing (amount < 0) only restores real HP and never refills temp HP.

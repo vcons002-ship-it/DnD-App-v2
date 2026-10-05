@@ -1,3 +1,4 @@
+import {partySpell} from '../../../shared/partySpells';
 import {linkedSpellProfile,spellKey} from '../../../shared/linkedSpells';
 import {spellAreaFor} from '../../../shared/spellAreas';
 import { hitFeature, markSpell, abilityKey } from '../../../shared/hitFeatures';
@@ -120,7 +121,7 @@ export function AbilityButtons({
             key={menu ? a.id : 'btn'}
             className={`${menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}${spent ? ' recharge-spent' : ''}`}
             title={[a.description || 'Ability', workflow, support?.manual.length ? `You handle: ${support.manual.join('; ')}` : '', manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
-            disabled={!!spellActionBlock(caster) || (!area && !manualCast && !menu && !selfSpell && !multiple && (execution.roll?.kind === 'heal' ? execution.roll.healTarget !== 'self' && !healTargetId : !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId)))}
+            disabled={!!spellActionBlock(caster) || (!area && !manualCast && !menu && !selfSpell && !['misty step','pass without trace'].includes(partySpell(a)??'') && !multiple && (execution.roll?.kind === 'heal' ? execution.roll.healTarget !== 'self' && !healTargetId : !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId)))}
             onClick={() => cast(a)}
           >
             {manualCast ? 'Cast manually ·' : (isCanonicalHasteProfile(a) || markSpell(a) ? '\u2726' : execution.roll ? ROLL_ICON[execution.roll.kind] : undefined) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}

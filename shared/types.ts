@@ -46,6 +46,8 @@ export type Condition = {
     attackDisadvantage?: boolean; checkDisadvantage?: boolean;
     untilCasterEnd?: boolean; untilTargetStart?: boolean; casterTurnStarted?: boolean;
     saveBeforeDamage?: boolean; once?: boolean;
+    auraRecipients?: {kind:TokenKind;refId:string}[];
+    stealthBonus?: number;
   };
 
 };
@@ -143,6 +145,8 @@ export type FogLayer = 'map' | 'tokens';
 
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
+  teleportedAt?: number;
+  leavesNoTracks?: boolean;
   /** Derived active spell marks; display only, never a persisted condition. */
   markLabels?: string[];
   /** Viewer-only live party awareness. Render grayscale; never a direct target.
@@ -872,6 +876,7 @@ export type StateSnapshot = {
   playerVision?: import('./playerVision.js').PlayerVision;
   initiativePending?: boolean;
   ripostes?: RiposteOpportunity[];
+  shieldReactions?: {rollId:string;kind:TokenKind;refId:string;name:string;magicMissile:boolean}[];
   role: Role;
   sessionCode: string;
   /** The campaign/session name (DM-editable). */
@@ -1095,6 +1100,9 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  /** Server-only reaction gate; public offers expose no attack math. */
+  awaitingShield?: boolean;
+  shield?: {abilityId:string;attackTotal?:number;natural20?:boolean;automatic:boolean};
   spellLink?: import('./linkedSpells.js').LinkedSpellContext;
   /** Defended spell damage alone, excluding mark/other riders (Vampiric Touch). */
   spellDamageAmount?: number;
@@ -1195,6 +1203,7 @@ export type RollEntry = {
      */
     split?: number[];
     /** Split spell (Magic Missile): number of darts to assign, one per click. */
+    caster?: {kind:TokenKind;refId:string};
     darts?: number;
     /** Per-dart damage dice, rolled fresh on each click (e.g. "1d4+1"). */
     dice?: string;
@@ -1490,6 +1499,7 @@ export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds
  * the DC/to-hit derive from its CR (no spell-slot spend).
  */
 export type AbilityRollPayload = {
+  destination?: {mapId:string;x:number;y:number};
   area?: import('./spellAreas.js').SpellAreaPlacement;
   kind: TokenKind;
   refId: string;
@@ -1801,6 +1811,8 @@ export interface ClientToServerEvents {
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'spell:shield': (payload: {rollId:string;pass?:boolean;level?:number;slotPool?:'spellcasting'|'pact'}) => void;
+  'spell:wake': (payload: {actorTokenId:string;targetTokenId:string}) => void;
   'haste:action': (payload: HasteActionPayload) => void;
   'spell:repeat': (payload: SpellRepeatPayload) => void;
   'spell:dropHeatedItem': (payload: {kind:TokenKind;refId:string;conditionId:string}) => void;

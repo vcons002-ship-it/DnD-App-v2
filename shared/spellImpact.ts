@@ -1,7 +1,7 @@
 import type {Condition,HpFxEvent} from './types.js';
 
 export type SpellImpactStyle={kind:'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
-export const LINKED_SPELL_FX=['Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
+export const LINKED_SPELL_FX=['Shield','Misty Step','Hypnotic Pattern','Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
 const colors:Record<string,string>={fire:'#ff702c',cold:'#72cbff',lightning:'#96cfff',thunder:'#b9a7ff',acid:'#b5ed43',poison:'#68d868',necrotic:'#a471df',radiant:'#ffe6a0',force:'#bc9bff',psychic:'#ff79cd'};
 /** Only cosmetic spell identifiers cross the FX channel, never a hidden
  * attack's full title, weapon details or modifier breakdown. */
@@ -15,6 +15,7 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
   if(event.effect==='loot')return;
   const name=(event.spell??'').replace(/[’‘]/g,"'").toLowerCase();
   const forms:Record<string,[SpellImpactStyle['kind'],string]>={
+    'shield':['aura','force'],'misty step':['illusion','force'],'hypnotic pattern':['illusion','psychic'],
     'mirror image':['illusion','force'],'ice knife':['shards','cold'],"melf's acid arrow":['acid','acid'],
     'vampiric touch':['aura','necrotic'],'hold person':['chains','force'],'hold monster':['chains','force'],
     'phantasmal killer':['haunt','psychic'],'heat metal':['flame','fire'],'witch bolt':['burst','lightning'],
@@ -44,7 +45,7 @@ export function persistentSpellVisual(condition:Condition):string|undefined{
   const name=spellImpactName(fx.spell);if(!name)return;
   if(condition.label==='Haste lethargy')return;
   if(fx.spellAction&&!['Flame Blade','Vampiric Touch'].includes(name))return;
-  if(['Hold Person','Hold Monster','Phantasmal Killer','Heat Metal',"Melf's Acid Arrow",'Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp','Flame Blade','Vampiric Touch','Ensnaring Strike','Entangle'].includes(name))return name;
+  if(['Hypnotic Pattern','Shield','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal',"Melf's Acid Arrow",'Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp','Flame Blade','Vampiric Touch','Ensnaring Strike','Entangle'].includes(name))return name;
 }
 
 /** A quick rise, readable crest, then smooth decay. No rapid strobe. */

@@ -76,7 +76,7 @@ test('Saved and catalog spells show honest support, filters, and a route to Comb
   await f.openSheet();
   await expect(f.entry('Magic Missile').locator('[data-spell-support]')).toHaveAttribute('data-spell-support', 'ready');
   await expect(f.entry('Hold Person').locator('[data-spell-support]')).toHaveAttribute('data-spell-support', 'ready');
-  await expect(f.entry('Shield').locator('[data-spell-support]')).toHaveAttribute('data-spell-support', 'manual');
+  await expect(f.entry('Shield').locator('[data-spell-support]')).toHaveAttribute('data-spell-support', 'ready');
   for (const name of ['Mage Hand', 'Divine Smite']) await expect(f.entry(name).getByRole('button', { name: 'Look up mechanics', exact: true })).toHaveCount(0);
   await expect(f.entry('Hail of Thorns').getByRole('button', { name: 'Cast manually', exact: true })).toHaveCount(0);
   await expect(f.entry('Conjure Animals').getByRole('button', { name: /Summon/ })).toHaveCount(0);
@@ -131,6 +131,8 @@ test('Manual spells record casting and slots without fake healing, damage, or le
   const enemy = f.ready.tokens.find(t => t.kind === 'monster')!;
   await f.clickToken(pc.id); await f.clickToken(enemy.id, 'right');
   await page.locator('.floating-menu').getByRole('button', { name: /Cast manually.*Conjure Animals/ }).click();
+  const area=page.getByRole('region',{name:'Place spell area'});await expect(area).toBeVisible();
+  await f.clickToken(enemy.id);await area.getByRole('button',{name:/Confirm area/}).click();
   await expect.poll(async () => (await f.snapshot()).characters.find(c => c.id === f.characterId)!.spellSlots.L3.used).toBe(1);
   const after = await f.snapshot();
   expect(after.tokens.length).toBe(f.ready.tokens.length);
