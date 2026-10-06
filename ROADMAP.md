@@ -6,6 +6,12 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Dice appearance revision: optional denser DM resin and background
+  comparison, 2.5x faster Vanec lightning propagation, and bounded instanced
+  folded leaves/curved vine stems/3D thorns sprouting along Varis roll paths.
+  Botanical branches fade with the trail; gameplay defaults stay unchanged.
+
+
 - [x] Preview-only subtle DM volume light, Vanec lightning leader propagation
   with following branches and return stroke, and depth-tested emerald/gold
   Varis rolling trails. Rotatable viewer and live-physics comparison expose the

@@ -22,7 +22,7 @@ const art=await loadTrayTexture('dm');
 const experiment=new URLSearchParams(location.search).get('effects')==='1';
 if(experiment){
  document.querySelector('h1')!.textContent='Dice power, inner light & rolling trails';
- document.querySelector('main > p')!.textContent='Vanec: traveling lightning. DM: subtle inner light. Varis: fading emerald and gold rolling trail.';
+ document.querySelector('main > p')!.textContent='Vanec: faster lightning. DM: denser lit resin. Varis: branching vines, leaves and thorns.';
 }
 
 async function roll(next=sides){
@@ -36,7 +36,7 @@ async function roll(next=sides){
  const nextWorld=createLiveWorld(dice,++seed,'bottom');
  const snapshot=nextWorld.snapshot();
  toss={radius:snapshot.radius,frames:new Float32Array(snapshot.poses),frameCount:1,step:1,topFaces:dice.map(()=>0),duration:Infinity,settleTimes:[],wallHits:0};
- const nextRenderer=createTrayRenderer(dice,toss,themes[3],undefined,art?.clone(),true,dice.map(d=>themes[d.set]),experiment?{lightning:true,dmGlow:.65,varisTrail:true}:undefined);
+ const nextRenderer=createTrayRenderer(dice,toss,themes[3],undefined,art?.clone(),true,dice.map(d=>themes[d.set]),experiment?{lightning:true,dmGlow:.65,denseDm:true,varisTrail:true}:undefined);
  labels=dice.map(d=>{const l=document.createElement('div');l.className='die-label';l.textContent=names[d.set]+(d.tens?' tens':d.ones?' ones':'');l.hidden=true;tray.append(l);return l;});
  const r=tray.getBoundingClientRect();
  await nextRenderer.prepare(r.width,r.height,Math.min(devicePixelRatio,1.5));
@@ -52,6 +52,7 @@ async function roll(next=sides){
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
   renderer.draw(ctx,r.width,r.height,dpr,0,now);
   canvas.dataset.trailPoints=String(renderer.trailPointCount());
+  canvas.dataset.trailBranches=String(renderer.trailBranchCount());
   labels.forEach((l,i)=>{const p=renderer!.numberPosition(i);l.hidden=p.x<.05||p.x>.95||p.y<.05||p.y>.88;l.style.left=`${p.x*100}%`;l.style.top=`calc(${p.y*100}% + ${sides===100?25:38}px)`;});
   if(snapshot.done&&!done){
    done=true;tray.dataset.state='settled';

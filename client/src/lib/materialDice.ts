@@ -128,7 +128,7 @@ void main(){
    float spark=pow(max(0.,1.-vein*55.),4.)*smoothstep(.53,.73,cloud);
    if(style==0)energy+=vec3(1.,.065,.11)*spark*stepSize*interior*1.6;
    if(style==0&&internalLightning>.5){
-     float cycle=floor(time/1.65),phase=mod(time,1.65);
+     float cycle=floor(time/1.2),phase=mod(time,1.2)*2.5;
      vec2 arc=electricArc(p,cycle+7.);
      float head=clamp((phase-.13)/.48,0.,1.);
      float reached=smoothstep(arc.y-.025,arc.y+.008,head);
@@ -265,6 +265,7 @@ varying vec3 resinNormal;
 uniform vec3 resinEye;
 uniform float resinTime;
 uniform float resinGlow;
+uniform float resinDensity;
 uniform vec4 resinPlanes[20];
 uniform int resinPlaneCount;
 float resinHash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -294,6 +295,7 @@ const resinCloudTransmission=`
  }
  float cloudOpacity=1.-exp(-cloudDepth*1.25);
  totalDiffuse=mix(totalDiffuse,vec3(.009,.003,.021),cloudOpacity);
+ totalDiffuse=mix(totalDiffuse,vec3(.024,.008,.045),resinDensity*.22);
  // Soft volume illumination remains below the bright exterior gold inlays.
  totalDiffuse+=vec3(.09,.028,.19)*(1.-exp(-glowDepth*1.4))*resinGlow;
 `;
@@ -316,7 +318,8 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},internalLightning:{value:0},resinGlow:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},internalLightning:{value:0},resinGlow:{value:0},resinDensity:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  let resinBody:THREE.MeshPhysicalMaterial|undefined;
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
     // Draw front gold after transmission so refraction cannot duplicate a bright
@@ -376,16 +379,18 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       transmission:.98,opacity:1,ior:1.48,thickness:1.3,attenuationColor:'#8a34c9',attenuationDistance:6,
       specularIntensity:.3,clearcoat:.06,clearcoatRoughness:.12,
       envMap:s.scene.environment,envMapIntensity:.025,dispersion:.12});
+    resinBody=resin;
     resin.onBeforeCompile=shader=>{
       shader.uniforms.resinEye=uniforms.eye;shader.uniforms.resinTime=uniforms.time;
       shader.uniforms.resinGlow=uniforms.resinGlow;
+      shader.uniforms.resinDensity=uniforms.resinDensity;
       shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
       shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
       shader.fragmentShader=resinCloudDeclarations+'\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
     };
-    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v2';
+    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v3';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   let lastValue=-1,lastReadable=false;
@@ -395,6 +400,11 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     // Preview opt-in; gameplay retains the accepted material until approved.
     setInternalLightning(enabled:boolean){uniforms.internalLightning.value=enabled&&theme.id==='sorcerer'&&!crit?1:0;},
     setInnerGlow(strength:number){uniforms.resinGlow.value=dm&&!crit?THREE.MathUtils.clamp(strength,0,1):0;},
+    setDenseResin(enabled:boolean){
+      if(!resinBody)return;uniforms.resinDensity.value=enabled?1:0;
+      resinBody.transmission=enabled ? .78 : .98;resinBody.attenuationDistance=enabled?2.2:6;
+      resinBody.color.set(enabled?'#c3a1dd':'#e9d9ff');resinBody.roughness=enabled ? .07 : .055;
+    },
     resultPosition(target:THREE.Vector3) {
       // Match the numbered surface instead of estimating a height above the body.
       if(sides===4){

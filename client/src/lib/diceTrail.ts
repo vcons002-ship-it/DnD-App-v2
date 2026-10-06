@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createTrailBranches} from './diceTrailBranches';
 
 type TrailPoint={x:number;y:number;time:number};
 /** Optional appearance experiment. Ground-space ribbons respect tray/die depth. */
@@ -22,13 +23,16 @@ export function createDiceTrails(scene:THREE.Scene,radius:number,indices:number[
   sparksGeometry.setAttribute('position',new THREE.BufferAttribute(sparkPosition,3).setUsage(THREE.DynamicDrawUsage));sparksGeometry.setAttribute('color',new THREE.BufferAttribute(sparkColor,3).setUsage(THREE.DynamicDrawUsage));sparksGeometry.setDrawRange(0,0);
   const sparksMaterial=new THREE.PointsMaterial({map:texture,size:radius*.23,vertexColors:true,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false});
   const sparks=new THREE.Points(sparksGeometry,sparksMaterial);sparks.frustumCulled=false;scene.add(sparks);
-  return {index,points:[] as TrailPoint[],lastSample:undefined as TrailPoint|undefined,geometry,material,ribbon,sparksGeometry,sparksMaterial,sparks,position,color,sparkPosition,sparkColor};
+  const branches=createTrailBranches(scene,radius);
+  return {index,branches,points:[] as TrailPoint[],lastSample:undefined as TrailPoint|undefined,geometry,material,ribbon,sparksGeometry,sparksMaterial,sparks,position,color,sparkPosition,sparkColor};
  });
  return {
   pointCount(){return trails.reduce((sum,t)=>sum+t.points.length,0);},
+  branchCount(){return trails.reduce((sum,t)=>sum+t.branches.count(),0);},
   update(poses:THREE.Object3D[],now:number){
    for(const trail of trails){
     const {points,position,color}=trail,p=poses[trail.index].position,last=trail.lastSample;
+    trail.branches.update(p,now);
     if(p.z<radius*1.45&&Math.abs(p.x)<6.9&&Math.abs(p.y)<4.45&&(!last||Math.hypot(p.x-last.x,p.y-last.y)>radius*.085)){
      const point={x:p.x,y:p.y,time:now};points.push(point);trail.lastSample=point;
     }
@@ -50,6 +54,6 @@ export function createDiceTrails(scene:THREE.Scene,radius:number,indices:number[
     trail.sparksGeometry.setDrawRange(0,spark);trail.sparksGeometry.attributes.position.needsUpdate=true;trail.sparksGeometry.attributes.color.needsUpdate=true;
    }
   },
-  dispose(){for(const t of trails){scene.remove(t.ribbon,t.sparks);t.geometry.dispose();t.material.dispose();t.sparksGeometry.dispose();t.sparksMaterial.dispose();}texture.dispose();ribbonMap.dispose();}
+  dispose(){for(const t of trails){t.branches.dispose();scene.remove(t.ribbon,t.sparks);t.geometry.dispose();t.material.dispose();t.sparksGeometry.dispose();t.sparksMaterial.dispose();}texture.dispose();ribbonMap.dispose();}
  };
 }
