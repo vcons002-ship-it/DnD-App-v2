@@ -58,7 +58,11 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const c=canvas.getContext('2d')!,gradient=c.createRadialGradient(32,32,4,32,32,32);gradient.addColorStop(0,'#000a');gradient.addColorStop(1,'#0000');c.fillStyle=gradient;c.fillRect(0,0,64,64);
   const texture=new THREE.CanvasTexture(canvas);textures.push(texture);
   const shadows=dice.map(()=>{const g=new THREE.PlaneGeometry(2,2),m=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false});const mesh=new THREE.Mesh(g,m);scene.add(mesh);geometry.push(g);materials.push(m);return mesh;});
-  const handles=dice.map((d,i)=>{const h=createMaterialDie(d.sides,theme,!!d.crit,!!d.tens,!!d.ones);h.setFaceValues(fixedFaces?Array.from({length:d.sides},(_,j)=>d.tens?j*10:d.ones?j:j+1):trayFaceValues(d,toss.topFaces[i]),fixedFaces);h.object.scale.setScalar(toss.radius);h.object.traverse(child=>{if(child instanceof THREE.Mesh)child.castShadow=true;});scene.add(h.object);return h;});
+  const handles=dice.map((d,i)=>{const h=createMaterialDie(d.sides,theme,!!d.crit,!!d.tens,!!d.ones);h.setFaceValues(fixedFaces?Array.from({length:d.sides},(_,j)=>d.tens?j*10:d.ones?j:j+1):trayFaceValues(d,toss.topFaces[i]),fixedFaces);h.object.scale.setScalar(toss.radius);
+    // The standard shadow pass cannot transmit resin or discard this custom
+    // inlay shader's empty areas. Keep its soft contact shadow instead of an
+    // opaque silhouette cast by every numbered face.
+    h.object.traverse(child=>{if(child instanceof THREE.Mesh)child.castShadow=!(theme.id.startsWith('dm-')&&!d.crit);});scene.add(h.object);return h;});
   // Rings identify the result without tinting the player's material or hiding numerals.
   const rings=dice.map(d=>{
     const g=new THREE.RingGeometry(toss.radius*1.12,toss.radius*1.23,64);

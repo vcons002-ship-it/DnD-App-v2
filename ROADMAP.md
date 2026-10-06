@@ -2550,3 +2550,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] DM purple resin faces transmit substantially more tray detail, with thicker reflective grazing edges and opaque gold numerals. Player dice and roll physics are unchanged. Daylight Spike Growth review captures its persistent ground thorns from 45 degrees and overhead.
 
 - [x] Purple DM dice use a closed physically transmissive resin body: tray refraction, purple volume absorption, glossy environment reflections and separate opaque gold numeral inlays. Spike Growth has denser/thicker merged brambles with 48 softly drifting green motes rendered in two instanced meshes; reduced motion freezes drift and cleanup releases instance buffers.
+
+- [x] DM resin readability: lighter surface filtering, purple absorption through depth, restrained face reflections, and double-sided opaque gold cutouts included in the refraction pass. Rear inlays and tray texture are visible through the body; soft contact shadows replace unsupported opaque resin shadows. Recorded creature d20 checks and general 2d6 rolls in the real tray.

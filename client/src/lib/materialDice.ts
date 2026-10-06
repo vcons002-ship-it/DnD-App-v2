@@ -216,7 +216,9 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
-    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:!gem,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    // Cutout gold belongs in the opaque transmission pass. Double-sided inlays
+    // make the far numerals visible, refracted through the resin volume.
+    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem}},vertexShader:vertex,fragmentShader:fragment,transparent:!gem,depthWrite:true,side:gem?THREE.DoubleSide:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();
@@ -258,9 +260,13 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     const bodyGeometry=mergeGeometries(pieces)!;pieces.forEach(g=>g.dispose());geometries.push(bodyGeometry);
     // Explicit envMap makes this material's intensity control independent of
     // Scene.environmentIntensity, preserving the existing player/tray lighting.
-    const resin=new THREE.MeshPhysicalMaterial({color:'#bf91f0',metalness:0,roughness:.08,
-      transmission:.98,opacity:1,ior:1.56,thickness:1.45,attenuationColor:'#7822b9',attenuationDistance:2.5,
-      clearcoat:.55,clearcoatRoughness:.045,envMap:s.scene.environment,envMapIntensity:.16,dispersion:.12});
+    // Tint mostly by distance through the volume, rather than multiplying two
+    // dense purple filters. Small studio reflections preserve the tray detail
+    // instead of turning a whole face into an opaque white softbox reflection.
+    const resin=new THREE.MeshPhysicalMaterial({color:'#e9d9ff',metalness:0,roughness:.055,
+      transmission:.98,opacity:1,ior:1.48,thickness:1.3,attenuationColor:'#8a34c9',attenuationDistance:6,
+      specularIntensity:.3,clearcoat:.06,clearcoatRoughness:.12,
+      envMap:s.scene.environment,envMapIntensity:.025,dispersion:.12});
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   let lastValue=-1;

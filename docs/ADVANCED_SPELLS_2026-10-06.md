@@ -151,3 +151,25 @@ motion and stay behind foreground figures through depth testing. Existing local
 spell-light sampling follows representative motes; no extra shadow-map lights
 are created. Instance buffers are released when the effect is removed. The video
 shows daylight, overhead and regular darkness, plus movement damage.
+
+## Clearer DM resin in the actual tray
+
+[Updated DM resin rolls](https://dnd.nic024i.app/uploads/previews/dm-clear-resin-20261006/index.html)
+
+The previous physical material still appeared solid because dense surface tint
+and volume filtering suppressed the tray detail, while studio reflections filled
+entire faces. The revised material keeps most color in its volume absorption and
+reduces those reflections. Opaque, double-sided cutout gold inlays now participate
+in the transmission render pass, allowing the far numerals to appear refracted
+through the resin rather than being hidden by its front surface. Front numerals
+retain their depth-tested gold surface. DM resin uses existing soft contact shadows
+instead of opaque geometry shadows, which cannot transmit this material or respect
+the custom numeral cutout shader.
+
+Patterned-background diagnostics verified transmission, and the recorded real-app
+browser scenario passed for creature d20 checks and general DM 2d6 rolls, with no
+WebGL or shader errors. Player materials, critical gold dice and physics are unchanged.
+
+Validation: typecheck, client build, all 1,766 server tests across 160 files,
+and the live DM theme browser scenario passed. Public MP4 range delivery and
+mobile-mode video playback were verified.
