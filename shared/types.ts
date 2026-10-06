@@ -25,6 +25,7 @@ export type Condition = {
    *  applied independently. Absent = applied by a person or a spell. */
   source?: 'down';
   combatEffect?: {
+    spikeArea?: {mapId:string;x:number;y:number;radiusFt:number;remainders:Record<string,number>};
     commandWord?: string; commandStarted?: boolean; commandResolved?: boolean;
     casterKind: 'pc' | 'monster'; casterId: string; spell: string;
     dc?: number; dice?: string; damageType?: string; phase?: 'start' | 'end'; save?: string;
@@ -153,6 +154,8 @@ export type Token = {
   /** Viewer-only live party awareness. Render grayscale; never a direct target.
    * Not stored on tokens or retained after the party loses sight of a creature. */
   sharedSightOnly?: boolean;
+  /** Owner/party/DM ghost rendering; unseen hostile tokens never arrive. */
+  invisible?: boolean;
   /** Server-assigned public encounter tag; U means not yet revealed (DM only). */
   revealTag?: string;
   id: string;
@@ -877,6 +880,7 @@ export type StateSnapshot = {
   playerVision?: import('./playerVision.js').PlayerVision;
   initiativePending?: boolean;
   ripostes?: RiposteOpportunity[];
+  counterspellCasts?: {id:string;spell:string;casterName:string;expiresAt:number;mine:boolean;reactors:{tokenId:string;kind:TokenKind;refId:string;name:string}[]}[];
   shieldReactions?: {rollId:string;kind:TokenKind;refId:string;name:string;magicMissile:boolean}[];
   role: Role;
   sessionCode: string;
@@ -993,6 +997,7 @@ export type ChatSendResult = {ok:boolean;error?:string};
 
 /** A persistent measuring shape on a map (a spell AOE or a ruler). */
 export type Measurement = {
+  spellName?: string;
   id: string;
   mapId: string;
   /** `ruler` = thin two-point measure; `line` = 5-ft-wide AOE; `emanation` =
@@ -1502,6 +1507,7 @@ export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds
  * the DC/to-hit derive from its CR (no spell-slot spend).
  */
 export type AbilityRollPayload = {
+  targetTokenIds?: string[];
   commandWord?: string;
   destination?: {mapId:string;x:number;y:number};
   area?: import('./spellAreas.js').SpellAreaPlacement;
@@ -1817,6 +1823,7 @@ export interface ClientToServerEvents {
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'spell:counterspell': (payload:{castId:string;reactorTokenId?:string;pass?:boolean;level?:number;slotPool?:'spellcasting'|'pact';continueCast?:boolean})=>void;
   'spell:shield': (payload: {rollId:string;pass?:boolean;level?:number;slotPool?:'spellcasting'|'pact'}) => void;
   'spell:wake': (payload: {actorTokenId:string;targetTokenId:string}) => void;
   'haste:action': (payload: HasteActionPayload) => void;

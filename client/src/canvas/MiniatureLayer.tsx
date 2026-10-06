@@ -41,6 +41,7 @@ import {
 
 export type MiniatureToken = {
   sharedSightOnly?: boolean;
+  invisible?: boolean;
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
   carriedLantern?: boolean;
@@ -600,7 +601,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.selectionRing.visible = !!token.selected;
     instance.selectionRing.scale.setScalar(token.definition.baseDiameter);
     instance.selectionRing.material.opacity = token.hidden ? 0.45 : 1;
-    instance.outlineMaterial.visible = !!token.outline;
+    instance.outlineMaterial.visible = !!token.outline && !token.invisible;
     instance.outlineMaterial.color.set(token.outline ?? "#000000");
     instance.outlineMaterial.opacity = token.hidden ? 0.45 : 1;
     instance.outlineViewport.value.set(Math.max(1, props.width), Math.max(1, props.height));
@@ -610,9 +611,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (token.tint && !material.userData.pewterBase) material.color.multiply(new Color(token.tint));
         if (token.shade && !material.userData.pewterBase) material.color.multiply(new Color(...token.shade));
       }
-      const transparent = token.hidden || instance.originalTransparent[index];
+      const transparent = !!(token.hidden || token.invisible || instance.originalTransparent[index]);
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
-      material.opacity = instance.originalOpacity[index] * (token.hidden ? 0.45 : 1);
+      material.opacity = instance.originalOpacity[index] * (token.invisible ? .28 : token.hidden ? 0.45 : 1);
     });
     instance.mirrors.update(token.mirrorImages??0,camera,!!token.sharedSightOnly,token.hidden);
     {
@@ -1009,6 +1010,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   useEffect(() => { engine.current?.sync(props); }, [props]);
   return <div ref={host} className="miniature-layer" aria-hidden="true"
     data-testid="miniature-layer" data-miniature-count={state.ids.length}
+    data-invisible-miniature-count={state.ids.filter(id=>props.tokens.find(t=>t.id===id)?.invisible).length}
     data-personal-miniature-count={state.ids.filter(id=>!props.tokens.find(t=>t.id===id)?.sharedSightOnly).length}
     data-miniature-ids={state.ids.join(',')} data-miniature-status={state.status}
     data-tilt-degrees={props.tiltDegrees} />;

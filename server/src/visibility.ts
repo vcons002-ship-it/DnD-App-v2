@@ -1,3 +1,7 @@
+import {isInvisible} from '../../shared/advancedSpells.js';
+import {seesInvisible} from '../../shared/invisibleSight.js';
+import {tokenDistanceFt} from '../../shared/distance.js';
+import {heldCasts,eligibleCounterspellers} from './counterspell.js';
 import {doorApproachPoints} from '../../shared/mapWalls.js';
 import {chatForViewer} from './privateChat.js';
 import {activeMarks} from './marks.js';
@@ -341,6 +345,10 @@ export function createSnapshotBuilder(
         lights:map.environment.lights.filter(light=>mapFog.has(`${Math.floor(light.x/grid)},${Math.floor(light.y/grid)}`))}};
       tokens = tokens.flatMap(t => {
         if(t.isHidden)return [];
+        if(isInvisible(t.kind==='pc'?charById.get(t.refId):monById.get(t.refId))&&t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly'){
+          const sees=data.tokens.some(o=>o.kind==='pc'&&owned.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map)));
+          if(!sees)return [];
+        }
         const door=map?.walls?.find(w=>w.door&&w.tokenId===t.id);
         if(door)return doorApproachPoints(door).some(p=>tokenVisibleAt({role,hidden:false,owned:false,foe:true,mapFog,tokenFog,grid,x:p.x,y:p.y})&&fogVisionContains(playerVision,p.x,p.y,usesTokenVision(map)))?[t]:[];
         const personallyVisible = tokenVisibleAt({ role, hidden: false,
@@ -440,12 +448,24 @@ export function createSnapshotBuilder(
         ...(e.pending ? {pending:{...e.pending,target:{...e.pending.target,name:caption(e.pending.target.name)!}}} : {}),
       }));
     }
-    tokens=tokens.map(t=>{const e=t.kind==='pc'?charById.get(t.refId):monById.get(t.refId);return {...t,leavesNoTracks:e?.conditions.some(c=>c.combatEffect?.stealthBonus===10)};});
+    tokens=tokens.map(t=>{const e=t.kind==='pc'?charById.get(t.refId):monById.get(t.refId);return {...t,invisible:isInvisible(e),leavesNoTracks:e?.conditions.some(c=>c.combatEffect?.stealthBonus===10)};});
+    const spikeMeasurements=[...characters,...monsters].flatMap(e=>e.conditions.flatMap(c=>{
+      const zone=c.combatEffect?.spikeArea;if(!zone||!c.isConcentration||zone.mapId!==map?.id)return [];
+      const px=map.gridSizePx/map.feetPerSquare;
+      return [{id:c.id,mapId:zone.mapId,kind:'circle' as const,origin:{x:zone.x,y:zone.y},target:{x:zone.x+zone.radiusFt*px,y:zone.y},createdBy:'Spike Growth',spellArea:{spec:{kind:'sphere' as const,sizeFt:20,rangeFt:150,ongoing:true},angle:0},spellName:'Spike Growth'}];
+    }));
     return {
       role,
       ...(playerVision?{playerVision}:{}),
       ...(role==='player'?{exploredTerrain:exploredTerrain??[]}:{}),
       initiativePending: session.initiativePending,
+      counterspellCasts:heldCasts(sessionId).flatMap(c=>{
+        const caster=data.tokens.find(t=>t.id===c.casterTokenId),mine=!!caster&&caster.kind==='pc'&&owned.has(caster.refId);
+        const reactors=eligibleCounterspellers(c).filter(t=>c.reactors.includes(t.id)&&(role==='dm'||t.kind==='pc'&&owned.has(t.refId)));
+        if(role!=='dm'&&!mine&&!reactors.length)return [];
+        const e=caster&&(caster.kind==='pc'?charById.get(caster.refId):monById.get(caster.refId));
+        return [{id:c.id,spell:c.spell,casterName:role==='dm'||caster?.kind!=='monster'?e?.name??'Caster':e&&'disposition'in e?`${playerMonsterName(e)}${caster.revealTag&&caster.revealTag!=='U'?` ${caster.revealTag}`:''}`:'Caster',expiresAt:c.expiresAt,mine,reactors:reactors.map(t=>({tokenId:t.id,kind:t.kind,refId:t.refId,name:(t.kind==='pc'?charById.get(t.refId):monById.get(t.refId))!.name}))}];
+      }),
       shieldReactions:rawRollLog.filter(e=>e.pending?.shield&&!e.pending.done&&(role==='dm'||e.pending.target.kind==='pc'&&charById.get(e.pending.target.refId)?.claimedBy===socketId)).map(e=>({rollId:e.id,kind:e.pending!.target.kind,refId:e.pending!.target.refId,name:e.pending!.target.name,magicMissile:e.pending!.shield!.attackTotal===undefined})),
       ripostes: listRipostes(sessionId).filter(o =>
         (role === 'dm' || charById.get(o.owner)?.claimedBy === socketId) &&
@@ -479,7 +499,7 @@ export function createSnapshotBuilder(
         role === 'dm' ? (templates ??= listMonsterTemplates(sessionId)) : [],
       rollLog: role === 'dm' ? shapedRollLog : playerLogNames(shapedRollLog),
       chat: shapedChat,
-      measurements: data.measurements,
+      measurements: [...data.measurements,...spikeMeasurements],
       annotations: data.annotations,
       mapImages: data.mapImages,
     };

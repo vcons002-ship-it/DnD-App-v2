@@ -1,3 +1,7 @@
+import {isInvisible} from '../../shared/advancedSpells.js';
+import {seesInvisible} from '../../shared/invisibleSight.js';
+import {tokenDistanceFt} from '../../shared/distance.js';
+import {getCharacter} from './sessions.js';
 import {createPlayerVision,fogVisionContains,usesTokenVision} from '../../shared/playerVision.js';
 import { db } from './db.js';
 import type { MapState, Monster, Token } from '../../shared/types.js';
@@ -19,7 +23,7 @@ export function encounterTags(map: MapState, tokens: Token[], monsters: Map<stri
       const mapFog = map.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
       const partyVision=createPlayerVision(map,tokens,new Set(tokens.filter(t=>t.kind==='pc').map(t=>t.refId)),t=>tokenVisibleAt({role:'player',hidden:t.isHidden,owned:t.kind==='pc',foe:t.kind==='monster'&&monsters.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid:map.gridSizePx,x:t.x,y:t.y}));
-      const visible = creatures.filter(t => tokenVisibleAt({ role: 'player', hidden: t.isHidden, owned: false,
+      const visible = creatures.filter(t => (!isInvisible(monsters.get(t.refId))||monsters.get(t.refId)?.disposition==='friendly'||tokens.some(o=>o.kind==='pc'&&!o.isHidden&&!!getCharacter(o.refId)&&seesInvisible(getCharacter(o.refId)!,tokenDistanceFt(o,t,map)))) && tokenVisibleAt({ role: 'player', hidden: t.isHidden, owned: false,
         foe: monsters.get(t.refId)!.disposition !== 'friendly', mapFog, tokenFog, grid: map.gridSizePx, x: t.x, y: t.y }) && fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map)));
       // Matching DM numbers is safe only at the initial, complete reveal.
       // Never switch numbering schemes after a partial reveal.

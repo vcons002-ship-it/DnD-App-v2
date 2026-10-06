@@ -6,6 +6,23 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Invisibility: willing touch-target chooser, upcast target count, linked
+  concentration and per-recipient ending on attacks, damage and casting. Party
+  and DM see translucent miniatures; hostile invisible creatures are removed
+  from player snapshots unless an active sense detects them.
+- [x] Spike Growth: persistent 20-foot-radius ground area, difficult-terrain
+  movement preview, automatic 2d4 Piercing per five feet traveled inside it,
+  accumulated short moves and overlapping-area protection. Teleports and
+  rejected wall crossings do not trigger travel damage; concentration cleanup
+  removes the area. Discovery and movement budgets remain table-managed.
+- [x] Counterspell: 2024 reaction window for visible enemy casters within 60 feet,
+  available-slot/reaction checks, labeled caster CON save, slot preservation for
+  interrupted casts and original-owner continuation on pass/timeout. Includes
+  area spells, summons and post-hit spell buttons. Nested Counterspells and
+  unusual imperceptible casting remain manual. Disposable server and browser
+  regressions cover all three workflows; see
+  [`docs/ADVANCED_SPELLS_2026-10-06.md`](docs/ADVANCED_SPELLS_2026-10-06.md).
+
 - [x] Successful Shield reactions show a blue `Blocked!` popup for four seconds,
   with reduced-motion support. Passing, natural 20s and hits that still meet the
   raised AC do not show it. Damage reveals retain the triggering attacker's

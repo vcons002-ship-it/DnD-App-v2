@@ -1,4 +1,6 @@
 import {partySpell} from '../../shared/partySpells.js';
+import {seesInvisible} from '../../shared/invisibleSight.js';
+import {breakInvisibility} from './advancedSpells.js';
 import {shieldGate,reactionSpent} from './partySpellEffects.js';
 import {shieldAcBonus} from '../../shared/spellBuffs.js';
 import {linkedSpellProfile,spellKey,type LinkedSpellContext} from '../../shared/linkedSpells.js';
@@ -371,6 +373,7 @@ export function applyDamageNoted(
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   const after = applyDamage(kind, refId, amount, damageType, crit, rollId, {spell});
   if (!before || !after) return undefined;
+  if(amount>0&&attacker)breakInvisibility(attacker.kind,attacker.refId,'dealing damage');
   // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
   if (
     attacker?.kind === 'pc' &&
@@ -586,6 +589,10 @@ export function resolveAttack(
   // disadvantage beyond it, and a paralyzed/unconscious target within 5 ft is an
   // automatic critical hit.
   const within5 = tokensWithin5ft(at, tt, getMap(at.mapId));
+  const attackerEntity=at.kind==='pc'?getCharacter(at.refId):getMonster(at.refId),targetEntity=tt.kind==='pc'?getCharacter(tt.refId):getMonster(tt.refId);
+  const distance=tokenDistanceFt(at,tt,getMap(at.mapId));
+  if(targetEntity&&seesInvisible(targetEntity,distance))a.conditionLabels=a.conditionLabels.filter(v=>v.toLowerCase()!=='invisible');
+  if(attackerEntity&&seesInvisible(attackerEntity,distance))t.conditionLabels=t.conditionLabels.filter(v=>v.toLowerCase()!=='invisible');
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
   // Feature advantage (a maneuver, Reckless Attack) is a named REASON, not a
   // replacement for what the player requested: a requested disadvantage now
@@ -634,6 +641,7 @@ export function resolveAttack(
     extraCritDie: stanceExtraCritDie, // Savage Attacks (racial)
   });
 
+  if(!liveResume)breakInvisibility(at.kind,at.refId,'making an attack roll');
   if(out.hit&&!liveResume&&mirrorIntercept(sessionId,at,tt,roller)) {
     consumeHitAdvantage(tt);
     if(ch)closePreviousHitOptions(sessionId,ch.id);
@@ -1821,10 +1829,13 @@ export function resolveTargetedSpellAttack(opts: {
   // An orb leap originates at the previous victim; it does not turn its caster.
   if(attackerToken&&!opts.liveResume&&(!opts.orb||opts.orb.visited.length===0))faceTokenToward(opts.sessionId,attackerToken.id,tt!.id);
   const within5 = !!attackerToken && tokensWithin5ft(attackerToken, tt!, getMap(tt!.mapId));
-  const adv = attackAdvantage(attacker?combatLabels(attacker.conditions):[],
-    t.conditionLabels, within5, opts.advantage, targetGivesAdvantage(t.kind, t.refId),opts.attacker?spellAttackDis(opts.attacker.kind,opts.attacker.refId):[]);
+  const spellDistance=attackerToken?tokenDistanceFt(attackerToken,tt!,getMap(tt!.mapId)):Infinity;
+  const defender=tt!.kind==='pc'?getCharacter(tt!.refId):getMonster(tt!.refId);
+  const adv = attackAdvantage(attacker?combatLabels(attacker.conditions).filter(v=>v.toLowerCase()!=='invisible'||!defender||!seesInvisible(defender,spellDistance)):[],
+    t.conditionLabels.filter(v=>v.toLowerCase()!=='invisible'||!attacker||!seesInvisible(attacker,spellDistance)), within5, opts.advantage, targetGivesAdvantage(t.kind, t.refId),opts.attacker?spellAttackDis(opts.attacker.kind,opts.attacker.refId):[]);
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
   const { face, detail: d20detail } = opts.liveResume?.fixed ?? withDiceMetadata({label:`${opts.title} — Spell Attack Roll`},()=>rollD20Detail(adv.state));
+  if(!opts.liveResume&&opts.attacker)breakInvisibility(opts.attacker.kind,opts.attacker.refId,'making an attack roll');
   const fumble = face === 1;
   const attackTotal = face + opts.attackBonus;
   const hit = opts.liveResume?.fixed.hit ?? (face === 20 || (!fumble && attackTotal >= t.ac));
@@ -2089,6 +2100,7 @@ function resolveSheetAbilityFor(
     if(source&&!hasLineOfSight(source,target,getMap(target.mapId)?.walls))return false;
   }
   if (targetTokenId && spellControlTargetError(sessionId, ability, targetTokenId)) return false;
+  if(ability.type==='spell'&&partySpell(ability)!=='shield'&&partySpell(ability)!=='misty step')breakInvisibility(kind,entity.id,'casting a spell');
   const linkedProfile=linkedSpellProfile(ability),reuse=(ability as SheetAbility&{linkedReuse?:string}).linkedReuse;
   const linkedContext:LinkedSpellContext|undefined=linkedProfile?{spell:ability.name,abilityId:ability.id,casterKind:kind,casterId:entity.id,castLevel:castLevel??linkedProfile.level,
     dc:ability.roll?.dc??(8+(kind==='pc'?proficiencyBonus(entity.level):profBonusFor({stats:entity.stats,level:entity.level,isMonster:true}))+spellcastingMod(entity.stats,spellcastingKeyFor(entity,ability))),modifier:spellcastingMod(entity.stats,spellcastingKeyFor(entity,ability))}:undefined;

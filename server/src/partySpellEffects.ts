@@ -1,3 +1,4 @@
+import {breakInvisibility} from './advancedSpells.js';
 import {partySpell} from '../../shared/partySpells.js';
 import {shieldAcBonus,spellActionBlockMessage} from '../../shared/spellBuffs.js';
 import {effectiveAc} from '../../shared/modifiers.js';
@@ -21,7 +22,7 @@ export function shieldGate(sid:string,kind:TokenKind,id:string,attackTotal?:numb
   return {abilityId:a.id,attackTotal,natural20,automatic:!getSessionById(sid)?.manualDamage};
 }
 
-export function resolveShield(sid:string,roller:string,rollId:string,pass=false,level=1,pool?:'spellcasting'|'pact'):{ok:boolean;reason?:string;blocked?:boolean} {
+export function resolveShield(sid:string,roller:string,rollId:string,pass=false,level=1,pool?:'spellcasting'|'pact',interrupted=false):{ok:boolean;reason?:string;blocked?:boolean} {
   const entry=getRollEntry(rollId,sid),p=entry?.pending,gate=p?.shield;
   if(!p||p.done||!gate)return {ok:false,reason:'This Shield reaction has already been resolved.'};
   const e=entity(p.target.kind,p.target.refId);
@@ -32,10 +33,16 @@ export function resolveShield(sid:string,roller:string,rollId:string,pass=false,
       const ch=getCharacter(e.id)!,slot=selectSpellSlot(ch,level,pool);
       if(!Number.isInteger(level)||level<1||level>9||!slot?.remaining||!spendSpellSlot(ch.id,slot.level,pool))return {ok:false,reason:'Choose an available spell slot for Shield.'};
     }
+    breakInvisibility(p.target.kind,e.id,'casting Shield');
     const fx={casterKind:p.target.kind,casterId:e.id,spell:'Shield',castId:newId(),untilCasterTurn:true,expiresAt:Date.now()+6000};
     setCondition(p.target.kind,e.id,{id:fx.castId,label:'Shield',aura:'blue',isConcentration:false,combatEffect:fx});
     setCondition(p.target.kind,e.id,{id:newId(),label:'Reaction spent (Shield)',aura:'blue',isConcentration:false,combatEffect:{...fx,castId:undefined}});
     queueSpellImpact(sid,p.target.kind,e.id,'Shield');
+  }
+  if(interrupted){
+    const fx={casterKind:p.target.kind,casterId:e.id,spell:'Shield',untilCasterTurn:true,expiresAt:Date.now()+6000};
+    setCondition(p.target.kind,e.id,{id:newId(),label:'Reaction spent (Shield)',aura:'blue',isConcentration:false,combatEffect:fx});
+    breakInvisibility(p.target.kind,e.id,'casting Shield');
   }
   const protectedNow=shieldAcBonus(entity(p.target.kind,e.id)!)>0;
   const blocked=protectedNow&&(gate.attackTotal===undefined||!gate.natural20&&gate.attackTotal<effectiveAc(entity(p.target.kind,e.id)!));
@@ -44,7 +51,7 @@ export function resolveShield(sid:string,roller:string,rollId:string,pass=false,
     if(entry?.smite)setRollSmite(rollId,{...entry.smite,used:true});
     if(entry?.reveal)setRollReveal(rollId,{...entry.reveal,outcome:'miss',effectOutcome:'Shield blocks the hit — no damage.'});
   }
-  addRollLog(sid,{roller,label:'Shield reaction',expr:'Shield',total:0,detail:pass?'Shield declined. The hit continues.':`Shield: +5 AC until the start of ${e.name}'s next turn. ${blocked?'The triggering hit is blocked.':'The triggering hit still lands.'}`});
+  addRollLog(sid,{roller,label:'Shield reaction',expr:'Shield',total:0,detail:interrupted?'Shield countered. The hit continues.':pass?'Shield declined. The hit continues.':`Shield: +5 AC until the start of ${e.name}'s next turn. ${blocked?'The triggering hit is blocked.':'The triggering hit still lands.'}`});
   if(!blocked&&gate.automatic)resolveAttackDamage(sid,entry?.roller??roller,rollId);
   return {ok:true,blocked};
 }

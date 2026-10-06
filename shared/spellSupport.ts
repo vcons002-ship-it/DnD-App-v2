@@ -1,4 +1,5 @@
 import {partySpell} from './partySpells.js';
+import {advancedSpell} from './advancedSpells.js';
 import {isCommandSpell} from './commandSpell.js';
 import {linkedSpellProfile} from './linkedSpells.js';
 import {spellAreaFor} from './spellAreas.js';
@@ -188,6 +189,11 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
   if (input.type !== 'spell') return null;
   const ability: SheetAbility = { id: 'support-audit', description: '', ...input };
   const key = abilityKey(ability);
+  const advanced=advancedSpell(ability);
+  if(advanced){
+    const descriptions={invisibility:'Touch targets, upcast recipients, translucent party/DM figures, hostile sight filtering, advantage/disadvantage, per-target attack/damage/cast breaking, concentration and expiry.', 'spike growth':'Measured persistent 20 ft radius; path-clipped movement damage with cumulative 5 ft thresholds, Piercing defenses, concentration and expiry.',counterspell:'Pre-resolution cast interruption, visible opposing caster within 60 ft, Constitution save, reaction and slot spending; interrupted cast preserves its slot.'};
+    return {status:'partial',label:'Partial',automated:[descriptions[advanced]],manual:[advanced==='spike growth'?'Camouflaged hazard discovery and available movement budgets are DM-adjudicated.':advanced==='counterspell'?'Nested counterspells and casting without perceptible components are table-adjudicated.':'Willingness, detection by sound, and unusual senses are DM-adjudicated.'],manualCastOnly:false};
+  }
   const party=partySpell(ability);
   if(party){
     const descriptions:Record<string,string>={shield:'Post-hit reaction choice, slot/reaction spending, +5 AC through the next turn, triggering-hit recheck and Magic Missile immunity.', 'misty step':'Choose and confirm a visible, unoccupied destination within 30 feet; teleport without walking through intervening walls.', 'hypnotic pattern':'Measured cube and grouped Wisdom saves; linked Charmed/Incapacitated, speed zero, wake-up on damage or an action, concentration and expiry cleanup.', 'pass without trace':'Choose recipients; moving 30-foot emanation grants +10 Stealth only while inside, with concentration and duration cleanup.'};

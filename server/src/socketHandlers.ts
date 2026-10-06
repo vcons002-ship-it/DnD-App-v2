@@ -1,4 +1,9 @@
+import {setRollPending,setRollSmite} from './sessions.js';
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
+import {advancedSpell} from '../../shared/advancedSpells.js';
+import {castInvisibility,invisibilityError,breakInvisibility,spikeConditions} from './advancedSpells.js';
+import {deferCast,getHeldCast,heldCasts,finishHeldCast,counterspellChoice} from './counterspell.js';
+import type {AbilityRollPayload} from '../../shared/types.js';
 import {isCommandSpell,commandWord,isStandardCommand,activeCommand} from '../../shared/commandSpell.js';
 import {castCommand,resolveCommandInstruction} from './commandSpell.js';
 import {linkedSpellProfile,spellKey} from '../../shared/linkedSpells.js';
@@ -19,8 +24,10 @@ import { partyRest, restCharacter, describeRest, spendHitDice } from './rests.js
 import { canonicalClassName } from '../../shared/multiclass.js';
 import { grantLevelUp, cancelLevelUp, getLevelUpPlan, previewLevelUp, applyLevelUp, rollLevelUpHp, configureLevelUpClasses } from './leveling.js';
 import {afterRollCommit} from './liveRollContext.js';
+import {turnKey} from './hitFeatures.js';
 import { resolveHitFeature } from './hitFeatures.js';
 import { castMark } from './marks.js';
+import {abilityKey} from '../../shared/hitFeatures.js';
 import { markSpell } from '../../shared/hitFeatures.js';
 import {partySpell} from '../../shared/partySpells.js';
 import {resolveShield,mistyStepError,teleportMistyStep,shakeAwake} from './partySpellEffects.js';
@@ -286,6 +293,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
 
   io.on('connection', (socket) => {
     let activeCommandConnection:ReturnType<typeof getConn>;
+    let resumedSocketId:string|undefined,resumedCastId:string|undefined;
+    const commandSocketId=()=>resumedSocketId??socket.id;
     const commandConnection=()=>activeCommandConnection??getConn(socket.id);
     // Crash boundary: every domain handler below registers through `on` instead
     // of `socket.on`, so a throw inside a handler (a malformed payload, an
@@ -302,9 +311,14 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
       const timer=setTimeout(finish,2500);trayReady.set(id,finish);
     });
-    const liveEvents=new Set(['spell:shield','spell:repeat','dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
-    const on = ((event: string, handler: (...args: unknown[]) => void) =>
-      rawOn(event, (...args: unknown[]) => {
+    const commandDispatch=new Map<string,(...args:unknown[])=>void>();
+    const domainHandlers=new Map<string,(payload:any)=>unknown>();
+    const scheduleCastTimeout=(held:NonNullable<ReturnType<typeof deferCast>>)=>afterRollCommit(()=>{
+      const timer=setTimeout(()=>commandDispatch.get('spell:counterspell')?.({castId:held.id,continueCast:true}),Math.max(0,held.expiresAt-Date.now())+150);timer.unref();
+    });
+    const liveEvents=new Set(['spell:counterspell','spell:shield','spell:repeat','dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
+    const on = ((event: string, handler: (...args: unknown[]) => void) => {
+      const wrapped=(...args:unknown[]) => {
         const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
         const sid=sessionId();
         const runHandler=()=>{
@@ -315,13 +329,14 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             afterRollCommit(()=>broadcastSnapshots(io,sid));
           return handler(...args);
         };
-        const isRoll=liveEvents.has(event)||(event==='chat:send'&&!(args[0] as any)?.whisperTo&&!!parseRollCommand(String((args[0] as any)?.text??'')));
+        const moving=event==='token:move'?getToken((args[0] as any)?.tokenId):undefined;
+        const isRoll=!!(moving&&sid&&spikeConditions(sid).some(c=>c.combatEffect?.spikeArea?.mapId===moving.mapId))||liveEvents.has(event)||(event==='chat:send'&&!(args[0] as any)?.whisperTo&&!!parseRollCommand(String((args[0] as any)?.text??'')));
         if(options.livePhysics!==false && sid && (isRoll||rollInProgress(sid)) && !['join','disconnect','cursor:move','cursor:hide','chat:typing','token:drag'].includes(event)){
           enqueueRoll(sid,async()=>{
             if(!socket.connected||commandConnection()?.sessionId!==sid)return;
             if(!isRoll){await runHandler();return;}
             const commandConn=commandConnection();
-            const roller=rollerName(sid,socket.id,isDm());
+            const roller=rollerName(sid,commandSocketId(),isDm());
             const character=listCharacters(sid).find(c=>c.name===roller);
             const payload=args[0] as any;
             const abilityOwner=payload?.refId && (payload.kind==='pc'?getCharacter(payload.refId):getMonster(payload.refId));
@@ -408,7 +423,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           return;
         }
         invokeSafely(runHandler,failed);
-      })) as typeof socket.on;
+      };
+      domainHandlers.set(event,handler);commandDispatch.set(event,wrapped);rawOn(event,wrapped);
+    }) as typeof socket.on;
 
     const isDm = () => commandConnection()?.role === 'dm';
     const sessionId = () => commandConnection()?.sessionId;
@@ -594,7 +611,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         origin: { x: Number(origin?.x) || 0, y: Number(origin?.y) || 0 },
         target: { x: Number(target?.x) || 0, y: Number(target?.y) || 0 },
         tokenId: typeof tokenId === 'string' ? tokenId : undefined,
-        createdBy: rollerName(sid, socket.id, conn.role === 'dm'),
+        createdBy: rollerName(sid, commandSocketId(), conn.role === 'dm'),
       });
       afterChange();
     });
@@ -603,10 +620,15 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid = sessionId();
       const conn = commandConnection();
       if (!sid || !conn || !id) return;
+      const zone=spikeConditions(sid).find(c=>c.id===id),fx=zone?.combatEffect;
+      if(zone&&fx){
+        if(!ownsCreature(fx.casterKind,fx.casterId))return;
+        clearCondition(fx.casterKind,fx.casterId,id);afterChange();return;
+      }
       // The DM may remove any; a player only their own.
       removeMeasurement(
         id,
-        conn.role === 'dm' ? undefined : rollerName(sid, socket.id, false),
+        conn.role === 'dm' ? undefined : rollerName(sid, commandSocketId(), false),
       );
       afterChange();
     });
@@ -617,7 +639,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid || !conn || !getMap(mapId)) return;
       // Players may only clear their own; the DM may clear everyone's.
       const onlyMine = mineOnly || conn.role !== 'dm';
-      clearMeasurements(mapId, onlyMine ? rollerName(sid, socket.id, false) : undefined);
+      clearMeasurements(mapId, onlyMine ? rollerName(sid, commandSocketId(), false) : undefined);
       afterChange();
     });
 
@@ -641,7 +663,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         url: typeof url === 'string' ? url : undefined,
         width: Number(width) || undefined,
         height: Number(height) || undefined,
-        createdBy: rollerName(sid, socket.id, conn.role === 'dm'),
+        createdBy: rollerName(sid, commandSocketId(), conn.role === 'dm'),
       });
       afterChange();
     });
@@ -683,6 +705,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       }
       let actualLevel=typeof castLevel==='number'&&castLevel>=(ability.level??1)?Math.min(9,castLevel):ability.level??1;
       const icon = (ability.summon.icon || '✋').slice(0, 2000);
+      if(!resumedCastId){
+        const held=deferCast(sid,{kind,refId,abilityId,castLevel,slotPool,mapId,x,y},ability,commandConnection()!,commandSocketId(),rollerName(sid,commandSocketId(),isDm()),'summon:cast');
+        if(held){scheduleCastTimeout(held);afterChange();return;}
+      }
+      if(ability.type==='spell')breakInvisibility(kind,refId,'casting a spell');
       // Spend a slot for a leveled spell BEFORE spawning; bail if none left.
       if (kind === 'pc' && ability.type === 'spell' && (ability.level ?? 0) >= 1) {
         const base = ability.level ?? 1;
@@ -704,7 +731,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       createSummon(sid, mapId, Number(x) || 0, Number(y) || 0, name, icon);
       if (isConcentrationSpell(ability)) setConcentration(kind, refId, ability.name);
       addRollLog(sid, {
-        roller: rollerName(sid, socket.id, isDm()), label: ability.name, expr: 'Summon', total: 0,
+        roller: rollerName(sid, commandSocketId(), isDm()), label: ability.name, expr: 'Summon', total: 0,
         detail: `${ent!.name}: ${ability.name} — placed ${name}. Manual companion stats, commands, duration, and removal remain with the DM.`,
       });
       afterChange();
@@ -715,7 +742,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid = sessionId();
       const conn = commandConnection();
       if (!sid || !conn || !id) return;
-      removeAnnotation(id, conn.role === 'dm' ? undefined : rollerName(sid, socket.id, false));
+      removeAnnotation(id, conn.role === 'dm' ? undefined : rollerName(sid, commandSocketId(), false));
       afterChange();
     });
 
@@ -731,7 +758,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       // look for 'Player' and delete nothing.
       clearAnnotations(
         mapId,
-        onlyMine ? rollerName(sid, socket.id, conn.role === 'dm') : undefined,
+        onlyMine ? rollerName(sid, commandSocketId(), conn.role === 'dm') : undefined,
         k,
       );
       afterChange();
@@ -1281,7 +1308,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const { characterId, grantId, className } = payload;
       const sid = sessionId(), c = getCharacter(characterId);
       if (!sid || !c || c.sessionId !== sid || !isDm() && c.claimedBy !== socket.id) return;
-      const result = rollLevelUpHp(sid, rollerName(sid, socket.id, isDm()), characterId, grantId, className);
+      const result = rollLevelUpHp(sid, rollerName(sid, commandSocketId(), isDm()), characterId, grantId, className);
       if (!result.ok) socket.emit('notice', { message: result.error });
       else afterChange();
     });
@@ -1317,7 +1344,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     // ---- Resources & items (DM or the owning player) ----
     const ownsCharacter = (characterId: string): boolean => {
       const c = getCharacter(characterId);
-      return !!c && c.sessionId === sessionId() && (isDm() || c.claimedBy === socket.id);
+      return !!c && c.sessionId === sessionId() && (isDm() || c.claimedBy === commandSocketId());
     };
     // Who may edit/roll sheet abilities on a creature: a PC's owner or the DM;
     // monster sheet abilities are DM-authored (like monster:update).
@@ -1331,7 +1358,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     const canDirectlyTargetToken = (tokenId: string): boolean => {
       const conn = commandConnection();
       if (!conn) return false;
-      const snapshot = buildSnapshot(conn.sessionId, conn.role, conn.viewMapId, socket.id, conn.playerId);
+      const snapshot = buildSnapshot(conn.sessionId, conn.role, conn.viewMapId, commandSocketId(), conn.playerId);
       return !!snapshot?.tokens.some((token) => token.id === tokenId && !token.sharedSightOnly &&
         (conn.role==='dm'||visionContains(snapshot.playerVision,token.x,token.y)));
     };
@@ -1391,7 +1418,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const n = Number(count);
       if (!Number.isFinite(n) || n < 1) return;
       if(die !== undefined && ![6,8,10,12].includes(die)) return;
-      const result = spendHitDice(sid, rollerName(sid, socket.id, isDm()), characterId, Math.min(20, n),die);
+      const result = spendHitDice(sid, rollerName(sid, commandSocketId(), isDm()), characterId, Math.min(20, n),die);
       if (!result.ok) { socket.emit('notice', { message: result.reason }); return; }
       afterChange();
     });
@@ -1406,7 +1433,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       }
       const ok = useConsumable(
         sid,
-        rollerName(sid, socket.id, isDm()),
+        rollerName(sid, commandSocketId(), isDm()),
         characterId,
         itemId,
       );
@@ -1445,7 +1472,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const { success } = resolveTrapDisarm(
         sid,
-        rollerName(sid, socket.id, isDm()),
+        rollerName(sid, commandSocketId(), isDm()),
         c,
         trap,
         adv,
@@ -1494,7 +1521,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         if (!c || !ownsCharacter(c.id)) return;
         const { success } = resolveObjectCheck(
           sid,
-          rollerName(sid, socket.id, false),
+          rollerName(sid, commandSocketId(), false),
           c,
           obj,
           'unlock',
@@ -1561,7 +1588,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
-    on('ability:roll', ({ kind, refId, abilityId, castLevel, slotPool, advantage, targetTokenId, damageType,area,destination,commandWord:word }) => {
+    const handleAbilityRoll=(payload:AbilityRollPayload)=>{
+      const {kind,refId,abilityId,castLevel,slotPool,advantage,targetTokenId,damageType,area,destination,commandWord:word,targetTokenIds}=payload;
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
@@ -1582,14 +1610,14 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         }
         return true;
       };
-      const roller = rollerName(sid, socket.id, isDm());
+      const roller = rollerName(sid, commandSocketId(), isDm());
       const casterEntity=kind==='pc'?getCharacter(refId):getMonster(refId);
       if(area){
         const a=casterEntity?.sheetAbilities.find(a=>a.id===abilityId);
         const error=a&&areaPlacementError(sid,kind,refId,a,cast,area);
         if(!a||error){socket.emit('notice',{message:error??'Unknown spell.'});return;}
         if(!isDm()){
-          const view=buildSnapshot(sid,'player',null,socket.id),map=view?.map;
+          const view=buildSnapshot(sid,'player',null,commandSocketId()),map=view?.map;
           if(!map||map.id!==area.mapId||area.points.some(p=>!visionContains(view.playerVision,p.x,p.y)||(map.mapFogEnabled&&!map.mapFogRevealed.includes(`${Math.floor(p.x/map.gridSizePx)},${Math.floor(p.y/map.gridSizePx)}`)))){
             socket.emit('notice',{message:'Place the spell area somewhere you can see yourself.'});return;
           }
@@ -1601,6 +1629,32 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       }
 
       const selectedAbility=casterEntity?.sheetAbilities.find(a=>a.id===abilityId);
+      if(!selectedAbility)return;
+      const advanced=advancedSpell(selectedAbility);
+      if(advanced==='counterspell'){socket.emit('notice',{message:'Counterspell is offered when a visible opponent starts casting within 60 ft.'});return;}
+      if(!resumedCastId&&heldCasts(sid).some(c=>c.payload.kind===kind&&c.payload.refId===refId)){socket.emit('notice',{message:'Your previous spell is waiting for a Counterspell reaction.'});return;}
+      const requestedSlot=kind==='pc'?(selectedAbility.level??0)>0?selectSpellSlot(getCharacter(refId)!,cast??selectedAbility.level!,slotPool):undefined:undefined;
+      if(advanced&&(selectedAbility.level??0)>0&&kind==='pc'&&!requestedSlot?.remaining){socket.emit('notice',{message:`No spell slot available for ${selectedAbility.name}.`});return;}
+      const invisTargets=targetTokenIds??(tgt?[tgt]:[]);
+      if(advanced==='invisibility'){
+        if(!Array.isArray(invisTargets)||invisTargets.some(id=>typeof id!=='string'||!canDirectlyTargetToken(id))){socket.emit('notice',{message:'Choose visible willing targets.'});return;}
+        const error=invisibilityError(sid,kind,refId,requestedSlot?.level??cast??2,invisTargets);
+        if(error){socket.emit('notice',{message:error});return;}
+      }
+      if(!resumedCastId){
+        const held=deferCast(sid,payload,selectedAbility,commandConnection()!,commandSocketId(),roller);
+        if(held){
+          scheduleCastTimeout(held);
+          afterChange();return;
+        }
+      }
+      if(selectedAbility.type==='spell')breakInvisibility(kind,refId,'casting a spell');
+      if(advanced==='invisibility'){
+        const error=castInvisibility(sid,roller,kind,refId,requestedSlot?.level??cast??2,invisTargets);
+        if(error){socket.emit('notice',{message:error});afterChange();return;}
+        if(requestedSlot)spendSpellSlot(refId,requestedSlot.level,requestedSlot.pool);
+        afterChange();broadcastSpellCast(io,sid,kind,refId);return;
+      }
       if(selectedAbility&&isCommandSpell(selectedAbility)){
         const chosen=commandWord(word);
         if(!chosen){socket.emit('notice',{message:'Choose a command or enter one word.'});return;}
@@ -1620,7 +1674,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const error=mistyStepError(sid,kind,refId,destination);
         if(error){socket.emit('notice',{message:error});return;}
         if(!isDm()){
-          const view=buildSnapshot(sid,'player',null,socket.id),map=view?.map,d=destination!;
+          const view=buildSnapshot(sid,'player',null,commandSocketId()),map=view?.map,d=destination!;
           if(!map||map.id!==d.mapId||!visionContains(view.playerVision,d.x,d.y)||map.mapFogEnabled&&!map.mapFogRevealed.includes(`${Math.floor(d.x/map.gridSizePx)},${Math.floor(d.y/map.gridSizePx)}`)){
             socket.emit('notice',{message:'Choose a destination you can see yourself.'});return;
           }
@@ -1668,7 +1722,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         if (!slot || slot.remaining<=0) {
           socket.emit('notice',{message:'No spell slot available for this mark.'}); return;
         }
-        if(!tgt || (!isDm()&&!buildSnapshot(sid,'player',null,socket.id)?.tokens.some(t=>t.id===tgt))) {
+        if(!tgt || (!isDm()&&!buildSnapshot(sid,'player',null,commandSocketId())?.tokens.some(t=>t.id===tgt))) {
           socket.emit('notice',{message:'Choose a visible creature for the mark.'}); return;
         }
       }
@@ -1707,7 +1761,40 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         afterChange();
         if (ability.type === 'spell' || (ability.type === 'stance' && leveled)) broadcastSpellCast(io, sid, kind, refId);
       }
+    };
+    on('ability:roll',handleAbilityRoll);
+    on('spell:counterspell', ({castId,reactorTokenId,pass,level,slotPool,continueCast})=>{
+      const sid=sessionId(),held=sid&&getHeldCast(sid,castId);if(!sid||!held)return;
+      let resume:typeof held|undefined;
+      if(continueCast){
+        if(!isDm()&&!(Date.now()>=held.expiresAt&&ownsCreature(held.payload.kind,held.payload.refId)))return;
+        finishHeldCast(held);resume=held;
+      }else{
+        const reactor=reactorTokenId&&getToken(reactorTokenId);
+        if(!reactor||getMap(reactor.mapId)?.sessionId!==sid||!ownsCreature(reactor.kind,reactor.refId))return;
+        const result=counterspellChoice(sid,castId,reactor.id,!!pass,level??3,slotPool);
+        if(result.error){socket.emit('notice',{message:result.error});return;}
+        resume=result.resume;
+        if(result.interrupted&&held.payload.rollId&&held.event==='spell:shield'){
+          resolveShield(sid,held.roller,held.payload.rollId,true,1,undefined,true);
+        }else if(result.interrupted&&held.payload.rollId){
+          const entry=getRollEntry(held.payload.rollId,sid),p=entry?.pending;
+          const actor=held.payload.kind==='pc'?getCharacter(held.payload.refId):null,ability=actor?.sheetAbilities.find(a=>a.id===held.payload.abilityId);
+          if(actor&&ability)setSheetAbility('pc',actor.id,{...ability,hitUsedTurn:`bonus:${turnKey(sid)}`});
+          if(entry?.smite)setRollSmite(entry.id,{...entry.smite,used:true});
+          if(p&&!p.done){setRollPending(entry!.id,{...p,hitOptions:p.hitOptions?{...p.hitOptions,used:[...p.hitOptions.used,abilityKey({name:held.spell})]}:undefined});resolveAttackDamage(sid,held.roller,entry!.id);}
+        }
+      }
+      if(resume){
+        const previous=activeCommandConnection;
+        activeCommandConnection=resume.source;
+        const original=resume.payload.kind==='pc'?getCharacter(resume.payload.refId):undefined;
+        resumedSocketId=original?.ownerId&&original.ownerId===resume.source.playerId?original.claimedBy??resume.socketId:resume.socketId;resumedCastId=resume.id;
+        try{domainHandlers.get(resume.event)?.(resume.payload);}finally{activeCommandConnection=previous;resumedSocketId=undefined;resumedCastId=undefined;}
+      }
+      afterChange();
     });
+
 
     // Roll a death saving throw for a downed PC (owner or DM).
     on('death:roll', ({ characterId }) => {
@@ -1737,7 +1824,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           }else privacy=chatAudience(conn,socket.id,whisperTo,listCharacters(sid));
           const image=typeof imageId==='string'?chatImageForSend(conn,imageId):undefined;
           if(imageId&&!image){fail('Attach an image you uploaded in this campaign.');return;}
-          addChatMessage(sid,rollerName(sid,socket.id,isDm()),isDm()?'dm':'player',body,false,[],{privacy,image});
+          addChatMessage(sid,rollerName(sid,commandSocketId(),isDm()),isDm()?'dm':'player',body,false,[],{privacy,image});
           afterChange();
           ack?.({ok:true});
         }catch(error){fail(error instanceof Error?error.message:'The private message could not be sent.');}
@@ -1756,7 +1843,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           ack?.({ok:false,error:`Invalid dice: "${cmd.expr}"`});
           return;
         }
-        const roller = rollerName(sid, socket.id, isDm());
+        const roller = rollerName(sid, commandSocketId(), isDm());
         addRollLog(sid, {
           roller,
           label: '',
@@ -1781,7 +1868,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         : null;
       // Only speak as a token belonging to THIS session.
       const speakAs = speakEntity && speakEntity.sessionId === sid ? speakEntity : null;
-      const sender = speakAs ? speakAs.name : rollerName(sid, socket.id, isDm());
+      const sender = speakAs ? speakAs.name : rollerName(sid, commandSocketId(), isDm());
       addChatMessage(sid, sender, isDm() ? 'dm' : 'player', body);
       // Pop the words in a speech bubble over the speaker's token. Players bubble
       // over their claimed PC; the DM bubbles over the token they're speaking as.
@@ -1807,7 +1894,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     on('cursor:move', ({ x, y, mapId }) => {
       const sid = sessionId();
       if (!sid || !Number.isFinite(x) || !Number.isFinite(y) || typeof mapId !== 'string') return;
-      broadcastCursor(io, sid, socket.id, rollerName(sid, socket.id, isDm()), x, y, mapId);
+      broadcastCursor(io, sid, socket.id, rollerName(sid, commandSocketId(), isDm()), x, y, mapId);
     });
     on('cursor:hide', () => {
       const sid = sessionId();
@@ -1960,7 +2047,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
       const ok = resolveSkillRoll(
         sid,
-        rollerName(sid, socket.id, isDm()),
+        rollerName(sid, commandSocketId(), isDm()),
         c,
         skill,
         adv,
@@ -1976,7 +2063,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const allowed = kind === 'pc' ? ownsCharacter(refId) : isDm();
       if (!allowed) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
-      const ok = resolveSave(sid, rollerName(sid, socket.id, isDm()), kind, refId, ability, adv);
+      const ok = resolveSave(sid, rollerName(sid, commandSocketId(), isDm()), kind, refId, ability, adv);
       if (ok) afterChange();
     });
 
@@ -1986,7 +2073,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const allowed = kind === 'pc' ? ownsCharacter(refId) : isDm();
       if (!allowed) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
-      const ok = resolveCheck(sid, rollerName(sid, socket.id, isDm()), kind, refId, ability, adv);
+      const ok = resolveCheck(sid, rollerName(sid, commandSocketId(), isDm()), kind, refId, ability, adv);
       if (ok) afterChange();
     });
 
@@ -2298,7 +2385,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         socket.emit('notice', { message: `Invalid dice: "${expr}"` });
         return;
       }
-      const roller = rollerName(sid, socket.id, isDm());
+      const roller = rollerName(sid, commandSocketId(), isDm());
       const rollLabel = (label ?? '').slice(0, 40);
       addRollLog(sid, {
         roller,
@@ -2402,7 +2489,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           at.kind === 'pc' ? getCharacter(at.refId)?.name : getMonster(at.refId)?.name;
         const roller = isDm()
           ? 'DM'
-          : attackerName ?? rollerName(sid, socket.id, false);
+          : attackerName ?? rollerName(sid, commandSocketId(), false);
         // In manual-damage mode the deferred damage is rolled by the DM or by
         // the attacking PLAYER — identified by the character they've claimed, so
         // it works even when they're attacking with a companion/summon token.
@@ -2440,7 +2527,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     on('spell:shield', ({rollId,pass,level,slotPool})=>{
       const sid=sessionId(),entry=sid&&typeof rollId==='string'?getRollEntry(rollId,sid):undefined,p=entry?.pending;
       if(!sid||!p?.shield||!ownsCreature(p.target.kind,p.target.refId))return;
-      const result=resolveShield(sid,rollerName(sid,socket.id,isDm()),rollId,!!pass,level??1,slotPool);
+      if(!resumedCastId&&heldCasts(sid).some(c=>c.payload.rollId===rollId)){socket.emit('notice',{message:'Waiting for a Counterspell reaction.'});return;}
+      const caster=p.target.kind==='pc'?getCharacter(p.target.refId):getMonster(p.target.refId),ability=caster?.sheetAbilities.find(a=>a.id===p.shield!.abilityId);
+      if(!pass&&ability&&!resumedCastId){
+        const held=deferCast(sid,{kind:p.target.kind,refId:p.target.refId,abilityId:ability.id,rollId,level,slotPool},ability,commandConnection()!,commandSocketId(),rollerName(sid,commandSocketId(),isDm()),'spell:shield');
+        if(held){scheduleCastTimeout(held);afterChange();return;}
+      }
+      const result=resolveShield(sid,rollerName(sid,commandSocketId(),isDm()),rollId,!!pass,level??1,slotPool);
       if(!result.ok)socket.emit('notice',{message:result.reason!});
       else if(result.blocked)socket.emit('notice',{message:'Blocked!',presentation:'blocked',durationMs:4000});
       afterChange();
@@ -2452,6 +2545,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     on('combat:damage', ({ rollId }) => {
+      if(sessionId()&&heldCasts(sessionId()!).some(c=>c.payload.rollId===rollId)){socket.emit('notice',{message:'Waiting for a Counterspell reaction.'});return;}
       const sid = sessionId();
       if (!sid || typeof rollId !== 'string') return;
       const entry = getRollEntry(rollId, sid);
@@ -2462,17 +2556,25 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const allowed =
         isDm() || (caster?.sessionId === sid && caster.claimedBy === socket.id);
       if (!allowed) return;
-      if (resolveAttackDamage(sid, rollerName(sid, socket.id, isDm()), rollId))
+      if (resolveAttackDamage(sid, rollerName(sid, commandSocketId(), isDm()), rollId))
         afterChange();
     });
 
     // The caster or DM continues the stored cast; players can only choose visible targets.
     on('combat:hitFeature', ({rollId,abilityId,level,slotPool}) => {
+      const held=sessionId()&&heldCasts(sessionId()!).some(c=>c.payload.rollId===rollId);if(held&&!resumedCastId){socket.emit('notice',{message:'Waiting for a Counterspell reaction.'});return;}
       const sid=sessionId(); if(!sid||typeof rollId!=='string'||typeof abilityId!=='string') return;
       const pending=getRollEntry(rollId,sid)?.pending;
       const ch=pending?.attacker.kind==='pc'?getCharacter(pending.attacker.refId):null;
-      if(!ch||(!isDm()&&ch.claimedBy!==socket.id)) return;
-      const result=resolveHitFeature(sid,rollerName(sid,socket.id,isDm()),rollId,abilityId,level,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
+      if(!ch||(!isDm()&&ch.claimedBy!==commandSocketId())) return;
+
+      const ab=ch.sheetAbilities.find(a=>a.id===abilityId);
+      if(ab?.type==='spell'&&!resumedCastId&&pending?.hitOptions?.abilityIds.includes(abilityId)&&!pending.done){
+        const held=deferCast(sid,{kind:'pc',refId:ch.id,abilityId,rollId,level,slotPool},ab,commandConnection()!,commandSocketId(),rollerName(sid,commandSocketId(),isDm()),'combat:hitFeature');
+        if(held){scheduleCastTimeout(held);afterChange();return;}
+      }
+      if(ab?.type==='spell')breakInvisibility('pc',ch.id,'casting a spell');
+      const result=resolveHitFeature(sid,rollerName(sid,commandSocketId(),isDm()),rollId,abilityId,level,slotPool==='pact'||slotPool==='spellcasting'?slotPool:undefined);
       if(!result.ok) socket.emit('notice',{message:result.reason!});
       afterChange();
     });
@@ -2489,7 +2591,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!sid || typeof rollId !== 'string') return;
       const apply=getRollEntry(rollId,sid)?.apply;
       const owner=apply?.owner ? getCharacter(apply.owner) : null;
-      if (!isDm() && (!owner || owner.claimedBy !== socket.id)) return;
+      if (!isDm() && (!owner || owner.claimedBy !== commandSocketId())) return;
       if (!end && (typeof targetTokenId !== 'string' || !canDirectlyTargetToken(targetTokenId))) {
         socket.emit('notice',{message:'Choose a visible creature for the orb.'}); return;
       }
@@ -2515,12 +2617,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const pending = getRollEntry(rollId, sid)?.pending;
       const ch = pending?.attacker.kind === 'pc' ? getCharacter(pending.attacker.refId) : null;
       if (!ch || ch.sessionId !== sid || (!isDm() && ch.claimedBy !== socket.id)) return;
-      const result = resolveManeuver(sid, rollerName(sid, socket.id, isDm()), rollId, abilityId);
+      const result = resolveManeuver(sid, rollerName(sid, commandSocketId(), isDm()), rollId, abilityId);
       if (!result.ok) socket.emit('notice', {message: result.reason});
       else afterChange();
     });
 
     on('combat:smite', ({ rollId, level }) => {
+      if(!resumedCastId&&sessionId()&&heldCasts(sessionId()!).some(c=>c.payload.rollId===rollId)){socket.emit('notice',{message:'Waiting for a Counterspell reaction.'});return;}
       const sid = sessionId();
       if (!sid || typeof rollId !== 'string') return;
       const choice =
@@ -2530,9 +2633,17 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sm = getRollEntry(rollId, sid)?.smite;
       if (!sm) return;
       const caster = getCharacter(sm.owner);
-      const allowed = isDm() || (caster?.sessionId === sid && caster.claimedBy === socket.id);
+      if(!caster)return;
+      const allowed = isDm() || (caster.sessionId === sid && caster.claimedBy === commandSocketId());
       if (!allowed) return;
-      const res = resolveSmite(sid, rollerName(sid, socket.id, isDm()), rollId, choice);
+
+      const opportunity=getRollEntry(rollId,sid)?.smite,ab=opportunity&&caster.sheetAbilities.find(a=>a.id===opportunity.abilityId);
+      if(ab&&!resumedCastId&&opportunity&&!opportunity.used){
+        const held=deferCast(sid,{kind:'pc',refId:caster.id,abilityId:ab.id,rollId,level:choice},ab,commandConnection()!,commandSocketId(),rollerName(sid,commandSocketId(),isDm()),'combat:smite');
+        if(held){scheduleCastTimeout(held);afterChange();return;}
+      }
+      if(ab)breakInvisibility('pc',caster.id,'casting a spell');
+      const res = resolveSmite(sid, rollerName(sid, commandSocketId(), isDm()), rollId, choice);
       if (!res.ok) {
         socket.emit('notice', { message: res.reason });
         return;

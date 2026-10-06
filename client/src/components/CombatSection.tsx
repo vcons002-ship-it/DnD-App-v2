@@ -1,3 +1,4 @@
+import {advancedSpell} from '../../../shared/advancedSpells';
 import {partySpell} from '../../../shared/partySpells';
 import { useEffect, useRef, useState } from 'react';
 import type {
@@ -72,7 +73,7 @@ export function CombatSection({
   const summonMap = useStore((s) => s.snapshot?.map);
   const notify = useStore((s) => s.notify);
   const weapons = caster.weapons;
-  const abilities = caster.sheetAbilities.filter((a) => partySpell(a)!=='shield' && !effectiveSheetAbility(a).summon && (!!effectiveSheetAbility(a).roll || spellCombatSupport(a)?.manualCastOnly));
+  const abilities = caster.sheetAbilities.filter((a) => partySpell(a)!=='shield' && advancedSpell(a)!=='counterspell' && !effectiveSheetAbility(a).summon && (!!effectiveSheetAbility(a).roll || spellCombatSupport(a)?.manualCastOnly));
   const [summonLevels, setSummonLevels] = useState<Record<string, number>>({});
   const [summonPools, setSummonPools] = useState<Record<string, SpellSlotPool>>({});
   const summonLevel = (a: (typeof caster.sheetAbilities)[number]) => summonLevels[a.id] ?? spellBaseLevel(a);

@@ -1,3 +1,4 @@
+import {breakInvisibility} from './advancedSpells.js';
 import {syncPassWithoutTrace} from './partySpellEffects.js';
 import {commandInstruction} from '../../shared/commandSpell.js';
 import {newId} from './db.js';
@@ -89,6 +90,7 @@ export function processHitEffects(sid:string,token:Token,phase:'start'|'end') {
       const rollId=newId();
       const amount=Math.floor(roll.total*damageMultiplier(fx.damageType,[...e.resistances,...stanceResistances(token.kind,token.refId)],e.weaknesses,e.immunities,{magical:true}));
       applyDamage(token.kind,token.refId,amount,fx.damageType,false,rollId,{spell:fx.spell});
+      if(amount>0)breakInvisibility(fx.casterKind,fx.casterId,'dealing ongoing spell damage');
       noteConcentration(sid,token.kind,token.refId,amount);
       addRollLog(sid,{roller:fx.spell,label:'Ongoing damage',expr:fx.dice,total:amount,detail:`${e.name}: ${fx.spell} deals ${amount} ${fx.damageType} damage at the ${phase} of its turn.`,
         reveal:{kind:'damage',title:`${fx.spell} - ${phase==='start'?'Start':'End'}-of-turn Damage`,attacker:fx.spell,target:e.name,outcome:'none',damage:amount,damageType:fx.damageType,

@@ -1212,6 +1212,7 @@ export function MapStage({
     return definition ? [definition] : [];
   }) : [])], [snapshot.characters, use3dTokens, use3dMonsters]);
 
+  const terrainZones=useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]);
   const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
     if(map?.walls?.some(w=>w.tokenId===token.id))return [];
     if (!(token.kind === 'pc' ? use3dTokens : use3dMonsters)) return [];
@@ -1224,6 +1225,7 @@ export function MapStage({
       facing: token.facing ?? 0,
       mirrorImages:dead ? 0 : mirrorImageCount(display.conditions),
       sharedSightOnly: token.sharedSightOnly,
+      invisible:token.invisible,
       carriedLantern:!dead && !token.sharedSightOnly && token.carriedLantern,
       combatRole: !dead && !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
       hunterMarked: !dead && !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
@@ -1987,6 +1989,7 @@ export function MapStage({
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         movementWalls={isDm?undefined:map?.walls}
+        terrainZones={terrainZones}
         movementAllowanceFt={movementSpeed === undefined ? undefined : movementSpeed * (hasteDash ? 2 : 1)}
         draggable={
           !t.sharedSightOnly && draggableTokens && movable && (isDm || !speedIsZero(creature ?? {})) && !fogActive && !measureActive && !saveResolve && !orbTarget
@@ -2508,7 +2511,7 @@ export function MapStage({
                 if(m.spellArea){const {spec,angle}=m.spellArea;
                   const caster=m.tokenId?snapshot.tokens.find(t=>t.id===m.tokenId):origin;
                   if(!caster)return null;
-                  return <SpellAreaShapes key={m.id} scale={view.scale} spec={{...spec,self:!!m.tokenId}} placement={{mapId:m.mapId,points:[origin],angle}} caster={caster} pxPerFoot={1/fpp} targets={[]} onRemove={removeMode?()=>removeMeasurement(m.id):undefined}/>;
+                  return <SpellAreaShapes spellName={m.spellName} key={m.id} scale={view.scale} spec={{...spec,self:!!m.tokenId}} placement={{mapId:m.mapId,points:[origin],angle}} caster={caster} pxPerFoot={1/fpp} targets={[]} onRemove={removeMode?()=>removeMeasurement(m.id):undefined}/>;
                 }
                 return (
                   <MeasureShape

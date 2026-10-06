@@ -1,4 +1,5 @@
 import { starterCreatures } from './creatures/starterLibrary.js';
+import {spikeMovement} from './advancedSpells.js';
 import {parseChatPrivacy, type ChatPrivacy, type StoredChatMessage} from './privateChat.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
 import {rollDice,withDiceMetadata} from '../../shared/dice.js';
@@ -647,7 +648,9 @@ export function moveToken(tokenId: string, x: number, y: number, blockWalls=fals
   }
   const facing = facingAfterMove(previous.x, previous.y, nextX, nextY, previous.facing);
   db.prepare('UPDATE tokens SET x = ?, y = ?, facing = ? WHERE id = ?').run(nextX, nextY, facing, tokenId);
-  return getToken(tokenId);
+  const next=getToken(tokenId)!;
+  spikeMovement(previous,next);
+  return next;
 }
 
 /** Change only the visible 3D base; occupied space and range math stay intact. */

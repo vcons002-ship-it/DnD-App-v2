@@ -1296,7 +1296,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['illusion', 'bard', 'sorcerer', 'warlock', 'wizard', 'concentration', 'buff'],
     meta: '1 action · Touch · V,S,M · Concentration',
     description:
-      'A creature you touch becomes invisible until it attacks or casts a spell. One more target per slot level above 2nd.',
+      'A willing creature you touch has the Invisible condition for up to 1 hour while you concentrate. It ends for that target after it makes an attack roll, deals damage, or casts a spell. One additional target per slot level above 2nd.',
     upcast: '+1 target per slot above 2nd.',
   },
   {
@@ -1693,7 +1693,7 @@ export const SPELL_LIST: SpellEntry[] = [
     tags: ['abjuration', 'sorcerer', 'warlock', 'wizard', 'control'],
     meta: '1 reaction · 60 ft · S',
     description:
-      'You interrupt a creature casting a spell. A spell of 3rd level or lower fails automatically; higher levels require an ability check to stop.',
+      'Reaction when you see a creature within 60 ft casting a spell with Verbal, Somatic, or Material components. The caster makes a Constitution saving throw. On failure, the spell has no effect; its action is wasted, but its spell slot is not expended.',
   },
   {
     name: 'Create Food and Water',

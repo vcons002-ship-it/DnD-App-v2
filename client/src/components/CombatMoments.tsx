@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/socket';
 import { playInitiative, playRest, playYourTurn } from '../lib/sfx';
+import {CounterspellPrompt} from './CounterspellPrompt';
 import {ShieldReactionPrompt} from './ShieldReactionPrompt';
 import {CommandTurnPrompt} from './CommandTurnPrompt';
 
@@ -92,6 +93,7 @@ export function CombatMoments() {
   const dmWaiting = snapshot?.initiativePending && snapshot.role === 'dm';
   return <>
     <ShieldReactionPrompt/>
+    <CounterspellPrompt/>
     <CommandTurnPrompt/>
     {(mine || dmWaiting) && !initiativeSubmitted && !liveDice && !rollFx && <div className={`combat-moment combat-moment-initiative initiative-persistent ${animate ? '' : 'no-motion'}`}
       role="region" aria-label="Initiative roll request">
