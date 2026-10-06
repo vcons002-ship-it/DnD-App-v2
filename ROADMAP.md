@@ -4,6 +4,13 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Dice comparison - October 2026
+
+- [x] Standalone party/DM comparison uses the actual app materials and live
+  physics in one shared tray: full 32-die sets plus four simultaneous examples
+  of each standard die type and percentile pair. Labels follow each die.
+  Per-die themes are optional; normal gameplay tray rendering is unchanged.
+
 ## Spellbook combat compatibility - October 2026
 
 - [x] Dispel Magic: creature/object/Spike Growth area chooser, authoritative sight
