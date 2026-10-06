@@ -9,6 +9,18 @@ import type { DiceTheme } from '../../../shared/diceThemes';
 // One offscreen WebGL context shared by all visible dice. Each result is copied
 // into its existing 2D canvas; no extra contexts compete with the battlefield.
 let stage: ReturnType<typeof makeStage> | undefined;
+function drawDieNumeral(ctx:CanvasRenderingContext2D,text:string,x:number,y:number){
+  ctx.fillText(text,x,y);
+  if(!text.includes('6'))return;
+  const fontSize=Number(ctx.font.match(/([\d.]+)px/)?.[1]??112);
+  const width=ctx.measureText(text).width;
+  const descent=ctx.measureText('6').actualBoundingBoxDescent;
+  for(let i=0;i<text.length;i++)if(text[i]==='6'){
+    const digitWidth=ctx.measureText('6').width;
+    const center=x-width/2+ctx.measureText(text.slice(0,i)).width+digitWidth/2;
+    ctx.fillRect(center-digitWidth*.36,y+descent+fontSize*.035,digitWidth*.72,Math.max(2,fontSize*.045));
+  }
+}
 function makeStage() {
   const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, preserveDrawingBuffer:true});
   renderer.setPixelRatio(1);
@@ -524,9 +536,9 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
             const opposite=source.faces.findIndex(face=>!face.includes(vertex));
             const delta=vertices[vertex].clone().sub(f.c).multiplyScalar(.57);
             const x=128+delta.dot(f.u)/(f.radius*4.4)*256,y=128-delta.dot(f.v)/(f.radius*4.4)*256;
-            c.fillText(String(values[opposite]),x,y);
+            drawDieNumeral(c,String(values[opposite]),x,y);
           }
-        }else c.fillText(tens?String(values[id]).padStart(2,'0'):String(values[id]),128,134);
+        }else drawDieNumeral(c,tens?String(values[id]).padStart(2,'0'):String(values[id]),128,134);
         texture.needsUpdate=true;
       });
     },
@@ -548,7 +560,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
         if(tens)n=((Math.floor(value/10)+id)%10)*10;if(ones)n=(value+id)%10;
         const text=tens?String(n).padStart(2,'0'):String(n);
         const font=readable&&id===0?(text.length>1?144:164):tens?94:112;
-        c.fillStyle='#151515';c.font=`bold ${font}px Georgia`;c.textAlign='center';c.textBaseline='middle';c.fillText(text,128,134);
+        c.fillStyle='#151515';c.font=`bold ${font}px Georgia`;c.textAlign='center';c.textBaseline='middle';drawDieNumeral(c,text,128,134);
         if(material instanceof THREE.ShaderMaterial)material.uniforms.numeralEmphasis.value=readable?(id===0?1.5:.22):1;
         texture.needsUpdate=true;
       });}
