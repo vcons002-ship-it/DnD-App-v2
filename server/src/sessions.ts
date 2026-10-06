@@ -106,7 +106,7 @@ const rowToSession = (r: SessionRow): Session => ({
   // Default ON for a session that predates the column (NULL) — the two-step
   // damage roll is the intended behavior; the DM can switch it off in Settings.
   manualDamage: r.manual_damage === null ? true : !!r.manual_damage,
-  commandCustomWords: !!r.command_custom_words,
+  commandCustomWords: r.command_custom_words == null ? true : !!r.command_custom_words,
 });
 
 // ---- Sessions ----
@@ -135,11 +135,11 @@ export function createSession(name = 'New Campaign', customCode?: string): Sessi
   }
   const now = Date.now();
   db.prepare(
-    `INSERT INTO sessions (id, code, name, active_map_id, created_at, last_played_at)
-     VALUES (?, ?, ?, NULL, ?, ?)`,
+    `INSERT INTO sessions (id, code, name, active_map_id, created_at, last_played_at, command_custom_words)
+     VALUES (?, ?, ?, NULL, ?, ?, 1)`,
   ).run(id, code, name, now, now);
   seedExampleCharacters(id);
-  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false, manualDamage: true, initiativePending: false };
+  return { id, code, name, activeMapId: null, activeTurnTokenId: null, combatRound: 0, hideDmRolls: false, manualDamage: true, commandCustomWords: true, initiativePending: false };
 }
 
 /** Bump a session's last-played time (used for the resume directory). */

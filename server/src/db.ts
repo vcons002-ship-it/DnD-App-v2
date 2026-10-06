@@ -296,7 +296,17 @@ ensureColumn('sessions', 'hide_dm_rolls', 'hide_dm_rolls INTEGER NOT NULL DEFAUL
 // Weapon damage is a separate, clickable second roll (default ON) instead of
 // auto-applying with the to-hit. Old saves adopt it; the DM can switch it off.
 ensureColumn('sessions', 'manual_damage', 'manual_damage INTEGER NOT NULL DEFAULT 1');
-ensureColumn('sessions', 'command_custom_words', 'command_custom_words INTEGER NOT NULL DEFAULT 0');
+ensureColumn('sessions', 'command_custom_words', 'command_custom_words INTEGER NOT NULL DEFAULT 1');
+/** Adopt the requested ON default once; later DM opt-outs survive restarts. */
+export function migrateCommandCustomWordDefault(database: Database.Database = db): void {
+  database.transaction(() => {
+    const key = 'command_custom_words_default_on_v1';
+    if (database.prepare('SELECT 1 FROM app_meta WHERE key = ?').get(key)) return;
+    database.prepare('UPDATE sessions SET command_custom_words = 1').run();
+    database.prepare('INSERT INTO app_meta (key, value) VALUES (?, ?)').run(key, '1');
+  }).immediate();
+}
+migrateCommandCustomWordDefault();
 ensureColumn('sessions', 'initiative_pending', 'initiative_pending INTEGER NOT NULL DEFAULT 0');
 ensureColumn('measurements', 'spell_area', 'spell_area TEXT');
 // Per-roll flag: a DM roll captured while hide_dm_rolls was on (filtered for players).

@@ -20,11 +20,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   cleanup, and respect personal visibility and roll completion. The stealth veil
   emits no light; all effects share the existing reduced-motion renderer.
 
-- [x] Command: five 2024 choices, optional DM-enabled custom word, selected-target
+- [x] Command: five 2024 choices, custom word enabled by default, selected-target
   Wisdom saves with upcast limits, next-turn instructions, Halt restrictions,
   Grovel Prone, turn-end cleanup, and preserved manual/custom spell entries.
   Movement routes and dropped items remain table-managed. Custom-word outcomes
   are resolved by the DM without AI controlling a creature.
+  Existing campaigns adopt the enabled default once; subsequent DM opt-outs
+  survive restarts.
 
 - [x] Repair window conversion without changing masks: group divided panes,
   follow aligned wall faces and bound local thickness instead of spanning rooms.
@@ -2515,5 +2517,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Hypnotic Pattern: measured 30-foot cube, grouped Wisdom saves, linked Charmed/Incapacitated and speed zero, action-block explanation, wake-up on damage (including temporary-HP absorption) or an adjacent creature?s Shake awake action, and concentration/duration cleanup. No repeat saving throw is invented.
 - [x] Pass without Trace: chosen recipients in a moving 30-foot emanation, named +10 Stealth modifier, automatic leave/re-entry updates, no stacking, suppressed footprint trails, and one-hour/concentration cleanup.
 - [x] Footprint trails share the miniature ground depth buffer, so darkness terrain cannot cover them and figures still occlude them. The original 2D fallback and fog visibility checks remain active; regular-darkness pixel regression and Pass without Trace suppression verified.
-- [x] Purple DM/NPC dice use translucent resin with soft cloudy depth and reflective gold numeral inlays without outlines. DM tray artwork preloads alongside the party trays; browser regression measures startup through the actual DM controls. Player class materials remain independent.
+- [x] Purple DM/NPC dice use semi-transparent resin with moving violet energy inside, cloudy depth and reflective gold numeral inlays without outlines. DM tray artwork preloads alongside the party trays; browser regression measures startup through the actual DM controls. Player class materials remain independent.
 - [x] Runtime profiles recognize unchanged saved entries; explicit custom/manual mechanics remain table-managed. Command and Alter Self are unchanged.

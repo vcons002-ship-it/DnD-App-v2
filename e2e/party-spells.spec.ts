@@ -115,13 +115,15 @@ test('a real attack offers Shield to its defender and grouped Hypnotic Pattern s
  await page.screenshot({path:test.info().outputPath('hypnotic-pattern-45.png'),fullPage:true});
 });
 
-test('Command offers the five words, spends once, and shows a next-turn instruction with DM-gated custom words',async({page,request})=>{
+test('Command offers custom words by default, respects DM opt-out, and shows next-turn instructions',async({page,request})=>{
  test.setTimeout(120000);const f=await setup(request,page);
  await page.getByLabel('Attack target',{exact:true}).selectOption(f.enemy.id);
  await page.locator('.compact-player-combat').getByRole('button',{name:/Command/}).click();
  const choice=page.getByRole('dialog',{name:'Choose Command'});await expect(choice).toBeVisible();
  for(const word of ['Approach','Drop','Flee','Grovel','Halt'])await expect(choice.getByRole('button',{name:word,exact:true})).toBeVisible();
- await expect(choice.getByRole('button',{name:'Custom word',exact:true})).toHaveCount(0);
+ await expect(choice.getByRole('button',{name:'Custom word',exact:true})).toBeVisible();
+ await choice.getByRole('button',{name:'Custom word',exact:true}).click();await choice.getByLabel('Custom Command word').fill('Dance');await expect(choice.getByRole('button',{name:'Cast Command',exact:true})).toBeEnabled();
+ f.socket.emit('session:setCommandCustomWords',{enabled:false});await expect.poll(async()=>(await f.snapshot()).commandCustomWords).toBe(false);await expect(choice.getByRole('button',{name:'Custom word',exact:true})).toHaveCount(0);
  await choice.getByRole('button',{name:'Halt',exact:true}).click();await page.screenshot({path:test.info().outputPath('command-choices.png'),fullPage:true});
  await choice.getByRole('button',{name:'Cast Command',exact:true}).click();
  await expect.poll(async()=>(await f.character()).spellSlots.L1.used,{timeout:20000}).toBe(1);

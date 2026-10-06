@@ -75,21 +75,24 @@ void main(){
  vec3 ray=refract(incoming,n,1./1.48);float distance=5.;
  for(int j=0;j<20;j++){if(j>=count)break;float denom=dot(planes[j].xyz,ray);if(denom>.0001)distance=min(distance,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));}
  vec3 beyond=studioLight(rotation*ray);
- vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*2.4);
+ vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?.85:2.4));
  float smoke=0.;vec3 energy=vec3(0.);float stepSize=distance/20.;
  if(style==0||style==2||style==3){for(int j=0;j<20;j++){
    vec3 p=pos+ray*(float(j)+.5)*stepSize;
    float interior=smoothstep(.02,.22,min((float(j)+.5)*stepSize,distance-(float(j)+.5)*stepSize));
-   vec3 drift=style==0?vec3(time*.065,-time*.045,time*.035):vec3(0.);
+   vec3 drift=style==0?vec3(time*.065,-time*.045,time*.035):style==3?vec3(time*.11,-time*.08,time*.06):vec3(0.);
    float cloud=fbm(p*4.+drift);
-   smoke+=smoothstep(.43,.73,cloud)*stepSize*interior*1.1;
+   smoke+=smoothstep(.43,.73,cloud)*stepSize*interior*(style==3?.22:1.1);
    float vein=abs(noise(p*3.+vec3(fbm(p*5.+drift)*1.9))- .51);
    float spark=pow(max(0.,1.-vein*55.),4.)*smoothstep(.53,.73,cloud);
    if(style==0)energy+=vec3(1.,.065,.11)*spark*stepSize*interior*1.6;
    if(style==3){
-     // Violet resin: soft cloudy depth inside a smooth translucent casting.
-     smoke+=smoothstep(.52,.78,cloud)*stepSize*interior*.22;
-     energy+=vec3(.075,.012,.15)*smoothstep(.64,.84,cloud)*stepSize*interior*.35;
+     // Moving light lives inside the resin volume, beneath the glossy shell.
+     // A diffuse violet core and brighter curls avoid painted surface markings.
+     float core=exp(-dot(p,p)*5.5);
+     float pulse=.85+.15*sin(time*1.8+p.y*3.);
+     energy+=(vec3(.28,.055,.7)*core*(.4+cloud*.6)
+       +vec3(.55,.24,1.)*spark*1.8)*pulse*stepSize*interior;
    }
    if(style==2){
      float growth=fbm(p*3.+vec3(fbm(p*5.)*1.8));
@@ -183,7 +186,9 @@ void main(){
    color=gold*(vec3(.22)+environment*.85)+gold*pow(max(0.,dot(rotation*n,halfLight)),90.)*.8;
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
  }
- gl_FragColor=vec4(color,(critical>.5||style==1||metalEdge)?1.:.96);
+ // Keep the metal numerals opaque while the purple resin reveals the tray below.
+ float opacity=style==3?mix(.86,1.,1.-cut):.96;
+ gl_FragColor=vec4(color,(critical>.5||style==1||metalEdge)?1.:opacity);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;

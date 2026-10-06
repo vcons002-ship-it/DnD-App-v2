@@ -48,7 +48,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   // Session-wide (DM-only): weapon damage as a second, clickable roll.
   const isDm = useStore((s) => s.snapshot?.role === 'dm');
   const manualDamage = useStore((s) => s.snapshot?.manualDamage ?? true);
-  const commandCustomWords=useStore(s=>s.snapshot?.commandCustomWords??false);
+  const commandCustomWords=useStore(s=>s.snapshot?.commandCustomWords??true);
   const setManualDamage = useStore((s) => s.setManualDamage);
   const [rulebook, setRulebook] = useState<RulebookInfo | null>(null);
   const [bookStatus, setBookStatus] = useState<'idle' | 'uploading' | 'error'>('idle');

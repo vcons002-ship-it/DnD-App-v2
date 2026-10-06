@@ -1,5 +1,6 @@
 import {describe,it,expect,vi} from 'vitest';
-import {db} from './db.js';
+import Database from 'better-sqlite3';
+import {db,migrateCommandCustomWordDefault} from './db.js';
 import {withDiceSource} from '../../shared/dice.js';
 import {isCommandSpell,commandWord,activeCommand} from '../../shared/commandSpell.js';
 import {spellActionBlock,effectiveSpeed} from '../../shared/spellBuffs.js';
@@ -67,13 +68,23 @@ describe('Command',()=>{
   const f=fixture();db.prepare('UPDATE tokens SET x=10000 WHERE id=?').run(f.target.id);expect(f.cast()).toMatch(/60 feet/);expect(listRollLog(f.session.id)).toHaveLength(0);
   db.prepare('UPDATE tokens SET x=200 WHERE id=?').run(f.target.id);db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify([{id:'wall',ax:150,ay:0,bx:150,by:300}]),f.map.id);expect(f.cast()).toMatch(/visible/);
  });
- it('custom words require DM enablement and remain manual while carrying the next-turn reminder',()=>{
-  const f=fixture();expect(f.cast('Dance')).toMatch(/enable/);db.prepare('UPDATE sessions SET command_custom_words=1 WHERE id=?').run(f.session.id);f.cast('Dance');setActiveTurn(f.session.id,f.target.id);expect(f.now().conditions.find(c=>c.combatEffect?.commandWord==='Dance')?.combatEffect?.commandStarted).toBe(true);expect(spellActionBlock(f.now())).toBeUndefined();
+ it('custom words are enabled by default and remain manual while carrying the next-turn reminder',()=>{
+  const f=fixture();expect(f.session.commandCustomWords).toBe(true);expect(f.cast('Dance')).toBeUndefined();setActiveTurn(f.session.id,f.target.id);expect(f.now().conditions.find(c=>c.combatEffect?.commandWord==='Dance')?.combatEffect?.commandStarted).toBe(true);expect(spellActionBlock(f.now())).toBeUndefined();
+ });
+ it('adopts the new custom-word default once without overwriting later DM opt-outs',()=>{
+  const legacy=new Database(':memory:');
+  try{
+   legacy.exec('CREATE TABLE sessions (id TEXT PRIMARY KEY, command_custom_words INTEGER DEFAULT 0); CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT); INSERT INTO sessions (id) VALUES (\'old\');');
+   migrateCommandCustomWordDefault(legacy);expect(legacy.prepare('SELECT command_custom_words AS enabled FROM sessions').get()).toEqual({enabled:1});
+   legacy.exec('UPDATE sessions SET command_custom_words=0');migrateCommandCustomWordDefault(legacy);expect(legacy.prepare('SELECT command_custom_words AS enabled FROM sessions').get()).toEqual({enabled:0});
+  }finally{legacy.close();}
  });
  it('socket casting spends one slot, rejects forged words without spending, and keeps custom settings DM-only',()=>{
   const f=fixture(),p=client(f.session.id,f.map.id,'command-owner'),dm=client(f.session.id,f.map.id,'command-dm','dm');claimCharacter(f.caster.id,'command-owner');
   const payload={kind:'pc',refId:f.caster.id,abilityId:spell.id,targetTokenId:f.target.id,castLevel:1};
+  dm.send('session:setCommandCustomWords',{enabled:false});expect(buildSnapshot(f.session.id,'player',null,'command-owner')!.commandCustomWords).toBe(false);
   p.send('session:setCommandCustomWords',{enabled:true});expect(buildSnapshot(f.session.id,'player',null,'command-owner')!.commandCustomWords).toBe(false);
+  p.send('ability:roll',{...payload,commandWord:'Dance'});expect(getCharacter(f.caster.id)!.spellSlots.L1.used).toBe(0);expect(p.emit).toHaveBeenCalledWith('notice',expect.objectContaining({message:expect.stringMatching(/enable/)}));
   p.send('ability:roll',{...payload,commandWord:'two words'});expect(getCharacter(f.caster.id)!.spellSlots.L1.used).toBe(0);
   f.dice(1,()=>p.send('ability:roll',{...payload,commandWord:'Halt'}));expect(getCharacter(f.caster.id)!.spellSlots.L1.used).toBe(1);
   dm.send('session:setCommandCustomWords',{enabled:true});expect(buildSnapshot(f.session.id,'player',null,'command-owner')!.commandCustomWords).toBe(true);

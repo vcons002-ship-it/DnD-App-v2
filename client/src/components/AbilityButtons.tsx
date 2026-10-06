@@ -73,7 +73,7 @@ export function AbilityButtons({
     return choices.includes(chosen) ? chosen : choices[0];
   };
   const menu = variant === 'menu';
-  const customWords=useStore(s=>s.snapshot?.commandCustomWords??false);
+  const customWords=useStore(s=>s.snapshot?.commandCustomWords??true);
   const [commandAbility,setCommandAbility]=useState<SheetAbility|null>(null);
   const [chosenCommand,setChosenCommand]=useState('Halt');
   const [customWord,setCustomWord]=useState('');
