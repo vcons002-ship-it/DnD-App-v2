@@ -266,13 +266,20 @@ void main(){
      vec3 inlay=pow(r,vec3(1.8))*fresnelMetal*1.6;
      vec3 l=normalize(vec3(-.65,.65,1.)),h=normalize(l+view);
      float nl=max(.001,dot(worldN,l)),nh=max(0.,dot(worldN,h)),vh=max(0.,dot(view,h));
-     float rough=style==0?.2:style==1?.23:.3,aa=pow(rough,4.);
+     float rough=style==3?.48:style==0?.2:style==1?.23:.3,aa=pow(rough,4.);
      float denominator=nh*nh*(aa-1.)+1.;
      float distribution=aa/(3.14159*denominator*denominator);
      float k=pow(rough+1.,2.)/8.;
      float geometry=(nv/(nv*(1.-k)+k))*(nl/(nl*(1.-k)+k));
      vec3 f=f0+(1.-f0)*pow(1.-vh,5.);
      inlay+=f*distribution*geometry/(4.*nv)*.6;
+     if(style==3){
+       // Satin gold keeps a stable warm contrast against the glossy resin.
+       // Compress reflection peaks before tone mapping can bleach the numeral
+       // into the same white highlight as the surrounding face.
+       float reflectedLight=dot(inlay,vec3(.2126,.7152,.0722));
+       inlay=f0*(.32+.78*reflectedLight/(1.+reflectedLight));
+     }
      // A dark cut wall around the metal catches a narrow, beveled rim.
      float wall=metalEdge||style==3?0.:max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
      inlay*=mix(1.,.28,smoothstep(.35,.9,wall));
