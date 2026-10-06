@@ -76,6 +76,7 @@ void main(){
  for(int j=0;j<20;j++){if(j>=count)break;float denom=dot(planes[j].xyz,ray);if(denom>.0001)distance=min(distance,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));}
  vec3 beyond=studioLight(rotation*ray);
  vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?.85:2.4));
+ if(style==3)through*=vec3(.40,.13,.68);
  float smoke=0.;vec3 energy=vec3(0.);float stepSize=distance/20.;
  if(style==0||style==2||style==3){for(int j=0;j<20;j++){
    vec3 p=pos+ray*(float(j)+.5)*stepSize;
@@ -91,8 +92,8 @@ void main(){
      // A diffuse violet core and brighter curls avoid painted surface markings.
      float core=exp(-dot(p,p)*5.5);
      float pulse=.85+.15*sin(time*1.8+p.y*3.);
-     energy+=(vec3(.28,.055,.7)*core*(.4+cloud*.6)
-       +vec3(.55,.24,1.)*spark*1.8)*pulse*stepSize*interior;
+     energy+=(vec3(.18,.025,.48)*core*(.4+cloud*.6)
+       +vec3(.48,.10,.9)*spark*1.8)*pulse*stepSize*interior;
    }
    if(style==2){
      float growth=fbm(p*3.+vec3(fbm(p*5.)*1.8));
@@ -187,7 +188,7 @@ void main(){
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
  }
  // Keep the metal numerals opaque while the purple resin reveals the tray below.
- float opacity=style==3?mix(.86,1.,1.-cut):.96;
+ float opacity=style==3?mix(.91,1.,1.-cut):.96;
  gl_FragColor=vec4(color,(critical>.5||style==1||metalEdge)?1.:opacity);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>

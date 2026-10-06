@@ -6,6 +6,7 @@ node_modules/
 dist/
 client/environment-dist/
 client/exploration-dist/
+client/dice-review-dist/
 build/
 
 # Local game state & uploads (never commit)
