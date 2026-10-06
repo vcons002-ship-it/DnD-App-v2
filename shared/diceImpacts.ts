@@ -4,6 +4,7 @@
 // live server world. Framework-free; cannon-es is only touched through the
 // minimal shapes below.
 
+import {REFERENCE_D6_EDGE} from './diceTrayLayout.js';
 export type DiceImpactSurface = 'die' | 'wall' | 'floor';
 export type DiceImpact = {
   /** Simulation seconds at the collision. */
@@ -19,8 +20,8 @@ export type DiceImpact = {
 
 /** Below this an impact is a resting jitter, not a sound (m/s). */
 export const MIN_IMPACT_SPEED = 0.025;
-/** Physical size behind the simulation units (a 16 mm d6; see the worlds). */
-export const metresPerUnitFor = (radius: number) => (0.016 * Math.sqrt(3) / 2) / radius;
+/** Physical size behind the simulation units (a 17.6 mm d6; see the worlds). */
+export const metresPerUnitFor = (radius: number) => (REFERENCE_D6_EDGE * Math.sqrt(3) / 2) / radius;
 /** Half-width of the tray bed in simulation units (both worlds use ±7.2). */
 const TRAY_HALF_WIDTH = 7.2;
 

@@ -1,6 +1,6 @@
 import {diceCollider} from '../../../shared/diceCollider.js';
 import {handTumble} from '../../../shared/diceLaunch.js';
-import {diceTrayLayoutForPool} from '../../../shared/diceTrayLayout.js';
+import {diceTrayLayoutForPool,REFERENCE_D6_EDGE} from '../../../shared/diceTrayLayout.js';
 import {recordDiceImpacts,type DiceImpact} from '../../../shared/diceImpacts.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from '../../../shared/diceGeometry.js';
@@ -9,12 +9,12 @@ import {type TrayDie,type Toss,type DiceEntrySide} from './diceTrayTypes.js';
 export {physicalDice,trayFaceValues} from './diceTrayTypes.js';
 // Solver masses use grams and lengths use a uniform scale for stable contacts;
 // gravity and velocity are converted from SI by the same metresPerUnit factor.
-// A 16 mm acrylic d6 is the reference, regardless of visual pool scaling.
+// A 17.6 mm acrylic d6 is the reference, regardless of visual pool scaling.
 export const STANDARD_GRAVITY=9.80665;
 // Slightly reduced gravity gives the presentation a longer bounce arc.
 export const TRAY_GRAVITY=STANDARD_GRAVITY*.9;
 export const ACRYLIC_DENSITY=1190; // kg/m^3; ACRYLITE material data.
-export const REFERENCE_D6_EDGE=.016;
+export {REFERENCE_D6_EDGE};
 export function diceMassKg(vertices:Vec3[],faces:number[][]){
   let volume=0;
   for(const face of faces)for(let j=1;j<face.length-1;j++){
@@ -35,7 +35,7 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   if(dice.length>40 || dice.some(d=>![4,6,8,10,12,20].includes(d.sides)))throw new Error('Roll requires result summary');
   let state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
-  // The responsive tray accommodates the pool; each physical d6 remains 16 mm.
+  // The responsive tray accommodates the pool; each physical d6 remains 17.6 mm.
   const layout=diceTrayLayoutForPool(dice.length),radius=layout.radius,trayScale=layout.scale;
   const metresPerUnit=(REFERENCE_D6_EDGE*Math.sqrt(3)/2)/radius;
   const world=new World({gravity:new Vec3(0,0,-TRAY_GRAVITY/metresPerUnit),allowSleep:true});

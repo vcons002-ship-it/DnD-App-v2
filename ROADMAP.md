@@ -2612,3 +2612,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Roomier tray proportions for pools of up to ten physical dice (about 22% more rolling width per die), smoothly returning to the existing large-pool layout by twenty; live and playback physics share the same sizing.
 
 - [x] Fixed physical dice size and expanding trays: a 16 mm d6 reference with a roughly 20 x 13 cm minimum bed; pool growth expands collision bounds and the rendered tray together, with camera/shadow framing and stereo impact positions following its footprint. Older frames retain their recorded layout.
+
+- [x] Increased the fixed dice reference to 17.6 mm (10% larger), keeping the tray growth curve independent of die size and preserving consistent physical units and density-based mass.

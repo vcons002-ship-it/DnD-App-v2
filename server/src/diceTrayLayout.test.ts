@@ -6,7 +6,7 @@ it('grows the tray without changing dice colliders, physical mass or gravity',()
  const reference=worlds[0].bodies[0];let previous=1;
  for(const world of worlds){
   const frame=world.snapshot(),body=world.bodies[0];
-  expect(frame.radius).toBe(1);
+  expect(frame.radius).toBe(1.1);
   expect(frame.trayScale).toBeGreaterThanOrEqual(previous);previous=frame.trayScale;
   expect(body.mass).toBeCloseTo(reference.mass,10);
   expect(body.shapes[0].boundingSphereRadius).toBeCloseTo(reference.shapes[0].boundingSphereRadius,10);

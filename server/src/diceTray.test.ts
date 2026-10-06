@@ -25,10 +25,10 @@ describe('physics dice tray',()=>{
   for(const value of [1,60,100])for(const d of physicalDice([die(100,value)]))
     expect(dieResultStrength(d)).toBeCloseTo((value-1)/99);
  });
- it('uses a 16 mm acrylic d6 mass and slightly reduced gravity in free flight',()=>{
+ it('uses a 17.6 mm acrylic d6 mass and slightly reduced gravity in free flight',()=>{
   const mesh=faceForwardMesh(dieMesh(6)),radius=REFERENCE_D6_EDGE*Math.sqrt(3)/2;
   const vertices=mesh.vertices.map(v=>new Vec3(v[0]*radius,v[1]*radius,v[2]*radius));
-  expect(diceMassKg(vertices,mesh.faces)).toBeCloseTo(.00487424,8);
+  expect(diceMassKg(vertices,mesh.faces)).toBeCloseTo(.00648761344,8);
   const t=simulateToss([{sides:6,value:1,index:0,set:0}],42);
   const metresPerUnit=radius/t.radius;
   const acceleration=(t.frames[16]-2*t.frames[9]+t.frames[2])*metresPerUnit/(t.step*t.step);
@@ -61,7 +61,7 @@ describe('physics dice tray',()=>{
   let previous=0;
   for(const count of [1,2,4,8,14,20,40]){
    const dice=Array.from({length:count},(_,index)=>({sides:6,value:3,index,set:0}));
-   const toss=simulateToss(dice,42);expect(toss.radius).toBe(1);expect(toss.trayScale).toBeGreaterThanOrEqual(previous);previous=toss.trayScale!;
+   const toss=simulateToss(dice,42);expect(toss.radius).toBe(1.1);expect(toss.trayScale).toBeGreaterThanOrEqual(previous);previous=toss.trayScale!;
    expect(toss.duration).toBeLessThanOrEqual(12);
    dice.forEach((die,i)=>{
     const offset=((toss.frameCount-1)*dice.length+i)*7;
