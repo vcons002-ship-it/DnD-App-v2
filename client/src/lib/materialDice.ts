@@ -128,7 +128,7 @@ void main(){
    float spark=pow(max(0.,1.-vein*55.),4.)*smoothstep(.53,.73,cloud);
    if(style==0)energy+=vec3(1.,.065,.11)*spark*stepSize*interior*1.6;
    if(style==0&&internalLightning>.5){
-     float cycle=floor(time/1.2),phase=mod(time,1.2)*2.5;
+     float cycle=floor(time/.6),phase=mod(time,.6)*5.;
      vec2 arc=electricArc(p,cycle+7.);
      float head=clamp((phase-.13)/.48,0.,1.);
      float reached=smoothstep(arc.y-.025,arc.y+.008,head);

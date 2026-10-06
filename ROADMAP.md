@@ -2586,3 +2586,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] DM modifier/result dice have a larger, consistently brighter gold result engraving, an exactly front-facing result pose, and subdued neighboring numerals. This applies only to standalone settled result rendering; the approved tray labels, lighting, pose and resin settings remain unchanged.
 
 - [x] Keep revealed fog option: saved per map, retains full-color explored terrain and frozen last-seen figures, with heavy-darkness range and explicit DM cover preserved. Retained figures cannot be targeted; unseen movement and stat changes are not disclosed.
+
+- [x] Vanec lightning preview accelerated again: leaders and return strokes travel twice as fast as the previous preview, with a new discharge every 0.6 seconds.
