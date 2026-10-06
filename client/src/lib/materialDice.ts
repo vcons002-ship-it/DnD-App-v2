@@ -35,11 +35,33 @@ uniform vec3 eye; uniform mat3 rotation;
 uniform vec4 planes[20]; uniform int count; uniform float time; uniform vec3 tint;
 uniform sampler2D etching; uniform bool engraved; uniform bool metalEdge;
 uniform int style; uniform float critical; uniform bool numeralsOnly;
+uniform bool inlayBacking;
 uniform float numeralEmphasis;
+uniform float internalLightning;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
 return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm(vec3 p){return noise(p)*.57+noise(p*2.03)*.28+noise(p*4.07)*.15;}
+float arcDistance(vec3 p,vec3 a,vec3 b){
+ vec3 delta=b-a;float t=clamp(dot(p-a,delta)/dot(delta,delta),0.,1.);
+ return length(p-a-delta*t);
+}
+// Die-local filaments are sampled through the glass volume, never painted on
+// its faces. A shared burst seed keeps the same arc coherent across all faces.
+float electricArc(vec3 p,float seed){
+ float distance=10.;vec3 previous=vec3(-.64,-.34,-.34);
+ vec3 branch=vec3(0.);
+ for(int k=1;k<=7;k++){
+  float t=float(k)/7.;
+  vec3 point=mix(vec3(-.64,-.34,-.34),vec3(.59,.47,.38),t);
+  point+=vec3(hash(vec3(seed,float(k),1.)),hash(vec3(seed,float(k),2.)),hash(vec3(seed,float(k),3.)))-.5;
+  point=mix(point,mix(vec3(-.64,-.34,-.34),vec3(.59,.47,.38),t),.55);
+  distance=min(distance,arcDistance(p,previous,point));previous=point;
+  if(k==4)branch=point;
+ }
+ vec3 tip=vec3(-.25,.58,-.43),joint=mix(branch,tip,.5)+vec3(.12,-.09,.07);
+ return min(distance,min(arcDistance(p,branch,joint),arcDistance(p,joint,tip)));
+}
 // Continuous studio lighting avoids cube-face seams and hard reflection flashes.
 float softbox(vec3 r,vec3 direction,float width,float height){
  vec3 center=normalize(direction);
@@ -71,7 +93,7 @@ void main(){
  if(numeralsOnly&&cut>.98)discard;
  // The inside of a gold inlay is dark backing, not another bright result.
  // It remains in the refraction pass without competing with the upward number.
- if(numeralsOnly&&!gl_FrontFacing){
+ if(numeralsOnly&&(inlayBacking||!gl_FrontFacing)){
    gl_FragColor=vec4(.012,.006,.021,1.);
    #include <tonemapping_fragment>
    #include <colorspace_fragment>
@@ -99,6 +121,14 @@ void main(){
    float vein=abs(noise(p*3.+vec3(fbm(p*5.+drift)*1.9))- .51);
    float spark=pow(max(0.,1.-vein*55.),4.)*smoothstep(.53,.73,cloud);
    if(style==0)energy+=vec3(1.,.065,.11)*spark*stepSize*interior*1.6;
+   if(style==0&&internalLightning>.5){
+     float cycle=floor(time/1.35),phase=mod(time,1.35);
+     float burst=exp(-pow((phase-.24)/.052,2.))+exp(-pow((phase-.39)/.065,2.))*.7;
+     float distanceToArc=electricArc(p,cycle+7.);
+     float core=exp(-distanceToArc*distanceToArc/ .0012);
+     float halo=exp(-distanceToArc*distanceToArc/ .014);
+     energy+=(vec3(1.,.62,.60)*core*11.+vec3(1.,.018,.055)*halo*2.4)*burst*stepSize*interior;
+   }
    if(style==3){
      // Moving light lives inside the resin volume, beneath the glossy shell.
      // Keep the interior curls subtle so they cannot wash out the gold numerals.
@@ -268,12 +298,12 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},internalLightning:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
     // Draw front gold after transmission so refraction cannot duplicate a bright
     // front numeral into the interior. Only its dark backing enters that pass.
-    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem},numeralEmphasis:{value:1}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem},inlayBacking:{value:false},numeralEmphasis:{value:1}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();
@@ -308,7 +338,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     const material=makeMaterial(texture);root.add(new THREE.Mesh(geo,material));
     if(gem){
       const backing=(material as THREE.ShaderMaterial).clone();
-      backing.uniforms=(material as THREE.ShaderMaterial).uniforms;
+      backing.uniforms={...(material as THREE.ShaderMaterial).uniforms,inlayBacking:{value:true}};
       backing.side=THREE.BackSide;backing.transparent=false;
       materials.push(backing);root.add(new THREE.Mesh(geo,backing));
     }
@@ -343,6 +373,8 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
+    // Preview opt-in; gameplay retains the accepted material until approved.
+    setInternalLightning(enabled:boolean){uniforms.internalLightning.value=enabled&&theme.id==='sorcerer'&&!crit?1:0;},
     resultPosition(target:THREE.Vector3) {
       // Match the numbered surface instead of estimating a height above the body.
       if(sides===4){

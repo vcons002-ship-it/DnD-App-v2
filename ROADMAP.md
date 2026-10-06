@@ -6,6 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Independent rotatable 3D viewers for Druk, Varis, Vanec and the DM,
+  with all standard die types and percentile pairs. Preview-only Vanec
+  lightning uses coherent flickering filaments inside the glass volume and an
+  on/off comparison; current gameplay lightning stays unchanged. Explicit
+  dark numeral backings keep DM rear inlays subdued from every camera angle.
+
+
 - [x] Standalone party/DM comparison uses the actual app materials and live
   physics in one shared tray: full 32-die sets plus four simultaneous examples
   of each standard die type and percentile pair. Labels follow each die.

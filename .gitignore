@@ -8,6 +8,7 @@ client/environment-dist/
 client/exploration-dist/
 client/dice-review-dist/
 client/dice-comparison-dist/
+client/dice-models-dist/
 build/
 
 # Local game state & uploads (never commit)
