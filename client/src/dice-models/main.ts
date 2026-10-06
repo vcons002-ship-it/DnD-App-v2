@@ -4,7 +4,7 @@ import {createMaterialDie,getDiceStage,type MaterialDieHandle} from '../lib/mate
 import {diceThemeForClass,diceThemeForRoll} from '../../../shared/diceThemes';
 
 const names=['Druk','Varis','Vanec','DM'];
-const descriptions=['Polished obsidian, molten fissures, gold edges and numbers','Forest resin, lacquered wood and bronze','Dark red glass, silver numbers, faster traveling lightning','Denser purple resin, soft inner light, gold numbers'];
+const descriptions=['Polished obsidian, molten fissures, gold edges and numbers','Forest resin, lacquered wood and bronze','Dark red glass, silver numbers, faster traveling lightning','Purple resin, flowing black ink, soft inner light, gold numbers'];
 const themes=[diceThemeForClass('Fighter'),diceThemeForClass('Ranger'),diceThemeForClass('Sorcerer'),diceThemeForRoll('',true)];
 const grid=document.querySelector<HTMLDivElement>('#models')!;
 const select=document.querySelector<HTMLSelectElement>('#die')!;
@@ -17,8 +17,8 @@ bg.strokeStyle='#435064';bg.lineWidth=2;
 for(let i=0;i<=512;i+=64){bg.beginPath();bg.moveTo(i,0);bg.lineTo(i,512);bg.moveTo(0,i);bg.lineTo(512,i);bg.stroke();}
 const map=new THREE.CanvasTexture(backdrop);map.colorSpace=THREE.SRGBColorSpace;
 const views=names.map((name,i)=>{
- const panel=document.createElement('section');panel.className='panel';panel.dataset.name=name;
- panel.innerHTML=`<h2>${name}</h2><p class="description">${descriptions[i]}</p><div class="model" aria-label="Rotate ${name} dice"><canvas></canvas></div><div class="model-controls"><button class="reset">Reset</button><label><input class="rotate" type="checkbox" checked>Auto rotate</label>${i===0?'<label><input id="molten" type="checkbox" checked>Molten cracks</label>':i===2?'<label><input id="lightning" type="checkbox" checked>Traveling lightning test</label>':i===3?'<label><input id="inner-light" type="checkbox" checked>Soft inner light</label><label><input id="dense-resin" type="checkbox" checked>Denser resin</label>':''}</div>`;
+ const panel=document.createElement('section');panel.className='panel';panel.dataset.name=name;panel.id=name.toLowerCase();
+ panel.innerHTML=`<h2>${name}</h2><p class="description">${descriptions[i]}</p><div class="model" aria-label="Rotate ${name} dice"><canvas></canvas></div><div class="model-controls"><button class="reset">Reset</button><label><input class="rotate" type="checkbox" checked>Auto rotate</label>${i===0?'<label><input id="molten" type="checkbox" checked>Molten cracks</label>':i===2?'<label><input id="lightning" type="checkbox" checked>Traveling lightning test</label>':i===3?'<label><input id="inner-light" type="checkbox" checked>Soft inner light</label><label><input id="liquid-ink" type="checkbox" checked>Flowing ink</label><label><input id="dense-resin" type="checkbox" checked>Denser resin</label>':''}</div>`;
  grid.append(panel);
  const element=panel.querySelector<HTMLDivElement>('.model')!,canvas=element.querySelector('canvas')!,ctx=canvas.getContext('2d')!;
  const scene=stage.scene.clone();scene.background=new THREE.Color('#121822');
@@ -43,6 +43,7 @@ function choose(){
    h.setMoltenCracks(i===0&&document.querySelector<HTMLInputElement>('#molten')!.checked);
    h.setInternalLightning(i===2&&document.querySelector<HTMLInputElement>('#lightning')!.checked);
    h.setInnerGlow(i===3&&document.querySelector<HTMLInputElement>('#inner-light')!.checked ? .65 : 0);
+   h.setLiquidInk(i===3&&document.querySelector<HTMLInputElement>('#liquid-ink')!.checked);
    h.setDenseResin(i===3&&document.querySelector<HTMLInputElement>('#dense-resin')!.checked);
    view.scene.add(h.object);return h;
   });
@@ -64,6 +65,10 @@ document.querySelector('#inner-light')!.addEventListener('change',()=>{
  const enabled=document.querySelector<HTMLInputElement>('#inner-light')!.checked;
  views[3].handles.forEach(h=>h.setInnerGlow(enabled ? .65 : 0));views[3].element.dataset.innerLight=String(enabled);
 });
+document.querySelector('#liquid-ink')!.addEventListener('change',()=>{
+ const enabled=document.querySelector<HTMLInputElement>('#liquid-ink')!.checked;views[3].handles.forEach(h=>h.setLiquidInk(enabled));
+});
+
 document.querySelector('#dense-resin')!.addEventListener('change',()=>{
  const enabled=document.querySelector<HTMLInputElement>('#dense-resin')!.checked;
  views[3].handles.forEach(h=>h.setDenseResin(enabled));views[3].element.dataset.denseResin=String(enabled);
@@ -86,7 +91,7 @@ stage.renderer.setAnimationLoop((now:number)=>{
  views.forEach(view=>{
   const r=view.element.getBoundingClientRect();
   // Skip offscreen panels on phones; shader time still stays continuous.
-  if(r.bottom<0||r.top>innerHeight)return;
+  if(r.width<=0||r.height<=0||r.bottom<0||r.top>innerHeight)return;
   const dpr=Math.min(devicePixelRatio,1.5),width=Math.round(r.width*dpr),height=Math.round(r.height*dpr);
   if(view.canvas.width!==width||view.canvas.height!==height){view.canvas.width=width;view.canvas.height=height;}
   view.camera.aspect=r.width/r.height;view.camera.updateProjectionMatrix();

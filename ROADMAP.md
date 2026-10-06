@@ -2594,3 +2594,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Druk molten cracks refined to understated deep-red heat inside narrow recessed splits: irregular fractured edges, chipped shoulders, view-dependent cavity reflections, and preserved smooth obsidian rather than bright orange outlines.
 
 - [x] Druk molten preview glow lifted modestly inside the fissures, with restrained warm spill on chipped shoulders and unchanged obsidian/gold lighting.
+
+- [x] DM resin preview: restored glossy transmission, slowly advected black ink curls inside the volume and restrained backlighting; comparison toggle preserves the earlier material and gold inlay legibility.

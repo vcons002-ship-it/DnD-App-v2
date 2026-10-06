@@ -308,6 +308,7 @@ uniform vec3 resinEye;
 uniform float resinTime;
 uniform float resinGlow;
 uniform float resinDensity;
+uniform float resinInk;
 uniform vec4 resinPlanes[20];
 uniform int resinPlaneCount;
 float resinHash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -315,6 +316,18 @@ float resinNoise(vec3 p){
  vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
  return mix(mix(mix(resinHash(i),resinHash(i+vec3(1,0,0)),f.x),mix(resinHash(i+vec3(0,1,0)),resinHash(i+vec3(1,1,0)),f.x),f.y),mix(mix(resinHash(i+vec3(0,0,1)),resinHash(i+vec3(1,0,1)),f.x),mix(resinHash(i+vec3(0,1,1)),resinHash(i+vec3(1,1,1)),f.x),f.y),f.z);
 }`;
+const resinInkField=`
+float resinInkDensity(vec3 p,float t){
+ // Slowly advected lobes stretch into thin curls, like ink mixing in liquid.
+ vec3 q=p*2.6+vec3(t*.045,-t*.075,t*.028);
+ vec3 warp=vec3(resinNoise(q+vec3(0.,t*.09,4.)),resinNoise(q+vec3(8.,0.,-t*.07)),resinNoise(q+vec3(-t*.06,13.,0.)))-.5;
+ q+=warp*2.2;
+ float cloud=resinNoise(q)*.65+resinNoise(q*2.07+warp)*.25+resinNoise(q*4.1)*.1;
+ vec3 center=p-vec3(.07,.12,-.04);
+ float envelope=exp(-dot(center*vec3(1.05,.8,1.05),center*vec3(1.05,.8,1.05))*1.65);
+ return smoothstep(.43,.64,cloud)*envelope;
+}
+`;
 const resinCloudTransmission=`
  vec3 cloudRay=refract(normalize(resinPosition-resinEye),normalize(resinNormal),1./1.48);
  float cloudLength=4.;
@@ -323,23 +336,40 @@ const resinCloudTransmission=`
    float denominator=dot(resinPlanes[p].xyz,cloudRay);
    if(denominator>.0001)cloudLength=min(cloudLength,max(0.,(resinPlanes[p].w-dot(resinPlanes[p].xyz,resinPosition))/denominator));
  }
- float cloudStep=cloudLength/8.,cloudDepth=0.,glowDepth=0.;
+ float samples=resinInk>.5?12.:8.;
+ float cloudStep=cloudLength/samples,cloudDepth=0.,glowDepth=0.;
+ float inkTransmission=1.;vec3 inkLight=vec3(0.);
  vec3 drift=vec3(resinTime*.07,-resinTime*.055,resinTime*.04);
- for(int j=0;j<8;j++){
+ for(int j=0;j<12;j++){
+   if(float(j)>=samples)break;
    float travel=(float(j)+.5)*cloudStep;
    vec3 point=resinPosition+cloudRay*travel;
-   vec3 curl=vec3(sin(point.y*2.4+resinTime*.18),cos(point.z*2.1-resinTime*.14),sin(point.x*2.7+resinTime*.12))*.25;
-   vec3 domain=point*3.+curl+drift;
-   float density=resinNoise(domain)*.7+resinNoise(domain*2.03- drift*.7)*.3;
    float interior=smoothstep(.015,.16,min(travel,cloudLength-travel));
-   cloudDepth+=smoothstep(.43,.7,density)*cloudStep*interior;
-   if(resinGlow>0.)glowDepth+=exp(-dot(point,point)*3.5)*(.35+density*.65)*cloudStep*interior;
+   if(resinInk>.5){
+     float ink=resinInkDensity(point,resinTime);
+     float opacity=1.-exp(-ink*cloudStep*interior*4.2);
+     // Light behind and between dark lobes gives a readable silhouette.
+     vec3 lamp=point-vec3(-.18,.2,-.1);
+     float illumination=exp(-dot(lamp,lamp)*2.1)*resinGlow;
+     inkLight+=inkTransmission*(vec3(.002,.0006,.005)*opacity+vec3(.14,.062,.26)*illumination*(1.-opacity)*cloudStep*interior);
+     inkTransmission*=1.-opacity;
+   }else{
+     vec3 curl=vec3(sin(point.y*2.4+resinTime*.18),cos(point.z*2.1-resinTime*.14),sin(point.x*2.7+resinTime*.12))*.25;
+     vec3 domain=point*3.+curl+drift;
+     float density=resinNoise(domain)*.7+resinNoise(domain*2.03- drift*.7)*.3;
+     cloudDepth+=smoothstep(.43,.7,density)*cloudStep*interior;
+     if(resinGlow>0.)glowDepth+=exp(-dot(point,point)*3.5)*(.35+density*.65)*cloudStep*interior;
+   }
  }
+ if(resinInk>.5){
+   totalDiffuse=totalDiffuse*inkTransmission+inkLight;
+ }else{
  float cloudOpacity=1.-exp(-cloudDepth*1.25);
  totalDiffuse=mix(totalDiffuse,vec3(.009,.003,.021),cloudOpacity);
  totalDiffuse=mix(totalDiffuse,vec3(.024,.008,.045),resinDensity*.22);
  // Soft volume illumination remains below the bright exterior gold inlays.
  totalDiffuse+=vec3(.09,.028,.19)*(1.-exp(-glowDepth*1.4))*resinGlow;
+ }
 `;
 
 export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens:boolean,ones:boolean) {
@@ -360,7 +390,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:0},internalLightning:{value:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:0},resinDensity:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:0},internalLightning:{value:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:0},resinDensity:{value:0},resinInk:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const lightning=createLightningTiming();
   const updateLightning=(now:number)=>{
     if(!uniforms.internalLightning.value)return;
@@ -368,6 +398,17 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     uniforms.lightningPhase.value=frame.phase;uniforms.lightningSeed.value=frame.seed;
   };
   let resinBody:THREE.MeshPhysicalMaterial|undefined;
+  const updateResin=()=>{
+    if(!resinBody)return;
+    const ink=uniforms.resinInk.value>.5,dense=uniforms.resinDensity.value>.5;
+    resinBody.transmission=ink ? .95 : dense ? .78 : .98;
+    resinBody.attenuationDistance=ink ? (dense?3.6:6) : dense?2.2:6;
+    resinBody.color.set(ink?'#ecdfff':dense?'#c3a1dd':'#e9d9ff');
+    resinBody.roughness=ink?.045:dense?.07:.055;
+    resinBody.envMapIntensity=ink?.16:.025;
+    resinBody.specularIntensity=ink?.55:.3;
+    resinBody.clearcoat=ink?.22:.06;
+  };
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
     // Draw front gold after transmission so refraction cannot duplicate a bright
@@ -432,13 +473,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       shader.uniforms.resinEye=uniforms.eye;shader.uniforms.resinTime=uniforms.time;
       shader.uniforms.resinGlow=uniforms.resinGlow;
       shader.uniforms.resinDensity=uniforms.resinDensity;
+      shader.uniforms.resinInk=uniforms.resinInk;
       shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
       shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
-      shader.fragmentShader=resinCloudDeclarations+'\n'+shader.fragmentShader;
+      shader.fragmentShader=resinCloudDeclarations+resinInkField+'\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
     };
-    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v3';
+    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v4';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   let lastValue=-1,lastReadable=false;
@@ -449,10 +491,10 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     setMoltenCracks(enabled:boolean){uniforms.moltenCracks.value=enabled&&theme.id==='fighter'&&!crit?1:0;},
     setInternalLightning(enabled:boolean){uniforms.internalLightning.value=enabled&&theme.id==='sorcerer'&&!crit?1:0;},
     setInnerGlow(strength:number){uniforms.resinGlow.value=dm&&!crit?THREE.MathUtils.clamp(strength,0,1):0;},
+    setLiquidInk(enabled:boolean){uniforms.resinInk.value=dm&&!crit&&enabled?1:0;updateResin();},
     setDenseResin(enabled:boolean){
       if(!resinBody)return;uniforms.resinDensity.value=enabled?1:0;
-      resinBody.transmission=enabled ? .78 : .98;resinBody.attenuationDistance=enabled?2.2:6;
-      resinBody.color.set(enabled?'#c3a1dd':'#e9d9ff');resinBody.roughness=enabled ? .07 : .055;
+      updateResin();
     },
     resultPosition(target:THREE.Vector3) {
       // Match the numbered surface instead of estimating a height above the body.
