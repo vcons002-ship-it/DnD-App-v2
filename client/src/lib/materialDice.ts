@@ -390,7 +390,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:0},internalLightning:{value:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:0},resinDensity:{value:0},resinInk:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const lightning=createLightningTiming();
   const updateLightning=(now:number)=>{
     if(!uniforms.internalLightning.value)return;
@@ -468,7 +468,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       transmission:.98,opacity:1,ior:1.48,thickness:1.3,attenuationColor:'#8a34c9',attenuationDistance:6,
       specularIntensity:.3,clearcoat:.06,clearcoatRoughness:.12,
       envMap:s.scene.environment,envMapIntensity:.025,dispersion:.12});
-    resinBody=resin;
+    resinBody=resin;updateResin();
     resin.onBeforeCompile=shader=>{
       shader.uniforms.resinEye=uniforms.eye;shader.uniforms.resinTime=uniforms.time;
       shader.uniforms.resinGlow=uniforms.resinGlow;
@@ -487,7 +487,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
-    // Preview opt-in; gameplay retains the accepted material until approved.
+    // Approved material defaults; the viewer can toggle effects for comparison.
     setMoltenCracks(enabled:boolean){uniforms.moltenCracks.value=enabled&&theme.id==='fighter'&&!crit?1:0;},
     setInternalLightning(enabled:boolean){uniforms.internalLightning.value=enabled&&theme.id==='sorcerer'&&!crit?1:0;},
     setInnerGlow(strength:number){uniforms.resinGlow.value=dm&&!crit?THREE.MathUtils.clamp(strength,0,1):0;},

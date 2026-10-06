@@ -14,6 +14,7 @@ export async function loadTrayTexture(themeId:string){
   try{let promise=trayTextures.get(themeId);if(!promise){promise=new THREE.TextureLoader().loadAsync(`/art/dice-trays/${themeId}-v1.webp`);trayTextures.set(themeId,promise);}const t=(await promise).clone();t.colorSpace=THREE.SRGBColorSpace;return t;}catch{trayTextures.delete(themeId);return undefined;}
 }
 export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture,fixedFaces=false,dieThemes?:readonly DiceTheme[],appearance?:DiceAppearanceTest){
+  appearance ??= {molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true};
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
   const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60);camera.position.set(0,-8,25);camera.lookAt(0,0,.25);
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.45));

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {createTrailBranches} from './diceTrailBranches';
 
 type TrailPoint={x:number;y:number;time:number};
-/** Optional appearance experiment. Ground-space ribbons respect tray/die depth. */
+/** Approved ranger dice trail. Ground-space ribbons respect tray/die depth. */
 export function createDiceTrails(scene:THREE.Scene,radius:number,indices:number[]){
  const capacity=96,lifetime=1150;
  const glow=document.createElement('canvas');glow.width=glow.height=32;
