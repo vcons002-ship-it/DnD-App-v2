@@ -96,7 +96,11 @@ test('four advanced spells on 3D miniatures in regular darkness',async({browser,
    }
    await chapter('Movement through thorns','The DM moves the goblin 10 ft through the area. Piercing damage rolls from the accepted movement.');
    socket.emit('token:move',{tokenId:enemy.id,x:820,y:510});await settle(1600);await page.waitForTimeout(2500);
-   if(daylight){await page.waitForTimeout(4000);expect(errors).toEqual([]);return;}
+   if(daylight){
+    await page.waitForTimeout(3500);await chapter('Green motes in regular darkness','Thicker branches and floating green lights identify the persistent thorn field.');
+    socket.emit('map:setEnvironment',{mapId:map.id,settings:{lighting:'dungeon',lightLevel:.7}});await state();await page.waitForTimeout(2500);await page.screenshot({path:info.outputPath('thorns-darkness.png')});await page.waitForTimeout(5500);
+    expect(errors).toEqual([]);return;
+   }
    await chapter('Dispel Magic on terrain','Combat > Dispel Magic > Spike Growth area > Cast. Its lower-level magic ends without a check.');
    await click(combat.getByRole('button',{name:/Dispel Magic/}));const dispel=page.getByRole('region',{name:'Dispel Magic target'});
    const measurement=(await state()).measurements.find(m=>m.spellName==='Spike Growth')!;expect(measurement).toBeTruthy();

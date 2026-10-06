@@ -131,3 +131,23 @@ The DM resin shader now passes more tray detail through the broad faces, keeps
 grazing edges denser and preserves opaque gold numeral inlays. There is no new
 central glow, physics change or change to player dice. The live DM tray recording
 covers creature checks and general 2d6 rolls.
+
+## Gem resin and thicker Spike Growth
+
+[Updated ground field and DM dice videos](https://dnd.nic024i.app/uploads/previews/gem-dice-thorn-field-20261006/index.html)
+
+The DM dice body now uses physically based transmission, refraction and purple
+volume attenuation, replacing the alpha-overlay approach from the prior preview.
+The closed body is merged into one mesh, with separate opaque gold numeral
+inlays. The existing studio environment produces polished moving reflections;
+its intensity is bounded to keep white reflections from overwhelming the purple.
+This affects DM/NPC dice only and retains their existing physics and results.
+Reference: [Three.js MeshPhysicalMaterial](https://threejs.org/docs/pages/MeshPhysicalMaterial.html).
+
+Spike Growth increases from 145 to 260 stems and from 52 to 95 thicker branches,
+with larger thorns. Forty-eight floating green light cores and soft halos use two
+instanced meshes. They drift and pulse slowly across the area, freeze in reduced
+motion and stay behind foreground figures through depth testing. Existing local
+spell-light sampling follows representative motes; no extra shadow-map lights
+are created. Instance buffers are released when the effect is removed. The video
+shows daylight, overhead and regular darkness, plus movement damage.

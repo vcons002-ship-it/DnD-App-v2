@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
+import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { dieMesh, faceForwardMesh, roundedD6Mesh, D6_EDGE_ROUNDING, type V3 } from '../../../shared/diceGeometry';
 import type { DiceTheme } from '../../../shared/diceThemes';
@@ -33,7 +34,7 @@ varying vec3 pos; varying vec3 nor; varying vec2 tex;
 uniform vec3 eye; uniform mat3 rotation;
 uniform vec4 planes[20]; uniform int count; uniform float time; uniform vec3 tint;
 uniform sampler2D etching; uniform bool engraved; uniform bool metalEdge;
-uniform int style; uniform float critical;
+uniform int style; uniform float critical; uniform bool numeralsOnly;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
 return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
@@ -66,6 +67,7 @@ vec3 bronzeSurface(vec3 n,vec3 incoming){
 void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
  float cut=metalEdge?0.:(engraved?texture2D(etching,tex).r:1.);
+ if(numeralsOnly&&cut>.98)discard;
  if(engraved){
  vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);vec3 tangent=normalize(axis-n*dot(axis,n));vec3 bitangent=cross(n,tangent);
  float dx=texture2D(etching,tex+vec2(.004,0)).r-texture2D(etching,tex-vec2(.004,0)).r;
@@ -185,12 +187,8 @@ void main(){
    color=gold*(vec3(.22)+environment*.85)+gold*pow(max(0.,dot(rotation*n,halfLight)),90.)*.8;
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
  }
- // Keep the metal numerals opaque while the purple resin reveals the tray below.
- // More transmitted tray detail through the broad face; grazing edges retain
- // enough density and reflection to show the shell. Gold inlays stay opaque.
- float resinOpacity=.50+.22*pow(1.-max(0.,dot(-incoming,n)),3.);
- float opacity=style==3?mix(resinOpacity,1.,1.-cut):.96;
- gl_FragColor=vec4(color,(critical>.5||style==1||metalEdge)?1.:opacity);
+ // DM resin is a separate physical volume; only its metal inlays use this shader.
+ gl_FragColor=vec4(color,(numeralsOnly||critical>.5||style==1||metalEdge)?1.:.96);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;
@@ -211,13 +209,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   });
   const root=new THREE.Group();
   const dm=theme.id.startsWith('dm-');
+  const gem=dm&&!crit;
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
-    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:!gem,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();
@@ -240,7 +239,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     hull.dispose();edgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(edgePoints,3));edgeGeo.computeVertexNormals();
   }
   geometries.push(edgeGeo);
-  root.add(new THREE.Mesh(edgeGeo,makeMaterial()));
+  if(!gem)root.add(new THREE.Mesh(edgeGeo,makeMaterial()));
   const labels=faces.map(f=>{
     const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
     const texture=new THREE.CanvasTexture(canvas);texture.anisotropy=4;textures.push(texture);
@@ -252,6 +251,18 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     const material=makeMaterial(texture);root.add(new THREE.Mesh(geo,material));
     return {canvas,texture};
   });
+  if(gem){
+    // One closed, refracting volume with opaque gold inlays drawn over it.
+    // Transmission bends the rendered tray instead of alpha-blending it flat.
+    const pieces=geometries.map(g=>{const c=g.clone();c.deleteAttribute('uv');return c;});
+    const bodyGeometry=mergeGeometries(pieces)!;pieces.forEach(g=>g.dispose());geometries.push(bodyGeometry);
+    // Explicit envMap makes this material's intensity control independent of
+    // Scene.environmentIntensity, preserving the existing player/tray lighting.
+    const resin=new THREE.MeshPhysicalMaterial({color:'#bf91f0',metalness:0,roughness:.08,
+      transmission:.98,opacity:1,ior:1.56,thickness:1.45,attenuationColor:'#7822b9',attenuationDistance:2.5,
+      clearcoat:.55,clearcoatRoughness:.045,envMap:s.scene.environment,envMapIntensity:.16,dispersion:.12});
+    materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
+  }
   let lastValue=-1;
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {

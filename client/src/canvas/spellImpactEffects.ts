@@ -1,4 +1,4 @@
-import {AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3} from 'three';
+import {InstancedMesh,AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3} from 'three';
 import {spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
 import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
@@ -17,7 +17,7 @@ export function createSpellImpactEffects(scene:Scene){
   const glow=new CanvasTexture(canvas),plane=new PlaneGeometry(1,1),shaft=new CylinderGeometry(.012,.018,.75,5),tip=new ConeGeometry(.075,.22,5),spark=new SphereGeometry(.045,5,4);
   const shapes=createLinkedSpellGeometry();
   const effects=new Map<number|string,Effect>(),seen=new Set<number|string>(),worldPoint=new Vector3();
-  const dispose=(effect:Effect)=>{scene.remove(effect.root);effect.materials.forEach(m=>m.dispose());effect.vines.forEach(v=>v.geometry.dispose());effect.bolt?.geometry.dispose();};
+  const dispose=(effect:Effect)=>{scene.remove(effect.root);effect.root.traverse(n=>{if(n instanceof InstancedMesh)n.dispose();});effect.materials.forEach(m=>m.dispose());effect.vines.forEach(v=>v.geometry.dispose());effect.bolt?.geometry.dispose();};
   function add(input:SpellImpact,now:number){
     const style=spellImpactStyle(input.event);if(!style)return;
     const root=new Group();root.name=`spell-impact-${style.kind}`;
