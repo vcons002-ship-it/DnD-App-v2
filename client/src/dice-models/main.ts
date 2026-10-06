@@ -4,7 +4,7 @@ import {createMaterialDie,getDiceStage,type MaterialDieHandle} from '../lib/mate
 import {diceThemeForClass,diceThemeForRoll} from '../../../shared/diceThemes';
 
 const names=['Druk','Varis','Vanec','DM'];
-const descriptions=['Smooth obsidian, gold edges and numbers','Forest resin, lacquered wood and bronze','Dark red glass, silver numbers, faster traveling lightning','Denser purple resin, soft inner light, gold numbers'];
+const descriptions=['Polished obsidian, molten fissures, gold edges and numbers','Forest resin, lacquered wood and bronze','Dark red glass, silver numbers, faster traveling lightning','Denser purple resin, soft inner light, gold numbers'];
 const themes=[diceThemeForClass('Fighter'),diceThemeForClass('Ranger'),diceThemeForClass('Sorcerer'),diceThemeForRoll('',true)];
 const grid=document.querySelector<HTMLDivElement>('#models')!;
 const select=document.querySelector<HTMLSelectElement>('#die')!;
@@ -18,7 +18,7 @@ for(let i=0;i<=512;i+=64){bg.beginPath();bg.moveTo(i,0);bg.lineTo(i,512);bg.move
 const map=new THREE.CanvasTexture(backdrop);map.colorSpace=THREE.SRGBColorSpace;
 const views=names.map((name,i)=>{
  const panel=document.createElement('section');panel.className='panel';panel.dataset.name=name;
- panel.innerHTML=`<h2>${name}</h2><p class="description">${descriptions[i]}</p><div class="model" aria-label="Rotate ${name} dice"><canvas></canvas></div><div class="model-controls"><button class="reset">Reset</button><label><input class="rotate" type="checkbox" checked>Auto rotate</label>${i===2?'<label><input id="lightning" type="checkbox" checked>Traveling lightning test</label>':i===3?'<label><input id="inner-light" type="checkbox" checked>Soft inner light</label><label><input id="dense-resin" type="checkbox" checked>Denser resin</label>':''}</div>`;
+ panel.innerHTML=`<h2>${name}</h2><p class="description">${descriptions[i]}</p><div class="model" aria-label="Rotate ${name} dice"><canvas></canvas></div><div class="model-controls"><button class="reset">Reset</button><label><input class="rotate" type="checkbox" checked>Auto rotate</label>${i===0?'<label><input id="molten" type="checkbox" checked>Molten cracks</label>':i===2?'<label><input id="lightning" type="checkbox" checked>Traveling lightning test</label>':i===3?'<label><input id="inner-light" type="checkbox" checked>Soft inner light</label><label><input id="dense-resin" type="checkbox" checked>Denser resin</label>':''}</div>`;
  grid.append(panel);
  const element=panel.querySelector<HTMLDivElement>('.model')!,canvas=element.querySelector('canvas')!,ctx=canvas.getContext('2d')!;
  const scene=stage.scene.clone();scene.background=new THREE.Color('#121822');
@@ -40,6 +40,7 @@ function choose(){
    h.setFaceValues(Array.from({length:sides===100?10:sides},(_,k)=>sides===100?(tens?k*10:k):k+1),true);
    h.object.rotation.set(.15,.35,0);
    if(sides===100){h.object.scale.setScalar(.72);h.object.position.x=j===0?-.75:.75;}
+   h.setMoltenCracks(i===0&&document.querySelector<HTMLInputElement>('#molten')!.checked);
    h.setInternalLightning(i===2&&document.querySelector<HTMLInputElement>('#lightning')!.checked);
    h.setInnerGlow(i===3&&document.querySelector<HTMLInputElement>('#inner-light')!.checked ? .65 : 0);
    h.setDenseResin(i===3&&document.querySelector<HTMLInputElement>('#dense-resin')!.checked);
@@ -49,6 +50,7 @@ function choose(){
  });
  status.textContent=`All four d${sides} models ready. Rotate individually to compare reflections and materials.`;
 }
+document.querySelector('#molten')!.addEventListener('change',()=>views[0].handles.forEach(h=>h.setMoltenCracks(document.querySelector<HTMLInputElement>('#molten')!.checked)));
 select.addEventListener('change',choose);
 spin.addEventListener('change',()=>views.forEach(v=>v.rotate.checked=spin.checked));
 document.querySelector('#reset')!.addEventListener('click',()=>views.forEach(v=>v.reset()));

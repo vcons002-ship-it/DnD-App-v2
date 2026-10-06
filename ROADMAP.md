@@ -2588,3 +2588,7 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Keep revealed fog option: saved per map, retains full-color explored terrain and frozen last-seen figures, with heavy-darkness range and explicit DM cover preserved. Retained figures cannot be targeted; unseen movement and stat changes are not disclosed.
 
 - [x] Vanec lightning preview accelerated again: leaders and return strokes travel twice as fast as the previous preview, with a new discharge every 0.6 seconds.
+
+- [x] Vanec lightning uses an independent randomized clock per die: roughly 1.4?3.6 seconds between discharges, staggered initial flashes, and unchanged fast leader/return-stroke travel. Background resumes never queue catch-up flashes.
+
+- [x] Druk molten cracks refined to understated deep-red heat inside narrow recessed splits: irregular fractured edges, chipped shoulders, view-dependent cavity reflections, and preserved smooth obsidian rather than bright orange outlines.

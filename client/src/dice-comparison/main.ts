@@ -22,7 +22,7 @@ const art=await loadTrayTexture('dm');
 const experiment=new URLSearchParams(location.search).get('effects')==='1';
 if(experiment){
  document.querySelector('h1')!.textContent='Dice power, inner light & rolling trails';
- document.querySelector('main > p')!.textContent='Vanec: faster lightning. DM: denser lit resin. Varis: branching vines, leaves and thorns.';
+ document.querySelector('main > p')!.textContent='Druk: molten obsidian. Vanec: independent lightning flashes. DM: denser lit resin. Varis: branching vines, leaves and thorns.';
 }
 
 async function roll(next=sides){
@@ -36,7 +36,7 @@ async function roll(next=sides){
  const nextWorld=createLiveWorld(dice,++seed,'bottom');
  const snapshot=nextWorld.snapshot();
  toss={radius:snapshot.radius,frames:new Float32Array(snapshot.poses),frameCount:1,step:1,topFaces:dice.map(()=>0),duration:Infinity,settleTimes:[],wallHits:0};
- const nextRenderer=createTrayRenderer(dice,toss,themes[3],undefined,art?.clone(),true,dice.map(d=>themes[d.set]),experiment?{lightning:true,dmGlow:.65,denseDm:true,varisTrail:true}:undefined);
+ const nextRenderer=createTrayRenderer(dice,toss,themes[3],undefined,art?.clone(),true,dice.map(d=>themes[d.set]),experiment?{molten:true,lightning:true,dmGlow:.65,denseDm:true,varisTrail:true}:undefined);
  labels=dice.map(d=>{const l=document.createElement('div');l.className='die-label';l.textContent=names[d.set]+(d.tens?' tens':d.ones?' ones':'');l.hidden=true;tray.append(l);return l;});
  const r=tray.getBoundingClientRect();
  await nextRenderer.prepare(r.width,r.height,Math.min(devicePixelRatio,1.5));

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createLightningTiming} from './diceLightningTiming';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -37,11 +38,27 @@ uniform sampler2D etching; uniform bool engraved; uniform bool metalEdge;
 uniform int style; uniform float critical; uniform bool numeralsOnly;
 uniform bool inlayBacking;
 uniform float numeralEmphasis;
+uniform float moltenCracks;
 uniform float internalLightning;
+uniform float lightningPhase; uniform float lightningSeed;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
 return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm(vec3 p){return noise(p)*.57+noise(p*2.03)*.28+noise(p*4.07)*.15;}
+// A continuous 3D fracture field makes the seams wrap across faces. The
+// second sample sits beneath the surface and shifts with refraction, exposing
+// molten rock through fissures rather than painting orange lines on the shell.
+float moltenFracture(vec3 p){
+ vec3 q=p*2.65+vec3(fbm(p*4.1),fbm(p*4.1+7.),fbm(p*4.1+17.))*1.8;
+ vec3 cell=floor(q),f=fract(q);float first=20.,second=20.;
+ for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++)for(int z=-1;z<=1;z++){
+  vec3 offset=vec3(float(x),float(y),float(z)),id=cell+offset;
+  vec3 point=offset+vec3(hash(id),hash(id+13.7),hash(id+29.1))-f;
+  float d=dot(point,point);
+  if(d<first){second=first;first=d;}else second=min(second,d);
+ }
+ return max(0.,sqrt(second)-sqrt(first));
+}
 // Die-local filaments are sampled through the glass volume, never painted on
 // its faces. A shared burst seed keeps the same arc coherent across all faces.
 vec2 electricArc(vec3 p,float seed){
@@ -128,13 +145,13 @@ void main(){
    float spark=pow(max(0.,1.-vein*55.),4.)*smoothstep(.53,.73,cloud);
    if(style==0)energy+=vec3(1.,.065,.11)*spark*stepSize*interior*1.6;
    if(style==0&&internalLightning>.5){
-     float cycle=floor(time/.6),phase=mod(time,.6)*5.;
-     vec2 arc=electricArc(p,cycle+7.);
+     float phase=lightningPhase;
+     vec2 arc=electricArc(p,lightningSeed);
      float head=clamp((phase-.13)/.48,0.,1.);
      float reached=smoothstep(arc.y-.025,arc.y+.008,head);
      float tail=exp(-max(0.,head-arc.y)*5.);
      float discharge=smoothstep(.12,.16,phase)*(1.-smoothstep(.60,.90,phase));
-     float flicker=.7+.3*pow(sin(time*58.),2.);
+     float flicker=.7+.3*pow(sin(time*58.+lightningSeed),2.);
      // A leader crosses the volume, its branches follow, and the established
      // channel briefly flares in a weaker return stroke before fading.
      float burst=reached*tail*discharge*flicker+exp(-pow((phase-.79)/.028,2.))*.28;
@@ -169,6 +186,29 @@ void main(){
    vec3 stone=vec3(.0008,.0007,.00075)+vec3(.003,.0026,.0024)*band+vec3(.004)*cloud;
    vec3 polished=pow(studioLight(rotation*reflect(incoming,n))*1.4,vec3(1.5));
    color=stone+polished*(.045+fresnel*.9);
+   if(moltenCracks>.5){
+     float raw=moltenFracture(pos);
+     float chip=fbm(pos*48.)*.013+noise(pos*110.)*.003;
+     float mouth=max(0.,raw-chip),below=moltenFracture(pos+ray*.07);
+     float region=smoothstep(.40,.65,fbm(pos*1.55+vec3(4.,1.,9.)));
+     // Wide, dark chipped shoulders surround a much narrower split. Its
+     // sloped sides change reflections with the view instead of glowing flat.
+     float groove=(1.-smoothstep(.012,.115,mouth))*region;
+     float cavity=(1.-smoothstep(.002,.030,mouth))*region;
+     vec3 sx=dFdx(pos),sy=dFdy(pos),r1=cross(sy,n),r2=cross(n,sx);
+     float det=dot(sx,r1);
+     vec3 grad=(dFdx(groove)*r1+dFdy(groove)*r2)/(abs(det)>.000001?det:.000001);
+     vec3 brokenNormal=normalize(n+grad*.027);
+     vec3 brokenReflection=pow(studioLight(rotation*reflect(incoming,brokenNormal))*1.4,vec3(1.5));
+     color=mix(color,stone+brokenReflection*(.04+fresnel*.72),groove*.9);
+     color*=1.-cavity*.82;
+     float hotCore=1.-smoothstep(.003,.042,below);
+     float pulse=.94+.06*sin(time*.9+fbm(pos*4.)*7.);
+     // Deep red heat is visible only at the bottom of a split. Broad stone
+     // faces stay polished black; tiny amber pockets hint at hotter magma.
+     vec3 magma=mix(vec3(.19,.003,.0005),vec3(.65,.045,.003),hotCore);
+     color+=magma*cavity*pulse+vec3(.018,.0008,.0001)*groove;
+   }
  }
  color+=energy*.35;
  vec3 halfLight=normalize(normalize(vec3(-.65,.65,1.))-rotation*incoming);
@@ -318,7 +358,13 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},internalLightning:{value:0},resinGlow:{value:0},resinDensity:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:0},internalLightning:{value:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:0},resinDensity:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const lightning=createLightningTiming();
+  const updateLightning=(now:number)=>{
+    if(!uniforms.internalLightning.value)return;
+    const frame=lightning.advance(now/1000);
+    uniforms.lightningPhase.value=frame.phase;uniforms.lightningSeed.value=frame.seed;
+  };
   let resinBody:THREE.MeshPhysicalMaterial|undefined;
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
@@ -398,6 +444,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   return {
     object: root,
     // Preview opt-in; gameplay retains the accepted material until approved.
+    setMoltenCracks(enabled:boolean){uniforms.moltenCracks.value=enabled&&theme.id==='fighter'&&!crit?1:0;},
     setInternalLightning(enabled:boolean){uniforms.internalLightning.value=enabled&&theme.id==='sorcerer'&&!crit?1:0;},
     setInnerGlow(strength:number){uniforms.resinGlow.value=dm&&!crit?THREE.MathUtils.clamp(strength,0,1):0;},
     setDenseResin(enabled:boolean){
@@ -436,7 +483,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       root.updateMatrixWorld(true);
       uniforms.eye.value.copy(camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
       uniforms.rotation.value.setFromMatrix4(poseRotation.makeRotationFromQuaternion(root.quaternion));
-      uniforms.time.value=now/1000;
+      uniforms.time.value=now/1000;updateLightning(now);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean){
       // Only the separate settled result presentation uses this treatment;
@@ -456,7 +503,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       });}
       root.rotation.set(angles[0]+(readable?0:.10),angles[1]-(readable?0:.14),angles[2],'ZYX');root.updateMatrixWorld(true);
       uniforms.eye.value.copy(s.camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
-      uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;
+      uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;updateLightning(now);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);
