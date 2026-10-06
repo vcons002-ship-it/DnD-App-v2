@@ -2608,3 +2608,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Enlarged dice numerals across every material: single digits, two-digit/percentile faces, tetrahedral corner labels and settled result dice retain six underlines.
 
 - [x] Brightened Varis's copper-bronze numeral rims with steadier contrast between reflections, preserving dark wood inlays and the existing die-edge finish.
+
+- [x] Roomier tray proportions for pools of up to ten physical dice (about 22% more rolling width per die), smoothly returning to the existing large-pool layout by twenty; live and playback physics share the same sizing.

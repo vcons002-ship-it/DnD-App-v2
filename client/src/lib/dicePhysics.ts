@@ -1,5 +1,6 @@
 import {diceCollider} from '../../../shared/diceCollider.js';
 import {handTumble} from '../../../shared/diceLaunch.js';
+import {diceRadiusForPool} from '../../../shared/diceTrayLayout.js';
 import {recordDiceImpacts,type DiceImpact} from '../../../shared/diceImpacts.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from '../../../shared/diceGeometry.js';
@@ -35,8 +36,7 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   let state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
   // The responsive tray accommodates the pool; each physical d6 remains 16 mm.
-  const cols=Math.max(1,Math.ceil(Math.sqrt(dice.length*1.5))),rows=Math.max(1,Math.ceil(dice.length/cols));
-  const radius=Math.min(1.5,1.8/Math.pow(Math.max(1,dice.length),.25),5.6/cols,3.2/rows)*Math.min(1,Math.sqrt(12/Math.max(1,dice.length)));
+  const radius=diceRadiusForPool(dice.length);
   const metresPerUnit=(REFERENCE_D6_EDGE*Math.sqrt(3)/2)/radius;
   const world=new World({gravity:new Vec3(0,0,-TRAY_GRAVITY/metresPerUnit),allowSleep:true});
   (world.solver as GSSolver).iterations=80;
