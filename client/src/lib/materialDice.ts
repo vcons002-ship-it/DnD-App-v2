@@ -148,7 +148,7 @@ void main(){
    }
    else if(style==2){color=bronzeSurface(n,incoming);}
    else {
-     vec3 f0=style==3?vec3(.78,.83,.90):style==0?vec3(.97,.96,.93):style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
+     vec3 f0=style==3?(metalEdge?vec3(.78,.83,.90):vec3(.95,.64,.22)):style==0?vec3(.97,.96,.93):style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
      vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
      vec3 tangent=normalize(axis-n*dot(axis,n));
      float brushing=(noise(vec3(tex*vec2(900.,70.),3.))-.5)*.025;
@@ -174,6 +174,14 @@ void main(){
      float wall=metalEdge?0.:max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
      inlay*=mix(1.,.28,smoothstep(.35,.9,wall));
      inlay+=f0*critical*.38;
+     if(style==3 && engraved){
+       // A black-metal rim surrounds the reflective gold numeral, including
+       // the outside of the cut. Both materials reflect the same studio light.
+       float nearby=min(min(texture2D(etching,tex+vec2(.014,0)).r,texture2D(etching,tex-vec2(.014,0)).r),min(texture2D(etching,tex+vec2(0,.014)).r,texture2D(etching,tex-vec2(0,.014)).r));
+       float rim=(1.-smoothstep(.15,.85,nearby))*smoothstep(.15,.8,cut);
+       vec3 blackMetal=pow(r,vec3(1.8))*(vec3(.018,.020,.025)+vec3(.1)*pow(1.-nv,5.));
+       color=mix(color,blackMetal,rim);
+     }
      color=mix(color,inlay,1.-cut);
    }
  }

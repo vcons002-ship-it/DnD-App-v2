@@ -75,9 +75,9 @@ test('five repaired spells on 3D miniatures in regular darkness',async({browser,
    capture=await startAv1Capture(page,info.outputPath('party-spells-darkness-av1.mp4'));started=Date.now();
    await chapter('Regular darkness · no placed lights','Vanec, Druk, Varis and a goblin. Spell glow is the only added light.');await page.screenshot({path:info.outputPath('poster.png')});await page.waitForTimeout(2500);
    await chapter('Shield','An incoming hit offers a reaction. Choose Shield to raise a blue barrier.');
-   for(let i=0;i<6;i++){socket.emit('combat:attack',{attackerTokenId:enemy.id,targetTokenId:actor.id,weaponIndex:0});await expect.poll(async()=>(await state()).rollLog.filter(r=>r.label==='Attack').length,{timeout:25000}).toBe(i+1);if((await state()).shieldReactions?.length)break;await page.waitForTimeout(700);}
+   for(let i=0;i<8;i++){socket.emit('combat:attack',{attackerTokenId:enemy.id,targetTokenId:actor.id,weaponIndex:0});await expect.poll(async()=>(await state()).rollLog.filter(r=>r.label==='Attack').length,{timeout:25000}).toBe(i+1);const s=await state(),offer=s.shieldReactions?.[0],hit=s.rollLog.find(r=>r.id===offer?.rollId);if(hit?.reveal?.d20!==20&&hit?.reveal?.attackTotal){socket.emit('character:update',{characterId:caster.id,armorClass:hit.reveal.attackTotal-2});await state();break;}if(offer)socket.emit('spell:shield',{rollId:offer.rollId,pass:true});await page.waitForTimeout(700);}
    await settle();
-   const shield=page.getByRole('region',{name:'Shield reaction'});await expect(shield).toBeVisible();await click(shield.getByRole('button',{name:'Shield · L1',exact:true}));await settle();await expect(layer).toHaveAttribute('data-spell-impact-kinds',/shield/);await page.screenshot({path:info.outputPath('shield.png')});await page.waitForTimeout(6500);await clear();
+   const shield=page.getByRole('region',{name:'Shield reaction'});await expect(shield).toBeVisible();await click(shield.getByRole('button',{name:'Shield · L1',exact:true}));await expect(page.locator('.shield-blocked-popup')).toHaveText('Blocked!');await expect(layer).toHaveAttribute('data-spell-impact-kinds',/shield/);await page.waitForTimeout(500);await page.screenshot({path:info.outputPath('shield.png')});await page.waitForTimeout(4500);await settle();await clear();
    await chapter('Misty Step','Choose a visible destination, then Teleport. Silver wisps fade at the landing point.');
    await click(combat.getByRole('button',{name:/Misty Step/}));const destination=page.getByRole('region',{name:'Misty Step destination'});const q=await point(actor.id,65,-15);await page.mouse.move(q.x,q.y,{steps:18});await page.waitForTimeout(900);await page.mouse.click(q.x,q.y);await click(destination.getByRole('button',{name:'Teleport',exact:true}));await expect(layer).toHaveAttribute('data-spell-impact-kinds',/mist/);await page.screenshot({path:info.outputPath('misty-step.png')});await page.waitForTimeout(2200);
    await chapter('Hypnotic Pattern','Place the cube, confirm, then resolve the Wisdom save. Colored loops remain on the affected goblin.');
@@ -85,10 +85,10 @@ test('five repaired spells on 3D miniatures in regular darkness',async({browser,
    await chapter('Command','Choose Halt and cast. A failed Wisdom save leaves a gold sigil above the target until Command ends.');
    await click(combat.getByRole('button',{name:/Command/}));const choice=page.getByRole('dialog',{name:'Choose Command'});await click(choice.getByRole('button',{name:'Halt',exact:true}));await page.waitForTimeout(900);await click(choice.getByRole('button',{name:'Cast Command',exact:true}));await settle();await expect(layer).toHaveAttribute('data-spell-impact-kinds',/command/);await page.screenshot({path:info.outputPath('command.png')});await page.waitForTimeout(6500);
    await clear();
-   const footsteps=()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.footstep')).length);
+   const footsteps=async()=>Number(await layer.getAttribute('data-footprint-count'));
    const walk=async(dx:number,dy:number)=>{const a=await point(actor.id,0,0),b=await point(actor.id,dx,dy);await page.mouse.move(a.x,a.y,{steps:16});await page.mouse.down();await page.waitForTimeout(250);await page.mouse.move(b.x,b.y,{steps:32});await page.waitForTimeout(800);await page.mouse.up();await page.waitForTimeout(1700);};
    await chapter('Before the stealth spell','Normal movement leaves visible footprints.');
-   await walk(110,90);await expect.poll(footsteps).toBeGreaterThan(2);await page.screenshot({path:info.outputPath('footsteps-before.png')});await page.waitForTimeout(2000);
+   await walk(-160,-100);await expect.poll(footsteps).toBeGreaterThan(2);await page.screenshot({path:info.outputPath('footsteps-before.png')});await page.waitForTimeout(2000);
    await expect.poll(footsteps,{timeout:15000}).toBe(0);
    await chapter('Pass without Trace','Choose allies, then confirm. Protected characters gain +10 Stealth and leave no new footprints.');
    await click(combat.getByRole('button',{name:/Pass without Trace/}));await expect(area).toBeVisible();const foeChoice=area.getByRole('checkbox',{name:/Goblin/});if(await foeChoice.count())await foeChoice.uncheck();await page.waitForTimeout(1000);await click(area.getByRole('button',{name:/Confirm area/}));await expect(layer).toHaveAttribute('data-spell-impact-kinds',/veil/);await page.waitForTimeout(2400);await expect(layer).toHaveAttribute('data-spell-light-strength','0');await page.screenshot({path:info.outputPath('pass-without-trace.png')});
@@ -97,7 +97,7 @@ test('five repaired spells on 3D miniatures in regular darkness',async({browser,
    const check=(await state()).rollLog.findLast(r=>r.label==='Stealth check')!;expect(check.reveal?.toHit).toContainEqual({label:'Pass without Trace',value:10});
    const drawer=page.getByRole('region',{name:'Quick skill checks'});if(await drawer.isVisible())await click(drawer.getByRole('button',{name:'Close',exact:true}));
    await chapter('No tracks while protected','Vanec moves again, but the spell suppresses new footprints. The veil adds no light.');
-   await walk(-110,-90);expect(await footsteps()).toBe(0);await page.screenshot({path:info.outputPath('footsteps-after.png')});await page.waitForTimeout(4500);await clear();
+   await walk(160,100);expect(await footsteps()).toBe(0);await page.screenshot({path:info.outputPath('footsteps-after.png')});await page.waitForTimeout(4500);await clear();
    expect(errors).toEqual([]);
  }finally{
    if(capture)writeFileSync(info.outputPath('capture.json'),JSON.stringify(await capture.stop(),null,2));

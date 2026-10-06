@@ -2303,7 +2303,7 @@ test('private movement shadows keep the figure at its origin and animate committ
     const placed=(await f.snapshot()).tokens.find(t=>t.id===druk.id)!;
     expect(placed.facing).toBeCloseTo(Math.PI/4);
     await Promise.all([assertAnimation(page,druk,placed),assertAnimation(dm,druk,placed)]);
-    await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.footstep')).length)).toBeGreaterThan(2);
+    await expect.poll(async()=>Number(await playerLayer.getAttribute('data-footprint-count'))).toBeGreaterThan(2);
     await page.screenshot({path:info.outputPath('footsteps-tilted.png')});
     await expect(playerLayer).not.toHaveAttribute('data-preview-token-id',druk.id);
     await hold(page);

@@ -8,6 +8,7 @@ describe('cosmetic class dice', () => {
       expect(diceThemeForRoll('',true,affinity).hue).toBe(265);
     }
     expect(diceThemeForRoll('', true).id).toBe('dm-neutral-roll');
+    expect(diceThemeForRoll('', true).ink).toBe('#eac36b');
     // Store selectors must return a stable reference between snapshots.
     expect(diceThemeForRoll('',true,'enemy')).toBe(diceThemeForRoll('',true,'enemy'));
   });

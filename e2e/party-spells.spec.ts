@@ -1,5 +1,6 @@
 import {test,expect,type Page,type APIRequestContext} from '@playwright/test';
 import {io,type Socket} from 'socket.io-client';
+import sharp from 'sharp';
 import type {SheetAbility,StateSnapshot} from '../shared/types';
 import {DM_SECRET,PORT} from './playwright.config';
 const sockets:Socket[]=[];
@@ -47,6 +48,26 @@ test('a successful Shield reaction displays Blocked! and dismisses automatically
  await page.waitForTimeout(400);await page.screenshot({path:test.info().outputPath('shield-blocked-popup.png'),fullPage:true});
  expect((await f.snapshot()).rollLog.find(r=>r.id===hit.id)?.pending?.amount).toBe(0);
  await expect(popup).toHaveCount(0,{timeout:6000});
+});
+
+test('footprints remain visible above regular-darkness terrain and Pass without Trace suppresses them',async({page,request})=>{
+ test.setTimeout(120000);const f=await setup(request,page);
+ f.socket.emit('map:setEnvironment',{mapId:f.map.id,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,lightLevel:.7,sceneTintStrength:0,weather:'none',mist:false,lights:[]}});await f.snapshot();
+ await page.getByRole('button',{name:'3D player tokens',exact:true}).click();
+ const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-personal-miniature-count','2',{timeout:60000});
+ await expect(layer).toHaveAttribute('data-ground-ready','true');await page.waitForTimeout(1000);
+ const p=await f.mapPoint(325,300),clip={x:Math.round(p.x)-40,y:Math.round(p.y)-20,width:80,height:40};
+ const pixels=async()=>sharp(await page.screenshot({clip})).removeAlpha().raw().toBuffer();
+ const before=await pixels();f.socket.emit('token:move',{tokenId:f.actor.id,x:450,y:300});await f.snapshot();
+ await expect.poll(async()=>Number(await layer.getAttribute('data-footprint-count'))).toBeGreaterThan(2);await page.waitForTimeout(1000);
+ const after=await pixels();let brighter=0;for(let i=0;i<after.length;i+=3)if(after[i]>before[i]+30&&after[i+1]>before[i+1]+30)brighter++;
+ expect(brighter).toBeGreaterThan(20);await page.screenshot({path:test.info().outputPath('visible-darkness-footprints.png')});
+ await expect.poll(async()=>Number(await layer.getAttribute('data-footprint-count')),{timeout:15000}).toBe(0);
+ await page.locator('.compact-player-combat').getByRole('button',{name:/Pass without Trace/}).click();
+ await page.getByRole('region',{name:'Place spell area'}).getByRole('button',{name:/Confirm area/}).click();
+ await expect.poll(async()=>(await f.character()).conditions.some(c=>c.combatEffect?.stealthBonus===10)).toBe(true);
+ f.socket.emit('token:move',{tokenId:f.actor.id,x:200,y:300});await f.snapshot();await page.waitForTimeout(1000);
+ await expect(layer).toHaveAttribute('data-footprint-count','0');
 });
 
 test('Misty Step and Pass without Trace use visible map controls and preserve spell-slot bookkeeping',async({page,request})=>{

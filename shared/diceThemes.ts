@@ -22,7 +22,7 @@ export function diceThemeForClass(className = ''): DiceTheme {
   return DICE_THEMES[match?.[1] ?? 'neutral'];
 }
 
-const DM_DICE_THEME: DiceTheme = {...theme('dm-neutral-roll',265,65,'#c0c7d1','scale'),ink:'#edf0f5'};
+const DM_DICE_THEME: DiceTheme = {...theme('dm-neutral-roll',265,65,'#c0c7d1','scale'),ink:'#eac36b'};
 // Affinity remains accepted for older recorded frames; all DM/NPC rolls now
 // share one purple material rather than switching colors by disposition.
 export function diceThemeForRoll(className = '', dmDice = false, _affinity?: string): DiceTheme {

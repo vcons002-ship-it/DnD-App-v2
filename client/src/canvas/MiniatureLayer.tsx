@@ -1,4 +1,6 @@
 import {createMirrorImages} from './mirrorImages';
+import {createMiniatureFootprints} from './miniatureFootprints';
+import type {FootprintMark} from './FootprintTrails';
 import {createSpiritualWeapon} from './spiritualWeapon';
 import {DEATH_SKULL,SPIRITUAL_WEAPON} from '../lib/miniatures';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
@@ -54,6 +56,7 @@ export type MiniatureToken = {
   definition: MiniatureDefinition;
 };
 type Props = {
+  footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
   memoryTerrainCanvas?: ()=>HTMLCanvasElement|null;
   personalVision?: boolean;
@@ -76,6 +79,7 @@ type Props = {
   environmentPreview?: EnvironmentPreviewSettings;
 };
 export type MiniatureLayerHandle = {
+  setFootprints: (marks:FootprintMark[])=>void;
   spellCast: (tokenIds: string[]) => void;
   setView: (view: BattlefieldView) => void;
   setProjection: (tilt:number, rotation:number, view:BattlefieldView) => void;
@@ -167,6 +171,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   renderer.domElement.setAttribute('aria-hidden', 'true');
   host.appendChild(renderer.domElement);
   const scene = new Scene();
+  const footprints=createMiniatureFootprints(scene);
   const spellImpacts=createSpellImpactEffects(scene);
   const localShadows=createLocalLightShadows(renderer);
   // Shared screen mask measures local silhouette thickness for every model,
@@ -646,6 +651,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const sync = (next: Props) => {
     if (disposed || failed) return;
     props = next;
+    const marks=next.footprints?.()??[];footprints.sync(marks);host.dataset.footprintCount=String(marks.length);
     raisedStudy?.sync(useStore.getState().snapshot?.map?.id);
     spellImpacts.sync(next.spellImpacts??[],performance.now());
     // Unrelated snapshots during an imperative Konva pan must not restore the
@@ -887,6 +893,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     raisedStudy?.dispose();
     archArtStudy?.dispose();
     spellImpacts.dispose();
+    footprints.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
     sharedCanvas.remove();sharedDepth.dispose();visionLift.dispose();
@@ -906,6 +913,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   sync(initial);
   return {
     sync,
+    setFootprints(marks){if(disposed)return;footprints.sync(marks);host.dataset.footprintCount=String(marks.length);invalidate();},
     spellCast(tokenIds) {
       if (disposed || document.hidden) return;
       for (const id of tokenIds) instances.get(id)?.lightning?.cast(performance.now() / 1000);
@@ -975,6 +983,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     return () => { socket?.off('fx:spellCast', cast); };
   }, [socket]);
   useImperativeHandle(ref, () => ({
+    setFootprints: (marks) => engine.current?.setFootprints(marks),
     spellCast: (tokenIds) => engine.current?.spellCast(tokenIds),
     setView: (view) => engine.current?.setView(view),
     setProjection: (tilt,rotation,view) => engine.current?.setProjection(tilt,rotation,view),
