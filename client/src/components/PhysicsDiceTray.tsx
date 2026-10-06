@@ -111,7 +111,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
     return()=>{dead=true;sound?.stop();clearTimeout(timeout);worker?.terminate();cancelAnimationFrame(raf);flightAnimations.forEach(a=>a.cancel());renderer?.dispose();};
   },[key,theme,rollKey,comparison?.kept,entrySide]);
   const expanded=physicalDice(dice),landed=status==='settled'||status==='fallback';
-  return <div ref={root} className="physics-dice-tray" data-entry-side={entrySide} data-status={status} data-theme={theme.id} data-material={status==='loading'?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':'forest-resin'} role="group" aria-label={label}>
+  return <div ref={root} className="physics-dice-tray" data-entry-side={entrySide} data-status={status} data-theme={theme.id} data-material={status==='loading'?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id.startsWith('dm-')?'purple-resin':'forest-resin'} role="group" aria-label={label}>
     <canvas ref={canvas} className="dice-tray-canvas" aria-label="Overhead physics dice tray"/>
     {status==='loading'&&<div className="dice-tray-status">Preparing toss…</div>}
     {status==='fallback'&&<div className="dice-tray-status">Roll result · 3D tray unavailable</div>}

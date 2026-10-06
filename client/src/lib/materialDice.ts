@@ -77,7 +77,7 @@ void main(){
  vec3 beyond=studioLight(rotation*ray);
  vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*2.4);
  float smoke=0.;vec3 energy=vec3(0.);float stepSize=distance/20.;
- if(style==0||style==2){for(int j=0;j<20;j++){
+ if(style==0||style==2||style==3){for(int j=0;j<20;j++){
    vec3 p=pos+ray*(float(j)+.5)*stepSize;
    float interior=smoothstep(.02,.22,min((float(j)+.5)*stepSize,distance-(float(j)+.5)*stepSize));
    vec3 drift=style==0?vec3(time*.065,-time*.045,time*.035):vec3(0.);
@@ -86,6 +86,11 @@ void main(){
    float vein=abs(noise(p*3.+vec3(fbm(p*5.+drift)*1.9))- .51);
    float spark=pow(max(0.,1.-vein*55.),4.)*smoothstep(.53,.73,cloud);
    if(style==0)energy+=vec3(1.,.065,.11)*spark*stepSize*interior*1.6;
+   if(style==3){
+     // Violet resin: soft cloudy depth inside a smooth translucent casting.
+     smoke+=smoothstep(.52,.78,cloud)*stepSize*interior*.22;
+     energy+=vec3(.075,.012,.15)*smoothstep(.64,.84,cloud)*stepSize*interior*.35;
+   }
    if(style==2){
      float growth=fbm(p*3.+vec3(fbm(p*5.)*1.8));
      float grain=1.-smoothstep(.016,.06,abs(growth-.51));
@@ -106,12 +111,6 @@ void main(){
    vec3 stone=vec3(.0008,.0007,.00075)+vec3(.003,.0026,.0024)*band+vec3(.004)*cloud;
    vec3 polished=pow(studioLight(rotation*reflect(incoming,n))*1.4,vec3(1.5));
    color=stone+polished*(.045+fresnel*.9);
- }
- if(style==3){
-   float marble=fbm(pos*3.5+vec3(fbm(pos*6.)));
-   float vein=1.-smoothstep(.008,.035,abs(marble-.5));
-   vec3 stone=tint*(.20+marble*.45)+vec3(.055)*vein;
-   color=stone+studioLight(rotation*reflect(incoming,n))*(.09+fresnel*.6);
  }
  color+=energy*.35;
  vec3 halfLight=normalize(normalize(vec3(-.65,.65,1.))-rotation*incoming);
@@ -171,17 +170,9 @@ void main(){
      vec3 f=f0+(1.-f0)*pow(1.-vh,5.);
      inlay+=f*distribution*geometry/(4.*nv)*.6;
      // A dark cut wall around the metal catches a narrow, beveled rim.
-     float wall=metalEdge?0.:max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
+     float wall=metalEdge||style==3?0.:max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
      inlay*=mix(1.,.28,smoothstep(.35,.9,wall));
      inlay+=f0*critical*.38;
-     if(style==3 && engraved){
-       // A black-metal rim surrounds the reflective gold numeral, including
-       // the outside of the cut. Both materials reflect the same studio light.
-       float nearby=min(min(texture2D(etching,tex+vec2(.014,0)).r,texture2D(etching,tex-vec2(.014,0)).r),min(texture2D(etching,tex+vec2(0,.014)).r,texture2D(etching,tex-vec2(0,.014)).r));
-       float rim=(1.-smoothstep(.15,.85,nearby))*smoothstep(.15,.8,cut);
-       vec3 blackMetal=pow(r,vec3(1.8))*(vec3(.018,.020,.025)+vec3(.1)*pow(1.-nv,5.));
-       color=mix(color,blackMetal,rim);
-     }
      color=mix(color,inlay,1.-cut);
    }
  }
@@ -192,7 +183,7 @@ void main(){
    color=gold*(vec3(.22)+environment*.85)+gold*pow(max(0.,dot(rotation*n,halfLight)),90.)*.8;
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
  }
- gl_FragColor=vec4(color,(critical>.5||style==1||style==3||metalEdge)?1.:.96);
+ gl_FragColor=vec4(color,(critical>.5||style==1||metalEdge)?1.:.96);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;
@@ -219,7 +210,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.68,.36).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
-    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1||style===3)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();

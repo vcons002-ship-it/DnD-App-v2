@@ -146,7 +146,7 @@ function ComparedDice({ comparison, locked, stopping, tick, onSettled }: {
  */
 export const RollRevealOverlay = memo(function RollRevealOverlay() {
   // Warming is optional; disabled WebGL must retain the ordinary result fallback.
-  useEffect(()=>{void import('../lib/diceTrayRenderer').then(async m=>{m.warmTrayGraphics();for(const theme of ['fighter','ranger','sorcerer']){const t=await m.loadTrayTexture(theme);t?.dispose();}}).catch(()=>{});},[]);
+  useEffect(()=>{void import('../lib/diceTrayRenderer').then(async m=>{m.warmTrayGraphics();await Promise.all(['fighter','ranger','sorcerer','dm'].map(async theme=>{const t=await m.loadTrayTexture(theme);t?.dispose();}));}).catch(()=>{});},[]);
   const player = useStore(s => s.snapshot?.role === 'player');
   const [reducedMotion, setReducedMotion] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
   useEffect(() => {

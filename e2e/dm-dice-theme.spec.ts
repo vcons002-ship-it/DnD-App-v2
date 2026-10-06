@@ -10,6 +10,8 @@ test('monster rolls and general DM rolls keep one purple theme live and after se
  const socket=io(`http://localhost:${PORT}`,{transports:['websocket']});
  const snap=async()=>{const r=await socket.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.ok).toBe(true);return r.snapshot;};
  let capture:Awaited<ReturnType<typeof startAv1Capture>>|undefined;
+ const timings:{roll:string;readyWaitMs:number}[]=[],frames:{id:string;elapsed:number;at:number}[]=[];
+ socket.on('dice:frame',f=>frames.push({id:f.id,elapsed:f.elapsed,at:Date.now()}));
  try{
   await snap();
   const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1000;c.height=800;const x=c.getContext('2d')!;x.fillStyle='#302b28';x.fillRect(0,0,1000,800);return c.toDataURL('image/png').split(',')[1];});
@@ -28,17 +30,33 @@ test('monster rolls and general DM rolls keep one purple theme live and after se
   await expect(page.getByRole('group',{name:'Map view controls',exact:true})).toBeVisible();
   if(process.env.DND_DM_GOLD_VIDEO==='1')capture=await startAv1Capture(page,info.outputPath('dm-purple-gold-av1.mp4'));
   for(const disposition of ['enemy','neutral','friendly','general']){
-   if(disposition==='general')socket.emit('dice:roll',{expr:'2d6+3',label:'General DM roll'});
-   else socket.emit('check:roll',{kind:'monster',refId:refs[disposition],ability:'STR'});
+   frames.length=0;
+   if(disposition==='general'){
+    await page.getByRole('button',{name:'Chat & dice',exact:true}).click();
+    await page.getByText('Dice & display options',{exact:true}).click();
+    await page.getByPlaceholder('2d6+3',{exact:true}).fill('2d6+3');
+    await page.getByPlaceholder('Label (optional)',{exact:true}).fill('General DM roll');
+    await page.getByRole('button',{name:'Roll',exact:true}).click();
+   }else{
+    const token=(await snap()).tokens.find((t:any)=>t.refId===refs[disposition]);
+    const point=await page.evaluate(id=>{const s=(window as any).Konva.stages.find((s:any)=>s.find('.token-hit-region').length),n=s.find('.token-hit-region').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsoluteTransform().point({x:0,y:0}),r=s.container().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};},token.id);
+    await page.mouse.click(point.x,point.y);
+    await page.locator('.sb-ability-roll').filter({hasText:'STR'}).first().click();
+    await page.getByTitle('Plain STR ability check (no proficiency)',{exact:true}).click();
+   }
    const live=page.locator('[data-live-dice="true"]');await expect(live).toBeVisible({timeout:30000});
    await expect(live.locator('.physics-dice-tray')).toHaveAttribute('data-theme','dm-neutral-roll');
+   await expect(live.locator('.physics-dice-tray')).toHaveAttribute('data-material','purple-resin',{timeout:5000});
    await page.waitForTimeout(1500);await page.screenshot({path:info.outputPath(disposition+'-live-purple-gold.png')});
    await expect(live).toHaveCount(0,{timeout:45000});
    const result=page.locator('.roll-reveal');await expect(result).toBeVisible();
    await expect(result).toHaveAttribute('data-dice-theme','dm-neutral-roll');
    await expect(result).toHaveAttribute('data-impact-ready','true',{timeout:30000});
+   const first=frames.find(f=>f.elapsed===0),launch=frames.find(f=>f.elapsed>0);
+   expect(first).toBeTruthy();expect(launch).toBeTruthy();timings.push({roll:disposition,readyWaitMs:launch!.at-first!.at});
+   expect(timings.at(-1)!.readyWaitMs).toBeLessThan(2000);
    await page.screenshot({path:info.outputPath(disposition+'-purple-dice.png')});await page.keyboard.press('Escape');
    await expect(result).toHaveCount(0);
   }
- }finally{if(capture)writeFileSync(info.outputPath('capture.json'),JSON.stringify(await capture.stop(),null,2));socket.disconnect();}
+ }finally{writeFileSync(info.outputPath('startup-timings.json'),JSON.stringify(timings,null,2));if(capture)writeFileSync(info.outputPath('capture.json'),JSON.stringify(await capture.stop(),null,2));socket.disconnect();}
 });
