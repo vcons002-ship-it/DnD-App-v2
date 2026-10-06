@@ -3412,21 +3412,22 @@ export function setEntityIcon(
 // the token). Never persisted; capped so an undrained queue can't grow forever.
 const hpFxQueue: (HpFxEvent & { sessionId: string })[] = [];
 /** A non-damaging spell impact uses the same visibility/timing channel. */
-export function queueSpellImpact(sessionId:string,kind:TokenKind,refId:string,spell:string,rollId?:string,areaWidthFt?:number){
+export function queueSpellImpact(sessionId:string,kind:TokenKind,refId:string,spell:string,rollId?:string,areaWidthFt?:number,areaPosition?:HpFxEvent['areaPosition']){
   const name=spellImpactName(spell);
-  if(name&&hpFxQueue.length<200)hpFxQueue.push({sessionId,kind,refId,delta:0,spell:name,...(rollId?{rollId}:{}),...(areaWidthFt?{areaWidthFt}:{})});
+  if(name&&hpFxQueue.length<200)hpFxQueue.push({sessionId,kind,refId,delta:0,spell:name,...(areaPosition?{areaPosition}:{}),...(rollId?{rollId}:{}),...(areaWidthFt?{areaWidthFt}:{})});
 }
 export function checkpointHpFx(){const saved=hpFxQueue.slice();return ()=>{hpFxQueue.splice(0,hpFxQueue.length,...saved);};}
 export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta, damageType, effect, rollId, spell, areaWidthFt } = hpFxQueue[i];
+    const { kind, refId, delta, damageType, effect, rollId, spell, areaWidthFt, areaPosition } = hpFxQueue[i];
     mine.unshift({
       kind,
       refId,
       delta,
       ...(areaWidthFt ? {areaWidthFt} : {}),
+      ...(areaPosition ? {areaPosition} : {}),
       ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),
       ...(damageType ? { damageType } : {}),
@@ -3686,6 +3687,11 @@ export function clearCondition(
     JSON.stringify(conditions),
     refId,
   );
+  if(removed?.combatEffect?.summoned&&kind==='monster'){
+    for(const map of listMaps(entity.sessionId))for(const token of listTokens(map.id))if(token.kind===kind&&token.refId===refId)deleteToken(token.id);
+    deleteMonster(refId);
+    return null;
+  }
   if(removed?.combatEffect?.summonTokenId){
     const token=getToken(removed.combatEffect.summonTokenId),weapon=token?.kind==='monster'?getMonster(token.refId):null;
     if(weapon?.sessionId===entity.sessionId&&weapon.modelType==='spiritual-weapon'){

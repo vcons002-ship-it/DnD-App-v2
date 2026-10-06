@@ -76,7 +76,7 @@ export function counterspellChoice(sid:string,id:string,tokenId:string,pass:bool
  const [result]=rollSaveBatch([{...request,passEffect:`${c.spell} continues.`,failEffect:`${c.spell} interrupted; its spell slot is preserved.`}],'Counterspell — CON Saving Throw');
  const total=result.total+(request.extra??0),passed=total>=dc&&!request.autoFail;
  const idRoll=newId();
- queueSpellImpact(sid,token.kind,e.id,'Counterspell',idRoll);
+ queueSpellImpact(sid,caster.kind,caster.refId,'Counterspell',idRoll);
  addRollLog(sid,{roller:e.name,label:'Counterspell',expr:'CON save',total,hideMods:caster.kind==='monster',detail:`${victim.name}: CON save ${total} vs DC ${dc} — ${passed?'PASS: '+c.spell+' continues.':'FAIL: '+c.spell+' interrupted; no effects or spell-slot expenditure.'}`,
   reveal:{kind:'check',title:'Counterspell — CON Saving Throw',attacker:e.name,target:victim.name,d20:result.face,attackTotal:total,toHit:[{label:'CON save modifiers',value:total-result.face}],outcome:passed?'pass':'fail',effectOutcome:passed?`${c.spell} continues!`:`${c.spell} countered!`,presentedLive:usingPhysicalDice(),visibilityTarget:{kind:caster.kind,refId:caster.refId}}},idRoll);
  if(!passed)breakInvisibility(caster.kind,caster.refId,'casting a countered spell');

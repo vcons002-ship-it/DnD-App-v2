@@ -27,14 +27,16 @@ export function resolveShield(sid:string,roller:string,rollId:string,pass=false,
   if(!p||p.done||!gate)return {ok:false,reason:'This Shield reaction has already been resolved.'};
   const e=entity(p.target.kind,p.target.refId);
   if(!e||e.sessionId!==sid)return {ok:false,reason:'The defender is no longer available.'};
+  let actualLevel=level;
   if(!pass) {
     if(!e.sheetAbilities.some(a=>a.id===gate.abilityId&&partySpell(a)==='shield')||reactionSpent(e.conditions)||e.curHp<=0||reactionBlock(e))return {ok:false,reason:'Shield requires an available reaction.'};
     if(p.target.kind==='pc') {
       const ch=getCharacter(e.id)!,slot=selectSpellSlot(ch,level,pool);
       if(!Number.isInteger(level)||level<1||level>9||!slot?.remaining||!spendSpellSlot(ch.id,slot.level,pool))return {ok:false,reason:'Choose an available spell slot for Shield.'};
+      actualLevel=slot.level;
     }
     breakInvisibility(p.target.kind,e.id,'casting Shield');
-    const fx={casterKind:p.target.kind,casterId:e.id,spell:'Shield',castId:newId(),untilCasterTurn:true,expiresAt:Date.now()+6000};
+    const fx={castLevel:actualLevel,casterKind:p.target.kind,casterId:e.id,spell:'Shield',castId:newId(),untilCasterTurn:true,expiresAt:Date.now()+6000};
     setCondition(p.target.kind,e.id,{id:fx.castId,label:'Shield',aura:'blue',isConcentration:false,combatEffect:fx});
     setCondition(p.target.kind,e.id,{id:newId(),label:'Reaction spent (Shield)',aura:'blue',isConcentration:false,combatEffect:{...fx,castId:undefined}});
     queueSpellImpact(sid,p.target.kind,e.id,'Shield');

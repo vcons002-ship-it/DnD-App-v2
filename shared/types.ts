@@ -42,6 +42,8 @@ export type Condition = {
     duplicates?: number;
     castLevel?: number; abilityId?: string; targetTokenId?: string;
     spellAction?: string; lastUseTurn?: string; itemDropped?: boolean;
+    /** Compatible summoned instances are removed with this spell effect. */
+    summoned?: boolean;
     /** A spell force is an object token, not a summoned creature with HP. */
     summonTokenId?: string; weaponMoveTurn?: string; weaponMovedFt?: number;
     speedReduction?: number; preventsHealing?: boolean; noOpportunityAttacks?: boolean;
@@ -1194,7 +1196,7 @@ export type RollEntry = {
     effect?: {
       commandWord?: string;
       casterKind: TokenKind; casterId: string; spell: string; condition: string;
-      eligibleCreatureType?: string; durationRounds: number; expiresAt: number;
+      castLevel?: number; eligibleCreatureType?: string; durationRounds: number; expiresAt: number;
       expiresRound?: number; castId: string; concentrationConditionId: string;
       repeatSave?: string; repeatDamage?: string; damageType?: string; attackDisadvantage?: boolean; checkDisadvantage?: boolean;
     };
@@ -1508,6 +1510,7 @@ export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds
  */
 export type AbilityRollPayload = {
   targetTokenIds?: string[];
+  dispelTarget?: {tokenId:string} | {effectId:string;mapId:string};
   commandWord?: string;
   destination?: {mapId:string;x:number;y:number};
   area?: import('./spellAreas.js').SpellAreaPlacement;
@@ -1922,6 +1925,8 @@ export type JoinAck =
  *  `damageType` (canonical 5e type, when the source knew it) drives a brief
  *  elemental burst on the token — e.g. a flame flash for fire damage. */
 export type HpFxEvent = {
+  /** Server-selected world-space spell origin, gated like its map location. */
+  areaPosition?: {mapId:string;x:number;y:number;radiusFt:number};
   /** Server-selected footprint of a single area impact, in feet. */
   areaWidthFt?: number;
   /** Cosmetic source name, including spell riders on a weapon hit. */
@@ -1937,7 +1942,7 @@ export type HpFxEvent = {
   damageType?: string;
   /** One-shot extra: 'death' (a creature just dropped to 0 — skull + smoke
    *  puff) or 'loot' (a container was plundered — gold sparkle; delta 0). */
-  effect?: 'death' | 'loot';
+  effect?: 'spell-area' | 'death' | 'loot';
 };
 
 export interface ServerToClientEvents {

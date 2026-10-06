@@ -6,6 +6,16 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Dispel Magic: creature/object/Spike Growth area chooser, authoritative sight
+  and 120-foot range, actual casting-level provenance, automatic lower-level
+  removal and live spellcasting checks for higher levels. Uses linked cleanup
+  for buffs, terrain, marks and supported summons; preserves other recipients
+  and spells elsewhere. Legacy unknown levels and custom magic stay manual.
+- [x] Distinct advanced-spell effects: eased Invisibility shimmer, merged 3D
+  brambles, Counterspell collapse on the interrupted caster and cyan-white
+  Dispel Magic wave. Fix darkvision-ground occlusion without bypassing figure
+  depth; retain reduced-motion and local geometry-based lighting.
+
 - [x] Invisibility: willing touch-target chooser, upcast target count, linked
   concentration and per-recipient ending on attacks, damage and casting. Party
   and DM see translucent miniatures; hostile invisible creatures are removed

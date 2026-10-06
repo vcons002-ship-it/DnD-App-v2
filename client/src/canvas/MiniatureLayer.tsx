@@ -230,6 +230,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let lastFailedIds: string | undefined;
   const manifests = new Map<string, Promise<FxManifest | null>>();
   const instances = new Map<string, Instance>();
+  const opacityFades=new Map<string,{start:number;from:number;to:number;value:number}>();
   const shaderWarmup=createMiniatureShaderWarmup(renderer,createMiniatureTorchLighting(localShadows.uniforms));
   const loading = new Map<string, string>();
   const moves = new Map<string, { x: number; y: number; facing: number; fromX: number; fromY: number; until: number }>();
@@ -365,9 +366,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
         instance.lightning?.update(seconds, now / 1000, reducedMotion.matches, token.hidden);
       }
+      for(const [id,fade] of opacityFades){
+        const instance=instances.get(id);if(!instance){opacityFades.delete(id);continue;}
+        const t=reducedMotion.matches?1:Math.min(1,(now-fade.start)/850),ease=t*t*(3-2*t);fade.value=fade.from+(fade.to-fade.from)*ease;
+        instance.materials.forEach((m,i)=>{if(t<1&&!m.transparent){m.transparent=true;m.needsUpdate=true;}m.opacity=instance.originalOpacity[i]*fade.value;});
+      }
       const impactLights=spellImpacts.tick(now,props.environmentPreview?.pixelsPerFoot??12.8,reducedMotion.matches,id=>{
         const impact=props.spellImpacts?.find(e=>e.tokenId===id);if(!impact)return;
-        const instance=instances.get(id),point=props.visualPosition?.(id)??impact;
+        const instance=instances.get(id),point=impact.fixed?impact:props.visualPosition?.(id)??impact;
         return {...point,visible:props.isVisibleAt?.(id,point.x,point.y)??true,
           height:instance?.mistBody?instance.mistBody.height*instance.root.scale.x:undefined};
       });
@@ -514,7 +520,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
-    if (!failed && (archArtStudy?.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active)) queueDraw();
+    if (!failed && (archArtStudy?.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
   };
   const queueDraw = () => {
     if (frame || frameQueued || disposed || failed) return;
@@ -613,7 +619,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
       const transparent = !!(token.hidden || token.invisible || instance.originalTransparent[index]);
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
-      material.opacity = instance.originalOpacity[index] * (token.invisible ? .28 : token.hidden ? 0.45 : 1);
+      const targetOpacity=token.invisible?.28:token.hidden?.45:1;
+      const previous=opacityFades.get(token.id);
+      if(!previous)opacityFades.set(token.id,{start:performance.now(),from:targetOpacity,to:targetOpacity,value:targetOpacity});
+      else if(previous.to!==targetOpacity)opacityFades.set(token.id,{start:performance.now(),from:previous.value,to:targetOpacity,value:previous.value});
+      material.opacity = instance.originalOpacity[index]*opacityFades.get(token.id)!.value;
     });
     instance.mirrors.update(token.mirrorImages??0,camera,!!token.sharedSightOnly,token.hidden);
     {

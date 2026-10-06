@@ -1,11 +1,11 @@
-import {AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3} from 'three';
+import {AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3} from 'three';
 import {spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
 import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
 import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeometry';
 
-export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;persistent?:boolean};
-type Effect={input:SpellImpact;style:SpellImpactStyle;color:Vector3;start:number;root:Group;materials:MeshBasicMaterial[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
+export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;persistent?:boolean;fixed?:boolean};
+type Effect={input:SpellImpact;style:SpellImpactStyle;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
 
 /** Bounded, short-lived world-space geometry. No model downloads or new lights
  * in Three's shader signature: illumination uses the existing local light field. */
@@ -52,10 +52,14 @@ export function createSpellImpactEffects(scene:Scene){
       bolt=new Mesh(new TubeGeometry(path,30,.023,5,false),bright);bolt.userData.path=path;root.add(bolt);
     }
     // Drifting points help carry the impact and the mark without emoji glyphs.
-    for(let i=0;i<(['haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
+    for(let i=0;i<(['shimmer','counter','dispel','thorns','haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
       const point=new Mesh(spark,bright);point.userData={angle:i*2.399963,seed:(i%4)/4};root.add(point);sparks.push(point);
     }
     const color=new Color(style.color);
+    // Darkvision artwork is a transparent ground overlay at order 3. Effects
+    // draw afterwards with depth testing intact, so terrain cannot erase the
+    // field and a foreground figure still occludes its particles and thorns.
+    root.traverse(node=>{if(node instanceof Mesh)node.renderOrder=5;});
     scene.add(root);effects.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
   }
   return {
@@ -71,7 +75,7 @@ export function createSpellImpactEffects(scene:Scene){
         const age=now-e.start;if(!e.input.persistent&&age>=e.style.duration){dispose(e);effects.delete(id);continue;}
         const p=position(e.input.tokenId);e.root.visible=!!p?.visible;if(!p?.visible)continue;
         const size=Math.max(pixelsPerFoot*2,e.input.diameter),height=Math.max(size*.85,p.height??size*1.5);
-        e.root.position.set(p.x,0,p.y);e.root.scale.set(size,height/1.2,size);
+        e.root.position.set(p.x,0,p.y);e.root.scale.set(size,e.style.kind==='thorns'?size:height/1.2,size);
         const t=e.input.persistent?age/1000:age/e.style.duration;
         const persistentGlow=reduced?.55:.58+.08*Math.sin(age/900);
         const fade=e.input.persistent?persistentGlow:spellLightEnvelope(age,e.style.duration),emission=e.input.persistent?persistentGlow:spellEmissionEnvelope(age,e.style);

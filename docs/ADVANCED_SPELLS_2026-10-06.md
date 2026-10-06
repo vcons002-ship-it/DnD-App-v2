@@ -1,4 +1,4 @@
-# Invisibility, Spike Growth and Counterspell
+# Invisibility, Spike Growth, Counterspell and Dispel Magic
 
 Implemented using the 2024 spell rules in the development branch. These profiles
 adopt compatible catalog entries at execution time; explicit manual, custom or
@@ -64,15 +64,59 @@ and summon interruption. Browser regressions run against a disposable save and
 exercise the real 3D ghost, movement damage and Counterspell reaction/save flow.
 The installed campaign and its data are kept separate from these tests.
 
-## Dispel Magic: proposed next step
+## Dispel Magic
 
-Not implemented in this batch. It should target a creature, object or ongoing
-magical effect within 120 feet. Spells at or below the Dispel Magic slot level end
-automatically; higher-level spells each require a spellcasting-ability check
-against DC 10 plus that spell's level, respecting explicit exceptions. Removing
-an effect must use its existing cleanup path so conditions, areas, summons and
-Haste lethargy remain consistent. The engine will need reliable spell/slot-level
-provenance for active effects, without guessing levels for custom entries.
-It must not undo damage already dealt or automatically erase non-spell magic.
+Click Dispel Magic in Combat, choose a visible creature, object or tracked Spike
+Growth area within 120 feet, then confirm the casting. Spells with a recorded
+casting level at or below the Dispel Magic slot end automatically. Each
+higher-level spell requires its own spellcasting ability check against DC 10 plus
+its casting level; proficiency is not added. Upcasting improves automatic removal.
+The check uses the live dice tray with its ability, target and outcome labeled.
+The cast spends a slot even if no tracked spell is found.
+
+Cleanup uses the existing condition, summon and concentration paths. Removing
+Haste applies lethargy; removing the last concentration recipient ends its source.
+Removing one recipient of upcast Invisibility leaves the others intact. Merely
+targeting a concentrating caster does not end a spell affecting someone elsewhere.
+Witch Bolt links, Hunter's Mark/Hex targets, spectral weapons and provenance-tracked
+summons are supported. Dispel targets the entire Spike Growth effect, not just the
+part inside its visual wave. Damage already dealt is never undone.
+
+Unknown legacy casting levels, untracked spells, homebrew/non-spell magic and
+exceptions remain DM-managed, with a notice for tracked effects lacking their
+casting level. Wall of Force, Forcecage and Antimagic Field are excluded. Existing
+save data is not rewritten to invent casting levels. New compatible casts record
+actual slot levels, including Pact Magic; explicit custom companions remain manual.
+
+## Distinct animations
+
+- Invisibility uses rising silver-violet arcs and motes with an eased body fade.
+- Spike Growth raises a bounded, merged 3D bramble/thorn field across its 20-foot
+  radius. The old flat glyphs remain as the fallback when no miniatures are used.
+- Counterspell contracts and shatters a sigil around the interrupted caster.
+- Dispel Magic sweeps cyan-white rings and motes through its selected effect.
+
+Effects use existing world-space geometry lighting, visibility, reduced-motion
+support and roll-completion timing. They draw above darkvision terrain while
+retaining depth testing against figures. Geometry is reused; no model/image
+requests or additional shadow-map lights are generated for these effects.
+
+The opt-in `e2e/advanced-spells-video.spec.ts` records actual UI casting, movement
+damage, Counterspell and both terrain and higher-level Dispel Magic in a disposable
+campaign. It uses the NVIDIA AV1 recorder and highlighted pointer clicks.
 
 Rules reference: [2024 Basic Rules spell descriptions](https://www.dndbeyond.com/sources/dnd/br-2024/spell-descriptions).
+
+## Recorded demonstration
+
+[Watch with chapters](https://dnd.nic024i.app/uploads/previews/advanced-spell-effects-20261006/index.html)
+
+[Direct mobile MP4](https://dnd.nic024i.app/uploads/previews/advanced-spell-effects-20261006/spells.mp4)
+
+The 99-second recording uses the real casting controls in a disposable campaign,
+with 3D party models in regular darkness, highlighted clicks and live dice. The
+chapter player and MP4 playback were verified on the public domain. Original
+capture is RTX 5090 AV1 at 60 fps; the page serves H.264 for mobile compatibility.
+
+Verification for this update: typecheck, client/server builds, 1,766 server tests,
+10 targeted browser scenarios and the real-app recording scenario passed.

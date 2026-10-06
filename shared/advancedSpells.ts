@@ -1,9 +1,9 @@
 import type {SheetAbility,Condition} from './types.js';
 
 /** Reviewed 2024 profiles; explicit manual/homebrew entries remain untouched. */
-export function advancedSpell(a:Partial<SheetAbility>):'invisibility'|'spike growth'|'counterspell'|undefined {
+export function advancedSpell(a:Partial<SheetAbility>):'invisibility'|'spike growth'|'counterspell'|'dispel magic'|undefined {
   if(a.type!=='spell'||a.source==='custom'||a.executionProfile==='manual')return;
-  const name=a.name?.trim().toLowerCase(),levels:Record<string,number>={'invisibility':2,'spike growth':2,'counterspell':3};
+  const name=a.name?.trim().toLowerCase(),levels:Record<string,number>={'invisibility':2,'spike growth':2,'counterspell':3,'dispel magic':3};
   if(!name||a.level!==levels[name])return;
   if(a.roll && !(a.roll.kind==='damage'&&(name==='spike growth'?['0','2d4']:['0']).includes(a.roll.dice??'')&&!a.roll.scaleDice&&!a.roll.save&&!a.roll.damageBonus))return;
   return name as ReturnType<typeof advancedSpell>;

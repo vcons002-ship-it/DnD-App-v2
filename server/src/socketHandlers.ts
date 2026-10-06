@@ -1,5 +1,6 @@
 import {setRollPending,setRollSmite} from './sessions.js';
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
+import {castDispelMagic,dispelTargetError} from './dispelMagic.js';
 import {advancedSpell} from '../../shared/advancedSpells.js';
 import {castInvisibility,invisibilityError,breakInvisibility,spikeConditions} from './advancedSpells.js';
 import {deferCast,getHeldCast,heldCasts,finishHeldCast,counterspellChoice} from './counterspell.js';
@@ -728,8 +729,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           modifier:spellcastingMod(ent!.stats,kind==='pc'?spellcastingKeyFor(ent as Character,ability):ability.roll?.castingAbility)},ability,mapId,x,y);
         afterChange();broadcastSpellCast(io,sid,kind,refId);return;
       }
-      createSummon(sid, mapId, Number(x) || 0, Number(y) || 0, name, icon);
       if (isConcentrationSpell(ability)) setConcentration(kind, refId, ability.name);
+      const summon=createSummon(sid, mapId, Number(x) || 0, Number(y) || 0, name, icon);
+      if(ability.type==='spell'&&ability.source!=='custom'&&ability.executionProfile!=='manual'){
+        const source=kind==='pc'?getCharacter(refId):getMonster(refId),conc=source?.conditions.find(c=>c.isConcentration);
+        setCondition(summon.kind,summon.refId,{id:newId(),label:ability.name,aura:'blue',isConcentration:false,combatEffect:{casterKind:kind,casterId:refId,spell:ability.name,castId:isConcentrationSpell(ability)?conc?.id:newId(),castLevel:actualLevel,summoned:true,concentration:isConcentrationSpell(ability)}});
+      }
       addRollLog(sid, {
         roller: rollerName(sid, commandSocketId(), isDm()), label: ability.name, expr: 'Summon', total: 0,
         detail: `${ent!.name}: ${ability.name} — placed ${name}. Manual companion stats, commands, duration, and removal remain with the DM.`,
@@ -1589,7 +1594,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     const handleAbilityRoll=(payload:AbilityRollPayload)=>{
-      const {kind,refId,abilityId,castLevel,slotPool,advantage,targetTokenId,damageType,area,destination,commandWord:word,targetTokenIds}=payload;
+      const {kind,refId,abilityId,castLevel,slotPool,advantage,targetTokenId,damageType,area,destination,commandWord:word,targetTokenIds,dispelTarget}=payload;
       const sid = sessionId();
       if (!sid || !ownsCreature(kind, refId)) return;
       const adv = advantage === 'adv' || advantage === 'dis' ? advantage : undefined;
@@ -1641,6 +1646,18 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const error=invisibilityError(sid,kind,refId,requestedSlot?.level??cast??2,invisTargets);
         if(error){socket.emit('notice',{message:error});return;}
       }
+      if(advanced==='dispel magic'){
+        if((requestedSlot?.level??cast??3)<3){socket.emit('notice',{message:'Dispel Magic requires a level 3 or higher slot.'});return;}
+        const error=dispelTargetError(sid,kind,refId,dispelTarget);
+        if(error){socket.emit('notice',{message:error});return;}
+        if(!isDm()){
+          const view=buildSnapshot(sid,'player',null,commandSocketId());
+          const point=dispelTarget&&'effectId'in dispelTarget?view?.measurements.find(m=>m.id===dispelTarget.effectId)?.origin:undefined;
+          if(dispelTarget&&'tokenId'in dispelTarget?!canDirectlyTargetToken(dispelTarget.tokenId):!point||!visionContains(view?.playerVision,point.x,point.y)){
+            socket.emit('notice',{message:'Choose a magical effect or creature you can see yourself.'});return;
+          }
+        }
+      }
       if(!resumedCastId){
         const held=deferCast(sid,payload,selectedAbility,commandConnection()!,commandSocketId(),roller);
         if(held){
@@ -1653,6 +1670,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const error=castInvisibility(sid,roller,kind,refId,requestedSlot?.level??cast??2,invisTargets);
         if(error){socket.emit('notice',{message:error});afterChange();return;}
         if(requestedSlot)spendSpellSlot(refId,requestedSlot.level,requestedSlot.pool);
+        afterChange();broadcastSpellCast(io,sid,kind,refId);return;
+      }
+      if(advanced==='dispel magic'){
+        const message=castDispelMagic(sid,roller,kind,refId,abilityId,requestedSlot?.level??cast??3,dispelTarget!,adv);
+        if(requestedSlot)spendSpellSlot(refId,requestedSlot.level,requestedSlot.pool);
+        setAbilityRechargeSpent(kind,refId,abilityId,true);
+        if(message)socket.emit('notice',{message,durationMs:8000});
         afterChange();broadcastSpellCast(io,sid,kind,refId);return;
       }
       if(selectedAbility&&isCommandSpell(selectedAbility)){

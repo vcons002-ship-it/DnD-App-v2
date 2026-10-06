@@ -4,7 +4,7 @@ import { tokenDistanceFt } from '../../shared/distance.js';
 import {hasLineOfSight} from '../../shared/mapWalls.js';
 import { rollDicePool, withDiceMetadata } from '../../shared/dice.js';
 import { damageMultiplier } from '../../shared/combatMath.js';
-import { getCharacter, getMonster, getToken, getSessionById, getMap, listTokens, listCharacters, listMonsters, queueSpellImpact, setSheetAbility, setConcentration, addRollLog } from './sessions.js';
+import { getCharacter, getMonster, getToken, getSessionById, getMap, listTokens, listCharacters, listMonsters, queueSpellImpact, setSheetAbility, setCondition, setConcentration, addRollLog } from './sessions.js';
 
 export const markedEntity = (kind:TokenKind,id:string) => kind === 'pc' ? getCharacter(id) : getMonster(id);
 export function castMark(sessionId:string,kind:TokenKind,id:string,ability:SheetAbility,targetId:string|undefined,level:number,move=false,hexAbility?:string): boolean {
@@ -24,6 +24,8 @@ export function castMark(sessionId:string,kind:TokenKind,id:string,ability:Sheet
     if (!old?.active || old.expiresAt<=Date.now() || !caster.conditions.some(c=>c.isConcentration && abilityKey({name:c.label.replace(/^Concentration:\s*/i,'')})===abilityKey(ability)) ||
         (markedEntity(old.kind,old.refId)?.curHp ?? 1)>0) return false;
   } else setConcentration(kind,id,ability.name);
+  const concentration=markedEntity(kind,id)!.conditions.find(c=>c.isConcentration);
+  if(concentration)setCondition(kind,id,{...concentration,combatEffect:{casterKind:kind,casterId:id,spell:ability.name,castId:concentration.id,castLevel:level,...concentration.combatEffect}});
   // The effect belongs to this caster; it does not depend on a shared generic 'Marked' condition.
   setSheetAbility(kind,id,{...ability,stance:ability.stance ? {...ability.stance,active:false}:undefined,
     mark:{hexAbility:move?ability.mark?.hexAbility:hexAbility?.toUpperCase()??'STR',kind:target.kind,refId:target.refId,tokenId:target.id,active:true,

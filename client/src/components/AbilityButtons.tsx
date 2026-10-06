@@ -11,6 +11,7 @@ import type {
   Monster,
   SheetAbility,
   TokenKind,
+  AbilityRollPayload,
 } from '../../../shared/types';
 import {
   ROLL_ICON,
@@ -64,6 +65,8 @@ export function AbilityButtons({
   onAfter?: () => void;
 }) {
   const snapshot=useStore(s=>s.snapshot);
+  const [dispelAbility,setDispelAbility]=useState<SheetAbility|null>(null);
+  const [dispelChoice,setDispelChoice]=useState('');
   const [invisAbility,setInvisAbility]=useState<SheetAbility|null>(null);
   const [invisTargets,setInvisTargets]=useState<string[]>([]);
   const rollAbility = useStore((s) => s.rollAbility);
@@ -83,7 +86,8 @@ export function AbilityButtons({
   const [chosenCommand,setChosenCommand]=useState('Halt');
   const [customWord,setCustomWord]=useState('');
 
-  const cast = (a: SheetAbility, word?:string,ids?:string[]) => {
+  const cast = (a: SheetAbility, word?:string,ids?:string[],dispelTarget?:AbilityRollPayload['dispelTarget']) => {
+    if(advancedSpell(a)==='dispel magic'&&!dispelTarget){setDispelAbility(a);setDispelChoice(targetTokenId??snapshot?.tokens.find(t=>t.kind===kind&&t.refId===caster.id)?.id??'');return;}
     if(advancedSpell(a)==='invisibility'&&!ids){
       setInvisAbility(a);const me=snapshot?.tokens.find(t=>t.kind===kind&&t.refId===caster.id);setInvisTargets(me?[me.id]:[]);return;
     }
@@ -97,6 +101,7 @@ export function AbilityButtons({
       refId: caster.id,
       abilityId: a.id,
       commandWord:word,
+      dispelTarget,
       targetTokenIds:ids,
       castLevel: level,
       // A pool only when the player picked one, or for an upcastable spell at its
@@ -107,8 +112,8 @@ export function AbilityButtons({
       damageType: markSpell(a)==='necrotic'?hexAbility:damageChoice(a.id, spellDamageTypeChoices(a, level)),
       // Advantage only affects the d20 of an attack roll; it comes from the
       // caster's shared toggle and is consumed when the attack fires.
-      advantage: !manualCast && execution.roll?.kind === 'attack' && !(linkedSpellProfile(a)&&spellKey(a.name)==='flame blade') ? consumeAdvantage(caster.id) : undefined,
-      targetTokenId: ids ? ids[0] : linkedSpellProfile(a)&&['mirror image','flame blade'].includes(spellKey(a.name)) ? undefined : isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : manualCast ? targetTokenId : execution.roll?.kind === 'heal' ? healTargetId
+      advantage: !manualCast && (execution.roll?.kind === 'attack'||advancedSpell(a)==='dispel magic') && !(linkedSpellProfile(a)&&spellKey(a.name)==='flame blade') ? consumeAdvantage(caster.id) : undefined,
+      targetTokenId: dispelTarget ? undefined : ids ? ids[0] : linkedSpellProfile(a)&&['mirror image','flame blade'].includes(spellKey(a.name)) ? undefined : isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : manualCast ? targetTokenId : execution.roll?.kind === 'heal' ? healTargetId
         : isMultiTargetSpell(a, level) ? undefined : targetTokenId,
     });
     onAfter?.();
@@ -118,6 +123,17 @@ export function AbilityButtons({
   const invisLevel=invisAbility&&'spellSlots'in caster ? selectSpellSlot(caster,invisRequested,slotPools[invisAbility.id])?.level??invisRequested : invisRequested;
   return (
     <>
+      {dispelAbility&&<div className="spell-target-dock" role="region" aria-label="Dispel Magic target">
+        <strong>Dispel Magic ? choose one target</strong>
+        <small>Within 120 ft. Spells up to your casting level end automatically; higher spells require a spellcasting ability check.</small>
+        <select aria-label="Dispel target" value={dispelChoice} onChange={e=>setDispelChoice(e.target.value)}>
+          <option value="">Choose creature, object or spell area</option>
+          {snapshot?.tokens.filter(t=>!t.sharedSightOnly).map(t=>{const e=t.kind==='pc'?snapshot.characters.find(c=>c.id===t.refId):snapshot.monsters.find(m=>m.id===t.refId);return <option key={t.id} value={t.id}>{e?.name??'Creature'}{t.revealTag?` ${t.revealTag}`:''}</option>;})}
+          {snapshot?.measurements.filter(m=>m.spellName==='Spike Growth').map(m=><option key={m.id} value={`effect:${m.id}`}>Spike Growth area</option>)}
+        </select>
+        <button className="btn" disabled={!dispelChoice} onClick={()=>{const target=dispelChoice.startsWith('effect:')?{effectId:dispelChoice.slice(7),mapId:snapshot!.map!.id}:{tokenId:dispelChoice};cast(dispelAbility,undefined,undefined,target);setDispelAbility(null);}}>Cast Dispel Magic</button>
+        <button className="btn" onClick={()=>setDispelAbility(null)}>Cancel</button>
+      </div>}
       {invisAbility&&<div className="spell-target-dock" role="region" aria-label="Invisibility targets">
         <strong>Invisibility ? choose willing creatures to touch</strong>
         <small>Within 5 ft ? up to {invisLevel-1} targets ? concentration</small>
@@ -150,7 +166,7 @@ export function AbilityButtons({
             key={menu ? a.id : 'btn'}
             className={`${menu ? 'btn tiny fm-spell-attack' : 'btn tiny attack-row'}${spent ? ' recharge-spent' : ''}`}
             title={[a.description || 'Ability', workflow, support?.manual.length ? `You handle: ${support.manual.join('; ')}` : '', manualRiderNote(a), spent ? 'Spent — ready it from its ⟳ chip after a successful recharge roll.' : ''].filter(Boolean).join('\n')}
-            disabled={!!spellActionBlock(caster) || (!isCommandSpell(a)&&!area && !manualCast && !menu && !selfSpell && advancedSpell(a)!=='invisibility' && !['misty step','pass without trace'].includes(partySpell(a)??'') && !multiple && (execution.roll?.kind === 'heal' ? execution.roll.healTarget !== 'self' && !healTargetId : !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId)))}
+            disabled={!!spellActionBlock(caster) || (!isCommandSpell(a)&&!area && !manualCast && !menu && !selfSpell && !['invisibility','dispel magic'].includes(advancedSpell(a)??'') && !['misty step','pass without trace'].includes(partySpell(a)??'') && !multiple && (execution.roll?.kind === 'heal' ? execution.roll.healTarget !== 'self' && !healTargetId : !(isCanonicalHasteProfile(a) ? buffTargetId ?? targetTokenId : targetTokenId)))}
             onClick={() => cast(a)}
           >
             {manualCast ? 'Cast manually ·' : (isCanonicalHasteProfile(a) || markSpell(a) ? '\u2726' : execution.roll ? ROLL_ICON[execution.roll.kind] : undefined) ?? '🎲'} {a.name}{menu && spent ? ' (spent)' : ''}

@@ -10,7 +10,7 @@ async function setup(request:APIRequestContext,page:Page){
  const snapshot=async():Promise<StateSnapshot>=>{const result=await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(result.ok).toBe(true);return result.snapshot;};
  const first=await snapshot(),caster=first.characters.find(c=>c.name==='Vanec')!,ally=first.characters.find(c=>c.name==='Varis')!;
  const catalog=(await (await request.get('/api/spells/all')).json()).results as SheetAbility[];
- const abilities=['Invisibility','Spike Growth','Counterspell','Fire Bolt'].map(name=>({...catalog.find(a=>a.name===name)!,id:name,source:'srd' as const,sourceClass:'sorcerer' as const}));
+ const abilities=['Invisibility','Spike Growth','Counterspell','Dispel Magic','Haste','Fire Bolt'].map(name=>({...catalog.find(a=>a.name===name)!,id:name,source:'srd' as const,sourceClass:'sorcerer' as const}));
  socket.emit('character:update',{characterId:caster.id,className:'Sorcerer',level:6,maxHp:100,curHp:100,armorClass:16,conditions:[],stats:{CHA:30,INT:10,DEX:10,WIS:10,CON:10,STR:10},sheetAbilities:abilities,spellSlots:{L1:{max:4,used:0},L2:{max:4,used:0},L3:{max:4,used:0}}});
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1000;c.height=600;const ctx=c.getContext('2d')!;ctx.fillStyle='#302a29';ctx.fillRect(0,0,1000,600);return c.toDataURL('image/png').split(',')[1];});
  const map=await (await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Spell arena',image:{name:'arena.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')}}})).json();
@@ -69,4 +69,29 @@ test('an enemy cast offers Counterspell before damage and rolls a labeled CON sa
  const s=await f.snapshot(),roll=s.rollLog.find(r=>r.label==='Counterspell')!;
  expect(roll.reveal?.title).toBe('Counterspell — CON Saving Throw');expect(roll.reveal?.effectOutcome).toContain('countered');expect((await f.character()).curHp).toBe(100);expect((await f.character()).spellSlots.L3.used).toBe(1);
  await expect(prompt).toHaveCount(0);await page.screenshot({path:test.info().outputPath('counterspell-result.png'),fullPage:true});
+});
+
+
+test('Dispel Magic targets a spell area through the real chooser and spends a slot',async({page,request})=>{
+ test.setTimeout(120000);const f=await setup(request,page);
+ await page.locator('.compact-player-combat').getByRole('button',{name:/Spike Growth/}).click();
+ const area=page.getByRole('region',{name:'Place spell area'}),p=await f.mapPoint(600,300);await page.mouse.click(p.x,p.y);await area.getByRole('button',{name:/Confirm area/}).click();
+ await expect.poll(async()=>(await f.snapshot()).measurements.some(m=>m.spellName==='Spike Growth')).toBe(true);
+ const zone=(await f.snapshot()).measurements.find(m=>m.spellName==='Spike Growth')!;
+ await page.locator('.compact-player-combat').getByRole('button',{name:/Dispel Magic/}).click();
+ const chooser=page.getByRole('region',{name:'Dispel Magic target'});await chooser.getByLabel('Dispel target',{exact:true}).selectOption(`effect:${zone.id}`);await chooser.getByRole('button',{name:'Cast Dispel Magic',exact:true}).click();
+ await expect.poll(async()=>(await f.snapshot()).measurements.some(m=>m.spellName==='Spike Growth')).toBe(false);
+ expect((await f.character()).spellSlots.L3.used).toBe(1);
+ expect((await f.snapshot()).rollLog.some(r=>r.label==='Dispel Magic check')).toBe(false);
+});
+
+test('Dispel Magic removes a creature buff and applies its linked cleanup',async({page,request})=>{
+ test.setTimeout(120000);const f=await setup(request,page);
+ await page.locator('.compact-player-combat').getByRole('button',{name:/Haste/}).click();
+ await expect.poll(async()=>(await f.character()).conditions.some(c=>c.label==='Haste')).toBe(true);
+ await page.locator('.compact-player-combat').getByRole('button',{name:/Dispel Magic/}).click();
+ const chooser=page.getByRole('region',{name:'Dispel Magic target'});await chooser.getByLabel('Dispel target',{exact:true}).selectOption(f.actor.id);await chooser.getByRole('button',{name:'Cast Dispel Magic',exact:true}).click();
+ await expect.poll(async()=>(await f.character()).conditions.some(c=>c.label==='Haste')).toBe(false);
+ expect((await f.character()).conditions.some(c=>c.label==='Haste lethargy')).toBe(true);
+ expect((await f.character()).spellSlots.L3.used).toBe(2);
 });

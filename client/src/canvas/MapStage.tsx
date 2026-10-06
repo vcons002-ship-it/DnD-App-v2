@@ -1171,6 +1171,7 @@ export function MapStage({
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
+      if(!token&&(id.startsWith('area:')||id.startsWith('spike-area:')))return isDm || fogVisionContains(presentation.personalVision(),x,y,true)&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(x/grid)},${Math.floor(y/grid)}`));
       return !!token && (token.sharedSightOnly ? (token.kind==='pc' || fogVisionContains(presentation.partyVision(),x,y,usesTokenVision(snapshot.map))) :
         (token.owned || fogVisionContains(presentation.personalVision(),x,y,usesTokenVision(snapshot.map))) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
@@ -1244,6 +1245,7 @@ export function MapStage({
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
   const spellImpacts=useMemo<SpellImpact[]>(()=>[...hpFx.flatMap(event=>{
     if(!spellImpactStyle(event))return [];
+    if(event.areaPosition){const p=event.areaPosition;if(p.mapId!==snapshot.map?.id)return [];return [{id:event.id,event,tokenId:`area:${event.id}`,x:p.x,y:p.y,diameter:event.spell==='Dispel Magic'?Math.min(12,p.radiusFt*2)*pxPerFoot:p.radiusFt*2*pxPerFoot,fixed:true}];}
     const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
     if(!token)return [];
     // The active restraint is already the visible impact; stacking an identical
@@ -1251,7 +1253,7 @@ export function MapStage({
     if(spellImpactStyle(event)?.kind==='chains'&&resolveToken(snapshot,token).conditions.some(c=>persistentSpellVisual(c)===event.spell))return [];
     return [{id:event.id,event,tokenId:token.id,x:token.x,y:token.y,
       diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot}];
-  }),...snapshot.tokens.flatMap(token=>{
+  }),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
     if(token.sharedSightOnly||(!isDm&&token.isHidden))return [];
     return resolveToken(snapshot,token).conditions.flatMap(condition=>{
       const spell=persistentSpellVisual(condition);if(!spell||isRollImpactPending(condition.combatEffect?.visualRollId))return [];
@@ -2511,7 +2513,7 @@ export function MapStage({
                 if(m.spellArea){const {spec,angle}=m.spellArea;
                   const caster=m.tokenId?snapshot.tokens.find(t=>t.id===m.tokenId):origin;
                   if(!caster)return null;
-                  return <SpellAreaShapes spellName={m.spellName} key={m.id} scale={view.scale} spec={{...spec,self:!!m.tokenId}} placement={{mapId:m.mapId,points:[origin],angle}} caster={caster} pxPerFoot={1/fpp} targets={[]} onRemove={removeMode?()=>removeMeasurement(m.id):undefined}/>;
+                  return <SpellAreaShapes raised={miniatureTokens.length>0} spellName={m.spellName} key={m.id} scale={view.scale} spec={{...spec,self:!!m.tokenId}} placement={{mapId:m.mapId,points:[origin],angle}} caster={caster} pxPerFoot={1/fpp} targets={[]} onRemove={removeMode?()=>removeMeasurement(m.id):undefined}/>;
                 }
                 return (
                   <MeasureShape

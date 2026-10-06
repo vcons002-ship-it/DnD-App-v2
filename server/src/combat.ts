@@ -277,7 +277,7 @@ export function spellApplyTargetError(sessionId: string, entry: RollEntry, token
 
 /** Every cast has its own concentration identity. Old targeting buttons cannot
  * reapply an effect after concentration ends or the same spell is recast. */
-export function timedConcentration(kind: TokenKind, refId: string, spell: string, rounds = 10) {
+export function timedConcentration(kind: TokenKind, refId: string, spell: string, rounds = 10, castLevel?:number) {
   const eligible=()=>{
     const current=kind==='pc'?getCharacter(refId):getMonster(refId);
     return !!current && current.curHp>0 && !isDeadEntity(kind,current) && !current.conditions.some(c=>
@@ -292,7 +292,7 @@ export function timedConcentration(kind: TokenKind, refId: string, spell: string
   const caster = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
   const concentration = caster!.conditions.find(c => c.isConcentration)!;
   const round = getSessionById(caster!.sessionId)?.combatRound ?? 0;
-  const effect = { casterKind:kind, casterId:refId, spell, castId:concentration.id,
+  const effect = { casterKind:kind, casterId:refId, spell, castLevel, castId:concentration.id,
     expiresAt:Date.now() + rounds * 6000, ...(round > 0 ? {expiresRound:round + rounds} : {}) };
   setCondition(kind, refId, {...concentration, combatEffect:effect});
   return {...effect, concentrationConditionId:concentration.id};
@@ -1553,7 +1553,7 @@ export function resolveForcedSave(
       appliedSpellCondition=true;
       setCondition(tok.kind, tok.refId, {id:newId(),label:effect.condition,aura:'red',isConcentration:false,
         combatEffect:{casterKind:effect.casterKind,casterId:effect.casterId,spell:effect.spell,
-          castId:effect.castId,visualRollId:resolutionRollId,concentration:!effect.commandWord,expiresAt:effect.commandWord?Date.now()+6000:effect.expiresAt,expiresRound:effect.expiresRound,
+          castId:effect.castId,castLevel:effect.castLevel,visualRollId:resolutionRollId,concentration:!effect.commandWord,expiresAt:effect.commandWord?Date.now()+6000:effect.expiresAt,expiresRound:effect.expiresRound,
           commandWord:effect.commandWord,commandStarted:effect.commandWord&&!getSessionById(sessionId)?.combatRound?true:undefined,
           save:effect.repeatSave,dc:apply.dc,phase:effect.repeatSave ? 'end' : undefined,dice:effect.repeatDamage,damageType:effect.damageType,saveBeforeDamage:!!effect.repeatDamage,attackDisadvantage:effect.attackDisadvantage,checkDisadvantage:effect.checkDisadvantage}});
     } else if (apply.onFail) setTokensCondition([tokenId], {label:apply.onFail,aura:'red',isConcentration:false});
@@ -2142,7 +2142,7 @@ function resolveSheetAbilityFor(
   if(party==='shield'||party==='misty step')return false; // Reaction/destination workflows only.
   if(party==='pass without trace'){
     if(!area)return false;
-    const effect=timedConcentration(kind,entity.id,'Pass without Trace',600);
+    const effect=timedConcentration(kind,entity.id,'Pass without Trace',600,castLevel??2);
     if(!effect)return false;
     const caster=kind==='pc'?getCharacter(entity.id):getMonster(entity.id);
     const c=caster!.conditions.find(c=>c.id===effect.castId)!;
@@ -2182,7 +2182,7 @@ function resolveSheetAbilityFor(
     if (!recipient || recipient.curHp <= 0 || isDeadEntity(target.kind, recipient) ||
         (target.kind === 'monster' && (recipient as Monster).objectKind)) return false;
     // Recasting on another creature replaces this caster's previous linked buff.
-    const effect = timedConcentration(kind, entity.id, 'Haste');
+    const effect = timedConcentration(kind, entity.id, 'Haste',10,castLevel??3);
     if(!effect) return false;
     setCondition(target.kind, target.refId, {
       id:newId(), label:'Haste', aura:'green', isConcentration:false,
@@ -2194,7 +2194,7 @@ function resolveSheetAbilityFor(
     return true;
   }
   const holdPerson = automatedHoldPerson(ability);
-  const controlEffect = holdPerson || party==='hypnotic pattern' || spellKey(ability.name)==='phantasmal killer'&&linkedProfile ? timedConcentration(kind, entity.id, ability.name) : undefined;
+  const controlEffect = holdPerson || party==='hypnotic pattern' || spellKey(ability.name)==='phantasmal killer'&&linkedProfile ? timedConcentration(kind, entity.id, ability.name,10,castLevel??ability.level) : undefined;
   if((holdPerson||party==='hypnotic pattern') && !controlEffect) return false;
   ability = effectiveSheetAbility(ability, castLevel);
   const damageTypes = spellDamageTypeChoices(ability, castLevel);

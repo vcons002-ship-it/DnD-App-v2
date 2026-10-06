@@ -1,3 +1,4 @@
+import {visionContains} from '../../shared/playerVision.js';
 import {fogVisionContains,usesTokenVision} from '../../shared/playerVision.js';
 import {randomBytes} from 'node:crypto';
 import {isLiveCommand,afterRollCommit} from './liveRollContext.js';
@@ -105,8 +106,9 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
     );
     io.to(socketId).emit('state:snapshot', snapshot);
     const visibleRolls = new Set(snapshot.rollLog.filter((roll) => roll.reveal).map((roll) => roll.id));
-    const visible = hpFx.filter((e) =>
-      snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),
+    const visible = hpFx.filter((e) => e.areaPosition
+      ? snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||visionContains(snapshot.playerVision,e.areaPosition.x,e.areaPosition.y)) && (conn.role==='dm'||(!snapshot.map.mapFogEnabled||snapshot.map.mapFogRevealed.includes(`${Math.floor(e.areaPosition.x/snapshot.map.gridSizePx)},${Math.floor(e.areaPosition.y/snapshot.map.gridSizePx)}`)))
+      : snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),
     ).map((event) => {
       if (!event.rollId || visibleRolls.has(event.rollId)) return event;
       // Hidden DM rolls still cause visible HP feedback, but never expose a

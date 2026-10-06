@@ -23,7 +23,7 @@ const listSessionTokens=(sid:string)=>listMaps(sid).flatMap(m=>listTokens(m.id))
 
 export function castInvisibility(sid:string,roller:string,kind:TokenKind,id:string,level:number,ids:string[]){
   const error=invisibilityError(sid,kind,id,level,ids);if(error)return error;
-  const effect=timedConcentration(kind,id,'Invisibility',600);if(!effect)return 'The caster cannot concentrate.';
+  const effect=timedConcentration(kind,id,'Invisibility',600,level);if(!effect)return 'The caster cannot concentrate.';
   const tokens=listSessionTokens(sid);
   for(const tokenId of ids){const t=tokens.find(t=>t.id===tokenId)!;
     setCondition(t.kind,t.refId,{id:newId(),label:'Invisible',aura:'green',isConcentration:false,combatEffect:{...effect,concentration:true}});
@@ -43,9 +43,9 @@ export function breakInvisibility(kind:TokenKind,id:string,reason:string){
   }
 }
 
-export function castSpikeGrowth(sid:string,roller:string,kind:TokenKind,id:string,a:SheetAbility,p:NonNullable<AbilityRollPayload['area']>){
+export function castSpikeGrowth(sid:string,roller:string,kind:TokenKind,id:string,a:SheetAbility,p:NonNullable<AbilityRollPayload['area']>,castLevel=2){
   if(advancedSpell(a)!=='spike growth')return false;
-  const effect=timedConcentration(kind,id,'Spike Growth',100);if(!effect)return false;
+  const effect=timedConcentration(kind,id,'Spike Growth',100,castLevel);if(!effect)return false;
   const caster=entity(kind,id)!,conc=caster.conditions.find(c=>c.id===effect.castId)!;
   setCondition(kind,id,{...conc,combatEffect:{...conc.combatEffect!,spikeArea:{mapId:p.mapId,...p.points[0],radiusFt:20,remainders:{}}}});
   addRollLog(sid,{roller,label:'Spike Growth',expr:'Area placed',total:0,detail:'Spike Growth: 20 ft radius of difficult terrain. Moving into or within it deals 2d4 Piercing per 5 ft traveled; shorter moves accumulate. No damage on placement. Concentration, up to 10 minutes.'});
