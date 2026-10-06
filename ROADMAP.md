@@ -2598,3 +2598,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] DM resin preview: restored glossy transmission, slowly advected black ink curls inside the volume and restrained backlighting; comparison toggle preserves the earlier material and gold inlay legibility.
 
 - [x] Approved character/DM dice effects enabled in gameplay and modifier screens. Dice review roller selects one character at a time, with custom counts, individual results and totals; caps at 40 physical dice (20 percentile pairs).
+
+- [x] Frictionless tray wall lining prevents d10 wall-spinning hangs; live server and playback physics agree, with floor friction and wall restitution preserved. Known wall-contact seeds covered by regression test.

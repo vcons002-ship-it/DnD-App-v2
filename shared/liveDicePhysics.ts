@@ -40,7 +40,9 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
   world.defaultContactMaterial.restitution=.79;
   const dieMaterial=new Material('die'),wallMaterial=new Material('wall');
   world.addContactMaterial(new ContactMaterial(dieMaterial,dieMaterial,{friction:.09,restitution:.76}));
-  world.addContactMaterial(new ContactMaterial(dieMaterial,wallMaterial,{friction:.045,restitution:.88}));
+  // Smooth wall lining prevents tapered dice from gripping a wall while spinning.
+  // Keep floor friction and wall rebound unchanged.
+  world.addContactMaterial(new ContactMaterial(dieMaterial,wallMaterial,{friction:0,restitution:.88}));
   const walls=new Set<Body>();let wallHits=0;
   const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>{const b=new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z),material:z>0?wallMaterial:undefined});world.addBody(b);if(z>0)walls.add(b);return b;};
   box(0,0,-.2,7.2,4.7,.2);
