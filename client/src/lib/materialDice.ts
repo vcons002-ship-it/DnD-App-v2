@@ -257,7 +257,9 @@ void main(){
      wood+=reflection*.06*smoothstep(.15,.65,rim)*(1.-smoothstep(.7,1.,rim));
      vec3 pocket=mix(vec3(.008,.002,.001),wood,floorMask);
      float border=max(max(texture2D(etching,tex+vec2(.010,0)).r,texture2D(etching,tex-vec2(.010,0)).r),max(texture2D(etching,tex+vec2(0,.010)).r,texture2D(etching,tex-vec2(0,.010)).r));
-     vec3 brightBronze=bronzeSurface(n,incoming)*2.1+vec3(.22,.105,.035);
+     // A brighter copper-bronze floor keeps the narrow number rim readable
+     // between reflections without brightening the wooden recess or die edges.
+     vec3 brightBronze=bronzeSurface(n,incoming)*2.8+vec3(.68,.32,.12);
      pocket=mix(pocket,brightBronze,smoothstep(.18,.8,border));
      color=mix(color,pocket,1.-cut);
 
