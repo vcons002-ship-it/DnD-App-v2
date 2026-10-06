@@ -19,7 +19,7 @@ test('five repaired spells on 3D miniatures in regular darkness',async({browser,
  const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Courtyard after dark',image:{name:'courtyard.png',mimeType:'image/png',buffer:readFileSync('assets/environment-preview/courtyard.png')}}})).json();
  socket.emit('map:setActive',{mapId:map.id});socket.emit('map:setGrid',{mapId:map.id,gridSizePx:64,feetPerSquare:5,widthFt:80,locked:false});
  for(const layer of ['map','tokens'])socket.emit('fog:setLayer',{mapId:map.id,layer,enabled:false});
- socket.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,lightLevel:.7,sceneTintStrength:0,weather:'none',mist:false,shadows:true,lights:[{id:'back-lantern',x:780,y:380,radiusFt:15,heightFt:6,color:'warm',intensity:.55,flicker:true,visibleTorch:false}]}});
+ socket.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,lightLevel:.7,sceneTintStrength:0,weather:'none',mist:false,shadows:true,lights:[]}});
  const positions:Record<string,[number,number]>={Vanec:[570,560],Druk:[475,620],Varis:[655,640]};
  for(const c of initial.characters){const p=positions[c.name];if(p)socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:c.id,x:p[0],y:p[1]});}
  socket.emit('monster:create',{name:'Goblin guard',modelType:'goblin',maxHp:200,armorClass:12,disposition:'enemy',creatureType:'humanoid',stats:{WIS:1,DEX:10,STR:10,CON:10},weapons:[{name:'Training blade',kind:'melee',damage:'1d6',attackBonus:12,damageType:'slashing'}]});
@@ -39,12 +39,12 @@ test('five repaired spells on 3D miniatures in regular darkness',async({browser,
    const v=new DOMPoint(p.x-s.width()/2,p.y-s.height()/2).matrixTransform(new DOMMatrix(getComputedStyle(n.getLayer().getNativeCanvasElement()).transform));
    return {x:r.left+s.width()/2+v.x/v.w,y:r.top+s.height()/2+v.y/v.w};
  },{id,x,y});
- const settle=async()=>{
+ const settle=async(hold=700)=>{
    const deadline=Date.now()+90000;let quiet=0;
    while(Date.now()<deadline){
      if(await page.locator('[data-live-dice="true"]').count()){quiet=0;await page.waitForTimeout(250);continue;}
      const reveal=page.locator('.roll-reveal');
-     if(await reveal.isVisible()){await expect(reveal).toHaveAttribute('data-impact-ready','true',{timeout:45000});await page.waitForTimeout(700);await page.keyboard.press('Escape');quiet=0;}
+     if(await reveal.isVisible()){await expect(reveal).toHaveAttribute('data-impact-ready','true',{timeout:45000});await page.waitForTimeout(hold);await page.keyboard.press('Escape');quiet=0;}
      else if(++quiet>=6)break;
      await page.waitForTimeout(250);
    }
@@ -73,7 +73,7 @@ test('five repaired spells on 3D miniatures in regular darkness',async({browser,
      document.addEventListener('mousemove',e=>{const p=document.getElementById('effect-pointer')!;p.style.left=e.clientX+'px';p.style.top=e.clientY+'px';});document.addEventListener('pointerdown',e=>{const p=document.getElementById('effect-click')!;p.style.left=e.clientX-20+'px';p.style.top=e.clientY-20+'px';p.animate([{opacity:1,transform:'scale(.6)'},{opacity:0,transform:'scale(1.4)'}],{duration:700});},true);
    });
    capture=await startAv1Capture(page,info.outputPath('party-spells-darkness-av1.mp4'));started=Date.now();
-   await chapter('Regular darkness · 3D miniatures','Vanec, Druk, Varis and a goblin. Spell light follows the visible effects.');await page.screenshot({path:info.outputPath('poster.png')});await page.waitForTimeout(2500);
+   await chapter('Regular darkness · no placed lights','Vanec, Druk, Varis and a goblin. Spell glow is the only added light.');await page.screenshot({path:info.outputPath('poster.png')});await page.waitForTimeout(2500);
    await chapter('Shield','An incoming hit offers a reaction. Choose Shield to raise a blue barrier.');
    for(let i=0;i<6;i++){socket.emit('combat:attack',{attackerTokenId:enemy.id,targetTokenId:actor.id,weaponIndex:0});await expect.poll(async()=>(await state()).rollLog.filter(r=>r.label==='Attack').length,{timeout:25000}).toBe(i+1);if((await state()).shieldReactions?.length)break;await page.waitForTimeout(700);}
    await settle();
@@ -82,13 +82,25 @@ test('five repaired spells on 3D miniatures in regular darkness',async({browser,
    await click(combat.getByRole('button',{name:/Misty Step/}));const destination=page.getByRole('region',{name:'Misty Step destination'});const q=await point(actor.id,65,-15);await page.mouse.move(q.x,q.y,{steps:18});await page.waitForTimeout(900);await page.mouse.click(q.x,q.y);await click(destination.getByRole('button',{name:'Teleport',exact:true}));await expect(layer).toHaveAttribute('data-spell-impact-kinds',/mist/);await page.screenshot({path:info.outputPath('misty-step.png')});await page.waitForTimeout(2200);
    await chapter('Hypnotic Pattern','Place the cube, confirm, then resolve the Wisdom save. Colored loops remain on the affected goblin.');
    await click(combat.getByRole('button',{name:/Hypnotic Pattern/}));const area=page.getByRole('region',{name:'Place spell area'});const p=await point(enemy.id,0,-180);await page.mouse.move(p.x,p.y,{steps:18});await page.waitForTimeout(700);await page.mouse.click(p.x,p.y);await area.getByRole('slider',{name:'Spell area rotation'}).press('Home');await page.waitForTimeout(700);await page.screenshot({path:info.outputPath('hypnotic-area.png')});await click(area.getByRole('button',{name:/Confirm area/}));await settle();await expect.poll(async()=>(await state()).monsters.find(m=>m.id===enemy.refId)!.conditions.some(c=>c.combatEffect?.spell==='Hypnotic Pattern')).toBe(true);await expect(layer).toHaveAttribute('data-spell-impact-kinds',/pattern/);await page.screenshot({path:info.outputPath('hypnotic-pattern.png')});await page.waitForTimeout(6500);await clear();
-   await chapter('Pass without Trace','Choose the party, then confirm. Protected characters carry a subtle veil that emits no light.');
-   await click(combat.getByRole('button',{name:/Pass without Trace/}));await expect(area).toBeVisible();const foeChoice=area.getByRole('checkbox',{name:/Goblin/});if(await foeChoice.count())await foeChoice.uncheck();await page.waitForTimeout(1000);await click(area.getByRole('button',{name:/Confirm area/}));await expect(layer).toHaveAttribute('data-spell-impact-kinds',/veil/);await page.waitForTimeout(2400);await expect(layer).toHaveAttribute('data-spell-light-strength','0');await page.screenshot({path:info.outputPath('pass-without-trace.png')});await page.waitForTimeout(6500);await clear();
    await chapter('Command','Choose Halt and cast. A failed Wisdom save leaves a gold sigil above the target until Command ends.');
    await click(combat.getByRole('button',{name:/Command/}));const choice=page.getByRole('dialog',{name:'Choose Command'});await click(choice.getByRole('button',{name:'Halt',exact:true}));await page.waitForTimeout(900);await click(choice.getByRole('button',{name:'Cast Command',exact:true}));await settle();await expect(layer).toHaveAttribute('data-spell-impact-kinds',/command/);await page.screenshot({path:info.outputPath('command.png')});await page.waitForTimeout(6500);
+   await clear();
+   const footsteps=()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.footstep')).length);
+   const walk=async(dx:number,dy:number)=>{const a=await point(actor.id,0,0),b=await point(actor.id,dx,dy);await page.mouse.move(a.x,a.y,{steps:16});await page.mouse.down();await page.waitForTimeout(250);await page.mouse.move(b.x,b.y,{steps:32});await page.waitForTimeout(800);await page.mouse.up();await page.waitForTimeout(1700);};
+   await chapter('Before the stealth spell','Normal movement leaves visible footprints.');
+   await walk(110,90);await expect.poll(footsteps).toBeGreaterThan(2);await page.screenshot({path:info.outputPath('footsteps-before.png')});await page.waitForTimeout(2000);
+   await expect.poll(footsteps,{timeout:15000}).toBe(0);
+   await chapter('Pass without Trace','Choose allies, then confirm. Protected characters gain +10 Stealth and leave no new footprints.');
+   await click(combat.getByRole('button',{name:/Pass without Trace/}));await expect(area).toBeVisible();const foeChoice=area.getByRole('checkbox',{name:/Goblin/});if(await foeChoice.count())await foeChoice.uncheck();await page.waitForTimeout(1000);await click(area.getByRole('button',{name:/Confirm area/}));await expect(layer).toHaveAttribute('data-spell-impact-kinds',/veil/);await page.waitForTimeout(2400);await expect(layer).toHaveAttribute('data-spell-light-strength','0');await page.screenshot({path:info.outputPath('pass-without-trace.png')});
+   await chapter('Stealth check with the buff','Checks → Stealth. The dice result adds a labeled +10 from Pass without Trace.');
+   await click(page.getByRole('button',{name:'Checks',exact:true}));const stealth=page.getByRole('button',{name:/^Roll Stealth check/});await expect(stealth).toContainText('+10');await page.screenshot({path:info.outputPath('stealth-bonus-menu.png')});await click(stealth);await settle(2200);
+   const check=(await state()).rollLog.findLast(r=>r.label==='Stealth check')!;expect(check.reveal?.toHit).toContainEqual({label:'Pass without Trace',value:10});
+   const drawer=page.getByRole('region',{name:'Quick skill checks'});if(await drawer.isVisible())await click(drawer.getByRole('button',{name:'Close',exact:true}));
+   await chapter('No tracks while protected','Vanec moves again, but the spell suppresses new footprints. The veil adds no light.');
+   await walk(-110,-90);expect(await footsteps()).toBe(0);await page.screenshot({path:info.outputPath('footsteps-after.png')});await page.waitForTimeout(4500);await clear();
    expect(errors).toEqual([]);
  }finally{
    if(capture)writeFileSync(info.outputPath('capture.json'),JSON.stringify(await capture.stop(),null,2));
-   writeFileSync(info.outputPath('chapters.json'),JSON.stringify(chapters,null,2));writeFileSync(info.outputPath('evidence.json'),JSON.stringify({errors,snapshot:await state()},null,2));await context.close();socket.disconnect();
+   writeFileSync(info.outputPath('scene-debug.json'),JSON.stringify({kinds:await layer.getAttribute('data-spell-impact-kinds'),strength:await layer.getAttribute('data-spell-light-strength')},null,2));writeFileSync(info.outputPath('chapters.json'),JSON.stringify(chapters,null,2));writeFileSync(info.outputPath('evidence.json'),JSON.stringify({errors,snapshot:await state()},null,2));await context.close();socket.disconnect();
  }
 });

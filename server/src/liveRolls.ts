@@ -35,6 +35,11 @@ export async function physicalFaces(
   if(sides.some(s=>![4,6,8,10,12,20,100].includes(s)))
     throw new UnsupportedPhysicalDice('Live rolls support d4, d6, d8, d10, d12, d20 and d100. Choose one of these dice.');
   const {ready,onFacing,...displayMeta}=meta;
+  // A caster initiates these commands, but the saved creatures own the dice.
+  // Batches containing NPC saves use the shared DM tray rather than the caster.
+  if(info?.saveDice?.some(save=>save.target.kind==='monster')){
+    displayMeta.dmDice=true;displayMeta.className='';displayMeta.affinity=undefined;
+  }
   const result:number[]=[];
   // Bound each live world to forty physical bodies; keep percentile pairs together.
   for(let offset=0;offset<sides.length;) {

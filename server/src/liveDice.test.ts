@@ -37,6 +37,14 @@ it('streams normal and gold critical dice together in the same live world',async
  expect(frames.every(f=>JSON.stringify(f.critical)==='[false,false,true,true]')).toBe(true);
  expect(frames.at(-1).values).toEqual(values);
 },20000);
+
+it('a monster saving against a player spell uses DM dice instead of the caster class',async()=>{
+ const frames:any[]=[];
+ await physicalFaces([20],f=>frames.push(f),{label:'Command - WIS save',roller:'Vanec',className:'Sorcerer',dmDice:false},42,
+  {expr:'Saving Throw',saveDice:[{target:{kind:'monster',refId:'goblin'},modifier:-1,dc:15,group:'goblin'}]});
+ expect(frames.length).toBeGreaterThan(0);
+ expect(frames.every(f=>f.dmDice===true&&f.className===''&&f.affinity===undefined)).toBe(true);
+},20000);
 describe('incremental authoritative physics',()=>{
  it('releases jumbled dice with visible end-over-end and sideways tumble from every seat',()=>{
   for(const side of ['bottom','top','left','right'] as const)for(let seed=1;seed<=12;seed++){

@@ -104,7 +104,7 @@ These are recordings or environment-dependent demonstrations, not required CI te
 | `dm-affinity-dice.spec.ts` | `DND_DM_DICE_DEMO=1` |
 | `combat-fixes-video.spec.ts` | `DND_FIXES_DEMO=1` |
 | `party-abilities-video.spec.ts` | `DND_PARTY_DEMO=1` |
-| `party-spells-video.spec.ts` (five repaired party spells, regular darkness, 3D tokens, NVIDIA AV1) | `DND_PARTY_SPELL_VIDEO=1` |
+| `party-spells-video.spec.ts` (five repaired party spells, regular darkness with no placed lights, +10 Stealth and no tracks, 3D tokens, NVIDIA AV1) | `DND_PARTY_SPELL_VIDEO=1` |
 | Optional recordings within `miniature-battlefield.spec.ts` | `DND_MOVEMENT_DEMO=1` |
 | Live wall-draft comparison within `miniature-battlefield.spec.ts` | `DND_WALL_DRAFT_DEMO=1` |
 | Recorded mask conversion within `miniature-battlefield.spec.ts` | `DND_MASK_WALL_DEMO=1` |
