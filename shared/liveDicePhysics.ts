@@ -1,6 +1,6 @@
 import {diceCollider} from './diceCollider.js';
 import {handTumble} from './diceLaunch.js';
-import {diceRadiusForPool} from './diceTrayLayout.js';
+import {diceTrayLayoutForPool} from './diceTrayLayout.js';
 import {recordDiceImpacts,type DiceImpact} from './diceImpacts.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from './diceGeometry.js';
@@ -29,7 +29,7 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
   let state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
   // The responsive tray accommodates the pool; each physical d6 remains 16 mm.
-  const radius=diceRadiusForPool(dice.length);
+  const layout=diceTrayLayoutForPool(dice.length),radius=layout.radius,trayScale=layout.scale;
   const metresPerUnit=(REFERENCE_D6_EDGE*Math.sqrt(3)/2)/radius;
   const world=new World({gravity:new Vec3(0,0,-TRAY_GRAVITY/metresPerUnit),allowSleep:true});
   (world.solver as GSSolver).iterations=80;
@@ -45,15 +45,15 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
   world.addContactMaterial(new ContactMaterial(dieMaterial,wallMaterial,{friction:0,restitution:.88}));
   const walls=new Set<Body>();let wallHits=0;
   const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>{const b=new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z),material:z>0?wallMaterial:undefined});world.addBody(b);if(z>0)walls.add(b);return b;};
-  box(0,0,-.2,7.2,4.7,.2);
-  const edgeWalls={left:box(-7.2,0,3,.2,4.7,3),right:box(7.2,0,3,.2,4.7,3),
-    bottom:box(0,-4.7,3,7.4,.2,3),top:box(0,4.7,3,7.4,.2,3)};
+  box(0,0,-.2,layout.halfWidth,layout.halfHeight,.2);
+  const edgeWalls={left:box(-layout.halfWidth,0,3,.2*trayScale,layout.halfHeight,3),right:box(layout.halfWidth,0,3,.2*trayScale,layout.halfHeight,3),
+    bottom:box(0,-layout.halfHeight,3,7.4*trayScale,.2*trayScale,3),top:box(0,layout.halfHeight,3,7.4*trayScale,.2*trayScale,3)};
   // Incoming dice bypass the exterior walls until they cross into the bed.
   for(const wall of Object.values(edgeWalls))wall.collisionFilterGroup=2;
   const direction=new Vec3(entrySide==='left'?1:entrySide==='right'?-1:0,entrySide==='bottom'?1:entrySide==='top'?-1:0,0);
   const cross=new Vec3(-direction.y,direction.x,0);
-  const extent=direction.x?7:4.5;
-  const crossExtent=direction.x?4.5:7;
+  const extent=direction.x?layout.innerHalfWidth:layout.innerHalfHeight;
+  const crossExtent=direction.x?layout.innerHalfHeight:layout.innerHalfWidth;
   const lanes=Math.min(dice.length,Math.max(1,Math.floor((crossExtent*2-radius*2)/(radius*2.2))+1));
   const throwAngle=Math.PI/6; // A shared diagonal heading, relative to the roller's edge.
   const meshes=dice.map(d=>faceForwardMesh(dieMesh(d.sides)));
@@ -71,7 +71,7 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
     const angle=throwAngle+lane/Math.max(1,lanes-1)*.10;
     // Offset the launch point so the diagonal crosses the same clear entry lane.
     // Otherwise outer dice can strike the outside of a side wall before entering.
-    const approach=radius+.005/metresPerUnit;
+    const approach=radius+.4*trayScale+.005/metresPerUnit;
     body.position.copy(direction.scale(-extent-approach).vadd(cross.scale(lane*radius*2.2-Math.tan(angle)*(approach+radius))));
     body.position.z=(.045+random()*.005)/metresPerUnit+Math.floor(i/lanes)*radius*2.2;
     body.collisionFilterMask=1; // Cross the entry wall before enabling containment.
@@ -90,7 +90,7 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
   // Strikes since the last drain — each published frame carries its own, so the
   // clients' clatter follows the server's actual collisions.
   const pendingImpacts:DiceImpact[]=[];let elapsedForImpacts=0;
-  recordDiceImpacts(bodies,walls,metresPerUnit,()=>elapsedForImpacts,pendingImpacts);
+  recordDiceImpacts(bodies,walls,metresPerUnit,()=>elapsedForImpacts,pendingImpacts,layout.halfWidth);
   const launch=bodies.map(b=>({position:b.position.clone(),velocity:b.velocity.clone(),spin:b.angularVelocity.clone()}));
   const age=bodies.map(()=>0),rerolls=bodies.map(()=>0),values:(number|null)[]=bodies.map(()=>null);
   // Resting contact impulses can keep Cannon awake even when a readable face
@@ -103,7 +103,7 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
     const b=bodies[i],shape=b.shapes[0] as ConvexPolyhedron;
     let bottom=Infinity;
     for(const v of shape.vertices)bottom=Math.min(bottom,b.quaternion.vmult(v).z+b.position.z);
-    if(Math.abs(bottom)>radius*.08 || Math.abs(b.position.x)>7 || Math.abs(b.position.y)>4.5)return null;
+    if(Math.abs(bottom)>radius*.08 || Math.abs(b.position.x)>layout.innerHalfWidth || Math.abs(b.position.y)>layout.innerHalfHeight)return null;
     let highest=-Infinity,second=-Infinity,face=0;
     faceNormals[i].forEach((normal,j)=>{
       const up=b.quaternion.vmult(normal).z*(dice[i].sides===4?-1:1);
@@ -147,7 +147,7 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
     }
     return snapshot();
   }
-  function snapshot(){return {elapsed,radius,poses:bodies.flatMap(b=>[b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w]),values:[...values],rerolls:[...rerolls],done:values.every(v=>v!==null)};}
+  function snapshot(){return {elapsed,radius,trayScale,poses:bodies.flatMap(b=>[b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w]),values:[...values],rerolls:[...rerolls],done:values.every(v=>v!==null)};}
   function drainImpacts(){return pendingImpacts.splice(0);}
   return {advance,snapshot,reroll,bodies,drainImpacts};
 }

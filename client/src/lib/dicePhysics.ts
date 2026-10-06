@@ -1,6 +1,6 @@
 import {diceCollider} from '../../../shared/diceCollider.js';
 import {handTumble} from '../../../shared/diceLaunch.js';
-import {diceRadiusForPool} from '../../../shared/diceTrayLayout.js';
+import {diceTrayLayoutForPool} from '../../../shared/diceTrayLayout.js';
 import {recordDiceImpacts,type DiceImpact} from '../../../shared/diceImpacts.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from '../../../shared/diceGeometry.js';
@@ -36,7 +36,7 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   let state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
   // The responsive tray accommodates the pool; each physical d6 remains 16 mm.
-  const radius=diceRadiusForPool(dice.length);
+  const layout=diceTrayLayoutForPool(dice.length),radius=layout.radius,trayScale=layout.scale;
   const metresPerUnit=(REFERENCE_D6_EDGE*Math.sqrt(3)/2)/radius;
   const world=new World({gravity:new Vec3(0,0,-TRAY_GRAVITY/metresPerUnit),allowSleep:true});
   (world.solver as GSSolver).iterations=80;
@@ -52,15 +52,15 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   world.addContactMaterial(new ContactMaterial(dieMaterial,wallMaterial,{friction:0,restitution:.88}));
   const walls=new Set<Body>();let wallHits=0;
   const box=(x:number,y:number,z:number,hx:number,hy:number,hz:number)=>{const b=new Body({mass:0,shape:new Box(new Vec3(hx,hy,hz)),position:new Vec3(x,y,z),material:z>0?wallMaterial:undefined});world.addBody(b);if(z>0)walls.add(b);return b;};
-  box(0,0,-.2,7.2,4.7,.2);
-  const edgeWalls={left:box(-7.2,0,3,.2,4.7,3),right:box(7.2,0,3,.2,4.7,3),
-    bottom:box(0,-4.7,3,7.4,.2,3),top:box(0,4.7,3,7.4,.2,3)};
+  box(0,0,-.2,layout.halfWidth,layout.halfHeight,.2);
+  const edgeWalls={left:box(-layout.halfWidth,0,3,.2*trayScale,layout.halfHeight,3),right:box(layout.halfWidth,0,3,.2*trayScale,layout.halfHeight,3),
+    bottom:box(0,-layout.halfHeight,3,7.4*trayScale,.2*trayScale,3),top:box(0,layout.halfHeight,3,7.4*trayScale,.2*trayScale,3)};
   // Incoming dice bypass the exterior walls until they cross into the bed.
   for(const wall of Object.values(edgeWalls))wall.collisionFilterGroup=2;
   const direction=new Vec3(entrySide==='left'?1:entrySide==='right'?-1:0,entrySide==='bottom'?1:entrySide==='top'?-1:0,0);
   const cross=new Vec3(-direction.y,direction.x,0);
-  const extent=direction.x?7:4.5;
-  const crossExtent=direction.x?4.5:7;
+  const extent=direction.x?layout.innerHalfWidth:layout.innerHalfHeight;
+  const crossExtent=direction.x?layout.innerHalfHeight:layout.innerHalfWidth;
   const lanes=Math.min(dice.length,Math.max(1,Math.floor((crossExtent*2-radius*2)/(radius*2.2))+1));
   const releases=dice.map(()=>0);
   const throwAngle=Math.PI/6; // A shared diagonal heading, relative to the roller's edge.
@@ -75,7 +75,7 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
     const angle=throwAngle+lane/Math.max(1,lanes-1)*.10;
     // Offset the launch point so the diagonal crosses the same clear entry lane.
     // Otherwise outer dice can strike the outside of a side wall before entering.
-    const approach=radius+.005/metresPerUnit;
+    const approach=radius+.4*trayScale+.005/metresPerUnit;
     body.position.copy(direction.scale(-extent-approach).vadd(cross.scale(lane*radius*2.2-Math.tan(angle)*(approach+radius))));
     body.position.z=(.045+random()*.005)/metresPerUnit+Math.floor(i/lanes)*radius*2.2;
     body.collisionFilterMask=1; // Cross the entry wall before enabling containment.
@@ -92,7 +92,7 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   const frames:number[]=[];const step=1/480;
   // Every genuine strike (die/wall/floor, speed, place) for the playback's clatter.
   const impacts:DiceImpact[]=[];let ticks=0;
-  recordDiceImpacts(bodies,walls,metresPerUnit,()=>(ticks+1)*step,impacts);
+  recordDiceImpacts(bodies,walls,metresPerUnit,()=>(ticks+1)*step,impacts,layout.halfWidth);
   const capture=()=>bodies.forEach(b=>frames.push(b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w));
   capture();
   let released=0;
@@ -110,7 +110,7 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   for(const body of bodies){
     const shape=body.shapes[0] as ConvexPolyhedron;
     const bottom=Math.min(...shape.vertices.map(v=>body.quaternion.vmult(v).z+body.position.z));
-    if(bottom>radius*.04 || Math.abs(body.position.x)>7 || Math.abs(body.position.y)>4.5)
+    if(bottom>radius*.04 || Math.abs(body.position.x)>layout.innerHalfWidth || Math.abs(body.position.y)>layout.innerHalfHeight)
       throw new Error('Unreadable stacked or escaped dice pose');
   }
   const topFaces=bodies.map((body,i)=>{
@@ -122,5 +122,5 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
       if(z>best){best=z;top=index;}
     });return top;
   });
-  return {settleTimes,wallHits,frames:new Float32Array(frames),frameCount:ticks+1,step,radius,topFaces,duration:ticks*step,impacts};
+  return {settleTimes,wallHits,frames:new Float32Array(frames),frameCount:ticks+1,step,radius,trayScale,topFaces,duration:ticks*step,impacts};
 }

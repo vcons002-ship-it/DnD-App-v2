@@ -62,7 +62,7 @@ export function LiveDiceOverlay(){
     const offset=i-i%7;
     return i%7===0||i%7===1?-v:i%7===3?-poses[offset+4]:i%7===4?poses[offset+3]:i%7===5?poses[offset+6]:i%7===6?-poses[offset+5]:v;
   });
-  const toss:Toss={settleTimes:[],wallHits:0,frames:new Float32Array(frame.sides.length*14),frameCount:2,step:1,radius:frame.radius,topFaces:frame.sides.map(()=>0),duration:1};
+  const toss:Toss={settleTimes:[],wallHits:0,frames:new Float32Array(frame.sides.length*14),frameCount:2,step:1,radius:frame.radius,trayScale:frame.trayScale,topFaces:frame.sides.map(()=>0),duration:1};
   void (async()=>{
    const module=await import('../lib/diceTrayRenderer');const art=await module.loadTrayTexture(theme.id);
    if(stopped){art?.dispose();return;}

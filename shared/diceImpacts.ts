@@ -41,6 +41,7 @@ export function recordDiceImpacts(
   metresPerUnit: number,
   clock: () => number,
   sink: DiceImpact[],
+  trayHalfWidth=TRAY_HALF_WIDTH,
 ): void {
   const index = new Map<unknown, number>(dice.map((b, i) => [b, i]));
   dice.forEach((body, i) => {
@@ -55,7 +56,7 @@ export function recordDiceImpacts(
         die: i,
         with: other !== undefined ? 'die' : walls.has(event.body) ? 'wall' : 'floor',
         speed: Math.round(speed * 1000) / 1000,
-        x: Math.round(Math.max(-1, Math.min(1, body.position.x / TRAY_HALF_WIDTH)) * 100) / 100,
+        x: Math.round(Math.max(-1, Math.min(1, body.position.x / trayHalfWidth)) * 100) / 100,
       });
     });
   });

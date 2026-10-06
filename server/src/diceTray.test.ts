@@ -48,7 +48,7 @@ describe('physics dice tray',()=>{
     for(let k=0;k<7;k++)expect(toss.frames[settledOffset+k]).toBeCloseTo(toss.frames[finalOffset+k],3);
     const labels=trayFaceValues(d,toss.topFaces[i]);expect(labels[toss.topFaces[i]]).toBe(d.value);expect(new Set(labels).size).toBe(d.sides);
     const last=((toss.frameCount-1)*dice.length+i)*7;
-    expect(Math.abs(toss.frames[last])).toBeLessThan(7.01);expect(Math.abs(toss.frames[last+1])).toBeLessThan(4.51);expect(toss.frames[last+2]).toBeGreaterThan(0);
+    expect(Math.abs(toss.frames[last])).toBeLessThan(7.01*toss.trayScale!);expect(Math.abs(toss.frames[last+1])).toBeLessThan(4.51*toss.trayScale!);expect(toss.frames[last+2]).toBeGreaterThan(0);
     for(let k=0;k<7;k++)expect(toss.frames[last+k]).toBeCloseTo(toss.frames[last-dice.length*7+k],3);
    });
   }
@@ -57,11 +57,11 @@ describe('physics dice tray',()=>{
   const dice=Array.from({length:14},(_,index)=>({sides:index%2?8:6,value:3,index,set:0}));
   const a=simulateToss(dice,17),b=simulateToss(dice,17);expect(a.frames).toEqual(b.frames);expect(a.topFaces).toEqual(b.topFaces);
  });
- it('scales dice down gradually with the full physical pool and settles large pools',()=>{
-  let previous=Infinity;
+ it('keeps physical dice fixed while growing the tray and settles large pools',()=>{
+  let previous=0;
   for(const count of [1,2,4,8,14,20,40]){
    const dice=Array.from({length:count},(_,index)=>({sides:6,value:3,index,set:0}));
-   const toss=simulateToss(dice,42);expect(toss.radius).toBeLessThanOrEqual(previous);previous=toss.radius;
+   const toss=simulateToss(dice,42);expect(toss.radius).toBe(1);expect(toss.trayScale).toBeGreaterThanOrEqual(previous);previous=toss.trayScale!;
    expect(toss.duration).toBeLessThanOrEqual(12);
    dice.forEach((die,i)=>{
     const offset=((toss.frameCount-1)*dice.length+i)*7;
@@ -114,8 +114,8 @@ describe('physics dice tray',()=>{
    if(side==='right')expect(t.frames[0]).toBeGreaterThan(7.2+t.radius);
    for(let i=0;i<dice.length;i++){
     const last=((t.frameCount-1)*dice.length+i)*7;
-    expect(Math.abs(t.frames[last])).toBeLessThan(7.01);
-    expect(Math.abs(t.frames[last+1])).toBeLessThan(4.51);
+    expect(Math.abs(t.frames[last])).toBeLessThan(7.01*t.trayScale!);
+    expect(Math.abs(t.frames[last+1])).toBeLessThan(4.51*t.trayScale!);
    }
   }
  },15000);

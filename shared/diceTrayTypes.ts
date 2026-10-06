@@ -1,6 +1,6 @@
 export type DiceEntrySide = 'bottom' | 'top' | 'left' | 'right';
 export type TrayDie = {sides:number;value:number;crit?:boolean;index:number;set:number;tens?:boolean;ones?:boolean;negative?:boolean;percentileValue?:number};
-export type Toss = {settleTimes:number[];wallHits:number;frames:Float32Array;frameCount:number;step:number;radius:number;topFaces:number[];duration:number;
+export type Toss = {settleTimes:number[];wallHits:number;frames:Float32Array;frameCount:number;step:number;radius:number;trayScale?:number;topFaces:number[];duration:number;
   /** Recorded strikes for the dice sounds (absent: silent playback). */
   impacts?:import('./diceImpacts.js').DiceImpact[]};
 export function physicalDice(dice:TrayDie[]):TrayDie[] {

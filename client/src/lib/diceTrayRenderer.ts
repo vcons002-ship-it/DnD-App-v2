@@ -16,14 +16,16 @@ export async function loadTrayTexture(themeId:string){
 export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture,fixedFaces=false,dieThemes?:readonly DiceTheme[],appearance?:DiceAppearanceTest){
   appearance ??= {molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true};
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
-  const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60);camera.position.set(0,-8,25);camera.lookAt(0,0,.25);
+  const trayScale=toss.trayScale??1;
+  const tray=new THREE.Group();tray.scale.set(trayScale,trayScale,1);scene.add(tray);
+  const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60*trayScale);camera.position.set(0,-8,25).multiplyScalar(trayScale);camera.lookAt(0,0,.25);
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.45));
-  const light=new THREE.DirectionalLight(0xfff3dd,1.5);light.position.set(-6,4,9);light.castShadow=true;light.shadow.mapSize.set(1024,1024);
-  Object.assign(light.shadow.camera,{left:-10,right:10,top:8,bottom:-8,near:.1,far:35});light.shadow.bias=-.0003;light.shadow.normalBias=.025;scene.add(light);
+  const light=new THREE.DirectionalLight(0xfff3dd,1.5);light.position.set(-6,4,9).multiplyScalar(trayScale);light.castShadow=true;light.shadow.mapSize.set(1024,1024);
+  Object.assign(light.shadow.camera,{left:-10*trayScale,right:10*trayScale,top:8*trayScale,bottom:-8*trayScale,near:.1,far:35*trayScale});light.shadow.bias=-.0003;light.shadow.normalBias=.025;scene.add(light);
   const geometry:THREE.BufferGeometry[]=[],materials:THREE.Material[]=[],textures:THREE.Texture[]=[];
   const box=(x:number,y:number,z:number,w:number,h:number,d:number,color:number):THREE.Mesh<THREE.BufferGeometry,THREE.Material>=>{
     const g=new THREE.BoxGeometry(w,h,d),m=new THREE.MeshStandardMaterial({color,roughness:.86,envMapIntensity:.18});
-    const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh);geometry.push(g);materials.push(m);return mesh;
+    const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;tray.add(mesh);geometry.push(g);materials.push(m);return mesh;
   };
   // The plinth and inset floor are separate solids, so the artwork cannot flatten
   // the silhouette or paint over the visible outside edge of the tray.
@@ -56,7 +58,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const occlusionMap=new THREE.CanvasTexture(occlusionCanvas);textures.push(occlusionMap);
   for(const [x,y,w,h,rotation] of [[0,4.49,14,.48,0],[0,-4.49,14,.48,Math.PI],[-6.99,0,9,.48,Math.PI/2],[6.99,0,9,.48,-Math.PI/2]]){
     const g=new THREE.PlaneGeometry(w,h),m=new THREE.MeshBasicMaterial({map:occlusionMap,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1});
-    const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,.004);mesh.rotation.z=rotation;scene.add(mesh);geometry.push(g);materials.push(m);
+    const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,.004);mesh.rotation.z=rotation;tray.add(mesh);geometry.push(g);materials.push(m);
   }
   const canvas=document.createElement('canvas');canvas.width=canvas.height=64;
   const c=canvas.getContext('2d')!,gradient=c.createRadialGradient(32,32,4,32,32,32);gradient.addColorStop(0,'#000a');gradient.addColorStop(1,'#0000');c.fillStyle=gradient;c.fillRect(0,0,64,64);

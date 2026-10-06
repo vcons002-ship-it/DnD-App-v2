@@ -3,6 +3,7 @@ import {diceThemeForClass,diceThemeForRoll} from '../../../shared/diceThemes';
 import {createLiveWorld} from '../../../shared/liveDicePhysics';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../../shared/liveDiceTypes';
 import {physicalDice,type Toss} from '../../../shared/diceTrayTypes';
+import {metresPerUnitFor} from '../../../shared/diceImpacts';
 
 const names=['Druk','Varis','Vanec','DM'];
 const materials=['Molten obsidian & gold','Forest resin, wood & bronze','Red glass, lightning & silver','Purple resin, flowing ink & gold'];
@@ -35,7 +36,10 @@ async function roll(next=sides){
  const dice=physicalDice(Array.from({length:quantity},(_,index)=>({sides,value:1,index,set:player})));
  const nextWorld=createLiveWorld(dice,++seed,'bottom');
  const snapshot=nextWorld.snapshot();
- toss={radius:snapshot.radius,frames:new Float32Array(snapshot.poses),frameCount:1,step:1,topFaces:dice.map(()=>0),duration:Infinity,settleTimes:[],wallHits:0};
+ tray.dataset.dieRadius=String(snapshot.radius);tray.dataset.trayScale=String(snapshot.trayScale);
+ const cm=metresPerUnitFor(snapshot.radius)*snapshot.trayScale*100;
+ results.querySelector('.material')!.textContent=`${materials[player]} | Tray bed ${(14.4*cm).toFixed(1)} x ${(9.4*cm).toFixed(1)} cm | Fixed 16 mm d6 reference`;
+ toss={radius:snapshot.radius,trayScale:snapshot.trayScale,frames:new Float32Array(snapshot.poses),frameCount:1,step:1,topFaces:dice.map(()=>0),duration:Infinity,settleTimes:[],wallHits:0};
  const art=await loadTrayTexture(themes[player].id);
  if(current!==epoch){art?.dispose();return;}
  const nextRenderer=createTrayRenderer(dice,toss,themes[player],undefined,art,true);

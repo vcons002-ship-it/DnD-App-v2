@@ -6,7 +6,7 @@ export type LiveDiceFrame = {
  saveDice?:{rollKind?:'initiative';label:string;modifier?:number;dc?:number;group:string;mode?:'adv'|'dis';autoFail?:boolean;passEffect?:string;failEffect?:string;hideModifiers?:boolean;outcome?:'pass'|'fail'}[];
  dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';
  mode?:'adv'|'dis';sets:number[];critical:boolean[];percentile:('tens'|'ones'|null)[];kept?:number;
- sides:number[];radius:number;poses:number[];values:(number|null)[];rerolls:number[];
+ sides:number[];radius:number;trayScale?:number;poses:number[];values:(number|null)[];rerolls:number[];
  elapsed:number;done:boolean;
  /** Collisions since the previous frame (physics seconds) — the dice sounds. */
  impacts?:import('./diceImpacts.js').DiceImpact[];
