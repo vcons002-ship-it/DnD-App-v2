@@ -7,6 +7,8 @@ import type { FogLayer } from '../../../shared/types';
  * popover pattern. Presentational — all state lives in MapStage.
  */
 export function FogMenu({
+  explorationMode,
+  onExplorationMode,
   mapVisionEnabled,
   tokenVisionEnabled,
   onToggleVision,
@@ -22,6 +24,8 @@ export function FogMenu({
   onCoverAll,
   onRevealAll,
 }: {
+  explorationMode:'remembered'|'revealed';
+  onExplorationMode:(mode:'remembered'|'revealed')=>void;
   mapVisionEnabled:boolean;
   tokenVisionEnabled:boolean;
   onToggleVision:(layer:FogLayer)=>void;
@@ -77,6 +81,13 @@ export function FogMenu({
           <div className="popover-backdrop" onClick={() => setOpen(false)} />
           <div className="measure-menu" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
             <div className="measure-label">Automatic fog of war</div>
+            <label className="measure-row">Revealed areas
+              <select aria-label="Revealed areas" value={explorationMode} onChange={e=>onExplorationMode(e.target.value as 'remembered'|'revealed')}>
+                <option value="remembered">Remembered (grayscale)</option>
+                <option value="revealed">Keep revealed (color)</option>
+              </select>
+            </label>
+            <div className="measure-label">{explorationMode==='revealed'?'Keeps explored map and last-seen figures in color. Heavy-darkness range still applies. Unseen figures cannot be targeted.':'Explored map stays dim and grayscale; enemies disappear when the party loses sight.'}</div>
             <button className={`measure-row ${mapVisionEnabled?'on':''}`} aria-pressed={mapVisionEnabled} onClick={()=>onToggleVision('map')}>
               <span>Map fog of war</span><span className="muted">{mapVisionEnabled?'on':'off'}</span>
             </button>

@@ -5,7 +5,7 @@ import {heldCasts,eligibleCounterspellers} from './counterspell.js';
 import {doorApproachPoints} from '../../shared/mapWalls.js';
 import {chatForViewer} from './privateChat.js';
 import {activeMarks} from './marks.js';
-import {rememberTerrain} from './exploration.js';
+import {rememberTerrain,rememberFigures} from './exploration.js';
 import {createPlayerVision,visionContains,fogVisionContains,usesMapVision,usesTokenVision} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
@@ -343,11 +343,22 @@ export function createSnapshotBuilder(
       // Clone the viewer's map; never mutate the shared map used by DM snapshots.
       if(map?.environment && mapFog)map={...map,environment:{...map.environment,
         lights:map.environment.lights.filter(light=>mapFog.has(`${Math.floor(light.x/grid)},${Math.floor(light.y/grid)}`))}};
+      const manualVisible=(t:Token)=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y});
+      const partySees=(t:Token)=>manualVisible(t)&&fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&party.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
+      const remembered=map?rememberFigures(map,data.mapImages,data.tokens,partySees,(x,y)=>fogVisionContains(partyVision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?toPlayerMonster(m):undefined;}):[];
+      const rememberedById=new Map(remembered.map(r=>[r.token.id,r]));
+      const retainedDisplays=new Map<string,MonsterPublic>();
       tokens = tokens.flatMap(t => {
         if(t.isHidden)return [];
+        const retained=rememberedById.get(t.id);
+        const retain=()=>{
+          if(!retained||map?.explorationMode!=='revealed'||!manualVisible(retained.token)||!fogVisionContains(playerVision,retained.token.x,retained.token.y,false))return [];
+          if(retained.monster)retainedDisplays.set(t.refId,retained.monster);
+          return [{...retained.token,sharedSightOnly:true,revealedOnly:true}];
+        };
         if(isInvisible(t.kind==='pc'?charById.get(t.refId):monById.get(t.refId))&&t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly'){
           const sees=data.tokens.some(o=>o.kind==='pc'&&owned.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map)));
-          if(!sees)return [];
+          if(!sees)return retain();
         }
         const door=map?.walls?.find(w=>w.door&&w.tokenId===t.id);
         if(door)return doorApproachPoints(door).some(p=>tokenVisibleAt({role,hidden:false,owned:false,foe:true,mapFog,tokenFog,grid,x:p.x,y:p.y})&&fogVisionContains(playerVision,p.x,p.y,usesTokenVision(map)))?[t]:[];
@@ -357,8 +368,10 @@ export function createSnapshotBuilder(
         mapFog, tokenFog, grid, x: t.x, y: t.y }) && fogVisionContains(playerVision,t.x,t.y,usesTokenVision(map));
         if(personallyVisible)return [t];
         // Party positions are always known. Explicit DM hiding still wins.
-        // Objects remain personal; remembered terrain never retains enemies.
-        if(t.kind==='pc')return [{...t,sharedSightOnly:true}];
+        // The normal remembered mode retains only terrain, not lost creatures.
+        if(t.kind==='pc')return [{...t,sharedSightOnly:true,...(map?.explorationMode==='revealed'?{revealedOnly:true}:{})}];
+        const kept=retain();if(kept.length)return kept;
+        if(map?.explorationMode==='revealed'&&playerVision?.heavy&&!fogVisionContains(playerVision,t.x,t.y,false))return [];
         if(monById.get(t.refId)?.objectKind || !party.size)return [];
         const partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
           foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map));
@@ -377,7 +390,7 @@ export function createSnapshotBuilder(
       );
       shapedMonsters = monsters
         .filter((m) => visibleMonIds.has(m.id))
-        .map(toPlayerMonster);
+        .map(m=>retainedDisplays.get(m.id)??toPlayerMonster(m));
       // Strip other players' infrastructure ids (live socket + durable browser
       // id): a leaked ownerId is a character-hijack key — rejoin with it and the
       // server hands you that PC. Keep the VIEWER'S OWN character intact, since

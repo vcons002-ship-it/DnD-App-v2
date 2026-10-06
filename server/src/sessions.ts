@@ -335,6 +335,11 @@ export function setVisionFog(sessionId:string,mapId:string,layer:FogLayer,enable
   return db.prepare(`UPDATE maps SET ${column}=? WHERE id=? AND session_id=?`).run(enabled?1:0,mapId,sessionId).changes>0;
 }
 
+export function setExplorationMode(sessionId:string,mapId:string,mode:'remembered'|'revealed'):boolean {
+  if(mode!=='remembered'&&mode!=='revealed')return false;
+  return db.prepare('UPDATE maps SET exploration_mode=? WHERE id=? AND session_id=?').run(mode,mapId,sessionId).changes>0;
+}
+
 /** Reveal or re-hide "col,row" cells on one fog layer of a map. */
 export function paintFog(
   mapId: string,

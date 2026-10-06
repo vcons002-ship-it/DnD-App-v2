@@ -58,9 +58,12 @@ describe('spell socket target and ownership boundaries', () => {
     const actor=createToken({mapId:f.map.id,kind:'pc',refId:f.caster.id,x:50,y:100});
     updateCharacter(f.caster.id,{weapons:[{name:'Dagger',kind:'melee',damage:'1d4',attackBonus:5}]});
     editMapWalls(f.session.id,f.map.id,{add:{id:'wall',ax:75,ay:-1000,bx:75,by:1000}});
+    player.send('fog:setExploration',{mapId:f.map.id,mode:'revealed'});
+    expect(getMap(f.map.id)!.explorationMode).toBe('remembered');
     player.send('fog:setVision',{mapId:f.map.id,layer:'map',enabled:false});
     expect(getMap(f.map.id)!.mapVisionEnabled).toBe(true);
     const other=createSession('Other fog owner'),otherMap=createMap(other.id,{name:'Other'});
+    dm.send('fog:setExploration',{mapId:otherMap.id,mode:'revealed'});expect(getMap(otherMap.id)!.explorationMode).toBe('remembered');
     dm.send('fog:setVision',{mapId:otherMap.id,layer:'map',enabled:false});expect(getMap(otherMap.id)!.mapVisionEnabled).toBe(true);
     dm.send('fog:setVision',{mapId:f.map.id,layer:'map',enabled:false});
     dm.send('fog:setVision',{mapId:f.map.id,layer:'tokens',enabled:false});

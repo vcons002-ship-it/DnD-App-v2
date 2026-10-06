@@ -441,11 +441,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const sw=renderer.domElement.width,sh=renderer.domElement.height;
         if(sharedCanvas.width!==sw||sharedCanvas.height!==sh){sharedCanvas.width=sw;sharedCanvas.height=sh;}
         sharedCanvas.dataset.tokenIds=[...sharedIds].filter(id=>visible.has(id)).join(',');
+        sharedCanvas.style.filter=useStore.getState().snapshot?.map?.explorationMode==='revealed'?'none':'grayscale(1)';
+        sharedCanvas.style.opacity=useStore.getState().snapshot?.map?.explorationMode==='revealed'?'1':'.78';
         sharedCanvas.style.display=sharedCanvas.dataset.tokenIds?'block':'none';
         // Static awareness need not redraw for weather or torch flicker. Camera,
         // pose, name, appearance and foreground occlusion changes invalidate it.
         const sharedKey=JSON.stringify([sw,sh,camera.projectionMatrix.elements,camera.matrixWorld.elements,
-          environment?.heavyDarkness,ambient.intensity,key.intensity,scene.environmentIntensity,ambient.color.toArray(),key.color.toArray(),
+          useStore.getState().snapshot?.map?.explorationMode,environment?.heavyDarkness,ambient.intensity,key.intensity,scene.environmentIntensity,ambient.color.toArray(),key.color.toArray(),
           props.tokens.map(t=>{const i=instances.get(t.id);return [t.id,t.sharedSightOnly,t.tint,t.shade,t.mirrorImages,i?.root.visible,i?.root.position.toArray(),i?.root.rotation.y,i?.root.scale.x];}),
           labels.map(l=>{if(!labelVersions.has(l.canvas))labelVersions.set(l.canvas,++nextLabelVersion);return [l.id,labelVersions.get(l.canvas),l.points,l.opacity];})]);
         if(sharedKey!==sharedFrameKey||[...instances.values()].some(i=>i.mixer)){
@@ -460,11 +462,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
             scene.overrideMaterial=null;camera.layers.set(4);renderer.autoClear=false;
             // Shared sight uses the map's unlit darkvision appearance. Daylight
             // lighting here made party sightings much brighter than personal sight.
-            if(!environment?.heavyDarkness){
+            if(!environment?.heavyDarkness||useStore.getState().snapshot?.map?.explorationMode==='revealed'){
               ambient.intensity=NEUTRAL_MINIATURE_LIGHTING.ambient;key.intensity=NEUTRAL_MINIATURE_LIGHTING.key;
               scene.environmentIntensity=NEUTRAL_MINIATURE_LIGHTING.reflection;
             }
-            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,!!environment?.darkvisionTerrain,[]);}
+            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,!!environment?.darkvisionTerrain&&useStore.getState().snapshot?.map?.explorationMode!=='revealed',[]);}
             renderer.render(scene,camera);
             sharedContext.drawImage(renderer.domElement,0,0);
             camera.layers.mask=layers;renderer.autoClear=autoClear;

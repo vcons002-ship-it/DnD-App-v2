@@ -2584,3 +2584,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Modifier/result screens use the roller's 3D die material for DM rolls as well as players, removing the legacy DM-only flat polygon. Purple resin clouds remain animated at a bounded 10 fps while settled; reduced motion stays static. Browser regression verifies material continuity during the labeled modifier step for creature checks and general dice rolls.
 
 - [x] DM modifier/result dice have a larger, consistently brighter gold result engraving, an exactly front-facing result pose, and subdued neighboring numerals. This applies only to standalone settled result rendering; the approved tray labels, lighting, pose and resin settings remain unchanged.
+
+- [x] Keep revealed fog option: saved per map, retains full-color explored terrain and frozen last-seen figures, with heavy-darkness range and explicit DM cover preserved. Retained figures cannot be targeted; unseen movement and stat changes are not disclosed.

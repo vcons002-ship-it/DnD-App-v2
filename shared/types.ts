@@ -156,6 +156,8 @@ export type Token = {
   /** Viewer-only live party awareness. Render grayscale; never a direct target.
    * Not stored on tokens or retained after the party loses sight of a creature. */
   sharedSightOnly?: boolean;
+  /** Full-color last-seen reference in Keep revealed fog; never a direct target. */
+  revealedOnly?: boolean;
   /** Owner/party/DM ghost rendering; unseen hostile tokens never arrive. */
   invisible?: boolean;
   /** Server-assigned public encounter tag; U means not yet revealed (DM only). */
@@ -834,6 +836,7 @@ export type MapState = {
   /** Hide the grid overlay entirely. */
   gridHidden: boolean;
   /** Automatic sight-based fog. Missing legacy values default to enabled. */
+  explorationMode?: 'remembered' | 'revealed';
   mapVisionEnabled?: boolean;
   tokenVisionEnabled?: boolean;
   /** Whether each manually painted cover layer is active on this map. */
@@ -1758,6 +1761,7 @@ export interface ClientToServerEvents {
   ) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:setVision': (payload: FogSetVisionPayload) => void;
+  'fog:setExploration': (payload: {mapId:string;mode:'remembered'|'revealed'}) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload, placed?: (p: {x:number;y:number}) => void) => void;

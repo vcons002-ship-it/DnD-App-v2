@@ -165,6 +165,7 @@ import {
   paintFog,
   setFogLayer,
   setVisionFog,
+  setExplorationMode,
   setTokenHidden,
   setTokenInCombat,
   setTokensHideCombatRole,
@@ -881,6 +882,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     on('fog:setVision', ({mapId,layer,enabled})=>{
       const sid=sessionId();
       if(!sid||!isDm()||!setVisionFog(sid,mapId,layer,enabled))return;
+      afterChange();
+    });
+
+    on('fog:setExploration', ({mapId,mode})=>{
+      const sid=sessionId();
+      if(!sid||!isDm()||!setExplorationMode(sid,mapId,mode))return;
       afterChange();
     });
 

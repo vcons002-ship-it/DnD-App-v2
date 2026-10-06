@@ -3,7 +3,7 @@ import {db} from './db.js';
 import {createPlayerVision,lightCoverage,type PlayerVision} from '../../shared/playerVision.js';
 import {wallVisibilityPolygon,SIGHT_EXTENT} from '../../shared/mapWalls.js';
 import type {ExploredTerrain} from '../../shared/exploration.js';
-import type {MapState,MapImage,Token} from '../../shared/types.js';
+import type {MapState,MapImage,Token,MonsterPublic} from '../../shared/types.js';
 
 // Boolean intersections also introduce fractional vertices into saved history.
 // Normalize BOTH old history and new sight before the next union, otherwise
@@ -46,7 +46,7 @@ function fogArea(map:MapState):ExploredTerrain {
 const cache=new Map<string,{key:string;terrain:ExploredTerrain}>();
 export function clearExplorationCache(){cache.clear();}
 export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lightAllowed:(t:Token)=>boolean):ExploredTerrain {
- const terrainKey=JSON.stringify([map.imagePath,map.slidesUrl,tiles.map(t=>[t.imagePath,t.x,t.y,t.w,t.h,t.z])]);
+ const terrainKey=explorationKey(map,tiles);
  const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId));
  let fog:ExploredTerrain|undefined;
  const clipFog=(shape:ExploredTerrain)=>map.mapFogEnabled?clipping.intersection(shape,fog??=fogArea(map)):shape;
@@ -63,7 +63,7 @@ export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lig
    if(seen.length){
     result=union([saved,seen]);
     const geometry=JSON.stringify(result);
-    if(geometry!==row?.geometry||terrainKey!==row?.terrain_key)db.prepare('INSERT INTO explored_terrain(map_id,terrain_key,geometry) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET terrain_key=excluded.terrain_key,geometry=excluded.geometry').run(map.id,terrainKey,geometry);
+    if(geometry!==row?.geometry||terrainKey!==row?.terrain_key)db.prepare(`INSERT INTO explored_terrain(map_id,terrain_key,geometry) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET token_memory=CASE WHEN explored_terrain.terrain_key=excluded.terrain_key THEN explored_terrain.token_memory ELSE '[]' END,terrain_key=excluded.terrain_key,geometry=excluded.geometry`).run(map.id,terrainKey,geometry);
    }
    result=clipFog(result);
   }catch(error){
@@ -74,4 +74,29 @@ export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lig
   }
   if(cache.size>=512)cache.delete(cache.keys().next().value!);
   cache.set(id,{key,terrain:result});return result;
+}
+
+export type RevealedFigure={token:Token;monster?:MonsterPublic};
+const explorationKey=(map:MapState,tiles:MapImage[])=>JSON.stringify([map.imagePath,map.slidesUrl,tiles.map(t=>[t.imagePath,t.x,t.y,t.w,t.h,t.z])]);
+/** Only true party sightings update these frozen display records. No unseen
+ * movement, HP, conditions, or appearance changes are sent to players. */
+export function rememberFigures(map:MapState,tiles:MapImage[],tokens:Token[],seen:(token:Token)=>boolean,seenPoint:(x:number,y:number)=>boolean,display:(token:Token)=>MonsterPublic|undefined):RevealedFigure[]{
+ if(map.explorationMode!=='revealed')return [];
+ const key=explorationKey(map,tiles);
+ const row=db.prepare('SELECT terrain_key,token_memory FROM explored_terrain WHERE map_id=?').get(map.id) as {terrain_key:string;token_memory:string}|undefined;
+ let saved:RevealedFigure[]=[];
+ try{if(row?.terrain_key===key){const value=JSON.parse(row.token_memory);if(Array.isArray(value))saved=value;}}catch{saved=[];}
+ const live=new Map(tokens.map(t=>[t.id,t]));
+ const records=new Map(saved.filter(r=>{
+   const t=live.get(r.token?.id);
+   return t&&!t.isHidden&&t.kind==='monster'&&r.token.mapId===map.id&&r.token.refId===t.refId&&Number.isFinite(r.token.x)&&Number.isFinite(r.token.y);
+ }).map(r=>[r.token.id,r]));
+ for(const token of tokens){
+  if(token.kind!=='monster'||token.isHidden)continue;
+  if(seen(token))records.set(token.id,{token:{...token},monster:display(token)});
+  else {const old=records.get(token.id);if(old&&seenPoint(old.token.x,old.token.y))records.delete(token.id);}
+ }
+ const result=[...records.values()],encoded=JSON.stringify(result);
+ if(encoded!==row?.token_memory||row?.terrain_key!==key)db.prepare("INSERT INTO explored_terrain(map_id,terrain_key,token_memory) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET token_memory=excluded.token_memory").run(map.id,key,encoded);
+ return result;
 }

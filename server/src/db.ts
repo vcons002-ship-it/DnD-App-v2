@@ -354,6 +354,7 @@ if (ensureColumn('maps', 'fog_mode', "fog_mode TEXT NOT NULL DEFAULT 'off'")) {
 ensureColumn('maps', 'map_fog_enabled', 'map_fog_enabled INTEGER NOT NULL DEFAULT 0');
 ensureColumn('maps', 'token_fog_enabled', 'token_fog_enabled INTEGER NOT NULL DEFAULT 0');
 ensureColumn('maps', 'map_vision_enabled', 'map_vision_enabled INTEGER NOT NULL DEFAULT 1');
+ensureColumn('maps', 'exploration_mode', "exploration_mode TEXT NOT NULL DEFAULT 'remembered'");
 ensureColumn('maps', 'token_vision_enabled', 'token_vision_enabled INTEGER NOT NULL DEFAULT 1');
 // Real-world map width in feet (0 = unset → fall back to feet-per-square scale).
 ensureColumn('maps', 'width_ft', 'width_ft REAL NOT NULL DEFAULT 0');
@@ -461,6 +462,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS explored_terrain (
   terrain_key TEXT NOT NULL,
   geometry TEXT NOT NULL DEFAULT '[]'
 )`);
+ensureColumn('explored_terrain','token_memory',"token_memory TEXT NOT NULL DEFAULT '[]'");
 // No token FK: deleted enemies must not free a public encounter number for reuse.
 db.exec(`CREATE TABLE IF NOT EXISTS encounter_tags (
   map_id TEXT NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
@@ -667,6 +669,7 @@ type MapRow = {
   grid_hidden: number | null;
   map_fog_enabled: number;
   token_fog_enabled: number;
+  exploration_mode?: string;
   map_vision_enabled?: number;
   token_vision_enabled?: number;
   map_fog_revealed: string;
@@ -697,6 +700,7 @@ export function rowToMap(r: MapRow): MapState {
     gridHidden: !!r.grid_hidden,
     mapFogEnabled: !!r.map_fog_enabled,
     tokenFogEnabled: !!r.token_fog_enabled,
+    explorationMode: r.exploration_mode==='revealed'?'revealed':'remembered',
     mapVisionEnabled: r.map_vision_enabled!==0,
     tokenVisionEnabled: r.token_vision_enabled!==0,
     mapFogRevealed: JSON.parse(r.map_fog_revealed ?? '[]') as string[],
