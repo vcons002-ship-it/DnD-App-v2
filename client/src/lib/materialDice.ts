@@ -75,8 +75,8 @@ void main(){
  vec3 ray=refract(incoming,n,1./1.48);float distance=5.;
  for(int j=0;j<20;j++){if(j>=count)break;float denom=dot(planes[j].xyz,ray);if(denom>.0001)distance=min(distance,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));}
  vec3 beyond=studioLight(rotation*ray);
- vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?1.15:2.4));
- if(style==3)through*=vec3(.18,.025,.38);
+ vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?1.4:2.4));
+ if(style==3)through*=vec3(.075,.006,.20);
  float smoke=0.;vec3 energy=vec3(0.);float stepSize=distance/20.;
  if(style==0||style==2||style==3){for(int j=0;j<20;j++){
    vec3 p=pos+ray*(float(j)+.5)*stepSize;
@@ -89,10 +89,13 @@ void main(){
    if(style==0)energy+=vec3(1.,.065,.11)*spark*stepSize*interior*1.6;
    if(style==3){
      // Moving light lives inside the resin volume, beneath the glossy shell.
-     // A diffuse violet core and brighter curls avoid painted surface markings.
-     float core=exp(-dot(p,p)*5.5);
+     // A concentrated luminous center sits within a much darker resin body.
+     float radiusSquared=dot(p,p);
+     float core=exp(-radiusSquared*32.);
+     float halo=exp(-radiusSquared*9.);
      float pulse=.85+.15*sin(time*1.8+p.y*3.);
-     energy+=(vec3(.055,.004,.18)*core*(.4+cloud*.6)
+     energy+=(vec3(.75,.26,1.7)*core*4.
+       +vec3(.10,.01,.35)*halo
        +vec3(.32,.035,.65)*spark*1.8)*pulse*stepSize*interior;
    }
    if(style==2){
@@ -106,7 +109,7 @@ void main(){
  through=through*exp(-smoke*1.9)+energy;
  float fresnel=.04+.96*pow(1.-max(0.,dot(-incoming,n)),5.);
  vec3 reflected=studioLight(rotation*reflect(incoming,n));
- vec3 color=mix(through,reflected,fresnel*.88+.07);
+ vec3 color=mix(through,reflected,fresnel*.88+(style==3?.02:.07));
  if(style==1){
    // Subtle volcanic flow bands beneath a smooth polish; no granular bump layer.
    float flow=fbm(pos*2.1+vec3(fbm(pos*3.)*.9));
@@ -213,7 +216,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.82,.22).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
     const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});

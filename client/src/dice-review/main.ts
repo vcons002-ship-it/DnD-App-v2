@@ -30,7 +30,7 @@ try {
     handle.object.rotation.set(.15,.35,0);
     scene.add(handle.object);
     viewer.dataset.die=String(sides);
-    status.textContent=`d${sides} · Deep purple semi-transparent resin · Metallic gold inlays`;
+    status.textContent=`d${sides} · Midnight purple resin · Glowing violet center · Metallic gold inlays`;
   }
   function resize(){
     const {width,height}=viewer.getBoundingClientRect();
