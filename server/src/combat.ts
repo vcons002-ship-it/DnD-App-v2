@@ -1298,7 +1298,7 @@ export function resolveAttackDamage(
     hpNote,
     reveal: {
       kind: 'damage',
-      attacker: roller,
+      attacker: entry.reveal?.attacker ?? attacker.name,
       target: p.target.name,
       outcome: p.crit ? 'crit' : 'hit',
       ...(p.dice.length ? { damageDice: p.dice } : {}),

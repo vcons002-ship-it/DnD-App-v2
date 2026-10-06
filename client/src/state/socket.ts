@@ -102,7 +102,7 @@ type Store = {
   chatAccessToken: string | null;
   snapshot: StateSnapshot | null;
   /** Transient toast message (server notices, e.g. "Brought 3 tokens"). */
-  toast: { id: number; message: string; durationMs?: number } | null;
+  toast: { id: number; message: string; durationMs?: number; presentation?: 'blocked' } | null;
   dismissToast: () => void;
   /** Show a transient toast from the client (e.g. AI start/failure notices). */
   notify: (message: string, options?: { durationMs?: number }) => void;
@@ -940,10 +940,10 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('error', (err) =>
       set({ error: err.message, toast: { id: Date.now(), message: err.message } }),
     );
-    socket.on('notice', ({ message, aiDone, durationMs }) =>
+    socket.on('notice', ({ message, aiDone, durationMs, presentation }) =>
       // An AI-completion notice (aiDone) clears the spinner; an unrelated notice
       // fired mid-request (slot warning, undo) must NOT drop the banner early.
-      set({ toast: { id: Date.now(), message, durationMs }, ...(aiDone ? { aiBusy: false } : {}) }),
+      set({ toast: { id: Date.now(), message, durationMs, presentation }, ...(aiDone ? { aiBusy: false } : {}) }),
     );
 
     socket.on('connect', () => {

@@ -22,10 +22,10 @@ export function diceThemeForClass(className = ''): DiceTheme {
   return DICE_THEMES[match?.[1] ?? 'neutral'];
 }
 
-const DM_DICE_THEMES: Record<string,DiceTheme> = Object.fromEntries(
-  Object.entries({enemy:0,friendly:140,neutral:49,'neutral-roll':265}).map(([key,hue])=>
-    [key,{...theme(`dm-${key}`,hue,65,'#c0c7d1','scale'),ink:'#edf0f5'}]));
-export function diceThemeForRoll(className = '', dmDice = false, affinity?: string): DiceTheme {
+const DM_DICE_THEME: DiceTheme = {...theme('dm-neutral-roll',265,65,'#c0c7d1','scale'),ink:'#edf0f5'};
+// Affinity remains accepted for older recorded frames; all DM/NPC rolls now
+// share one purple material rather than switching colors by disposition.
+export function diceThemeForRoll(className = '', dmDice = false, _affinity?: string): DiceTheme {
   if (!dmDice) return diceThemeForClass(className);
-  return DM_DICE_THEMES[affinity??'neutral-roll']??DM_DICE_THEMES['neutral-roll'];
+  return DM_DICE_THEME;
 }

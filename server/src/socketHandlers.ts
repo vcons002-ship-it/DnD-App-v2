@@ -2441,7 +2441,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid=sessionId(),entry=sid&&typeof rollId==='string'?getRollEntry(rollId,sid):undefined,p=entry?.pending;
       if(!sid||!p?.shield||!ownsCreature(p.target.kind,p.target.refId))return;
       const result=resolveShield(sid,rollerName(sid,socket.id,isDm()),rollId,!!pass,level??1,slotPool);
-      if(!result.ok)socket.emit('notice',{message:result.reason!});afterChange();
+      if(!result.ok)socket.emit('notice',{message:result.reason!});
+      else if(result.blocked)socket.emit('notice',{message:'Blocked!',presentation:'blocked',durationMs:4000});
+      afterChange();
     });
     on('spell:wake', ({actorTokenId,targetTokenId})=>{
       const sid=sessionId(),actor=typeof actorTokenId==='string'?getToken(actorTokenId):null;

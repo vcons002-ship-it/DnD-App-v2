@@ -1,0 +1,39 @@
+import {test,expect} from '@playwright/test';
+import {io} from 'socket.io-client';
+import {DM_SECRET,PORT} from './playwright.config';
+
+test('monster rolls and general DM rolls keep one purple theme live and after settlement',async({page,request},info)=>{
+ test.setTimeout(180000);
+ const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Uniform DM dice'}})).json();
+ const socket=io(`http://localhost:${PORT}`,{transports:['websocket']});
+ const snap=async()=>{const r=await socket.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.ok).toBe(true);return r.snapshot;};
+ try{
+  await snap();
+  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1000;c.height=800;const x=c.getContext('2d')!;x.fillStyle='#302b28';x.fillRect(0,0,1000,800);return c.toDataURL('image/png').split(',')[1];});
+  const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Arena',image:{name:'arena.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')}}})).json();
+  socket.emit('map:setActive',{mapId:map.id});
+  for(const layer of ['map','tokens'])socket.emit('fog:setLayer',{mapId:map.id,layer,enabled:false});
+  const refs:Record<string,string>={};
+  for(const [i,disposition] of ['enemy','neutral','friendly'].entries()){
+   socket.emit('monster:create',{name:disposition+' guard',modelType:'human-guard',maxHp:30,disposition,stats:{STR:16}});
+   const template=(await snap()).monsterTemplates.find((m:any)=>m.name===disposition+' guard');
+   socket.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:200+i*200,y:350});
+   refs[disposition]=(await snap()).monsters.find((m:any)=>m.name.startsWith(disposition+' guard')).id;
+  }
+  await page.setViewportSize({width:1440,height:1000});await page.goto(`/dm?code=${code}`);
+  await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  await expect(page.getByRole('group',{name:'Map view controls',exact:true})).toBeVisible();
+  for(const disposition of ['enemy','neutral','friendly','general']){
+   if(disposition==='general')socket.emit('dice:roll',{expr:'2d6+3',label:'General DM roll'});
+   else socket.emit('check:roll',{kind:'monster',refId:refs[disposition],ability:'STR'});
+   const live=page.locator('[data-live-dice="true"]');await expect(live).toBeVisible({timeout:30000});
+   await expect(live.locator('.physics-dice-tray')).toHaveAttribute('data-theme','dm-neutral-roll');
+   await expect(live).toHaveCount(0,{timeout:45000});
+   const result=page.locator('.roll-reveal');await expect(result).toBeVisible();
+   await expect(result).toHaveAttribute('data-dice-theme','dm-neutral-roll');
+   await expect(result).toHaveAttribute('data-impact-ready','true',{timeout:30000});
+   await page.screenshot({path:info.outputPath(disposition+'-purple-dice.png')});await page.keyboard.press('Escape');
+   await expect(result).toHaveCount(0);
+  }
+ }finally{socket.disconnect();}
+});

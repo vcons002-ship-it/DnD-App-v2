@@ -6,6 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Successful Shield reactions show a blue `Blocked!` popup for four seconds,
+  with reduced-motion support. Passing, natural 20s and hits that still meet the
+  raised AC do not show it. Damage reveals retain the triggering attacker's
+  identity for consistent attribution. All monster, NPC and general DM dice use
+  one purple theme in both live rolls and result screens; player class dice stay
+  personal. Creature affinity no longer changes dice color.
+
 - [x] Spell-specific effects for the repaired party spells: blue Shield barrier,
   silver Misty Step wisps, multicolor Hypnotic Pattern loops, a subtle moving
   Pass without Trace veil, and a gold Command sigil above the target. Persistent
@@ -2473,7 +2480,7 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] Mist movement opens a temporary swept-body density gap instead of only warping the pattern. Displaced banks cannot cancel the fresh clearing; the gap narrows and refills over about four seconds while turbulent motion continues.
 
-- [x] DM creature rolls use a dedicated leather/pewter dragon tray and affinity-colored marbled dice (enemy red, neutral amber, friendly green; general DM rolls purple). Player class styles remain separate.
+- [x] DM creature rolls use a dedicated leather/pewter dragon tray and purple marbled dice shared with general DM rolls. Player class styles remain separate.
 - [x] Settled face numbers hold for 460 ms before flying to their result boxes. Live physics retains its pace; damage presentation waits through the face flights and modifier sequence, or releases when skipped. Browser regression checks cover normal completion, skip, and animations disabled.
 
 - [x] Live dice retain the existing HIT/MISS/Fumble!/CRITICAL HIT and PASS/FAIL stamps, critical flourish, Nat 20 celebration, and matching result sounds. The result stamp gets a 1.2-second reading beat before compacting; damage feedback remains gated until completion or skip.

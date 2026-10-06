@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { diceThemeForClass, diceThemeForRoll, DICE_THEMES } from '../../shared/diceThemes.js';
 describe('cosmetic class dice', () => {
-  it('gives NPC rolls affinity palettes without overriding player class dice', () => {
+  it('uses the same purple material for every DM/NPC roll without overriding player class dice', () => {
     expect(diceThemeForRoll('Fighter', false, 'enemy')).toBe(DICE_THEMES.fighter);
-    expect(diceThemeForRoll('', true, 'enemy').hue).toBe(0);
-    expect(diceThemeForRoll('', true, 'friendly').hue).toBe(140);
-    expect(diceThemeForRoll('', true, 'neutral').hue).toBe(49);
+    for(const affinity of ['enemy','friendly','neutral','red','blue',undefined]) {
+      expect(diceThemeForRoll('Sorcerer',true,affinity)).toBe(diceThemeForRoll('',true));
+      expect(diceThemeForRoll('',true,affinity).hue).toBe(265);
+    }
     expect(diceThemeForRoll('', true).id).toBe('dm-neutral-roll');
     // Store selectors must return a stable reference between snapshots.
     expect(diceThemeForRoll('',true,'enemy')).toBe(diceThemeForRoll('',true,'enemy'));

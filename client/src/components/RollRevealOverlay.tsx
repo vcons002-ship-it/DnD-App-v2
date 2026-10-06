@@ -6,7 +6,7 @@ import { PhysicsDiceTray } from './PhysicsDiceTray';
 import type { TrayDie } from '../lib/diceTrayTypes';
 import { diceThemeForRoll } from '../../../shared/diceThemes';
 import { flattenDamageDice } from '../../../shared/diceVisuals';
-import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../state/socket';
 import { playHit, playMiss, playSkill, playCritical } from '../lib/sfx';
@@ -225,6 +225,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
   dismiss: () => void;
 }) {
   const releaseImpact = useStore((s) => s.releaseRollImpact);
+  const rollTheme = useContext(DiceThemeContext);
   const landings = useRef<{ d20?: (set: number) => void; damage?: (index: number, set: number) => void }>({});
   const reveal = rollFx?.reveal;
   const awaitingDamage=useStore(s=>!!s.snapshot?.rollLog.some(e=>e.id===rollFx.rollId&&e.pending&&!e.pending.done));
@@ -419,6 +420,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         className={`roll-reveal ${colourClass}`}
         data-roll-id={rollFx.rollId}
         data-reveal-kind={reveal.kind}
+        data-dice-theme={rollTheme.id}
         data-phase={stage.phase}
         data-impact-ready={!!rollFx.impactReady}
         onClick={dismiss}

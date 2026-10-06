@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 import {DM_SECRET,PORT} from './playwright.config';
 test.skip(process.env.DND_DM_DICE_DEMO!=='1','Optional Windows video capture; enable DND_DM_DICE_DEMO=1 explicitly.');
-test('DM affinity dice showcase',async({browser,request},info)=>{
+test('uniform purple DM dice showcase across creature affinities',async({browser,request},info)=>{
  test.setTimeout(180000);
  const require=createRequire(process.cwd()+'/package.json');const encoder=require('playwright-core/lib/server/registry/index').registry.findExecutable('ffmpeg');const ff=execFileSync('where.exe',['ffmpeg'],{encoding:'utf8'}).trim().split(/\r?\n/)[0];encoder.executablePath=()=>ff;encoder.executablePathOrDie=()=>ff;
  const ctx=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:1000},recordVideo:{dir:info.outputPath('video'),size:{width:1440,height:1000}}});
@@ -24,7 +24,7 @@ test('DM affinity dice showcase',async({browser,request},info)=>{
  await page.evaluate(text=>{let e=document.getElementById('demo-caption');if(!e){e=document.createElement('div');e.id='demo-caption';e.style.cssText='position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:99999;background:#111a24ef;border:1px solid #a48b5a;border-radius:8px;color:#f4e6c6;padding:10px 22px;font:22px Georgia;white-space:nowrap';document.body.append(e);}e.textContent=text;},disposition==='neutral-roll'?'DM tray - general rolls - purple dice':'DM tray - '+disposition+' creature - Strength check');
  await page.waitForTimeout(700);await page.screenshot({path:info.outputPath(disposition+'-caption.png')});
  if(disposition==='neutral-roll')socket.emit('dice:roll',{expr:'2d6+3',label:'General DM roll'});else socket.emit('check:roll',{kind:'monster',refId:ids[disposition],ability:'STR'});
- const live=page.locator('[data-live-dice="true"]');await expect(live).toBeVisible();await expect(live.locator('.physics-dice-tray')).toHaveAttribute('data-theme','dm-'+disposition);
+ const live=page.locator('[data-live-dice="true"]');await expect(live).toBeVisible();await expect(live.locator('.physics-dice-tray')).toHaveAttribute('data-theme','dm-neutral-roll');
  await page.waitForTimeout(2200);await page.screenshot({path:info.outputPath(disposition+'-dice.png')});
  await expect(live).toHaveCount(0,{timeout:30000});expect(frames.at(-1).dmDice).toBe(true);expect(frames.at(-1).affinity).toBe(disposition==='neutral-roll'?undefined:disposition);writeFileSync(info.outputPath(disposition+'-roll.json'),JSON.stringify((await snap()).rollLog));await page.waitForTimeout(800);await page.screenshot({path:info.outputPath(disposition+'-result.png')});await expect(page.locator('.rr-adjustment').first()).toBeVisible();await page.waitForTimeout(2200);await page.keyboard.press('Escape');chapters.push(disposition);
  }}finally{socket.disconnect();await ctx.close();writeFileSync(info.outputPath('chapters.json'),JSON.stringify({chapters,video:await page.video()!.path(),errors}));}expect(errors).toEqual([]);

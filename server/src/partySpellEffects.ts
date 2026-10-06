@@ -21,7 +21,7 @@ export function shieldGate(sid:string,kind:TokenKind,id:string,attackTotal?:numb
   return {abilityId:a.id,attackTotal,natural20,automatic:!getSessionById(sid)?.manualDamage};
 }
 
-export function resolveShield(sid:string,roller:string,rollId:string,pass=false,level=1,pool?:'spellcasting'|'pact'):{ok:boolean;reason?:string} {
+export function resolveShield(sid:string,roller:string,rollId:string,pass=false,level=1,pool?:'spellcasting'|'pact'):{ok:boolean;reason?:string;blocked?:boolean} {
   const entry=getRollEntry(rollId,sid),p=entry?.pending,gate=p?.shield;
   if(!p||p.done||!gate)return {ok:false,reason:'This Shield reaction has already been resolved.'};
   const e=entity(p.target.kind,p.target.refId);
@@ -46,7 +46,7 @@ export function resolveShield(sid:string,roller:string,rollId:string,pass=false,
   }
   addRollLog(sid,{roller,label:'Shield reaction',expr:'Shield',total:0,detail:pass?'Shield declined. The hit continues.':`Shield: +5 AC until the start of ${e.name}'s next turn. ${blocked?'The triggering hit is blocked.':'The triggering hit still lands.'}`});
   if(!blocked&&gate.automatic)resolveAttackDamage(sid,entry?.roller??roller,rollId);
-  return {ok:true};
+  return {ok:true,blocked};
 }
 
 export function syncPassWithoutTrace(sid:string):boolean {

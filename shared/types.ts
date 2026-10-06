@@ -1594,6 +1594,8 @@ export type AiCreateCharacterPayload = { description: string };
 /** A transient message the server asks a client to surface (e.g. a toast). */
 export type NoticePayload = {
   message: string;
+  /** Brief combat result stamp, without opening another dice tray. */
+  presentation?: 'blocked';
   /** Longer explanations can remain visible without extending ordinary notices. */
   durationMs?: number;
   /** Set when this notice signals an AI operation finished — the client clears the

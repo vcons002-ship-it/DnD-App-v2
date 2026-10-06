@@ -25,6 +25,30 @@ async function setup(request:APIRequestContext,page:Page){
  const character=async(id=caster.id)=>(await snapshot()).characters.find(c=>c.id===id)!;
  return {socket,snapshot,character,caster,ally,map,actor,friend,enemy,mapPoint};
 }
+test('a successful Shield reaction displays Blocked! and dismisses automatically',async({page,request})=>{
+ test.setTimeout(120000);const f=await setup(request,page);
+ // Raise the defender's base AC to just below an actual noncritical attack.
+ // The real Shield reaction must then change that hit into a block.
+ let hit:any;
+ for(let i=0;i<8;i++){
+  f.socket.emit('combat:attack',{attackerTokenId:f.enemy.id,targetTokenId:f.actor.id,weaponIndex:0});
+  await expect.poll(async()=>(await f.snapshot()).rollLog.filter(r=>r.label==='Attack').length,{timeout:25000}).toBe(i+1);
+  const s=await f.snapshot(),offer=s.shieldReactions?.[0];
+  const attack=s.rollLog.find(r=>r.id===offer?.rollId);
+  if(attack?.reveal?.d20!==20&&attack?.reveal?.attackTotal){hit=attack;break;}
+  if(offer)f.socket.emit('spell:shield',{rollId:offer.rollId,pass:true});
+ }
+ expect(hit).toBeTruthy();
+ f.socket.emit('character:update',{characterId:f.caster.id,armorClass:hit.reveal.attackTotal-2});await f.snapshot();
+ const prompt=page.getByRole('region',{name:'Shield reaction'});await expect(prompt).toBeVisible({timeout:30000});
+ await prompt.getByRole('button',{name:/^Shield.*L1$/}).click();
+ const popup=page.locator('.shield-blocked-popup');await expect(popup).toHaveText('Blocked!');
+ await expect(popup).toBeVisible();await expect(prompt).toHaveCount(0);
+ await page.waitForTimeout(400);await page.screenshot({path:test.info().outputPath('shield-blocked-popup.png'),fullPage:true});
+ expect((await f.snapshot()).rollLog.find(r=>r.id===hit.id)?.pending?.amount).toBe(0);
+ await expect(popup).toHaveCount(0,{timeout:6000});
+});
+
 test('Misty Step and Pass without Trace use visible map controls and preserve spell-slot bookkeeping',async({page,request})=>{
  const f=await setup(request,page);
  const layer=page.getByTestId('miniature-layer');

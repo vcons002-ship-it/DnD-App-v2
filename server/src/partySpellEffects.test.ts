@@ -37,11 +37,34 @@ function fixture(){
  return {session,map,caster,actor,monster,enemy,dice,now:()=>getCharacter(caster.id)!,hit:(face=13)=>dice(face,()=>resolveAttack(session.id,'DM',enemy.id,actor.id,0))};
 }
 describe('Shield reaction',()=>{
+ it.each([
+  {face:13,pass:false,blocked:true},
+  {face:17,pass:false,blocked:false},
+  {face:20,pass:false,blocked:false},
+  {face:13,pass:true,blocked:false},
+ ])('only announces Blocked! when the triggering hit is stopped: %j',({face,pass,blocked})=>{
+  const f=fixture(),owner=client(f.session.id,f.map.id,`shield-owner-${face}-${pass}`);
+  claimCharacter(f.caster.id,`shield-owner-${face}-${pass}`);
+  try{
+   f.hit(face);const hit=listRollLog(f.session.id).find(e=>e.pending?.shield)!;
+   f.dice(3,()=>owner.send('spell:shield',{rollId:hit.id,pass,level:1}));
+   const notices=owner.emit.mock.calls.filter(([event,p])=>event==='notice'&&p.message==='Blocked!');
+   expect(notices).toHaveLength(blocked?1:0);
+   if(blocked){expect(notices[0][1]).toEqual({message:'Blocked!',presentation:'blocked',durationMs:4000});expect(f.now().curHp).toBe(100);}
+   else {
+    const damage=listRollLog(f.session.id).find(e=>e.label==='Damage')!;
+    expect(damage.reveal?.attacker).toBe(hit.reveal?.attacker);
+   }
+   // Replaying an already resolved reaction must not celebrate twice.
+   owner.send('spell:shield',{rollId:hit.id,level:1});
+   expect(owner.emit.mock.calls.filter(([event,p])=>event==='notice'&&p.message==='Blocked!')).toHaveLength(blocked?1:0);
+  }finally{owner.close();}
+ });
  it.each([false,true])('pauses a hit, spends one slot/reaction, blocks it with +5 AC, and expires on the caster turn (manual %s)',manual=>{
   const f=fixture();setManualDamage(f.session.id,manual);setCombatRound(f.session.id,1);setActiveTurn(f.session.id,f.enemy.id);f.hit();
   const hit=listRollLog(f.session.id).find(e=>e.pending?.shield)!;
   expect(f.now().curHp).toBe(100);expect(()=>resolveAttackDamage(f.session.id,'DM',hit.id)).toThrow(/Waiting/);
-  expect(resolveShield(f.session.id,'Vanec',hit.id)).toEqual({ok:true});
+  expect(resolveShield(f.session.id,'Vanec',hit.id)).toEqual({ok:true,blocked:true});
   expect(f.now().spellSlots.L1.used).toBe(1);expect(effectiveAc(f.now())).toBe(21);expect(f.now().armorClass).toBe(16);expect(f.now().curHp).toBe(100);
   expect(resolveShield(f.session.id,'Vanec',hit.id).ok).toBe(false);expect(shieldGate(f.session.id,'pc',f.caster.id)).toBeUndefined();
   const publicView=buildSnapshot(f.session.id,'player',null,'other')!;expect(JSON.stringify(publicView.rollLog)).not.toContain('attackTotal":17');
