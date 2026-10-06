@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import {createMaterialDie,getDiceStage} from './materialDice';
 import {trayFaceValues,type Toss,type TrayDie} from './diceTrayTypes';
 import type {DiceTheme} from '../../../shared/diceThemes';
+import {createDiceTrails} from './diceTrail';
+
+export type DiceAppearanceTest={lightning?:boolean;dmGlow?:number;varisTrail?:boolean};
 
 const trayTextures=new Map<string,Promise<THREE.Texture>>();
 export const warmTrayGraphics=()=>{getDiceStage();};
@@ -10,7 +13,7 @@ export async function loadTrayTexture(themeId:string){
   if(!['fighter','ranger','sorcerer','dm'].includes(themeId))return undefined;
   try{let promise=trayTextures.get(themeId);if(!promise){promise=new THREE.TextureLoader().loadAsync(`/art/dice-trays/${themeId}-v1.webp`);trayTextures.set(themeId,promise);}const t=(await promise).clone();t.colorSpace=THREE.SRGBColorSpace;return t;}catch{trayTextures.delete(themeId);return undefined;}
 }
-export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture,fixedFaces=false,dieThemes?:readonly DiceTheme[]){
+export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture,fixedFaces=false,dieThemes?:readonly DiceTheme[],appearance?:DiceAppearanceTest){
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
   const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60);camera.position.set(0,-8,25);camera.lookAt(0,0,.25);
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.45));
@@ -58,7 +61,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const c=canvas.getContext('2d')!,gradient=c.createRadialGradient(32,32,4,32,32,32);gradient.addColorStop(0,'#000a');gradient.addColorStop(1,'#0000');c.fillStyle=gradient;c.fillRect(0,0,64,64);
   const texture=new THREE.CanvasTexture(canvas);textures.push(texture);
   const shadows=dice.map(()=>{const g=new THREE.PlaneGeometry(2,2),m=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false});const mesh=new THREE.Mesh(g,m);scene.add(mesh);geometry.push(g);materials.push(m);return mesh;});
-  const handles=dice.map((d,i)=>{const dieTheme=dieThemes?.[i]??theme;const h=createMaterialDie(d.sides,dieTheme,!!d.crit,!!d.tens,!!d.ones);h.setFaceValues(fixedFaces?Array.from({length:d.sides},(_,j)=>d.tens?j*10:d.ones?j:j+1):trayFaceValues(d,toss.topFaces[i]),fixedFaces);h.object.scale.setScalar(toss.radius);
+  const handles=dice.map((d,i)=>{const dieTheme=dieThemes?.[i]??theme;const h=createMaterialDie(d.sides,dieTheme,!!d.crit,!!d.tens,!!d.ones);h.setInternalLightning(!!appearance?.lightning);h.setInnerGlow(appearance?.dmGlow??0);h.setFaceValues(fixedFaces?Array.from({length:d.sides},(_,j)=>d.tens?j*10:d.ones?j:j+1):trayFaceValues(d,toss.topFaces[i]),fixedFaces);h.object.scale.setScalar(toss.radius);
     // The standard shadow pass cannot transmit resin or discard this custom
     // inlay shader's empty areas. Keep its soft contact shadow instead of an
     // opaque silhouette cast by every numbered face.
@@ -70,7 +73,9 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     const mesh=new THREE.Mesh(g,m);mesh.renderOrder=10;mesh.visible=false;scene.add(mesh);geometry.push(g);materials.push(m);return mesh;
   });
   const a=new THREE.Quaternion(),b=new THREE.Quaternion(),projectedNumber=new THREE.Vector3();
+  const trails=appearance?.varisTrail?createDiceTrails(scene,toss.radius,dice.flatMap((d,i)=>(dieThemes?.[i]??theme).id==='ranger'&&!d.crit?[i]:[])):undefined;
   return {
+    trailPointCount(){return trails?.pointCount()??0;},
     async prepare(width:number,height:number,dpr:number){
       // Launch poses start outside the camera. Warm visible dice, transmission,
       // textures and shadow passes before acknowledging readiness to the server.
@@ -99,12 +104,13 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         const clearance=Math.max(0,h.object.position.z-toss.radius*.65);
         shadow.scale.setScalar(toss.radius*(1.0+clearance*.18));(shadow.material as THREE.MeshBasicMaterial).opacity=Math.max(.15,.9-clearance*.18);
       });
+      trails?.update(handles.map(h=>h.object),now);
       const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
       if(stage.renderer.domElement.width!==rw||stage.renderer.domElement.height!==rh)stage.renderer.setSize(rw,rh,false);
       const previousShadows=stage.renderer.shadowMap.enabled;stage.renderer.shadowMap.enabled=true;
       stage.renderer.render(scene,camera);stage.renderer.shadowMap.enabled=previousShadows;
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ctx.drawImage(stage.renderer.domElement,0,0,width,height);
     },
-    dispose(){light.shadow.dispose();handles.forEach(h=>h.dispose());geometry.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());scene.clear();}
+    dispose(){trails?.dispose();light.shadow.dispose();handles.forEach(h=>h.dispose());geometry.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());scene.clear();}
   };
 }

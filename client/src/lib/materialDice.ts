@@ -42,25 +42,31 @@ float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
 return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm(vec3 p){return noise(p)*.57+noise(p*2.03)*.28+noise(p*4.07)*.15;}
-float arcDistance(vec3 p,vec3 a,vec3 b){
- vec3 delta=b-a;float t=clamp(dot(p-a,delta)/dot(delta,delta),0.,1.);
- return length(p-a-delta*t);
-}
 // Die-local filaments are sampled through the glass volume, never painted on
 // its faces. A shared burst seed keeps the same arc coherent across all faces.
-float electricArc(vec3 p,float seed){
- float distance=10.;vec3 previous=vec3(-.64,-.34,-.34);
+vec2 electricArc(vec3 p,float seed){
+ float distance=10.,progress=0.;vec3 previous=vec3(-.64,-.34,-.34);
  vec3 branch=vec3(0.);
  for(int k=1;k<=7;k++){
   float t=float(k)/7.;
   vec3 point=mix(vec3(-.64,-.34,-.34),vec3(.59,.47,.38),t);
   point+=vec3(hash(vec3(seed,float(k),1.)),hash(vec3(seed,float(k),2.)),hash(vec3(seed,float(k),3.)))-.5;
   point=mix(point,mix(vec3(-.64,-.34,-.34),vec3(.59,.47,.38),t),.55);
-  distance=min(distance,arcDistance(p,previous,point));previous=point;
+  vec3 delta=point-previous;
+  float along=clamp(dot(p-previous,delta)/dot(delta,delta),0.,1.);
+  float candidate=length(p-previous-delta*along);
+  if(candidate<distance){distance=candidate;progress=(float(k)-1.+along)/7.;}
+  previous=point;
   if(k==4)branch=point;
  }
  vec3 tip=vec3(-.25,.58,-.43),joint=mix(branch,tip,.5)+vec3(.12,-.09,.07);
- return min(distance,min(arcDistance(p,branch,joint),arcDistance(p,joint,tip)));
+ for(int k=0;k<2;k++){
+  vec3 a=k==0?branch:joint,b=k==0?joint:tip,delta=b-a;
+  float along=clamp(dot(p-a,delta)/dot(delta,delta),0.,1.);
+  float candidate=length(p-a-delta*along);
+  if(candidate<distance){distance=candidate;progress=.52+(float(k)+along)*.24;}
+ }
+ return vec2(distance,progress);
 }
 // Continuous studio lighting avoids cube-face seams and hard reflection flashes.
 float softbox(vec3 r,vec3 direction,float width,float height){
@@ -122,9 +128,17 @@ void main(){
    float spark=pow(max(0.,1.-vein*55.),4.)*smoothstep(.53,.73,cloud);
    if(style==0)energy+=vec3(1.,.065,.11)*spark*stepSize*interior*1.6;
    if(style==0&&internalLightning>.5){
-     float cycle=floor(time/1.35),phase=mod(time,1.35);
-     float burst=exp(-pow((phase-.24)/.052,2.))+exp(-pow((phase-.39)/.065,2.))*.7;
-     float distanceToArc=electricArc(p,cycle+7.);
+     float cycle=floor(time/1.65),phase=mod(time,1.65);
+     vec2 arc=electricArc(p,cycle+7.);
+     float head=clamp((phase-.13)/.48,0.,1.);
+     float reached=smoothstep(arc.y-.025,arc.y+.008,head);
+     float tail=exp(-max(0.,head-arc.y)*5.);
+     float discharge=smoothstep(.12,.16,phase)*(1.-smoothstep(.60,.90,phase));
+     float flicker=.7+.3*pow(sin(time*58.),2.);
+     // A leader crosses the volume, its branches follow, and the established
+     // channel briefly flares in a weaker return stroke before fading.
+     float burst=reached*tail*discharge*flicker+exp(-pow((phase-.79)/.028,2.))*.28;
+     float distanceToArc=arc.x;
      float core=exp(-distanceToArc*distanceToArc/ .0012);
      float halo=exp(-distanceToArc*distanceToArc/ .014);
      energy+=(vec3(1.,.62,.60)*core*11.+vec3(1.,.018,.055)*halo*2.4)*burst*stepSize*interior;
@@ -250,6 +264,7 @@ varying vec3 resinPosition;
 varying vec3 resinNormal;
 uniform vec3 resinEye;
 uniform float resinTime;
+uniform float resinGlow;
 uniform vec4 resinPlanes[20];
 uniform int resinPlaneCount;
 float resinHash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -265,7 +280,7 @@ const resinCloudTransmission=`
    float denominator=dot(resinPlanes[p].xyz,cloudRay);
    if(denominator>.0001)cloudLength=min(cloudLength,max(0.,(resinPlanes[p].w-dot(resinPlanes[p].xyz,resinPosition))/denominator));
  }
- float cloudStep=cloudLength/8.,cloudDepth=0.;
+ float cloudStep=cloudLength/8.,cloudDepth=0.,glowDepth=0.;
  vec3 drift=vec3(resinTime*.07,-resinTime*.055,resinTime*.04);
  for(int j=0;j<8;j++){
    float travel=(float(j)+.5)*cloudStep;
@@ -275,9 +290,12 @@ const resinCloudTransmission=`
    float density=resinNoise(domain)*.7+resinNoise(domain*2.03- drift*.7)*.3;
    float interior=smoothstep(.015,.16,min(travel,cloudLength-travel));
    cloudDepth+=smoothstep(.43,.7,density)*cloudStep*interior;
+   if(resinGlow>0.)glowDepth+=exp(-dot(point,point)*3.5)*(.35+density*.65)*cloudStep*interior;
  }
  float cloudOpacity=1.-exp(-cloudDepth*1.25);
  totalDiffuse=mix(totalDiffuse,vec3(.009,.003,.021),cloudOpacity);
+ // Soft volume illumination remains below the bright exterior gold inlays.
+ totalDiffuse+=vec3(.09,.028,.19)*(1.-exp(-glowDepth*1.4))*resinGlow;
 `;
 
 export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens:boolean,ones:boolean) {
@@ -298,7 +316,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},internalLightning:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},internalLightning:{value:0},resinGlow:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
     // Draw front gold after transmission so refraction cannot duplicate a bright
@@ -360,13 +378,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       envMap:s.scene.environment,envMapIntensity:.025,dispersion:.12});
     resin.onBeforeCompile=shader=>{
       shader.uniforms.resinEye=uniforms.eye;shader.uniforms.resinTime=uniforms.time;
+      shader.uniforms.resinGlow=uniforms.resinGlow;
       shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
       shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
       shader.fragmentShader=resinCloudDeclarations+'\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
     };
-    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v1';
+    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v2';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   let lastValue=-1,lastReadable=false;
@@ -375,6 +394,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     object: root,
     // Preview opt-in; gameplay retains the accepted material until approved.
     setInternalLightning(enabled:boolean){uniforms.internalLightning.value=enabled&&theme.id==='sorcerer'&&!crit?1:0;},
+    setInnerGlow(strength:number){uniforms.resinGlow.value=dm&&!crit?THREE.MathUtils.clamp(strength,0,1):0;},
     resultPosition(target:THREE.Vector3) {
       // Match the numbered surface instead of estimating a height above the body.
       if(sides===4){
