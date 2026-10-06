@@ -2592,3 +2592,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Vanec lightning uses an independent randomized clock per die: roughly 1.4?3.6 seconds between discharges, staggered initial flashes, and unchanged fast leader/return-stroke travel. Background resumes never queue catch-up flashes.
 
 - [x] Druk molten cracks refined to understated deep-red heat inside narrow recessed splits: irregular fractured edges, chipped shoulders, view-dependent cavity reflections, and preserved smooth obsidian rather than bright orange outlines.
+
+- [x] Druk molten preview glow lifted modestly inside the fissures, with restrained warm spill on chipped shoulders and unchanged obsidian/gold lighting.

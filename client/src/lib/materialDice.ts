@@ -207,7 +207,9 @@ void main(){
      // Deep red heat is visible only at the bottom of a split. Broad stone
      // faces stay polished black; tiny amber pockets hint at hotter magma.
      vec3 magma=mix(vec3(.19,.003,.0005),vec3(.65,.045,.003),hotCore);
-     color+=magma*cavity*pulse+vec3(.018,.0008,.0001)*groove;
+     // Slightly stronger heat at the bottom, with a restrained spill onto
+     // the chipped shoulders; polished faces and gold retain their lighting.
+     color+=magma*cavity*pulse*1.3+vec3(.026,.0012,.00015)*groove;
    }
  }
  color+=energy*.35;
