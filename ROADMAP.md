@@ -2604,3 +2604,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] DM dice gold inlays use a satin finish with compressed reflection peaks and steadier contrast, preserving glossy purple resin and flowing interior ink.
 
 - [x] Underlined every 6 digit on 3D dice, including 16 and percentile 60, using each die's existing number inlay material in trays and result screens.
+
+- [x] Enlarged dice numerals across every material: single digits, two-digit/percentile faces, tetrahedral corner labels and settled result dice retain six underlines.

@@ -21,6 +21,7 @@ function drawDieNumeral(ctx:CanvasRenderingContext2D,text:string,x:number,y:numb
     ctx.fillRect(center-digitWidth*.36,y+descent+fontSize*.035,digitWidth*.72,Math.max(2,fontSize*.045));
   }
 }
+function dieNumeralFont(text:string,tens:boolean,sides:number){return sides===4?120:tens?132:text.length>1?140:152;}
 function makeStage() {
   const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, preserveDrawingBuffer:true});
   renderer.setPixelRatio(1);
@@ -527,18 +528,19 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     setFaceValues(values: number[],fixed=false) {
       labels.forEach(({canvas,texture},id)=>{
         const c=canvas.getContext('2d')!;c.fillStyle='#fff';c.fillRect(0,0,256,256);
-        c.fillStyle='#151515';c.font=`bold ${tens?94:112}px Georgia`;c.textAlign='center';c.textBaseline='middle';
+        const text=tens?String(values[id]).padStart(2,'0'):String(values[id]);
+        c.fillStyle='#151515';c.font=`bold ${dieNumeralFont(text,tens,sides)}px Georgia`;c.textAlign='center';c.textBaseline='middle';
         if(fixed&&sides===4){
           // Conventional tetrahedral numbering: the three faces meeting at a
           // vertex repeat its result. The opposite resting face determines it.
-          const f=faces[id];c.font='bold 52px Georgia';
+          const f=faces[id];c.font='bold 64px Georgia';
           for(const vertex of source.faces[id]){
             const opposite=source.faces.findIndex(face=>!face.includes(vertex));
-            const delta=vertices[vertex].clone().sub(f.c).multiplyScalar(.57);
+            const delta=vertices[vertex].clone().sub(f.c).multiplyScalar(.40);
             const x=128+delta.dot(f.u)/(f.radius*4.4)*256,y=128-delta.dot(f.v)/(f.radius*4.4)*256;
             drawDieNumeral(c,String(values[opposite]),x,y);
           }
-        }else drawDieNumeral(c,tens?String(values[id]).padStart(2,'0'):String(values[id]),128,134);
+        }else drawDieNumeral(c,text,128,134);
         texture.needsUpdate=true;
       });
     },
@@ -559,7 +561,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
         let n=id===0?value:((Math.max(1,value)+id-1)%sides)+1;
         if(tens)n=((Math.floor(value/10)+id)%10)*10;if(ones)n=(value+id)%10;
         const text=tens?String(n).padStart(2,'0'):String(n);
-        const font=readable&&id===0?(text.length>1?144:164):tens?94:112;
+        const font=sides===4?120:readable&&id===0?(text.length>1?164:184):dieNumeralFont(text,tens,sides);
         c.fillStyle='#151515';c.font=`bold ${font}px Georgia`;c.textAlign='center';c.textBaseline='middle';drawDieNumeral(c,text,128,134);
         if(material instanceof THREE.ShaderMaterial)material.uniforms.numeralEmphasis.value=readable?(id===0?1.5:.22):1;
         texture.needsUpdate=true;
