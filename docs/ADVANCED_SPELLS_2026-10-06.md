@@ -173,3 +173,29 @@ WebGL or shader errors. Player materials, critical gold dice and physics are unc
 Validation: typecheck, client build, all 1,766 server tests across 160 files,
 and the live DM theme browser scenario passed. Public MP4 range delivery and
 mobile-mode video playback were verified.
+
+## Dark internal clouds and quiet numeral backs
+
+[Cloudy purple DM resin rolls](https://dnd.nic024i.app/uploads/previews/dm-cloudy-resin-20261006/index.html)
+
+Inward-facing numeral backs now use a dark violet backing. Front gold inlays
+draw after the transmission pass, while only their backs participate in it.
+This prevents the refraction buffer from copying a bright front numeral into
+the interior, as well as keeping the bottom numeral subdued. The outward gold
+finish, result flash and result-box transfer remain intact.
+
+A shader extension samples slowly moving dark clouds along the refracted ray
+inside the die. The ray is clipped against the die's face planes, with eight
+interior samples and entry/exit fading. The effect changes transmitted light,
+retains the physical shell reflections and follows the die's local orientation;
+it is not a face texture or screen overlay. It adds no meshes for the clouds,
+light sources, external textures or rendering passes. No central glow is added.
+
+The server still determines results from the upward physical face, independently
+of the cosmetic material. Player class materials and critical gold dice are unchanged.
+
+Validation: typecheck, client build, all 1,766 server tests, and the recorded
+DM theme browser scenario passed. That scenario checks shader/WebGL errors
+and preparation timing; first-roll preparation measured 1,001 ms and subsequent
+rolls 334-344 ms. Public mobile MP4 playback was verified. Numeral shaders omit
+the old unused glass-volume sampling when rendering only an inlay.

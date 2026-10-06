@@ -68,12 +68,21 @@ void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
  float cut=metalEdge?0.:(engraved?texture2D(etching,tex).r:1.);
  if(numeralsOnly&&cut>.98)discard;
+ // The inside of a gold inlay is dark backing, not another bright result.
+ // It remains in the refraction pass without competing with the upward number.
+ if(numeralsOnly&&!gl_FrontFacing){
+   gl_FragColor=vec4(.012,.006,.021,1.);
+   #include <tonemapping_fragment>
+   #include <colorspace_fragment>
+   return;
+ }
  if(engraved){
  vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);vec3 tangent=normalize(axis-n*dot(axis,n));vec3 bitangent=cross(n,tangent);
  float dx=texture2D(etching,tex+vec2(.004,0)).r-texture2D(etching,tex-vec2(.004,0)).r;
  float dy=texture2D(etching,tex+vec2(0,.004)).r-texture2D(etching,tex-vec2(0,.004)).r;
  n=normalize(n-tangent*dx*.24-bitangent*dy*.24);
  }
+ #ifndef INLAY_ONLY
  vec3 ray=refract(incoming,n,1./1.48);float distance=5.;
  for(int j=0;j<20;j++){if(j>=count)break;float denom=dot(planes[j].xyz,ray);if(denom>.0001)distance=min(distance,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));}
  vec3 beyond=studioLight(rotation*ray);
@@ -119,6 +128,10 @@ void main(){
  color+=energy*.35;
  vec3 halfLight=normalize(normalize(vec3(-.65,.65,1.))-rotation*incoming);
  if(style!=1)color+=vec3(1.,.94,.9)*pow(max(0.,dot(rotation*n,halfLight)),180.)*.9;
+ #else
+ vec3 color=vec3(0.);
+ vec3 halfLight=normalize(normalize(vec3(-.65,.65,1.))-rotation*incoming);
+ #endif
  // Cut numerals expose a frosted, light-catching recess rather than a decal.
  if(engraved || metalEdge){
    if(style==2 && !metalEdge){
@@ -195,6 +208,44 @@ void main(){
 
 export function getDiceStage() { return stage ??= makeStage(); }
 
+// Integrate dark wisps inside the same physical transmission shader. Sampling
+// in die-local space keeps the clouds inside the turning die, rather than on a
+// face or as a screen overlay. No added meshes, lights or rendering passes.
+const resinCloudDeclarations=`
+varying vec3 resinPosition;
+varying vec3 resinNormal;
+uniform vec3 resinEye;
+uniform float resinTime;
+uniform vec4 resinPlanes[20];
+uniform int resinPlaneCount;
+float resinHash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+float resinNoise(vec3 p){
+ vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+ return mix(mix(mix(resinHash(i),resinHash(i+vec3(1,0,0)),f.x),mix(resinHash(i+vec3(0,1,0)),resinHash(i+vec3(1,1,0)),f.x),f.y),mix(mix(resinHash(i+vec3(0,0,1)),resinHash(i+vec3(1,0,1)),f.x),mix(resinHash(i+vec3(0,1,1)),resinHash(i+vec3(1,1,1)),f.x),f.y),f.z);
+}`;
+const resinCloudTransmission=`
+ vec3 cloudRay=refract(normalize(resinPosition-resinEye),normalize(resinNormal),1./1.48);
+ float cloudLength=4.;
+ for(int p=0;p<20;p++){
+   if(p>=resinPlaneCount)break;
+   float denominator=dot(resinPlanes[p].xyz,cloudRay);
+   if(denominator>.0001)cloudLength=min(cloudLength,max(0.,(resinPlanes[p].w-dot(resinPlanes[p].xyz,resinPosition))/denominator));
+ }
+ float cloudStep=cloudLength/8.,cloudDepth=0.;
+ vec3 drift=vec3(resinTime*.07,-resinTime*.055,resinTime*.04);
+ for(int j=0;j<8;j++){
+   float travel=(float(j)+.5)*cloudStep;
+   vec3 point=resinPosition+cloudRay*travel;
+   vec3 curl=vec3(sin(point.y*2.4+resinTime*.18),cos(point.z*2.1-resinTime*.14),sin(point.x*2.7+resinTime*.12))*.25;
+   vec3 domain=point*3.+curl+drift;
+   float density=resinNoise(domain)*.7+resinNoise(domain*2.03- drift*.7)*.3;
+   float interior=smoothstep(.015,.16,min(travel,cloudLength-travel));
+   cloudDepth+=smoothstep(.43,.7,density)*cloudStep*interior;
+ }
+ float cloudOpacity=1.-exp(-cloudDepth*1.25);
+ totalDiffuse=mix(totalDiffuse,vec3(.009,.003,.021),cloudOpacity);
+`;
+
 export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens:boolean,ones:boolean) {
   const s=stage??=makeStage();
   const source=faceForwardMesh(dieMesh(sides));
@@ -216,9 +267,9 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
-    // Cutout gold belongs in the opaque transmission pass. Double-sided inlays
-    // make the far numerals visible, refracted through the resin volume.
-    const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem}},vertexShader:vertex,fragmentShader:fragment,transparent:!gem,depthWrite:true,side:gem?THREE.DoubleSide:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    // Draw front gold after transmission so refraction cannot duplicate a bright
+    // front numeral into the interior. Only its dark backing enters that pass.
+    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();
@@ -251,6 +302,12 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     }
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();geometries.push(geo);
     const material=makeMaterial(texture);root.add(new THREE.Mesh(geo,material));
+    if(gem){
+      const backing=(material as THREE.ShaderMaterial).clone();
+      backing.uniforms=(material as THREE.ShaderMaterial).uniforms;
+      backing.side=THREE.BackSide;backing.transparent=false;
+      materials.push(backing);root.add(new THREE.Mesh(geo,backing));
+    }
     return {canvas,texture};
   });
   if(gem){
@@ -267,6 +324,15 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       transmission:.98,opacity:1,ior:1.48,thickness:1.3,attenuationColor:'#8a34c9',attenuationDistance:6,
       specularIntensity:.3,clearcoat:.06,clearcoatRoughness:.12,
       envMap:s.scene.environment,envMapIntensity:.025,dispersion:.12});
+    resin.onBeforeCompile=shader=>{
+      shader.uniforms.resinEye=uniforms.eye;shader.uniforms.resinTime=uniforms.time;
+      shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
+      shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
+      shader.fragmentShader=resinCloudDeclarations+'\n'+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
+    };
+    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v1';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   let lastValue=-1;
