@@ -120,3 +120,14 @@ capture is RTX 5090 AV1 at 60 fps; the page serves H.264 for mobile compatibilit
 
 Verification for this update: typecheck, client/server builds, 1,766 server tests,
 10 targeted browser scenarios and the real-app recording scenario passed.
+
+## Daylight ground-effect review and DM resin
+
+[Daylight thorns and DM dice videos](https://dnd.nic024i.app/uploads/previews/daylight-thorns-resin-20261006/index.html)
+
+Spike Growth was recorded in clear daylight from 45 degrees and overhead, with
+actual movement damage. Use `DND_DAYLIGHT_THORNS=1` for that shorter recording.
+The DM resin shader now passes more tray detail through the broad faces, keeps
+grazing edges denser and preserves opaque gold numeral inlays. There is no new
+central glow, physics change or change to player dice. The live DM tray recording
+covers creature checks and general 2d6 rolls.

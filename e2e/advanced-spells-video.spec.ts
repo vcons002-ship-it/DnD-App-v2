@@ -5,10 +5,11 @@ import type {SheetAbility,StateSnapshot} from '../shared/types';
 import {DM_SECRET,PORT} from './playwright.config';
 import {startAv1Capture} from './av1Recorder';
 
-test.skip(process.env.DND_ADVANCED_SPELL_VIDEO!=='1','Opt-in spell-effects recording in a disposable campaign');
+const daylight=process.env.DND_DAYLIGHT_THORNS==='1';
+test.skip(process.env.DND_ADVANCED_SPELL_VIDEO!=='1'&&!daylight,'Opt-in spell-effects recording in a disposable campaign');
 test('four advanced spells on 3D miniatures in regular darkness',async({browser,request},info)=>{
  test.setTimeout(480000);
- const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Party spells — regular darkness preview'}})).json();
+ const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:daylight?'Spike Growth - daylight preview':'Party spells - regular darkness preview'}})).json();
  const socket=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});
  const state=async():Promise<StateSnapshot>=>{const r=await socket.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.ok).toBe(true);return r.snapshot;};
  const initial=await state(),caster=initial.characters.find(c=>c.name==='Vanec')!;
@@ -16,10 +17,10 @@ test('four advanced spells on 3D miniatures in regular darkness',async({browser,
  const names=['Invisibility','Spike Growth','Counterspell','Dispel Magic','Fire Bolt','Haste'];
  const abilities=names.map(name=>({...catalog.find(a=>a.name===name)!,id:name,source:'srd' as const,sourceClass:'sorcerer'}));
  for(const c of initial.characters)socket.emit('character:update',{characterId:c.id,maxHp:100,curHp:100,armorClass:16,conditions:[],...(c.id===caster.id?{className:'Sorcerer',level:8,stats:{CHA:30,DEX:10,WIS:10,INT:10,STR:10,CON:10},sheetAbilities:abilities,spellSlots:{L1:{max:10,used:0},L2:{max:10,used:0},L3:{max:10,used:0},L4:{max:10,used:0}}}:{})});
- const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Courtyard after dark',image:{name:'courtyard.png',mimeType:'image/png',buffer:readFileSync('assets/environment-preview/courtyard.png')}}})).json();
+ const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:daylight?'Courtyard in daylight':'Courtyard after dark',image:{name:'courtyard.png',mimeType:'image/png',buffer:readFileSync('assets/environment-preview/courtyard.png')}}})).json();
  socket.emit('map:setActive',{mapId:map.id});socket.emit('map:setGrid',{mapId:map.id,gridSizePx:64,feetPerSquare:5,widthFt:80,locked:false});
  for(const layer of ['map','tokens'])socket.emit('fog:setLayer',{mapId:map.id,layer,enabled:false});
- socket.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,lightLevel:.7,sceneTintStrength:0,weather:'none',mist:false,shadows:true,lights:[]}});
+ socket.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:daylight?'day':'dungeon',heavyDarkness:false,lightLevel:daylight?1:.7,sceneTintStrength:0,weather:'none',mist:false,shadows:true,lights:[]}});
  const positions:Record<string,[number,number]>={Vanec:[570,560],Druk:[515,600],Varis:[655,640]};
  for(const c of initial.characters){const p=positions[c.name];if(p)socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:c.id,x:p[0],y:p[1]});}
  socket.emit('monster:create',{name:'Goblin guard',modelType:'goblin',maxHp:200,armorClass:12,disposition:'enemy',creatureType:'humanoid',stats:{WIS:1,DEX:10,STR:10,CON:1},weapons:[{name:'Training blade',kind:'melee',damage:'1d6',attackBonus:12,damageType:'slashing'}]});
@@ -73,20 +74,29 @@ test('four advanced spells on 3D miniatures in regular darkness',async({browser,
      document.addEventListener('mousemove',e=>{const p=document.getElementById('effect-pointer')!;p.style.left=e.clientX+'px';p.style.top=e.clientY+'px';});document.addEventListener('pointerdown',e=>{const p=document.getElementById('effect-click')!;p.style.left=e.clientX-20+'px';p.style.top=e.clientY-20+'px';p.animate([{opacity:1,transform:'scale(.6)'},{opacity:0,transform:'scale(1.4)'}],{duration:700});},true);
    });
    capture=await startAv1Capture(page,info.outputPath('advanced-spells-av1.mp4'));started=Date.now();
+   const invis=page.getByRole('region',{name:'Invisibility targets'});
+   if(!daylight){
    await chapter('Regular darkness · no placed lights','Vanec, Druk, Varis and a goblin. Spell glow is the only added light.');await page.screenshot({path:info.outputPath('poster.png')});await page.waitForTimeout(2500);
    await chapter('Invisibility','Combat > Invisibility > choose Vanec > Cast. A shimmer leaves a translucent figure for the party.');
    await click(combat.getByRole('button',{name:/Invisibility/}));
-   const invis=page.getByRole('region',{name:'Invisibility targets'});await click(invis.getByRole('button',{name:'Cast Invisibility',exact:true}));
+   await click(invis.getByRole('button',{name:'Cast Invisibility',exact:true}));
    await expect(layer).toHaveAttribute('data-spell-impact-kinds',/shimmer/);await page.waitForTimeout(400);await page.screenshot({path:info.outputPath('invisibility.png')});
    await expect(layer).toHaveAttribute('data-invisible-miniature-count','1');await page.waitForTimeout(4200);
    await chapter('An attack ends Invisibility','Cast Fire Bolt at the goblin. The attack roll makes Vanec visible again.');
    await click(combat.getByRole('button',{name:/Fire Bolt/}));await settle(1600);await expect(layer).toHaveAttribute('data-invisible-miniature-count','0');await page.waitForTimeout(2000);
+   }else{await chapter('Spike Growth in daylight','No mist, darkness or color wash. A persistent 3D field of branches and thorns covers the ground.');await page.waitForTimeout(2200);}
    await chapter('Spike Growth','Place the 20 ft radius near the goblin and confirm. Thorns rise across the full area; placement causes no damage.');
    await click(combat.getByRole('button',{name:/Spike Growth/}));const area=page.getByRole('region',{name:'Place spell area'});
    const center=await point(enemy.id,65,-35);await page.mouse.move(center.x,center.y,{steps:20});await page.waitForTimeout(700);await page.mouse.click(center.x,center.y);await click(area.getByRole('button',{name:/Confirm area/}));
    await expect(layer).toHaveAttribute('data-spell-impact-kinds',/thorns/);await page.waitForTimeout(1800);await page.screenshot({path:info.outputPath('spike-growth.png')});await page.waitForTimeout(3000);
+   if(daylight){
+    await page.waitForTimeout(5000);await chapter('Overhead ground view','The thorn field remains visible from directly overhead.');
+    await click(page.getByRole('button',{name:'Flat battlefield view',exact:true}));await page.waitForTimeout(2500);await page.screenshot({path:info.outputPath('thorns-overhead.png')});await page.waitForTimeout(4500);
+    await click(page.getByRole('button',{name:'Tilted battlefield view',exact:true}));await page.waitForTimeout(2200);
+   }
    await chapter('Movement through thorns','The DM moves the goblin 10 ft through the area. Piercing damage rolls from the accepted movement.');
    socket.emit('token:move',{tokenId:enemy.id,x:820,y:510});await settle(1600);await page.waitForTimeout(2500);
+   if(daylight){await page.waitForTimeout(4000);expect(errors).toEqual([]);return;}
    await chapter('Dispel Magic on terrain','Combat > Dispel Magic > Spike Growth area > Cast. Its lower-level magic ends without a check.');
    await click(combat.getByRole('button',{name:/Dispel Magic/}));const dispel=page.getByRole('region',{name:'Dispel Magic target'});
    const measurement=(await state()).measurements.find(m=>m.spellName==='Spike Growth')!;expect(measurement).toBeTruthy();

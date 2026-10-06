@@ -75,8 +75,8 @@ void main(){
  vec3 ray=refract(incoming,n,1./1.48);float distance=5.;
  for(int j=0;j<20;j++){if(j>=count)break;float denom=dot(planes[j].xyz,ray);if(denom>.0001)distance=min(distance,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));}
  vec3 beyond=studioLight(rotation*ray);
- vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?1.4:2.4));
- if(style==3)through*=vec3(.075,.006,.20);
+ vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?.75:2.4));
+ if(style==3)through*=vec3(.15,.015,.32);
  float smoke=0.;vec3 energy=vec3(0.);float stepSize=distance/20.;
  if(style==0||style==2||style==3){for(int j=0;j<20;j++){
    vec3 p=pos+ray*(float(j)+.5)*stepSize;
@@ -186,7 +186,10 @@ void main(){
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
  }
  // Keep the metal numerals opaque while the purple resin reveals the tray below.
- float opacity=style==3?mix(.91,1.,1.-cut):.96;
+ // More transmitted tray detail through the broad face; grazing edges retain
+ // enough density and reflection to show the shell. Gold inlays stay opaque.
+ float resinOpacity=.50+.22*pow(1.-max(0.,dot(-incoming,n)),3.);
+ float opacity=style==3?mix(resinOpacity,1.,1.-cut):.96;
  gl_FragColor=vec4(color,(critical>.5||style==1||metalEdge)?1.:opacity);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
