@@ -35,6 +35,7 @@ uniform vec3 eye; uniform mat3 rotation;
 uniform vec4 planes[20]; uniform int count; uniform float time; uniform vec3 tint;
 uniform sampler2D etching; uniform bool engraved; uniform bool metalEdge;
 uniform int style; uniform float critical; uniform bool numeralsOnly;
+uniform float numeralEmphasis;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
 float noise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
 return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);}
@@ -190,6 +191,9 @@ void main(){
      float wall=metalEdge||style==3?0.:max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
      inlay*=mix(1.,.28,smoothstep(.35,.9,wall));
      inlay+=f0*critical*.38;
+     // A result-card engraving must remain legible even between reflections.
+     // Tray faces keep the default emphasis of one and their existing finish.
+     inlay=max(inlay,f0*max(0.,numeralEmphasis-1.)*.65)*numeralEmphasis;
      color=mix(color,inlay,1.-cut);
    }
  }
@@ -269,7 +273,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const makeMaterial=(etching?:THREE.Texture)=>{
     // Draw front gold after transmission so refraction cannot duplicate a bright
     // front numeral into the interior. Only its dark backing enters that pass.
-    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem},numeralEmphasis:{value:1}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();
@@ -308,7 +312,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       backing.side=THREE.BackSide;backing.transparent=false;
       materials.push(backing);root.add(new THREE.Mesh(geo,backing));
     }
-    return {canvas,texture};
+    return {canvas,texture,material};
   });
   if(gem){
     // One closed, refracting volume with opaque gold inlays drawn over it.
@@ -335,7 +339,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     resin.customProgramCacheKey=()=> 'dm-resin-clouds-v1';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
-  let lastValue=-1;
+  let lastValue=-1,lastReadable=false;
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
@@ -373,16 +377,22 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.time.value=now/1000;
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean){
-      if(lastValue!==value && (!rolling || lastValue===-1)){lastValue=value;labels.forEach(({canvas,texture},id)=>{
+      // Only the separate settled result presentation uses this treatment;
+      // physical trays use setFaceValues/updatePose and retain their approved art.
+      const readable=gem&&!rolling;
+      if((lastValue!==value||lastReadable!==readable) && (!rolling || lastValue===-1||lastReadable)){lastValue=value;lastReadable=readable;labels.forEach(({canvas,texture,material},id)=>{
         const c=canvas.getContext('2d')!;c.fillStyle='#fff';c.fillRect(0,0,256,256);
         // Grain is material-scale and deterministic, so it never flickers.
         if(!glass){for(let k=0;k<1400;k++){const x=(k*73)%256,y=(k*131+Math.floor(k/7))%256;c.fillStyle=k%3?'#dedede':'#aaa';c.fillRect(x,y,1,k%5===0?5:1);}}
         let n=id===0?value:((Math.max(1,value)+id-1)%sides)+1;
         if(tens)n=((Math.floor(value/10)+id)%10)*10;if(ones)n=(value+id)%10;
-        c.fillStyle='#151515';c.font=`bold ${tens?94:112}px Georgia`;c.textAlign='center';c.textBaseline='middle';c.fillText(tens?String(n).padStart(2,'0'):String(n),128,134);
+        const text=tens?String(n).padStart(2,'0'):String(n);
+        const font=readable&&id===0?(text.length>1?144:164):tens?94:112;
+        c.fillStyle='#151515';c.font=`bold ${font}px Georgia`;c.textAlign='center';c.textBaseline='middle';c.fillText(text,128,134);
+        if(material instanceof THREE.ShaderMaterial)material.uniforms.numeralEmphasis.value=readable?(id===0?1.5:.22):1;
         texture.needsUpdate=true;
       });}
-      root.rotation.set(angles[0]+.10,angles[1]-.14,angles[2],'ZYX');root.updateMatrixWorld(true);
+      root.rotation.set(angles[0]+(readable?0:.10),angles[1]-(readable?0:.14),angles[2],'ZYX');root.updateMatrixWorld(true);
       uniforms.eye.value.copy(s.camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
       uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);

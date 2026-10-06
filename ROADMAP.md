@@ -2556,3 +2556,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] DM resin clouds and readable inlays: inward-facing numeral backs are dark and included in refraction; bright gold fronts draw after transmission to avoid refracted bright duplicates. Eight bounded interior samples create slowly drifting dark violet clouds inside the physical resin body, without extra light sources or a central glow.
 
 - [x] Modifier/result screens use the roller's 3D die material for DM rolls as well as players, removing the legacy DM-only flat polygon. Purple resin clouds remain animated at a bounded 10 fps while settled; reduced motion stays static. Browser regression verifies material continuity during the labeled modifier step for creature checks and general dice rolls.
+
+- [x] DM modifier/result dice have a larger, consistently brighter gold result engraving, an exactly front-facing result pose, and subdued neighboring numerals. This applies only to standalone settled result rendering; the approved tray labels, lighting, pose and resin settings remain unchanged.

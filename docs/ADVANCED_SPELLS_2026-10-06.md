@@ -217,3 +217,21 @@ while labeled modifier chips are visible, and rejects the old flat die elements.
 Validation: typecheck, client build, all 1,766 server tests, and the expanded
 DM theme browser scenario passed. Modifier-step screenshots, public MP4 range
 delivery and mobile-mode video playback were verified.
+
+## More legible modifier-screen result face
+
+[Updated readable result dice](https://dnd.nic024i.app/uploads/previews/dm-readable-results-20261006/index.html)
+
+Only the standalone settled DM resin die presentation enlarges the authoritative
+result engraving (164-pixel single-digit or 144-pixel two-digit font in its
+256-pixel mask), raises its gold brightness floor and subdues the other face
+numerals. It removes the decorative tilt so the result face points exactly at
+the camera. There is no extra result badge or outline.
+
+The physical tray continues to use its original face masks, numeral lighting and
+physics orientation. The result-specific treatment is applied by the standalone
+draw method, which the tray does not call; tray emphasis remains one.
+
+Validation: typecheck, client build, all 1,766 server tests, and the recorded
+DM material/modifier browser scenario passed. Public MP4 delivery and mobile
+playback were verified, and the two-digit result engraving was visually reviewed.
