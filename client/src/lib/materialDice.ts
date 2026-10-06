@@ -75,8 +75,8 @@ void main(){
  vec3 ray=refract(incoming,n,1./1.48);float distance=5.;
  for(int j=0;j<20;j++){if(j>=count)break;float denom=dot(planes[j].xyz,ray);if(denom>.0001)distance=min(distance,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));}
  vec3 beyond=studioLight(rotation*ray);
- vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?.85:2.4));
- if(style==3)through*=vec3(.40,.13,.68);
+ vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?1.15:2.4));
+ if(style==3)through*=vec3(.18,.025,.38);
  float smoke=0.;vec3 energy=vec3(0.);float stepSize=distance/20.;
  if(style==0||style==2||style==3){for(int j=0;j<20;j++){
    vec3 p=pos+ray*(float(j)+.5)*stepSize;
@@ -92,8 +92,8 @@ void main(){
      // A diffuse violet core and brighter curls avoid painted surface markings.
      float core=exp(-dot(p,p)*5.5);
      float pulse=.85+.15*sin(time*1.8+p.y*3.);
-     energy+=(vec3(.18,.025,.48)*core*(.4+cloud*.6)
-       +vec3(.48,.10,.9)*spark*1.8)*pulse*stepSize*interior;
+     energy+=(vec3(.055,.004,.18)*core*(.4+cloud*.6)
+       +vec3(.32,.035,.65)*spark*1.8)*pulse*stepSize*interior;
    }
    if(style==2){
      float growth=fbm(p*3.+vec3(fbm(p*5.)*1.8));
@@ -213,7 +213,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.68,.36).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.82,.22).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const materials:THREE.Material[]=[];const textures:THREE.Texture[]=[];const geometries:THREE.BufferGeometry[]=[];
   const makeMaterial=(etching?:THREE.Texture)=>{
     const m=glass?new THREE.ShaderMaterial({uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
