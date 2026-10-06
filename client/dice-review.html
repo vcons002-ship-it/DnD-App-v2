@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#100b19">
+  <title>DM dice — midnight purple resin</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#100b19;color:#ede7f5;font:16px/1.5 system-ui}
+    main{max-width:1000px;margin:auto;padding:16px}h1{font:28px Georgia;margin:0 0 8px;color:#e9ca8d}
+    p{color:#bdb3cd;margin:8px 0}#viewer{width:100%;height:65vh;min-height:350px;max-height:720px;overflow:hidden;border:1px solid #544060;border-radius:16px;background:#14101c}
+    canvas{display:block;width:100%;height:100%;touch-action:none}nav{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:16px 0}
+    button,select{font:inherit;background:#261c33;color:#ede7f5;border:1px solid #78568e;border-radius:8px;padding:9px 14px}
+    label{display:flex;align-items:center;gap:8px}input{accent-color:#ae69ed;width:20px;height:20px}button{cursor:pointer}
+    #status{font-size:13px}a{color:#e9ca8d}
+  </style>
+</head>
+<body><main>
+  <h1>Midnight purple resin DM dice</h1>
+  <p>Drag to rotate. Pinch or scroll to zoom. Inspect the dark purple resin, subtle moving energy and metallic gold numbers.</p>
+  <div id="viewer" aria-label="Interactive 3D die"></div>
+  <nav aria-label="Die review controls">
+    <label>Die <select id="die" aria-label="Die type"><option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option></select></label>
+    <label><input type="checkbox" id="spin">Auto rotate</label>
+    <label><input type="checkbox" id="energy" checked>Animate energy</label>
+    <button id="reset">Reset view</button>
+  </nav>
+  <p id="status" role="status">Loading the 3D model…</p>
+  <p>This preview uses the actual app geometry, animated material and studio reflections. No campaign connection is needed.</p>
+</main><script type="module" src="/src/dice-review/main.ts"></script></body>
+</html>

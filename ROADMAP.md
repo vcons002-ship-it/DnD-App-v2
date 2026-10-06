@@ -6,6 +6,28 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Spellbook combat compatibility - October 2026
 
+- [x] Successful Shield reactions show a blue `Blocked!` popup for four seconds,
+  with reduced-motion support. Passing, natural 20s and hits that still meet the
+  raised AC do not show it. Damage reveals retain the triggering attacker's
+  identity for consistent attribution. All monster, NPC and general DM dice use
+  one purple theme in both live rolls and result screens; player class dice stay
+  personal. Creature affinity no longer changes dice color.
+
+- [x] Spell-specific effects for the repaired party spells: blue Shield barrier,
+  silver Misty Step wisps, multicolor Hypnotic Pattern loops, a subtle moving
+  Pass without Trace veil, and a gold Command sigil above the target. Persistent
+  effects follow their primary conditions, disappear on expiry/concentration
+  cleanup, and respect personal visibility and roll completion. The stealth veil
+  emits no light; all effects share the existing reduced-motion renderer.
+
+- [x] Command: five 2024 choices, custom word enabled by default, selected-target
+  Wisdom saves with upcast limits, next-turn instructions, Halt restrictions,
+  Grovel Prone, turn-end cleanup, and preserved manual/custom spell entries.
+  Movement routes and dropped items remain table-managed. Custom-word outcomes
+  are resolved by the DM without AI controlling a creature.
+  Existing campaigns adopt the enabled default once; subsequent DM opt-outs
+  survive restarts.
+
 - [x] Repair window conversion without changing masks: group divided panes,
   follow aligned wall faces and bound local thickness instead of spanning rooms.
   Replay the same inn/cave masks with 11 fitted windows; verify sight passes and
@@ -2460,7 +2482,7 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] Mist movement opens a temporary swept-body density gap instead of only warping the pattern. Displaced banks cannot cancel the fresh clearing; the gap narrows and refills over about four seconds while turbulent motion continues.
 
-- [x] DM creature rolls use a dedicated leather/pewter dragon tray and affinity-colored marbled dice (enemy red, neutral amber, friendly green; general DM rolls purple). Player class styles remain separate.
+- [x] DM creature rolls use a dedicated leather/pewter dragon tray and purple marbled dice shared with general DM rolls. Player class styles remain separate.
 - [x] Settled face numbers hold for 460 ms before flying to their result boxes. Live physics retains its pace; damage presentation waits through the face flights and modifier sequence, or releases when skipped. Browser regression checks cover normal completion, skip, and animations disabled.
 
 - [x] Live dice retain the existing HIT/MISS/Fumble!/CRITICAL HIT and PASS/FAIL stamps, critical flourish, Nat 20 celebration, and matching result sounds. The result stamp gets a 1.2-second reading beat before compacting; damage feedback remains gated until completion or skip.
@@ -2486,3 +2508,14 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Map setup preflight checkboxes skip unchecked workflows before any API calls. Separate **Analyze selected regions** control supports up to eight drawn regions, cropped API inputs and restoration into original map coordinates. Live two-region light drafting and browser regressions verified. Qwen feature gating remains experimental after cave false negatives and extra window/light suggestions; see [selective map analysis](docs/MAP_ANALYSIS_REGIONS.md).
 - [x] Door image pass paints complete opaque cyan door shapes. Filled-footprint review and bounded fitting to nearby wall caps preserve linked door/lock behavior and legacy line markers. Crossroads cottage door passed saved closed/open sight and movement checks; other candidates remain rejected when jambs do not align. See [filled door masks](docs/FILLED_DOOR_MASKS.md).
 - [x] Door fitting can connect two nearby facing wall ends to a filled door with short editable wall extensions, shown before Apply. Reusing the Crossroads masks now fits the watchhouse door; closed/open/lock and side-gap collision checks pass. Unsupported candidates remain rejected.
+
+
+### Current-party spell workflows (5 Oct 2026)
+
+- [x] Shield: persistent post-hit reaction choice, slot/reaction spending, triggering-hit recheck, +5 AC until the caster?s next turn, natural-20 handling, and Magic Missile protection. Automatic and manual damage modes use the same gate; private attack math is withheld from reaction offers.
+- [x] Misty Step: visible map destination picker, confirmation/cancellation, 30-foot range and occupancy checks, player-specific sight/fog validation, and immediate teleport presentation without walking or footsteps through a wall/window. Invalid destinations and empty slots leave the token and resources unchanged.
+- [x] Hypnotic Pattern: measured 30-foot cube, grouped Wisdom saves, linked Charmed/Incapacitated and speed zero, action-block explanation, wake-up on damage (including temporary-HP absorption) or an adjacent creature?s Shake awake action, and concentration/duration cleanup. No repeat saving throw is invented.
+- [x] Pass without Trace: chosen recipients in a moving 30-foot emanation, named +10 Stealth modifier, automatic leave/re-entry updates, no stacking, suppressed footprint trails, and one-hour/concentration cleanup.
+- [x] Footprint trails share the miniature ground depth buffer, so darkness terrain cannot cover them and figures still occlude them. The original 2D fallback and fog visibility checks remain active; regular-darkness pixel regression and Pass without Trace suppression verified.
+- [x] Purple DM/NPC dice use midnight purple semi-transparent resin with subtle moving violet energy inside, cloudy depth and reflective gold numeral inlays without outlines. The central glow was removed for numeral readability. A standalone mobile review viewer shares the actual meshes and shader, with drag rotation, zoom and d4–d20 selection. DM tray artwork preloads alongside the party trays; browser regression measures startup through the actual DM controls. Player class materials remain independent.
+- [x] Runtime profiles recognize unchanged saved entries; explicit custom/manual mechanics remain table-managed. Command and Alter Self are unchanged.

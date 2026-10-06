@@ -529,6 +529,24 @@ button.sb-ability-roll:hover, button.sb-ability-roll.on { border-color: var(--ac
   cursor: pointer; max-width: 80vw;
 }
 
+/* Shield block result */
+.toast.shield-blocked-popup {
+  top: 35%; bottom: auto; z-index: 120;
+  padding: 16px 30px; border: 1px solid #8bd9ff;
+  background: #102435ed; color: #d1f0ff;
+  font-family: Georgia, serif; font-size: clamp(32px, 6vw, 52px); font-weight: 700;
+  text-shadow: 0 0 16px #6acbffb0; box-shadow: 0 0 30px #3aafff55, 0 8px 24px #0008;
+  animation: shield-blocked-stamp 4s ease-out both;
+}
+@keyframes shield-blocked-stamp {
+  0% { opacity: 0; transform: translateX(-50%) scale(.85); }
+  6%, 85% { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast.shield-blocked-popup { animation: none; }
+}
+
 /* Token hover card */
 .hover-card {
   position: fixed; z-index: 45; pointer-events: none; min-width: 120px;

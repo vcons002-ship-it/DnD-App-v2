@@ -29,7 +29,8 @@ export class TokenPresentation {
       const old=this.moves.get(token.id);
       if(old&&old.to.x===token.x&&old.to.y===token.y)continue;
       const from=old?this.position(token.id)!:token;
-      const duration=old&&!reducedMotion?tokenMoveDuration(Math.hypot(token.x-from.x,token.y-from.y),pxPerFoot):0;
+      const teleported=token.teleportedAt!==undefined&&token.teleportedAt!==previous?.tokens.find(t=>t.id===token.id)?.teleportedAt;
+      const duration=old&&!reducedMotion&&!teleported?tokenMoveDuration(Math.hypot(token.x-from.x,token.y-from.y),pxPerFoot):0;
       this.moves.set(token.id,{from:{x:from.x,y:from.y},to:{x:token.x,y:token.y},start:now,duration});
     }
     this.snapshot=snapshot;

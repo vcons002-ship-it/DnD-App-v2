@@ -1,3 +1,5 @@
+import {partySpell} from '../../../shared/partySpells';
+import {tokenDistanceFt} from '../../../shared/distance';
 import { AdvantageToggle } from './AdvantageToggle';
 import { targetLabel } from '../lib/targets';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -95,8 +97,9 @@ export function FloatingMenu({ snapshot, token, attacker: defaultAttacker, x, y,
   // other rollable kinds need a distinct target.
   const targetingSelf = !!attacker && attacker.id === token.id;
   const castable = (a: SheetAbility) => {
+    if(partySpell(a)==='shield')return false;
     const roll = effectiveSheetAbility(a).roll;
-    return !!spellCombatSupport(a)?.manualCastOnly || !!roll && (!targetingSelf || roll.kind === 'heal' || isHasteSpell(a));
+    return !!spellCombatSupport(a)?.manualCastOnly || !!roll && (!targetingSelf || roll.kind === 'heal' || isHasteSpell(a) || ['misty step','pass without trace'].includes(partySpell(a)??''));
   };
   const pcAbilities: SheetAbility[] =
     aChar && (isDm || aChar.claimedBy === mySocketId)
@@ -159,6 +162,7 @@ export function FloatingMenu({ snapshot, token, attacker: defaultAttacker, x, y,
       </div>
 
       <button className="btn tiny" aria-label="Close token actions" onClick={onClose}>Close</button>
+      {attacker&&attacker.id!==token.id&&d.conditions.some(c=>c.label==='Hypnotic Pattern')&&snapshot.map&&tokenDistanceFt(attacker,token,snapshot.map)<=5&&<button className="btn" onClick={()=>{useStore.getState().socket?.emit('spell:wake',{actorTokenId:attacker.id,targetTokenId:token.id});onClose();}}>Shake awake ? Action</button>}
       {!!d.conditions.length && <p className="floating-menu-note">{d.conditions.map(c => c.label).join(', ')}</p>}
       {!targetObjectKind && actors.length > 0 && <label className="floating-menu-note">
         Act as <select aria-label="Act as" value={attacker?.id ?? ''} onChange={e => setChosenAttacker(e.target.value)}>

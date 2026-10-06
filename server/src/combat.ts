@@ -1,3 +1,6 @@
+import {partySpell} from '../../shared/partySpells.js';
+import {shieldGate,reactionSpent} from './partySpellEffects.js';
+import {shieldAcBonus} from '../../shared/spellBuffs.js';
 import {linkedSpellProfile,spellKey,type LinkedSpellContext} from '../../shared/linkedSpells.js';
 import type {SpellAreaPlacement} from '../../shared/spellAreas.js';
 import {resolvePlacedSpell} from './areaSpells.js';
@@ -8,6 +11,8 @@ import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
 import {isValidDiceExpression,withDiceMetadata,usingPhysicalDice} from '../../shared/dice.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 import {isLiveCommand} from './liveRollContext.js';
+import {commandTargetError} from './commandSpell.js';
+import {commandInstruction} from '../../shared/commandSpell.js';
 import type {AttackOutcome} from '../../shared/combatMath.js';
 import { consumeHitAdvantage } from './hitEffectTurns.js';
 import { hitOptions, turnKey } from './hitFeatures.js';
@@ -247,6 +252,7 @@ export function spellApplyTargetError(sessionId: string, entry: RollEntry, token
       return 'Choose a creature for healing, not an object.';
   }
   if (!effect) return;
+  if(effect.commandWord)return commandTargetError(sessionId,entry,tokenId);
   const caster = effect.casterKind === 'pc' ? getCharacter(effect.casterId) : getMonster(effect.casterId);
   const concentration = caster?.conditions.find(c => c.id === effect.concentrationConditionId && c.isConcentration);
   const round = getSessionById(sessionId)?.combatRound ?? 0;
@@ -269,7 +275,7 @@ export function spellApplyTargetError(sessionId: string, entry: RollEntry, token
 
 /** Every cast has its own concentration identity. Old targeting buttons cannot
  * reapply an effect after concentration ends or the same spell is recast. */
-function timedConcentration(kind: TokenKind, refId: string, spell: string, rounds = 10) {
+export function timedConcentration(kind: TokenKind, refId: string, spell: string, rounds = 10) {
   const eligible=()=>{
     const current=kind==='pc'?getCharacter(refId):getMonster(refId);
     return !!current && current.curHp>0 && !isDeadEntity(kind,current) && !current.conditions.some(c=>
@@ -610,7 +616,8 @@ export function resolveAttack(
   const offeredManeuvers=ch&&!maneuverFired&&ch.resources['Superiority Dice']?.used<ch.resources['Superiority Dice']?.max
     ?ch.sheetAbilities.filter(ab=>isOnHitManeuver(ab)&&(!ab.maneuver?.appliesToTags?.length||ab.maneuver.appliesToTags.some(tag=>wtags.includes(tag.toLowerCase())))):[];
   const offeredFeatures=ch?hitOptions(sessionId,ch,at,tt,weapon,adv.state):[];
-  const waitForDamage=isLiveCommand()&&!liveResume&&!!(session?.manualDamage||offeredSmite||offeredManeuvers.length||offeredFeatures.length);
+  const shield=!liveResume?shieldGate(sessionId,tt.kind,tt.refId):undefined;
+  const waitForDamage=!liveResume&&!!(shield||isLiveCommand()&&(session?.manualDamage||offeredSmite||offeredManeuvers.length||offeredFeatures.length));
   const armedDamageDice=maneuverFired?.spec.addDieTo==='damage'?[ch?.superiorityDie||'d8']:[];
   const mirrorEligible=!liveResume&&!!(t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId))?.conditions.some(c=>c.combatEffect?.duplicates);
   let out = rollWeaponAttack(a.c, weapon, t.ac, adv.state, {
@@ -649,7 +656,7 @@ export function resolveAttack(
     addRollLog(sessionId,{roller,label:'Attack',expr:weapon.name,total:out.attackTotal,
       detail:`${a.name} \u2192 ${t.name}: ${out.detailToHit} \u2014 roll damage`,hideMods:hidesMods(at.kind,at.refId),
       reveal:{kind:'attack',d20:out.face,toHit:out.toHitSteps,attackTotal:out.attackTotal,outcome:out.crit?'crit':'hit',attacker:a.name,target:t.name},
-      pending:{target:{kind:t.kind,refId:t.refId,name:t.name},attacker:{kind:a.kind,refId:a.refId},weapon:weapon.name,amount:0,crit:out.crit,dice:[],mods:[],owner:ownerCharacterId,
+      pending:{...(shield?{shield:{...shield,attackTotal:out.attackTotal,natural20:out.face===20}}:{}),target:{kind:t.kind,refId:t.refId,name:t.name},attacker:{kind:a.kind,refId:a.refId},weapon:weapon.name,amount:0,crit:out.crit,dice:[],mods:[],owner:ownerCharacterId,
         live:{kind:'weapon',args:[sessionId,roller,attackerTokenId,targetTokenId,weaponIndex,advantage,offhand,twoHanded,ownerCharacterId,riposteAbilityId],fixed:{out,state:{at,tt,a,t,ch,maneuverRoll}}},
         ...(features.length?{hitOptions:{abilityIds:features.map(ab=>ab.id),attackerTokenId,targetTokenId,weaponIndex,turn:turnKey(sessionId),used:[],multiplier:1,rawDamage:0}}:{}),
         ...(maneuvers.length?{maneuver:{abilityIds:maneuvers.map(ab=>ab.id),targetTokenId,rawDamage:0,multiplier:1,minimumAdjustment:0,dc:0}}:{})},
@@ -1040,7 +1047,7 @@ function riposteWeapons(sessionId: string, defenderId: string, attackerId: strin
   const pool = ch?.resources['Superiority Dice'];
   if (map?.sessionId !== sessionId || getSessionById(sessionId)?.activeMapId !== map.id || !ch || !foe || ch.curHp <= 0 || isDeadEntity(attacker.kind, (attacker.kind === 'pc' ? getCharacter(attacker.refId) : getMonster(attacker.refId))!) ||
       !pool || pool.used >= pool.max || ch.conditions.some(c =>
-        ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious', RIPOSTE_SPENT.toLowerCase()].includes(c.label.toLowerCase()))) return [];
+        ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious'].includes(c.label.toLowerCase()) || /^reaction spent/i.test(c.label))) return [];
   const tags = ch.sheetAbilities.find(a => a.name.trim().toLowerCase() === 'riposte')?.maneuver?.appliesToTags;
   return ch.weapons.flatMap((weapon, index) => {
     if (tags?.length && !tags.some(t => weapon.tags?.some(w => w.trim().toLowerCase() === t.trim().toLowerCase()))) return [];
@@ -1291,7 +1298,7 @@ export function resolveAttackDamage(
     hpNote,
     reveal: {
       kind: 'damage',
-      attacker: roller,
+      attacker: entry.reveal?.attacker ?? attacker.name,
       target: p.target.name,
       outcome: p.crit ? 'crit' : 'hit',
       ...(p.dice.length ? { damageDice: p.dice } : {}),
@@ -1502,6 +1509,7 @@ export function resolveForcedSave(
   const r = resolve(tok);
   if (!r) return;
   if (spellApplyTargetError(sessionId, src!, tokenId)) return;
+  if(apply.effect?.spell==='Hypnotic Pattern'&&(r.conditionLabels.some(c=>c.toLowerCase()==='blinded')||r.immunities.some(c=>/\bcharmed\b/i.test(c))))return;
   if (apply.healing) {
     const consumed = apply.consumedTargets ?? [];
     // One recipient per creature, even if the DM placed two copies of its token.
@@ -1537,7 +1545,8 @@ export function resolveForcedSave(
       appliedSpellCondition=true;
       setCondition(tok.kind, tok.refId, {id:newId(),label:effect.condition,aura:'red',isConcentration:false,
         combatEffect:{casterKind:effect.casterKind,casterId:effect.casterId,spell:effect.spell,
-          castId:effect.castId,visualRollId:resolutionRollId,concentration:true,expiresAt:effect.expiresAt,
+          castId:effect.castId,visualRollId:resolutionRollId,concentration:!effect.commandWord,expiresAt:effect.commandWord?Date.now()+6000:effect.expiresAt,expiresRound:effect.expiresRound,
+          commandWord:effect.commandWord,commandStarted:effect.commandWord&&!getSessionById(sessionId)?.combatRound?true:undefined,
           save:effect.repeatSave,dc:apply.dc,phase:effect.repeatSave ? 'end' : undefined,dice:effect.repeatDamage,damageType:effect.damageType,saveBeforeDamage:!!effect.repeatDamage,attackDisadvantage:effect.attackDisadvantage,checkDisadvantage:effect.checkDisadvantage}});
     } else if (apply.onFail) setTokensCondition([tokenId], {label:apply.onFail,aura:'red',isConcentration:false});
   };
@@ -1582,6 +1591,7 @@ export function resolveForcedSave(
     // damage — an infinite faucet). New entries roll the dart's dice on the click;
     // legacy entries apply a pre-rolled instance by index.
     void instanceIndex; // ignored: the server owns the dart budget now
+    if(listRollLog(sessionId).some(e=>e.pending?.shield&&!e.pending.done&&e.pending.target.kind===tok.kind&&e.pending.target.refId===tok.refId))return;
     const dartTotal = apply.darts ?? apply.split?.length ?? 0;
     const dartIdx = apply.consumedDarts ?? 0;
     if (dartIdx >= dartTotal) return; // all darts already assigned
@@ -1594,27 +1604,30 @@ export function resolveForcedSave(
     } else {
       base = apply.split?.[dartIdx] ?? 0;
     }
-    dmg = Math.floor(base * mult);
+    const missile=src?.label?.toLowerCase()==='magic missile';
+    const shield=missile?shieldGate(sessionId,tok.kind,tok.refId):undefined;
+    dmg = missile&&shieldAcBonus((tok.kind==='pc'?getCharacter(tok.refId):getMonster(tok.refId))!)?0:Math.floor(base * mult);
     const dartRollId = newId();
-    const dartNote = applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, spellImpactName(src?.expr)??spellImpactName(src?.label));
-    noteConcentration(sessionId, r.kind, r.refId, dmg);
+    const dartNote = shield?undefined:applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, spellImpactName(src?.expr)??spellImpactName(src?.label));
+    if(!shield)noteConcentration(sessionId, r.kind, r.refId, dmg);
     setRollApply(rollId, { ...apply, consumedDarts: dartIdx + 1 }); // spend the dart
     addRollLog(sessionId, {
       roller: src?.roller ?? 'DM',
       label: 'Damage',
       total: dmg,
       expr: `dart ${dartIdx + 1}`,
-      detail: `${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult === 0 ? ' (immune)' : mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
+      detail: shield?`${r.name}: Magic Missile targets you ? choose Shield or pass.`:missile&&dmg===0?`${r.name}: Shield blocks Magic Missile ? no damage.`:`${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult === 0 ? ' (immune)' : mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
       hpNote: dartNote,
+      ...(shield?{pending:{shield:{...shield,automatic:true},target:{kind:tok.kind,refId:tok.refId,name:r.name},attacker:apply.caster??{kind:'pc' as const,refId:apply.owner!},weapon:'Magic Missile',amount:dmg,crit:false,dice:[{label:apply.dice??'dart',value:base,faces:dartFaces}],mods:dmg!==base?[{label:'Damage adjustment',value:dmg-base}]:[],damageType:apply.damageType,owner:apply.owner}}:{}),
       // A quick per-dart damage burst (the animation fires once per assigned dart).
       reveal: {
         kind: 'damage',
         attacker: `${src?.expr ?? 'Spell'} · dart ${dartIdx + 1}`,
         target: r.name,
         outcome: 'hit',
-        ...(apply.dice ? { damageDice: [{ label: apply.dice, value: base, faces: dartFaces }] } : {}),
-        ...(mult !== 1 ? { damageMods: [{ label: mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vuln', value: dmg - base }] } : {}),
-        damage: dmg,
+        ...(!shield&&dmg>0&&apply.dice ? { damageDice: [{ label: apply.dice, value: base, faces: dartFaces }] } : {}),
+        ...(!shield&&dmg>0&&mult !== 1 ? { damageMods: [{ label: mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vuln', value: dmg - base }] } : {}),
+        damage: shield?undefined:dmg,
         damageType: apply.damageType,
       },
     }, dartRollId);
@@ -1672,13 +1685,14 @@ export function resolveForcedSave(
       );
       const sb = saveBonus(r, ability);
       const saveEffect=(pass:boolean)=>{
+        if(apply.effect?.commandWord)return pass?'Command resisted.':`Command: ${apply.effect.commandWord} takes effect next turn. ${commandInstruction(apply.effect.commandWord)}`;
         if(apply.amount>0)return `${pass?'Save passed':'Save failed'} - ${defended(pass)} ${apply.damageType??''} damage${pass?(apply.saveDamage==='none'?' (avoided)':' (save for half)'):''}.`;
         if(src?.label.trim().toLowerCase()==='pushing attack')return pass?'Push resisted - target stays in place.':'Push succeeds - move the target up to 15 ft.';
         if(apply.effect)return pass?`${apply.effect.spell} resisted - not ${apply.effect.condition}.`:`${apply.effect.spell} successful - ${apply.effect.condition}; repeat the save at the end of each turn.`;
         if(apply.onFail)return pass?`${src?.label??'Effect'} resisted - no ${apply.onFail}.`:`${src?.label??'Effect'} successful - ${apply.onFail}.`;
         return `${src?.label??'Effect'} ${pass?'resisted':'successful'}!`;
       };
-      const [out] = rollSaveBatch([{target:tok,c:r.c,ability,dc:apply.dc,mode:adv.state,proficient,extra:sb.add,autoFail:false,passEffect:saveEffect(true),failEffect:saveEffect(false)}],`${src?.label??'Effect'} — ${ability.toUpperCase()} Saving Throw`);
+      const [out] = rollSaveBatch([{target:tok,c:r.c,ability,dc:apply.dc,mode:adv.state,proficient,extra:sb.add,autoFail:false,passEffect:saveEffect(true),failEffect:saveEffect(false)}],`${apply.effect?.commandWord?src?.expr:src?.label??'Effect'} — ${ability.toUpperCase()} Saving Throw`);
       const total = out.total + sb.add;
       const pass = total >= apply.dc;
       const savedAmount = apply.saveDamage === 'none' ? 0 : Math.floor(apply.amount / 2);
@@ -1691,7 +1705,7 @@ export function resolveForcedSave(
         (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : '');
       saveReveal = checkReveal({
         who: r.name,
-        title: `${src?.label ?? 'Effect'} — ${ability.toUpperCase()} Saving Throw`,
+        title: `${apply.effect?.commandWord?src?.expr:src?.label ?? 'Effect'} — ${ability.toUpperCase()} Saving Throw`,
         face: out.face,
         total,
         steps: [
@@ -1706,6 +1720,7 @@ export function resolveForcedSave(
       if (apply.amount === 0 && src?.label) {
         saveReveal.effectOutcome = pass ? `${src.label} resisted!` : `${src.label} successful!`;
         if(src.label.trim().toLowerCase()==='pushing attack')saveReveal.effectOutcome=pass?'Push resisted - target stays in place.':'Push succeeds - move the target up to 15 ft.';
+        else if(apply.effect?.commandWord)saveReveal.effectOutcome=saveEffect(pass);
         else if(apply.effect) saveReveal.effectOutcome=pass?`${apply.effect.spell} resisted - not ${apply.effect.condition}.`:`${apply.effect.spell} successful - ${apply.effect.condition}; repeat the save at the end of each turn.`;
         else if(apply.onFail)saveReveal.effectOutcome=pass?`${src.label} resisted - no ${apply.onFail}.`:`${src.label} successful - ${apply.onFail}.`;
 
@@ -1821,16 +1836,17 @@ export function resolveTargetedSpellAttack(opts: {
     return true;
   }
   const attackRollId = opts.liveResume?.id ?? newId();
-  if(hit&&!opts.liveResume&&opts.linked)linkedHit(opts.linked,tt!,attackRollId);
-  if(isLiveCommand()&&!opts.liveResume&&hit&&opts.attacker&&getSessionById(opts.sessionId)?.manualDamage){
+  const shield=!opts.liveResume&&hit?shieldGate(opts.sessionId,tt!.kind,tt!.refId,attackTotal,face===20):undefined;
+  if(!opts.liveResume&&hit&&opts.attacker&&(shield||isLiveCommand()&&getSessionById(opts.sessionId)?.manualDamage)){
     addRollLog(opts.sessionId,{roller:opts.roller,label:'Attack',expr:opts.title,total:attackTotal,
       detail:`${opts.title} \u2192 ${t.name}: ${d20detail} = ${attackTotal} \u2014 ${crit?'CRIT':'HIT'} \u2014 roll damage`,
       hideMods:hidesMods(opts.attacker.kind,opts.attacker.refId),
       reveal:{kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:crit?'crit':'hit'},
-      pending:{spellLink:opts.linked,target:{kind:t.kind,refId:t.refId,name:t.name},attacker:opts.attacker,weapon:opts.title,amount:0,crit,dice:[],mods:[],owner:opts.attacker.kind==='pc'?opts.attacker.refId:undefined,sourceRollId:opts.sourceRollId,
+      pending:{shield,spellLink:opts.linked,target:{kind:t.kind,refId:t.refId,name:t.name},attacker:opts.attacker,weapon:opts.title,amount:0,crit,dice:[],mods:[],owner:opts.attacker.kind==='pc'?opts.attacker.refId:undefined,sourceRollId:opts.sourceRollId,
         live:{kind:'spell',args:[opts],fixed:{face,detail:d20detail,hit,crit}}}
     },attackRollId);return true;
   }
+  if(hit&&opts.linked)linkedHit(opts.linked,tt!,attackRollId);
   const dmgType = opts.damageType ? ` ${opts.damageType}` : '';
   let applied = 0;
   let hpNote: RollEntry['hpNote'];
@@ -2110,6 +2126,21 @@ function resolveSheetAbilityFor(
       }
     }
   }
+  const party=partySpell(ability);
+  if(party==='shield'||party==='misty step')return false; // Reaction/destination workflows only.
+  if(party==='pass without trace'){
+    if(!area)return false;
+    const effect=timedConcentration(kind,entity.id,'Pass without Trace',600);
+    if(!effect)return false;
+    const caster=kind==='pc'?getCharacter(entity.id):getMonster(entity.id);
+    const c=caster!.conditions.find(c=>c.id===effect.castId)!;
+    const recipients=listTokens(area.mapId).filter(t=>area.selected?.includes(t.id)).map(t=>({kind:t.kind,refId:t.refId}));
+    if(!recipients.some(t=>t.kind===kind&&t.refId===entity.id))recipients.push({kind,refId:entity.id});
+    setCondition(kind,entity.id,{...c,combatEffect:{...c.combatEffect!,auraRecipients:recipients}});
+    queueSpellImpact(sessionId,kind,entity.id,'Pass without Trace');
+    addRollLog(sessionId,{roller,label:'Pass without Trace',expr:'Pass without Trace',total:0,detail:'Chosen creatures gain +10 Stealth and leave no tracks while in the caster?s 30 ft emanation. Concentration, up to 1 hour.'});
+    return true;
+  }
   const support = spellCombatSupport(ability);
   if (support?.manualCastOnly && !linkedProfile) {
     // A catalogue formula is not safe merely because it has dice. Record the
@@ -2151,8 +2182,8 @@ function resolveSheetAbilityFor(
     return true;
   }
   const holdPerson = automatedHoldPerson(ability);
-  const controlEffect = holdPerson || spellKey(ability.name)==='phantasmal killer'&&linkedProfile ? timedConcentration(kind, entity.id, ability.name) : undefined;
-  if(holdPerson && !controlEffect) return false;
+  const controlEffect = holdPerson || party==='hypnotic pattern' || spellKey(ability.name)==='phantasmal killer'&&linkedProfile ? timedConcentration(kind, entity.id, ability.name) : undefined;
+  if((holdPerson||party==='hypnotic pattern') && !controlEffect) return false;
   ability = effectiveSheetAbility(ability, castLevel);
   const damageTypes = spellDamageTypeChoices(ability, castLevel);
   if (damageTypes.length) {
@@ -2383,6 +2414,7 @@ function resolveSheetAbilityFor(
         dc,
         damageType: roll.damageType,
         darts: instanceCount,
+        caster:{kind,refId:entity.id},
         dice,
         owner: kind === 'pc' ? entity.id : undefined,
       },
@@ -2412,10 +2444,10 @@ function resolveSheetAbilityFor(
   if (apply && saveFirst) apply.saveFirstDamage=dice;
   if (apply && controlEffect) {
     const controlKey=spellKey(ability.name);
-    apply.maxTargets = controlKey==='phantasmal killer'?1:Math.max(1,(castLevel??ability.level??2)-(ability.level??2)+1);
-    apply.targetMode = apply.maxTargets > 1 ? 'multiple' : 'single';
-    apply.effect = {...controlEffect,condition:controlKey==='phantasmal killer'?'Phantasmal Killer':'Paralyzed',eligibleCreatureType:controlKey==='hold person'?'humanoid':undefined,
-      durationRounds:10,repeatSave:'WIS',...(controlKey==='phantasmal killer'?{repeatDamage:dice,damageType:'psychic',attackDisadvantage:true,checkDisadvantage:true}:{})};
+    apply.maxTargets = controlKey==='hypnotic pattern'?undefined:controlKey==='phantasmal killer'?1:Math.max(1,(castLevel??ability.level??2)-(ability.level??2)+1);
+    apply.targetMode = controlKey==='hypnotic pattern'||(apply.maxTargets??1)>1 ? 'multiple' : 'single';
+    apply.effect = {...controlEffect,condition:controlKey==='hypnotic pattern'?'Hypnotic Pattern':controlKey==='phantasmal killer'?'Phantasmal Killer':'Paralyzed',eligibleCreatureType:controlKey==='hold person'?'humanoid':undefined,
+      durationRounds:10,repeatSave:controlKey==='hypnotic pattern'?undefined:'WIS',...(controlKey==='phantasmal killer'?{repeatDamage:dice,damageType:'psychic',attackDisadvantage:true,checkDisadvantage:true}:{})};
   }
   // A selected single target belongs on the damage result as well as the later
   // save. Area casts keep their target selection workflow and have no one target.
@@ -2426,7 +2458,7 @@ function resolveSheetAbilityFor(
     label: ability.name,
     expr: title,
     total: val,
-    detail: controlEffect ? `${title}: choose up to ${apply!.maxTargets} eligible creature(s); a failed WIS save applies ${apply!.effect!.condition}, with another save at the end of each target's turn.`
+    detail: party==='hypnotic pattern'?'Hypnotic Pattern: failed Wisdom saves cause Charmed, Incapacitated and speed 0. Damage, an action to shake awake, or ending the spell clears the effect.':controlEffect ? `${title}: choose up to ${apply!.maxTargets} eligible creature(s); a failed WIS save applies ${apply!.effect!.condition}, with another save at the end of each target's turn.`
       : `${title}:${dice ? ` ${val}${dmgType} damage [${dmgFaces}]` : ''}${note}`,
     description: ability.description || undefined,
     apply,
@@ -2722,6 +2754,7 @@ export function useConsumable(
 
 export function materializeLiveDamage(sid:string,rollId:string):void {
   const e=getRollEntry(rollId,sid), live=e?.pending?.live;
+  if(e?.pending?.shield)throw new Error('Waiting for the defender to cast Shield or pass.');
   if(!live||e?.pending?.done)return;
   if(live.kind==='weapon') {
     const args=live.args as Parameters<typeof resolveAttack>;

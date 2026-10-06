@@ -90,6 +90,7 @@ export function autoCritFromConditions(targetLabels: string[], within5ft: boolea
  * drops the creature Prone. Used so applying one chip cascades the bundle.
  */
 const IMPLIED: Record<string, string[]> = {
+  'hypnotic pattern': ['Charmed','Incapacitated'],
   unconscious: ['Incapacitated', 'Prone'],
   paralyzed: ['Incapacitated'],
   stunned: ['Incapacitated'],

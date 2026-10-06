@@ -1,3 +1,5 @@
+import {partySpell} from '../../shared/partySpells.js';
+import {syncPassWithoutTrace} from './partySpellEffects.js';
 import {spellAreaFor,pointInSpellArea,areaOrigin,type SpellAreaPlacement} from '../../shared/spellAreas.js';
 import type {Character,Monster,SheetAbility,TokenKind} from '../../shared/types.js';
 import {tokenDistanceFt} from '../../shared/distance.js';
@@ -45,6 +47,7 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
  if(!cast(!!spec.ongoing&&!spec.initialEffect))return false;
  const entries=listRollLog(sid).filter(r=>!before.has(r.id)),source=[...entries].reverse().find(r=>r.apply);
  const automated=!!source?.apply&&(!spec.ongoing||spec.initialEffect);
+ if(partySpell(a)==='pass without trace'){syncPassWithoutTrace(sid);return true;}
  if(automated&&source?.apply){
    const apply=source.apply;
    const requests=apply.save?targets.map(t=>areaSaveRequest(t,apply.save!,apply.dc)).filter((r):r is NonNullable<typeof r>=>!!r):[];

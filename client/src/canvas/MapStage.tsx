@@ -40,7 +40,7 @@ import type {SpellImpact} from './spellImpactEffects';
 import { DragGhostLayer } from './DragGhostLayer';
 import { SpeechBubbles } from './SpeechBubbles';
 import { CursorPointers } from './CursorPointers';
-import { FootprintLayer } from './FootprintTrails';
+import { FootprintLayer, type FootprintMark } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { safeSetItem } from '../lib/storage';
 import { cropImage, removeBackground } from '../lib/imageEdit';
@@ -403,6 +403,9 @@ export function MapStage({
   const tokenLayerRef = useRef<Konva.Layer>(null);
   const sharedTokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
+  const footprintMarks=useRef<FootprintMark[]>([]);
+  const readFootprints=useCallback(()=>footprintMarks.current,[]);
+  const updateFootprints=useCallback((marks:FootprintMark[])=>{footprintMarks.current=marks;miniatureRef.current?.setFootprints(marks);},[]);
   const visionRef=useRef<PlayerVisionHandle>(null);
   const memoryTerrainCanvas=useCallback(()=>visionRef.current?.memoryCanvas()??null,[]);
   const presentation=useRef(new TokenPresentation()).current;
@@ -635,10 +638,17 @@ export function MapStage({
   const orbTarget = useStore(s => s.orbTarget);
   const setOrbTarget = useStore(s => s.setOrbTarget);
   const saveResolve = useStore((s) => s.saveResolve);
+  const teleportCast=useStore(s=>s.teleportCast),clearTeleportCast=useStore(s=>s.clearTeleportCast);
+  const [teleportPoint,setTeleportPoint]=useState<Pt|null>(null);
+  const teleportActor=teleportCast?snapshot.tokens.find(t=>t.kind===teleportCast.kind&&t.refId===teleportCast.refId):undefined;
+  useEffect(()=>{setTeleportPoint(null);},[teleportCast]);
+  useEffect(()=>{if(!teleportCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearTeleportCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[teleportCast]);
+  useEffect(()=>{if(teleportCast&&(!teleportActor||teleportActor.mapId!==map?.id))clearTeleportCast();},[teleportCast,teleportActor?.id,map?.id]);
+  const teleportError=teleportPoint&&teleportActor&&map?(tokenDistanceFt({...teleportActor,widthFt:0},{...teleportPoint,widthFt:0},map)>30?'Choose a destination within 30 ft.':!hasLineOfSight(teleportActor,teleportPoint,map.walls)?'Choose a destination you can see.':null):null;
   const areaCast=useStore(s=>s.areaCast),clearAreaCast=useStore(s=>s.clearAreaCast);
   const [areaPoints,setAreaPoints]=useState<Pt[]>([]),[areaPointer,setAreaPointer]=useState<Pt|null>(null),[areaAngle,setAreaAngle]=useState(0),[areaDirectionLocked,setAreaDirectionLocked]=useState(false),[areaExcluded,setAreaExcluded]=useState<string[]>([]);
   const areaActor=areaCast?snapshot.tokens.find(t=>t.kind===areaCast.payload.kind&&t.refId===areaCast.payload.refId):undefined;
-  useEffect(()=>{setAreaPoints([]);setAreaPointer(null);setAreaAngle(0);setAreaDirectionLocked(false);setAreaExcluded([]);},[areaCast]);
+  useEffect(()=>{setAreaPoints(areaCast?.spec.kind==='emanation'&&areaCast.spec.self&&areaActor?[{x:areaActor.x,y:areaActor.y}]:[]);setAreaPointer(null);setAreaAngle(0);setAreaDirectionLocked(false);setAreaExcluded([]);},[areaCast]);
   useEffect(()=>{if(areaCast&&(!areaActor||!map||areaActor.mapId!==map.id))clearAreaCast();},[areaCast,areaActor?.mapId,map?.id]);
   useEffect(()=>{if(!areaCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearAreaCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[areaCast]);
   const placeSpellArea=(p:Pt)=>{
@@ -1463,6 +1473,7 @@ export function MapStage({
   const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
+    if(teleportCast&&(!('button'in e.evt)||e.evt.button===0)){const p=pointerToImage(stage);if(p)setTeleportPoint(p);return;}
     if(areaCast&&(!('button'in e.evt)||e.evt.button===0)){const p=pointerToImage(stage);if(p)placeSpellArea(p);return;}
     // Two fingers down → start a pinch-zoom (and suspend panning/drawing).
     const touches = (e.evt as TouchEvent).touches;
@@ -2446,6 +2457,8 @@ export function MapStage({
                   />
                 ))}
               <FootprintLayer key={map?.id}
+                onMarks={updateFootprints}
+                renderFallback={miniaturesUnavailable||!(miniatureTokens.length>0||preloadMiniatures.length>0||environment||spellImpacts.length>0)}
                 isVisibleAt={tokenVisibleAtPosition}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
@@ -2477,6 +2490,7 @@ export function MapStage({
             >
               {renderTokens(true)}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
+              {teleportCast&&teleportActor&&map&&<Group listening={false}><Circle x={teleportActor.x} y={teleportActor.y} radius={30*map.gridSizePx/map.feetPerSquare} stroke="#b39bff" strokeWidth={2/view.scale} dash={[8/view.scale,6/view.scale]}/>{teleportPoint&&<Circle x={teleportPoint.x} y={teleportPoint.y} radius={teleportActor.widthFt*map.gridSizePx/map.feetPerSquare/2} fill="#ae8fff55" stroke={teleportError?'#ef6464':'#d1c0ff'} strokeWidth={2/view.scale}/>}</Group>}
               {areaCast&&areaActor&&map&&<SpellAreaShapes scale={view.scale} spec={areaCast.spec} placement={areaPreview} caster={areaActor} pxPerFoot={map.gridSizePx/map.feetPerSquare} targets={areaTargets.filter(t=>!areaExcluded.includes(t.id))}/>}
               {snapshot.measurements.map((m) => {
                 // An emanation re-centres on its token's live position each frame.
@@ -2668,7 +2682,7 @@ export function MapStage({
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
             <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
-              environmentPreview={environment} spellImpacts={spellImpacts} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas}
+              environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
@@ -2717,9 +2731,10 @@ export function MapStage({
             />
           )}
           {mapOverlays}
+          {teleportCast&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Misty Step destination" style={{zIndex:30}}><strong>Misty Step ? 30 ft</strong><span>Click a visible, unoccupied destination, then confirm.</span>{teleportError&&<span role="alert">{teleportError}</span>}<button className="btn" disabled={!teleportPoint||!!teleportError} onClick={()=>{if(teleportPoint&&map)useStore.getState().rollAbility({...teleportCast,destination:{mapId:map.id,...teleportPoint}});clearTeleportCast();}}>Teleport</button><button className="btn" onClick={clearTeleportCast}>Cancel (Esc)</button></div>}
           {areaCast&&areaActor&&map&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Place spell area" style={{flexWrap:'wrap',maxWidth:'min(760px,calc(100% - 30px))',zIndex:30,borderColor:'#e0be6b'}}>
             <strong>{areaCast.name} · {areaCast.spec.sizeFt} ft {['sphere','cylinder','emanation'].includes(areaCast.spec.kind)?'radius':areaCast.spec.kind}</strong>
-            <span>{areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Base centers determine affected creatures; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
+            <span>{areaCast.name.toLowerCase()==='pass without trace'?'Choose allies to share your moving Stealth aura.':areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Base centers determine affected creatures; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
             {areaRangeError&&<span role="alert">Choose an origin within {areaCast.spec.rangeFt} ft and outside Total Cover.</span>}
             <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} visible targets{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
             {areaCast.spec.selective&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{areaTargets.map(t=>{const e=resolveToken(snapshot,t);return <label key={t.id}><input type="checkbox" checked={!areaExcluded.includes(t.id)} onChange={()=>setAreaExcluded(old=>old.includes(t.id)?old.filter(id=>id!==t.id):[...old,t.id])}/>{e.name}{t.revealTag&&t.revealTag!=='U'?` ${t.revealTag}`:''}</label>;})}</div>}

@@ -48,7 +48,7 @@ function fixture(name: string, overrides: Partial<SheetAbility> = {}, multiclass
 
 describe('recorded casts for spells with manual effects', () => {
   it('casts a utility spell once, spends its chosen slot, and logs the manual effect without a damage payload', () => {
-    const f = fixture('Misty Step'), before = getCharacter(f.caster.id)!;
+    const f = fixture('Misty Step',{executionProfile:'manual'}), before = getCharacter(f.caster.id)!;
     f.cast({ castLevel: 2 });
     const after = getCharacter(f.caster.id)!, entries = listRollLog(f.session.id);
     expect(after.spellSlots.L2.used).toBe(before.spellSlots.L2.used + 1);
@@ -100,7 +100,7 @@ describe('recorded casts for spells with manual effects', () => {
   });
 
   it('a manual cast spends the selected Pact pool and records the actual upcast level', () => {
-    const f = fixture('Misty Step', {}, true), before = getCharacter(f.caster.id)!;
+    const f = fixture('Misty Step', {executionProfile:'manual'}, true), before = getCharacter(f.caster.id)!;
     f.cast({ castLevel: 2, slotPool: 'pact' });
     const after = getCharacter(f.caster.id)!;
     expect(after.spellSlots.P3.used).toBe(before.spellSlots.P3.used + 1);
@@ -162,7 +162,7 @@ describe('recorded casts for spells with manual effects', () => {
   });
 
   it('another player cannot record a manual cast or spend the owner slot', () => {
-    const f = fixture('Misty Step'), stranger = socketFor(f.session.id, f.map.id), before = getCharacter(f.caster.id)!;
+    const f = fixture('Misty Step',{executionProfile:'manual'}), stranger = socketFor(f.session.id, f.map.id), before = getCharacter(f.caster.id)!;
     stranger.send('ability:roll', { kind: 'pc', refId: f.caster.id, abilityId: f.ability.id, castLevel: 2 });
     expect(getCharacter(f.caster.id)!.spellSlots).toEqual(before.spellSlots);
     expect(listRollLog(f.session.id)).toEqual([]);

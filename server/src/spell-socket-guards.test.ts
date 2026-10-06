@@ -182,13 +182,14 @@ describe('spell socket target and ownership boundaries', () => {
   it('the owner casts the existing Command entry, spends one slot and forces the selected save once', () => {
     const f = fixture(), target = f.target(), client = harness(f.session.id, f.map.id);
     claimCharacter(f.caster.id, client.id);
+    createToken({mapId:f.map.id,kind:'pc',refId:f.caster.id,x:50,y:100});
     const before = getCharacter(f.caster.id)!.spellSlots.L1.used;
-    client.send('ability:roll', { kind: 'pc', refId: f.caster.id, abilityId: f.ability.id, castLevel: 1, targetTokenId: target.token.id });
+    client.send('ability:roll', { kind: 'pc', refId: f.caster.id, abilityId: f.ability.id, castLevel: 1, commandWord:'Halt',targetTokenId: target.token.id });
     const logs = listRollLog(f.session.id);
     expect(logs.filter((e) => e.apply)).toHaveLength(1);
     expect(logs.filter((e) => e.label === 'WIS save')).toHaveLength(1);
     expect(getCharacter(f.caster.id)!.spellSlots.L1.used).toBe(before + 1);
-    expect(getMonster(target.monster.id)!.conditions).toEqual([]);
+    expect(getMonster(target.monster.id)!.conditions.map(c=>c.label)).toEqual(logs.find(e=>e.label==='WIS save')?.reveal?.outcome==='fail'?['Command: Halt']:[]);
     expect(client.emit).not.toHaveBeenCalledWith('error', expect.anything());
   });
   it('rejects hidden, staged, cross-session and missing targets before any spell effect or slot spend', () => {

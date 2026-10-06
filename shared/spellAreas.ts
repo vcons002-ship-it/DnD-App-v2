@@ -32,6 +32,7 @@ const catalog:Record<string,SpellArea>={
  'shatter':area('sphere',10,60),'silence':area('sphere',20,120,{ongoing:true}),'spike growth':area('sphere',20,150,{ongoing:true}),
  'web':area('cube',20,60,{ongoing:true}),'call lightning':area('sphere',5,120),
  'fear':area('cone',30,0,{self:true}),'fireball':area('sphere',20,150),'hunger of hadar':area('sphere',20,150,{ongoing:true}),
+ 'pass without trace':area('emanation',30,0,{self:true,selective:true}),
  'hypnotic pattern':area('cube',30,120),'lightning bolt':area('line',100,0,{self:true,widthFt:5}),
  'sleet storm':area('cylinder',20,150,{ongoing:true}),'slow':area('cube',40,120,{selective:true,maxTargets:6}),
  'spirit guardians':area('emanation',15,0,{self:true,excludeCaster:true,selective:true,ongoing:true}),
@@ -59,6 +60,7 @@ export function spellAreaFor(a:Partial<SheetAbility>,castLevel?:number):SpellAre
   return {...s};
  }
  const key=(a.name??'').trim().toLowerCase(),preset=catalog[key];
+ if(key==='pass without trace'&&(a.source==='custom'||a.executionProfile==='manual'))return;
  if(preset){const result={...preset};
   if(key==='fog cloud')result.sizeFt+=20*Math.max(0,(castLevel??a.level??1)-1);
   if(key==='confusion')result.sizeFt+=5*Math.max(0,(castLevel??a.level??4)-4);

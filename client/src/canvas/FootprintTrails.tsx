@@ -4,6 +4,10 @@ import {footstepLayout} from './footstepLayout';
 import {tokenMoveDuration, tokenMoveProgress} from './tokenMotion';
 import type { Token } from '../../../shared/types';
 
+export type FootprintMark = {id:string;tokenId:string;x:number;y:number;angle:number;foot:number;side:number;opacity:number};
+export const BOOT_SHAPE = 'M -.12 -.17 C .02 -.18 .15 -.25 .34 -.22 C .56 -.21 .61 -.11 .60 .02 C .59 .18 .45 .24 .26 .22 L -.09 .15 Q -.19 .02 -.12 -.17 Z M -.24 -.16 L -.49 -.15 Q -.57 0 -.49 .15 L -.24 .15 Z';
+export const BOOT_TREAD = 'M .22 -.17 L .20 .17 M .36 -.16 L .34 .16 M .49 -.11 L .47 .10 M -.40 -.10 L -.40 .10';
+
 /** A single move: a fading line of footprints from a token's old spot to its new one. */
 type Trail = {
   id: string;
@@ -39,10 +43,14 @@ export function FootprintLayer({
   tokens,
   pxPerFoot,
   isVisibleAt,
+  onMarks,
+  renderFallback = true,
 }: {
   tokens: Token[];
   pxPerFoot: number;
   isVisibleAt?: (id:string,x:number,y:number)=>boolean;
+  onMarks?: (marks:FootprintMark[])=>void;
+  renderFallback?: boolean;
 }) {
   const [trails, setTrails] = useState<Trail[]>([]);
   const [now, setNow] = useState(() => Date.now());
@@ -58,7 +66,7 @@ export function FootprintLayer({
       nextPos.set(t.id, { x: t.x, y: t.y });
       const moved = prev ? Math.hypot(t.x - prev.x, t.y - prev.y) : 0;
       const steps = footstepLayout(moved, t.widthFt, pxPerFoot);
-      if (prev && steps.length) {
+      if (prev && steps.length && !t.leavesNoTracks && !(t.teleportedAt && t0-t.teleportedAt<1000)) {
         fresh.push({
           id: `${t.id}-${t0}`,
           tokenId: t.id,
@@ -104,9 +112,7 @@ export function FootprintLayer({
     return () => clearInterval(iv);
   }, [anyLive]);
 
-  return (
-    <>
-      {trails.flatMap((tr) => {
+  const marks:FootprintMark[] = trails.flatMap((tr) => {
         const dx = tr.to.x - tr.from.x;
         const dy = tr.to.y - tr.from.y;
         const len = Math.hypot(dx, dy) || 1;
@@ -122,7 +128,7 @@ export function FootprintLayer({
         const foot = Math.max(1, pxPerFoot * scale * 1.3);
         const spread = foot * .42;
         const n = tr.n;
-        const marks = [];
+        const marks:FootprintMark[] = [];
         for (let i = 0; i < n; i++) {
           // The whole trail holds at BASE for HOLD ms, then prints fade oldest-first.
           const {fraction: f, side} = tr.steps[i];
@@ -134,20 +140,15 @@ export function FootprintLayer({
           if (op <= 0) continue;
           const x=tr.from.x+dx*f+perpX*spread*side,y=tr.from.y+dy*f+perpY*spread*side;
           if(isVisibleAt&&!isVisibleAt(tr.tokenId,x,y))continue;
-          marks.push(
-            <Group key={`${tr.id}-${i}`} name="footstep" x={x} y={y}
-              rotation={angle + side * 6} scaleX={foot} scaleY={foot * side}
-              opacity={op} listening={false}>
-              {/* Rounded forefoot, narrow arch, and separate heel. Travel is +X. */}
-              <Path data="M -.12 -.17 C .02 -.18 .15 -.25 .34 -.22 C .56 -.21 .61 -.11 .60 .02 C .59 .18 .45 .24 .26 .22 L -.09 .15 Q -.19 .02 -.12 -.17 Z M -.24 -.16 L -.49 -.15 Q -.57 0 -.49 .15 L -.24 .15 Z"
-                fill="#fff3d8" stroke="#181b20" strokeWidth={.085} />
-              <Path data="M .22 -.17 L .20 .17 M .36 -.16 L .34 .16 M .49 -.11 L .47 .10 M -.40 -.10 L -.40 .10"
-                stroke="#514c43" strokeWidth={.055} opacity={.8} />
-            </Group>,
-          );
+          marks.push({id:`${tr.id}-${i}`,tokenId:tr.tokenId,x,y,angle:angle+side*6,foot,side,opacity:op});
         }
         return marks;
-      })}
-    </>
-  );
+      });
+  useEffect(()=>{onMarks?.(marks);},[trails,now,pxPerFoot,isVisibleAt,onMarks,renderFallback]);
+  useEffect(()=>()=>onMarks?.([]),[onMarks]);
+  return <>{renderFallback&&marks.map(m=><Group key={m.id} name="footstep" x={m.x} y={m.y}
+    rotation={m.angle} scaleX={m.foot} scaleY={m.foot*m.side} opacity={m.opacity} listening={false}>
+    <Path data={BOOT_SHAPE} fill="#fff3d8" stroke="#181b20" strokeWidth={.085}/>
+    <Path data={BOOT_TREAD} stroke="#514c43" strokeWidth={.055} opacity={.8}/>
+  </Group>)}</>;
 }

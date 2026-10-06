@@ -157,7 +157,7 @@ function toPlayerMonster(m: Monster): Monster | MonsterPublic {
     modelType: resolveMonsterModelType(m),
     visualTags: m.visualTags,
     modelColor: m.modelColor,
-    conditions: m.conditions,
+    conditions: m.conditions.map(c=>c.combatEffect?.auraRecipients?{...c,combatEffect:{...c.combatEffect,auraRecipients:undefined}}:c),
     disposition: m.disposition,
     icon: m.icon,
     // Defeated enemies show a skull to players even though their HP stays
@@ -213,7 +213,8 @@ export function createSnapshotBuilder(
     const key=`${ab.mark.kind}:${ab.mark.refId}`;
     const labels=targetMarks.get(key)??new Set<string>();labels.add(ab.name);targetMarks.set(key,labels);
   }
-  const rollLog = listRollLog(sessionId).map(e=>e.pending?.live?{...e,pending:{...e.pending,live:undefined}}:e);
+  const rawRollLog=listRollLog(sessionId);
+  const rollLog = rawRollLog.map(e=>e.pending?{...e,pending:{...e.pending,awaitingShield:!!e.pending.shield,shield:undefined,live:undefined}}:e);
   const chat = listChat(sessionId);
   const charById = new Map(characters.map((c) => [c.id, c]));
   const monById = new Map(monsters.map((m) => [m.id, m]));
@@ -439,11 +440,13 @@ export function createSnapshotBuilder(
         ...(e.pending ? {pending:{...e.pending,target:{...e.pending.target,name:caption(e.pending.target.name)!}}} : {}),
       }));
     }
+    tokens=tokens.map(t=>{const e=t.kind==='pc'?charById.get(t.refId):monById.get(t.refId);return {...t,leavesNoTracks:e?.conditions.some(c=>c.combatEffect?.stealthBonus===10)};});
     return {
       role,
       ...(playerVision?{playerVision}:{}),
       ...(role==='player'?{exploredTerrain:exploredTerrain??[]}:{}),
       initiativePending: session.initiativePending,
+      shieldReactions:rawRollLog.filter(e=>e.pending?.shield&&!e.pending.done&&(role==='dm'||e.pending.target.kind==='pc'&&charById.get(e.pending.target.refId)?.claimedBy===socketId)).map(e=>({rollId:e.id,kind:e.pending!.target.kind,refId:e.pending!.target.refId,name:e.pending!.target.name,magicMissile:e.pending!.shield!.attackTotal===undefined})),
       ripostes: listRipostes(sessionId).filter(o =>
         (role === 'dm' || charById.get(o.owner)?.claimedBy === socketId) &&
         tokens.some(t => t.id === o.defenderTokenId) && tokens.some(t => t.id === o.attackerTokenId && !t.sharedSightOnly)),
@@ -455,6 +458,7 @@ export function createSnapshotBuilder(
       round: session.combatRound,
       hideDmRolls: session.hideDmRolls,
       manualDamage: session.manualDamage,
+      commandCustomWords: !!session.commandCustomWords,
       // DM-only: what the next undo would reverse (drives the DM's Undo button).
       undoLabel: role === 'dm' ? peekUndo(sessionId) : null,
       // The map LIST is only a picker (name/active) — the client reads fog cells

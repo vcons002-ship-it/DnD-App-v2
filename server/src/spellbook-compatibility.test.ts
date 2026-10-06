@@ -136,7 +136,7 @@ describe('Spellbook capabilities cover the actual catalogue without promising un
   it('distinguishes post-hit spells, marks and buff markers from fully automated effects', () => {
     for (const name of ["Hunter's Mark", 'Hex', 'Hail of Thorns', 'Ensnaring Strike'])
       expect(spellCombatSupport(spell(name)), name).toMatchObject({ status: 'partial', manualCastOnly: false });
-    for (const name of ['Hypnotic Pattern', 'Command']) {
+    for (const name of ['Command']) {
       const support = spellCombatSupport(spell(name))!;
       expect(support).toMatchObject({ status: 'partial', manualCastOnly: false });
       expect(support.manual.length).toBeGreaterThan(0);
@@ -150,7 +150,7 @@ describe('Spellbook capabilities cover the actual catalogue without promising un
     expect(spellCombatSupport(spell('Mass Healing Word'))?.status).toBe('partial');
     expect(spellCombatSupport(spell('Regenerate'))?.status).toBe('partial');
     expect(spellCombatSupport(spell('Haste'))!.automated.join(' ')).toMatch(/AC.*speed.*Dexterity/i);
-    expect(spellCombatSupport(spell('Shield'))).toMatchObject({ status: 'manual', manualCastOnly: true });
+    for(const name of ['Shield','Misty Step','Hypnotic Pattern','Pass without Trace'])expect(spellCombatSupport(spell(name))).toMatchObject({status:'ready',manualCastOnly:false});
   });
   it.each(['Eldritch Blast', 'Chromatic Orb', 'Magic Missile', 'Scorching Ray',
     'Cure Wounds', 'Healing Word', 'Sacred Flame', 'Divine Smite', 'False Life', 'Poison Spray', 'Inflict Wounds'])

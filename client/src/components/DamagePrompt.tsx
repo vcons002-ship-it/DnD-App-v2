@@ -8,7 +8,7 @@ import { spellSlotOptions } from '../../../shared/spellSlotPools';
 import { useStore } from '../state/socket';
 
 /** What a hit still offers: its parked damage, and/or a smite to cast on it. */
-const openDamage = (r: RollEntry) => !!r.pending && !r.pending.done;
+const openDamage = (r: RollEntry) => !!r.pending && !r.pending.done && !r.pending.awaitingShield;
 const openSmite = (r: RollEntry) => openDamage(r) && !!r.smite && !r.smite.used;
 
 /**

@@ -149,7 +149,7 @@ export function LiveDiceOverlay(){
  return <div className="roll-reveal-backdrop" data-live-dice="true" data-roll-id={frame.id}><div className="roll-reveal" role="status" aria-label="Live dice roll">
   <div className="roll-reveal-title">{frame.label}</div>
   <div className="roll-reveal-who">{frame.roller}{frame.target&&<span className="rr-arrow"> &rarr; {frame.target}</span>}</div>
-  <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id} role="group" aria-label="Live dice tray">
+  <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id.startsWith('dm-')?'purple-resin':theme.id} role="group" aria-label="Live dice tray">
    <canvas className="dice-tray-canvas" ref={canvas} aria-label="Server dice rolling live"/>
    {frame.saveDice&&<div className="tray-save-labels" aria-hidden="true">{frame.saveDice.map((save,i)=><span key={i} ref={el=>{saveLabels.current[i]=el;}} className="tray-save-label">{save.label}{save.mode?` ${save.mode.toUpperCase()}`:''}</span>)}</div>}
    {(failed||reduced)&&<div className="dice-tray-status">{failed?'Live roll - graphics unavailable':'Live roll in progress'}</div>}

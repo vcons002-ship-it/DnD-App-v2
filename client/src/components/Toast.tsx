@@ -14,7 +14,7 @@ export function Toast() {
 
   if (!toast) return null;
   return (
-    <div className="toast" role="status" aria-live="polite" onClick={dismiss}>
+    <div key={toast.id} className={`toast${toast.presentation === 'blocked' ? ' shield-blocked-popup' : ''}`} role="status" aria-live="polite" onClick={dismiss}>
       {toast.message}
     </div>
   );

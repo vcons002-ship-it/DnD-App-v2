@@ -4,6 +4,7 @@ import { cantripExtraSteps } from './spellMath.js';
 import { isDamageType } from './damage.js';
 import { revisedSpellAbility2024 } from './spellRevisions.js';
 import { linkedSpellProfile, linkedSpellRoll } from './linkedSpells.js';
+import {partySpell} from './partySpells.js';
 
 /** Small, reviewed execution profiles, not a replacement spell catalogue.
  * Source: 2024 Basic Rules spell descriptions, checked 2026-09-16:
@@ -53,6 +54,10 @@ export function effectiveSheetAbility(ability: SheetAbility, castLevel?: number)
   if (hitFeature(ability)) return {...ability,roll:undefined,stance:undefined};
   if (markSpell(ability)) return {...ability,type:'spell',level:1,roll:{kind:'damage',dice:'0',baseLevel:1,targetMode:'single'}};
   const name = ability.name.trim().toLowerCase();
+  const party=partySpell(ability);
+  if(party==='misty step'||party==='shield'||party==='pass without trace')return {...ability,
+    tags:[...(ability.tags??[]),...(party==='pass without trace'?['concentration']:[])],
+    roll:{kind:'damage',dice:'0',baseLevel:ability.level,targetMode:party==='pass without trace'?'multiple':'single'}};
   if (isHasteSpell(ability) && isCanonicalHasteProfile(ability)) return {...ability, level:3, tags:[...(ability.tags??[]),'concentration'], roll:{kind:'damage',dice:'0',baseLevel:3,targetMode:'single',...(ability.roll?.castingAbility?{castingAbility:ability.roll.castingAbility}:{})}};
   if (ability.type==='spell' && name==='mage hand' && !ability.summon) return {...ability,level:0,summon:{name:'Mage Hand',icon:'\u270b'}};
   const savedRoll = ability.roll;

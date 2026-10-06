@@ -1,7 +1,7 @@
 import type {Condition,HpFxEvent} from './types.js';
 
-export type SpellImpactStyle={kind:'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
-export const LINKED_SPELL_FX=['Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
+export type SpellImpactStyle={kind:'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
+export const LINKED_SPELL_FX=['Shield','Misty Step','Hypnotic Pattern','Pass without Trace','Command','Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
 const colors:Record<string,string>={fire:'#ff702c',cold:'#72cbff',lightning:'#96cfff',thunder:'#b9a7ff',acid:'#b5ed43',poison:'#68d868',necrotic:'#a471df',radiant:'#ffe6a0',force:'#bc9bff',psychic:'#ff79cd'};
 /** Only cosmetic spell identifiers cross the FX channel, never a hidden
  * attack's full title, weapon details or modifier breakdown. */
@@ -23,6 +23,14 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
     'guiding bolt':['burst','radiant'],'ray of frost':['shards','cold'],'ray of sickness':['poison','poison'],
     'chill touch':['drain','necrotic'],'shocking grasp':['burst','lightning'],
   };
+  const partyStyles:Record<string,SpellImpactStyle>={
+    'shield':{kind:'shield',color:'#8bbdff',radiusFt:10,strength:1.3,duration:1800},
+    'misty step':{kind:'mist',color:'#c7deef',radiusFt:8,strength:.7,duration:1600},
+    'hypnotic pattern':{kind:'pattern',color:'#ec91f5',radiusFt:12,strength:1.1,duration:2200},
+    'pass without trace':{kind:'veil',color:'#729b89',radiusFt:5,strength:0,duration:1900},
+    'command':{kind:'command',color:'#ffe1a0',radiusFt:8,strength:1,duration:1700},
+  };
+  if(partyStyles[name])return partyStyles[name];
   const form=forms[name];
   if(form)return {kind:form[0],color:name==='vampiric touch'?'#d62c46':event.delta>0?'#67e596':name==='phantasmal killer'?'#b4a4ef':colors[form[1]],radiusFt:/storm|strike|call lightning/.test(name)?22:12,strength:2.1,duration:form[0]==='burst'?1000:form[0]==='aura'?2100:1700};
   if(/ensnaring strike|entangl(?:e|ing|ed)?(?: strike)?/.test(name))return {kind:'vines',color:'#74d95c',radiusFt:9,strength:1.5,duration:1650};
@@ -43,8 +51,13 @@ export function persistentSpellVisual(condition:Condition):string|undefined{
   const fx=condition.combatEffect;if(!fx||condition.isConcentration||fx.parentConditionId)return;
   const name=spellImpactName(fx.spell);if(!name)return;
   if(condition.label==='Haste lethargy')return;
+  // The reaction bookkeeping condition carries Shield provenance too; it is
+  // not a second barrier. Aura recipients alone carry the stealth veil.
+  if(name==='Shield'&&condition.label!=='Shield')return;
+  if(name==='Pass without Trace')return fx.stealthBonus===10?name:undefined;
+  if(name==='Command')return name;
   if(fx.spellAction&&!['Flame Blade','Vampiric Touch'].includes(name))return;
-  if(['Hold Person','Hold Monster','Phantasmal Killer','Heat Metal',"Melf's Acid Arrow",'Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp','Flame Blade','Vampiric Touch','Ensnaring Strike','Entangle'].includes(name))return name;
+  if(['Hypnotic Pattern','Shield','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal',"Melf's Acid Arrow",'Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp','Flame Blade','Vampiric Touch','Ensnaring Strike','Entangle'].includes(name))return name;
 }
 
 /** A quick rise, readable crest, then smooth decay. No rapid strobe. */

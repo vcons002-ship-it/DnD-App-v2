@@ -25,6 +25,7 @@ export type Condition = {
    *  applied independently. Absent = applied by a person or a spell. */
   source?: 'down';
   combatEffect?: {
+    commandWord?: string; commandStarted?: boolean; commandResolved?: boolean;
     casterKind: 'pc' | 'monster'; casterId: string; spell: string;
     dc?: number; dice?: string; damageType?: string; phase?: 'start' | 'end'; save?: string;
     expiresAt?: number; expiresRound?: number; lastTick?: string; untilCasterTurn?: boolean;
@@ -46,6 +47,8 @@ export type Condition = {
     attackDisadvantage?: boolean; checkDisadvantage?: boolean;
     untilCasterEnd?: boolean; untilTargetStart?: boolean; casterTurnStarted?: boolean;
     saveBeforeDamage?: boolean; once?: boolean;
+    auraRecipients?: {kind:TokenKind;refId:string}[];
+    stealthBonus?: number;
   };
 
 };
@@ -143,6 +146,8 @@ export type FogLayer = 'map' | 'tokens';
 
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
+  teleportedAt?: number;
+  leavesNoTracks?: boolean;
   /** Derived active spell marks; display only, never a persisted condition. */
   markLabels?: string[];
   /** Viewer-only live party awareness. Render grayscale; never a direct target.
@@ -872,6 +877,7 @@ export type StateSnapshot = {
   playerVision?: import('./playerVision.js').PlayerVision;
   initiativePending?: boolean;
   ripostes?: RiposteOpportunity[];
+  shieldReactions?: {rollId:string;kind:TokenKind;refId:string;name:string;magicMissile:boolean}[];
   role: Role;
   sessionCode: string;
   /** The campaign/session name (DM-editable). */
@@ -888,6 +894,7 @@ export type StateSnapshot = {
   /** Weapon damage is a separate, clickable second roll (everyone sees it — it
    *  changes what happens after their attack lands). */
   manualDamage: boolean;
+  commandCustomWords?: boolean;
   /** DM-only: label of the action `session:undo` would reverse (e.g. "Delete
    *  token"), or null when the undo stack is empty. Players always get null. */
   undoLabel: string | null;
@@ -1095,6 +1102,9 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  /** Server-only reaction gate; public offers expose no attack math. */
+  awaitingShield?: boolean;
+  shield?: {abilityId:string;attackTotal?:number;natural20?:boolean;automatic:boolean};
   spellLink?: import('./linkedSpells.js').LinkedSpellContext;
   /** Defended spell damage alone, excluding mark/other riders (Vampiric Touch). */
   spellDamageAmount?: number;
@@ -1177,6 +1187,7 @@ export type RollEntry = {
     damageBonus?: { label: string; value: number };
     /** Server-created condition attached after a failed initial saving throw. */
     effect?: {
+      commandWord?: string;
       casterKind: TokenKind; casterId: string; spell: string; condition: string;
       eligibleCreatureType?: string; durationRounds: number; expiresAt: number;
       expiresRound?: number; castId: string; concentrationConditionId: string;
@@ -1195,6 +1206,7 @@ export type RollEntry = {
      */
     split?: number[];
     /** Split spell (Magic Missile): number of darts to assign, one per click. */
+    caster?: {kind:TokenKind;refId:string};
     darts?: number;
     /** Per-dart damage dice, rolled fresh on each click (e.g. "1d4+1"). */
     dice?: string;
@@ -1490,6 +1502,8 @@ export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds
  * the DC/to-hit derive from its CR (no spell-slot spend).
  */
 export type AbilityRollPayload = {
+  commandWord?: string;
+  destination?: {mapId:string;x:number;y:number};
   area?: import('./spellAreas.js').SpellAreaPlacement;
   kind: TokenKind;
   refId: string;
@@ -1580,6 +1594,8 @@ export type AiCreateCharacterPayload = { description: string };
 /** A transient message the server asks a client to surface (e.g. a toast). */
 export type NoticePayload = {
   message: string;
+  /** Brief combat result stamp, without opening another dice tray. */
+  presentation?: 'blocked';
   /** Longer explanations can remain visible without extending ordinary notices. */
   durationMs?: number;
   /** Set when this notice signals an AI operation finished — the client clears the
@@ -1801,6 +1817,8 @@ export interface ClientToServerEvents {
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'spell:shield': (payload: {rollId:string;pass?:boolean;level?:number;slotPool?:'spellcasting'|'pact'}) => void;
+  'spell:wake': (payload: {actorTokenId:string;targetTokenId:string}) => void;
   'haste:action': (payload: HasteActionPayload) => void;
   'spell:repeat': (payload: SpellRepeatPayload) => void;
   'spell:dropHeatedItem': (payload: {kind:TokenKind;refId:string;conditionId:string}) => void;
@@ -1881,6 +1899,8 @@ export interface ClientToServerEvents {
   'combat:smite': (payload: { rollId: string; level: number | 'free' | `pact:${number}` }) => void;
   /** DM: weapon damage is a separate, clickable second roll (default on). */
   'session:setManualDamage': (payload: { manual: boolean }) => void;
+  'session:setCommandCustomWords': (payload: { enabled: boolean }) => void;
+  'spell:commandResolve': (payload: {kind:TokenKind;refId:string;conditionId:string}) => void;
   'combat:save': (payload: CombatSavePayload) => void;
 }
 
