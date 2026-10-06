@@ -56,9 +56,8 @@ function useTween(target: number, ms = 260): number {
   return val;
 }
 
-/** One die drawn in its real polygon shape (d4 triangle, d6 square, d8 diamond,
- *  d10 kite, d12 pentagon, d20 hexagon) with its face value centred. While
- *  `rolling`, the shape tumbles and its number flickers. */
+/** Keep the roller's actual material in modifier/result screens for both roles.
+ * ThreeDie owns the lightweight fallback when WebGL is unavailable. */
 function DieShape({
   sides,
   value,
@@ -74,17 +73,7 @@ function DieShape({
   crit?: boolean;
   onSettled?: () => void;
 }) {
-  const player = useStore(s => s.snapshot?.role === 'player');
-  if (player) return <ThreeDie sides={sides} value={value} big={big} rolling={rolling} crit={crit} onSettled={onSettled} />;
-  return (
-    <span
-      className={`die die-d${sides === 100 ? 10 : sides}${big ? ' die-big' : ''}${rolling ? ' rolling' : ''}${
-        crit ? ' die-crit' : ''
-      }`}
-    >
-      {value}
-    </span>
-  );
+  return <ThreeDie sides={sides} value={value} big={big} rolling={rolling} crit={crit} onSettled={onSettled} />;
 }
 
 /** A pseudo-random face for a tumbling die (changes with the cycle tick). */

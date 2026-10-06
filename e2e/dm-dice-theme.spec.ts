@@ -6,6 +6,7 @@ import {writeFileSync} from 'node:fs';
 
 test('monster rolls and general DM rolls keep one purple theme live and after settlement',async({page,request},info)=>{
  test.setTimeout(180000);
+ const graphicsErrors:string[]=[];page.on('pageerror',e=>graphicsErrors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/i.test(m.text()))graphicsErrors.push(m.text());});
  const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Uniform DM dice'}})).json();
  const socket=io(`http://localhost:${PORT}`,{transports:['websocket']});
  const snap=async()=>{const r=await socket.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.ok).toBe(true);return r.snapshot;};
@@ -51,6 +52,14 @@ test('monster rolls and general DM rolls keep one purple theme live and after se
    await expect(live).toHaveCount(0,{timeout:45000});
    const result=page.locator('.roll-reveal');await expect(result).toBeVisible();
    await expect(result).toHaveAttribute('data-dice-theme','dm-neutral-roll');
+   const images=result.locator('canvas.three-die');await expect(images).toHaveCount(disposition==='general'?2:1);
+   for(const image of await images.all()){
+    await expect(image).toHaveAttribute('data-theme','dm-neutral-roll');
+    await expect(image).toHaveAttribute('data-material','purple-resin');
+   }
+   await expect(result.locator('.die')).toHaveCount(0);
+   await expect(result.locator('.rr-adjustment')).toBeVisible();
+   await page.screenshot({path:info.outputPath(disposition+'-modifier-resin.png')});
    await expect(result).toHaveAttribute('data-impact-ready','true',{timeout:30000});
    const first=frames.find(f=>f.elapsed===0),launch=frames.find(f=>f.elapsed>0);
    expect(first).toBeTruthy();expect(launch).toBeTruthy();timings.push({roll:disposition,readyWaitMs:launch!.at-first!.at});
@@ -58,5 +67,6 @@ test('monster rolls and general DM rolls keep one purple theme live and after se
    await page.screenshot({path:info.outputPath(disposition+'-purple-dice.png')});await page.keyboard.press('Escape');
    await expect(result).toHaveCount(0);
   }
+ expect(graphicsErrors).toEqual([]);
  }finally{writeFileSync(info.outputPath('startup-timings.json'),JSON.stringify(timings,null,2));if(capture)writeFileSync(info.outputPath('capture.json'),JSON.stringify(await capture.stop(),null,2));socket.disconnect();}
 });

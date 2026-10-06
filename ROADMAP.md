@@ -2519,3 +2519,9 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Footprint trails share the miniature ground depth buffer, so darkness terrain cannot cover them and figures still occlude them. The original 2D fallback and fog visibility checks remain active; regular-darkness pixel regression and Pass without Trace suppression verified.
 - [x] Purple DM/NPC dice use midnight purple semi-transparent resin with subtle moving violet energy inside, cloudy depth and reflective gold numeral inlays without outlines. The central glow was removed for numeral readability. A standalone mobile review viewer shares the actual meshes and shader, with drag rotation, zoom and d4–d20 selection. DM tray artwork preloads alongside the party trays; browser regression measures startup through the actual DM controls. Player class materials remain independent.
 - [x] Runtime profiles recognize unchanged saved entries; explicit custom/manual mechanics remain table-managed. Command and Alter Self are unchanged.
+
+## Approved dice materials - October 2026
+
+- [x] Druk smooth obsidian and gold with understated recessed molten fissures; Vanec dark-red glass and silver with fast, independently timed lightning; Varis forest resin with wood/bronze inlays and branching leaf/thorn rolling trails; DM purple refracting resin with flowing black ink and soft interior light.
+- [x] All approved effects are gameplay defaults, with critical dice keeping their gold treatment. DM modifier/result screens keep the same 3D material and readable gold numerals.
+- [x] Character dice roller at `/dice-comparison.html`: one selected character/DM, custom counts, individual results and total, own tray artwork, up to 40 physical dice or 20 percentile pairs. Rotatable models at `/dice-models.html` include effect comparisons.

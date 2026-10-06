@@ -56,6 +56,7 @@ const MeshDie = memo(function MeshDie({
   onSettled?: () => void;
 }) {
   const theme = useContext(DiceThemeContext);
+  const movingResin = theme.id === 'sorcerer' || theme.id.startsWith('dm-') && !crit;
   const ref = useRef<HTMLCanvasElement>(null);
   const state = useRef({ value, rolling });
   state.current = { value, rolling };
@@ -113,7 +114,7 @@ const MeshDie = memo(function MeshDie({
       // loads. Fallback is reserved for an actual import/WebGL failure.
       if (materialPending) return;
       // GPU dice target 60 fps (with RAF timing tolerance); settled clouds stay at 10 fps.
-      if (now - prev < (!state.current.rolling && materialDie && theme.id === 'sorcerer' && !wasRolling && now - settledAt >= 360 ? 100 : materialDie ? 15 : 32)) {
+      if (now - prev < (!state.current.rolling && materialDie && movingResin && !wasRolling && now - settledAt >= 360 ? 100 : materialDie ? 15 : 32)) {
         frame = requestAnimationFrame(draw);
         return;
       }
@@ -147,7 +148,7 @@ const MeshDie = memo(function MeshDie({
         ];
       };
       if (materialDie) {
-        canvas.dataset.material = theme.id === 'sorcerer' ? 'volumetric-glass' : theme.id === 'fighter' ? 'obsidian-gold' : theme.id === 'ranger' ? 'forest-resin' : 'physical-metal';
+        canvas.dataset.material = theme.id.startsWith('dm-') && !crit ? 'purple-resin' : theme.id === 'sorcerer' ? 'volumetric-glass' : theme.id === 'fighter' ? 'obsidian-gold' : theme.id === 'ranger' ? 'forest-resin' : 'physical-metal';
         materialDie.draw(ctx,size,dpr,angles,state.current.value,now,rolling);
       } else {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -299,7 +300,7 @@ const MeshDie = memo(function MeshDie({
         // Report only after the authoritative face has actually been painted.
         settledCallback.current?.();
       }
-      if (!rolling && ease === 0 && materialDie && theme.id === 'sorcerer' && !reduced.matches) frame = requestAnimationFrame(draw);
+      if (!rolling && ease === 0 && materialDie && movingResin && !reduced.matches) frame = requestAnimationFrame(draw);
     };
     const restart = () => {
       cancelAnimationFrame(frame);
