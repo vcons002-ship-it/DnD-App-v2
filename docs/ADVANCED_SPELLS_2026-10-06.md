@@ -199,3 +199,21 @@ DM theme browser scenario passed. That scenario checks shader/WebGL errors
 and preparation timing; first-roll preparation measured 1,001 ms and subsequent
 rolls 334-344 ms. Public mobile MP4 playback was verified. Numeral shaders omit
 the old unused glass-volume sampling when rendering only an inlay.
+
+## Resin retained during modifier presentation
+
+[Updated roll and modifier video](https://dnd.nic024i.app/uploads/previews/dm-resin-modifiers-20261006/index.html)
+
+The result component previously selected a flat CSS die for DM viewers while
+players used the shared 3D material renderer. Both roles now use that renderer
+for check/attack modifiers, damage results and compared dice. The DM result
+canvases retain the purple resin, gold numerals, dark backings and interior clouds.
+Settled cloud motion is capped at ten frames per second and freezes with reduced
+motion. The existing Canvas2D fallback is reserved for unavailable WebGL.
+
+The DM browser scenario now asserts the actual 3D result canvases and resin theme
+while labeled modifier chips are visible, and rejects the old flat die elements.
+
+Validation: typecheck, client build, all 1,766 server tests, and the expanded
+DM theme browser scenario passed. Modifier-step screenshots, public MP4 range
+delivery and mobile-mode video playback were verified.

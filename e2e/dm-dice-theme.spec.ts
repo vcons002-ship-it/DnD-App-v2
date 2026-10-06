@@ -52,6 +52,14 @@ test('monster rolls and general DM rolls keep one purple theme live and after se
    await expect(live).toHaveCount(0,{timeout:45000});
    const result=page.locator('.roll-reveal');await expect(result).toBeVisible();
    await expect(result).toHaveAttribute('data-dice-theme','dm-neutral-roll');
+   const images=result.locator('canvas.three-die');await expect(images).toHaveCount(disposition==='general'?2:1);
+   for(const image of await images.all()){
+    await expect(image).toHaveAttribute('data-theme','dm-neutral-roll');
+    await expect(image).toHaveAttribute('data-material','purple-resin');
+   }
+   await expect(result.locator('.die')).toHaveCount(0);
+   await expect(result.locator('.rr-adjustment')).toBeVisible();
+   await page.screenshot({path:info.outputPath(disposition+'-modifier-resin.png')});
    await expect(result).toHaveAttribute('data-impact-ready','true',{timeout:30000});
    const first=frames.find(f=>f.elapsed===0),launch=frames.find(f=>f.elapsed>0);
    expect(first).toBeTruthy();expect(launch).toBeTruthy();timings.push({roll:disposition,readyWaitMs:launch!.at-first!.at});

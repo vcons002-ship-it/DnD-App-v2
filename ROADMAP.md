@@ -2554,3 +2554,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] DM resin readability: lighter surface filtering, purple absorption through depth, restrained face reflections, and double-sided opaque gold cutouts included in the refraction pass. Rear inlays and tray texture are visible through the body; soft contact shadows replace unsupported opaque resin shadows. Recorded creature d20 checks and general 2d6 rolls in the real tray.
 
 - [x] DM resin clouds and readable inlays: inward-facing numeral backs are dark and included in refraction; bright gold fronts draw after transmission to avoid refracted bright duplicates. Eight bounded interior samples create slowly drifting dark violet clouds inside the physical resin body, without extra light sources or a central glow.
+
+- [x] Modifier/result screens use the roller's 3D die material for DM rolls as well as players, removing the legacy DM-only flat polygon. Purple resin clouds remain animated at a bounded 10 fps while settled; reduced motion stays static. Browser regression verifies material continuity during the labeled modifier step for creature checks and general dice rolls.
