@@ -89,14 +89,9 @@ void main(){
    if(style==0)energy+=vec3(1.,.065,.11)*spark*stepSize*interior*1.6;
    if(style==3){
      // Moving light lives inside the resin volume, beneath the glossy shell.
-     // A concentrated luminous center sits within a much darker resin body.
-     float radiusSquared=dot(p,p);
-     float core=exp(-radiusSquared*32.);
-     float halo=exp(-radiusSquared*9.);
+     // Keep the interior curls subtle so they cannot wash out the gold numerals.
      float pulse=.85+.15*sin(time*1.8+p.y*3.);
-     energy+=(vec3(.75,.26,1.7)*core*4.
-       +vec3(.10,.01,.35)*halo
-       +vec3(.32,.035,.65)*spark*1.8)*pulse*stepSize*interior;
+     energy+=vec3(.32,.035,.65)*spark*1.8*pulse*stepSize*interior;
    }
    if(style==2){
      float growth=fbm(p*3.+vec3(fbm(p*5.)*1.8));
