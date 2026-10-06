@@ -24,13 +24,13 @@ async function roll(next=sides){
  count.max=String(next===100?20:40);
  if(!count.reportValidity())return;
  const quantity=Number(count.value),player=Number(roller.value),current=++epoch;
- sides=next;done=false;
+ sides=next;done=false;tray.dataset.state='preparing';
  buttons.forEach(b=>{b.disabled=true;if(b.dataset.sides)b.setAttribute('aria-pressed',String(Number(b.dataset.sides)===sides));});
  roller.disabled=count.disabled=true;
  status.textContent=`Preparing ${names[player]}'s ${quantity}d${sides}...`;
  renderer?.dispose();renderer=undefined;world=undefined;
  labels.forEach(l=>l.remove());
- results.innerHTML=`<div class="result"><span class="value">?</span><div class="name">${names[player]} ? ${quantity}d${sides}</div><div class="material">${materials[player]}</div><div class="individual" aria-label="Individual dice results"></div></div>`;
+ results.innerHTML=`<div class="result"><span class="value">?</span><div class="name">${names[player]} - ${quantity}d${sides}</div><div class="material">${materials[player]}</div><div class="individual" aria-label="Individual dice results"></div></div>`;
  try{
  const dice=physicalDice(Array.from({length:quantity},(_,index)=>({sides,value:1,index,set:player})));
  const nextWorld=createLiveWorld(dice,++seed,'bottom');
@@ -59,7 +59,7 @@ async function roll(next=sides){
    done=true;tray.dataset.state='settled';
    const values=Array.from({length:quantity},(_,i)=>sides===100?(((snapshot.values[i*2]!-1)*10+snapshot.values[i*2+1]!-1)||100):snapshot.values[i]!);
    results.querySelector('.value')!.textContent=String(values.reduce((sum,v)=>sum+v,0));
-   results.querySelector('.individual')!.textContent=values.map((v,i)=>`#${i+1}: ${v}`).join(' ? ');
+   results.querySelector('.individual')!.textContent=values.map((v,i)=>`#${i+1}: ${v}`).join(' | ');
    status.textContent=`${names[player]}'s ${quantity}d${sides} settled`;
   }
   requestAnimationFrame(frame);
