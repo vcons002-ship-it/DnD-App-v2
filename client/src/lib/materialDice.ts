@@ -224,10 +224,9 @@ void main(){
      // channel briefly flares in a weaker return stroke before fading.
      float burst=reached*tail*discharge*flicker+exp(-pow((phase-.79)/.028,2.))*.28;
       burst*=.22+rollPower*1.3;
-      if(rollMaximum>.5)burst=.38+.12*sin(time*42.+arc.y*13.);
+      if(rollMaximum>.5)burst*=1.1;
      float distanceToArc=arc.x;
-      // Crossing, independently changing channels fill a maximum-roll Tesla
-      // volume. Reuse the arc field at transformed coordinates, not a face flash.
+      // Crossing channels change with every brief maximum-roll discharge.
       if(rollMaximum>.5){
        distanceToArc=min(distanceToArc,electricArc(p.yzx*vec3(-1.,1.,-1.),lightningSeed+41.).x);
        distanceToArc=min(distanceToArc,electricArc(p.zxy*vec3(1.,-1.,1.),lightningSeed+103.).x);
@@ -451,7 +450,8 @@ void main(){
     if(style==1&&rollPower>.2){float heat=1.-smoothstep(.002,.025,moltenFracture(pos));color+=vec3(.9,.045,.002)*heat*rollPower;}
     if(style==0&&rollMaximum>.5){
      float channel=min(electricArc(pos,lightningSeed).x,electricArc(pos.yzx,lightningSeed+41.).x);
-     color+=vec3(.9,.58,1.)*exp(-channel*channel/.003)*2.;
+     float stroke=smoothstep(.12,.16,lightningPhase)*(1.-smoothstep(.60,.90,lightningPhase));
+     color+=vec3(.9,.58,1.)*exp(-channel*channel/.003)*2.*stroke;
     }
    }
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));

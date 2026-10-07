@@ -20,11 +20,23 @@ it('starts independently for separate dice and avoids catch-up bursts on resume'
  expect(a.advance(100).phase).toBe(3);expect(a.advance(100.19).phase).toBe(3);
  expect(a.advance(100.2).phase).toBe(0);expect(a.advance(100.3).phase).toBeCloseTo(.5);
 });
-it('charges more frequently for stronger confirmed rolls and continuously at maximum',()=>{
+it('charges more frequently for stronger confirmed rolls',()=>{
  const low=createLightningTiming(()=>.5),high=createLightningTiming(()=>.5);
  low.advance(0,0);high.advance(0,.95);low.advance(1.3,0);high.advance(1.3,.95);
  // A high roll reaches a second discharge while a minimum is still cooling.
  expect(high.advance(2.51,.95).phase).toBeLessThan(1);
  expect(low.advance(2.51,0).phase).toBe(3);
- for(let t=3;t<5;t+=.03){const frame=high.advance(t,1,true);expect(frame.phase).toBeGreaterThanOrEqual(0);expect(frame.phase).toBeLessThan(1);}
+});
+it('maximum rolls have frequent separate flashes with fully dark gaps and new channels',()=>{
+ let n=0;const clock=createLightningTiming(()=>((n++*17)%101)/100);
+ let flashes=0,darkFrames=0,lastSeed=-1;
+ for(let tick=0;tick<240;tick++){
+  const frame=clock.advance(tick/120,1,true);
+  if(frame.seed!==lastSeed){flashes++;lastSeed=frame.seed;}
+  if(frame.phase>=.9)darkFrames++;
+ }
+ expect(flashes).toBeGreaterThan(9);expect(flashes).toBeLessThan(20);
+ expect(darkFrames).toBeGreaterThan(40);
+ // Background/resume never catches up by holding a channel continuously on.
+ expect(clock.advance(100,1,true).phase).toBe(3);
 });

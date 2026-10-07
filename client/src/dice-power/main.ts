@@ -4,7 +4,7 @@ import {physicalDice,type Toss,type TrayDie} from '../../../shared/diceTrayTypes
 
 const tray=document.querySelector<HTMLDivElement>('#tray')!,canvas=tray.querySelector('canvas')!,ctx=canvas.getContext('2d')!;
 const sides=document.querySelector<HTMLSelectElement>('#sides')!,critical=document.querySelector<HTMLInputElement>('#critical')!;
-const descriptions:Record<string,string>={fighter:'Obsidian fissures widen and heat up with the roll. A maximum erupts, throwing molten fragments while the gold result remains readable.',sorcerer:'A higher value charges more frequent internal lightning. A maximum sustains crossing Tesla-like discharges inside the red glass.',ranger:'The enclosed mote grows brighter with the value. A maximum releases drifting green-gold light streams through the resin.'};
+const descriptions:Record<string,string>={fighter:'Obsidian fissures widen and heat up with the roll. A maximum forcefully erupts, launching molten fragments upward and outward.',sorcerer:'A higher value charges more frequent internal lightning. A maximum fires very frequent lightning bursts, with dark gaps between changing channels.',ranger:'The enclosed mote grows brighter with the value. A maximum releases green-gold light streams in all directions from the mote.'};
 let theme='fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
 async function show(){
  const controls=[...document.querySelectorAll<HTMLButtonElement|HTMLSelectElement|HTMLInputElement>('nav button,nav select,nav input')];

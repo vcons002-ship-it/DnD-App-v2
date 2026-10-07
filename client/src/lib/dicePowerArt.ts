@@ -6,7 +6,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
  const group=new THREE.Group();root.add(group);
  const transform=new THREE.Object3D(),color=new THREE.Color(),up=new THREE.Vector3(0,0,1);
  const inverse=new THREE.Quaternion(),direction=new THREE.Vector3(),rayAxis=new THREE.Vector3(0,1,0);
- const count=kind==='fighter'?22:7;
+ const count=kind==='fighter'?34:22;
  const geometry=kind==='fighter'?new THREE.IcosahedronGeometry(1,1):new THREE.BufferGeometry();
  if(kind==='ranger'){
   const positions:number[]=[],uv:number[]=[],faces:number[]=[];
@@ -60,31 +60,34 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
     group.quaternion.copy(inverse.copy(root.quaternion).invert());
     for(let i=0;i<count;i++){
      if(kind==='fighter'){
-      const t=age-.12-random(i+1)*.11,life=1.5+random(i+2)*.65;
+      const t=age-.08-random(i+1)*.045,life=1.35+random(i+2)*.55;
       if(t<0||t>life)continue;
-      const angle=i*2.399963+random(i+3)*.5,speed=1.0+random(i+4)*1.2;
+      const angle=i*2.399963+random(i+3)*.5,speed=2.6+random(i+4)*2.8;
       const x=Math.cos(angle)*(.55+speed*t),y=Math.sin(angle)*(.55+speed*t);
-      const z=.08+(2.5+random(i+5)*2.0)*t-3.7*t*t;
+      const lift=4.8+random(i+5)*3.2,z=.08+lift*t-7.5*t*t;
       // Cool at the felt surface instead of falling through the tray.
       const floor=-root.position.z/Math.max(.001,root.scale.x)+.035;
       transform.position.set(x,y,Math.max(floor,z));
-      direction.set(Math.cos(angle)*speed,Math.sin(angle)*speed,2.5+random(i+5)*2.0-7.4*t).normalize();transform.quaternion.setFromUnitVectors(up,direction);
-      const size=(.055+random(i+6)*.052)*(1-t/life*.35);
-      transform.scale.set(size*.8,size*.8,size*1.5);
+      direction.set(Math.cos(angle)*speed,Math.sin(angle)*speed,lift-15*t).normalize();transform.quaternion.setFromUnitVectors(up,direction);
+      const size=(.065+random(i+6)*.065)*(1-t/life*.35);
+      transform.scale.set(size*.8,size*.8,size*(1.5+Math.exp(-t*4)*1.5));
       color.setRGB(1.9*(1-t/life)+.09,.22*Math.pow(1-t/life,2)+.012,.008);
       fade.setX(visible,Math.min(1,(life-t)*3));
       glowPositions.set(transform.position.toArray(),visible*3);glowColors.set([1-t/life,(1-t/life)*.48,(1-t/life)*.10],visible*3);
      }else{
+      // Fibonacci sphere: a luminous volume above, below and around the mote,
+      // rather than a horizontal fan. Rays begin inside the resin at the mote.
       const angle=i*2.399963+Math.sin(now*.00023+i)*.12;
-      direction.set(Math.cos(angle),Math.sin(angle),.12+random(i+4)*.32).normalize();
-      const length=1.7+random(i+5)*1.1;
-      transform.position.copy(mote).applyQuaternion(root.quaternion).addScaledVector(direction,.72+length*.5);
+      const vertical=1-2*(i+.5)/count,radial=Math.sqrt(1-vertical*vertical);
+      direction.set(Math.cos(angle)*radial,Math.sin(angle)*radial,vertical);
+      const length=2.5+random(i+5)*1.25;
+      transform.position.copy(mote).applyQuaternion(root.quaternion).addScaledVector(direction,length*.5);
       transform.quaternion.setFromUnitVectors(rayAxis,direction);
       // A crossed, tapered ribbon reads as a stream from overhead or any angle.
       transform.rotateY(i*.8);
-      transform.scale.set(.42+random(i+6)*.25,length,.42+random(i+6)*.25);
+      transform.scale.set(.34+random(i+6)*.22,length,.34+random(i+6)*.22);
       color.setRGB(.65,1.1,.28);
-      fade.setX(visible,Math.min(1,age*3)*(.24+.09*Math.sin(now*.0015+i)));
+      fade.setX(visible,Math.min(1,age*3)*(.20+.065*Math.sin(now*.0015+i)));
      }
      transform.updateMatrix();mesh.setMatrixAt(visible,transform.matrix);mesh.setColorAt(visible,color);visible++;
     }
