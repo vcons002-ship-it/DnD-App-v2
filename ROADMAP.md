@@ -2618,3 +2618,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Varis ribbons, sparks, leaves and thorns follow the full expanding dice tray rather than the original fixed bounds; Druk d6 gold bands are thinner while retaining rounded obsidian shoulders and the existing collision shape.
 
 - [x] Large dice pools release as one spread-out handful with separated shallow rows, tray-aware forward travel and gravity-derived entry clearance; live and playback worlds share the launch, avoiding vertical entry piles while preserving small throws and natural contacts.
+
+- [x] Varis dice trails use textured twisting wood, tapered hooked thorns, curled serrated foliage and fine pulsing magical veins with a restrained ground glow; shared instanced geometry/materials keep detailed brambles reusable across large rolls.
