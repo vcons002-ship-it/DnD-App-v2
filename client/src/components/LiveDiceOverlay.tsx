@@ -21,6 +21,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  const links=useRef<SVGSVGElement>(null),triggerRef=useRef(diceTrigger);
  triggerRef.current=diceTrigger;
  const triggerColors=diceTrigger?.kind?['#e3b0ff']:['#89f3ff','#e3b0ff','#ffe296','#b0ffcf'];
+ const burstSources=[...new Set([...(diceTrigger?.kind==='burst'?diceTrigger.groups.flatMap(g=>g.indices):[]),...(frame.burstLinks??[]).map(link=>link.from)])];
  const triggerGroup=(i:number)=>diceTrigger?.groups.findIndex(group=>group.indices.includes(i))??-1;
  useEffect(()=>{
   const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape')skip();};
@@ -126,9 +127,13 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
        if(svg){
          const indices=new Set([...(b.frame.done?trigger?.groups.flatMap(g=>g.indices)??[]:[]),...(b.frame.burstLinks??[]).flatMap(link=>[link.from,link.to])]);
          const points=new Map([...indices].map(i=>{const p=renderer!.numberPosition(i);return [i,{x:p.x*1000,y:p.y*1000*10.2/15.2}] as const;}));
+         // Do not draw a tether outside the box: it appears as the child enters the bed.
+         svg.querySelectorAll<SVGGElement>('[data-burst-child]').forEach(el=>{const i=Number(el.dataset.burstChild),scale=b.frame.trayScale??1,inside=Math.abs(b.frame.poses[i*7])<=7*scale&&Math.abs(b.frame.poses[i*7+1])<=4.5*scale;el.style.opacity=inside?'1':'0';el.dataset.childEntered=String(inside);});
          const geometry=[...points.values()].map(p=>`${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(';');
-         if(svg.dataset.geometry!==geometry){
-           svg.dataset.geometry=geometry;svg.style.visibility='visible';
+         const layoutKey=geometry+'|'+svg.querySelectorAll('[data-burst-source],[data-trigger-die],[data-from]').length;
+         if(svg.dataset.layoutKey!==layoutKey){
+           svg.dataset.layoutKey=layoutKey;svg.dataset.geometry=geometry;svg.style.visibility=points.size?'visible':'hidden';
+           svg.querySelectorAll<SVGGElement>('[data-burst-source]').forEach(el=>{const p=points.get(Number(el.dataset.burstSource));if(p)el.setAttribute('transform',`translate(${p.x} ${p.y})`);});
            svg.querySelectorAll<SVGCircleElement>('[data-trigger-die]').forEach(el=>{const p=points.get(Number(el.dataset.triggerDie));if(p){el.setAttribute('cx',String(p.x));el.setAttribute('cy',String(p.y));}});
            svg.querySelectorAll<SVGPathElement>('[data-from]').forEach(el=>{const a=points.get(Number(el.dataset.from)),b=points.get(Number(el.dataset.to));if(a&&b){const midX=(a.x+b.x)/2,midY=(a.y+b.y)/2-Math.min(80,Math.hypot(a.x-b.x,a.y-b.y)*.2);el.setAttribute('d',`M ${a.x} ${a.y} Q ${midX} ${midY} ${b.x} ${b.y}`);}});
          }
@@ -198,10 +203,15 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    <canvas className="dice-tray-canvas" ref={canvas} aria-label={result?'Settled dice':'Server dice rolling live'}/>
    {frame.burstProgress&&!result&&!compact&&<div className="tray-burst-progress" data-burst-used={frame.burstProgress.used} data-burst-limit={frame.burstProgress.limit}>Bonus dice: <strong>{frame.burstProgress.used} of {frame.burstProgress.limit}</strong></div>}
    {(diceTrigger&&frame.done||!!frame.burstLinks?.length)&&!compact&&!reduced&&<svg ref={links} className="tray-trigger-links" viewBox="0 0 1000 671.0526" aria-hidden="true">
-    <defs><marker id={`burst-arrow-${frame.id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#e3b0ff"/></marker></defs>
+    <defs><radialGradient id={`burst-glow-${frame.id}`}><stop offset="0" stopColor="#fff0ff"/><stop offset=".2" stopColor="#e8a1ff"/><stop offset=".5" stopColor="#b335ff" stopOpacity=".85"/><stop offset="1" stopColor="#8614ed" stopOpacity="0"/></radialGradient><marker id={`burst-arrow-${frame.id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" style={{fill:'#e3b0ff',stroke:'none'}}/></marker></defs>
     {(frame.done?diceTrigger?.groups??[]:[]).map((group,g)=><g key={g} style={{color:triggerColors[g%triggerColors.length]}}>
      {!diceTrigger?.kind&&group.indices.slice(1).map((i,j)=><g key={i}>{['aura','core','spark'].map(part=><path key={part} className={`tray-trigger-${part}`} data-from={group.indices[j]} data-to={i}/>)}</g>)}
      {group.indices.map(i=><circle key={i} data-trigger-die={i} r="29"/>)}</g>)}
+    {burstSources.map(i=><g key={`source-${i}`} className="tray-burst-source" data-burst-source={i} style={{color:'#d584ff'}}>
+     <circle className="tray-burst-bloom" r="68" style={{fill:`url(#burst-glow-${frame.id})`,stroke:'none'}}/>
+     <circle className="tray-burst-shockwave" r="28"/>
+     <circle className="tray-burst-shockwave is-second" r="28"/>
+    </g>)}
     {frame.burstLinks?.map(link=><g key={link.to} style={{color:'#e3b0ff'}} data-burst-parent={link.from} data-burst-child={link.to}>{['aura','core','spark'].map(part=><path key={part} className={`tray-trigger-${part}`} data-from={link.from} data-to={link.to} markerEnd={part==='core'?`url(#burst-arrow-${frame.id})`:undefined}/>)}</g>)}
    </svg>}
    {frame.saveDice&&<div className="tray-save-labels" aria-hidden="true">{frame.saveDice.map((save,i)=><span key={i} ref={el=>{saveLabels.current[i]=el;}} className="tray-save-label">{save.label}{save.mode?` ${save.mode.toUpperCase()}`:''}</span>)}</div>}

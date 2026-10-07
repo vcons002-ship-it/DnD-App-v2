@@ -21,6 +21,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Sorcerous Burst keeps all base, critical and recursive bonus dice in the
   original live physics tray. Each triggering 8 links with an arrow to the exact
   bonus die it creates; settled faces and result boxes persist throughout the chain.
+  Triggering faces flash with a purple bloom before bonus dice launch, retain a soft
+  source glow, and form tethers only as the new dice enter the tray.
   Future bonus materials are prepared with the first tray, without a mid-chain load.
 - [x] Magic Missile separates its d4 face from the fixed +1 spell bonus,
   labeled in both the tray count-up and roll log; no CHA damage is added.

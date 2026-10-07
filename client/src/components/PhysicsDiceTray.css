@@ -173,3 +173,12 @@
 [data-dice-trigger="burst"]{color:#eac6ff;}
 [data-dice-trigger="burst-limit"]{color:#d2bddf;}
 @keyframes tray-burst-pulse{from{opacity:.6;}to{opacity:1;}}
+
+/* Burst charges the actual triggering face before its child enters the tray.
+   The same keyed source retains a soft glow while the moving tether forms. */
+.tray-trigger-links .tray-burst-bloom{animation:tray-burst-face-flash 900ms ease-out both;}
+.tray-trigger-links .tray-burst-shockwave{stroke:#e6aaff;stroke-width:3;stroke-dasharray:none;transform-box:fill-box;transform-origin:center;animation:tray-burst-shockwave 750ms ease-out both;}
+.tray-trigger-links .tray-burst-shockwave.is-second{animation-delay:120ms;}
+.tray-trigger-links [data-burst-child]{transition:opacity 120ms ease-out;}
+@keyframes tray-burst-face-flash{0%{opacity:0;transform:scale(.35);}18%{opacity:1;transform:scale(1.1);}45%{opacity:.8;transform:scale(1);}100%{opacity:.18;transform:scale(.85);}}
+@keyframes tray-burst-shockwave{0%{opacity:0;transform:scale(.45);}15%{opacity:1;}100%{opacity:0;transform:scale(2.3);}}
