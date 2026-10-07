@@ -47,7 +47,7 @@ const fragment = `precision highp float;
 varying vec3 pos; varying vec3 nor; varying vec2 tex;
 uniform vec3 eye; uniform mat3 rotation;
 uniform vec4 planes[20]; uniform int count; uniform float time; uniform vec3 tint;
-uniform sampler2D etching; uniform bool engraved; uniform bool metalEdge;
+uniform sampler2D etching; uniform bool engraved; uniform bool metalEdge; uniform bool thinGoldEdge;
 uniform int style; uniform float critical; uniform bool numeralsOnly;
 uniform bool inlayBacking;
 uniform float numeralEmphasis;
@@ -125,6 +125,12 @@ vec3 bronzeSurface(vec3 n,vec3 incoming){
 }
 void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
+ // Keep gold to a narrow central band on Druk's rounded d6 shoulders.
+ // The surrounding shoulder remains polished obsidian; its shape is unchanged.
+ vec3 edgeNormal=abs(normalize(nor));
+ float largest=max(edgeNormal.x,max(edgeNormal.y,edgeNormal.z));
+ float second=edgeNormal.x+edgeNormal.y+edgeNormal.z-largest-min(edgeNormal.x,min(edgeNormal.y,edgeNormal.z));
+ float edgeGold=thinGoldEdge&&metalEdge?smoothstep(.42,.50,second/largest):1.;
  float cut=metalEdge?0.:(engraved?texture2D(etching,tex).r:1.);
  if(numeralsOnly&&cut>.98)discard;
  // The inside of a gold inlay is dark backing, not another bright result.
@@ -302,7 +308,7 @@ void main(){
      // A result-card engraving must remain legible even between reflections.
      // Tray faces keep the default emphasis of one and their existing finish.
      inlay=max(inlay,f0*max(0.,numeralEmphasis-1.)*.65)*numeralEmphasis;
-     color=mix(color,inlay,1.-cut);
+     color=mix(color,inlay,(1.-cut)*edgeGold);
    }
  }
  // Only bonus critical dice become solid polished gold; ordinary dice keep their class material.
@@ -435,7 +441,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const makeMaterial=(etching?:THREE.Texture)=>{
     // Draw front gold after transmission so refraction cannot duplicate a bright
     // front numeral into the interior. Only its dark backing enters that pass.
-    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},numeralsOnly:{value:gem},inlayBacking:{value:false},numeralEmphasis:{value:1}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},thinGoldEdge:{value:style===1&&sides===6&&!crit},numeralsOnly:{value:gem},inlayBacking:{value:false},numeralEmphasis:{value:1}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();

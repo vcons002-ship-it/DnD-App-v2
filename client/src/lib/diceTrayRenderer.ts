@@ -76,7 +76,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     const mesh=new THREE.Mesh(g,m);mesh.renderOrder=10;mesh.visible=false;scene.add(mesh);geometry.push(g);materials.push(m);return mesh;
   });
   const a=new THREE.Quaternion(),b=new THREE.Quaternion(),projectedNumber=new THREE.Vector3();
-  const trails=appearance?.varisTrail?createDiceTrails(scene,toss.radius,dice.flatMap((d,i)=>(dieThemes?.[i]??theme).id==='ranger'&&!d.crit?[i]:[])):undefined;
+  const trails=appearance?.varisTrail?createDiceTrails(scene,toss.radius,dice.flatMap((d,i)=>(dieThemes?.[i]??theme).id==='ranger'&&!d.crit?[i]:[]),trayScale):undefined;
   return {
     trailPointCount(){return trails?.pointCount()??0;},
     trailBranchCount(){return trails?.branchCount()??0;},

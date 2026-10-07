@@ -3,7 +3,7 @@ import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 type Sprout={x:number;y:number;angle:number;born:number;scale:number};
 /** A bounded instanced botanical wake: curved stems, folded leaves and thorns. */
-export function createTrailBranches(scene:THREE.Scene,radius:number){
+export function createTrailBranches(scene:THREE.Scene,radius:number,trayScale=1){
  const capacity=24,lifetime=1450,pieces:THREE.BufferGeometry[]=[];
  function piece(source:THREE.BufferGeometry,color:THREE.ColorRepresentation,position?:THREE.Vector3,rotation=0){
   const g=source.index?source.toNonIndexed():source;g.rotateZ(rotation);if(position)g.translate(position.x,position.y,position.z);
@@ -46,7 +46,7 @@ export function createTrailBranches(scene:THREE.Scene,radius:number){
  return {
   count(){return sprouts.length;},
   update(position:THREE.Vector3,now:number){
-   if(position.z<radius*1.45&&Math.abs(position.x)<6.8&&Math.abs(position.y)<4.4){
+   if(position.z<radius*1.45&&Math.abs(position.x)<7*trayScale-radius*.2&&Math.abs(position.y)<4.5*trayScale-radius*.1){
     if(!last)last={x:position.x,y:position.y};
     const dx=position.x-last.x,dy=position.y-last.y,distance=Math.hypot(dx,dy);
     if(distance>radius*.50){
