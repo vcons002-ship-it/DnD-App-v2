@@ -6,12 +6,17 @@ and d20 results all reach full power. Both halves of percentile dice use the
 complete d100 result. Modifiers and the sum of a pool do not charge individual
 dice. A maximum damage die is still damage, not a critical hit.
 
-- **Druk:** recessed obsidian fissures widen and heat up smoothly. A maximum
-  surges with heat, then shatters the actual polyhedron into solid wedges, with
-  glossy black exteriors, gold edges and hot broken interiors. A molten core
-  flash, expanding pressure ring and small embers accompany the tumbling chunks.
-  Fragments bounce, cool and fade; the intact die stays gone for that result.
-  The result number still follows its ordinary path into the result box.
+- **Druk:** a maximum tears the actual die into eleven irregular Voronoi
+  fragments. Exterior triangles retain their original materials, UVs, gold
+  trim and portions of numerals; only newly exposed cuts use molten material.
+  Cannon rigid bodies use convex fragment colliders, gravity converted from SI,
+  volume-based mass and contacts with felt, lining, intact dice and other chunks.
+  Their motion uses the same 0.75 presentation rate as the rolling dice.
+  Eight viscous globs stretch from the split core, collide and spread into hot
+  pools, with animated crust, emissive interiors, soft bloom and warm light
+  spilling onto the felt. The lava surface and pooling are visual approximations,
+  not a fluid solver. Chunks and lava cool and fade after the burst; the intact
+  die stays gone for that result. Its result still fills the normal result box.
 - **Vanec:** stronger results shorten randomized pauses between internal
   discharges. A maximum fires rapid crimson bursts with brief dark gaps,
   rotating the whole coherent branching field randomly in three dimensions
@@ -29,11 +34,14 @@ Gold critical dice carry the same class maximum effects; Druk's gold dice also
 shatter. Reduced motion keeps Druk intact and omits eruptions/rays and rapid
 maximum discharges.
 
-These are cosmetic shaders and bounded instanced geometry, with no additional
-physics worlds, shadow maps, dynamic lights, or changes to outcomes, HP, server
-authority, skip behavior, or roll ownership.
+A single bounded client-side cosmetic physics world serves the whole tray after
+confirmed maxima. Each exploding die adds eleven convex chunks and eight globs;
+bodies are removed when the effect fades, and the world does no stepping while
+inactive. Chunk shadows reuse the existing tray shadow map, and twelve bounded
+floor-light samples avoid dynamic shadow-casting lights. Server roll physics,
+outcomes, HP, skip behavior and roll ownership are unchanged.
 
 `/dice-power.html` compares explicitly labeled sample values and replays maxima.
 It is an art review, not a gameplay roll. Switch between the three characters,
-all supported die types, and gold critical dice. Browser regressions also roll
+all supported die types, gold critical dice, and an explosion close-up. Browser regressions also roll
 real d20s in the player UI to verify the art follows server-confirmed values.

@@ -22,7 +22,9 @@ test('character power art scales d20 and damage faces, including maxima and gold
   if(theme!=='sorcerer')expect(power[2].particles).toBeGreaterThan(0);
   if(theme==='fighter'){
    expect(power[0].broken).toBe(false);expect(power[2].broken).toBe(true);
-   expect(power[2].fragments).toBe(sides===20?20:12);
+   expect(power[2].fragments).toBe(11);expect(power[2].lava).toBe(8);
+   expect(power[2].preservedSurfaces).toBeGreaterThan(10);
+   expect(power[2].physics.collisions).toBeGreaterThan(0);
   }
   if(theme==='ranger'){
    await page.waitForTimeout(250);

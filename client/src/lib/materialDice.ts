@@ -3,6 +3,7 @@ import {createLightningTiming} from './diceLightningTiming';
 import {createRollPowerState} from './diceRollPower';
 import {createDicePowerArt} from './dicePowerArt';
 import {createDiceShatterArt} from './diceShatterArt';
+import type {ShatterWorld} from './diceShatterPhysics';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -703,6 +704,9 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     object: root,
     setRollResult(value:number|null|undefined,percentileValue?:number){power.setResult(value,percentileValue);},
     setReducedMotion(reduced:boolean){powerReduced=reduced;},
+    setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
+    prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
+    shatterLights(){return shatter?.lights()??[];},
     powerState(){return {...powerView,particles:powerArt?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
@@ -751,7 +755,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.rotation.value.setFromMatrix4(poseRotation.makeRotationFromQuaternion(root.quaternion));
       uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       powerArt?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
-      shatter?.update(now,powerView.maximum,powerView.age,powerReduced);
+      shatter?.update(now,powerView.maximum,powerView.age,powerReduced,camera);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean,percentileValue?:number){
       power.setResult(rolling||((tens||ones)&&percentileValue===undefined)?null:value,percentileValue);
@@ -774,7 +778,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.eye.value.copy(s.camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
       uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       powerArt?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
-      shatter?.update(now,powerView.maximum,powerView.age,powerReduced);
+      shatter?.update(now,powerView.maximum,powerView.age,powerReduced,s.camera);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);

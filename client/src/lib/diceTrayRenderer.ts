@@ -5,6 +5,7 @@ import {diePhysicalScale} from '../../../shared/diceTrayLayout';
 import type {DiceTheme} from '../../../shared/diceThemes';
 import {createDiceTrails} from './diceTrail';
 import {createWoodlandWake} from './diceWoodlandWake';
+import {createShatterWorld} from './diceShatterPhysics';
 
 export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean;mossAgate?:boolean;enchantedAmber?:boolean;woodlandWake?:boolean};
 
@@ -103,7 +104,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     // The standard shadow pass cannot transmit resin or discard this custom
     // inlay shader's empty areas. Keep its soft contact shadow instead of an
     // opaque silhouette cast by every numbered face.
-    h.object.traverse(child=>{if(child instanceof THREE.Mesh)child.castShadow=!child.userData.dicePowerArt&&!(dieTheme.id.startsWith('dm-')&&!d.crit);});scene.add(h.object);return h;});
+    h.object.traverse(child=>{if(child instanceof THREE.Mesh)child.castShadow=!!child.userData.shatterChunk||!child.userData.dicePowerArt&&!(dieTheme.id.startsWith('dm-')&&!d.crit);});scene.add(h.object);return h;});
   // Rings identify the result without tinting the player's material or hiding numerals.
   const rings=dice.map(d=>{
     const g=new THREE.RingGeometry(toss.radius*diePhysicalScale(d.sides)*1.12,toss.radius*diePhysicalScale(d.sides)*1.23,64);
@@ -135,7 +136,25 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const trails=appearance?.varisTrail?(appearance.woodlandWake?createWoodlandWake(scene,toss.radius,rangerIndices,trayScale):createDiceTrails(scene,toss.radius,rangerIndices,trayScale)):undefined;
   let activeCount=dice.length,liveResults:readonly (number|null)[]|undefined;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  const shatterWorld=dice.some((_,i)=>(dieThemes?.[i]??theme).id==='fighter')?createShatterWorld(toss.radius,trayScale):undefined;
+  const shatterProxies=shatterWorld?handles.map((h,i)=>{h.setShatterWorld(shatterWorld);return shatterWorld.addDieProxy(dice[i].sides,toss.radius*diePhysicalScale(dice[i].sides));}):[];
+  const lavaLights=Array.from({length:12},()=>new THREE.Vector4());
+  if(shatterWorld){
+    const previous=feltMaterial.onBeforeCompile;
+    feltMaterial.onBeforeCompile=(shader,renderer)=>{
+      previous.call(feltMaterial,shader,renderer);shader.uniforms.lavaLights={value:lavaLights};shader.uniforms.lavaRadius={value:toss.radius};
+      shader.vertexShader='varying vec3 lavaFloorPoint;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nlavaFloorPoint=(modelMatrix*vec4(transformed,1.)).xyz;');
+      shader.fragmentShader='varying vec3 lavaFloorPoint;uniform vec4 lavaLights[12];uniform float lavaRadius;\n'+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`vec3 moltenSpill=vec3(0.);
+        for(int k=0;k<12;k++){if(lavaLights[k].w>0.){vec3 d=(lavaFloorPoint-lavaLights[k].xyz)/lavaRadius;float falloff=.85*lavaLights[k].w/pow(1.+dot(d,d)*3.,2.);moltenSpill+=vec3(1.,.16,.008)*falloff;}}
+        outgoingLight+=diffuseColor.rgb*moltenSpill;
+        #include <opaque_fragment>`);
+    };
+    feltMaterial.customProgramCacheKey=()=>`ranger-${moteLights.length}-molten-spill-v1`;
+  }
   return {
+    setReviewZoom(zoom:number){camera.zoom=zoom;camera.updateProjectionMatrix();},
     setResults(values:readonly (number|null)[]){liveResults=values;},
     powerStates(){return handles.slice(0,activeCount).map(h=>h.powerState());},
     setActiveCount(count:number){activeCount=count;},
@@ -146,11 +165,12 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
       // textures and shadow passes before acknowledging readiness to the server.
       // This detached WebGL canvas is never shown during preparation.
       handles.forEach(h=>{h.object.position.set(0,0,toss.radius);h.updatePose(camera,performance.now());});
+      handles.forEach(h=>h.prewarmShatter(true));
       const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
       stage.renderer.setSize(rw,rh,false);
       const previousShadows=stage.renderer.shadowMap.enabled;stage.renderer.shadowMap.enabled=true;
       try {await stage.renderer.compileAsync(scene,camera);stage.renderer.render(scene,camera);}
-      finally {stage.renderer.shadowMap.enabled=previousShadows;}
+      finally {stage.renderer.shadowMap.enabled=previousShadows;handles.forEach(h=>h.prewarmShatter(false));}
     },
     setKeptSet(set:number|undefined){keptSet=set;rings.forEach((ring,i)=>(ring.material as THREE.MeshBasicMaterial).color.set(dice[i].set===set?0x39ef87:0xff5365));},
     numberPosition(index:number){
@@ -159,6 +179,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
       return {x:(point.x+1)/2,y:(1-point.y)/2};
     },
     draw(ctx:CanvasRenderingContext2D,width:number,height:number,dpr:number,elapsed:number,now:number){
+      shatterWorld?.advance(now);
       const frame=Math.min(toss.frameCount-1,elapsed/toss.step),i=Math.floor(frame),j=Math.min(i+1,toss.frameCount-1),t=frame-i;
       handles.forEach((h,k)=>{
         h.object.visible=k<activeCount;shadows[k].visible=k<activeCount;
@@ -173,6 +194,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         h.setRollResult((die.tens||die.ones)&&percentile===undefined?null:value, value==null?undefined:percentile);
         h.setReducedMotion(reduced.matches);h.updatePose(camera,now);
         shadows[k].visible=!h.powerState().broken;
+        const proxy=shatterProxies[k];if(proxy){proxy.position.set(h.object.position.x,h.object.position.y,h.object.position.z);proxy.quaternion.set(h.object.quaternion.x,h.object.quaternion.y,h.object.quaternion.z,h.object.quaternion.w);proxy.collisionFilterMask=h.powerState().broken?0:12;proxy.aabbNeedsUpdate=true;}
         const ring=rings[k];ring.visible=keptSet!==undefined&&elapsed>=toss.duration;ring.position.set(h.object.position.x,h.object.position.y,.015);
         const shadow=shadows[k];shadow.position.set(h.object.position.x,h.object.position.y,.006);
         const dieRadius=toss.radius*diePhysicalScale(dice[k].sides);
@@ -180,6 +202,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         shadow.scale.setScalar(dieRadius*(1.0+clearance*.18));(shadow.material as THREE.MeshBasicMaterial).opacity=Math.max(.15,.9-clearance*.18);
       });
       rangerIndices.forEach((index,k)=>handles[index].innerLightPosition(moteLights[k]));
+      if(shatterWorld){const sources=handles.flatMap(h=>h.shatterLights()).filter(p=>p.w>0);lavaLights.forEach((p,i)=>{const source=sources.length<=12?sources[i]:sources[Math.floor(i*sources.length/12)];if(source)p.copy(source);else p.set(0,0,0,0);});}
       trails?.update(handles.map(h=>h.object),now);
       const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
       if(stage.renderer.domElement.width!==rw||stage.renderer.domElement.height!==rh)stage.renderer.setSize(rw,rh,false);
@@ -187,6 +210,6 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
       stage.renderer.render(scene,camera);stage.renderer.shadowMap.enabled=previousShadows;
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ctx.drawImage(stage.renderer.domElement,0,0,width,height);
     },
-    dispose(){trails?.dispose();light.shadow.dispose();handles.forEach(h=>h.dispose());geometry.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());scene.clear();}
+    dispose(){trails?.dispose();light.shadow.dispose();handles.forEach(h=>h.dispose());shatterWorld?.dispose();geometry.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());scene.clear();}
   };
 }
