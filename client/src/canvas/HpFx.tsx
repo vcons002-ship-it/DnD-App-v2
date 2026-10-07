@@ -372,24 +372,21 @@ function BurstFx({
   );
 }
 
-/** Readable type/source feedback with a full-opacity hold, then a gentle fade. */
-function FloaterText({number,position,fontSize}:{number:HpNumber;position:HpNumberPosition;fontSize:number}) {
+/** Colored numbers float above their creature, hold, then gently fade. */
+function FloaterText({number,position,fontSize,rise}:{number:HpNumber;position:HpNumberPosition;fontSize:number;rise:number}) {
   const group=useRef<Konva.Group>(null);
   useEffect(()=>{
     const node=group.current;if(!node)return;
-    const drift=new Konva.Tween({node,y:position.y-fontSize*1.1,duration:(HP_NUMBER_HOLD_MS+HP_NUMBER_FADE_MS)/1000,easing:Konva.Easings.Linear});
+    const drift=new Konva.Tween({node,y:position.y-rise,duration:(HP_NUMBER_HOLD_MS+HP_NUMBER_FADE_MS)/1000,easing:Konva.Easings.EaseOut});
     let fade:Konva.Tween|undefined;
     const timer=setTimeout(()=>{fade=new Konva.Tween({node,opacity:0,duration:HP_NUMBER_FADE_MS/1000,easing:Konva.Easings.EaseIn});fade.play();},HP_NUMBER_HOLD_MS);
     drift.play();return()=>{clearTimeout(timer);drift.destroy();fade?.destroy();};
   },[]);
-  const width=fontSize*5.2;
+  const width=fontSize*3;
   return <Group ref={group} x={position.x} y={position.y} listening={false}>
     <Text name="hp-floater-number" text={`${number.delta>0?'+':'\u2212'}${Math.abs(number.delta)}`}
       fontSize={fontSize} fontStyle="bold" fill={number.color} stroke="#08090d" strokeWidth={Math.max(1.5,fontSize*.09)} fillAfterStrokeEnabled
       shadowColor="#000" shadowBlur={5} shadowOpacity={.9} align="center" width={width} offsetX={width/2} listening={false}/>
-    <Text name="hp-floater-label" text={number.label} y={fontSize*1.12} fontSize={Math.max(10,fontSize*.36)}
-      fontStyle="bold" fill={number.color} stroke="#08090d" strokeWidth={1.8} fillAfterStrokeEnabled
-      shadowColor="#000" shadowBlur={4} shadowOpacity={1} align="center" width={width} offsetX={width/2} listening={false}/>
   </Group>;
 }
 
@@ -411,7 +408,7 @@ export const HpFxLayer = memo(function HpFxLayer({
   const fontSize=Math.max(16,gridSizePx*.5);
   const numbers=floaters.flatMap(f=>{
     const token=tokens.find(t=>t.kind===f.kind&&t.refId===f.refId);if(!token)return [];
-    return hpNumbers(f).map((number,i)=>({id:`${f.id}:${i}`,number,x:token.x,
+    return hpNumbers(f).map((number,i)=>({id:`${f.id}:${i}`,target:`${f.kind}:${f.refId}`,number,x:token.x,rise:token.widthFt*pxPerFoot*.9,
       y:token.y-token.widthFt*pxPerFoot/2-fontSize*.4}));
   });
   const positions=placeHpNumbers(numbers,fontSize,cachedPositions.current);
@@ -422,6 +419,6 @@ export const HpFxLayer = memo(function HpFxLayer({
       const token=tokens.find(t=>t.kind===f.kind&&t.refId===f.refId);
       return token?<Group key={`burst:${f.id}`} listening={false}><BurstFx floater={f} token={token} pxPerFoot={pxPerFoot} spellEffects3D={spellEffects3D}/></Group>:null;
     })}
-    {numbers.map(item=><FloaterText key={item.id} number={item.number} position={positions.get(item.id)!} fontSize={fontSize}/>)}
+    {numbers.map(item=><FloaterText key={item.id} number={item.number} position={positions.get(item.id)!} fontSize={fontSize} rise={item.rise}/>)}
   </>;
 });

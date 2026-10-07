@@ -142,6 +142,9 @@ for (const scenario of [
     if (scenario.mark) {
       const together = samples.find((s: any) => new Set(s.numbers.map((n: any) => n.color)).size >= 3);
       expect(together, 'Bow, force mark, and piercing thorns have three distinct colors').toBeTruthy();
+      expect(together.numbers.every((n: any) => Math.min(Math.abs(n.x-650),Math.abs(n.x-690)) <= 32*.4+.01),
+        'Damage stays above its creature instead of spreading across the map').toBe(true);
+      expect(await page.evaluate(() => ((window as any).Konva?.stages??[]).flatMap((stage:any)=>stage.find('.hp-floater-label')).length)).toBe(0);
       const start = samples.find((s: any) => s.fx > 0).time;
       expect(samples.find((s: any) => s.time >= start + 2100)?.numbers.every((n: any) => n.opacity > .95)).toBe(true);
       expect(samples.find((s: any) => s.time >= start + 3000)?.fx).toBeGreaterThan(0);

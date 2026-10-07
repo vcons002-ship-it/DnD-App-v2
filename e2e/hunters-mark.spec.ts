@@ -166,7 +166,9 @@ for (const className of ['Fighter', 'Ranger', 'Sorcerer']) test(`Hunter mark cas
         const feedback=await page.evaluate(()=> (window as any).Konva.stages.flatMap((stage:any)=>stage.find('.hp-floater-number').map((node:any)=>({color:node.fill(),x:node.getParent().x(),y:node.getParent().y()}))));
         expect(feedback).toHaveLength(2);
         expect(new Set(feedback.map((n:any)=>n.color)).size).toBe(2);
-        expect(Math.hypot(feedback[0].x-feedback[1].x,feedback[0].y-feedback[1].y)).toBeGreaterThan(30);
+        expect(Math.abs(feedback[0].x-feedback[1].x)).toBeLessThanOrEqual(20);
+        expect(Math.abs(feedback[0].y-feedback[1].y)).toBeGreaterThan(15);
+        expect(Math.abs(feedback[0].y-feedback[1].y)).toBeLessThan(60);
         expect((await f.snapshot()).rollLog.find(r=>r.id===roll.id)?.pending?.amount).toBe(damage.total);
         await f.dismissReveal(damage.id);
         return;

@@ -8,8 +8,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 - [x] Floating HP feedback separates defended damage components by type and
   source: physical bow damage, violet Hunter's Mark force damage, and green
-  Hail of Thorns piercing damage get distinct labels/colors and non-overlapping
-  positions. Numbers hold at full opacity for 2.4 seconds and fade over 1.6
+  Hail of Thorns piercing damage get distinct colors with small token-local
+  offsets and the original upward float, without captions or map-wide spacing.
+  Numbers hold at full opacity for 2.4 seconds and fade over 1.6
   seconds. Combined hits still apply HP/death/concentration once; mixed save
   spells preserve per-type resistance and save reductions in their breakdown.
 

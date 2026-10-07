@@ -17,13 +17,19 @@ describe('typed floating damage feedback',()=>{
   expect(hpNumbers({kind:'pc',refId:'p',delta:-5,damageParts:[{amount:3,damageType:'piercing'},{amount:2,damageType:'piercing'}]})).toHaveLength(1);
   expect(hpNumbers({kind:'pc',refId:'p',delta:-9,damageParts:[{amount:5}]}).map(n=>n.delta)).toEqual([-9]);
  });
- it('keeps nearby AoE numbers separated and preserves older positions when others expire',()=>{
-  const items=Array.from({length:12},(_,i)=>({id:String(i),x:100+i%3*30,y:100}));
+ it('keeps damage close to its own token, even in a crowded AoE, and retains live slots',()=>{
+  const items=Array.from({length:12},(_,i)=>({id:String(i),target:String(Math.floor(i/3)),x:100+Math.floor(i/3)*30,y:100}));
   const positions=placeHpNumbers(items,24,new Map());
-  for(const [id,a] of positions)for(const [other,b] of positions)if(id!==other)
-    expect(Math.abs(a.x-b.x)>=24*5.4||Math.abs(a.y-b.y)>=24*3).toBe(true);
+  for(const item of items){
+    const p=positions.get(item.id)!;
+    expect(Math.abs(p.x-item.x)).toBeLessThanOrEqual(24*.4);
+    expect(item.y-p.y).toBeLessThanOrEqual(24*2.1);
+  }
+  for(let i=0;i<12;i+=3)expect(new Set(items.slice(i,i+3).map(item=>positions.get(item.id)!.x)).size).toBe(3);
   const remaining=placeHpNumbers(items.slice(4),24,positions);
   for(const [id,p] of remaining)expect(p).toEqual(positions.get(id));
+  const moved=placeHpNumbers(items.map(item=>({...item,x:item.x+50})),24,positions);
+  for(const [id,p] of moved)expect(p.x).toBe(positions.get(id)!.x+50);
  });
  it('transmits only additive defended damage parts and applies temp HP/overkill once',()=>{
   const s=createSession('Damage component feedback'),c=createCharacter(s.id,{name:'Hero',maxHp:8});

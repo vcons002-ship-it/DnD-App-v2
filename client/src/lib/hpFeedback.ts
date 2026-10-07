@@ -28,24 +28,22 @@ export function hpNumbers(event:HpFxEvent):HpNumber[]{
   });
 }
 
-export type HpNumberPosition={x:number;y:number};
-/** Keep each live label in its own space, including adjacent AoE victims.
- * Existing positions stay fixed while later feedback arrives or expires. */
-export function placeHpNumbers(items:{id:string;x:number;y:number}[],fontSize:number,
+export type HpNumberPosition={x:number;y:number;slot:number};
+/** Small, token-local offsets. Nearby victims never push feedback away from
+ * its own creature; live numbers keep their slot as earlier hits expire. */
+export function placeHpNumbers(items:{id:string;target:string;x:number;y:number}[],fontSize:number,
   previous:ReadonlyMap<string,HpNumberPosition>):Map<string,HpNumberPosition>{
-  const positions=new Map<string,HpNumberPosition>(),active=new Set(items.map(i=>i.id));
-  for(const [id,p] of previous)if(active.has(id))positions.set(id,p);
-  const width=fontSize*5.4,height=fontSize*3;
+  const positions=new Map<string,HpNumberPosition>(),slots=new Map<string,Set<number>>();
   for(const item of items){
-    if(positions.has(item.id))continue;
-    let position={x:item.x,y:item.y};
-    outer:for(let row=0;row<40;row++)for(const col of [0,-1,1,-2,2]){
-      const candidate={x:item.x+col*width,y:item.y-row*height};
-      if([...positions.values()].every(p=>Math.abs(p.x-candidate.x)>=width||Math.abs(p.y-candidate.y)>=height)){
-        position=candidate;break outer;
-      }
-    }
-    positions.set(item.id,position);
+    const used=slots.get(item.target)??new Set<number>();slots.set(item.target,used);
+    const old=previous.get(item.id);if(old)used.add(old.slot);
+  }
+  for(const item of items){
+    const used=slots.get(item.target)!;
+    let slot=previous.get(item.id)?.slot??0;
+    if(!previous.has(item.id)){while(used.has(slot))slot++;used.add(slot);}
+    positions.set(item.id,{slot,x:item.x+[0,-.4,.4][slot%3]*fontSize,
+      y:item.y-slot*fontSize*1.05});
   }
   return positions;
 }
