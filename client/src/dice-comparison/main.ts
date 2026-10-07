@@ -59,6 +59,7 @@ async function roll(next=sides){
   if(current!==epoch||!renderer||!world||!toss)return;
   const snapshot=done?world.snapshot():world.advance(Math.min(.04,Math.max(.001,(now-last)/1000))*LIVE_DICE_PRESENTATION_RATE);last=now;
   toss.frames.set(snapshot.poses);
+  renderer.setResults(snapshot.values);
   const r=tray.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,1.5);
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
   renderer.draw(ctx,r.width,r.height,dpr,0,now);

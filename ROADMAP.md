@@ -1,5 +1,9 @@
 # Roadmap & Feature Backlog
 
+## Character roll-strength art - October 2026
+
+- [x] Druk lava fissures and heat, Vanec discharge frequency, and Varis mote illumination scale with each confirmed natural face on d20 and all damage dice. Maximum rolls erupt molten droplets, sustain Tesla-like lightning, or release soft light streams. Live/playback/standalone dice share the treatment, including percentile pairs and gold critical dice; repeated frames cannot retrigger bursts and reduced motion omits maximum geometry. `/dice-power.html` compares labeled sample values. See `docs/DICE_ROLL_POWER.md`.
+
 Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.

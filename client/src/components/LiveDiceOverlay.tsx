@@ -109,7 +109,8 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
      const oldPose=reset?b.frame.poses:a.frame.poses;
      toss.frames.set(viewPose(b.frame.poses),0);toss.frames.set(viewPose(oldPose),0);
      toss.frames.set(viewPose(b.frame.poses),capacity*7);
-     renderer!.setActiveCount(b.frame.sides.length);
+      renderer!.setActiveCount(b.frame.sides.length);
+      renderer!.setResults(b.frame.values);
      if(!b.frame.done){resultsStartedAt=undefined;finalTrayDrawn=false;}
      const alpha=reset||a===b?1:Math.max(0,Math.min(1,(target-a.at)/(b.at-a.at)));
      const width=node.clientWidth||600,height=width*10.2/15.2,dpr=Math.min(2,devicePixelRatio||1);
@@ -119,7 +120,8 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
      if(!reduced){
        // Settled poses stay fixed, but resin, lightning, motes and lava remain
        // live while numbers fly and during the final reading hold.
-       renderer!.draw(ctx,width,height,dpr,alpha,now);
+        renderer!.draw(ctx,width,height,dpr,alpha,now);
+        node.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles})));
        node.dataset.physicsElapsed=String(a.frame.elapsed+(b.frame.elapsed-a.frame.elapsed)*alpha);
        node.dataset.renderTime=String(now);
        finalTrayDrawn=b.frame.done&&alpha===1;

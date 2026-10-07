@@ -103,7 +103,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     // The standard shadow pass cannot transmit resin or discard this custom
     // inlay shader's empty areas. Keep its soft contact shadow instead of an
     // opaque silhouette cast by every numbered face.
-    h.object.traverse(child=>{if(child instanceof THREE.Mesh)child.castShadow=!(dieTheme.id.startsWith('dm-')&&!d.crit);});scene.add(h.object);return h;});
+    h.object.traverse(child=>{if(child instanceof THREE.Mesh)child.castShadow=!child.userData.dicePowerArt&&!(dieTheme.id.startsWith('dm-')&&!d.crit);});scene.add(h.object);return h;});
   // Rings identify the result without tinting the player's material or hiding numerals.
   const rings=dice.map(d=>{
     const g=new THREE.RingGeometry(toss.radius*diePhysicalScale(d.sides)*1.12,toss.radius*diePhysicalScale(d.sides)*1.23,64);
@@ -133,8 +133,11 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     feltMaterial.customProgramCacheKey=()=>`ranger-mote-floor-${moteLights.length}`;
   }
   const trails=appearance?.varisTrail?(appearance.woodlandWake?createWoodlandWake(scene,toss.radius,rangerIndices,trayScale):createDiceTrails(scene,toss.radius,rangerIndices,trayScale)):undefined;
-  let activeCount=dice.length;
+  let activeCount=dice.length,liveResults:readonly (number|null)[]|undefined;
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   return {
+    setResults(values:readonly (number|null)[]){liveResults=values;},
+    powerStates(){return handles.slice(0,activeCount).map(h=>h.powerState());},
     setActiveCount(count:number){activeCount=count;},
     trailPointCount(){return trails?.pointCount()??0;},
     trailBranchCount(){return trails?.branchCount()??0;},
@@ -162,7 +165,13 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         if(k>=activeCount){rings[k].visible=false;return;}
         const x=(i*dice.length+k)*7,y=(j*dice.length+k)*7,f=toss.frames;
         h.object.position.set(THREE.MathUtils.lerp(f[x],f[y],t),THREE.MathUtils.lerp(f[x+1],f[y+1],t),THREE.MathUtils.lerp(f[x+2],f[y+2],t));
-        a.fromArray(f,x+3);b.fromArray(f,y+3);h.object.quaternion.slerpQuaternions(a,b,t);h.updatePose(camera,now);
+        a.fromArray(f,x+3);b.fromArray(f,y+3);h.object.quaternion.slerpQuaternions(a,b,t);
+        const die=dice[k];
+        const value=liveResults?liveResults[k]:elapsed>=(toss.settleTimes[k]??toss.duration)?die.value:null;
+        const tensIndex=die.tens?k:k-1,tens=liveResults?.[tensIndex],ones=liveResults?.[tensIndex+1];
+        const percentile=liveResults&& (die.tens||die.ones)?tens!=null&&ones!=null?((tens-1)*10+ones-1)||100:undefined:die.percentileValue;
+        h.setRollResult((die.tens||die.ones)&&percentile===undefined?null:value, value==null?undefined:percentile);
+        h.setReducedMotion(reduced.matches);h.updatePose(camera,now);
         const ring=rings[k];ring.visible=keptSet!==undefined&&elapsed>=toss.duration;ring.position.set(h.object.position.x,h.object.position.y,.015);
         const shadow=shadows[k];shadow.position.set(h.object.position.x,h.object.position.y,.006);
         const dieRadius=toss.radius*diePhysicalScale(dice[k].sides);

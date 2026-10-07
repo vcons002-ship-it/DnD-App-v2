@@ -44,6 +44,7 @@ const MeshDie = memo(function MeshDie({
   crit,
   tens,
   percentileOnes,
+  percentileValue,
   onSettled,
 }: {
   sides: number;
@@ -53,13 +54,14 @@ const MeshDie = memo(function MeshDie({
   crit?: boolean;
   tens?: boolean;
   percentileOnes?: boolean;
+  percentileValue?: number;
   onSettled?: () => void;
 }) {
   const theme = useContext(DiceThemeContext);
-  const movingResin = theme.id === 'sorcerer' || theme.id.startsWith('dm-') && !crit;
+  const movingResin = ['sorcerer','ranger','fighter'].includes(theme.id) || theme.id.startsWith('dm-') && !crit;
   const ref = useRef<HTMLCanvasElement>(null);
-  const state = useRef({ value, rolling });
-  state.current = { value, rolling };
+  const state = useRef({ value, rolling, percentileValue });
+  state.current = { value, rolling, percentileValue };
   const settledCallback = useRef(onSettled);
   settledCallback.current = onSettled;
   const repaint = useRef<() => void>();
@@ -113,8 +115,9 @@ const MeshDie = memo(function MeshDie({
       // Do not paint the legacy die or report a landing while the GPU renderer
       // loads. Fallback is reserved for an actual import/WebGL failure.
       if (materialPending) return;
-      // GPU dice target 60 fps (with RAF timing tolerance); settled clouds stay at 10 fps.
-      if (now - prev < (!state.current.rolling && materialDie && movingResin && !wasRolling && now - settledAt >= 360 ? 100 : materialDie ? 15 : 32)) {
+      // Keep eruptions and light streams fluid during settled result holds;
+      // ordinary DM clouds retain their inexpensive 10 fps standalone refresh.
+      if (now - prev < (!state.current.rolling && materialDie && movingResin && !wasRolling && now - settledAt >= 360 ? theme.id.startsWith('dm-')?100:30 : materialDie ? 15 : 32)) {
         frame = requestAnimationFrame(draw);
         return;
       }
@@ -149,7 +152,8 @@ const MeshDie = memo(function MeshDie({
       };
       if (materialDie) {
         canvas.dataset.material = theme.id.startsWith('dm-') && !crit ? 'purple-resin' : theme.id === 'sorcerer' ? 'volumetric-glass' : theme.id === 'fighter' ? 'obsidian-gold' : theme.id === 'ranger' ? 'forest-resin' : 'physical-metal';
-        materialDie.draw(ctx,size,dpr,angles,state.current.value,now,rolling);
+        materialDie.setReducedMotion(reduced.matches);
+        materialDie.draw(ctx,size,dpr,angles,state.current.value,now,rolling,state.current.percentileValue);
       } else {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size, size);
@@ -358,8 +362,8 @@ export function ThreeDie(props: {
         className="percentile-pair"
         aria-label={`Percentile roll: ${props.rolling ? 'rolling' : props.value}`}
       >
-        <MeshDie {...props} sides={10} value={tens} tens onSettled={() => percentileSettled('tens')} />
-        <MeshDie {...props} sides={10} value={ones} percentileOnes onSettled={() => percentileSettled('ones')} />
+        <MeshDie {...props} sides={10} value={tens} tens percentileValue={props.value} onSettled={() => percentileSettled('tens')} />
+        <MeshDie {...props} sides={10} value={ones} percentileOnes percentileValue={props.value} onSettled={() => percentileSettled('ones')} />
       </span>
     );
   }

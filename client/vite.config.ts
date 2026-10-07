@@ -15,7 +15,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      input: ['index.html', 'dice-comparison.html', 'dice-models.html'],
+      input: ['index.html', 'dice-comparison.html', 'dice-models.html', 'dice-power.html'],
       output: {
         // Split the heavy vendors into their own chunks so the main bundle
         // stays under Vite's 500 kB warning and the libs cache/parallel-load.
