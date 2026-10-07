@@ -6,6 +6,21 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Cure Wounds, Hail of Thorns and other map impacts wait for the live tray
+  and modifier/result sequences, then paint the compact card before playing
+  healing/damage effects. Healing audio and effect lifetimes start on display.
+  Dice materials, critical variants and tray textures preload in the background
+  for the claimed character and DM, with a bounded resident shader cache.
+  Cold dice loading now has a visible loading state and a 15-second readiness
+  grace rather than launching after 2.5 seconds; disconnects release the wait.
+  Settled dice continue material animations during number flights and remain
+  visible for two seconds after the final result fills; the server shares that
+  presentation timing. Browser regressions cover both spells, skipping, delayed
+  readiness, preload reuse and animation/reading time after settling. Click/tap
+  the tray, Skip, or Escape at any time to hide it; an owner skip bypasses the
+  remaining reading hold while server physics/outcomes continue unchanged.
+
+
 - [x] d10/d20 are 12% larger in both rendering and physical contacts; launch
   spacing accommodates the larger dice. Tray key lighting moves to the side
   for readable top faces. Varis mote is veiled by foreground resin/inclusions.

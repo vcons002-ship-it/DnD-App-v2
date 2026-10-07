@@ -1,3 +1,4 @@
+import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS} from '../../shared/dicePresentationTiming.js';
 import {createSession,createCharacter,createMap,setActiveMap,createToken,createMonsterTemplate,instantiateMonster,setManualDamage,listRollLog,getMonster,getRollEntry,getCharacter} from './sessions.js';
 import {resolveAttack,resolveAttackDamage,resolveSmite} from './combat.js';
 import {buildSnapshot} from './visibility.js';
@@ -28,14 +29,15 @@ it('groups mixed normal and crit damage without doubling flat modifiers',()=>{
  expect(()=>withDiceSource(()=>[1],()=>rollDicePool([{expr:'2d6'}]))).toThrow('Invalid authoritative');
 });
 it('streams normal and gold critical dice together in the same live world',async()=>{
- const frames:any[]=[];
- const values=await physicalFaces([6,6,6,6],f=>frames.push(f),{label:'Critical damage',roller:'Druk',className:'Fighter'},42,
+ const frames:any[]=[];let settledAt=0;
+ const values=await physicalFaces([6,6,6,6],f=>{frames.push(f);if(f.done)settledAt=performance.now();},{label:'Critical damage',roller:'Druk',className:'Fighter'},42,
   {expr:'2d6+2d6',criticalDice:[false,false,true,true]});
  expect(new Set(frames.map(f=>f.id)).size).toBe(1);
  expect(frames[0].sides).toEqual([6,6,6,6]);
  expect(frames[0].values).toEqual([null,null,null,null]);
  expect(frames.every(f=>JSON.stringify(f.critical)==='[false,false,true,true]')).toBe(true);
  expect(frames.at(-1).values).toEqual(values);
+ expect(performance.now()-settledAt).toBeGreaterThanOrEqual(DIE_REVEAL_MS+LIVE_DICE_RESULT_HOLD_MS);
 },20000);
 
 it('a monster saving against a player spell uses DM dice instead of the caster class',async()=>{

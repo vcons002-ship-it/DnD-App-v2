@@ -36,3 +36,54 @@ test('shared live faces, private rolls, percentile dice and server completion af
  const final=(await snap(replacement)).rollLog.filter((r:any)=>r.label==='Disconnect completion');expect(final).toHaveLength(1);expect(final[0].reveal.physical).toBe(true);
  } finally {sockets.forEach(s=>s.disconnect());}
 });
+
+test('a slow first tray load does not consume the visible toss', async ({request}) => {
+ test.setTimeout(45000);
+ const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Cold dice readiness'}})).json();
+ const socket=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});
+ try {
+  const joined=await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});
+  expect(joined.ok).toBe(true);
+  const frames:any[]=[];
+  socket.on('dice:frame',frame=>frames.push(frame));
+  socket.emit('dice:roll',{expr:'1d6',label:'Cold tray'});
+  await expect.poll(()=>frames.length,{timeout:5000}).toBeGreaterThan(0);
+  // The previous 2.5-second timeout launched here before graphics were ready.
+  await new Promise(resolve=>setTimeout(resolve,4000));
+  expect(frames.every(frame=>frame.elapsed===0&&frame.values.every((v:any)=>v===null))).toBe(true);
+  const first=frames[0];
+  socket.emit('dice:ready',{id:first.id});
+  await expect.poll(()=>frames.some(frame=>frame.elapsed>0),{timeout:3000}).toBe(true);
+  expect(frames.find(frame=>frame.elapsed>0).elapsed).toBeLessThan(.15);
+  await expect.poll(()=>frames.some(frame=>frame.done),{timeout:20000}).toBe(true);
+ } finally { socket.disconnect(); }
+});
+
+test('skipping releases presentation only and cannot hurry another player\'s roll', async ({request}) => {
+ test.setTimeout(45000);
+ const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Skip live dice'}})).json();
+ const owner=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});
+ const observer=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});
+ try {
+  for(const socket of [owner,observer]) expect((await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET})).ok).toBe(true);
+  const frames:any[]=[];let finished=false;
+  owner.on('dice:frame',frame=>frames.push(frame));owner.on('dice:finished',()=>{finished=true;});
+  owner.emit('dice:roll',{expr:'1d6',label:'Skip physics contract'});
+  await expect.poll(()=>frames.length).toBeGreaterThan(0);
+  const id=frames[0].id;
+  observer.emit('dice:skip',{id});
+  await new Promise(resolve=>setTimeout(resolve,350));
+  expect(frames.every(frame=>frame.elapsed===0)).toBe(true);
+  owner.emit('dice:ready',{id});
+  await expect.poll(()=>frames.some(frame=>frame.done),{timeout:20000}).toBe(true);
+  // An observer cannot cut the owner's result-reading hold short either.
+  observer.emit('dice:skip',{id});
+  await new Promise(resolve=>setTimeout(resolve,350));expect(finished).toBe(false);
+  owner.emit('dice:skip',{id});
+  await expect.poll(()=>finished,{timeout:1500}).toBe(true);
+  const joined=await owner.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});
+  const entries=joined.snapshot.rollLog.filter((r:any)=>r.label==='Skip physics contract');
+  expect(entries).toHaveLength(1);expect(entries[0].total).toBe(frames.findLast(frame=>frame.done).values[0]);
+  expect(entries[0].reveal.physical).toBe(true);
+ } finally {owner.disconnect();observer.disconnect();}
+});

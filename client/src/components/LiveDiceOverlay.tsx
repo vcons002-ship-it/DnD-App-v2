@@ -1,3 +1,4 @@
+import {DIE_REVEAL_STAGGER_MS} from '../../../shared/dicePresentationTiming';
 import {diceFlightPoint,diceFlightKeyframes,DIE_FLASH_MS,DIE_REVEAL_MS} from '../lib/diceFlightPosition';
 import {useEffect,useRef,useState,type CSSProperties} from 'react';
 import {useStore} from '../state/socket';
@@ -14,6 +15,12 @@ import {metresPerUnitFor} from '../../../shared/diceImpacts';
  * face reassignment, trajectory retry, or client-generated result. */
 export function LiveDiceOverlay(){
  const frame=useStore(s=>s.liveDice)!;
+ const skip=useStore(s=>s.skipLiveDice);
+ useEffect(()=>{
+  const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape')skip();};
+  window.addEventListener('keydown',onKey);
+  return()=>window.removeEventListener('keydown',onKey);
+ },[skip]);
  const canvas=useRef<HTMLCanvasElement>(null),root=useRef<HTMLDivElement>(null);
  const boxes=useRef<(HTMLSpanElement|null)[]>([]),flights=useRef<(HTMLSpanElement|null)[]>([]);
  const saveLabels=useRef<(HTMLSpanElement|null)[]>([]);
@@ -64,7 +71,13 @@ export function LiveDiceOverlay(){
   });
   const toss:Toss={settleTimes:[],wallHits:0,frames:new Float32Array(frame.sides.length*14),frameCount:2,step:1,radius:frame.radius,trayScale:frame.trayScale,topFaces:frame.sides.map(()=>0),duration:1};
   void (async()=>{
-   const module=await import('../lib/diceTrayRenderer');const art=await module.loadTrayTexture(theme.id);
+   const module=await import('../lib/diceTrayRenderer');
+   // A background compile already in progress shares this WebGL renderer. Finish
+   // it before preparing/drawing the live tray, while server physics is paused.
+   await module.waitForDiceGraphics();
+   if(stopped)return;
+   root.current!.dataset.dicePreloaded=String(module.diceGraphicsPreloaded(theme.id));
+   const art=await module.loadTrayTexture(theme.id);
    if(stopped){art?.dispose();return;}
    renderer=module.createTrayRenderer(frame.sides.map((sides,index)=>({sides,value:1,index,set:frame.sets[index],crit:frame.critical[index],tens:frame.percentile[index]==='tens',ones:frame.percentile[index]==='ones'})),toss,theme,undefined,art,true);
    const node=canvas.current!,ctx=node.getContext('2d')!;
@@ -89,7 +102,14 @@ export function LiveDiceOverlay(){
      if(node.width!==Math.round(width*dpr)){node.width=Math.round(width*dpr);node.height=Math.round(height*dpr);}
      renderer!.setKeptSet(b.frame.done?b.frame.kept:undefined);
      const finalWasDrawn=finalTrayDrawn;
-     if(!reduced&&!finalTrayDrawn){renderer!.draw(ctx,width,height,dpr,alpha,now);node.dataset.physicsElapsed=String(a.frame.elapsed+(b.frame.elapsed-a.frame.elapsed)*alpha);finalTrayDrawn=b.frame.done&&alpha===1;}
+     if(!reduced){
+       // Settled poses stay fixed, but resin, lightning, motes and lava remain
+       // live while numbers fly and during the final reading hold.
+       renderer!.draw(ctx,width,height,dpr,alpha,now);
+       node.dataset.physicsElapsed=String(a.frame.elapsed+(b.frame.elapsed-a.frame.elapsed)*alpha);
+       node.dataset.renderTime=String(now);
+       finalTrayDrawn=b.frame.done&&alpha===1;
+     }
      if(b.frame.saveDice){
        const rect=root.current!.getBoundingClientRect(),c=node.getBoundingClientRect();
        saveLabels.current.forEach((el,i)=>{if(!el)return;const p=renderer!.numberPosition(i),pos=diceFlightPoint(rect,root.current!.clientWidth,c.left+p.x*c.width,c.top+p.y*c.height);el.style.left=`${pos.x}px`;el.style.top=`${pos.y-25}px`;});
@@ -102,7 +122,7 @@ export function LiveDiceOverlay(){
        const elapsedSinceDone=now-resultsStartedAt;
        launched.forEach((at,i)=>{const flight=flights.current[i];if(flight?.dataset.phase==='flash'&&now-at>=DIE_FLASH_MS)flight.dataset.phase='flying';});
        b.frame.values.forEach((_,i)=>{
-         if(launched.has(i)||elapsedSinceDone<i*80)return;
+         if(launched.has(i)||elapsedSinceDone<i*DIE_REVEAL_STAGGER_MS)return;
          launched.set(i,now);
          const flight=flights.current[i],box=boxes.current[i];
          if(reduced||!flight||!box){setArrived(old=>[...old,i]);return;}
@@ -146,7 +166,7 @@ export function LiveDiceOverlay(){
   const strength=dieResultEmphasis(liveDieResult(frame,i));
   return {'--roll-strength':strength,'--arrival-scale':1.12+strength*.5,'--arrival-glow':`${5+Math.pow(strength,3)*28}px`} as CSSProperties;
  };
- return <div className="roll-reveal-backdrop" data-live-dice="true" data-roll-id={frame.id}><div className="roll-reveal" role="status" aria-label="Live dice roll">
+ return <div className="roll-reveal-backdrop" data-live-dice="true" data-roll-id={frame.id}><div className="roll-reveal" role="status" aria-label="Live dice roll" onClick={skip} title="Click or tap to skip animation">
   <div className="roll-reveal-title">{frame.label}</div>
   <div className="roll-reveal-who">{frame.roller}{frame.target&&<span className="rr-arrow"> &rarr; {frame.target}</span>}</div>
   <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id.startsWith('dm-')?'purple-resin':theme.id} role="group" aria-label="Live dice tray">
@@ -156,6 +176,6 @@ export function LiveDiceOverlay(){
    <div className="tray-number-flights" aria-hidden="true">{frame.sides.map((_,i)=><span key={i} ref={el=>{flights.current[i]=el;}} style={resultStyle(i)} data-die-id={i} data-set={frame.sets[i]} data-strength={tier(i)} data-tone={frame.critical[i]?'critical':frame.done&&frame.mode?(frame.sets[i]===frame.kept?'kept':'discarded'):'normal'} className={`tray-flying-number${frame.critical[i]?' critical':''}`}><span className="tray-number-flash"/>{value(i)}</span>)}</div>
    <div className="dice-tray-results">{frame.sides.map((side,i)=><span ref={el=>{boxes.current[i]=el;}} className={`tray-die-result${frame.critical[i]?' critical':''}`} data-die-id={i} data-sides={side} data-value={frame.values[i]??undefined} data-set={frame.sets[i]} data-result={frame.done&&frame.mode?(frame.sets[i]===frame.kept?'kept':'discarded'):'rolling'} data-critical={!!frame.critical[i]} data-theme={theme.id} data-orientation={arrived.includes(i)||failed?'settled':'rolling'} aria-label={`d${side}: ${arrived.includes(i)||failed?value(i):'rolling'}`} data-filled={arrived.includes(i)||failed} data-strength={tier(i)} style={{...resultStyle(i),...(frame.done&&frame.mode?{borderColor:frame.sets[i]===frame.kept?'#39ef87':'#ff5365',boxShadow:`0 0 6px ${frame.sets[i]===frame.kept?'#39ef87':'#ff5365'}`} : {})}} key={i}>{frame.saveDice?.[i]&&<small className="tray-save-name">{frame.saveDice[i].label}</small>}{frame.percentile[i]?`d100 ${frame.percentile[i]}`:`d${side}`}<strong>{arrived.includes(i)||failed?value(i):'?'}</strong><small className="tray-max-label" style={{visibility:(arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i))?'visible':'hidden'}} aria-hidden={!((arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i)))}>{dieResultLabel(liveDieResult(frame,i))}</small>{frame.saveDice?.[i]&&saveBonus(i)}{frame.rerolls[i]>0&&<small>Rerolled {frame.rerolls[i]} times</small>}</span>)}</div>
   </div>
-  <div className="muted">{frame.done?'Dice settled':frame.rerolls.some(n=>n>0)?'Rerolling unreadable dice...':'Rolling...'}</div>
+  <div className="live-dice-footer"><span className="muted">{!prepared&&!failed?'Loading dice…':frame.done?'Dice settled':frame.rerolls.some(n=>n>0)?'Rerolling unreadable dice...':'Rolling...'}</span><button type="button" onClick={event=>{event.stopPropagation();skip();}} aria-label="Skip roll animation">Skip</button></div>
  </div></div>;
 }

@@ -1,3 +1,4 @@
+import {liveDiceResultWaitMs} from '../../shared/dicePresentationTiming.js';
 import {randomInt,randomUUID} from 'node:crypto';
 import {createLiveWorld} from '../../shared/liveDicePhysics.js';
 import {withDiceSource,rollDice,type PhysicalDiceInfo} from '../../shared/dice.js';
@@ -26,7 +27,7 @@ export function keptPhysicalSet(values:number[],info:PhysicalDiceInfo):number|un
   return info.advantage==='adv' ? (totals[0]>=totals[1]?0:1) : (totals[0]<=totals[1]?0:1);
 }
 
-type LiveRollMeta={label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;onFacing?:()=>void};
+type LiveRollMeta={label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void};
 
 export async function physicalFaces(
   sides:number[], publish:(frame:LiveDiceFrame)=>void,
@@ -34,7 +35,7 @@ export async function physicalFaces(
 ) {
   if(sides.some(s=>![4,6,8,10,12,20,100].includes(s)))
     throw new UnsupportedPhysicalDice('Live rolls support d4, d6, d8, d10, d12, d20 and d100. Choose one of these dice.');
-  const {ready,onFacing,...displayMeta}=meta;
+  const {ready,onFacing,waitForPresentation,...displayMeta}=meta;
   // A caster initiates these commands, but the saved creatures own the dice.
   // Batches containing NPC saves use the shared DM tray rather than the caster.
   if(info?.saveDice?.some(save=>save.target.kind==='monster')){
@@ -94,7 +95,9 @@ export async function physicalFaces(
       },1000/30);
     });
     // Allow the visible face-to-result animation to finish before publishing damage.
-    await new Promise(resolve=>setTimeout(resolve,1640+expanded.length*80+(info?.saveDice?1800:0)));
+    const readingMs=liveDiceResultWaitMs(expanded.length, !!info?.saveDice);
+    if(waitForPresentation)await waitForPresentation(id,readingMs);
+    else await new Promise(resolve=>setTimeout(resolve,readingMs));
     result.push(...decode(values)); offset+=logical.length;
   }
   return result;

@@ -308,10 +308,30 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       handler: (...args: unknown[]) => void,
     ) => void;
     const trayReady=new Map<string,()=>void>();
+    let activeDiceId:string|undefined,skipDicePresentation=false;
+    let finishDicePresentation:(()=>void)|undefined;
+    // Only the initiating connection may shorten its command's presentation.
+    // Observers can hide a tray locally, but cannot hurry another player's roll.
+    rawOn('dice:skip',(...args)=>{
+      const id=(args[0] as {id?:unknown})?.id;
+      if(typeof id!=='string'||id!==activeDiceId)return;
+      skipDicePresentation=true;trayReady.get(id)?.();finishDicePresentation?.();
+    });
     rawOn('dice:ready',(...args)=>{const id=(args[0] as {id?:unknown})?.id;if(typeof id==='string')trayReady.get(id)?.();});
     const prepareTray=(id:string)=>new Promise<void>(resolve=>{
+      activeDiceId=id;
+      if(skipDicePresentation||!socket.connected){resolve();return;}
       const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
-      const timer=setTimeout(finish,2500);trayReady.set(id,finish);
+      // A cold shader/texture load can exceed 2.5 seconds. Keep the world at
+      // elapsed=0 until the initiating client has painted its first tray frame.
+      // Retain a bounded fallback for old/non-rendering clients; disconnects
+      // release immediately so an accepted roll still completes server-side.
+      const timer=setTimeout(finish,15000);trayReady.set(id,finish);
+    });
+    const waitForDicePresentation=(id:string,ms:number)=>new Promise<void>(resolve=>{
+      if(skipDicePresentation||!socket.connected){resolve();return;}
+      const finish=()=>{clearTimeout(timer);finishDicePresentation=undefined;resolve();};
+      const timer=setTimeout(finish,ms);finishDicePresentation=finish;
     });
     const commandDispatch=new Map<string,(...args:unknown[])=>void>();
     const domainHandlers=new Map<string,(payload:any)=>unknown>();
@@ -356,7 +376,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
               :payload?.kind==='monster'&&abilityOwner?getMonster(abilityOwner.id)
               :rolledToken?.kind==='monster'?getMonster(rolledToken.refId):undefined;
             const dmDice=!!npc || isDm()&&!actor;
-            const meta={dmDice,affinity:npc?.disposition,ready:prepareTray,onFacing:()=>broadcastSnapshots(io,sid),roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??actor?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
+            const meta={dmDice,affinity:npc?.disposition,ready:prepareTray,waitForPresentation:waitForDicePresentation,onFacing:()=>broadcastSnapshots(io,sid),roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??actor?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
             if(event==='combat:hitFeature')meta.label=actor?.sheetAbilities.find(a=>a.id===payload?.abilityId)?.name??meta.label;
             if(event==='death:roll')meta.label='Death Saving Throw';
             else if(event==='hitDice:spend')meta.label='Hit Dice';
@@ -386,6 +406,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
               return audienceCache.get(id)!;
             });
             const lastDelivered=new Map<string,string>();
+            skipDicePresentation=false;activeDiceId=undefined;
             try{
               await runLiveCommand(()=>{
                 const emit=socket.emit;
@@ -420,7 +441,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 if(info?.target&&!targetLabels.get(labelKey)&&getConn(id)?.role!=='dm')continue;
                 io.to(id).emit('dice:frame',{...frame,target:targetLabels.get(labelKey)});lastDelivered.set(id,frame.id);
               }},meta);
-            }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});}
+            }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});activeDiceId=undefined;skipDicePresentation=false;}
           },failed);
           return;
         }
@@ -2709,6 +2730,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     on('disconnect', () => {
+      for (const finish of trayReady.values()) finish();
+      finishDicePresentation?.();
       const sid = sessionId();
       const playerId = commandConnection()?.playerId ?? null;
       assistantInFlight.get(socket.id)?.abort(); // stop any in-flight LLM call

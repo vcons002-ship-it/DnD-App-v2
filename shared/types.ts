@@ -1728,6 +1728,7 @@ export type ServerError = { code: string; message: string };
 // Client -> Server event names.
 export interface ClientToServerEvents {
   'dice:ready': (payload:{id:string}) => void;
+  'dice:skip': (payload:{id:string}) => void;
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   'map:select': (payload: MapSelectPayload) => void;
   'map:setActive': (payload: MapSetActivePayload) => void;

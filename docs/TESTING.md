@@ -45,6 +45,8 @@ The relevant regression list includes:
 | --- | --- |
 | Live faces, totals, network privacy, disconnect completion | `live-dice-workflow`, `live-dice-contract`, `player-hud`, `upstream-dice-reconciliation` |
 | Dice picker bounds and keyboard/touch controls | `dice-picker` |
+| Background shader preload for each character and DM, cold-load readiness | `dice-preload`, `live-dice-contract`, `spell-impact-timing` |
+| Animated settled dice, skippable reading hold, spell effects after compacting | `spell-impact-timing`, `roll-reveal-timing` |
 | Results, impacts, bonuses, initiative, reactions | `roll-reveal-timing`, `combat-moments`, `compact-checks`, `player-initiative` |
 | Pending ownership, damage history, on-hit choices | `damage-prompt-ownership`, `damage-roll-log`, `smite-damage`, `hunters-mark`, `maneuver-damage`, `spell-execution`, `weapon-quick-menu` |
 | Combat controls and kill credit | `player-combat-layout`, `orb-kill-count` |

@@ -134,8 +134,6 @@ function ComparedDice({ comparison, locked, stopping, tick, onSettled }: {
  * already applied server-side — this is purely cosmetic.
  */
 export const RollRevealOverlay = memo(function RollRevealOverlay() {
-  // Warming is optional; disabled WebGL must retain the ordinary result fallback.
-  useEffect(()=>{void import('../lib/diceTrayRenderer').then(async m=>{m.warmTrayGraphics();await Promise.all(['fighter','ranger','sorcerer','dm'].map(async theme=>{const t=await m.loadTrayTexture(theme);t?.dispose();}));}).catch(()=>{});},[]);
   const player = useStore(s => s.snapshot?.role === 'player');
   const [reducedMotion, setReducedMotion] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
   useEffect(() => {
@@ -144,6 +142,27 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     media.addEventListener('change', changed);
     return () => media.removeEventListener('change', changed);
   }, []);
+  const preloadClass = useStore(s => s.snapshot?.characters.find(c =>
+    c.claimedBy === s.socket?.id)?.className);
+  const preloadDm = useStore(s => s.snapshot?.role === 'dm');
+  const rollAnimations = useStore(s => s.showRollAnim);
+  const preloadBusy = useStore(s => !!s.liveDice || !!s.rollFx);
+  useEffect(() => {
+    if (!rollAnimations || reducedMotion || preloadBusy || (!preloadDm && preloadClass === undefined)) return;
+    let cancelled = false;
+    // Yield the initial UI paint, then prepare the viewer's material and the DM
+    // material (needed for creature saves). Do not start new GPU work mid-roll.
+    const timer = setTimeout(() => {
+      void import('../lib/diceTrayRenderer').then(async m => {
+        const canStart = () => !cancelled && !useStore.getState().liveDice && !useStore.getState().rollFx;
+        for (const theme of [diceThemeForRoll(preloadClass, preloadDm), diceThemeForRoll('', true)]) {
+          if (!canStart()) break;
+          await m.preloadDiceGraphics(theme, canStart);
+        }
+      }).catch(() => {});
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [preloadClass, preloadDm, reducedMotion, rollAnimations, preloadBusy]);
   const liveDice = useStore(s=>s.liveDice);
   const rollFx = useStore((s) => s.rollFx);
   const staticReveal = reducedMotion || !!rollFx?.reveal.physical;

@@ -61,7 +61,7 @@
 
 /* Clear the battlefield exactly when the held impact and HP floaters start. */
 .roll-reveal-backdrop.is-impact{align-items:flex-start;padding-top:92px;}
-.roll-reveal-backdrop.is-impact .roll-reveal{width:min(460px,calc(100vw - 28px));min-width:0;max-height:180px;padding:10px 18px;gap:3px;overflow:hidden;animation:none;}
+.roll-reveal-backdrop.is-impact .roll-reveal{box-sizing:border-box;width:min(460px,calc(100vw - 28px));min-width:0;max-height:180px;padding:10px 18px;gap:3px;overflow:hidden;animation:none;}
 .roll-reveal-backdrop.is-impact .roll-reveal-tohit,
 .roll-reveal-backdrop.is-impact .roll-reveal-damage,
 .roll-reveal-backdrop.is-impact .critical-flourish,
@@ -117,3 +117,6 @@
 .tray-save-equation {font-size:17px;font-weight:800;color:#fff1cf;min-height:1.2em;}
 @keyframes save-bonus-add {from{opacity:0;transform:translateY(-12px) scale(1.3);}to{opacity:1;transform:none;}}
 @media(prefers-reduced-motion:reduce){.tray-save-outcome em{animation:none;}}
+
+.live-dice-footer{display:flex;align-items:center;justify-content:center;gap:18px;}
+.live-dice-footer button{font-size:12px;padding:3px 10px;}

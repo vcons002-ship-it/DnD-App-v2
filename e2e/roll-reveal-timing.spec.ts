@@ -195,29 +195,26 @@ test('a concentration reminder cannot suppress the completed damage reveal',asyn
   await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
 });
 
-test('a targeted save preserves the damage impact and then shows the separate saving throw result',async({page,request})=>{
+test('a targeted save preserves the damage impact without repeating the live saving throw',async({page,request})=>{
   const f=await fixture(request,page);
   await page.locator('.compact-player-combat').getByRole('button',{name:/Timing flame/}).click();
   await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
   await expect(page.locator('[data-live-dice="true"] .roll-reveal-who')).toContainText('Timing target T1');
   await expect.poll(async()=>(await f.snapshot()).rollLog.at(-1)?.reveal?.kind,{timeout:45_000}).toBe('check');
   const rolls=(await f.snapshot()).rollLog, save=rolls.at(-1)!, damage=rolls.findLast(r=>r.reveal?.kind==='damage')!;
-  // Damage and saves intentionally have separate arithmetic cards. The earlier
-  // damage card must not be mistaken for the later queued saving throw.
+  // The saving throw is already presented in the live tray. A second popup
+  // after damage would repeat it and cover the map impact.
+  expect(save.reveal!.presentedLive).toBe(true);
   const damageCard=page.locator(`.roll-reveal[data-roll-id="${damage.id}"]`);
   await expect(damageCard).toBeVisible({timeout:15_000});
   await expect(damageCard.locator('.roll-reveal-who')).toContainText('Timing target T1');
   await expect(damageCard).toHaveAttribute('data-impact-ready','true');
-  expect(await floaters(page)).toEqual([]);
   expect((await damageCard.boundingBox())!.height).toBeLessThanOrEqual(180);
+  await expect.poll(()=>floaters(page)).not.toEqual([]);
   await damageCard.click();
   const saveCard=page.locator(`.roll-reveal[data-roll-id="${save.id}"]`);
-  await expect(saveCard).toBeVisible();
-  await expect(saveCard.locator('.rr-title')).toContainText('DEX');
-  await expect(saveCard.locator('.rr-title')).toContainText(/Saving Throw/i);
-  await expect(saveCard.getByRole('status',{name:'Roll result',exact:true})).toHaveText(save.reveal!.outcome==='pass'?'SAVE PASSED':'SAVE FAILED');
-  await expect(saveCard).toHaveAttribute('data-impact-ready','true');
-  await expect.poll(()=>floaters(page)).not.toEqual([]);
+  await page.waitForTimeout(500);
+  await expect(saveCard).toHaveCount(0);
 });
 
 test('natural twenty check rendering announces the face and retains the total',async({page,request})=>{

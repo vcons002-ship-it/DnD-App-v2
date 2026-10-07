@@ -15,6 +15,39 @@ export async function loadTrayTexture(themeId:string){
   if(!['fighter','ranger','sorcerer','dm'].includes(themeId))return undefined;
   try{let promise=trayTextures.get(themeId);if(!promise){promise=new THREE.TextureLoader().loadAsync(`/art/dice-trays/${themeId}-v1.webp`);trayTextures.set(themeId,promise);}const t=(await promise).clone();t.colorSpace=THREE.SRGBColorSpace;return t;}catch{trayTextures.delete(themeId);return undefined;}
 }
+// Retain a small representative scene so Three.js keeps the compiled material
+// programs resident. Disposing it immediately would undo the shader preload.
+// The same face/body programs are shared by all polyhedral dice and percentile
+// labels; actual live dice still receive their authoritative faces and poses.
+const warmedDice = new Map<string, ReturnType<typeof createTrayRenderer>>();
+let graphicsPreload: Promise<void> = Promise.resolve();
+export const waitForDiceGraphics = () => graphicsPreload;
+export const diceGraphicsPreloaded = (themeId: string) => warmedDice.has(themeId);
+export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean) {
+  graphicsPreload = graphicsPreload.then(async () => {
+    if (!canStart() || warmedDice.has(theme.id)) return;
+    const art = await loadTrayTexture(theme.id);
+    if (!canStart()) { art?.dispose(); return; }
+    const toss: Toss = {settleTimes: [], wallHits: 0, frames: new Float32Array(28),
+      frameCount: 2, step: 1, radius: .65, trayScale: 1, topFaces: [0, 0], duration: 1};
+    // One normal and one critical model cover the material variants without
+    // keeping an entire party's full dice sets in mobile GPU memory.
+    const renderer = createTrayRenderer([
+      {sides: 20, value: 1, index: 0, set: 0},
+      {sides: 6, value: 1, index: 1, set: 0, crit: true},
+    ], toss, theme, undefined, art, true);
+    try {
+      await renderer.prepare(320, 320 * 10.2 / 15.2, 1);
+      warmedDice.set(theme.id, renderer);
+      // Bound browser-session cache when a viewer switches among characters.
+      if (warmedDice.size > 4) {
+        const oldest = warmedDice.keys().next().value!;
+        warmedDice.get(oldest)!.dispose(); warmedDice.delete(oldest);
+      }
+    } catch (error) { renderer.dispose(); throw error; }
+  }).catch(() => {}); // Disabled WebGL retains the normal roll fallback.
+  return graphicsPreload;
+}
 export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture,fixedFaces=false,dieThemes?:readonly DiceTheme[],appearance?:DiceAppearanceTest){
   appearance ??= {molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true,mossAgate:false,woodlandWake:true};
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
