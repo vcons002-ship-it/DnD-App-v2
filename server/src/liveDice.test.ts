@@ -170,3 +170,21 @@ it('keeps live weapon and Smite damage atomic, and refuses invalid choices befor
  expect(getCharacter(target.id)?.deathSaves.failures).toBe(3);
  expect(listRollLog(session.id).find(e=>e.label==='Damage')?.total).toBe(27);
 });
+
+
+it('lands enlarged d10/d20 beside an unchanged d6 with floor contacts matching their sizes',()=>{
+ const world=createLiveWorld([6,10,20].map((sides,index)=>({sides,value:1,index,set:0})),93);
+ const radii=world.bodies.map(body=>Math.max(...(body.shapes[0] as import('cannon-es').ConvexPolyhedron).vertices.map(v=>v.length())));
+ expect(radii[1]).toBeGreaterThan(radii[0]*1.1);
+ expect(radii[2]).toBeGreaterThan(radii[0]*1.1);
+ let frame=world.snapshot();
+ for(let i=0;i<120*40&&!frame.done;i++)frame=world.advance(1/120);
+ expect(frame.done).toBe(true);
+ world.bodies.forEach((body,index)=>{
+  const shape=body.shapes[0] as import('cannon-es').ConvexPolyhedron;
+  const bottom=Math.min(...shape.vertices.map(v=>body.quaternion.vmult(v).z+body.position.z));
+  expect(Math.abs(bottom)).toBeLessThan(.01);
+  expect(frame.values[index]).toBeGreaterThanOrEqual(1);
+  expect(frame.values[index]).toBeLessThanOrEqual([6,10,20][index]);
+ });
+});

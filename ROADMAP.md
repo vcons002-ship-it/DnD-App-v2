@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] d10/d20 are 12% larger in both rendering and physical contacts; launch
+  spacing accommodates the larger dice. Tray key lighting moves to the side
+  for readable top faces. Varis mote is veiled by foreground resin/inclusions.
+
 - [x] Varis mote is now one larger optical image across facets, with broad
   motion through the die, nearby resin illumination and soft light on the tray.
 

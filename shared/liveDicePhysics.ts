@@ -1,6 +1,6 @@
 import {diceCollider} from './diceCollider.js';
 import {releaseHandfulDie} from './diceLaunch.js';
-import {diceTrayLayoutForPool,REFERENCE_D6_EDGE} from './diceTrayLayout.js';
+import {diceTrayLayoutForPool,REFERENCE_D6_EDGE,diePhysicalScale} from './diceTrayLayout.js';
 import {recordDiceImpacts,type DiceImpact} from './diceImpacts.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
 import { dieMesh, faceForwardMesh } from './diceGeometry.js';
@@ -59,11 +59,12 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
     const [a,b,c]=ids.map(k=>new Vec3(...mesh.vertices[k])),n=b.vsub(a).cross(c.vsub(a));
     if(n.dot(a)<0)n.negate(n);n.normalize();return n;
   }));
+  const launchRadius=radius*Math.max(1,...dice.map(d=>diePhysicalScale(d.sides)));
   const bodies=dice.map((die,i)=>{
-    const shape=diceCollider(die.sides,radius);
+    const shape=diceCollider(die.sides,radius*diePhysicalScale(die.sides));
     const {vertices,faces}=shape;
     const body=new Body({mass:diceMassKg(vertices.map(v=>v.scale(metresPerUnit)),faces)*1000,material:dieMaterial,shape,linearDamping:.01,angularDamping:.01,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.5});
-    releaseHandfulDie(body,i,dice.length,radius,trayScale,extent,crossExtent,metresPerUnit,TRAY_GRAVITY/metresPerUnit,direction,cross,random);
+    releaseHandfulDie(body,i,dice.length,launchRadius,trayScale,extent,crossExtent,metresPerUnit,TRAY_GRAVITY/metresPerUnit,direction,cross,random);
     body.addEventListener('collide',(event:{body:Body})=>{if(walls.has(event.body))wallHits++;});
     return body;
   });
@@ -106,7 +107,7 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
   function advance(seconds:number) {
     const steps=Math.max(1,Math.round(seconds/step));
     for(let n=0;n<steps;n++){
-      for(const b of bodies)if(b.position.dot(direction)>-extent+radius)b.collisionFilterMask=3;
+      for(const [i,b] of bodies.entries())if(b.position.dot(direction)>-extent+radius*diePhysicalScale(dice[i].sides))b.collisionFilterMask=3;
       elapsedForImpacts=elapsed+step;world.step(step);elapsed+=step;
       bodies.forEach((b,i)=>{
         if(values[i]!==null&&b.sleepState!==Body.SLEEPING)age[i]=0;

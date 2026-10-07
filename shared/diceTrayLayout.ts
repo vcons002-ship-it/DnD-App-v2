@@ -13,3 +13,6 @@ export function diceTrayLayoutForPool(count:number){
   const scale=Math.max(1,1/projectedRadius);
   return {radius:FIXED_DICE_RADIUS,scale,halfWidth:7.2*scale,halfHeight:4.7*scale,innerHalfWidth:7*scale,innerHalfHeight:4.5*scale};
 }
+
+/** Slightly larger tapered/triangular dice; shared by contacts and rendering. */
+export const diePhysicalScale=(sides:number)=>sides===10||sides===20?1.12:1;

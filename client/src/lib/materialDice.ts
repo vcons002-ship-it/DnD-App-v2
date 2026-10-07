@@ -57,6 +57,7 @@ uniform float mossAgate;
 uniform float enchantedAmber;
 uniform vec3 motePosition;
 uniform float moteRoom;
+uniform bool trayLighting;
 uniform float internalLightning;
 uniform float lightningPhase; uniform float lightningSeed;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -133,7 +134,7 @@ float softbox(vec3 r,vec3 direction,float width,float height){
 }
 vec3 studioLight(vec3 r){
  r=normalize(r);
- float key=softbox(r,vec3(-.65,.65,1.),.22,.65);
+ float key=softbox(r,(trayLighting?vec3(-1.25,.45,.70):vec3(-.65,.65,1.)),.22,.65);
  float fill=softbox(r,vec3(.85,.2,-.7),.3,.8);
  float rim=softbox(r,vec3(.2,-.8,.5),.6,.12);
  return vec3(.1+.12*(r.y*.5+.5))+vec3(.96,.98,1.)*(key*1.35+fill*.8+rim*.45);
@@ -154,6 +155,11 @@ vec3 polishedGoldSurface(vec3 n,vec3 incoming){
  // Preserve the warm metal hue in bright reflections instead of bleaching it.
  float brightness=max(gold.r,max(gold.g,gold.b));
  return gold/(1.+max(0.,brightness-1.15)*.42);
+}
+// Keep the upward result surface readable in the tray while preserving side
+// reflections and polished metal inlays. Model viewers retain studio lighting.
+float traySurfaceReflection(vec3 n){
+ return trayLighting?1.-smoothstep(.50,.88,(rotation*n).z)*.88:1.;
 }
 // Keep the frame dark; numeral rims use a brighter copper-bronze for legibility.
 vec3 bronzeSurface(vec3 n,vec3 incoming){
@@ -285,15 +291,23 @@ void main(){
    float separation=length(pos+incoming*travel-motePosition);
    float core=exp(-pow(separation/(moteRoom*.15),2.));
    float halo=exp(-pow(separation/(moteRoom*.44),2.));
-   float depthFade=exp(-travel*.28-smoke*.22);
-   energy+=(vec3(.85,1.,.38)*core*3.3+vec3(.14,.48,.035)*halo*.7)*depthFade;
+   // Foreground inclusions veil the emitter as it travels deeper. Keep the
+   // light behind the surface polish, rather than painting a white spot over it.
+   float foreground=0.;
+   for(int k=0;k<3;k++){
+     vec3 samplePoint=pos+incoming*travel*(float(k)+.5)/3.;
+     foreground+=smoothstep(.43,.73,fbm(samplePoint*4.))*travel/3.;
+   }
+   float depthFade=exp(-travel*.65-foreground*1.4);
+   vec3 orb=vec3(.30,.82,.075)*core*1.8+vec3(.90,1.,.50)*pow(core,4.)*1.5;
+   energy+=(orb+vec3(.10,.35,.018)*halo*.3)*depthFade;
    // The same source illuminates the nearby resin and embedded inclusions.
    float proximity=dot(pos-motePosition,pos-motePosition)/(moteRoom*moteRoom);
-   through+=vec3(.10,.27,.025)*.55/(.3+proximity);
+   through+=vec3(.08,.22,.015)*.13/(.3+proximity);
  }
  through=through*exp(-smoke*1.9)+energy;
  float fresnel=.04+.96*pow(1.-max(0.,dot(-incoming,n)),5.);
- vec3 reflected=studioLight(rotation*reflect(incoming,n));
+ vec3 reflected=studioLight(rotation*reflect(incoming,n))*traySurfaceReflection(n);
  vec3 color=mix(through,reflected,fresnel*.88+(style==3?.02:.07));
  if(style==1){
    // Subtle volcanic flow bands beneath a smooth polish; no granular bump layer.
@@ -301,7 +315,7 @@ void main(){
    float band=1.-smoothstep(.015,.085,abs(flow-.51));
    float cloud=smoothstep(.53,.72,fbm(pos*3.8));
    vec3 stone=vec3(.0008,.0007,.00075)+vec3(.003,.0026,.0024)*band+vec3(.004)*cloud;
-   vec3 polished=pow(studioLight(rotation*reflect(incoming,n))*1.4,vec3(1.5));
+   vec3 polished=pow(studioLight(rotation*reflect(incoming,n))*1.4,vec3(1.5))*traySurfaceReflection(n);
    color=stone+polished*(.045+fresnel*.9);
    if(moltenCracks>.5){
      float raw=moltenFracture(pos);
@@ -316,7 +330,7 @@ void main(){
      float det=dot(sx,r1);
      vec3 grad=(dFdx(groove)*r1+dFdy(groove)*r2)/(abs(det)>.000001?det:.000001);
      vec3 brokenNormal=normalize(n+grad*.027);
-     vec3 brokenReflection=pow(studioLight(rotation*reflect(incoming,brokenNormal))*1.4,vec3(1.5));
+     vec3 brokenReflection=pow(studioLight(rotation*reflect(incoming,brokenNormal))*1.4,vec3(1.5))*traySurfaceReflection(n);
      color=mix(color,stone+brokenReflection*(.04+fresnel*.72),groove*.9);
      color*=1.-cavity*.82;
      float hotCore=1.-smoothstep(.003,.042,below);
@@ -329,12 +343,12 @@ void main(){
      color+=magma*cavity*pulse*1.3+vec3(.026,.0012,.00015)*groove;
    }
  }
- color+=energy*.35;
- vec3 halfLight=normalize(normalize(vec3(-.65,.65,1.))-rotation*incoming);
- if(style!=1)color+=vec3(1.,.94,.9)*pow(max(0.,dot(rotation*n,halfLight)),180.)*.9;
+ if(style!=2)color+=energy*.35;
+ vec3 halfLight=normalize(normalize((trayLighting?vec3(-1.25,.45,.70):vec3(-.65,.65,1.)))-rotation*incoming);
+ if(style!=1)color+=vec3(1.,.94,.9)*pow(max(0.,dot(rotation*n,halfLight)),180.)*.9*traySurfaceReflection(n);
  #else
  vec3 color=vec3(0.);
- vec3 halfLight=normalize(normalize(vec3(-.65,.65,1.))-rotation*incoming);
+ vec3 halfLight=normalize(normalize((trayLighting?vec3(-1.25,.45,.70):vec3(-.65,.65,1.)))-rotation*incoming);
  #endif
  // Cut numerals expose a frosted, light-catching recess rather than a decal.
  if(engraved || metalEdge){
@@ -351,7 +365,7 @@ void main(){
      float grain=fbm(vec3(woodUV.x*75.+warp*16.,woodUV.y*9.,2.));
      // Low-contrast mahogany fibers live beneath a smooth clear lacquer coat.
      vec3 wood=mix(vec3(.027,.006,.003),vec3(.075,.025,.009),grain);
-     float light=.65+.65*max(0.,dot(rotation*tn,normalize(vec3(-.65,.65,1.))));
+     float light=.65+.65*max(0.,dot(rotation*tn,normalize((trayLighting?vec3(-1.25,.45,.70):vec3(-.65,.65,1.)))));
      wood*=light;
      float coat=.045+.955*pow(1.-max(0.,dot(view,tn)),5.);
      vec3 reflection=studioLight(rotation*reflect(incoming,tn));
@@ -387,7 +401,7 @@ void main(){
      vec3 fresnelMetal=f0+(1.-f0)*pow(1.-nv,5.);
      // Conductors are lit by colored reflections, not a yellow/brown diffuse fill.
      inlay=pow(r,vec3(1.8))*fresnelMetal*1.6;
-     vec3 l=normalize(vec3(-.65,.65,1.)),h=normalize(l+view);
+     vec3 l=normalize((trayLighting?vec3(-1.25,.45,.70):vec3(-.65,.65,1.))),h=normalize(l+view);
      float nl=max(.001,dot(worldN,l)),nh=max(0.,dot(worldN,h)),vh=max(0.,dot(view,h));
      float rough=style==0?.2:.3,aa=pow(rough,4.);
      float denominator=nh*nh*(aa-1.)+1.;
@@ -514,7 +528,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const motePhase=style===2?rangerMoteSequence++*2.399963:0;
   const updateMote=(now:number)=>{
     if(style!==2||crit)return;
@@ -607,22 +621,27 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     resinBody=resin;updateResin();
     resin.onBeforeCompile=shader=>{
       shader.uniforms.resinEye=uniforms.eye;shader.uniforms.resinTime=uniforms.time;
+      shader.uniforms.trayLighting=uniforms.trayLighting;
       shader.uniforms.resinGlow=uniforms.resinGlow;
       shader.uniforms.resinDensity=uniforms.resinDensity;
       shader.uniforms.resinInk=uniforms.resinInk;
       shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
       shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
-      shader.fragmentShader=resinCloudDeclarations+resinInkField+'\n'+shader.fragmentShader;
+      shader.fragmentShader='uniform bool trayLighting;\n'+resinCloudDeclarations+resinInkField+'\n'+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
+        float topReflection=trayLighting?1.-smoothstep(.50,.88,inverseTransformDirection(normal,viewMatrix).z)*.88:1.;
+        reflectedLight.directSpecular*=topReflection;reflectedLight.indirectSpecular*=topReflection;`);
       shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
     };
-    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v4';
+    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v5';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   let lastValue=-1,lastReadable=false;
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
+    setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.
     setEnchantedAmber(enabled:boolean){uniforms.enchantedAmber.value=enabled&&theme.id==='ranger'&&!crit?1:0;},
