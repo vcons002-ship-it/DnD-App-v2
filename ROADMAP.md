@@ -16,6 +16,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Chromatic Orb hides its matching-dice target prompt throughout live rolls,
   including the interval before the previous cast snapshot is committed.
 
+- [x] Chromatic Orb matching links begin on the first authoritative settled frame,
+  during number flights and the existing reading hold, before final damage resolution.
 - [x] Magic Missile separates its d4 face from the fixed +1 spell bonus,
   labeled in both the tray count-up and roll log; no CHA damage is added.
 

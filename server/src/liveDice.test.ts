@@ -10,6 +10,7 @@ import {db} from './db.js';
 import {runLiveCommand,keptPhysicalSet,physicalFaces} from './liveRolls.js';
 import {afterRollCommit} from './liveRollContext.js';
 import {LIVE_DICE_PRESENTATION_RATE,LIVE_DICE_REROLL_WAIT_SECONDS} from '../../shared/liveDiceTypes.js';
+import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
 
 it('uses authoritative faces for expressions, advantage and d20 combat math',()=>{
  expect(withDiceSource(s=>s.map((_,i)=>i+2),()=>rollDice('2d6+3'))?.total).toBe(8);
@@ -46,6 +47,22 @@ it('a monster saving against a player spell uses DM dice instead of the caster c
   {expr:'Saving Throw',saveDice:[{target:{kind:'monster',refId:'goblin'},modifier:-1,dc:15,group:'goblin'}]});
  expect(frames.length).toBeGreaterThan(0);
  expect(frames.every(f=>f.dmDice===true&&f.className===''&&f.affinity===undefined)).toBe(true);
+},20000);
+
+it('publishes exact Orb matches on the first settled frame before waiting for number flights',async()=>{
+ const frames:import('../../shared/liveDiceTypes.js').LiveDiceFrame[]=[];let held=false;
+ const values=await physicalFaces(Array(9).fill(8),f=>frames.push(f),{
+  label:'Chromatic Orb — Spell Damage',roller:'Vanec',className:'Sorcerer',
+  waitForPresentation:async()=>{
+   held=true;
+   expect(frames.filter(f=>!f.done).every(f=>!f.diceTrigger)).toBe(true);
+   const settled=frames.find(f=>f.done)!;
+   expect(settled.diceTrigger).toEqual(matchingDiceTrigger(settled.values as number[]));
+   expect(settled.diceTrigger?.groups.length).toBeGreaterThan(0);
+   expect(settled.calculation).toBeUndefined();
+  },
+ },42,{expr:'9d8',triggerRule:'orb-matches'});
+ expect(held).toBe(true);expect(frames.at(-1)?.values).toEqual(values);
 },20000);
 describe('incremental authoritative physics',()=>{
  it('releases jumbled dice with visible end-over-end and sideways tumble from every seat',()=>{

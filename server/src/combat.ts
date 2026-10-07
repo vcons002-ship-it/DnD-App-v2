@@ -1911,7 +1911,7 @@ export function resolveTargetedSpellAttack(opts: {
   let dmgFaces = '';
   const revealDice: NonNullable<RollReveal['damageDice']> = [];
   const revealMods: NonNullable<RollReveal['damageMods']> = [];
-  const [first,second]=hit&&opts.dice?withDiceMetadata({label:`${opts.title} — Spell Damage`},()=>rollDicePool([{expr:opts.dice!},...(crit?[{expr:criticalDiceExpression(opts.dice!),critical:true}]:[])])):[];
+  const [first,second]=hit&&opts.dice?withDiceMetadata({label:`${opts.title} — Spell Damage`,...(opts.orb&&opts.orb.leapsUsed<opts.orb.slotLevel?{triggerRule:'orb-matches' as const}:{})},()=>rollDicePool([{expr:opts.dice!},...(crit?[{expr:criticalDiceExpression(opts.dice!),critical:true}]:[])])):[];
   if (hit && opts.dice && first) {
     let dmg = first.total;
     if(opts.linked&&spellKey(opts.linked.spell)==='sorcerous burst'){

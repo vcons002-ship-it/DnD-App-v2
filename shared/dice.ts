@@ -21,7 +21,7 @@ const MAX_TERMS = 100;
 const MAX_TOTAL_DICE = 1000;
 
 export type SaveDieInfo={rollKind?:'initiative';target:{kind:'pc'|'monster';refId:string};modifier:number;dc:number;group:string;mode?:Advantage;autoFail?:boolean;passEffect?:string;failEffect?:string};
-export type PhysicalDiceInfo={expr:string;advantage?:Advantage;critical?:boolean;criticalFrom?:number;criticalDice?:boolean[];target?:{kind:'pc'|'monster';refId:string};label?:string;saveDice?:SaveDieInfo[]};
+export type PhysicalDiceInfo={expr:string;advantage?:Advantage;critical?:boolean;criticalFrom?:number;criticalDice?:boolean[];target?:{kind:'pc'|'monster';refId:string};label?:string;saveDice?:SaveDieInfo[];triggerRule?:'orb-matches'};
 type DiceSource = (sides:number[],info:PhysicalDiceInfo) => number[];
 let physicalSource:DiceSource|undefined;
 export function withDiceSource<T>(source:DiceSource,run:()=>T):T {
