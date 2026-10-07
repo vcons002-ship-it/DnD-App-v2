@@ -1,3 +1,4 @@
+import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
 import {partySpell} from '../../shared/partySpells.js';
 import {seesInvisible} from '../../shared/invisibleSight.js';
 import {breakInvisibility} from './advancedSpells.js';
@@ -1333,6 +1334,7 @@ export function resolveAttackDamage(
       target: p.target.name,
       outcome: p.crit ? 'crit' : 'hit',
       ...(p.dice.length ? { damageDice: p.dice } : {}),
+      ...(p.diceTrigger?{diceTrigger:p.diceTrigger}:{}),
       ...(p.mods.length ? { damageMods: p.mods } : {}),
       ...(p.damageBreakdown ? { damageBreakdown: p.damageBreakdown } : {}),
       damage: p.amount,
@@ -1652,6 +1654,12 @@ export function resolveForcedSave(
     }
     const missile=src?.label?.toLowerCase()==='magic missile';
     const shield=missile?shieldGate(sessionId,tok.kind,tok.refId):undefined;
+    // A dart's fixed spell bonus is distinct from its die face (not CHA).
+    const dartBreakdown=apply.dice&&dartFaces.length?diceReveal(src?.roller??'DM',{
+      expr:apply.dice,total:base,rolls:dartFaces,detail:'',
+    }):undefined;
+    const dartDice=dartBreakdown?.damageDice??[{label:apply.dice??'dart',value:base,faces:dartFaces}];
+    const dartBonus=(dartBreakdown?.damageMods??[]).map(step=>({...step,label:step.label==='flat'?`${missile?'Magic Missile':'Spell'} bonus`:step.label}));
     dmg = missile&&shieldAcBonus((tok.kind==='pc'?getCharacter(tok.refId):getMonster(tok.refId))!)?0:Math.floor(base * mult);
     const dartRollId = newId();
     const dartNote = shield?undefined:applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, spellImpactName(src?.expr)??spellImpactName(src?.label),undefined,{id:rollId,order:dartIdx});
@@ -1664,15 +1672,14 @@ export function resolveForcedSave(
       expr: `dart ${dartIdx + 1}`,
       detail: shield?`${r.name}: Magic Missile targets you ? choose Shield or pass.`:missile&&dmg===0?`${r.name}: Shield blocks Magic Missile ? no damage.`:`${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult === 0 ? ' (immune)' : mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
       hpNote: dartNote,
-      ...(shield?{pending:{impact:{id:rollId,order:dartIdx},shield:{...shield,automatic:true},target:{kind:tok.kind,refId:tok.refId,name:r.name},attacker:apply.caster??{kind:'pc' as const,refId:apply.owner!},weapon:'Magic Missile',amount:dmg,crit:false,dice:[{label:apply.dice??'dart',value:base,faces:dartFaces}],mods:dmg!==base?[{label:'Damage adjustment',value:dmg-base}]:[],damageType:apply.damageType,owner:apply.owner}}:{}),
+      ...(shield?{pending:{impact:{id:rollId,order:dartIdx},shield:{...shield,automatic:true},target:{kind:tok.kind,refId:tok.refId,name:r.name},attacker:apply.caster??{kind:'pc' as const,refId:apply.owner!},weapon:'Magic Missile',amount:dmg,crit:false,dice:dartDice,mods:[...dartBonus,...(dmg!==base?[{label:'Damage adjustment',value:dmg-base}]:[])],damageType:apply.damageType,owner:apply.owner}}:{}),
       // A quick per-dart damage burst (the animation fires once per assigned dart).
       reveal: {
         kind: 'damage',
         attacker: `${src?.expr ?? 'Spell'} · dart ${dartIdx + 1}`,
         target: r.name,
         outcome: 'hit',
-        ...(!shield&&dmg>0&&apply.dice ? { damageDice: [{ label: apply.dice, value: base, faces: dartFaces }] } : {}),
-        ...(!shield&&dmg>0&&mult !== 1 ? { damageMods: [{ label: mult === 0 ? 'immune' : mult < 1 ? 'resisted' : 'vuln', value: dmg - base }] } : {}),
+        ...(!shield&&dmg>0&&apply.dice ? { damageDice: dartDice,damageMods:[...dartBonus,...(mult!==1?[{label:mult===0?'immune':mult<1?'resisted':'vuln',value:dmg-base}]:[])] } : {}),
         damage: shield?undefined:dmg,
         damageType: apply.damageType,
       },
@@ -1948,6 +1955,7 @@ export function resolveTargetedSpellAttack(opts: {
     const mark=markedDamage(opts.attacker.kind,opts.attacker.refId,tt!,crit);
     applied+=mark.amount; hitDamageParts.push(...mark.parts); revealDice.push(...mark.dice); revealMods.push(...mark.mods);
   }
+  const diceTrigger=opts.orb&&hit&&opts.orb.leapsUsed<opts.orb.slotLevel?matchingDiceTrigger(spellDamageFaces):undefined;
   const deferDamage = (!!opts.liveResume || !!getSessionById(opts.sessionId)?.manualDamage) && hit && applied > 0 && !!opts.attacker;
   consumeHitAdvantage(tt!);
   if (applied > 0 && !deferDamage) {
@@ -1981,6 +1989,7 @@ export function resolveTargetedSpellAttack(opts: {
       outcome: fumble ? 'fumble' : crit ? 'crit' : hit ? 'hit' : 'miss',
       attacker: opts.roller,
       target: t.name,
+      ...(!deferDamage&&diceTrigger?{diceTrigger,damageDice:revealDice,damageMods:revealMods,damage:applied,damageType:opts.damageType}:{}),
       ...(hit && applied > 0 && !deferDamage
         ? { damageDice: revealDice, damageMods: revealMods, damage: applied, damageType: opts.damageType }
         : {}),
@@ -2011,6 +2020,7 @@ export function resolveTargetedSpellAttack(opts: {
         crit,
         dice: revealDice,
         mods: revealMods,
+        ...(diceTrigger?{diceTrigger}:{}),
         ...(opts.attacker.kind === 'pc' ? { owner: opts.attacker.refId } : {}),
       },
     } : {}),

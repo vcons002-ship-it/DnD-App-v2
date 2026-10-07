@@ -1,3 +1,4 @@
+import {damageRollBreakdown} from '../../shared/rollBreakdown.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { HpFxEvent, SheetAbility, StateSnapshot } from '../../shared/types.js';
 import { resolveAbilityRoll, resolveAttack, resolveAttackDamage, resolveForcedSave } from './combat.js';
@@ -122,6 +123,10 @@ describe('exact attack damage-to-reveal correlation', () => {
     expect(effects.map((event) => ({ delta: event.delta, rollId: event.rollId }))).toEqual([
       { delta: -4, rollId: first.id }, { delta: -4, rollId: second.id },
     ]);
+    expect(first.reveal?.damageDice).toEqual([{label:'1d4',value:3,faces:[3]}]);
+    expect(first.reveal?.damageMods).toEqual([{label:'Magic Missile bonus',value:1}]);
+    expect(damageRollBreakdown(first)).toContain('1 Magic Missile bonus');
+    expect(first.reveal?.damage).toBe(4); // CHA 18 does not add +4.
     expect(first.id).not.toBe(cast.id);
     expect(second.id).not.toBe(first.id);
     expect(getMonster(f.target.id)!.curHp).toBe(192);

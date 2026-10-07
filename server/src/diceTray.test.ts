@@ -1,4 +1,4 @@
-import {dieResultStrength,dieResultTier,diceRevealTimes} from '../../client/src/lib/diceTrayTypes.js';
+import {dieResultStrength,dieResultTier,dieResultLabel,dieResultEmphasis,diceRevealTimes} from '../../client/src/lib/diceTrayTypes.js';
 import {diceEntrySide} from '../../client/src/lib/diceEntrySide.js';
 import {describe,it,expect} from 'vitest';
 import {Vec3,Quaternion} from 'cannon-es';
@@ -24,6 +24,16 @@ describe('physics dice tray',()=>{
   expect(dieResultTier(die(20,6))).toBe('normal');
   for(const value of [1,60,100])for(const d of physicalDice([die(100,value)]))
     expect(dieResultStrength(d)).toBeCloseTo((value-1)/99);
+ });
+ it('labels high and maximum damage faces across die sizes, including 7 on a d8',()=>{
+  for(const [sides,value] of [[6,5],[8,7],[10,9],[12,11],[100,99]]){
+   const die={sides,value,index:0,set:0};
+   expect(dieResultTier(die)).toBe('high');expect(dieResultLabel(die)).toBe('HIGH');expect(dieResultEmphasis(die)).toBeGreaterThan(.75);
+  }
+  for(const sides of [4,6,8,10,12,100]){
+   const die={sides,value:sides,index:0,set:0};expect(dieResultLabel(die)).toBe('MAX');expect(dieResultEmphasis(die)).toBe(1);
+  }
+  expect(dieResultLabel({sides:20,value:20,index:0,set:0})).toBe('');
  });
  it('uses a 17.6 mm acrylic d6 mass and slightly reduced gravity in free flight',()=>{
   const mesh=faceForwardMesh(dieMesh(6)),radius=REFERENCE_D6_EDGE*Math.sqrt(3)/2;

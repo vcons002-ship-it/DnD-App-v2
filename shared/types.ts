@@ -1054,6 +1054,8 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  /** Confirmed rule trigger; indices identify exact flattened damage dice. */
+  diceTrigger?:{title:string;detail:string;diceCount:number;groups:{value:number;indices:number[]}[]};
   /** This result (including bonuses) was already presented in the live group tray. */
   presentedLive?: boolean;
   /** Plain-language effect result alongside the target's save result. */
@@ -1112,6 +1114,7 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  diceTrigger?:RollReveal['diceTrigger'];
   impact?: HpFxEvent['impact'];
   /** Defended cosmetic components; HP/concentration still resolve once. */
   damageParts?: HpDamagePart[];

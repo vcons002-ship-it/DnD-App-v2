@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import type {RollReveal} from '../../../shared/types';
-import {resultTrayFor} from './rollTrayPresentation';
+import {resultTrayFor,diceTriggerForTray} from './rollTrayPresentation';
 
 const frame=(id:string,sides:number[],values:number[],extra:Partial<LiveDiceFrame>={}):LiveDiceFrame=>({
   id,seq:1,label:id,roller:'Varis',className:'Ranger',sides,values,poses:[],radius:1,elapsed:3,done:true,
@@ -35,4 +35,12 @@ describe('retained live result trays',()=>{
     const combined={...damage('1d10',[5]),damageDice:[{label:'1d10',value:5,faces:[5]},{label:'Hunter’s Mark',diceExpression:'1d6',value:3,faces:[3]}]};
     expect(resultTrayFor([weapon,mark,thorns],combined)).toBe(mark);
   });
+});
+
+it('keeps triggering spell dice visible instead of highlighting an unrelated later rider',()=>{
+ const orb=frame('orb',[8,8,8],[7,2,7]),rider=frame('mark',[6],[4]);
+ const reveal={...damage('3d8',[7,2,7]),damageDice:[{label:'3d8',value:16,faces:[7,2,7]},{label:'1d6',value:4,faces:[4]}],diceTrigger:{title:'Orb can leap!',detail:'Matching damage dice',diceCount:3,groups:[{value:7,indices:[0,2]}]}};
+ expect(resultTrayFor([orb,rider],reveal)).toBe(orb);
+ expect(diceTriggerForTray(orb,reveal)).toBe(reveal.diceTrigger);
+ expect(diceTriggerForTray(rider,reveal)).toBeUndefined();
 });

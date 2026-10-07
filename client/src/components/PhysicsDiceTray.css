@@ -149,3 +149,20 @@
 }
 .roll-reveal-backdrop.is-impact .roll-reveal-outcome{display:none;}
 @media(prefers-reduced-motion:reduce){.roll-reveal:has(.physics-dice-tray) .roll-reveal-outcome{animation:none;}}
+
+/* Confirmed dice triggers connect the exact settled faces, not the result boxes. */
+.tray-trigger-links{visibility:hidden;position:absolute;top:0;left:0;width:100%;height:auto;aspect-ratio:15.2/10.2;pointer-events:none;z-index:4;overflow:visible;}
+.tray-trigger-links path{fill:none;stroke:currentColor;stroke-linecap:round;}
+.tray-trigger-aura{stroke-width:12;opacity:.2;}
+.tray-trigger-core{stroke-width:2.5;opacity:.9;}
+.tray-trigger-spark{stroke-width:5;stroke-dasharray:4 60;animation:tray-trigger-flow 1s linear infinite;}
+.tray-trigger-links circle{fill:none;stroke:currentColor;stroke-width:3;stroke-dasharray:25 8;animation:tray-trigger-ring 1.2s ease-in-out infinite alternate;}
+.tray-die-result[data-trigger="matched"]{border-color:var(--trigger-color)!important;box-shadow:0 0 12px var(--trigger-color),inset 0 0 7px #ffffff20!important;}
+.tray-trigger-result{padding:8px 12px;text-align:center;color:#b9f9ff;text-shadow:0 1px 3px #000,0 0 12px #44c9ff55;animation:tray-trigger-arrival .4s ease-out;}
+.tray-trigger-result strong{display:block;font:900 clamp(22px,4vw,32px)/1.2 Georgia,serif;}
+.tray-trigger-result span{display:block;font-size:13px;}
+.tray-trigger-result em{display:inline-block;margin:4px 6px;font-style:normal;font-weight:700;}
+@keyframes tray-trigger-flow{to{stroke-dashoffset:-128;}}
+@keyframes tray-trigger-ring{from{opacity:.6;stroke-dashoffset:0;}to{opacity:1;stroke-dashoffset:16;}}
+@keyframes tray-trigger-arrival{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
+@media(prefers-reduced-motion:reduce){.tray-trigger-links *,.tray-trigger-result{animation:none!important;}}

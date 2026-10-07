@@ -40,5 +40,5 @@ export function dieResultEmphasis(die:TrayDie):number {
 }
 export function dieResultLabel(die:TrayDie):string {
  const tier=dieResultTier(die);
- return tier==='max'?'MAX':tier==='min'?'MIN':tier==='low'?'LOW':'';
+ return tier==='max'?'MAX':tier==='high'?'HIGH':tier==='min'?'MIN':tier==='low'?'LOW':'';
 }

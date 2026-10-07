@@ -6,6 +6,19 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Confirmed Chromatic Orb matching faces link on the settled tray, highlight
+  their result boxes by group, and announce Orb can leap before targeting.
+  Trigger metadata is reusable and skips automatically with the roll.
+
+- [x] High damage-die results show HIGH as well as their proportional glow,
+  including 7 on a d8; maximum results retain MAX.
+
+- [x] Chromatic Orb hides its matching-dice target prompt throughout live rolls,
+  including the interval before the previous cast snapshot is committed.
+
+- [x] Magic Missile separates its d4 face from the fixed +1 spell bonus,
+  labeled in both the tray count-up and roll log; no CHA damage is added.
+
 - [x] Shared damage aligns across victims, including a weapon hit's AoE rider.
   Separately clicked projectiles retain global click order and accumulate one
   running total per creature for that cast, including late-arriving darts.

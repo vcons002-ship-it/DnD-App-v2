@@ -1,3 +1,5 @@
+import {diceTriggerForTray} from '../lib/rollTrayPresentation';
+import {DICE_TRIGGER_HOLD_MS} from '../../../shared/diceTriggers';
 import {LiveDiceOverlay} from './LiveDiceOverlay';
 import {ROLL_MODIFIER_STEP_MS,ROLL_MODIFIER_COMPLETE_MS} from '../../../shared/dicePresentationTiming';
 import { hasNaturalTwenty, rollOutcomeLabel } from '../../../shared/rollReveal';
@@ -213,6 +215,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     title={completed?.reveal.title?.replace(/\bsave\b/i,'Saving Throw')}
     rollId={completed?.rollId} revealKind={completed?.reveal.kind}
     resultHeader={completed?.reveal}
+    diceTrigger={diceTriggerForTray(tray,completed?.reveal)}
   /> : sequence;
   if (!content) return null;
   // Decided per roll, not once per mount: the guide may open or close between
@@ -308,7 +311,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         ...(isBurst?{modsShown:i+1}:attackWithDamage&&i>=toHit.length?{modsShown:i+1-toHit.length}:{toHitShown:i+1})}))));
       // Unmodified damage already had its reading hold in the live tray.
       // Clear it directly for the map impact rather than adding another screen.
-      const complete=isBurst&&!adjustments.length?0:adjustments.length*STEP_MS+ROLL_MODIFIER_COMPLETE_MS;
+      const complete=Math.max(reveal.diceTrigger?DICE_TRIGGER_HOLD_MS:0,isBurst&&!adjustments.length?0:adjustments.length*STEP_MS+ROLL_MODIFIER_COMPLETE_MS);
       at(complete,()=>{
         setStage(p=>({...p,phase:isBurst?'damage':'outcome'}));
         if(naturalTwenty||reveal.outcome==='crit')playCritical();
@@ -325,7 +328,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
     if (staticReveal) {
       if(reveal.physical){if(naturalTwenty||reveal.outcome==='crit')playCritical();else if(reveal.outcome==='miss'||reveal.outcome==='fumble'||reveal.outcome==='fail')playMiss();else if(isCheck||isDice)playSkill();else playHit();}
       setStage({ phase: 'damage', dieFace: reveal.d20 ?? 0, toHitShown: toHit.length, diceLocked: visualDiceCount, diceStopping: visualDiceCount, modsShown: localMods.length });
-      if(!intermediate){at(0, () => releaseImpact(rollFx.rollId));at(resultHoldMs, dismiss);}
+      if(!intermediate){const hold=reveal.diceTrigger?DICE_TRIGGER_HOLD_MS:0;at(hold, () => releaseImpact(rollFx.rollId));at(hold+resultHoldMs, dismiss);}
       return cleanup;
     }
     if (!staticReveal) {
@@ -339,7 +342,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
           if (finished) return;
           finished = true;
           localMods.forEach((_, i) => at(STEP_MS * (i + 1), () => setStage((p) => ({ ...p, modsShown: i + 1 }))));
-          const end = localMods.length * STEP_MS + 260;
+          const end = Math.max(localMods.length * STEP_MS + 260,reveal.diceTrigger?DICE_TRIGGER_HOLD_MS:0);
           at(end, () => { sound?.(); releaseImpact(rollFx.rollId); });
           at(end + (isBurst ? DART_HOLD_MS : HOLD_MS), dismiss);
         };

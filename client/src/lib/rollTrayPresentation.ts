@@ -26,11 +26,20 @@ export function resultTrayFor(frames:Iterable<LiveDiceFrame>,reveal:RollReveal):
     const dice=diceFor(frame);
     return faces.length>0&&dice.length===faces.length&&dice.every((die,i)=>die.sides===faces[i].sides&&die.value===faces[i].value);
   };
+  const triggered=reveal.diceTrigger?expected.slice(0,reveal.diceTrigger.diceCount):[];
+  const triggerTray=candidates.find(frame=>matches(frame,triggered));
   const matched=candidates.find(frame=>matches(frame,expected));
   // Weapon and rider dice are separate throws. A later area burst must not
   // become the backdrop for their combined weapon calculation.
   const lastComponent=!d20&&reveal.damageDice?.length
     ? flattenDamageDice(reveal.damageDice.slice(-1)):[];
-  return matched??candidates.find(frame=>matches(frame,lastComponent))??
+  return triggerTray??matched??candidates.find(frame=>matches(frame,lastComponent))??
     (d20?candidates.find(frame=>frame.sides.every(side=>side===20)):candidates[0]);
+}
+
+/** Never attach matching-face links to a later rider's unrelated tray. */
+export function diceTriggerForTray(frame:LiveDiceFrame,reveal?:RollReveal){
+ const trigger=reveal?.diceTrigger;if(!trigger||frame.sides.length!==trigger.diceCount)return undefined;
+ const dice=flattenDamageDice(reveal.damageDice).slice(0,trigger.diceCount);
+ return dice.length===frame.sides.length&&dice.every((d,i)=>d.sides===frame.sides[i]&&d.value===frame.values[i])?trigger:undefined;
 }
