@@ -63,7 +63,9 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  },[frame]);
  useEffect(()=>{
   let stopped=false,raf=0,renderer:ReturnType<typeof import('../lib/diceTrayRenderer').createTrayRenderer>|undefined;
-  setArrived([]);setFailed(false);setPrepared(false);
+  // Revisiting an earlier completed throw for its arithmetic does not replay
+  // number flights that the viewer already watched during the live roll.
+  setArrived(result?frame.sides.map((_,i)=>i):[]);setFailed(false);setPrepared(false);
   const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,resultsStartedAt:number|undefined;
   const viewPose=(poses:number[])=>own?poses:poses.map((v,i)=>{
     // Same physical world viewed from the other side of the table.
@@ -116,7 +118,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
        saveLabels.current.forEach((el,i)=>{if(!el)return;const p=renderer!.numberPosition(i),pos=diceFlightPoint(rect,root.current!.clientWidth,c.left+p.x*c.width,c.top+p.y*c.height);el.style.left=`${pos.x}px`;el.style.top=`${pos.y-25}px`;});
      }
      if(!readySent){readySent=true;useStore.getState().socket?.emit('dice:ready',{id:frame.id});}
-     if(b.frame.done&&(finalWasDrawn||reduced)){
+     if(!result&&b.frame.done&&(finalWasDrawn||reduced)){
        // Start on the frame AFTER the final WebGL draw has painted. Otherwise
        // GPU work can consume the flash and make every stagger launch at once.
        resultsStartedAt??=now;

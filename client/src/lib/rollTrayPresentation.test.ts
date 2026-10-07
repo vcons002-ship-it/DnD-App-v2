@@ -30,4 +30,9 @@ describe('retained live result trays',()=>{
     expect(resultTrayFor([weapon],{...damage('1d8',[5]),physical:false})).toBeUndefined();
     expect(resultTrayFor([],damage('1d8',[5]))).toBeUndefined();
   });
+  it('keeps the matching rider rather than a subsequent Hail of Thorns burst',()=>{
+    const weapon=frame('weapon',[10],[5]),mark=frame('mark',[6],[3]),thorns=frame('thorns',[10],[3]);
+    const combined={...damage('1d10',[5]),damageDice:[{label:'1d10',value:5,faces:[5]},{label:'Hunter’s Mark',diceExpression:'1d6',value:3,faces:[3]}]};
+    expect(resultTrayFor([weapon,mark,thorns],combined)).toBe(mark);
+  });
 });

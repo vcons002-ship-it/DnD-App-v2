@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Combined weapon/rider results retain their matching completed dice throw,
+  rather than a later area-spell burst. Returning to an earlier settled tray
+  for its calculation fills its result boxes without repeating number flights.
+
 - [x] A red floating total sums simultaneous damage to each creature (including
   bow, Hunter's Mark and Hail of Thorns). Smaller colored numbers show the
   components only for mixed hits; totals stay compact above their own tokens.
