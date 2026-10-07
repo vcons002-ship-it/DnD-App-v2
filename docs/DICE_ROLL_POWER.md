@@ -45,3 +45,11 @@ outcomes, HP, skip behavior and roll ownership are unchanged.
 It is an art review, not a gameplay roll. Switch between the three characters,
 all supported die types, gold critical dice, and an explosion close-up. Browser regressions also roll
 real d20s in the player UI to verify the art follows server-confirmed values.
+
+`/dice-comparison.html` is the interactive live-physics roller for Druk, Varis,
+Vanec and the DM. It uses the same current materials and per-face power effects
+as gameplay, with d4, d6, d8, d10, d12, d20 and paired d100, custom quantities,
+individual results and totals. The roller and power comparison link to each other.
+Standalone packages must include all four tray textures and the current bundled
+renderer; use `node --import tsx client/scripts/package-dice-roller.mts <folder>`
+after the client build to package both pages without any campaign connection.
