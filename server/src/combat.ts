@@ -693,6 +693,17 @@ export function resolveAttack(
     if (minimumAdjustment) damageBreakdown.mods.push({ label: 'minimum damage', value: minimumAdjustment });
   }
 
+  // Finish the weapon's arithmetic on its own physical throw. Later riders
+  // (such as Hunter's Mark) have different dice and must not inherit DEX/STR.
+  const weaponDamagePresented = !!(liveResume && out.hit && presentLiveCalculation(
+    `weapon-damage:${liveResume.id}`, {
+      kind: 'damage', attacker: a.name, target: t.name,
+      title: `${weapon.name} — Damage Roll`, outcome: out.crit ? 'crit' : 'hit',
+      damageDice: out.damageDiceSteps, damageMods: out.damageModSteps,
+      damage: out.damage, damageType: weapon.damageType,
+    },
+  ));
+
   // Outcome-dependent mastery effects: DICE bonus damage on a hit, Graze on a miss.
   let extra = 0;
   if(out.hit&&armedDamageDice.length&&maneuverFired){
@@ -935,6 +946,7 @@ export function resolveAttack(
             attacker: { kind: at.kind, refId: at.refId },
             weapon: weapon.name,
             amount: applied,
+            ...(weaponDamagePresented ? { damagePresented: true } : {}),
             damageParts: hitDamageParts,
             ...(featureOptions.length ? {hitOptions:{abilityIds:featureOptions.map(ab=>ab.id),attackerTokenId:at.id,targetTokenId:tt.id,weaponIndex,turn:turnKey(sessionId),used:[],multiplier:mult,rawDamage:weaponRawDamage}} : {}),
             ...(maneuverOptions.length ? { maneuver: { abilityIds: maneuverOptions.map(ab => ab.id),

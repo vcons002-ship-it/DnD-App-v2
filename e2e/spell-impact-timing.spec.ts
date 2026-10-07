@@ -33,8 +33,8 @@ for (const scenario of [
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: 'Spell impact presentation' },
   })).json();
   const socket = io(`http://localhost:${PORT}`, { transports: ['websocket'] });
-  const frames: { elapsed: number; at: number;label:string;calculation:boolean }[] = [];
-  socket.on('dice:frame', frame => frames.push({ elapsed: frame.elapsed, at: Date.now(),label:frame.label,calculation:!!frame.calculation }));
+  const frames: { elapsed: number; at: number;label:string;calculation:boolean;sides:number[];mods:any[] }[] = [];
+  socket.on('dice:frame', frame => frames.push({ elapsed: frame.elapsed, at: Date.now(),label:frame.label,calculation:!!frame.calculation,sides:frame.sides,mods:frame.calculation?.damageMods??[] }));
   const snapshot = async () => {
     const result = await socket.timeout(8000).emitWithAck('join', {
       sessionCode: code, role: 'dm', dmPassphrase: DM_SECRET,
@@ -48,7 +48,7 @@ for (const scenario of [
     socket.emit('character:update', {
       characterId: caster.id, className: 'Ranger', level: 6, maxHp: 100, curHp: 10,
       stats: { STR: 10, DEX: 18, CON: 12, INT: 10, WIS: 18, CHA: 10 }, spellSlots: { L1: { max: 5, used: 0 }, L2: {max:3,used:0} },
-      weapons: [{ name: 'Timing bow', kind: 'ranged', damage: '1d8', damageType: 'piercing', attackBonus: 100 }],
+      weapons: [{ name: 'Timing bow', kind: 'ranged', damage: '1d10', damageType: 'piercing', attackBonus: 100 }],
       sheetAbilities: catalog.filter((s: any) => ['Cure Wounds', 'Hail of Thorns'].includes(s.name) || scenario.mark && /Hunter.s Mark/.test(s.name))
         .map((s: any) => ({ ...s, id: s.name })),
     });
@@ -162,6 +162,11 @@ for (const scenario of [
       expect(bowCalculation.length,'Bow modifiers are shown during the damage phase').toBeGreaterThan(0);
       expect(bowCalculation.every((s:any)=>s.wall<firstSave),'Bow arithmetic finishes before the first save frame').toBe(true);
       expect(frames.filter(f=>f.calculation)).toHaveLength(1);
+      const dexFrame=frames.find(f=>f.mods.some(m=>m.label==='DEX'))!;
+      expect(dexFrame.sides,'DEX belongs to the bow d10, never the mark d6').toEqual([10]);
+      const firstMark=frames.find(f=>/Hunter.s Mark/.test(f.label))!.at;
+      expect(bowCalculation.every((s:any)=>s.wall<firstMark),'Bow arithmetic finishes before Hunter’s Mark rolls').toBe(true);
+      expect(frames.filter(f=>f.sides.includes(6)).every(f=>!f.mods.some(m=>m.label==='DEX'))).toBe(true);
       const together = samples.find((s: any) => new Set(s.numbers.map((n: any) => n.color)).size >= 4);
       expect(together, 'Bow, force mark, and piercing thorns have three distinct colors').toBeTruthy();
       const totals=together.numbers.filter((n:any)=>n.total),components=together.numbers.filter((n:any)=>!n.total);

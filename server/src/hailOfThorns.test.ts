@@ -8,6 +8,7 @@ import {buildSnapshot} from './visibility.js';
 import {db} from './db.js';
 import {runLiveCommand} from './liveRolls.js';
 import type {PhysicalDiceInfo} from '../../shared/dice.js';
+import {castMark} from './marks.js';
 
 afterEach(()=>vi.restoreAllMocks());
 function fixture(){
@@ -82,8 +83,12 @@ describe('Hail of Thorns on a ranged hit',()=>{
   expect(requests[1].info?.saveDice?.map(d=>d.target.refId)).toEqual([f.main.m.id,f.near.m.id]);
   expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
  });
- it('presents bow modifiers before the burst and saves, without publishing early HP or spending twice',async()=>{
+ it.each([false,true])('presents bow modifiers on the weapon throw before mark/burst/saves (mark=%s), atomically',async(mark)=>{
   const f=fixture(),order:string[]=[],calculations:any[]=[];
+  if(mark){
+    const ab={id:'mark',name:"Hunter's Mark",type:'spell' as const,level:1,description:'',tags:['concentration']};setSheetAbility('pc',f.ch.id,ab);
+    expect(castMark(f.s.id,'pc',f.ch.id,ab,f.main.t.id,1)).toBe(true);
+  }
   const dice:Parameters<typeof runLiveCommand>[3]=async(sides,publish,meta)=>{
     order.push(`dice:${sides.join(',')}`);
     expect(getMonster(f.main.m.id)!.curHp).toBe(100);
@@ -99,15 +104,16 @@ describe('Hail of Thorns on a ranged hit',()=>{
   const hit=listRollLog(f.s.id).find(r=>r.pending)!;order.length=0;
   await runLiveCommand(()=>{expect(resolveHitFeature(f.s.id,'Varis',hit.id,f.ab.id,2).ok).toBe(true);},frame=>{
     if(frame.calculation){order.push('bow calculation');calculations.push(frame.calculation);
+      expect(frame.sides,'DEX is calculated over the weapon die, not the mark d6').toEqual([8]);
       expect(getMonster(f.main.m.id)!.curHp).toBe(100);
       expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(0);
     }
   },{...meta,waitForPresentation:async()=>{order.push('calculation hold');}},dice);
-  expect(order).toEqual(['dice:8','bow calculation','calculation hold','dice:10,10','dice:20,20']);
+  expect(order).toEqual(['dice:8','bow calculation','calculation hold',...(mark?['dice:6']:[]),'dice:10,10','dice:20,20']);
   expect(calculations).toHaveLength(1);
   expect(calculations[0]).toMatchObject({title:'Bow — Damage Roll',damage:9,damageMods:[{label:'DEX',value:5}]});
   expect(listRollLog(f.s.id).find(r=>r.label==='Damage')?.reveal?.presentedLive).toBe(true);
-  expect(getMonster(f.main.m.id)!.curHp).toBe(83);
+  expect(getMonster(f.main.m.id)!.curHp).toBe(mark?79:83);
   expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
  });
 });

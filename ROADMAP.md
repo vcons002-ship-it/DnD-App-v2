@@ -6,8 +6,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
-- [x] Hail of Thorns shows the completed bow/mark damage calculation on its
-  settled tray before rolling thorns and grouped saves. A rollback-safe
+- [x] Weapon damage shows DEX/STR on the weapon's own settled dice before
+  Hunter's Mark or other riders roll; the mark d6 never receives the bow's
+  modifier display. Hail of Thorns then rolls thorns and grouped saves. A rollback-safe
   presentation checkpoint keeps HP, concentration and slot use atomic; the
   committed bow entry no longer reopens its calculation after the saves.
 
