@@ -6,6 +6,12 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Accepted Varis moss-agate/woodland wake is the development appearance
+  default. Optional enchanted amber comparison adds warm internal pockets,
+  suspended fern silhouettes and wood fibres beneath the green resin surface.
+  Both use the same wake, wood numerals and bronze trim; model and roller
+  selectors retain moss agate and the original resin/vine for comparison.
+
 - [x] Optional Varis moss-agate material and windblown woodland wake preview:
   internal moss inclusions/mineral veins, existing wood/bronze inlays, and
   short tumbling leaves, seeds and motes using bounded shared meshes. Roller

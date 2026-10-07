@@ -53,6 +53,7 @@ uniform bool inlayBacking;
 uniform float numeralEmphasis;
 uniform float moltenCracks;
 uniform float mossAgate;
+uniform float enchantedAmber;
 uniform float internalLightning;
 uniform float lightningPhase; uniform float lightningSeed;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -98,6 +99,24 @@ vec2 electricArc(vec3 p,float seed){
   if(candidate<distance){distance=candidate;progress=.52+(float(k)+along)*.24;}
  }
  return vec2(distance,progress);
+}
+// Botanical fragments sit in fixed planes inside the resin, not on its faces.
+float amberFern(vec3 p){
+ float fern=0.;
+ for(int k=0;k<2;k++){
+  vec3 q=p-(k==0?vec3(-.18,.04,-.12):vec3(.25,-.14,.18));
+  float a=k==0?.48:-1.1; q.xy=mat2(cos(a),-sin(a),sin(a),cos(a))*q.xy;
+  q.z+=q.y*(k==0?.32:-.4);
+  float lengthMask=1.-smoothstep(.28,.35,abs(q.y));
+  float stem=exp(-dot(q.xz,q.xz)/.0006)*lengthMask;
+  float reach=max(.01,.17*(1.-abs(q.y)/.38));
+  float row=floor((q.y+.36)/.085)*.085-.36+.0425;
+  float offset=q.y-row-abs(q.x)*.30;
+  float blade=exp(-q.z*q.z/.0015-offset*offset/.0005);
+  blade*=smoothstep(.0,.035,abs(q.x))*(1.-smoothstep(reach*.72,reach,abs(q.x)))*lengthMask;
+  fern=max(fern,max(stem,blade));
+ }
+ return fern;
 }
 // Continuous studio lighting avoids cube-face seams and hard reflection flashes.
 float softbox(vec3 r,vec3 direction,float width,float height){
@@ -154,7 +173,7 @@ void main(){
  vec3 beyond=studioLight(rotation*ray);
  vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?.75:2.4));
  if(style==3)through*=vec3(.15,.015,.32);
- float smoke=0.;vec3 energy=vec3(0.),mossColor=vec3(0.);float mossDepth=0.;float stepSize=distance/20.;
+ float smoke=0.;vec3 energy=vec3(0.),mossColor=vec3(0.);float mossDepth=0.;vec3 amberColor=vec3(0.);float amberWeight=0.,fernDepth=0.;float stepSize=distance/20.;
  if(style==0||style==2||style==3){for(int j=0;j<20;j++){
    vec3 p=pos+ray*(float(j)+.5)*stepSize;
    float interior=smoothstep(.02,.22,min((float(j)+.5)*stepSize,distance-(float(j)+.5)*stepSize));
@@ -189,7 +208,15 @@ void main(){
    if(style==2){
      float growth=fbm(p*3.+vec3(fbm(p*5.)*1.8));
      float grain=1.-smoothstep(.016,.06,abs(growth-.51));
-     if(mossAgate>.5){
+     if(enchantedAmber>.5){
+       float pocket=smoothstep(.53,.67,fbm(p*2.3+vec3(2.,1.,4.)));
+       float measure=stepSize*interior;
+       amberColor+=mix(vec3(.065,.26,.12),vec3(.62,.255,.035),pocket)*measure;
+       amberWeight+=measure;
+       float fibre=exp(-pow(length(vec2(p.x+.10+sin(p.y*4.)*.06,p.z+.24))/.027,2.))*(1.-smoothstep(.18,.31,abs(p.y+.08)));
+       fernDepth+=fibre*6.*measure;
+       energy+=vec3(.026,.008,.001)*pocket*measure;
+     }else if(mossAgate>.5){
        // Die-local inclusions occupy the stone volume and shift through clear patches.
        float dendrite=smoothstep(.49,.66,cloud)*(1.-smoothstep(.025,.105,abs(noise(p*13.+growth*3.)-.51)));
        float mineral=1.-smoothstep(.007,.032,abs(growth-.54));
@@ -204,7 +231,28 @@ void main(){
    }
  }
  }
- if(style==2&&mossAgate>.5){
+ if(style==2&&enchantedAmber>.5){
+   vec3 resin=beyond*amberColor/max(.0001,amberWeight)*exp(-distance*vec3(.28,.20,.35));
+   through=mix(resin,vec3(.008,.024,.009),1.-exp(-fernDepth));
+   // Intersect the embedded frond planes exactly so thin leaflets do not
+   // disappear between volume samples or shimmer during rotation.
+   float fernMask=0.;
+   for(int k=0;k<2;k++){
+    vec3 q=pos-(k==0?vec3(-.18,.04,-.12):vec3(.25,-.14,.18)),d=ray;
+    float a=k==0?.48:-1.1,tilt=k==0?.32:-.4;
+    mat2 turn=mat2(cos(a),-sin(a),sin(a),cos(a));q.xy=turn*q.xy;d.xy=turn*d.xy;
+    float denominator=d.z+d.y*tilt;
+    if(abs(denominator)>.0001){
+     float travel=-(q.z+q.y*tilt)/denominator;
+     if(travel>.015&&travel<distance){
+      float leaf=amberFern(pos+ray*travel)*.82*exp(-travel*.25);
+      fernMask=1.-(1.-fernMask)*(1.-leaf);
+     }
+    }
+   }
+   through=mix(through,vec3(.009,.035,.012),fernMask);
+   smoke*=.08;
+ }else if(style==2&&mossAgate>.5){
    vec3 chalcedony=beyond*vec3(.24,.40,.29)*exp(-distance*vec3(.55,.24,.44));
    through=mix(chalcedony,mossColor/max(.0001,mossDepth),1.-exp(-mossDepth*2.8));
    smoke*=.12;
@@ -434,7 +482,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:style===2&&!crit?1:0},enchantedAmber:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const lightning=createLightningTiming();
   const updateLightning=(now:number)=>{
     if(!uniforms.internalLightning.value)return;
@@ -532,6 +580,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   return {
     object: root,
     // Approved material defaults; the viewer can toggle effects for comparison.
+    setEnchantedAmber(enabled:boolean){uniforms.enchantedAmber.value=enabled&&theme.id==='ranger'&&!crit?1:0;},
     setMossAgate(enabled:boolean){uniforms.mossAgate.value=enabled&&theme.id==='ranger'&&!crit?1:0;},
     setMoltenCracks(enabled:boolean){uniforms.moltenCracks.value=enabled&&theme.id==='fighter'&&!crit?1:0;},
     setInternalLightning(enabled:boolean){uniforms.internalLightning.value=enabled&&theme.id==='sorcerer'&&!crit?1:0;},

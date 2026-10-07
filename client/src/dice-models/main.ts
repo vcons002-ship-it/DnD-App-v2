@@ -18,7 +18,7 @@ for(let i=0;i<=512;i+=64){bg.beginPath();bg.moveTo(i,0);bg.lineTo(i,512);bg.move
 const map=new THREE.CanvasTexture(backdrop);map.colorSpace=THREE.SRGBColorSpace;
 const views=names.map((name,i)=>{
  const panel=document.createElement('section');panel.className='panel';panel.dataset.name=name;panel.id=name.toLowerCase();
- panel.innerHTML=`<h2>${name}</h2><p class="description">${descriptions[i]}</p><div class="model" aria-label="Rotate ${name} dice"><canvas></canvas></div><div class="model-controls"><button class="reset">Reset</button><label><input class="rotate" type="checkbox" checked>Auto rotate</label>${i===0?'<label><input id="molten" type="checkbox" checked>Molten cracks</label>':i===1?'<label><input id="moss-agate" type="checkbox">Moss agate test</label>':i===2?'<label><input id="lightning" type="checkbox" checked>Traveling lightning test</label>':i===3?'<label><input id="inner-light" type="checkbox" checked>Soft inner light</label><label><input id="liquid-ink" type="checkbox" checked>Flowing ink</label><label><input id="dense-resin" type="checkbox" checked>Denser resin</label>':''}</div>`;
+ panel.innerHTML=`<h2>${name}</h2><p class="description">${descriptions[i]}</p><div class="model" aria-label="Rotate ${name} dice"><canvas></canvas></div><div class="model-controls"><button class="reset">Reset</button><label><input class="rotate" type="checkbox" checked>Auto rotate</label>${i===0?'<label><input id="molten" type="checkbox" checked>Molten cracks</label>':i===1?'<label>Varis material <select id="ranger-material" aria-label="Varis material"><option value="moss">Moss agate</option><option value="amber">Enchanted amber</option><option value="resin">Original resin</option></select></label>':i===2?'<label><input id="lightning" type="checkbox" checked>Traveling lightning test</label>':i===3?'<label><input id="inner-light" type="checkbox" checked>Soft inner light</label><label><input id="liquid-ink" type="checkbox" checked>Flowing ink</label><label><input id="dense-resin" type="checkbox" checked>Denser resin</label>':''}</div>`;
  grid.append(panel);
  const element=panel.querySelector<HTMLDivElement>('.model')!,canvas=element.querySelector('canvas')!,ctx=canvas.getContext('2d')!;
  const scene=stage.scene.clone();scene.background=new THREE.Color('#121822');
@@ -31,8 +31,10 @@ const views=names.map((name,i)=>{
  controls.addEventListener('start',()=>{rotate.checked=false;});
  view.reset();return view;
 });
-const mossToggle=document.querySelector<HTMLInputElement>('#moss-agate')!;
-mossToggle.checked=new URLSearchParams(location.search).get('ranger')==='moss';
+const rangerMaterial=document.querySelector<HTMLSelectElement>('#ranger-material')!;
+const requestedMaterial=new URLSearchParams(location.search).get('ranger');
+rangerMaterial.value=requestedMaterial==='amber'?'amber':requestedMaterial==='vine'?'resin':'moss';
+function rangerDescription(){return rangerMaterial.value==='amber'?'Enchanted amber resin, suspended fern fragments, wood and bronze':rangerMaterial.value==='moss'?'Moss agate, lacquered wood and bronze':descriptions[1];}
 function choose(){
  const sides=Number(select.value);
  views.forEach((view,i)=>{
@@ -42,7 +44,8 @@ function choose(){
    h.setFaceValues(Array.from({length:sides===100?10:sides},(_,k)=>sides===100?(tens?k*10:k):k+1),true);
    h.object.rotation.set(.15,.35,0);
    if(sides===100){h.object.scale.setScalar(.72);h.object.position.x=j===0?-.75:.75;}
-   h.setMossAgate(i===1&&mossToggle.checked);
+   h.setMossAgate(i===1&&rangerMaterial.value==='moss');
+   h.setEnchantedAmber(i===1&&rangerMaterial.value==='amber');
    h.setMoltenCracks(i===0&&document.querySelector<HTMLInputElement>('#molten')!.checked);
    h.setInternalLightning(i===2&&document.querySelector<HTMLInputElement>('#lightning')!.checked);
    h.setInnerGlow(i===3&&document.querySelector<HTMLInputElement>('#inner-light')!.checked ? .65 : 0);
@@ -55,7 +58,7 @@ function choose(){
  status.textContent=`All four d${sides} models ready. Rotate individually to compare reflections and materials.`;
 }
 document.querySelector('#molten')!.addEventListener('change',()=>views[0].handles.forEach(h=>h.setMoltenCracks(document.querySelector<HTMLInputElement>('#molten')!.checked)));
-mossToggle.addEventListener('change',()=>{views[1].handles.forEach(h=>h.setMossAgate(mossToggle.checked));views[1].panel.querySelector('.description')!.textContent=mossToggle.checked?'Moss agate, lacquered wood and bronze':descriptions[1];});
+rangerMaterial.addEventListener('change',()=>{views[1].handles.forEach(h=>{h.setMossAgate(rangerMaterial.value==='moss');h.setEnchantedAmber(rangerMaterial.value==='amber');});views[1].panel.querySelector('.description')!.textContent=rangerDescription();});
 select.addEventListener('change',choose);
 spin.addEventListener('change',()=>views.forEach(v=>v.rotate.checked=spin.checked));
 document.querySelector('#reset')!.addEventListener('click',()=>views.forEach(v=>v.reset()));
@@ -64,7 +67,7 @@ document.querySelector('#lightning')!.addEventListener('change',()=>{
  views[2].handles.forEach(h=>h.setInternalLightning(enabled));
  views[2].element.dataset.lightning=String(enabled);
 });
-choose();if(mossToggle.checked)views[1].panel.querySelector('.description')!.textContent='Moss agate, lacquered wood and bronze';views[2].element.dataset.lightning='true';
+choose();views[1].panel.querySelector('.description')!.textContent=rangerDescription();views[2].element.dataset.lightning='true';
 document.querySelector('#inner-light')!.addEventListener('change',()=>{
  const enabled=document.querySelector<HTMLInputElement>('#inner-light')!.checked;
  views[3].handles.forEach(h=>h.setInnerGlow(enabled ? .65 : 0));views[3].element.dataset.innerLight=String(enabled);

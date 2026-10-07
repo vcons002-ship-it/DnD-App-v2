@@ -5,7 +5,7 @@ import type {DiceTheme} from '../../../shared/diceThemes';
 import {createDiceTrails} from './diceTrail';
 import {createWoodlandWake} from './diceWoodlandWake';
 
-export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean;mossAgate?:boolean;woodlandWake?:boolean};
+export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean;mossAgate?:boolean;enchantedAmber?:boolean;woodlandWake?:boolean};
 
 const trayTextures=new Map<string,Promise<THREE.Texture>>();
 export const warmTrayGraphics=()=>{getDiceStage();};
@@ -15,7 +15,7 @@ export async function loadTrayTexture(themeId:string){
   try{let promise=trayTextures.get(themeId);if(!promise){promise=new THREE.TextureLoader().loadAsync(`/art/dice-trays/${themeId}-v1.webp`);trayTextures.set(themeId,promise);}const t=(await promise).clone();t.colorSpace=THREE.SRGBColorSpace;return t;}catch{trayTextures.delete(themeId);return undefined;}
 }
 export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture,fixedFaces=false,dieThemes?:readonly DiceTheme[],appearance?:DiceAppearanceTest){
-  appearance ??= {molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true};
+  appearance ??= {molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true,mossAgate:true,woodlandWake:true};
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
   const trayScale=toss.trayScale??1;
   const tray=new THREE.Group();tray.scale.set(trayScale,trayScale,1);scene.add(tray);
@@ -65,7 +65,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const c=canvas.getContext('2d')!,gradient=c.createRadialGradient(32,32,4,32,32,32);gradient.addColorStop(0,'#000a');gradient.addColorStop(1,'#0000');c.fillStyle=gradient;c.fillRect(0,0,64,64);
   const texture=new THREE.CanvasTexture(canvas);textures.push(texture);
   const shadows=dice.map(()=>{const g=new THREE.PlaneGeometry(2,2),m=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false});const mesh=new THREE.Mesh(g,m);scene.add(mesh);geometry.push(g);materials.push(m);return mesh;});
-  const handles=dice.map((d,i)=>{const dieTheme=dieThemes?.[i]??theme;const h=createMaterialDie(d.sides,dieTheme,!!d.crit,!!d.tens,!!d.ones);h.setMossAgate(!!appearance?.mossAgate);h.setMoltenCracks(!!appearance?.molten);h.setInternalLightning(!!appearance?.lightning);h.setInnerGlow(appearance?.dmGlow??0);h.setLiquidInk(!!appearance?.liquidInk);h.setDenseResin(!!appearance?.denseDm);h.setFaceValues(fixedFaces?Array.from({length:d.sides},(_,j)=>d.tens?j*10:d.ones?j:j+1):trayFaceValues(d,toss.topFaces[i]),fixedFaces);h.object.scale.setScalar(toss.radius);
+  const handles=dice.map((d,i)=>{const dieTheme=dieThemes?.[i]??theme;const h=createMaterialDie(d.sides,dieTheme,!!d.crit,!!d.tens,!!d.ones);h.setMossAgate(!!appearance?.mossAgate);h.setEnchantedAmber(!!appearance?.enchantedAmber);h.setMoltenCracks(!!appearance?.molten);h.setInternalLightning(!!appearance?.lightning);h.setInnerGlow(appearance?.dmGlow??0);h.setLiquidInk(!!appearance?.liquidInk);h.setDenseResin(!!appearance?.denseDm);h.setFaceValues(fixedFaces?Array.from({length:d.sides},(_,j)=>d.tens?j*10:d.ones?j:j+1):trayFaceValues(d,toss.topFaces[i]),fixedFaces);h.object.scale.setScalar(toss.radius);
     // The standard shadow pass cannot transmit resin or discard this custom
     // inlay shader's empty areas. Keep its soft contact shadow instead of an
     // opaque silhouette cast by every numbered face.
