@@ -55,7 +55,8 @@ uniform float numeralEmphasis;
 uniform float moltenCracks;
 uniform float mossAgate;
 uniform float enchantedAmber;
-uniform float motePhase;
+uniform vec3 motePosition;
+uniform float moteRoom;
 uniform float internalLightning;
 uniform float lightningPhase; uniform float lightningSeed;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -276,20 +277,19 @@ void main(){
    through=mix(chalcedony,mossColor/max(.0001,mossDepth),1.-exp(-mossDepth*2.8));
    smoke*=.12;
  }
- // An enclosed light is evaluated along the refracted ray analytically, so
- // its tiny core cannot disappear between the volume samples during rotation.
+ // Keep one optical image across the facets: only the resin is refracted.
+ // Project the enclosed emitter along the continuous camera ray, not a
+ // separate bent ray per face (which produced multiple small copies).
  if(style==2){
-   float room=1.;
-   for(int j=0;j<20;j++){if(j>=count)break;room=min(room,planes[j].w);}
-   float clock=time*.72+motePhase;
-   vec3 center=room*vec3(sin(clock)*.32,sin(clock*.81+1.7)*.28,cos(clock*.63+.6)*.30);
-   float travel=clamp(dot(center-pos,ray),.0,distance);
-   float separation=length(pos+ray*travel-center);
-   float core=exp(-pow(separation/(room*.045),2.));
-   float halo=exp(-pow(separation/(room*.18),2.));
-   float inside=smoothstep(.0,.035,travel)*(1.-smoothstep(distance-.035,distance,travel));
-   float pulse=.9+.1*sin(clock*2.3);
-   energy+=(vec3(.8,1.,.36)*core*2.3+vec3(.12,.40,.025)*halo*.48)*inside*pulse*exp(-travel*.9-smoke*.55);
+   float travel=max(0.,dot(motePosition-pos,incoming));
+   float separation=length(pos+incoming*travel-motePosition);
+   float core=exp(-pow(separation/(moteRoom*.15),2.));
+   float halo=exp(-pow(separation/(moteRoom*.44),2.));
+   float depthFade=exp(-travel*.28-smoke*.22);
+   energy+=(vec3(.85,1.,.38)*core*3.3+vec3(.14,.48,.035)*halo*.7)*depthFade;
+   // The same source illuminates the nearby resin and embedded inclusions.
+   float proximity=dot(pos-motePosition,pos-motePosition)/(moteRoom*moteRoom);
+   through+=vec3(.10,.27,.025)*.55/(.3+proximity);
  }
  through=through*exp(-smoke*1.9)+energy;
  float fresnel=.04+.96*pow(1.-max(0.,dot(-incoming,n)),5.);
@@ -514,7 +514,19 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePhase:{value:style===2?rangerMoteSequence++*2.399963:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const motePhase=style===2?rangerMoteSequence++*2.399963:0;
+  const updateMote=(now:number)=>{
+    if(style!==2||crit)return;
+    const clock=now/1000*1.05+motePhase,room=uniforms.moteRoom.value;
+    const center=uniforms.motePosition.value;
+    center.set(Math.sin(clock)*.95,Math.sin(clock*.79+1.7)*.85,Math.cos(clock*.67+.6)*.92).multiplyScalar(room);
+    // Travel broadly through every polyhedron while keeping the whole core
+    // beneath its shell, including the narrow corners of a d4 or d10.
+    let fit=1;
+    for(const f of faces){const projection=f.n.dot(center);if(projection>0)fit=Math.min(fit,(f.n.dot(f.c)-room*.19)/projection);}
+    center.multiplyScalar(fit);
+  };
   const lightning=createLightningTiming();
   const updateLightning=(now:number)=>{
     if(!uniforms.internalLightning.value)return;
@@ -611,6 +623,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
+    innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.
     setEnchantedAmber(enabled:boolean){uniforms.enchantedAmber.value=enabled&&theme.id==='ranger'&&!crit?1:0;},
     setMossAgate(enabled:boolean){uniforms.mossAgate.value=enabled&&theme.id==='ranger'&&!crit?1:0;},
@@ -654,7 +667,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       root.updateMatrixWorld(true);
       uniforms.eye.value.copy(camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
       uniforms.rotation.value.setFromMatrix4(poseRotation.makeRotationFromQuaternion(root.quaternion));
-      uniforms.time.value=now/1000;updateLightning(now);
+      uniforms.time.value=now/1000;updateLightning(now);updateMote(now);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean){
       // Only the separate settled result presentation uses this treatment;
@@ -674,7 +687,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       });}
       root.rotation.set(angles[0]+(readable?0:.10),angles[1]-(readable?0:.14),angles[2],'ZYX');root.updateMatrixWorld(true);
       uniforms.eye.value.copy(s.camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
-      uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;updateLightning(now);
+      uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;updateLightning(now);updateMote(now);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);

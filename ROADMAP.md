@@ -6,6 +6,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Varis mote is now one larger optical image across facets, with broad
+  motion through the die, nearby resin illumination and soft light on the tray.
+
 - [x] Varis resin contains a small green-gold magical mote drifting inside
   each die, with independent phases and refracted, depth-attenuated glow.
 

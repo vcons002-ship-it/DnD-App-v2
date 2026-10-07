@@ -78,6 +78,26 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   });
   const a=new THREE.Quaternion(),b=new THREE.Quaternion(),projectedNumber=new THREE.Vector3();
   const rangerIndices=dice.flatMap((d,i)=>(dieThemes?.[i]??theme).id==='ranger'&&!d.crit?[i]:[]);
+  // A shared floor pass receives each enclosed mote's light without adding
+  // dozens of dynamic lights or shadow maps to crowded dice rolls.
+  const moteLights=rangerIndices.map(()=>new THREE.Vector3());
+  if(moteLights.length){
+    feltMaterial.onBeforeCompile=shader=>{
+      shader.uniforms.moteLights={value:moteLights};shader.uniforms.moteRadius={value:toss.radius};
+      shader.vertexShader='varying vec3 moteFloorPosition;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nmoteFloorPosition=(modelMatrix*vec4(transformed,1.)).xyz;');
+      shader.fragmentShader=`varying vec3 moteFloorPosition;uniform vec3 moteLights[${moteLights.length}];uniform float moteRadius;\n`+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`vec3 moteIllumination=vec3(0.);
+        for(int k=0;k<${moteLights.length};k++){
+          vec3 offset=(moteFloorPosition-moteLights[k])/moteRadius;
+          float falloff=.24/pow(1.+dot(offset,offset)*.8,2.);
+          moteIllumination+=vec3(.38,1.,.08)*falloff;
+        }
+        outgoingLight+=diffuseColor.rgb*moteIllumination;
+        #include <opaque_fragment>`);
+    };
+    feltMaterial.customProgramCacheKey=()=>`ranger-mote-floor-${moteLights.length}`;
+  }
   const trails=appearance?.varisTrail?(appearance.woodlandWake?createWoodlandWake(scene,toss.radius,rangerIndices,trayScale):createDiceTrails(scene,toss.radius,rangerIndices,trayScale)):undefined;
   return {
     trailPointCount(){return trails?.pointCount()??0;},
@@ -110,6 +130,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         const clearance=Math.max(0,h.object.position.z-toss.radius*.65);
         shadow.scale.setScalar(toss.radius*(1.0+clearance*.18));(shadow.material as THREE.MeshBasicMaterial).opacity=Math.max(.15,.9-clearance*.18);
       });
+      rangerIndices.forEach((index,k)=>handles[index].innerLightPosition(moteLights[k]));
       trails?.update(handles.map(h=>h.object),now);
       const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
       if(stage.renderer.domElement.width!==rw||stage.renderer.domElement.height!==rh)stage.renderer.setSize(rw,rh,false);
