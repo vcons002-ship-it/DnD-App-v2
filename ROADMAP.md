@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Varis foliage uses sparse short offshoots with smaller paired leaves and
+  thorns, anchored to the main root samples. Root, foliage and sparks share a
+  1.8-second lifetime and fade curve; roots retain their width while fading.
+
 - [x] Varis main rolling trail is a rounded, bark-textured woody vine with
   irregular thickness and restrained green light inside seams, replacing the
   additive bright green ribbon. Shared materials and fixed geometry buffers

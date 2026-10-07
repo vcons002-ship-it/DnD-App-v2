@@ -1,4 +1,5 @@
 ﻿import * as THREE from 'three';
+import {diceTrailFade} from './diceTrailTiming';
 
 type VinePoint={x:number;y:number;time:number;distance:number};
 /** Lit bark on an actual rounded root, with occasional light inside narrow cracks. */
@@ -45,9 +46,9 @@ export function createTrailVine(capacity:number,radius:number){
    for(let j=0;j<points.length;j++){
     const p=points[j],before=points[Math.max(0,j-1)],after=points[Math.min(points.length-1,j+1)];
     const length=Math.max(.001,Math.hypot(after.x-before.x,after.y-before.y)),nx=-(after.y-before.y)/length,ny=(after.x-before.x)/length;
-    const ageFade=Math.pow(Math.max(0,1-(now-p.time)/lifetime),1.4),along=p.distance/radius;
+    const ageFade=diceTrailFade((now-p.time)/lifetime),along=p.distance/radius;
     const curl=(Math.sin(along*2.2)*.07+Math.sin(along*4.7)*.025)*radius;
-    const width=radius*.085*(.83+.13*Math.sin(along*3.3)+.06*Math.sin(along*8.1))*ageFade;
+    const width=radius*.085*(.83+.13*Math.sin(along*3.3)+.06*Math.sin(along*8.1))*(.88+.12*ageFade);
     for(let k=0;k<radial;k++){
      const index=j*radial+k,angle=k/radial*Math.PI*2,c=Math.cos(angle),s=Math.sin(angle);
      position.set([p.x+nx*(curl+c*width),p.y+ny*(curl+c*width),radius*.085+s*width*.82],index*3);

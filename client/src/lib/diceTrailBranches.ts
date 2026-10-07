@@ -1,4 +1,5 @@
 ﻿import * as THREE from 'three';
+import {DICE_TRAIL_LIFETIME,diceTrailFade} from './diceTrailTiming';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 type Sprout={x:number;y:number;angle:number;born:number;scale:number;stretch:number};
@@ -23,10 +24,8 @@ export function createBotanicalTrailAssets(){
   }
   g.computeVertexNormals();piece(g,color,part);
  }
- tendril([[0,0,.04],[-.04,.24,.08],[.10,.53,.13],[.02,.83,.19],[.13,1.08,.12]],.044,'#53482e');
- tendril([[.025,.02,.065],[.04,.27,.11],[-.005,.51,.17],[.09,.77,.21],[.13,1.03,.14]],.020,'#77704a');
- tendril([[.06,.43,.12],[.29,.49,.10],[.41,.69,.07],[.30,.82,.10],[.20,.71,.13]],.019,'#4b5234');
- tendril([[.01,.72,.15],[-.20,.79,.10],[-.30,.99,.08],[-.20,1.12,.10],[-.13,1.02,.13]],.014,'#5c5a39');
+ // Short offshoots grow directly from the main vine instead of repeated bushes.
+ tendril([[0,0,.04],[.025,.16,.07],[-.035,.32,.09],[.015,.53,.11]],.032,'#53482e');
  function leaf(seed:number){
   const positions:number[]=[],uv:number[]=[],indices:number[]=[],rows=14;
   for(let j=0;j<=rows;j++)for(const side of [-1,0,1]){
@@ -38,26 +37,26 @@ export function createBotanicalTrailAssets(){
   for(let j=0;j<rows;j++)for(let k=0;k<2;k++){const a=j*3+k,b=a+3;indices.push(a,b,a+1,a+1,b,b+1);}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return g;
  }
- for(const [x,y,z,angle,seed] of [[-.025,.22,.09,1.15,1],[.07,.51,.15,-1.30,3],[.025,.83,.20,.58,5]]){
-  const at=new THREE.Vector3(x,y,z);piece(leaf(seed),seed===3?'#52673c':'#344e2d',1,at,angle);
+ for(const [x,y,z,angle,seed] of [[.02,.16,.07,1.0,1],[-.025,.34,.09,-1.20,3]]){
+  const at=new THREE.Vector3(x,y,z);piece(leaf(seed).scale(.65,.65,.65),seed===3?'#52673c':'#344e2d',1,at,angle);
   const vein=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,.007),new THREE.Vector3(0,.19,.069),new THREE.Vector3(0,.35,.10),new THREE.Vector3(0,.45,.115)]);
-  piece(new THREE.TubeGeometry(vein,5,.005,3,false),'#8c9153',2,at,angle);
+  piece(new THREE.TubeGeometry(vein,5,.005,3,false).scale(.65,.65,.65),'#8c9153',2,at,angle);
   for(const t of [.30,.53,.72])for(const side of [-1,1]){
    const end=t+.10,width=Math.pow(Math.sin(Math.PI*end),.85)*.105*.70;
    const height=(u:number,edge:number)=>.065*Math.sin(Math.PI*u)-Math.abs(edge)*.045*Math.sin(Math.PI*u)+u*u*.11+edge*.025*Math.sin(u*5+seed)*Math.sin(Math.PI*u)+.007;
    const veinlet=new THREE.CatmullRomCurve3([new THREE.Vector3(0,t*.46,height(t,0)),new THREE.Vector3(side*width*.55,(t+.035)*.46,height(t+.035,side*.4)),new THREE.Vector3(side*width,end*.46,height(end,side*.7))]);
-   piece(new THREE.TubeGeometry(veinlet,3,.0022,3,false),'#8a9a5c',1,at,angle);
+   piece(new THREE.TubeGeometry(veinlet,3,.0022,3,false).scale(.65,.65,.65),'#8a9a5c',1,at,angle);
   }
  }
  // Broad dark roots curve into pale, needle-sharp hooked tips.
- for(const [x,y,z,angle] of [[.02,.19,.08,-.95],[.08,.47,.13,.8],[.015,.76,.18,-1.1],[.12,.97,.15,.55]]){
+ for(const [x,y,z,angle] of [[.015,.10,.06,-.95],[-.025,.29,.09,.8]]){
   const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0),new THREE.Vector3(.065,.035,.09),new THREE.Vector3(.10,.015,.18),new THREE.Vector3(.08,-.04,.23)]);
   const g=new THREE.TubeGeometry(curve,7,.035,6,false),p=g.attributes.position;
   for(let i=0;i<p.count;i++){
    const t=g.attributes.uv.getX(i),center=curve.getPointAt(t),taper=Math.pow(1-t,1.35);
    p.setXYZ(i,center.x+(p.getX(i)-center.x)*taper,center.y+(p.getY(i)-center.y)*taper,center.z+(p.getZ(i)-center.z)*taper);
   }
-  g.computeVertexNormals();piece(g,'#9b8a61',3,new THREE.Vector3(x,y,z),angle);
+  g.computeVertexNormals();g.scale(.65,.65,.65);piece(g,'#9b8a61',3,new THREE.Vector3(x,y,z),angle);
  }
  const base=mergeGeometries(pieces)!;pieces.forEach(g=>g.dispose());
  const bark=document.createElement('canvas');bark.width=bark.height=128;
@@ -87,35 +86,29 @@ export function createBotanicalTrailAssets(){
    totalEmissiveRadiance+=vec3(.10,.38,.16)*veins*(.12+pulse*.8)*leafFade;
   `);
  };
- material.customProgramCacheKey=()=> 'varis-woody-bramble-v2';
+ material.customProgramCacheKey=()=> 'varis-sparse-offshoot-v3';
  return {base,material,time,dispose(){base.dispose();material.dispose();bump.dispose();}};
 }
 /** A bounded instanced botanical wake with physical wood, foliage and thorn detail. */
-export function createTrailBranches(scene:THREE.Scene,radius:number,trayScale=1,shared?:ReturnType<typeof createBotanicalTrailAssets>){
- const assets=shared??createBotanicalTrailAssets(),capacity=24,lifetime=1450;
+export function createTrailBranches(scene:THREE.Scene,radius:number,shared?:ReturnType<typeof createBotanicalTrailAssets>){
+ const assets=shared??createBotanicalTrailAssets(),capacity=16,lifetime=DICE_TRAIL_LIFETIME;
  const geometry=new THREE.BufferGeometry();for(const [name,attribute] of Object.entries(assets.base.attributes))geometry.setAttribute(name,attribute);
  const fade=new THREE.InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(THREE.DynamicDrawUsage);geometry.setAttribute('sproutFade',fade);
  const mesh=new THREE.InstancedMesh(geometry,assets.material,capacity);mesh.count=0;mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);
- const sprouts:Sprout[]=[],transform=new THREE.Object3D();let last:{x:number;y:number}|undefined,sequence=0;
+ const sprouts:Sprout[]=[],transform=new THREE.Object3D();let lastDistance:number|undefined,sequence=0;
  return {
   count(){return sprouts.length;},
-  update(position:THREE.Vector3,now:number){
+  update(now:number,root?:{x:number;y:number;angle:number;distance:number},oldestRootTime=0){
    assets.time.value=now/1000;
-   if(position.z<radius*1.45&&Math.abs(position.x)<7*trayScale-radius*.2&&Math.abs(position.y)<4.5*trayScale-radius*.1){
-    if(!last)last={x:position.x,y:position.y};
-    const dx=position.x-last.x,dy=position.y-last.y,distance=Math.hypot(dx,dy);
-    if(distance>radius*.50){
-     if(distance<radius*3){
-      const side=sequence++%2?Math.PI:0,jitter=Math.sin(sequence*17.13)*.37;
-      sprouts.push({x:position.x,y:position.y,born:now,angle:Math.atan2(dy,dx)+side+jitter,scale:.76+(Math.sin(sequence*8.7)+1)*.15,stretch:.8+(Math.sin(sequence*11.3)+1)*.2});
-     }
-     last={x:position.x,y:position.y};
-    }
+   if(root&&(lastDistance===undefined||root.distance-lastDistance>radius*1.15)){
+    const side=sequence++%2?Math.PI:0,jitter=Math.sin(sequence*17.13)*.26;
+    sprouts.push({x:root.x,y:root.y,born:now,angle:root.angle+side+jitter,scale:.72+(Math.sin(sequence*8.7)+1)*.12,stretch:.85+(Math.sin(sequence*11.3)+1)*.15});
+    lastDistance=root.distance;
    }
-   while(sprouts.length&&(now-sprouts[0].born>lifetime||sprouts.length>capacity))sprouts.shift();
+   while(sprouts.length&&(now-sprouts[0].born>lifetime||sprouts[0].born<oldestRootTime||sprouts.length>capacity))sprouts.shift();
    sprouts.forEach((s,i)=>{
-    const age=(now-s.born)/lifetime,growth=THREE.MathUtils.smoothstep(age,0,.11),alpha=1-THREE.MathUtils.smoothstep(age,.42,1),size=radius*s.scale*growth*(.7+.3*alpha);
-    transform.position.set(s.x,s.y,.027);transform.rotation.set(0,0,s.angle+Math.sin(age*4+s.born)*.035);
+    const age=(now-s.born)/lifetime,growth=THREE.MathUtils.smoothstep(age,0,.07),alpha=diceTrailFade(age),size=radius*s.scale*growth;
+    transform.position.set(s.x,s.y,.027);transform.rotation.set(0,0,s.angle);
     transform.scale.set(size*s.stretch,size,size*(1.15-.25*s.stretch));transform.updateMatrix();mesh.setMatrixAt(i,transform.matrix);fade.setX(i,alpha);
    });
    mesh.count=sprouts.length;mesh.instanceMatrix.needsUpdate=true;fade.needsUpdate=true;
