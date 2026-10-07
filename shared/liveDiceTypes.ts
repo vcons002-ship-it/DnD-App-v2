@@ -2,6 +2,8 @@ export type LiveDiceFrame = {
  /** Confirmed dice-dependent effect, published on the first settled frame. */
  diceTrigger?:import('./types.js').RollReveal['diceTrigger'];
  /** Extra d8s already rolled and their per-cast limit; excludes base/crit dice. */
+ /** Reserved capacity and parent-to-child indices for one continuous Burst tray. */
+ burstCapacity?:number;burstLinks?:{from:number;to:number}[];
  burstProgress?:{used:number;limit:number};
  /** Calculation presented on this settled throw before the next throw starts. */
  calculation?:import('./types.js').RollReveal;

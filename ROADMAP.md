@@ -18,9 +18,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 - [x] Chromatic Orb matching links begin on the first authoritative settled frame,
   during number flights and the existing reading hold, before final damage resolution.
-- [x] Sorcerous Burst marks triggering 8s immediately with a Burst pulse and magic
-  flare toward a bonus-die symbol; separate live bonus throws show a per-cast counter
-  and explain the casting-modifier limit. No new damage is applied before the chain finishes.
+- [x] Sorcerous Burst keeps all base, critical and recursive bonus dice in the
+  original live physics tray. Each triggering 8 links with an arrow to the exact
+  bonus die it creates; settled faces and result boxes persist throughout the chain.
+  Future bonus materials are prepared with the first tray, without a mid-chain load.
 - [x] Magic Missile separates its d4 face from the fixed +1 spell bonus,
   labeled in both the tray count-up and roll log; no CHA damage is added.
 

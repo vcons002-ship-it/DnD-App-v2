@@ -44,3 +44,9 @@ it('keeps triggering spell dice visible instead of highlighting an unrelated lat
  expect(diceTriggerForTray(orb,reveal)).toBe(reveal.diceTrigger);
  expect(diceTriggerForTray(rider,reveal)).toBeUndefined();
 });
+
+it('retains the full Burst tray and its parent links for the combined damage summary',()=>{
+ const burst=frame('burst',[8,8,8],[8,8,5],{burstCapacity:4,burstProgress:{used:2,limit:3},burstLinks:[{from:0,to:1},{from:1,to:2}]});
+ const reveal={...damage('1d8',[8]),damageDice:[{label:'1d8',value:8,faces:[8]},{label:'Sorcerous Burst bonus',diceExpression:'1d8',value:8,faces:[8]},{label:'Sorcerous Burst bonus',diceExpression:'1d8',value:5,faces:[5]}]};
+ expect(resultTrayFor([frame('attack',[20],[15]),burst],reveal)).toBe(burst);
+});

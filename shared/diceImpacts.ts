@@ -43,9 +43,12 @@ export function recordDiceImpacts(
   clock: () => number,
   sink: DiceImpact[],
   trayHalfWidth=TRAY_HALF_WIDTH,
-): void {
-  const index = new Map<unknown, number>(dice.map((b, i) => [b, i]));
+) {
+  const index = new Map<unknown, number>(),attached=new Set<BodyLike>();
+  const register=()=>{
+  dice.forEach((b,i)=>index.set(b,i));
   dice.forEach((body, i) => {
+    if(attached.has(body))return;attached.add(body);
     body.addEventListener('collide', (event) => {
       const other = index.get(event.body);
       // Two dice each receive the event — keep the lower index's copy only.
@@ -61,4 +64,5 @@ export function recordDiceImpacts(
       });
     });
   });
+  };register();return register;
 }

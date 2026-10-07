@@ -168,6 +168,8 @@ describe('linked damage and saving throws',()=>{
   it('Sorcerous Burst chains maximum rolls up to the casting modifier, including critical base dice',()=>{
     const f=setup('Sorcerous Burst');dice(20,()=>f.cast(0,'fire'));const attack=listRollLog(f.session.id).find(r=>r.label==='Attack')!;
     expect(attack.reveal?.damageDice?.filter(d=>d.label==='Sorcerous Burst bonus')).toHaveLength(4);expect(500-monsterHp(f)).toBe(96);
+    expect(attack.reveal?.damageDice?.[0].faces).toEqual([8,8,8,8]);
+    expect(attack.reveal?.damageDice?.[1].label).toBe('CRIT');
   });
   it.each([1,15])('Ice Knife explodes on a hit or miss (attack face %i), with grouped saves after damage',face=>{
     const f=setup('Ice Knife');withDiceSource(s=>s.map(n=>n===20?face:4),()=>f.cast(2));

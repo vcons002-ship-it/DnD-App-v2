@@ -45,10 +45,10 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  // Dice sounds for this roll: the server publishes each frame's real strikes.
  // The canvas draws ~80 ms behind the newest frame and physics runs at the
  // presentation rate, so each strike is scheduled to land with its picture.
- const sound=useRef<{id:string;player:ReturnType<typeof createDiceSound>}>();
+ const sound=useRef<{id:string;count:number;player:ReturnType<typeof createDiceSound>}>();
  useEffect(()=>()=>{sound.current?.player.stop();},[]);
  useEffect(()=>{
-  if(sound.current?.id!==frame.id){sound.current?.player.stop();sound.current={id:frame.id,player:createDiceSound(frame.sides)};}
+  if(sound.current?.id!==frame.id||sound.current.count!==frame.sides.length){sound.current?.player.stop();sound.current={id:frame.id,count:frame.sides.length,player:createDiceSound(frame.sides)};}
   const player=sound.current.player,previous=frames.current.at(-1)?.frame;
   const viewer=useStore.getState(),character=viewer.snapshot?.characters.find(c=>c.name===frame.roller);
   const own=viewer.snapshot?.role==='dm'?(frame.roller==='DM'||!!character&&!character.claimedBy):character?.claimedBy===viewer.socket?.id;
@@ -71,13 +71,14 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   // Revisiting an earlier completed throw for its arithmetic does not replay
   // number flights that the viewer already watched during the live roll.
   setArrived(result?frame.sides.map((_,i)=>i):[]);setFailed(false);setPrepared(false);
-  const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,resultsStartedAt:number|undefined;
+  const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,resultsStartedAt:number|undefined,firstRevealIndex=0;
   const viewPose=(poses:number[])=>own?poses:poses.map((v,i)=>{
     // Same physical world viewed from the other side of the table.
     const offset=i-i%7;
     return i%7===0||i%7===1?-v:i%7===3?-poses[offset+4]:i%7===4?poses[offset+3]:i%7===5?poses[offset+6]:i%7===6?-poses[offset+5]:v;
   });
-  const toss:Toss={settleTimes:[],wallHits:0,frames:new Float32Array(frame.sides.length*14),frameCount:2,step:1,radius:frame.radius,trayScale:frame.trayScale,topFaces:frame.sides.map(()=>0),duration:1};
+  const capacity=frame.burstCapacity??frame.sides.length;
+  const toss:Toss={settleTimes:[],wallHits:0,frames:new Float32Array(capacity*14),frameCount:2,step:1,radius:frame.radius,trayScale:frame.trayScale,topFaces:Array(capacity).fill(0),duration:1};
   void (async()=>{
    const module=await import('../lib/diceTrayRenderer');
    // A background compile already in progress shares this WebGL renderer. Finish
@@ -87,7 +88,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    root.current!.dataset.dicePreloaded=String(module.diceGraphicsPreloaded(theme.id));
    const art=await module.loadTrayTexture(theme.id);
    if(stopped){art?.dispose();return;}
-   renderer=module.createTrayRenderer(frame.sides.map((sides,index)=>({sides,value:1,index,set:frame.sets[index],crit:frame.critical[index],tens:frame.percentile[index]==='tens',ones:frame.percentile[index]==='ones'})),toss,theme,undefined,art,true);
+   renderer=module.createTrayRenderer(Array.from({length:capacity},(_,index)=>({sides:frame.sides[index]??8,value:1,index,set:frame.sets[index],crit:frame.critical[index],tens:frame.percentile[index]==='tens',ones:frame.percentile[index]==='ones'})),toss,theme,undefined,art,true);
    const node=canvas.current!,ctx=node.getContext('2d')!;
    const width=node.clientWidth||600;
    await Promise.all([
@@ -104,7 +105,11 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
     if(a&&b){
      // A reroll is an intentional new throw, not interpolation through the floor.
      const reset=b.frame.rerolls.some((n,i)=>n!==a.frame.rerolls[i]);
-     toss.frames.set(viewPose(reset?b.frame.poses:a.frame.poses),0);toss.frames.set(viewPose(b.frame.poses),b.frame.poses.length);
+     const oldPose=reset?b.frame.poses:a.frame.poses;
+     toss.frames.set(viewPose(b.frame.poses),0);toss.frames.set(viewPose(oldPose),0);
+     toss.frames.set(viewPose(b.frame.poses),capacity*7);
+     renderer!.setActiveCount(b.frame.sides.length);
+     if(!b.frame.done){resultsStartedAt=undefined;finalTrayDrawn=false;}
      const alpha=reset||a===b?1:Math.max(0,Math.min(1,(target-a.at)/(b.at-a.at)));
      const width=node.clientWidth||600,height=width*10.2/15.2,dpr=Math.min(2,devicePixelRatio||1);
      if(node.width!==Math.round(width*dpr)){node.width=Math.round(width*dpr);node.height=Math.round(height*dpr);}
@@ -118,14 +123,14 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
        node.dataset.renderTime=String(now);
        finalTrayDrawn=b.frame.done&&alpha===1;
        const svg=links.current,trigger=triggerRef.current;
-       if(svg&&trigger&&b.frame.done){
-         const points=new Map(trigger.groups.flatMap(g=>g.indices).map(i=>{const p=renderer!.numberPosition(i);return [i,{x:p.x*1000,y:p.y*1000*10.2/15.2}] as const;}));
+       if(svg){
+         const indices=new Set([...(b.frame.done?trigger?.groups.flatMap(g=>g.indices)??[]:[]),...(b.frame.burstLinks??[]).flatMap(link=>[link.from,link.to])]);
+         const points=new Map([...indices].map(i=>{const p=renderer!.numberPosition(i);return [i,{x:p.x*1000,y:p.y*1000*10.2/15.2}] as const;}));
          const geometry=[...points.values()].map(p=>`${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(';');
          if(svg.dataset.geometry!==geometry){
            svg.dataset.geometry=geometry;svg.style.visibility='visible';
            svg.querySelectorAll<SVGCircleElement>('[data-trigger-die]').forEach(el=>{const p=points.get(Number(el.dataset.triggerDie));if(p){el.setAttribute('cx',String(p.x));el.setAttribute('cy',String(p.y));}});
            svg.querySelectorAll<SVGPathElement>('[data-from]').forEach(el=>{const a=points.get(Number(el.dataset.from)),b=points.get(Number(el.dataset.to));if(a&&b){const midX=(a.x+b.x)/2,midY=(a.y+b.y)/2-Math.min(80,Math.hypot(a.x-b.x,a.y-b.y)*.2);el.setAttribute('d',`M ${a.x} ${a.y} Q ${midX} ${midY} ${b.x} ${b.y}`);}});
-           svg.querySelectorAll<SVGPathElement>('[data-burst-from]').forEach(el=>{const p=points.get(Number(el.dataset.burstFrom));if(p)el.setAttribute('d',`M ${p.x} ${p.y} Q ${(p.x+500)/2} ${Math.min(p.y,135)-85} 500 135`);});
          }
        }
      }
@@ -137,11 +142,11 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
      if(!result&&b.frame.done&&(finalWasDrawn||reduced)){
        // Start on the frame AFTER the final WebGL draw has painted. Otherwise
        // GPU work can consume the flash and make every stagger launch at once.
-       resultsStartedAt??=now;
+       if(resultsStartedAt===undefined){resultsStartedAt=now;firstRevealIndex=b.frame.values.findIndex((_,i)=>!launched.has(i));}
        const elapsedSinceDone=now-resultsStartedAt;
        launched.forEach((at,i)=>{const flight=flights.current[i];if(flight?.dataset.phase==='flash'&&now-at>=DIE_FLASH_MS)flight.dataset.phase='flying';});
        b.frame.values.forEach((_,i)=>{
-         if(launched.has(i)||elapsedSinceDone<i*DIE_REVEAL_STAGGER_MS)return;
+         if(launched.has(i)||elapsedSinceDone<(i-firstRevealIndex)*DIE_REVEAL_STAGGER_MS)return;
          launched.set(i,now);
          const flight=flights.current[i],box=boxes.current[i];
          if(reduced||!flight||!box){setArrived(old=>[...old,i]);return;}
@@ -192,14 +197,12 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id.startsWith('dm-')?'purple-resin':theme.id} role="group" aria-label="Live dice tray">
    <canvas className="dice-tray-canvas" ref={canvas} aria-label={result?'Settled dice':'Server dice rolling live'}/>
    {frame.burstProgress&&!result&&!compact&&<div className="tray-burst-progress" data-burst-used={frame.burstProgress.used} data-burst-limit={frame.burstProgress.limit}>Bonus dice: <strong>{frame.burstProgress.used} of {frame.burstProgress.limit}</strong></div>}
-   {diceTrigger&&frame.done&&!compact&&!reduced&&<svg ref={links} className="tray-trigger-links" viewBox="0 0 1000 671.0526" aria-hidden="true">
-    {diceTrigger.groups.map((group,g)=><g key={g} style={{color:triggerColors[g%triggerColors.length]}}>
-     {group.indices.slice(1).map((i,j)=><g key={i}>{['aura','core','spark'].map(part=><path key={part} className={`tray-trigger-${part}`} data-from={group.indices[j]} data-to={i}/>)}</g>)}
+   {(diceTrigger&&frame.done||!!frame.burstLinks?.length)&&!compact&&!reduced&&<svg ref={links} className="tray-trigger-links" viewBox="0 0 1000 671.0526" aria-hidden="true">
+    <defs><marker id={`burst-arrow-${frame.id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="#e3b0ff"/></marker></defs>
+    {(frame.done?diceTrigger?.groups??[]:[]).map((group,g)=><g key={g} style={{color:triggerColors[g%triggerColors.length]}}>
+     {!diceTrigger?.kind&&group.indices.slice(1).map((i,j)=><g key={i}>{['aura','core','spark'].map(part=><path key={part} className={`tray-trigger-${part}`} data-from={group.indices[j]} data-to={i}/>)}</g>)}
      {group.indices.map(i=><circle key={i} data-trigger-die={i} r="29"/>)}</g>)}
-    {diceTrigger.kind==='burst'&&<g className="tray-burst-flare" style={{color:triggerColors[0]}}>
-     {diceTrigger.groups.flatMap(g=>g.indices).map(i=><g key={i}>{['aura','core','spark'].map(part=><path key={part} className={`tray-trigger-${part}`} data-burst-from={i}/>)}</g>)}
-     <g className="tray-burst-die"><path d="M500 95 L532 135 L500 175 L468 135 Z"/><path d="M468 135 L532 135 M500 95 L500 175"/><text x="500" y="196" textAnchor="middle">+d8</text></g>
-    </g>}
+    {frame.burstLinks?.map(link=><g key={link.to} style={{color:'#e3b0ff'}} data-burst-parent={link.from} data-burst-child={link.to}>{['aura','core','spark'].map(part=><path key={part} className={`tray-trigger-${part}`} data-from={link.from} data-to={link.to} markerEnd={part==='core'?`url(#burst-arrow-${frame.id})`:undefined}/>)}</g>)}
    </svg>}
    {frame.saveDice&&<div className="tray-save-labels" aria-hidden="true">{frame.saveDice.map((save,i)=><span key={i} ref={el=>{saveLabels.current[i]=el;}} className="tray-save-label">{save.label}{save.mode?` ${save.mode.toUpperCase()}`:''}</span>)}</div>}
    {(failed||reduced)&&<div className="dice-tray-status">{failed?'Live roll - graphics unavailable':frame.done?'Dice settled':'Live roll in progress'}</div>}

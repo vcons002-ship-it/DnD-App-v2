@@ -133,7 +133,9 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     feltMaterial.customProgramCacheKey=()=>`ranger-mote-floor-${moteLights.length}`;
   }
   const trails=appearance?.varisTrail?(appearance.woodlandWake?createWoodlandWake(scene,toss.radius,rangerIndices,trayScale):createDiceTrails(scene,toss.radius,rangerIndices,trayScale)):undefined;
+  let activeCount=dice.length;
   return {
+    setActiveCount(count:number){activeCount=count;},
     trailPointCount(){return trails?.pointCount()??0;},
     trailBranchCount(){return trails?.branchCount()??0;},
     async prepare(width:number,height:number,dpr:number){
@@ -156,6 +158,8 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     draw(ctx:CanvasRenderingContext2D,width:number,height:number,dpr:number,elapsed:number,now:number){
       const frame=Math.min(toss.frameCount-1,elapsed/toss.step),i=Math.floor(frame),j=Math.min(i+1,toss.frameCount-1),t=frame-i;
       handles.forEach((h,k)=>{
+        h.object.visible=k<activeCount;shadows[k].visible=k<activeCount;
+        if(k>=activeCount){rings[k].visible=false;return;}
         const x=(i*dice.length+k)*7,y=(j*dice.length+k)*7,f=toss.frames;
         h.object.position.set(THREE.MathUtils.lerp(f[x],f[y],t),THREE.MathUtils.lerp(f[x+1],f[y+1],t),THREE.MathUtils.lerp(f[x+2],f[y+2],t));
         a.fromArray(f,x+3);b.fromArray(f,y+3);h.object.quaternion.slerpQuaternions(a,b,t);h.updatePose(camera,now);

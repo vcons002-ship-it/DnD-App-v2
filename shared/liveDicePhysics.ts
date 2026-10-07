@@ -24,12 +24,14 @@ export function diceMassKg(vertices:Vec3[],faces:number[][]){
   return Math.abs(volume)*ACRYLIC_DENSITY;
 }
 
-export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySide='bottom') {
+export function createLiveWorld(initialDice:TrayDie[],seed:number,entrySide:DiceEntrySide='bottom',capacity=initialDice.length) {
+  const dice=[...initialDice];
+  if(capacity<dice.length||capacity>40)throw new Error('Unsupported physical dice capacity');
   if(dice.length>40 || dice.some(d=>![4,6,8,10,12,20].includes(d.sides)))throw new Error('Unsupported physical dice pool');
   let state=seed>>>0;
   const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
   // The responsive tray accommodates the pool; each physical d6 remains 17.6 mm.
-  const layout=diceTrayLayoutForPool(dice.length),radius=layout.radius,trayScale=layout.scale;
+  const layout=diceTrayLayoutForPool(capacity),radius=layout.radius,trayScale=layout.scale;
   const metresPerUnit=(REFERENCE_D6_EDGE*Math.sqrt(3)/2)/radius;
   const world=new World({gravity:new Vec3(0,0,-TRAY_GRAVITY/metresPerUnit),allowSleep:true});
   (world.solver as GSSolver).iterations=80;
@@ -60,20 +62,21 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
     if(n.dot(a)<0)n.negate(n);n.normalize();return n;
   }));
   const launchRadius=radius*Math.max(1,...dice.map(d=>diePhysicalScale(d.sides)));
-  const bodies=dice.map((die,i)=>{
+  const makeBody=(die:TrayDie,i:number,count:number)=>{
     const shape=diceCollider(die.sides,radius*diePhysicalScale(die.sides));
     const {vertices,faces}=shape;
     const body=new Body({mass:diceMassKg(vertices.map(v=>v.scale(metresPerUnit)),faces)*1000,material:dieMaterial,shape,linearDamping:.01,angularDamping:.01,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.5});
-    releaseHandfulDie(body,i,dice.length,launchRadius,trayScale,extent,crossExtent,metresPerUnit,TRAY_GRAVITY/metresPerUnit,direction,cross,random);
+    releaseHandfulDie(body,i,count,launchRadius,trayScale,extent,crossExtent,metresPerUnit,TRAY_GRAVITY/metresPerUnit,direction,cross,random);
     body.addEventListener('collide',(event:{body:Body})=>{if(walls.has(event.body))wallHits++;});
     return body;
-  });
+  };
+  const bodies=dice.map((die,i)=>makeBody(die,i,dice.length));
 
   bodies.forEach(body=>world.addBody(body));
   // Strikes since the last drain — each published frame carries its own, so the
   // clients' clatter follows the server's actual collisions.
   const pendingImpacts:DiceImpact[]=[];let elapsedForImpacts=0;
-  recordDiceImpacts(bodies,walls,metresPerUnit,()=>elapsedForImpacts,pendingImpacts,layout.halfWidth);
+  const registerImpacts=recordDiceImpacts(bodies,walls,metresPerUnit,()=>elapsedForImpacts,pendingImpacts,layout.halfWidth);
   const launch=bodies.map(b=>({position:b.position.clone(),velocity:b.velocity.clone(),spin:b.angularVelocity.clone()}));
   const age=bodies.map(()=>0),rerolls=bodies.map(()=>0),values:(number|null)[]=bodies.map(()=>null);
   // Resting contact impulses can keep Cannon awake even when a readable face
@@ -110,6 +113,7 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
       for(const [i,b] of bodies.entries())if(b.position.dot(direction)>-extent+radius*diePhysicalScale(dice[i].sides))b.collisionFilterMask=3;
       elapsedForImpacts=elapsed+step;world.step(step);elapsed+=step;
       bodies.forEach((b,i)=>{
+        if(b.type===Body.STATIC)return;
         if(values[i]!==null&&b.sleepState!==Body.SLEEPING)age[i]=0;
         age[i]+=step;
         const face=readable(i),rest=stable[i];
@@ -130,7 +134,21 @@ export function createLiveWorld(dice:TrayDie[],seed:number,entrySide:DiceEntrySi
     }
     return snapshot();
   }
+  function appendDice(extra:TrayDie[]){
+    if(!snapshot().done)throw new Error('Finish the current throw before adding dice');
+    if(dice.length+extra.length>capacity||extra.some(d=>![4,6,8,10,12,20].includes(d.sides)))throw new Error('Unsupported physical dice pool');
+    // Keep the already-read faces fixed; new dice still collide with their bodies.
+    bodies.forEach(b=>{b.type=Body.STATIC;b.mass=0;b.updateMassProperties();b.velocity.setZero();b.angularVelocity.setZero();});
+    extra.forEach((die,j)=>{
+      const mesh=faceForwardMesh(dieMesh(die.sides));dice.push(die);meshes.push(mesh);
+      faceNormals.push(mesh.faces.map(ids=>{const [a,b,c]=ids.map(k=>new Vec3(...mesh.vertices[k])),n=b.vsub(a).cross(c.vsub(a));if(n.dot(a)<0)n.negate(n);n.normalize();return n;}));
+      const body=makeBody(die,j,extra.length);bodies.push(body);world.addBody(body);
+      launch.push({position:body.position.clone(),velocity:body.velocity.clone(),spin:body.angularVelocity.clone()});
+      age.push(0);rerolls.push(0);values.push(null);stable.push({position:body.position.clone(),rotation:body.quaternion.clone(),since:0,face:null});
+    });
+    registerImpacts();
+  }
   function snapshot(){return {elapsed,radius,trayScale,poses:bodies.flatMap(b=>[b.position.x,b.position.y,b.position.z,b.quaternion.x,b.quaternion.y,b.quaternion.z,b.quaternion.w]),values:[...values],rerolls:[...rerolls],done:values.every(v=>v!==null)};}
   function drainImpacts(){return pendingImpacts.splice(0);}
-  return {advance,snapshot,reroll,bodies,drainImpacts};
+  return {advance,snapshot,reroll,bodies,drainImpacts,appendDice};
 }

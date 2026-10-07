@@ -1915,9 +1915,6 @@ export function resolveTargetedSpellAttack(opts: {
   const [first,second]=hit&&opts.dice?withDiceMetadata({label:`${opts.title} — Spell Damage`,...(opts.orb&&opts.orb.leapsUsed<opts.orb.slotLevel?{triggerRule:'orb-matches' as const}:burst?{triggerRule:{kind:'sorcerous-burst' as const,used:0,limit:Math.max(0,burst.modifier),queued:0}}:{})},()=>rollDicePool([{expr:opts.dice!},...(crit?[{expr:criticalDiceExpression(opts.dice!),critical:true}]:[])])):[];
   if (hit && opts.dice && first) {
     let dmg = first.total;
-    if(opts.linked&&spellKey(opts.linked.spell)==='sorcerous burst'){
-      for(const bonus of sorcerousBonus(opts.linked,[...first.rolls,...(second?.rolls??[])])){dmg+=bonus.total;revealDice.push({label:'Sorcerous Burst bonus',value:bonus.total,faces:bonus.rolls,diceExpression:bonus.expr});}
-    }
     dmgFaces = `${opts.dice}[${first.rolls.join(',')}]`;
     revealDice.push({ label: opts.dice, value: first.total, faces: first.rolls });
     if (crit) {
@@ -1926,6 +1923,9 @@ export function resolveTargetedSpellAttack(opts: {
         dmgFaces += ` + [${second.rolls.join(',')}] crit`;
         revealDice.push({ label: 'CRIT', value: second.total, faces: second.rolls, diceExpression:second.expr });
       }
+    }
+    if(opts.linked&&spellKey(opts.linked.spell)==='sorcerous burst'){
+      for(const bonus of sorcerousBonus(opts.linked,[...first.rolls,...(second?.rolls??[])])){dmg+=bonus.total;revealDice.push({label:'Sorcerous Burst bonus',value:bonus.total,faces:bonus.rolls,diceExpression:bonus.expr});}
     }
     // Casting modifiers are flat bonuses: added once after both normal and
     // critical dice, then defended together with this spell's damage type.
