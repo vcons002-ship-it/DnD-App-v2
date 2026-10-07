@@ -34,7 +34,7 @@ import { useBoxSelection } from './useBoxSelection';
 import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
 import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
-import { HpFxLayer } from './HpFx';
+import { HpFxLayer, HpNumberLayer } from './HpFx';
 import {spellImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
 import type {SpellImpact} from './spellImpactEffects';
 import { DragGhostLayer } from './DragGhostLayer';
@@ -403,6 +403,7 @@ export function MapStage({
   const tokenLayerRef = useRef<Konva.Layer>(null);
   const sharedTokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
+  const hpHeadPosition=useCallback((id:string)=>miniatureRef.current?.headPosition(id),[]);
   const footprintMarks=useRef<FootprintMark[]>([]);
   const readFootprints=useCallback(()=>footprintMarks.current,[]);
   const updateFootprints=useCallback((marks:FootprintMark[])=>{footprintMarks.current=marks;miniatureRef.current?.setFootprints(marks);},[]);
@@ -2675,7 +2676,6 @@ export function MapStage({
                 floaters={hpFx}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
-                gridSizePx={grid}
               />
               {/* Live "laser pointers" for everyone else on this map. */}
               {showCursors && (
@@ -2685,6 +2685,14 @@ export function MapStage({
             <Layer ref={sharedTokenLayerRef} name="shared-sight-layer" listening={false}
               x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale * groundScaleY}>
               {renderTokens(false, true)}{renderTokens(true, true)}
+            </Layer>
+            <Layer name="hp-number-layer" listening={false} ref={layer=>{
+              if(!layer)return;const canvas=layer.getNativeCanvasElement();
+              canvas.style.zIndex='5';canvas.style.pointerEvents='none';canvas.dataset.testid='hp-number-canvas';
+            }}>
+              <HpNumberLayer floaters={hpFx} tokens={snapshot.tokens} pxPerFoot={pxPerFoot} gridSizePx={grid}
+                headPosition={hpHeadPosition}
+                view={view} width={size.w} height={size.h} tilt={tiltDegrees} rotation={rotationDegrees}/>
             </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>

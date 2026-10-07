@@ -2,9 +2,9 @@ import type {HpFxEvent} from '../../../shared/types.js';
 
 export const HP_NUMBER_HOLD_MS = 2400;
 export const HP_NUMBER_FADE_MS = 1600;
-export const HP_COMPONENT_HOLD_MS = 700;
-export const HP_COMPONENT_FADE_MS = 350;
-export const HP_NUMBER_GAP_MS = 100;
+export const HP_COMPONENT_HOLD_MS = 400;
+export const HP_COMPONENT_FADE_MS = 200;
+export const HP_NUMBER_GAP_MS = 40;
 const colors:Record<string,string>={
   piercing:'#ff9987',slashing:'#ff7185',bludgeoning:'#ffc18b',fire:'#ffad55',cold:'#8fe4ff',
   lightning:'#fff078',thunder:'#b9b5ff',acid:'#c9f775',poison:'#7ae291',necrotic:'#c49aef',
@@ -43,14 +43,14 @@ export function hpNumberStacks<T extends HpFxEvent&{id:number}>(events:T[]){
   return [...groups].map(([id,{event,parts}])=>{
     if(event.delta>0)return {id,event,numbers:parts};
     const total:HpNumber={delta:parts.reduce((sum,p)=>sum+p.delta,0),label:'Total',color:'#ff5a60',total:true};
-    return {id,event,numbers:parts.length>1?[...parts,total]:[total]};
+    return {id,event,numbers:[...parts,total]};
   });
 }
 
-/** Each part clears before the next rises from the same token; total is last. */
+/** Each colored part rises into the persistent running total above the head. */
 export function hpNumberSequence(numbers:HpNumber[]){
   let delayMs=0;
-  return numbers.map(number=>{
+  return numbers.filter(number=>!number.total).map(number=>{
     const holdMs=number.total||number.delta>0?HP_NUMBER_HOLD_MS:HP_COMPONENT_HOLD_MS;
     const fadeMs=number.total||number.delta>0?HP_NUMBER_FADE_MS:HP_COMPONENT_FADE_MS;
     const item={number,delayMs,holdMs,fadeMs};delayMs+=holdMs+fadeMs+HP_NUMBER_GAP_MS;
@@ -58,14 +58,29 @@ export function hpNumberSequence(numbers:HpNumber[]){
   });
 }
 
+export const HP_TOTAL_ARRIVAL_MS = 220;
+/** Milestones use defended amounts already applied by the server, never extra HP changes. */
+export function hpTotalTimeline(numbers:HpNumber[]){
+  let delta=0;
+  return hpNumberSequence(numbers).filter(item=>item.number.delta<0).map(item=>({
+    delta:delta+=item.number.delta,delayMs:item.delayMs+HP_TOTAL_ARRIVAL_MS,
+  }));
+}
+export function hpFeedbackDuration(numbers:HpNumber[]){
+  const total=hpTotalTimeline(numbers).at(-1);
+  if(total)return total.delayMs+HP_NUMBER_HOLD_MS+HP_NUMBER_FADE_MS;
+  const last=hpNumberSequence(numbers).at(-1);
+  return last?last.delayMs+last.holdMs+last.fadeMs:0;
+}
+
 /** Queue repeated hits on one creature without delaying other AoE victims. */
 export function scheduleHpFeedback<T extends HpFxEvent&{id:number;numberStartAt?:number}>(events:T[],now:number,existing:(HpFxEvent&{id:number;numberStartAt?:number})[]=[]){
   const available=new Map<string,number>(),starts=new Map<string,number>();
   let expiresAt=now;
   for(const {id,event,numbers} of [...hpNumberStacks(existing),...hpNumberStacks(events)]){
-    const target=`${event.kind}:${event.refId}`,last=hpNumberSequence(numbers).at(-1)!;
+    const target=`${event.kind}:${event.refId}`;
     const start=event.numberStartAt??Math.max(now,available.get(target)??now);
-    const end=start+last.delayMs+last.holdMs+last.fadeMs;
+    const end=start+hpFeedbackDuration(numbers);
     available.set(target,Math.max(available.get(target)??0,end+HP_NUMBER_GAP_MS));
     starts.set(id,start);expiresAt=Math.max(expiresAt,end);
   }

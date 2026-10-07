@@ -6,8 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
-- [x] Floating damage components rise one at a time from the token center,
-  followed by the longer-held red total. Repeated hits queue per creature;
+- [x] Floating numbers face the screen at every map tilt and rotation, with
+  upward screen movement and a faster 640 ms cadence between components.
+  One red total hovers above the measured 3D figure and counts up as each colored
+  damage component arrives; AoE victims show their colored splash component too.
+
+- [x] Floating damage components rise one at a time into the longer-held red
+  running total. Repeated hits queue per creature;
   nearby AoE victims keep independent feedback. Attack outcomes stamp large,
   outlined text across the dice tray without a separate result panel.
 

@@ -80,6 +80,7 @@ type Props = {
   environmentPreview?: EnvironmentPreviewSettings;
 };
 export type MiniatureLayerHandle = {
+  headPosition: (id:string)=>{x:number;y:number}|undefined;
   setFootprints: (marks:FootprintMark[])=>void;
   spellCast: (tokenIds: string[]) => void;
   setView: (view: BattlefieldView) => void;
@@ -926,6 +927,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   sync(initial);
   return {
     sync,
+    headPosition(id){
+      const instance=instances.get(id);
+      if(disposed||!instance?.root.visible)return undefined;
+      // The existing mark anchor is measured above the model, including its base scale.
+      const point=instance.root.localToWorld(instance.hunterMark.position.clone()).project(camera);
+      return {x:(point.x+1)*props.width/2,y:(1-point.y)*props.height/2};
+    },
     setFootprints(marks){if(disposed)return;footprints.sync(marks);host.dataset.footprintCount=String(marks.length);invalidate();},
     spellCast(tokenIds) {
       if (disposed || document.hidden) return;
@@ -996,6 +1004,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     return () => { socket?.off('fx:spellCast', cast); };
   }, [socket]);
   useImperativeHandle(ref, () => ({
+    headPosition: (id) => engine.current?.headPosition(id),
     setFootprints: (marks) => engine.current?.setFootprints(marks),
     spellCast: (tokenIds) => engine.current?.spellCast(tokenIds),
     setView: (view) => engine.current?.setView(view),

@@ -1,19 +1,21 @@
 import {describe,it,expect} from 'vitest';
-import {hpNumbers,hpNumberStacks,hpNumberSequence,scheduleHpFeedback} from '../../client/src/lib/hpFeedback.js';
+import {hpNumbers,hpNumberStacks,hpNumberSequence,hpTotalTimeline,hpFeedbackDuration,scheduleHpFeedback} from '../../client/src/lib/hpFeedback.js';
 import {createSession,createCharacter,applyDamage,drainHpFx,getCharacter,setTempHp} from './sessions.js';
 
 describe('typed floating damage feedback',()=>{
  it('shows one red total per victim for a combined weapon, mark and thorns impact',()=>{
   const events=[{id:1,kind:'monster' as const,refId:'g',rollId:'hit',delta:-13,damageParts:[{amount:9,damageType:'piercing'},{amount:4,damageType:'force',spell:"Hunter's Mark"}]},
     {id:2,kind:'monster' as const,refId:'g',rollId:'hit',delta:-7,damageParts:[{amount:7,damageType:'piercing',spell:'Hail of Thorns'}]},
-    {id:3,kind:'monster' as const,refId:'neighbor',rollId:'hit',delta:-3,damageType:'piercing'},
+    {id:3,kind:'monster' as const,refId:'neighbor',rollId:'hit',delta:-3,damageType:'piercing',spell:'Hail of Thorns'},
     {id:4,kind:'monster' as const,refId:'g',rollId:'other-hit',delta:-2},
     {id:5,kind:'pc' as const,refId:'hero',delta:5}];
   const groups=hpNumberStacks(events);
   expect(groups[0].numbers.at(-1)).toMatchObject({delta:-20,color:'#ff5a60',total:true});
   expect(groups[0].numbers.slice(0,-1).map(n=>n.delta)).toEqual([-9,-4,-7]);
   expect(groups[0].numbers.slice(0,-1).reduce((sum,n)=>sum+n.delta,0)).toBe(groups[0].numbers.at(-1)!.delta);
-  expect(groups[1].numbers).toHaveLength(1);expect(groups[1].numbers[0]).toMatchObject({delta:-3,total:true});
+  expect(groups[1].numbers).toHaveLength(2);expect(groups[1].numbers[0]).toMatchObject({delta:-3,color:'#b4f47e'});
+  expect(groups[1].numbers[1]).toMatchObject({delta:-3,total:true});
+  expect(hpTotalTimeline(groups[1].numbers)).toEqual([{delta:-3,delayMs:220}]);
   expect(groups[2].numbers[0].delta).toBe(-2);
   expect(groups[3].numbers[0]).toMatchObject({delta:5,color:'#62efa0'});
  });
@@ -31,17 +33,18 @@ describe('typed floating damage feedback',()=>{
   expect(hpNumbers({kind:'pc',refId:'p',delta:-5,damageParts:[{amount:3,damageType:'piercing'},{amount:2,damageType:'piercing'}]})).toHaveLength(1);
   expect(hpNumbers({kind:'pc',refId:'p',delta:-9,damageParts:[{amount:5}]}).map(n=>n.delta)).toEqual([-9]);
  });
- it('shows parts one at a time, total last, and queues later hits only for the same token',()=>{
+ it('shows parts one at a time, accumulates the hovering total, and queues later hits only for the same token',()=>{
   const event={id:1,kind:'monster' as const,refId:'g',rollId:'hit',delta:-13,
     damageParts:[{amount:9,damageType:'piercing'},{amount:4,damageType:'force'}]};
-  const sequence=hpNumberSequence(hpNumberStacks([event])[0].numbers);
-  expect(sequence.map(s=>s.number.delta)).toEqual([-9,-4,-13]);
+  const numbers=hpNumberStacks([event])[0].numbers,sequence=hpNumberSequence(numbers);
+  expect(sequence.map(s=>s.number.delta)).toEqual([-9,-4]);
+  expect(sequence.map(s=>s.delayMs)).toEqual([0,640]);
+  expect(hpTotalTimeline(numbers)).toEqual([{delta:-9,delayMs:220},{delta:-13,delayMs:860}]);
   sequence.slice(1).forEach((s,i)=>expect(s.delayMs).toBeGreaterThan(sequence[i].delayMs+sequence[i].holdMs+sequence[i].fadeMs));
   const first=scheduleHpFeedback([event],100);
-  const last=sequence.at(-1)!;
-  expect(first.expiryMs).toBeGreaterThan(last.delayMs+last.holdMs+last.fadeMs);
+  expect(first.expiryMs).toBeGreaterThan(hpFeedbackDuration(numbers));
   const next=scheduleHpFeedback([{...event,id:2,rollId:'next'},{...event,id:3,refId:'neighbor'}],200,first.events);
-  expect(next.events[0].numberStartAt).toBeGreaterThan(100+last.delayMs+last.holdMs+last.fadeMs);
+  expect(next.events[0].numberStartAt).toBeGreaterThan(100+hpFeedbackDuration(numbers));
   expect(next.events[1].numberStartAt).toBe(200);
   expect(first.events[0].numberStartAt).toBe(100);
  });

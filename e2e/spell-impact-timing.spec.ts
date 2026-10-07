@@ -102,7 +102,7 @@ for (const scenario of [
           title:document.querySelector('.roll-reveal-title')?.textContent,
           adjustment:!!document.querySelector('.rr-adjustment'),
           calculation:document.querySelector('.rr-equation')?.textContent,
-          numbers: fx.map((node: any) => ({ text: node.text(), total:node.hasName('hp-floater-total'),color: node.fill(), opacity: node.getParent().opacity(), x: node.getParent().x(), y: node.getParent().y() })),
+          numbers: fx.map((node: any) => ({ text: node.text(), total:node.hasName('hp-floater-total'),color: node.fill(), opacity: node.getParent().opacity(), x: node.getAttr('targetMapX'), y: node.getAbsolutePosition().y, matrix:node.getAbsoluteTransform().getMatrix().slice(0,4) })),
           live: !!document.querySelector('[data-live-dice="true"]'),
           settled: tray?.getAttribute('data-status') === 'settled',
           filled: boxes.length > 0 && boxes.every(e => e.getAttribute('data-filled') === 'true'),
@@ -164,22 +164,35 @@ for (const scenario of [
       expect(frames.filter(f=>f.calculation)).toHaveLength(1);
       const dexFrame=frames.find(f=>f.mods.some(m=>m.label==='DEX'))!;
       expect(dexFrame.sides,'DEX belongs to the bow d10, never the mark d6').toEqual([10]);
-      const firstMark=frames.find(f=>/Hunter.s Mark/.test(f.label))!.at;
+      // Compare presentations in the same browser, not a second socket's earlier delivery time.
+      const firstMark=samples.find((s:any)=>s.live&&/Hunter.s Mark/.test(s.title))!.wall;
       expect(bowCalculation.every((s:any)=>s.wall<firstMark),'Bow arithmetic finishes before Hunter’s Mark rolls').toBe(true);
       expect(frames.filter(f=>f.sides.includes(6)).every(f=>!f.mods.some(m=>m.label==='DEX'))).toBe(true);
       const mainSamples=samples.map((s:any)=>({...s,numbers:s.numbers.filter((n:any)=>n.x===650)}));
-      expect(mainSamples.every((s:any)=>s.numbers.length<=1),'A creature shows only one floating number at a time').toBe(true);
+      expect(await page.locator('[data-testid="hp-number-canvas"]').evaluate(el=>getComputedStyle(el).transform)).toBe('none');
+      expect(samples.every((s:any)=>s.numbers.every((n:any)=>JSON.stringify(n.matrix)==='[1,0,0,1]')),
+        'Visible floating text faces the screen even on the tilted map').toBe(true);
+      expect(mainSamples.every((s:any)=>s.numbers.filter((n:any)=>!n.total).length<=1),'Only one colored component appears beside the hovering total').toBe(true);
+      expect(mainSamples.every((s:any)=>s.numbers.filter((n:any)=>n.total).length<=1),'Only one running total per creature').toBe(true);
       const seen=new Map<string,any>();
       mainSamples.forEach((s:any)=>s.numbers.forEach((n:any)=>{if(!seen.has(n.color))seen.set(n.color,{...n,time:s.time});}));
-      const components=[...seen.values()].filter((n:any)=>!n.total),total=[...seen.values()].find((n:any)=>n.total);
+      const components=[...seen.values()].filter((n:any)=>!n.total);
+      const amount=(n:any)=>Number(n.text.replace(/[^0-9]/g,''));
+      const totals=mainSamples.flatMap((s:any)=>s.numbers.filter((n:any)=>n.total).map((n:any)=>({...n,time:s.time})));
+      const total=totals.reduce((best:any,n:any)=>!best||amount(n)>amount(best)?n:best,undefined);
       expect(components).toHaveLength(3);
       expect(total.color).toBe('#ff5a60');
       expect(total.time).toBeGreaterThan(Math.max(...components.map((n:any)=>n.time)));
-      const amount=(n:any)=>Number(n.text.replace(/[^0-9]/g,''));
+      expect(new Set(totals.map((n:any)=>n.text)).size,'The total counts up as components arrive').toBeGreaterThan(2);
+      expect(totals.every((n:any,i:number)=>i===0||amount(n)>=amount(totals[i-1]))).toBe(true);
       expect(amount(total)).toBe(components.reduce((sum:number,n:any)=>sum+amount(n),0));
       const after=await snapshot();
       const main=after.tokens.find((t:any)=>t.kind==='monster'&&t.x===650);
       expect(amount(total)).toBe(200-after.monsters.find((m:any)=>m.id===main.refId).curHp);
+      const splash=samples.flatMap((s:any)=>s.numbers.filter((n:any)=>n.x===690));
+      expect(splash.some((n:any)=>!n.total&&n.color==='#b4f47e'),'Splash victims also get a colored AoE component').toBe(true);
+      const neighbor=after.tokens.find((t:any)=>t.kind==='monster'&&t.x===690);
+      expect(Math.max(...splash.filter((n:any)=>n.total).map(amount))).toBe(200-after.monsters.find((m:any)=>m.id===neighbor.refId).curHp);
       expect(samples.every((s:any)=>s.numbers.every((n:any)=>n.x===650||n.x===690)),
         'Every number rises from its own token center').toBe(true);
       expect(await page.evaluate(() => ((window as any).Konva?.stages??[]).flatMap((stage:any)=>stage.find('.hp-floater-label')).length)).toBe(0);

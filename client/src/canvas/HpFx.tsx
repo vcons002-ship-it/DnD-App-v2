@@ -3,8 +3,9 @@ import { Circle, Group, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { Token } from '../../../shared/types';
 import type { HpFloater } from '../state/socket';
-import {hpNumberStacks,hpNumberSequence,type HpNumber} from '../lib/hpFeedback';
+import {hpNumberStacks,hpNumberSequence,hpTotalTimeline,HP_NUMBER_HOLD_MS,HP_NUMBER_FADE_MS,type HpNumber} from '../lib/hpFeedback';
 import {spellImpactStyle} from '../../../shared/spellImpact';
+import {mapToScreen,projectGround,type BattlefieldView} from './miniatureProjection';
 
 /**
  * Transient combat FX over tokens, driven by server 'fx:hp' events:
@@ -373,53 +374,96 @@ function BurstFx({
 }
 
 /** Colored numbers float above their creature, hold, then gently fade. */
-function FloaterText({number,position,fontSize,rise,startAt,holdMs,fadeMs}:{number:HpNumber;position:{x:number;y:number};fontSize:number;rise:number;startAt:number;holdMs:number;fadeMs:number}) {
+type HeadPosition=(id:string)=>{x:number;y:number}|undefined;
+function FloaterText({number,position,fontSize,rise,startAt,holdMs,fadeMs,targetX,tokenId,headPosition}:{number:HpNumber;position:{x:number;y:number};fontSize:number;rise:number;startAt:number;holdMs:number;fadeMs:number;targetX:number;tokenId:string;headPosition:HeadPosition}) {
+  const anchor=useRef<Konva.Group>(null);
   const group=useRef<Konva.Group>(null);
   useEffect(()=>{
     const node=group.current;if(!node)return;
     let drift:Konva.Tween|undefined,fade:Konva.Tween|undefined,fadeTimer:ReturnType<typeof setTimeout>|undefined;
+    const follow=new Konva.Animation(()=>{
+      const head=headPosition(tokenId);if(!head||!anchor.current)return false;
+      anchor.current.position({x:head.x,y:head.y+fontSize*.3});
+    },node.getLayer());
+    follow.start();
+    const stopTimer=setTimeout(()=>follow.stop(),Math.max(0,startAt-performance.now())+holdMs+fadeMs);
     const timer=setTimeout(()=>{
       node.opacity(1);
-      drift=new Konva.Tween({node,y:position.y-rise,duration:(holdMs+fadeMs)/1000,easing:Konva.Easings.EaseOut});drift.play();
+      drift=new Konva.Tween({node,y:-rise,duration:(holdMs+fadeMs)/1000,easing:Konva.Easings.EaseOut});drift.play();
       fadeTimer=setTimeout(()=>{fade=new Konva.Tween({node,opacity:0,duration:fadeMs/1000,easing:Konva.Easings.EaseIn});fade.play();},holdMs);
     },Math.max(0,startAt-performance.now()));
-    return()=>{clearTimeout(timer);clearTimeout(fadeTimer);drift?.destroy();fade?.destroy();};
+    return()=>{clearTimeout(timer);clearTimeout(fadeTimer);clearTimeout(stopTimer);follow.stop();drift?.destroy();fade?.destroy();};
   },[]);
   const width=fontSize*3;
-  return <Group ref={group} x={position.x} y={position.y} opacity={0} listening={false}>
-    <Text name={`hp-floater-number ${number.total?'hp-floater-total':number.delta<0?'hp-floater-component':'hp-floater-heal'}`} text={`${number.delta>0?'+':'\u2212'}${Math.abs(number.delta)}`}
+  return <Group ref={anchor} x={position.x} y={position.y+fontSize*1.3} listening={false}><Group ref={group} opacity={0} listening={false}>
+    <Text name={`hp-floater-number ${number.total?'hp-floater-total':number.delta<0?'hp-floater-component':'hp-floater-heal'}`} targetMapX={targetX} text={`${number.delta>0?'+':'\u2212'}${Math.abs(number.delta)}`}
       fontSize={number.total||number.delta>0?fontSize:fontSize*.72} fontStyle="bold" fill={number.color} stroke="#08090d" strokeWidth={Math.max(1.5,fontSize*.09)} fillAfterStrokeEnabled
       shadowColor="#000" shadowBlur={5} shadowOpacity={.9} align="center" width={width} offsetX={width/2} listening={false}/>
-  </Group>;
+  </Group></Group>;
 }
 
-/** All live floaters for the current map, anchored to their creatures' tokens. */
-export const HpFxLayer = memo(function HpFxLayer({
-  spellEffects3D=false,
-  floaters,
-  tokens,
-  pxPerFoot,
-  gridSizePx,
-}: {
-  spellEffects3D?: boolean;
-  floaters: HpFloater[];
-  tokens: Token[];
-  pxPerFoot: number;
-  gridSizePx: number;
-}) {
-  const fontSize=Math.max(16,gridSizePx*.5);
-  const numbers=hpNumberStacks(floaters).flatMap(({id,event:f,numbers})=>{
+/** One stationary total over the head, increasing as each colored part arrives. */
+function RunningTotal({numbers,position,fontSize,startAt,targetX,tokenId,headPosition}:{numbers:HpNumber[];position:{x:number;y:number};fontSize:number;startAt:number;targetX:number;tokenId:string;headPosition:HeadPosition}){
+  const anchor=useRef<Konva.Group>(null),group=useRef<Konva.Group>(null),text=useRef<Konva.Text>(null);
+  const timeline=hpTotalTimeline(numbers);
+  useEffect(()=>{
+    const node=group.current,label=text.current;if(!node||!label)return;
+    const milestones=hpTotalTimeline(numbers),last=milestones.at(-1);if(!last)return;
+    let previousText='';
+    const animation=new Konva.Animation(()=>{
+      const elapsed=performance.now()-startAt;
+      const head=headPosition(tokenId);if(head&&anchor.current)anchor.current.position({x:head.x,y:head.y-fontSize});
+      let amount=0;
+      for(let i=0;i<milestones.length;i++){
+        const item=milestones[i];if(elapsed<item.delayMs)break;
+        const before=i?milestones[i-1].delta:0;
+        const progress=Math.min(1,(elapsed-item.delayMs)/180);
+        amount=before+(item.delta-before)*(1-(1-progress)**3);
+      }
+      const shown=Math.ceil(-amount),value=`\u2212${shown}`;
+      if(value!==previousText){label.text(value);previousText=value;}
+      node.opacity(elapsed<0?0:elapsed<=last.delayMs+HP_NUMBER_HOLD_MS?1:Math.max(0,1-(elapsed-last.delayMs-HP_NUMBER_HOLD_MS)/HP_NUMBER_FADE_MS));
+      if(elapsed>last.delayMs+HP_NUMBER_HOLD_MS+HP_NUMBER_FADE_MS)animation.stop();
+    },node.getLayer());
+    animation.start();return()=>{animation.stop();};
+  },[startAt,tokenId,headPosition]);
+  if(!timeline.length)return null;
+  const width=fontSize*4;
+  return <Group ref={anchor} x={position.x} y={position.y} listening={false}><Group ref={group} opacity={0} listening={false}>
+    <Text ref={text} name="hp-floater-number hp-floater-total" targetMapX={targetX} text="\u22120" fontSize={fontSize} fontStyle="bold"
+      fill="#ff5a60" stroke="#08090d" strokeWidth={Math.max(1.5,fontSize*.09)} fillAfterStrokeEnabled shadowColor="#000" shadowBlur={5}
+      shadowOpacity={.9} align="center" width={width} offsetX={width/2} listening={false}/>
+  </Group></Group>;
+}
+
+/** Project the token anchor only. Text and upward drift stay in screen space. */
+export const HpNumberLayer=memo(function HpNumberLayer({floaters,tokens,pxPerFoot,gridSizePx,view,width,height,tilt,rotation,headPosition}:{
+ floaters:HpFloater[];tokens:Token[];pxPerFoot:number;gridSizePx:number;view:BattlefieldView;width:number;height:number;tilt:number;rotation:number;headPosition:HeadPosition;
+}){
+  const fontSize=Math.max(16,Math.min(54,gridSizePx*.5*view.scale));
+  return <>{hpNumberStacks(floaters).map(({id,event:f,numbers})=>{
     const token=tokens.find(t=>t.kind===f.kind&&t.refId===f.refId);if(!token)return [];
-    return hpNumberSequence(numbers).map(({number,delayMs,holdMs,fadeMs},i)=>({id:`${id}:${i}`,number,x:token.x,rise:token.widthFt*pxPerFoot*.9,
-      startAt:(f.numberStartAt??performance.now())+delayMs,holdMs,fadeMs,
-      y:token.y-token.widthFt*pxPerFoot/2-fontSize*.4}));
-  });
+    const ground=mapToScreen(token.x,token.y,view,tilt),anchor=projectGround(ground.x,ground.y,width,height,tilt,rotation);
+    if(!Number.isFinite(anchor.x)||!Number.isFinite(anchor.y))return [];
+    const radius=token.widthFt*pxPerFoot*view.scale/2;
+    const position={x:anchor.x,y:anchor.y-Math.min(64,radius)-fontSize*.4},startAt=f.numberStartAt??performance.now();
+    return <Group key={id} listening={false}>
+      {hpNumberSequence(numbers).map(({number,delayMs,holdMs,fadeMs},i)=><FloaterText key={i} number={number} position={position} fontSize={fontSize} rise={fontSize*1.3}
+        startAt={startAt+delayMs} holdMs={holdMs} fadeMs={fadeMs} targetX={token.x} tokenId={token.id} headPosition={headPosition}/>)}
+      <RunningTotal numbers={numbers} position={position} fontSize={fontSize} startAt={startAt} targetX={token.x} tokenId={token.id} headPosition={headPosition}/>
+    </Group>;
+  })}</>;
+});
+
+/** Spell bursts remain on the ground plane; numbers use HpNumberLayer above it. */
+export const HpFxLayer = memo(function HpFxLayer({spellEffects3D=false,floaters,tokens,pxPerFoot}:{
+ spellEffects3D?:boolean;floaters:HpFloater[];tokens:Token[];pxPerFoot:number;
+}) {
   if (floaters.length === 0) return null;
   return <>
     {floaters.map(f=>{
       const token=tokens.find(t=>t.kind===f.kind&&t.refId===f.refId);
       return token?<Group key={`burst:${f.id}`} listening={false}><BurstFx floater={f} token={token} pxPerFoot={pxPerFoot} spellEffects3D={spellEffects3D}/></Group>:null;
     })}
-    {numbers.map(item=><FloaterText key={item.id} number={item.number} position={item} fontSize={fontSize} rise={item.rise} startAt={item.startAt} holdMs={item.holdMs} fadeMs={item.fadeMs}/>)}
   </>;
 });
