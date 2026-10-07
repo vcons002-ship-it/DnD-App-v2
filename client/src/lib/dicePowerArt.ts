@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {DRUK_EXPLOSION_DELAY} from './diceRollPower';
 
 /** Bounded cosmetic geometry attached to a die. No lights, extra simulations,
  * screen-space sprites, or changes to its physical body/numbered surfaces. */
@@ -60,7 +61,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
     group.quaternion.copy(inverse.copy(root.quaternion).invert());
     for(let i=0;i<count;i++){
      if(kind==='fighter'){
-      const t=age-.24-random(i+1)*.045,life=1.35+random(i+2)*.55;
+      const t=age-DRUK_EXPLOSION_DELAY-random(i+1)*.045,life=1.35+random(i+2)*.55;
       if(t<0||t>life)continue;
       const angle=i*2.399963+random(i+3)*.5,speed=2.6+random(i+4)*2.8;
       const x=Math.cos(angle)*(.55+speed*t),y=Math.sin(angle)*(.55+speed*t);

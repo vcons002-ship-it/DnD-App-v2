@@ -34,7 +34,7 @@ export function createShatterWorld(radius:number,trayScale=1,floor=0){
   },
   addLava(size:number){return track(new Body({mass:4/3*Math.PI*Math.pow(size*metresPerUnit,3)*2600*1000,shape:new Sphere(size),material:lava,linearDamping:.12,angularDamping:.25,allowSleep:true,sleepSpeedLimit:.4,sleepTimeLimit:.2,collisionFilterGroup:4,collisionFilterMask:1}));},
   addDieProxy(sides:number,size:number){const body=new Body({mass:0,shape:diceCollider(sides,size),material:stone,collisionFilterGroup:2,collisionFilterMask:12});proxies.push(body);world.addBody(body);return body;},
-  remove(body:Body){world.removeBody(body);dynamic.delete(body);},
+  remove(body:Body){if(dynamic.delete(body))world.removeBody(body);},
   advance(now:number){
    const dt=last===undefined?0:Math.min(.05,Math.max(0,(now-last)/1000));last=now;
    if(dynamic.size&&dt)world.step(1/240,dt*LIVE_DICE_PRESENTATION_RATE,12);

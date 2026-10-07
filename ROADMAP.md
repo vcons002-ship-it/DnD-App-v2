@@ -2749,3 +2749,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Live roll modifiers now count into the final total inside the original dice tray, retaining the actual settled dice and animated materials instead of opening a separate modifier screen. Skill checks, attacks, healing and damage preserve their server-authored labels, outcomes, skip controls and hidden DM bonuses. Grouped saves keep their existing per-creature results, and unmodified damage goes directly from the tray to the compact map-impact summary.
 
 - [x] Refreshed standalone interactive dice roller for all three characters and the DM with current power materials, every supported die and custom quantities. Linked roll-strength comparison and repeatable static packaging include all four tray artworks.
+
+- [x] Druk maximum rolls warn for an extra quarter-second, then fragments stop and melt into persistent lava puddles. Every exploded die leaves a glowing pool at its landing spot; high-roll fissures glow more aggressively. Pools clear on replay/new roll, with no continuing debris physics after melting.

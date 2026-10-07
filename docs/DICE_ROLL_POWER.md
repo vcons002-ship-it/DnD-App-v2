@@ -15,8 +15,13 @@ dice. A maximum damage die is still damage, not a critical hit.
   Eight viscous globs stretch from the split core, collide and spread into hot
   pools, with animated crust, emissive interiors, soft bloom and warm light
   spilling onto the felt. The lava surface and pooling are visual approximations,
-  not a fluid solver. Chunks and lava cool and fade after the burst; the intact
-  die stays gone for that result. Its result still fills the normal result box.
+  not a fluid solver. A 0.49-second warning glow precedes the explosion.
+  Chunks stop spinning on contact with the felt and liquefy into irregular puddles, rather than fading
+  while tumbling. A glowing pool remains at each original die position; spilled
+  lava and melted chunks also remain for the result hold. New rolls clear the
+  pools. High natural rolls have stronger, wider lava glow in their fissures.
+  The intact die stays gone for that result. Its result still fills the normal
+  result box.
 - **Vanec:** stronger results shorten randomized pauses between internal
   discharges. A maximum fires rapid crimson bursts with brief dark gaps,
   rotating the whole coherent branching field randomly in three dimensions
@@ -36,8 +41,9 @@ maximum discharges.
 
 A single bounded client-side cosmetic physics world serves the whole tray after
 confirmed maxima. Each exploding die adds eleven convex chunks and eight globs;
-bodies are removed when the effect fades, and the world does no stepping while
-inactive. Chunk shadows reuse the existing tray shadow map, and twelve bounded
+bodies are removed as chunks melt and globs land, with all bodies removed
+within 2.6 seconds of the burst. Persistent pools have no rigid bodies, and the
+world does no stepping while inactive. Chunk shadows reuse the existing tray shadow map, and twelve bounded
 floor-light samples avoid dynamic shadow-casting lights. Server roll physics,
 outcomes, HP, skip behavior and roll ownership are unchanged.
 

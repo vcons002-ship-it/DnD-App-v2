@@ -14,7 +14,7 @@ test('character power art scales d20 and damage faces, including maxima and gold
   await page.locator(`button[data-theme="${theme}"]`).click();await page.getByLabel('Die type').selectOption(String(sides));
   await expect(page.locator('#tray')).toHaveAttribute('data-sides',String(sides));
   await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
-  await page.waitForTimeout(550);
+  await page.waitForTimeout(750);
   const power=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
   expect(power).toHaveLength(3);expect(power.every((p:any)=>p.known)).toBe(true);
   expect(power[0].maximum).toBe(false);expect(power[2].maximum).toBe(true);
@@ -51,19 +51,40 @@ test('Druk shatters every die shape, stays broken during the result hold and res
  await page.goto('/dice-power.html');const canvas=page.locator('#tray canvas');
  for(const sides of [4,8,10,12,100]){
   await page.getByLabel('Die type').selectOption(String(sides));await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(750);
   const power=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
   expect(power.filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments>0)).toBe(true);
   expect(power.filter((p:any)=>!p.maximum).every((p:any)=>!p.broken)).toBe(true);
  }
  await page.getByLabel('Gold critical dice').check();await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
- await page.waitForTimeout(3000);
+ await page.waitForTimeout(3500);
  const held=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
  expect(held.filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments===0)).toBe(true);
+ expect(held.filter((p:any)=>p.maximum).every((p:any)=>p.pools===12&&p.lava===8&&p.physics.bodies===0)).toBe(true);
  await page.getByRole('button',{name:'Replay maximum',exact:true}).click();await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
- await page.waitForTimeout(500);
+ await page.waitForTimeout(750);
  expect(JSON.parse((await canvas.getAttribute('data-roll-power'))!).filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments>0)).toBe(true);
  expect(errors).toEqual([]);
+});
+
+test('Druk warns before exploding and leaves molten pools after the chunks finish melting',async({page},info)=>{
+ await page.goto('/dice-power.html');
+ await page.getByLabel('Explosion close-up').check();
+ await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+ await page.waitForFunction(()=>JSON.parse(document.querySelector('canvas')!.getAttribute('data-roll-power')!)[0].age>=.30);
+ const warning=JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0];
+ expect(warning.age).toBeLessThan(.49);expect(warning.broken).toBe(false);expect(warning.pools).toBe(0);
+ await expect.poll(async()=>JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0].broken).toBe(true);
+ await page.waitForTimeout(2900);
+ const pools=JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0];
+ expect(pools.fragments).toBe(0);expect(pools.melting).toBe(11);expect(pools.pools).toBe(12);expect(pools.lava).toBe(8);expect(pools.physics.bodies).toBe(0);
+ await page.screenshot({path:info.outputPath('druk-persistent-lava-pools.png')});
+ await page.waitForTimeout(1000);
+ expect(JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0].pools).toBe(12);
+ await page.getByRole('button',{name:'Replay maximum',exact:true}).click();
+ await page.waitForFunction(()=>{const p=JSON.parse(document.querySelector('canvas')!.getAttribute('data-roll-power')!)[0];return p.age>=.15&&p.age<.45;});
+ const replay=JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0];
+ expect(replay.broken).toBe(false);expect(replay.pools).toBe(0);
 });
 
 for(const [name,className,theme] of [['Druk','Fighter','fighter'],['Varis','Ranger','ranger'],['Vanec','Sorcerer','sorcerer']])

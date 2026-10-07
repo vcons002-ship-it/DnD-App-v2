@@ -1,3 +1,5 @@
+export const DRUK_EXPLOSION_DELAY=.49;
+
 /** Cosmetic strength uses the natural face, including d20s, never modifiers or
  * the sum of a pool. Unknown/moving dice retain their ordinary material. */
 export function diceRollPower(sides:number,value:number|null|undefined){

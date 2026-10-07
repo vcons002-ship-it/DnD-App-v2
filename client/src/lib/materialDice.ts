@@ -341,7 +341,7 @@ void main(){
    if(moltenCracks>.5){
      float raw=moltenFracture(pos);
      float chip=fbm(pos*48.)*.013+noise(pos*110.)*.003;
-     float opening=.60+rollPower*.95+eruptionPulse*.35;
+     float opening=.60+rollPower*1.3+eruptionPulse*.45;
       float mouth=max(0.,raw-chip)/opening,below=moltenFracture(pos+ray*.07)/opening;
      float region=smoothstep(.40,.65,fbm(pos*1.55+vec3(4.,1.,9.)));
      // Wide, dark chipped shoulders surround a much narrower split. Its
@@ -362,8 +362,8 @@ void main(){
      vec3 magma=mix(vec3(.19,.003,.0005),vec3(.65,.045,.003),hotCore);
      // Slightly stronger heat at the bottom, with a restrained spill onto
      // the chipped shoulders; polished faces and gold retain their lighting.
-     float heat=.20+pow(rollPower,1.5)*2.4+eruptionPulse*2.;
-      color+=magma*cavity*pulse*heat+vec3(.026,.0012,.00015)*groove*(.25+rollPower*1.5);
+     float heat=.20+pow(rollPower,1.5)*5.8+eruptionPulse*4.;
+      color+=magma*cavity*pulse*heat+vec3(.065,.003,.0003)*groove*(.25+rollPower*2.);
    }
  }
  if(style!=2)color+=energy*.35;
@@ -458,7 +458,7 @@ void main(){
    // Gold crit dice retain their identity and dark engraving while carrying
    // their character's maximum-roll heat/charge across the metallic shell.
    if(!engraved||cut>.85){
-    if(style==1&&rollPower>.2){float heat=1.-smoothstep(.002,.025,moltenFracture(pos));color+=vec3(.9,.045,.002)*heat*rollPower;}
+    if(style==1&&rollPower>.2){float heat=1.-smoothstep(.002,.035,moltenFracture(pos));color+=vec3(1.8,.12,.004)*heat*rollPower;}
     if(style==0&&rollMaximum>.5){
      float channel=min(electricArc(pos,lightningSeed).x,electricArc(pos.yzx,lightningSeed+41.).x);
      float stroke=smoothstep(.12,.16,lightningPhase)*(1.-smoothstep(.60,.90,lightningPhase));
@@ -575,7 +575,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     powerView=power.advance(now);
     uniforms.rollPower.value=powerView.strength;
     uniforms.rollMaximum.value=powerView.maximum&&!powerReduced?1:0;
-    uniforms.eruptionPulse.value=powerView.maximum&&!powerReduced?Math.exp(-Math.pow((powerView.age-.22)/.25,2.)):0;
+    uniforms.eruptionPulse.value=powerView.maximum&&!powerReduced?Math.exp(-Math.pow((powerView.age-(style===1?.44:.22))/(style===1?.29:.25),2.)):0;
   };
   const motePhase=style===2?rangerMoteSequence++*2.399963:0;
   const moteStart=new THREE.Vector3();let moteRevision=-1;
