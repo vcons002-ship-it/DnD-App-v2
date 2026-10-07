@@ -20,6 +20,17 @@ test('character power art scales d20 and damage faces, including maxima and gold
   expect(power[0].maximum).toBe(false);expect(power[2].maximum).toBe(true);
   expect(power[0].strength).toBeLessThan(.05);expect(power[2].strength).toBeGreaterThan(.95);
   if(theme!=='sorcerer')expect(power[2].particles).toBeGreaterThan(0);
+  if(theme==='fighter'){
+   expect(power[0].broken).toBe(false);expect(power[2].broken).toBe(true);
+   expect(power[2].fragments).toBe(sides===20?20:12);
+  }
+  if(theme==='ranger'){
+   await page.waitForTimeout(250);
+   const centered=JSON.parse((await canvas.getAttribute('data-roll-power'))!)[2].mote;
+   expect(centered.every((v:number)=>Math.abs(v)<.001)).toBe(true);
+   await page.waitForTimeout(200);
+   expect(JSON.parse((await canvas.getAttribute('data-roll-power'))!)[2].mote).toEqual(centered);
+  }
   await page.screenshot({path:info.outputPath(`${theme}-d${sides}-strength.png`)});
  }
  await page.getByLabel('Gold critical dice').check();await page.getByRole('button',{name:'Replay maximum',exact:true}).click();
@@ -28,6 +39,28 @@ test('character power art scales d20 and damage faces, including maxima and gold
  await page.getByLabel('Die type').selectOption('100');await expect(page.locator('#tray')).toHaveAttribute('data-sides','100');
  await page.waitForTimeout(600);const pair=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
  expect(pair).toHaveLength(6);expect(pair.map((p:any)=>p.maximum)).toEqual([false,false,false,false,true,true]);
+ expect(errors).toEqual([]);
+});
+
+test('Druk shatters every die shape, stays broken during the result hold and resets on replay',async({page})=>{
+ test.setTimeout(60000);
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
+ await page.goto('/dice-power.html');const canvas=page.locator('#tray canvas');
+ for(const sides of [4,8,10,12,100]){
+  await page.getByLabel('Die type').selectOption(String(sides));await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+  await page.waitForTimeout(500);
+  const power=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
+  expect(power.filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments>0)).toBe(true);
+  expect(power.filter((p:any)=>!p.maximum).every((p:any)=>!p.broken)).toBe(true);
+ }
+ await page.getByLabel('Gold critical dice').check();await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+ await page.waitForTimeout(3000);
+ const held=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
+ expect(held.filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments===0)).toBe(true);
+ await page.getByRole('button',{name:'Replay maximum',exact:true}).click();await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+ await page.waitForTimeout(500);
+ expect(JSON.parse((await canvas.getAttribute('data-roll-power'))!).filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments>0)).toBe(true);
  expect(errors).toEqual([]);
 });
 
@@ -61,6 +94,7 @@ test('reduced-motion art keeps readable strength without erupting particles or r
  const canvas=page.locator('#tray canvas');
  const power=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
  expect(power[2].maximum).toBe(true);expect(power[2].particles).toBe(0);
+ expect(power[2].broken).toBe(false);expect(power[2].fragments).toBe(0);
  await page.locator('button[data-theme="ranger"]').click();await page.waitForTimeout(600);
  expect(JSON.parse((await canvas.getAttribute('data-roll-power'))!)[2].particles).toBe(0);
 });

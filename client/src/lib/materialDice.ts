@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {createLightningTiming} from './diceLightningTiming';
 import {createRollPowerState} from './diceRollPower';
 import {createDicePowerArt} from './dicePowerArt';
+import {createDiceShatterArt} from './diceShatterArt';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -84,6 +85,14 @@ float moltenFracture(vec3 p){
 // Die-local filaments are sampled through the glass volume, never painted on
 // its faces. A shared burst seed keeps the same arc coherent across all faces.
 vec2 electricArc(vec3 p,float seed){
+ // Maximum discharges come from changing directions throughout the volume.
+ // Rotate the entire coherent field per burst, preserving branching geometry.
+ if(rollMaximum>.5){
+  float a=hash(vec3(seed,17.,3.))*6.283185,b=hash(vec3(seed,31.,7.))*6.283185,c=hash(vec3(seed,53.,11.))*6.283185;
+  p.xy=mat2(cos(a),-sin(a),sin(a),cos(a))*p.xy;
+  p.yz=mat2(cos(b),-sin(b),sin(b),cos(b))*p.yz;
+  p.xz=mat2(cos(c),-sin(c),sin(c),cos(c))*p.xz;
+ }
  float distance=10.,progress=0.;vec3 previous=vec3(-.64,-.34,-.34);
  vec3 branch=vec3(0.);
  for(int k=1;k<=7;k++){
@@ -233,7 +242,8 @@ void main(){
       }
       float core=exp(-distanceToArc*distanceToArc/(rollMaximum>.5?.0006:.0012));
       float halo=exp(-distanceToArc*distanceToArc/(rollMaximum>.5?.0045:.014));
-     energy+=(vec3(1.,.62,.60)*core*11.+vec3(1.,.018,.055)*halo*2.4)*burst*stepSize*interior;
+     vec3 strokeColor=mix(vec3(1.,.62,.60)*11.,vec3(1.5,.025,.065)*7.,rollMaximum);
+     energy+=(strokeColor*core+vec3(1.,.018,.055)*halo*2.4)*burst*stepSize*interior;
    }
    if(style==3){
      // Moving light lives inside the resin volume, beneath the glossy shell.
@@ -451,7 +461,7 @@ void main(){
     if(style==0&&rollMaximum>.5){
      float channel=min(electricArc(pos,lightningSeed).x,electricArc(pos.yzx,lightningSeed+41.).x);
      float stroke=smoothstep(.12,.16,lightningPhase)*(1.-smoothstep(.60,.90,lightningPhase));
-     color+=vec3(.9,.58,1.)*exp(-channel*channel/.003)*2.*stroke;
+     color+=vec3(1.5,.025,.065)*exp(-channel*channel/.003)*2.*stroke;
     }
    }
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
@@ -567,10 +577,22 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     uniforms.eruptionPulse.value=powerView.maximum&&!powerReduced?Math.exp(-Math.pow((powerView.age-.22)/.25,2.)):0;
   };
   const motePhase=style===2?rangerMoteSequence++*2.399963:0;
+  const moteStart=new THREE.Vector3();let moteRevision=-1;
   const updateMote=(now:number)=>{
     if(style!==2||crit)return;
     const clock=now/1000*1.05+motePhase,room=uniforms.moteRoom.value;
     const center=uniforms.motePosition.value;
+    if(powerView.maximum&&!powerReduced){
+      if(moteRevision!==powerView.revision){
+        moteRevision=powerView.revision;moteStart.copy(center);
+        // A standalone maximum may be the first frame this die ever draws.
+        if(moteStart.lengthSq()<1e-8)moteStart.set(Math.sin(clock),Math.sin(clock*.79+1.7),Math.cos(clock*.67+.6)).normalize().multiplyScalar(room*.65);
+      }
+      const travel=THREE.MathUtils.smoothstep(powerView.age,0,.65);
+      center.copy(moteStart).multiplyScalar(1-travel);
+      center.z+=Math.sin(travel*Math.PI)*room*.16;
+      return;
+    }
     center.set(Math.sin(clock)*.95,Math.sin(clock*.79+1.7)*.85,Math.cos(clock*.67+.6)*.92).multiplyScalar(room);
     // Travel broadly through every polyhedron while keeping the whole core
     // beneath its shell, including the narrow corners of a d4 or d10.
@@ -674,13 +696,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     resin.customProgramCacheKey=()=> 'dm-resin-clouds-v5';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
+  const shatter=theme.id==='fighter'?createDiceShatterArt(root,source.faces.map(ids=>ids.map(i=>vertices[i])),crit):undefined;
   let lastValue=-1,lastReadable=false;
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
     setRollResult(value:number|null|undefined,percentileValue?:number){power.setResult(value,percentileValue);},
     setReducedMotion(reduced:boolean){powerReduced=reduced;},
-    powerState(){return {...powerView,particles:powerArt?.count()??0};},
+    powerState(){return {...powerView,particles:powerArt?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.
@@ -728,6 +751,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.rotation.value.setFromMatrix4(poseRotation.makeRotationFromQuaternion(root.quaternion));
       uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       powerArt?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
+      shatter?.update(now,powerView.maximum,powerView.age,powerReduced);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean,percentileValue?:number){
       power.setResult(rolling||((tens||ones)&&percentileValue===undefined)?null:value,percentileValue);
@@ -750,13 +774,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.eye.value.copy(s.camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
       uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       powerArt?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
+      shatter?.update(now,powerView.maximum,powerView.age,powerReduced);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);
       const shadow=ctx.createRadialGradient(size*.5,size*.88,0,size*.5,size*.88,size*.28);shadow.addColorStop(0,'#0008');shadow.addColorStop(1,'#0000');ctx.fillStyle=shadow;ctx.save();ctx.translate(0,size*.7);ctx.scale(1,.2);ctx.fillRect(0,0,size,size);ctx.restore();
       ctx.drawImage(s.renderer.domElement,0,0,size,size);
     },
-    dispose(){powerArt?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
+    dispose(){shatter?.dispose();powerArt?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
   };
 }
 

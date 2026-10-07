@@ -4,7 +4,7 @@ import {physicalDice,type Toss,type TrayDie} from '../../../shared/diceTrayTypes
 
 const tray=document.querySelector<HTMLDivElement>('#tray')!,canvas=tray.querySelector('canvas')!,ctx=canvas.getContext('2d')!;
 const sides=document.querySelector<HTMLSelectElement>('#sides')!,critical=document.querySelector<HTMLInputElement>('#critical')!;
-const descriptions:Record<string,string>={fighter:'Obsidian fissures widen and heat up with the roll. A maximum forcefully erupts, launching molten fragments upward and outward.',sorcerer:'A higher value charges more frequent internal lightning. A maximum fires very frequent lightning bursts, with dark gaps between changing channels.',ranger:'The enclosed mote grows brighter with the value. A maximum releases green-gold light streams in all directions from the mote.'};
+const descriptions:Record<string,string>={fighter:'Obsidian fissures widen and heat up with the roll. A maximum shatters the die itself: tumbling obsidian chunks, a molten core flash and cooling embers.',sorcerer:'A higher value charges more frequent internal lightning. A maximum fires crimson lightning bursts from changing directions throughout the red glass.',ranger:'The enclosed mote grows brighter with the value. On a maximum, the mote swings into the center and releases green-gold light streams in all directions.'};
 let theme='fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
 async function show(){
  const controls=[...document.querySelectorAll<HTMLButtonElement|HTMLSelectElement|HTMLInputElement>('nav button,nav select,nav input')];
@@ -29,7 +29,7 @@ async function show(){
   const r=tray.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,1.5);
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
   renderer!.draw(ctx,r.width,r.height,dpr,0,now);
-  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles})));
+  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,fragments:p.fragments,mote:p.mote})));
   requestAnimationFrame(draw);
  }
  requestAnimationFrame(draw);

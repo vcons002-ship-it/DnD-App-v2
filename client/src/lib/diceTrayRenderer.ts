@@ -172,6 +172,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         const percentile=liveResults&& (die.tens||die.ones)?tens!=null&&ones!=null?((tens-1)*10+ones-1)||100:undefined:die.percentileValue;
         h.setRollResult((die.tens||die.ones)&&percentile===undefined?null:value, value==null?undefined:percentile);
         h.setReducedMotion(reduced.matches);h.updatePose(camera,now);
+        shadows[k].visible=!h.powerState().broken;
         const ring=rings[k];ring.visible=keptSet!==undefined&&elapsed>=toss.duration;ring.position.set(h.object.position.x,h.object.position.y,.015);
         const shadow=shadows[k];shadow.position.set(h.object.position.x,h.object.position.y,.006);
         const dieRadius=toss.radius*diePhysicalScale(dice[k].sides);

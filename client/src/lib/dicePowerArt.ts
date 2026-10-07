@@ -6,7 +6,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
  const group=new THREE.Group();root.add(group);
  const transform=new THREE.Object3D(),color=new THREE.Color(),up=new THREE.Vector3(0,0,1);
  const inverse=new THREE.Quaternion(),direction=new THREE.Vector3(),rayAxis=new THREE.Vector3(0,1,0);
- const count=kind==='fighter'?34:22;
+ const count=kind==='fighter'?18:22;
  const geometry=kind==='fighter'?new THREE.IcosahedronGeometry(1,1):new THREE.BufferGeometry();
  if(kind==='ranger'){
   const positions:number[]=[],uv:number[]=[],faces:number[]=[];
@@ -60,7 +60,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
     group.quaternion.copy(inverse.copy(root.quaternion).invert());
     for(let i=0;i<count;i++){
      if(kind==='fighter'){
-      const t=age-.08-random(i+1)*.045,life=1.35+random(i+2)*.55;
+      const t=age-.24-random(i+1)*.045,life=1.35+random(i+2)*.55;
       if(t<0||t>life)continue;
       const angle=i*2.399963+random(i+3)*.5,speed=2.6+random(i+4)*2.8;
       const x=Math.cos(angle)*(.55+speed*t),y=Math.sin(angle)*(.55+speed*t);
@@ -69,7 +69,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
       const floor=-root.position.z/Math.max(.001,root.scale.x)+.035;
       transform.position.set(x,y,Math.max(floor,z));
       direction.set(Math.cos(angle)*speed,Math.sin(angle)*speed,lift-15*t).normalize();transform.quaternion.setFromUnitVectors(up,direction);
-      const size=(.065+random(i+6)*.065)*(1-t/life*.35);
+      const size=(.035+random(i+6)*.035)*(1-t/life*.35);
       transform.scale.set(size*.8,size*.8,size*(1.5+Math.exp(-t*4)*1.5));
       color.setRGB(1.9*(1-t/life)+.09,.22*Math.pow(1-t/life,2)+.012,.008);
       fade.setX(visible,Math.min(1,(life-t)*3));
@@ -87,7 +87,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
       transform.rotateY(i*.8);
       transform.scale.set(.34+random(i+6)*.22,length,.34+random(i+6)*.22);
       color.setRGB(.65,1.1,.28);
-      fade.setX(visible,Math.min(1,age*3)*(.20+.065*Math.sin(now*.0015+i)));
+      fade.setX(visible,THREE.MathUtils.smoothstep(age,.45,.85)*(.20+.065*Math.sin(now*.0015+i)));
      }
      transform.updateMatrix();mesh.setMatrixAt(visible,transform.matrix);mesh.setColorAt(visible,color);visible++;
     }
