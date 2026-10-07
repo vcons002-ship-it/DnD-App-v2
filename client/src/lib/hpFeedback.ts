@@ -8,7 +8,7 @@ const colors:Record<string,string>={
   lightning:'#fff078',thunder:'#b9b5ff',acid:'#c9f775',poison:'#7ae291',necrotic:'#c49aef',
   radiant:'#ffe8a0',force:'#d1b1ff',psychic:'#ff9ce4',
 };
-export type HpNumber = {delta:number;label:string;color:string};
+export type HpNumber = {delta:number;label:string;color:string;total?:boolean};
 /** Parts are only a visual breakdown of the already-applied full delta. */
 export function hpNumbers(event:HpFxEvent):HpNumber[]{
   if(!event.delta)return [];
@@ -25,6 +25,23 @@ export function hpNumbers(event:HpFxEvent):HpNumber[]{
     const type=p.damageType?.toLowerCase(),name=type?type[0].toUpperCase()+type.slice(1):'Damage';
     return {delta:-p.amount,label:p.spell?`${p.spell}${type?` · ${type}`:''}`:name,
       color:p.spell==='Hail of Thorns'?'#b4f47e':colors[type??'']??'#ff8585'};
+  });
+}
+
+/** One red total per creature/impact, including both a hit and its AoE rider.
+ * Colored parts explain that total; they never apply more HP damage. */
+export function hpNumberStacks<T extends HpFxEvent&{id:number}>(events:T[]){
+  const groups=new Map<string,{event:T;parts:HpNumber[]}>();
+  for(const event of events){
+    if(!event.delta)continue;
+    const id=event.delta<0?`${event.kind}:${event.refId}:${event.rollId??event.id}`:`heal:${event.id}`;
+    const group=groups.get(id)??{event,parts:[]};
+    group.parts.push(...hpNumbers(event));groups.set(id,group);
+  }
+  return [...groups].map(([id,{event,parts}])=>{
+    if(event.delta>0)return {id,event,numbers:parts};
+    const total:HpNumber={delta:parts.reduce((sum,p)=>sum+p.delta,0),label:'Total',color:'#ff5a60',total:true};
+    return {id,event,numbers:parts.length>1?[total,...parts]:[total]};
   });
 }
 

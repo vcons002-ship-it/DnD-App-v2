@@ -46,7 +46,7 @@ for (const scenario of [
     const catalog = (await (await request.get('/api/spells/all')).json()).results;
     socket.emit('character:update', {
       characterId: caster.id, className: 'Ranger', level: 6, maxHp: 100, curHp: 10,
-      stats: { STR: 10, DEX: 18, CON: 12, INT: 10, WIS: 18, CHA: 10 }, spellSlots: { L1: { max: 5, used: 0 } },
+      stats: { STR: 10, DEX: 18, CON: 12, INT: 10, WIS: 18, CHA: 10 }, spellSlots: { L1: { max: 5, used: 0 }, L2: {max:3,used:0} },
       weapons: [{ name: 'Timing bow', kind: 'ranged', damage: '1d8', damageType: 'piercing', attackBonus: 100 }],
       sheetAbilities: catalog.filter((s: any) => ['Cure Wounds', 'Hail of Thorns'].includes(s.name) || scenario.mark && /Hunter.s Mark/.test(s.name))
         .map((s: any) => ({ ...s, id: s.name })),
@@ -98,7 +98,7 @@ for (const scenario of [
         const tray = document.querySelector('.physics-dice-tray');
         const boxes = [...document.querySelectorAll('.tray-die-result')];
         samples.push({ time: performance.now(), fx: fx.length,
-          numbers: fx.map((node: any) => ({ text: node.text(), color: node.fill(), opacity: node.getParent().opacity(), x: node.getParent().x(), y: node.getParent().y() })),
+          numbers: fx.map((node: any) => ({ text: node.text(), total:node.hasName('hp-floater-total'),color: node.fill(), opacity: node.getParent().opacity(), x: node.getParent().x(), y: node.getParent().y() })),
           live: !!document.querySelector('[data-live-dice="true"]'),
           settled: tray?.getAttribute('data-status') === 'settled',
           filled: boxes.length > 0 && boxes.every(e => e.getAttribute('data-filled') === 'true'),
@@ -112,7 +112,7 @@ for (const scenario of [
       await page.locator('.compact-player-combat').getByRole('button', { name: /Cure Wounds/ }).click();
       await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
       if (!cold) await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-dice-preloaded', 'true');
-    } else await page.locator('.damage-prompt').getByRole('button', { name: 'L1', exact: true }).click();
+    } else await page.locator('.damage-prompt').getByRole('button', { name: scenario.mark ? 'L2' : 'L1', exact: true }).click();
     if (scenario.skip) {
       if (scenario.skip === 'escape') {
         // Exercise the added reading pause after every number has arrived.
@@ -140,8 +140,16 @@ for (const scenario of [
     expect(samples.filter((s: any) => s.fx && (s.live || s.large)).slice(0, 5),
       'Map effects must not play beneath the live tray or a full result card').toEqual([]);
     if (scenario.mark) {
-      const together = samples.find((s: any) => new Set(s.numbers.map((n: any) => n.color)).size >= 3);
+      const together = samples.find((s: any) => new Set(s.numbers.map((n: any) => n.color)).size >= 4);
       expect(together, 'Bow, force mark, and piercing thorns have three distinct colors').toBeTruthy();
+      const totals=together.numbers.filter((n:any)=>n.total),components=together.numbers.filter((n:any)=>!n.total);
+      expect(totals).toHaveLength(2);
+      expect(totals.every((n:any)=>n.color==='#ff5a60')).toBe(true);
+      expect(components).toHaveLength(3);
+      const amount=(n:any)=>Number(n.text.replace(/[^0-9]/g,''));
+      expect(amount(totals[0])).toBe(components.reduce((sum:number,n:any)=>sum+amount(n),0));
+      const after=await snapshot();
+      expect(totals.map(amount).sort((a:number,b:number)=>a-b)).toEqual(after.monsters.map((m:any)=>200-m.curHp).sort((a:number,b:number)=>a-b));
       expect(together.numbers.every((n: any) => Math.min(Math.abs(n.x-650),Math.abs(n.x-690)) <= 32*.4+.01),
         'Damage stays above its creature instead of spreading across the map').toBe(true);
       expect(await page.evaluate(() => ((window as any).Konva?.stages??[]).flatMap((stage:any)=>stage.find('.hp-floater-label')).length)).toBe(0);

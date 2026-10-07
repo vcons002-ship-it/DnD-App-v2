@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] A red floating total sums simultaneous damage to each creature (including
+  bow, Hunter's Mark and Hail of Thorns). Smaller colored numbers show the
+  components only for mixed hits; totals stay compact above their own tokens.
+
 - [x] Floating HP feedback separates defended damage components by type and
   source: physical bow damage, violet Hunter's Mark force damage, and green
   Hail of Thorns piercing damage get distinct colors with small token-local

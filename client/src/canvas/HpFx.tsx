@@ -3,7 +3,7 @@ import { Circle, Group, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { Token } from '../../../shared/types';
 import type { HpFloater } from '../state/socket';
-import {hpNumbers,placeHpNumbers,HP_NUMBER_HOLD_MS,HP_NUMBER_FADE_MS,type HpNumber,type HpNumberPosition} from '../lib/hpFeedback';
+import {hpNumberStacks,placeHpNumbers,HP_NUMBER_HOLD_MS,HP_NUMBER_FADE_MS,type HpNumber,type HpNumberPosition} from '../lib/hpFeedback';
 import {spellImpactStyle} from '../../../shared/spellImpact';
 
 /**
@@ -384,8 +384,8 @@ function FloaterText({number,position,fontSize,rise}:{number:HpNumber;position:H
   },[]);
   const width=fontSize*3;
   return <Group ref={group} x={position.x} y={position.y} listening={false}>
-    <Text name="hp-floater-number" text={`${number.delta>0?'+':'\u2212'}${Math.abs(number.delta)}`}
-      fontSize={fontSize} fontStyle="bold" fill={number.color} stroke="#08090d" strokeWidth={Math.max(1.5,fontSize*.09)} fillAfterStrokeEnabled
+    <Text name={`hp-floater-number ${number.total?'hp-floater-total':number.delta<0?'hp-floater-component':'hp-floater-heal'}`} text={`${number.delta>0?'+':'\u2212'}${Math.abs(number.delta)}`}
+      fontSize={number.total||number.delta>0?fontSize:fontSize*.72} fontStyle="bold" fill={number.color} stroke="#08090d" strokeWidth={Math.max(1.5,fontSize*.09)} fillAfterStrokeEnabled
       shadowColor="#000" shadowBlur={5} shadowOpacity={.9} align="center" width={width} offsetX={width/2} listening={false}/>
   </Group>;
 }
@@ -406,9 +406,9 @@ export const HpFxLayer = memo(function HpFxLayer({
 }) {
   const cachedPositions=useRef(new Map<string,HpNumberPosition>());
   const fontSize=Math.max(16,gridSizePx*.5);
-  const numbers=floaters.flatMap(f=>{
+  const numbers=hpNumberStacks(floaters).flatMap(({id,event:f,numbers})=>{
     const token=tokens.find(t=>t.kind===f.kind&&t.refId===f.refId);if(!token)return [];
-    return hpNumbers(f).map((number,i)=>({id:`${f.id}:${i}`,target:`${f.kind}:${f.refId}`,number,x:token.x,rise:token.widthFt*pxPerFoot*.9,
+    return numbers.map((number,i)=>({id:`${id}:${i}`,target:`${f.kind}:${f.refId}`,number,x:token.x,rise:token.widthFt*pxPerFoot*.9,
       y:token.y-token.widthFt*pxPerFoot/2-fontSize*.4}));
   });
   const positions=placeHpNumbers(numbers,fontSize,cachedPositions.current);

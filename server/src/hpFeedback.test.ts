@@ -1,8 +1,22 @@
 import {describe,it,expect} from 'vitest';
-import {hpNumbers,placeHpNumbers} from '../../client/src/lib/hpFeedback.js';
+import {hpNumbers,hpNumberStacks,placeHpNumbers} from '../../client/src/lib/hpFeedback.js';
 import {createSession,createCharacter,applyDamage,drainHpFx,getCharacter,setTempHp} from './sessions.js';
 
 describe('typed floating damage feedback',()=>{
+ it('shows one red total per victim for a combined weapon, mark and thorns impact',()=>{
+  const events=[{id:1,kind:'monster' as const,refId:'g',rollId:'hit',delta:-13,damageParts:[{amount:9,damageType:'piercing'},{amount:4,damageType:'force',spell:"Hunter's Mark"}]},
+    {id:2,kind:'monster' as const,refId:'g',rollId:'hit',delta:-7,damageParts:[{amount:7,damageType:'piercing',spell:'Hail of Thorns'}]},
+    {id:3,kind:'monster' as const,refId:'neighbor',rollId:'hit',delta:-3,damageType:'piercing'},
+    {id:4,kind:'monster' as const,refId:'g',rollId:'other-hit',delta:-2},
+    {id:5,kind:'pc' as const,refId:'hero',delta:5}];
+  const groups=hpNumberStacks(events);
+  expect(groups[0].numbers[0]).toMatchObject({delta:-20,color:'#ff5a60',total:true});
+  expect(groups[0].numbers.slice(1).map(n=>n.delta)).toEqual([-9,-4,-7]);
+  expect(groups[0].numbers.slice(1).reduce((sum,n)=>sum+n.delta,0)).toBe(groups[0].numbers[0].delta);
+  expect(groups[1].numbers).toHaveLength(1);expect(groups[1].numbers[0]).toMatchObject({delta:-3,total:true});
+  expect(groups[2].numbers[0].delta).toBe(-2);
+  expect(groups[3].numbers[0]).toMatchObject({delta:5,color:'#62efa0'});
+ });
  it('separates a bow, mark and same-type thorns by color and source without duplicating damage',()=>{
   const bow=hpNumbers({kind:'monster',refId:'g',delta:-13,damageParts:[
     {amount:9,damageType:'piercing'},{amount:4,damageType:'force',spell:"Hunter's Mark"}]});

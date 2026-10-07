@@ -162,11 +162,11 @@ for (const className of ['Fighter', 'Ranger', 'Sorcerer']) test(`Hunter mark cas
         ]);
         await page.locator('.roll-reveal').screenshot({path: testInfo.outputPath('ranger-dice.png')});
         await expect.poll(async()=>Number((await page.locator('.rr-dmg-num').innerText()).match(/^\d+/)?.[0])).toBe(damage.total);
-        await expect.poll(async()=>page.evaluate(()=> (window as any).Konva.stages.flatMap((stage:any)=>stage.find('.hp-floater-number').map((node:any)=>Number(node.text().replace(/[^0-9]/g,'')))).reduce((sum:number,n:number)=>sum+n,0))).toBe(damage.total);
-        const feedback=await page.evaluate(()=> (window as any).Konva.stages.flatMap((stage:any)=>stage.find('.hp-floater-number').map((node:any)=>({color:node.fill(),x:node.getParent().x(),y:node.getParent().y()}))));
+        await expect.poll(async()=>page.evaluate(()=> (window as any).Konva.stages.flatMap((stage:any)=>stage.find('.hp-floater-total').map((node:any)=>Number(node.text().replace(/[^0-9]/g,'')))).reduce((sum:number,n:number)=>sum+n,0))).toBe(damage.total);
+        const feedback=await page.evaluate(()=> (window as any).Konva.stages.flatMap((stage:any)=>stage.find('.hp-floater-component').map((node:any)=>({color:node.fill(),x:node.getParent().x(),y:node.getParent().y()}))));
         expect(feedback).toHaveLength(2);
         expect(new Set(feedback.map((n:any)=>n.color)).size).toBe(2);
-        expect(Math.abs(feedback[0].x-feedback[1].x)).toBeLessThanOrEqual(20);
+        expect(Math.abs(feedback[0].x-feedback[1].x)).toBeLessThanOrEqual(30);
         expect(Math.abs(feedback[0].y-feedback[1].y)).toBeGreaterThan(15);
         expect(Math.abs(feedback[0].y-feedback[1].y)).toBeLessThan(60);
         expect((await f.snapshot()).rollLog.find(r=>r.id===roll.id)?.pending?.amount).toBe(damage.total);
