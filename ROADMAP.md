@@ -6,6 +6,12 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Optional Varis moss-agate material and windblown woodland wake preview:
+  internal moss inclusions/mineral veins, existing wood/bronze inlays, and
+  short tumbling leaves, seeds and motes using bounded shared meshes. Roller
+  and rotatable model toggles compare against the current vine/resin style;
+  gameplay appearance defaults and authoritative dice physics stay unchanged.
+
 - [x] Varis thorns are short natural pointed prickles placed independently
   between leaf stems along the main vine, replacing the hooked clusters.
   Their placement follows the actual path and shares the vine fade timing.

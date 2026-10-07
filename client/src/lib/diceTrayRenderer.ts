@@ -3,8 +3,9 @@ import {createMaterialDie,getDiceStage} from './materialDice';
 import {trayFaceValues,type Toss,type TrayDie} from './diceTrayTypes';
 import type {DiceTheme} from '../../../shared/diceThemes';
 import {createDiceTrails} from './diceTrail';
+import {createWoodlandWake} from './diceWoodlandWake';
 
-export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean};
+export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean;mossAgate?:boolean;woodlandWake?:boolean};
 
 const trayTextures=new Map<string,Promise<THREE.Texture>>();
 export const warmTrayGraphics=()=>{getDiceStage();};
@@ -64,7 +65,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const c=canvas.getContext('2d')!,gradient=c.createRadialGradient(32,32,4,32,32,32);gradient.addColorStop(0,'#000a');gradient.addColorStop(1,'#0000');c.fillStyle=gradient;c.fillRect(0,0,64,64);
   const texture=new THREE.CanvasTexture(canvas);textures.push(texture);
   const shadows=dice.map(()=>{const g=new THREE.PlaneGeometry(2,2),m=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false});const mesh=new THREE.Mesh(g,m);scene.add(mesh);geometry.push(g);materials.push(m);return mesh;});
-  const handles=dice.map((d,i)=>{const dieTheme=dieThemes?.[i]??theme;const h=createMaterialDie(d.sides,dieTheme,!!d.crit,!!d.tens,!!d.ones);h.setMoltenCracks(!!appearance?.molten);h.setInternalLightning(!!appearance?.lightning);h.setInnerGlow(appearance?.dmGlow??0);h.setLiquidInk(!!appearance?.liquidInk);h.setDenseResin(!!appearance?.denseDm);h.setFaceValues(fixedFaces?Array.from({length:d.sides},(_,j)=>d.tens?j*10:d.ones?j:j+1):trayFaceValues(d,toss.topFaces[i]),fixedFaces);h.object.scale.setScalar(toss.radius);
+  const handles=dice.map((d,i)=>{const dieTheme=dieThemes?.[i]??theme;const h=createMaterialDie(d.sides,dieTheme,!!d.crit,!!d.tens,!!d.ones);h.setMossAgate(!!appearance?.mossAgate);h.setMoltenCracks(!!appearance?.molten);h.setInternalLightning(!!appearance?.lightning);h.setInnerGlow(appearance?.dmGlow??0);h.setLiquidInk(!!appearance?.liquidInk);h.setDenseResin(!!appearance?.denseDm);h.setFaceValues(fixedFaces?Array.from({length:d.sides},(_,j)=>d.tens?j*10:d.ones?j:j+1):trayFaceValues(d,toss.topFaces[i]),fixedFaces);h.object.scale.setScalar(toss.radius);
     // The standard shadow pass cannot transmit resin or discard this custom
     // inlay shader's empty areas. Keep its soft contact shadow instead of an
     // opaque silhouette cast by every numbered face.
@@ -76,7 +77,8 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     const mesh=new THREE.Mesh(g,m);mesh.renderOrder=10;mesh.visible=false;scene.add(mesh);geometry.push(g);materials.push(m);return mesh;
   });
   const a=new THREE.Quaternion(),b=new THREE.Quaternion(),projectedNumber=new THREE.Vector3();
-  const trails=appearance?.varisTrail?createDiceTrails(scene,toss.radius,dice.flatMap((d,i)=>(dieThemes?.[i]??theme).id==='ranger'&&!d.crit?[i]:[]),trayScale):undefined;
+  const rangerIndices=dice.flatMap((d,i)=>(dieThemes?.[i]??theme).id==='ranger'&&!d.crit?[i]:[]);
+  const trails=appearance?.varisTrail?(appearance.woodlandWake?createWoodlandWake(scene,toss.radius,rangerIndices,trayScale):createDiceTrails(scene,toss.radius,rangerIndices,trayScale)):undefined;
   return {
     trailPointCount(){return trails?.pointCount()??0;},
     trailBranchCount(){return trails?.branchCount()??0;},
