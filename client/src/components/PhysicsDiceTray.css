@@ -130,3 +130,22 @@
 .roll-reveal-backdrop.is-impact .physics-dice-tray,
 .roll-reveal-backdrop.is-impact .live-dice-footer,
 .roll-reveal-backdrop.is-impact .roll-reveal-title{display:none;}
+
+/* A result lands across the tray itself, with no extra card behind the text. */
+.roll-reveal:has(.physics-dice-tray){position:relative;}
+.tray-roll-result>div{box-shadow:none;background:transparent;}
+.roll-reveal:has(.physics-dice-tray) .roll-reveal-outcome{
+ position:absolute;z-index:8;left:0;right:0;top:43%;margin:0;padding:0 10px;
+ text-align:center;font:900 clamp(32px,7vw,88px)/1.08 Georgia,serif;letter-spacing:.035em;
+ pointer-events:none;background:none;border:0;box-shadow:none;
+ -webkit-text-stroke:1.5px #111318;paint-order:stroke fill;
+ text-shadow:0 3px 0 #0b0e14,2px 0 3px #080b10,-2px 0 3px #080b10,0 0 22px currentColor;
+ transform:translateY(-50%);animation:tray-outcome-pop .65s cubic-bezier(.2,.8,.25,1) both;
+}
+@keyframes tray-outcome-pop{
+ 0%{opacity:0;transform:translateY(-50%) scale(1.4) rotate(-4deg);}
+ 38%{opacity:1;transform:translateY(-50%) scale(.96) rotate(1deg);}
+ 70%,100%{opacity:1;transform:translateY(-50%) scale(1) rotate(0);}
+}
+.roll-reveal-backdrop.is-impact .roll-reveal-outcome{display:none;}
+@media(prefers-reduced-motion:reduce){.roll-reveal:has(.physics-dice-tray) .roll-reveal-outcome{animation:none;}}

@@ -6,6 +6,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Floating damage components rise one at a time from the token center,
+  followed by the longer-held red total. Repeated hits queue per creature;
+  nearby AoE victims keep independent feedback. Attack outcomes stamp large,
+  outlined text across the dice tray without a separate result panel.
+
 - [x] Weapon damage shows DEX/STR on the weapon's own settled dice before
   Hunter's Mark or other riders roll; the mark d6 never receives the bow's
   modifier display. Hail of Thorns then rolls thorns and grouped saves. A rollback-safe

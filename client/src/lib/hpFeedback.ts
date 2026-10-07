@@ -2,7 +2,9 @@ import type {HpFxEvent} from '../../../shared/types.js';
 
 export const HP_NUMBER_HOLD_MS = 2400;
 export const HP_NUMBER_FADE_MS = 1600;
-export const HP_NUMBER_EXPIRY_MS = HP_NUMBER_HOLD_MS + HP_NUMBER_FADE_MS + 300;
+export const HP_COMPONENT_HOLD_MS = 700;
+export const HP_COMPONENT_FADE_MS = 350;
+export const HP_NUMBER_GAP_MS = 100;
 const colors:Record<string,string>={
   piercing:'#ff9987',slashing:'#ff7185',bludgeoning:'#ffc18b',fire:'#ffad55',cold:'#8fe4ff',
   lightning:'#fff078',thunder:'#b9b5ff',acid:'#c9f775',poison:'#7ae291',necrotic:'#c49aef',
@@ -41,26 +43,32 @@ export function hpNumberStacks<T extends HpFxEvent&{id:number}>(events:T[]){
   return [...groups].map(([id,{event,parts}])=>{
     if(event.delta>0)return {id,event,numbers:parts};
     const total:HpNumber={delta:parts.reduce((sum,p)=>sum+p.delta,0),label:'Total',color:'#ff5a60',total:true};
-    return {id,event,numbers:parts.length>1?[total,...parts]:[total]};
+    return {id,event,numbers:parts.length>1?[...parts,total]:[total]};
   });
 }
 
-export type HpNumberPosition={x:number;y:number;slot:number};
-/** Small, token-local offsets. Nearby victims never push feedback away from
- * its own creature; live numbers keep their slot as earlier hits expire. */
-export function placeHpNumbers(items:{id:string;target:string;x:number;y:number}[],fontSize:number,
-  previous:ReadonlyMap<string,HpNumberPosition>):Map<string,HpNumberPosition>{
-  const positions=new Map<string,HpNumberPosition>(),slots=new Map<string,Set<number>>();
-  for(const item of items){
-    const used=slots.get(item.target)??new Set<number>();slots.set(item.target,used);
-    const old=previous.get(item.id);if(old)used.add(old.slot);
+/** Each part clears before the next rises from the same token; total is last. */
+export function hpNumberSequence(numbers:HpNumber[]){
+  let delayMs=0;
+  return numbers.map(number=>{
+    const holdMs=number.total||number.delta>0?HP_NUMBER_HOLD_MS:HP_COMPONENT_HOLD_MS;
+    const fadeMs=number.total||number.delta>0?HP_NUMBER_FADE_MS:HP_COMPONENT_FADE_MS;
+    const item={number,delayMs,holdMs,fadeMs};delayMs+=holdMs+fadeMs+HP_NUMBER_GAP_MS;
+    return item;
+  });
+}
+
+/** Queue repeated hits on one creature without delaying other AoE victims. */
+export function scheduleHpFeedback<T extends HpFxEvent&{id:number;numberStartAt?:number}>(events:T[],now:number,existing:(HpFxEvent&{id:number;numberStartAt?:number})[]=[]){
+  const available=new Map<string,number>(),starts=new Map<string,number>();
+  let expiresAt=now;
+  for(const {id,event,numbers} of [...hpNumberStacks(existing),...hpNumberStacks(events)]){
+    const target=`${event.kind}:${event.refId}`,last=hpNumberSequence(numbers).at(-1)!;
+    const start=event.numberStartAt??Math.max(now,available.get(target)??now);
+    const end=start+last.delayMs+last.holdMs+last.fadeMs;
+    available.set(target,Math.max(available.get(target)??0,end+HP_NUMBER_GAP_MS));
+    starts.set(id,start);expiresAt=Math.max(expiresAt,end);
   }
-  for(const item of items){
-    const used=slots.get(item.target)!;
-    let slot=previous.get(item.id)?.slot??0;
-    if(!previous.has(item.id)){while(used.has(slot))slot++;used.add(slot);}
-    positions.set(item.id,{slot,x:item.x+[0,-.4,.4][slot%3]*fontSize,
-      y:item.y-slot*fontSize*1.05});
-  }
-  return positions;
+  return {events:events.map(event=>({...event,numberStartAt:starts.get(event.delta<0?`${event.kind}:${event.refId}:${event.rollId??event.id}`:`heal:${event.id}`)??now})),
+    expiryMs:expiresAt-now+300};
 }

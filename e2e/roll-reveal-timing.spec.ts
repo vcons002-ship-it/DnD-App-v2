@@ -128,6 +128,16 @@ test('skill and attack modifiers count into the total inside the original live t
     const before=Number(await result.locator('.dice-tray-canvas').getAttribute('data-render-time'));
     await page.waitForTimeout(200);
     expect(Number(await result.locator('.dice-tray-canvas').getAttribute('data-render-time'))).toBeGreaterThan(before);
+    if(kind==='attack'){
+      const stamp=result.getByLabel('Roll result',{exact:true});
+      await expect(stamp).toBeVisible();
+      expect(await stamp.evaluate(el=>{
+        const text=el.getBoundingClientRect(),card=el.closest('.roll-reveal')!.getBoundingClientRect(),style=getComputedStyle(el);
+        return Math.abs(text.left+text.width/2-card.left-card.width/2)<3 && text.top>card.top && text.bottom<card.bottom &&
+          style.position==='absolute' && style.backgroundColor==='rgba(0, 0, 0, 0)' && parseFloat(style.fontSize)>=32 && style.textShadow!=='none';
+      }),'Outcome is large outlined text centered over the tray, without its own card').toBe(true);
+      await page.screenshot({path:test.info().outputPath('attack-outcome-over-tray.png')});
+    }
     await page.keyboard.press('Escape');
     await expect(page.locator('.roll-reveal')).toHaveCount(0);
   }
@@ -315,7 +325,8 @@ for(const outcome of ['hit','miss','crit','fumble','pass','fail'] as const){
   if(outcome==='crit')await expect(page.getByLabel('Critical hit celebration')).toBeVisible();
   await expect(result).toBeVisible();
   await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
-  await expect(result).toBeVisible();
+  if(outcome==='pass'||outcome==='fail')await expect(result).toBeVisible();
+  else await expect(result).toBeHidden(); // text-only stamp clears with the full tray
   const times=await page.evaluate(()=>(window as any).__stampTimes);
   expect(times.impact-times.stamp).toBeGreaterThanOrEqual(1000);
  });

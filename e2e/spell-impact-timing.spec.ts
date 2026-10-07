@@ -95,7 +95,7 @@ for (const scenario of [
       (window as any).__impactSampling = true;
       const sample = () => {
         const cards = [...document.querySelectorAll('.roll-reveal')];
-        const fx = ((window as any).Konva?.stages ?? []).flatMap((stage: any) => stage.find('.hp-floater-number'));
+        const fx = ((window as any).Konva?.stages ?? []).flatMap((stage: any) => stage.find('.hp-floater-number')).filter((n:any)=>n.getAbsoluteOpacity()>.01);
         const tray = document.querySelector('.physics-dice-tray');
         const boxes = [...document.querySelectorAll('.tray-die-result')];
         samples.push({ time: performance.now(), wall:Date.now(), fx: fx.length,
@@ -147,7 +147,7 @@ for (const scenario of [
     if (scenario.mark) {
       await page.waitForTimeout(350);
       await page.screenshot({path: test.info().outputPath('bow-mark-thorns-damage.png')});
-      await page.waitForTimeout(2900);
+      await page.waitForTimeout(7400);
     } else await page.waitForTimeout(1000);
     const samples = await page.evaluate(() => {
       (window as any).__impactSampling = false;
@@ -167,23 +167,24 @@ for (const scenario of [
       const firstMark=frames.find(f=>/Hunter.s Mark/.test(f.label))!.at;
       expect(bowCalculation.every((s:any)=>s.wall<firstMark),'Bow arithmetic finishes before Hunter’s Mark rolls').toBe(true);
       expect(frames.filter(f=>f.sides.includes(6)).every(f=>!f.mods.some(m=>m.label==='DEX'))).toBe(true);
-      const together = samples.find((s: any) => new Set(s.numbers.map((n: any) => n.color)).size >= 4);
-      expect(together, 'Bow, force mark, and piercing thorns have three distinct colors').toBeTruthy();
-      const totals=together.numbers.filter((n:any)=>n.total),components=together.numbers.filter((n:any)=>!n.total);
-      expect(totals).toHaveLength(2);
-      expect(totals.every((n:any)=>n.color==='#ff5a60')).toBe(true);
+      const mainSamples=samples.map((s:any)=>({...s,numbers:s.numbers.filter((n:any)=>n.x===650)}));
+      expect(mainSamples.every((s:any)=>s.numbers.length<=1),'A creature shows only one floating number at a time').toBe(true);
+      const seen=new Map<string,any>();
+      mainSamples.forEach((s:any)=>s.numbers.forEach((n:any)=>{if(!seen.has(n.color))seen.set(n.color,{...n,time:s.time});}));
+      const components=[...seen.values()].filter((n:any)=>!n.total),total=[...seen.values()].find((n:any)=>n.total);
       expect(components).toHaveLength(3);
+      expect(total.color).toBe('#ff5a60');
+      expect(total.time).toBeGreaterThan(Math.max(...components.map((n:any)=>n.time)));
       const amount=(n:any)=>Number(n.text.replace(/[^0-9]/g,''));
-      expect(amount(totals[0])).toBe(components.reduce((sum:number,n:any)=>sum+amount(n),0));
+      expect(amount(total)).toBe(components.reduce((sum:number,n:any)=>sum+amount(n),0));
       const after=await snapshot();
-      expect(totals.map(amount).sort((a:number,b:number)=>a-b)).toEqual(after.monsters.map((m:any)=>200-m.curHp).sort((a:number,b:number)=>a-b));
-      expect(together.numbers.every((n: any) => Math.min(Math.abs(n.x-650),Math.abs(n.x-690)) <= 32*.4+.01),
-        'Damage stays above its creature instead of spreading across the map').toBe(true);
+      const main=after.tokens.find((t:any)=>t.kind==='monster'&&t.x===650);
+      expect(amount(total)).toBe(200-after.monsters.find((m:any)=>m.id===main.refId).curHp);
+      expect(samples.every((s:any)=>s.numbers.every((n:any)=>n.x===650||n.x===690)),
+        'Every number rises from its own token center').toBe(true);
       expect(await page.evaluate(() => ((window as any).Konva?.stages??[]).flatMap((stage:any)=>stage.find('.hp-floater-label')).length)).toBe(0);
-      const start = samples.find((s: any) => s.fx > 0).time;
-      expect(samples.find((s: any) => s.time >= start + 2100)?.numbers.every((n: any) => n.opacity > .95)).toBe(true);
-      expect(samples.find((s: any) => s.time >= start + 3000)?.fx).toBeGreaterThan(0);
-      expect(samples.find((s: any) => s.time >= start + 3000)?.numbers.some((n: any) => n.opacity > .2 && n.opacity < .95)).toBe(true);
+      expect(mainSamples.find((s:any)=>s.time>=total.time+2100)?.numbers.some((n:any)=>n.total&&n.opacity>.95)).toBe(true);
+      expect(mainSamples.find((s:any)=>s.time>=total.time+3000)?.numbers.some((n:any)=>n.total&&n.opacity>.2&&n.opacity<.95)).toBe(true);
     }
     if (scenario.skip) {
       await expect(page.locator('.roll-reveal')).toHaveCount(0);

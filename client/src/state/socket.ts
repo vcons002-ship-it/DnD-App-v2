@@ -1,4 +1,4 @@
-import {HP_NUMBER_EXPIRY_MS} from '../lib/hpFeedback';
+import {scheduleHpFeedback} from '../lib/hpFeedback';
 import {partySpell} from '../../../shared/partySpells';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import {resultTrayFor} from '../lib/rollTrayPresentation';
@@ -70,7 +70,7 @@ async function requestLeveling<T>(socket: TypedSocket | null, status: Status,
 export type WeaponAttackOptions = { offhand: boolean; twoHanded: boolean };
 
 /** One floating damage/heal number over a token (client-side, transient). */
-export type HpFloater = HpFxEvent & { id: number };
+export type HpFloater = HpFxEvent & { id: number; numberStartAt?: number };
 let nextFloaterId = 1;
 /** Per-token expiry timers for live drag ghosts (cleared/rearmed each update). */
 const dragGhostTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -554,12 +554,13 @@ export const useStore = create<Store>((set, get) => ({
       hpFxFrame = undefined;
       const displayed = queuedHpFx.splice(0);
       if (!displayed.length) return;
-      set((st) => ({ hpFx: [...st.hpFx, ...displayed] }));
+      const feedback=scheduleHpFeedback(displayed,performance.now(),state.hpFx);
+      set((st) => ({ hpFx: [...st.hpFx, ...feedback.events] }));
       // Lifetimes begin when DISPLAYED, not while loading/rolling/adding bonuses.
       setTimeout(() => {
         const ids = new Set(displayed.map((f) => f.id));
         set((st) => ({ hpFx: st.hpFx.filter((f) => !ids.has(f.id)) }));
-      }, HP_NUMBER_EXPIRY_MS);
+      }, feedback.expiryMs);
       if (displayed.some(e => e.delta > 0)) playHeal();
       const hurt = displayed.filter((e) => e.delta < 0 && e.kind === 'pc' &&
         state.snapshot?.characters.some((c) => c.id === e.refId && c.claimedBy === state.socket?.id))
