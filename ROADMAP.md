@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Varis vine has broad hooked thorns projecting from the main root and
+  smaller offshoot barbs, with woody bases tapering to pale sharp tips. Their
+  overhead silhouettes remain visible and fade with the surrounding vine.
+
 - [x] Varis foliage uses sparse short offshoots with smaller paired leaves and
   thorns, anchored to the main root samples. Root, foliage and sparks share a
   1.8-second lifetime and fade curve; roots retain their width while fading.

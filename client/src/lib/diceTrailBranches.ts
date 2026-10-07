@@ -6,10 +6,14 @@ type Sprout={x:number;y:number;angle:number;born:number;scale:number;stretch:num
 /** Shared physical bramble detail; each die only owns its instance transforms. */
 export function createBotanicalTrailAssets(){
  const pieces:THREE.BufferGeometry[]=[];
- function piece(source:THREE.BufferGeometry,color:THREE.ColorRepresentation,part:number,position?:THREE.Vector3,rotation=0){
+ function piece(source:THREE.BufferGeometry,color:THREE.ColorRepresentation,part:number,position?:THREE.Vector3,rotation=0,tipColor?:THREE.ColorRepresentation){
   const g=source.index?source.toNonIndexed():source;g.rotateZ(rotation);if(position)g.translate(position.x,position.y,position.z);
   const values=new Float32Array(g.attributes.position.count*3),c=new THREE.Color(color);
-  for(let j=0;j<values.length;j+=3)c.toArray(values,j);
+  const tip=tipColor?new THREE.Color(tipColor):undefined,tint=new THREE.Color();
+  for(let j=0;j<values.length;j+=3){
+   if(tip)tint.copy(c).lerp(tip,THREE.MathUtils.smoothstep(g.attributes.uv.getX(j/3),.25,.96)).toArray(values,j);
+   else c.toArray(values,j);
+  }
   g.setAttribute('color',new THREE.BufferAttribute(values,3));g.setAttribute('botanicalPart',new THREE.Float32BufferAttribute(Array(g.attributes.position.count).fill(part),1));pieces.push(g);
   if(g!==source)source.dispose();
  }
@@ -48,15 +52,16 @@ export function createBotanicalTrailAssets(){
    piece(new THREE.TubeGeometry(veinlet,3,.0022,3,false).scale(.65,.65,.65),'#8a9a5c',1,at,angle);
   }
  }
- // Broad dark roots curve into pale, needle-sharp hooked tips.
- for(const [x,y,z,angle] of [[.015,.10,.06,-.95],[-.025,.29,.09,.8]]){
-  const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0),new THREE.Vector3(.065,.035,.09),new THREE.Vector3(.10,.015,.18),new THREE.Vector3(.08,-.04,.23)]);
-  const g=new THREE.TubeGeometry(curve,7,.035,6,false),p=g.attributes.position;
+ // Broad woody barbs project sideways so their hooked silhouettes read overhead.
+ // The two root barbs attach directly to the main vine; a smaller one guards the offshoot.
+ for(const [x,y,z,angle,scale] of [[0,0,.055,-.60,1],[0,.025,.06,2.60,.85],[.005,.32,.09,-1.1,.65]]){
+  const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0),new THREE.Vector3(.06,.18,.095),new THREE.Vector3(.09,.36,.17),new THREE.Vector3(.015,.51,.18),new THREE.Vector3(-.06,.48,.14)]);
+  const g=new THREE.TubeGeometry(curve,10,.085,8,false),p=g.attributes.position;
   for(let i=0;i<p.count;i++){
-   const t=g.attributes.uv.getX(i),center=curve.getPointAt(t),taper=Math.pow(1-t,1.35);
+   const t=g.attributes.uv.getX(i),center=curve.getPointAt(t),taper=Math.pow(1-t,1.15);
    p.setXYZ(i,center.x+(p.getX(i)-center.x)*taper,center.y+(p.getY(i)-center.y)*taper,center.z+(p.getZ(i)-center.z)*taper);
   }
-  g.computeVertexNormals();g.scale(.65,.65,.65);piece(g,'#9b8a61',3,new THREE.Vector3(x,y,z),angle);
+  g.computeVertexNormals();g.scale(scale,scale,scale);piece(g,'#392e22',3,new THREE.Vector3(x,y,z),angle,'#c9bea1');
  }
  const base=mergeGeometries(pieces)!;pieces.forEach(g=>g.dispose());
  const bark=document.createElement('canvas');bark.width=bark.height=128;
@@ -78,7 +83,7 @@ export function createBotanicalTrailAssets(){
    diffuseColor.rgb*=.90+mottling*.13;
    diffuseColor.a*=leafFade;
   `);
-  shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=plantPart>2.5?.57:plantPart>.5?.86:.90;');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=plantPart>2.5?.46:plantPart>.5?.86:.90;');
   shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>','vec3 originalPlantNormal=normal;\n#include <normal_fragment_maps>\nnormal=normalize(mix(normal,originalPlantNormal,plantPart>.5?.85:0.));');
   shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
    float veins=step(1.5,plantPart)*(1.-step(2.5,plantPart));
@@ -86,7 +91,7 @@ export function createBotanicalTrailAssets(){
    totalEmissiveRadiance+=vec3(.10,.38,.16)*veins*(.12+pulse*.8)*leafFade;
   `);
  };
- material.customProgramCacheKey=()=> 'varis-sparse-offshoot-v3';
+ material.customProgramCacheKey=()=> 'varis-hooked-thorns-v4';
  return {base,material,time,dispose(){base.dispose();material.dispose();bump.dispose();}};
 }
 /** A bounded instanced botanical wake with physical wood, foliage and thorn detail. */
