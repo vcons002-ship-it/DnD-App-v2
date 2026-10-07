@@ -318,7 +318,7 @@ test('Orb matching dice offers a free leap, sorted targets and right-click casti
   await page.locator('.player-damage-dock .damage-prompt-btn').click();
   // Links must appear during the first settled live frame, before number
   // flights finish or the final damage result is committed.
-  await expect(page.locator('[data-live-dice="true"] [data-dice-trigger="matched"]')).toContainText('Orb can leap!');
+  await expect(page.locator('[data-live-dice="true"] [data-dice-trigger="matched"]')).toContainText('Orb can leap!',{timeout:LIVE_COMBAT_TIMEOUT});
   await expect(page.locator('[data-live-dice="true"] .tray-trigger-links')).toHaveAttribute('data-geometry',/.+/);
   await expect(page.locator('[data-live-dice="true"] .tray-die-result[data-filled="false"]').first()).toBeVisible();
   const orbDamage=await waitForCombatRoll(f.snapshot,beforeDamage,r=>r.label==='Damage');

@@ -7,13 +7,25 @@ import {effectiveSpeed,spellActionBlock} from '../../shared/spellBuffs.js';
 import type {SheetAbility} from '../../shared/types.js';
 import {getSpell,getAllSpells} from './spells/srd.js';
 import {resolveAbilityRoll,resolveAttack,resolveForcedSave,resolveAttackDamage,resolveCheck} from './combat.js';
-import {repeatSpell,moveSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner} from './linkedSpells.js';
+import {repeatSpell,moveSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,sorcerousBonus} from './linkedSpells.js';
 import {expireTimedSpellEffects,processHitEffects,expireOnCasterTurn} from './hitEffectTurns.js';
 import {runLiveCommand} from './liveRolls.js';
 import {drainHpFx} from './sessions.js';
 import {createSession,createMap,setActiveMap,setManualDamage,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,getToken,listTokens,listRollLog,setSheetAbility,setCondition,setCombatRound,setActiveTurn,applyDamage,endConcentration,updateMonster,moveToken} from './sessions.js';
 
 afterEach(()=>vi.restoreAllMocks());
+it('labels each recursive bonus throw with rolled uses, reserved dice, and the original casting limit',()=>{
+ const requests:any[]=[];const faces=[8,8,2,8];
+ const rolls=withDiceSource((_s,info)=>{requests.push(info);return [faces.shift()!];},()=>sorcerousBonus({spell:'Sorcerous Burst',abilityId:'burst',casterKind:'pc',casterId:'test',castLevel:0,dc:15,modifier:4},[8,8]));
+ expect(rolls.map(r=>r.rolls[0])).toEqual([8,8,2,8]);
+ expect(requests.map(r=>r.triggerRule)).toEqual([
+  {kind:'sorcerous-burst',used:1,limit:4,queued:1},
+  {kind:'sorcerous-burst',used:2,limit:4,queued:1},
+  {kind:'sorcerous-burst',used:3,limit:4,queued:1},
+  {kind:'sorcerous-burst',used:4,limit:4,queued:0},
+ ]);
+ expect(requests[3].label).toBe('Sorcerous Burst — Bonus d8 4 of 4');
+});
 const dice=(value:number,fn:()=>unknown)=>withDiceSource(s=>s.map(n=>Math.min(n,value)),fn);
 function setup(name:string){
   const session=createSession('Linked spells'),map=createMap(session.id,{name:'Arena'});setActiveMap(session.id,map.id);setManualDamage(session.id,false);

@@ -215,7 +215,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     title={completed?.reveal.title?.replace(/\bsave\b/i,'Saving Throw')}
     rollId={completed?.rollId} revealKind={completed?.reveal.kind}
     resultHeader={completed?.reveal}
-    diceTrigger={tray.diceTrigger??diceTriggerForTray(tray,completed?.reveal)}
+    diceTrigger={completed&&tray.burstProgress?undefined:tray.diceTrigger??diceTriggerForTray(tray,completed?.reveal)}
   /> : sequence;
   if (!content) return null;
   // Decided per roll, not once per mount: the guide may open or close between

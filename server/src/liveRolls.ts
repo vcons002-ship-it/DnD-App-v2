@@ -9,7 +9,7 @@ import {stageRollEffects,stagedRollFacing,withLiveCalculationPresenter,type Roll
 import type {RollReveal} from '../../shared/types.js';
 import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../shared/liveDiceTypes.js';
-import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
+import {matchingDiceTrigger,sorcerousDiceTrigger} from '../../shared/diceTriggers.js';
 
 class NeedDice extends Error {constructor(public sides:number[],public info:PhysicalDiceInfo,public facing:RollFacing[]){super('Waiting for physical dice');}}
 class NeedCalculation extends Error {constructor(public key:string,public reveal:RollReveal){super('Waiting for roll calculation');}}
@@ -79,9 +79,10 @@ export async function physicalFaces(
       const impacts=world.drainImpacts();
       // Announce on settlement, before the reading hold and command commit.
       // Orb pools fit one tray; never treat a partial chunk as the whole spell.
-      const diceTrigger=state.done&&info?.triggerRule==='orb-matches'&&offset===0&&logical.length===sides.length
-        ?matchingDiceTrigger(state.values as number[]):undefined;
-      publish({...state,...(diceTrigger?{diceTrigger}:{}),poses:state.poses.map(v=>Math.round(v*10000)/10000),...(impacts.length?{impacts}:{}),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta});
+      const burst=typeof info?.triggerRule==='object'?info.triggerRule:undefined;
+      const diceTrigger=state.done&&offset===0&&logical.length===sides.length
+        ?info?.triggerRule==='orb-matches'?matchingDiceTrigger(state.values as number[]):burst?sorcerousDiceTrigger(state.values as number[],burst.used,burst.limit,burst.queued):undefined:undefined;
+      publish({...state,...(burst?{burstProgress:{used:burst.used,limit:burst.limit}}:{}),...(diceTrigger?{diceTrigger}:{}),poses:state.poses.map(v=>Math.round(v*10000)/10000),...(impacts.length?{impacts}:{}),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta});
       return state;
     };
     const prepared=ready?.(id);

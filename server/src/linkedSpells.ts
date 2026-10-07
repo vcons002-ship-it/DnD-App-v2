@@ -110,7 +110,7 @@ export function sorcerousBonus(ctx:LinkedSpellContext,faces:number[]) {
   const rolls:NonNullable<ReturnType<typeof rollDice>>[]=[];
   let triggers=faces.filter(v=>v===8).length;
   while(triggers>0&&rolls.length<Math.max(0,ctx.modifier)){
-    triggers--;const r=withDiceMetadata({label:'Sorcerous Burst — Bonus d8'},()=>rollDice('1d8'))!;rolls.push(r);
+    triggers--;const r=withDiceMetadata({label:`Sorcerous Burst — Bonus d8 ${rolls.length+1} of ${Math.max(0,ctx.modifier)}`,triggerRule:{kind:'sorcerous-burst',used:rolls.length+1,limit:Math.max(0,ctx.modifier),queued:triggers}},()=>rollDice('1d8'))!;rolls.push(r);
     if(r.rolls[0]===8)triggers++;
   }
   return rolls;

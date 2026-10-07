@@ -1055,7 +1055,7 @@ export type RollComparison = {
 
 export type RollReveal = {
   /** Confirmed rule trigger; indices identify exact flattened damage dice. */
-  diceTrigger?:{title:string;detail:string;diceCount:number;groups:{value:number;indices:number[]}[]};
+  diceTrigger?:{kind?:'burst'|'burst-limit';title:string;detail:string;diceCount:number;groups:{value:number;indices:number[]}[]};
   /** This result (including bonuses) was already presented in the live group tray. */
   presentedLive?: boolean;
   /** Plain-language effect result alongside the target's save result. */

@@ -18,6 +18,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 - [x] Chromatic Orb matching links begin on the first authoritative settled frame,
   during number flights and the existing reading hold, before final damage resolution.
+- [x] Sorcerous Burst marks triggering 8s immediately with a Burst pulse and magic
+  flare toward a bonus-die symbol; separate live bonus throws show a per-cast counter
+  and explain the casting-modifier limit. No new damage is applied before the chain finishes.
 - [x] Magic Missile separates its d4 face from the fixed +1 spell bonus,
   labeled in both the tray count-up and roll log; no CHA damage is added.
 
