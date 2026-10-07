@@ -6,6 +6,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Varis main rolling trail is a rounded, bark-textured woody vine with
+  irregular thickness and restrained green light inside seams, replacing the
+  additive bright green ribbon. Shared materials and fixed geometry buffers
+  preserve bounded trail updates and fading for large dice pools.
+
 - [x] Dice appearance revision: optional denser DM resin and background
   comparison, 2.5x faster Vanec lightning propagation, and bounded instanced
   folded leaves/curved vine stems/3D thorns sprouting along Varis roll paths.
