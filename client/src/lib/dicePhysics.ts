@@ -1,5 +1,5 @@
 import {diceCollider} from '../../../shared/diceCollider.js';
-import {handTumble} from '../../../shared/diceLaunch.js';
+import {releaseHandfulDie} from '../../../shared/diceLaunch.js';
 import {diceTrayLayoutForPool,REFERENCE_D6_EDGE} from '../../../shared/diceTrayLayout.js';
 import {recordDiceImpacts,type DiceImpact} from '../../../shared/diceImpacts.js';
 import { Body, Box, ConvexPolyhedron, GSSolver, Vec3, World, Material, ContactMaterial } from 'cannon-es';
@@ -61,31 +61,13 @@ function simulateCandidate(dice:TrayDie[],seed:number,entrySide:DiceEntrySide):T
   const cross=new Vec3(-direction.y,direction.x,0);
   const extent=direction.x?layout.innerHalfWidth:layout.innerHalfHeight;
   const crossExtent=direction.x?layout.innerHalfHeight:layout.innerHalfWidth;
-  const lanes=Math.min(dice.length,Math.max(1,Math.floor((crossExtent*2-radius*2)/(radius*2.2))+1));
   const releases=dice.map(()=>0);
-  const throwAngle=Math.PI/6; // A shared diagonal heading, relative to the roller's edge.
   const meshes=dice.map(d=>faceForwardMesh(dieMesh(d.sides)));
   const bodies=dice.map((die,i)=>{
     const shape=diceCollider(die.sides,radius);
     const {vertices,faces}=shape;
     const body=new Body({mass:diceMassKg(vertices.map(v=>v.scale(metresPerUnit)),faces)*1000,material:dieMaterial,shape,linearDamping:.01,angularDamping:.01,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.5});
-    // Release one handful together. Separate rows vertically so simultaneous
-    // dice begin clear of each other instead of overlapping at the entry edge.
-    const lane=(i%lanes)-(lanes-1)/2;
-    const angle=throwAngle+lane/Math.max(1,lanes-1)*.10;
-    // Offset the launch point so the diagonal crosses the same clear entry lane.
-    // Otherwise outer dice can strike the outside of a side wall before entering.
-    const approach=radius+.4*trayScale+.005/metresPerUnit;
-    body.position.copy(direction.scale(-extent-approach).vadd(cross.scale(lane*radius*2.2-Math.tan(angle)*(approach+radius))));
-    body.position.z=(.045+random()*.005)/metresPerUnit+Math.floor(i/lanes)*radius*2.2;
-    body.collisionFilterMask=1; // Cross the entry wall before enabling containment.
-    body.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
-    // Parallel diagonal paths with a small outward fan avoid dice aiming into
-    // each other. Keep the total launch speed, gravity and contacts unchanged.
-    const speed=(.55+random()*.15)/metresPerUnit;
-    body.velocity.copy(direction.scale(Math.cos(angle)*speed).vadd(cross.scale(Math.sin(angle)*speed)));
-    body.velocity.z=(random()*.04-.02)/metresPerUnit;
-    body.angularVelocity.copy(handTumble(body.velocity,random));
+    releaseHandfulDie(body,i,dice.length,radius,trayScale,extent,crossExtent,metresPerUnit,TRAY_GRAVITY/metresPerUnit,direction,cross,random);
     body.addEventListener('collide',(event:{body:Body})=>{if(walls.has(event.body))wallHits++;});
     return body;
   });

@@ -2616,3 +2616,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Increased the fixed dice reference to 17.6 mm (10% larger), keeping the tray growth curve independent of die size and preserving consistent physical units and density-based mass.
 
 - [x] Varis ribbons, sparks, leaves and thorns follow the full expanding dice tray rather than the original fixed bounds; Druk d6 gold bands are thinner while retaining rounded obsidian shoulders and the existing collision shape.
+
+- [x] Large dice pools release as one spread-out handful with separated shallow rows, tray-aware forward travel and gravity-derived entry clearance; live and playback worlds share the launch, avoiding vertical entry piles while preserving small throws and natural contacts.
