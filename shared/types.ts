@@ -1112,6 +1112,8 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  /** Defended cosmetic components; HP/concentration still resolve once. */
+  damageParts?: HpDamagePart[];
   /** Server-only reaction gate; public offers expose no attack math. */
   awaitingShield?: boolean;
   shield?: {abilityId:string;attackTotal?:number;natural20?:boolean;automatic:boolean};
@@ -1925,11 +1927,15 @@ export type JoinAck =
 
 // Server -> Client event names.
 /** Transient combat feedback: an HP change to float over the creature's token
- *  ("−7" red / "+5" green). Carries only the DELTA (never totals) and is sent
+ *  (type-colored damage / green healing). Carries only damage/healing amounts
+ *  (never current/max HP) and is sent
  *  per-viewer, filtered to tokens that viewer's snapshot actually contains.
  *  `damageType` (canonical 5e type, when the source knew it) drives a brief
  *  elemental burst on the token — e.g. a flame flash for fire damage. */
+export type HpDamagePart = { amount: number; damageType?: string; spell?: string };
 export type HpFxEvent = {
+  /** Post-defense parts of this delta, never extra HP applications. */
+  damageParts?: HpDamagePart[];
   /** Server-selected world-space spell origin, gated like its map location. */
   areaPosition?: {mapId:string;x:number;y:number;radiusFt:number};
   /** Server-selected footprint of a single area impact, in feet. */

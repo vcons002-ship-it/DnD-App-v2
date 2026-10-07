@@ -110,7 +110,12 @@ describe('2024 marked attack workflow',()=>{
  expect([...(damage.reveal!.damageDice??[]),...(damage.reveal!.damageMods??[])].reduce((sum,d)=>sum+d.value,0)).toBe(damage.reveal!.damage);
  expect(damage.reveal!.damageDice!.find(d=>d.label.includes("Hunter's Mark"))!.faces).toHaveLength(1);
  expect(getCharacter(f.target.id)!.curHp).toBe(100-damage.reveal!.damage!);
- expect(drainHpFx(f.s.id)[0]).toMatchObject({spell:"Hunter's Mark",rollId:damage.id,delta:-damage.reveal!.damage!});
+ const event=drainHpFx(f.s.id)[0];
+ expect(event).toMatchObject({spell:"Hunter's Mark",rollId:damage.id,delta:-damage.reveal!.damage!});
+ expect(event.damageParts).toEqual([
+   {amount:damage.reveal!.damage!-4,damageType:'piercing'},
+   {amount:4,damageType:'force',spell:"Hunter's Mark"},
+ ]);
  });
  it('includes Force on spell attack hits and crits',()=>{
  const f=setup(); vi.spyOn(Math,'random').mockReturnValue(.999);

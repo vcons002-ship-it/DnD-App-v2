@@ -33,6 +33,7 @@ CI uploads browser traces, screenshots, and failure context as `browser-test-res
 The current roller streams server physics before committing a result. Tests must wait for a particular roll or pending-hit ID and its final result, rather than assume it completes within five seconds.
 
 - A hit creates a pending damage choice without precomputed damage faces or modifiers. Rolling damage then commits the weapon, rider, modifiers, and HP change.
+- Floating damage components must sum to the defended HP event, with one HP/death/concentration application per combined hit. `hpFeedback`, `marks`, `hailOfThorns` and `areaSpells` cover type defenses, source labels, and AoE spacing; `hunters-mark` and `spell-impact-timing` exercise real bow/mark/thorns rolls and verify distinct colors and the four-second number lifetime.
 - Compare visible physical faces and persisted arithmetic after settlement. Keep advantage/disadvantage kept/discarded checks, percentile arithmetic, critical extra dice, bonus labels, and class material checks.
 - Check the current live tray and result boxes. The old prerecorded renderer's comparison markup does not describe the live workflow.
 - Initiative starts with the DM; claimed players retain their own Roll initiative button. Your Turn and result announcements should be checked at their intended presentation phase.

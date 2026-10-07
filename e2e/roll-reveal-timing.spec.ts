@@ -89,8 +89,7 @@ async function armManualDamage(page: Page, f: Awaited<ReturnType<typeof fixture>
   throw new Error('Five consecutive misses');
 }
 async function floaters(page: Page) {
-  return page.evaluate(() => ((window as any).Konva?.stages ?? []).flatMap((stage: any) => stage.find('Text')
-    .filter((node: any) => /^[+\u2212]\d+$/.test(node.text()) && node.fill() === '#e23b3b')
+  return page.evaluate(() => ((window as any).Konva?.stages ?? []).flatMap((stage: any) => stage.find('.hp-floater-number')
     .map((node: any) => node.text())));
 }
 async function resolveDamage(page: Page, f: Awaited<ReturnType<typeof fixture>>, id: string) {
@@ -117,7 +116,7 @@ test('live damage stays out of HP and history until the dice settle, then expose
     const sample=()=>{
       const live=document.querySelector('[data-live-dice="true"]');
       const popup=document.querySelector('.roll-reveal');
-      const fx=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('Text').filter((n:any)=>/^[+\u2212]\d+$/.test(n.text())&&n.fill()==='#e23b3b'));
+      const fx=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('.hp-floater-number'));
       samples.push({live:!!live,settled:live?.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled',ready:popup?.getAttribute('data-impact-ready')==='true',fx:fx.length,impact:!!popup?.closest('.is-impact'),height:popup?.getBoundingClientRect().height??0});
       if(live||!fx.length)requestAnimationFrame(sample);
     };sample();

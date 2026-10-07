@@ -126,7 +126,7 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
     for(const {t,entity,total,out,passed} of saves){
       const multiplier=damageMultiplier('piercing',[...entity.resistances,...stanceResistances(t.kind,t.refId)],entity.weaknesses,entity.immunities,{magical:true});
       const amount=Math.floor(Math.floor(damage.total*(passed?.5:1))*multiplier);
-      const hpNote=applyDamageNoted(t.kind,t.refId,amount,'piercing',attacker,false,impactId);
+      const hpNote=applyDamageNoted(t.kind,t.refId,amount,'piercing',attacker,false,impactId,undefined,[{amount,damageType:'piercing',spell:'Hail of Thorns'}]);
       noteConcentration(sid,t.kind,t.refId,amount);
       addRollLog(sid,{roller:entity.name,label:'Hail of Thorns: DEX save',expr:'DEX save',total,hpNote,
         hideMods:t.kind==='monster'&&getMonster(t.refId)?.disposition!=='friendly',
@@ -152,6 +152,7 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
   const dice=rolls.map((r,i)=>({label:`${ab.name}${i>0?' CRIT':''}`,value:r.total,faces:r.rolls,diceExpression:r.expr,critical:i>0}));
   const mods=added!==raw?[{label:`${ab.name} adjustment`,value:added-raw}]:[];
   setRollPending(rollId,{...p,hitOptions:{...offer,used:[...offer.used,key]},amount:p.amount+added,
+    damageParts:[...(p.damageParts??[{amount:p.amount,damageType:p.damageType}]),{amount:added,damageType:type,spell:ab.name}],
     weapon:`${p.weapon} + ${ab.name}`,dice:[...p.dice,...dice],mods:[...p.mods,...mods],
     damageBreakdown:{dice:[...(p.damageBreakdown?.dice??p.dice),...dice],mods:[...(p.damageBreakdown?.mods??p.mods),...mods],mixedTypes:!sameType||p.damageBreakdown?.mixedTypes}});
   resolveAttackDamage(sid,roller,rollId);

@@ -45,6 +45,10 @@ describe('Hail of Thorns on a ranged hit',()=>{
   expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
   expect(resolveHitFeature(f.s.id,'Varis',hit.id,f.ab.id,2).ok).toBe(false);
   const impact=drainHpFx(f.s.id),area=impact.filter(e=>e.areaWidthFt);
+  expect(impact.filter(e=>e.damageParts?.[0].spell==='Hail of Thorns').map(e=>e.damageParts)).toEqual([
+    [{amount:12,damageType:'piercing',spell:'Hail of Thorns'}],
+    [{amount:6,damageType:'piercing',spell:'Hail of Thorns'}],
+  ]);
   expect(area).toHaveLength(1);expect(area[0]).toMatchObject({refId:f.main.m.id,areaWidthFt:15,spell:'Hail of Thorns'});
   expect(new Set(impact.map(e=>e.rollId)).size).toBe(1);
   expect(listRollLog(f.s.id).find(r=>r.id===area[0].rollId)?.reveal?.damageDice?.[0].faces).toEqual([6,6]);

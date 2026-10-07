@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {spellAreaFor,pointInSpellArea,type SpellAreaPlacement} from '../../shared/spellAreas.js';
 import {getAllSpells,getSpell} from './spells/srd.js';
-import {createSession,createMap,setActiveMap,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getMonster,listRollLog,listMeasurements,setCondition,getCharacter} from './sessions.js';
+import {createSession,createMap,setActiveMap,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getMonster,listRollLog,listMeasurements,setCondition,getCharacter,drainHpFx} from './sessions.js';
 import {editMapWalls} from './mapWalls.js';
 import {resolveAbilityRoll} from './combat.js';
 import {runLiveCommand} from './liveRolls.js';
@@ -50,6 +50,9 @@ describe('authoritative area combat',()=>{
   expect(getMonster(one.m.id)!.curHp).toBe(pass?492:484);
   expect(getMonster(two.m.id)!.curHp).toBe(pass?492:484);
   expect(getMonster(outside.m.id)!.curHp).toBe(500);
+  const fx=drainHpFx(f.s.id).find(e=>e.refId===one.m.id&&e.delta<0)!;
+  expect(fx.damageParts).toEqual([{amount:pass?4:8,damageType:'bludgeoning'},{amount:pass?4:8,damageType:'cold'}]);
+  expect(fx.damageParts!.reduce((sum,p)=>sum+p.amount,0)).toBe(-fx.delta);
   expect(listRollLog(f.s.id).filter(r=>r.reveal).every(r=>r.reveal!.presentedLive)).toBe(true);
   expect(listRollLog(f.s.id).some(r=>r.apply)).toBe(false);
  });

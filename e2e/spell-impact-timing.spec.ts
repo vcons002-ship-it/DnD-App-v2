@@ -8,7 +8,7 @@ test.use({ serviceWorkers: 'block' });
 
 for (const scenario of [
   { spell: 'Cure Wounds', cold: false },
-  { spell: 'Hail of Thorns', cold: false },
+  { spell: 'Hail of Thorns', cold: false, mark: true },
   { spell: 'Cure Wounds', cold: true },
   { spell: 'Cure Wounds', cold: true, skip: 'click' },
   { spell: 'Cure Wounds', cold: false, skip: 'button' },
@@ -48,7 +48,7 @@ for (const scenario of [
       characterId: caster.id, className: 'Ranger', level: 6, maxHp: 100, curHp: 10,
       stats: { STR: 10, DEX: 18, CON: 12, INT: 10, WIS: 18, CHA: 10 }, spellSlots: { L1: { max: 5, used: 0 } },
       weapons: [{ name: 'Timing bow', kind: 'ranged', damage: '1d8', damageType: 'piercing', attackBonus: 100 }],
-      sheetAbilities: catalog.filter((s: any) => ['Cure Wounds', 'Hail of Thorns'].includes(s.name))
+      sheetAbilities: catalog.filter((s: any) => ['Cure Wounds', 'Hail of Thorns'].includes(s.name) || scenario.mark && /Hunter.s Mark/.test(s.name))
         .map((s: any) => ({ ...s, id: s.name })),
     });
     const map = await (await request.post(`/api/sessions/${code}/maps`, {
@@ -74,6 +74,10 @@ for (const scenario of [
     // The ordinary first roll should reuse the background-compiled material.
     if (!cold) await page.waitForTimeout(6000);
     if (spell === 'Hail of Thorns') {
+      if (scenario.mark) {
+        await page.locator('.compact-player-combat').getByRole('button', { name: /Hunter.s Mark/ }).click();
+        await expect.poll(async () => (await snapshot()).characters.find((c: any) => c.id === caster.id).sheetAbilities.some((a: any) => a.mark?.refId)).toBe(true);
+      }
       for (let attempt = 0; attempt < 5; attempt++) {
         await page.locator('.compact-player-combat').getByRole('button', { name: /Timing bow/ }).click();
         await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
@@ -94,6 +98,7 @@ for (const scenario of [
         const tray = document.querySelector('.physics-dice-tray');
         const boxes = [...document.querySelectorAll('.tray-die-result')];
         samples.push({ time: performance.now(), fx: fx.length,
+          numbers: fx.map((node: any) => ({ text: node.text(), color: node.fill(), opacity: node.getParent().opacity(), x: node.getParent().x(), y: node.getParent().y() })),
           live: !!document.querySelector('[data-live-dice="true"]'),
           settled: tray?.getAttribute('data-status') === 'settled',
           filled: boxes.length > 0 && boxes.every(e => e.getAttribute('data-filled') === 'true'),
@@ -122,7 +127,11 @@ for (const scenario of [
     }
     await expect.poll(() => page.evaluate(() => (window as any).__impactSamples.some((s: any) => s.fx > 0)),
       { timeout: 90000 }).toBe(true);
-    await page.waitForTimeout(1000);
+    if (scenario.mark) {
+      await page.waitForTimeout(350);
+      await page.screenshot({path: test.info().outputPath('bow-mark-thorns-damage.png')});
+      await page.waitForTimeout(2900);
+    } else await page.waitForTimeout(1000);
     const samples = await page.evaluate(() => {
       (window as any).__impactSampling = false;
       return (window as any).__impactSamples;
@@ -130,6 +139,14 @@ for (const scenario of [
     expect(samples.some((s: any) => s.live)).toBe(true);
     expect(samples.filter((s: any) => s.fx && (s.live || s.large)).slice(0, 5),
       'Map effects must not play beneath the live tray or a full result card').toEqual([]);
+    if (scenario.mark) {
+      const together = samples.find((s: any) => new Set(s.numbers.map((n: any) => n.color)).size >= 3);
+      expect(together, 'Bow, force mark, and piercing thorns have three distinct colors').toBeTruthy();
+      const start = samples.find((s: any) => s.fx > 0).time;
+      expect(samples.find((s: any) => s.time >= start + 2100)?.numbers.every((n: any) => n.opacity > .95)).toBe(true);
+      expect(samples.find((s: any) => s.time >= start + 3000)?.fx).toBeGreaterThan(0);
+      expect(samples.find((s: any) => s.time >= start + 3000)?.numbers.some((n: any) => n.opacity > .2 && n.opacity < .95)).toBe(true);
+    }
     if (scenario.skip) {
       await expect(page.locator('.roll-reveal')).toHaveCount(0);
       expect((await snapshot()).characters.find((c: any) => c.id === caster.id).curHp).toBeGreaterThan(10);

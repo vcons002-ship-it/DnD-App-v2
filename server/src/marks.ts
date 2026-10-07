@@ -1,5 +1,5 @@
 import { markSpell, abilityKey } from '../../shared/hitFeatures.js';
-import type { TokenKind, SheetAbility, Token, RevealStep, Character, Monster } from '../../shared/types.js';
+import type { TokenKind, SheetAbility, Token, RevealStep, Character, Monster, HpDamagePart } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
 import {hasLineOfSight} from '../../shared/mapWalls.js';
 import { rollDicePool, withDiceMetadata } from '../../shared/dice.js';
@@ -46,8 +46,8 @@ export function activeMarks(caster:Character|Monster|undefined|null,target:Pick<
 /** Mark damage has its own labeled throw, then joins the attack's HP application. */
 export function markedDamage(kind:TokenKind,id:string,target:Token,crit:boolean) {
   const caster=markedEntity(kind,id), victim=markedEntity(target.kind,target.refId);
-  const dice:RevealStep[]=[], mods:RevealStep[]=[]; let amount=0;
-  if (!caster || !victim) return {amount,dice,mods};
+  const dice:RevealStep[]=[], mods:RevealStep[]=[], parts:HpDamagePart[]=[]; let amount=0;
+  if (!caster || !victim) return {amount,dice,mods,parts};
   for(const ab of activeMarks(caster,target)) {
     const type=markSpell(ab), mark=ab.mark;
     if (!type || !mark?.active || mark.expiresAt<=Date.now() || mark.kind!==target.kind || mark.refId!==target.refId ||
@@ -58,8 +58,9 @@ export function markedDamage(kind:TokenKind,id:string,target:Token,crit:boolean)
     rolls.forEach((r,i)=>r?.rolls.forEach(face=>dice.push({label:`${ab.name} (${type})${i>0?' CRIT':''}`,value:face,faces:[face],diceExpression:'1d6',critical:i>0})));
     if (value!==total) mods.push({label:`${ab.name} ${type} adjustment`,value:value-total});
     amount+=value;
+    if(value>0)parts.push({amount:value,damageType:type,spell:ab.name});
   }
-  return {amount,dice,mods};
+  return {amount,dice,mods,parts};
 }
 
 export function hexDisadvantage(sid:string,kind:TokenKind,id:string,ability:string): string[] {

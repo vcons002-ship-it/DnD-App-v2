@@ -6,6 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Floating HP feedback separates defended damage components by type and
+  source: physical bow damage, violet Hunter's Mark force damage, and green
+  Hail of Thorns piercing damage get distinct labels/colors and non-overlapping
+  positions. Numbers hold at full opacity for 2.4 seconds and fade over 1.6
+  seconds. Combined hits still apply HP/death/concentration once; mixed save
+  spells preserve per-type resistance and save reductions in their breakdown.
+
 - [x] Cure Wounds, Hail of Thorns and other map impacts wait for the live tray
   and modifier/result sequences, then paint the compact card before playing
   healing/damage effects. Healing audio and effect lifetimes start on display.

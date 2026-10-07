@@ -1,3 +1,4 @@
+import {HP_NUMBER_EXPIRY_MS} from '../lib/hpFeedback';
 import {partySpell} from '../../../shared/partySpells';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import {spellAreaFor,type SpellArea} from '../../../shared/spellAreas';
@@ -554,7 +555,7 @@ export const useStore = create<Store>((set, get) => ({
       setTimeout(() => {
         const ids = new Set(displayed.map((f) => f.id));
         set((st) => ({ hpFx: st.hpFx.filter((f) => !ids.has(f.id)) }));
-      }, 1900);
+      }, HP_NUMBER_EXPIRY_MS);
       if (displayed.some(e => e.delta > 0)) playHeal();
       const hurt = displayed.filter((e) => e.delta < 0 && e.kind === 'pc' &&
         state.snapshot?.characters.some((c) => c.id === e.refId && c.claimedBy === state.socket?.id))

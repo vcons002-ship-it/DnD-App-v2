@@ -3426,11 +3426,12 @@ export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta, damageType, effect, rollId, spell, areaWidthFt, areaPosition } = hpFxQueue[i];
+    const { kind, refId, delta, damageType, damageParts, effect, rollId, spell, areaWidthFt, areaPosition } = hpFxQueue[i];
     mine.unshift({
       kind,
       refId,
       delta,
+      ...(damageParts ? {damageParts} : {}),
       ...(areaWidthFt ? {areaWidthFt} : {}),
       ...(areaPosition ? {areaPosition} : {}),
       ...(spell ? {spell} : {}),
@@ -3460,7 +3461,7 @@ export function applyDamage(
    *  a dead creature — and it reconciles the whole death state (saves, Dead
    *  mark, downed conditions), not just the HP number. Callers must gate it on
    *  the DM role; spells, abilities and potions never pass it. */
-  opts?: { correction?: boolean; spell?: string },
+  opts?: { correction?: boolean; spell?: string; damageParts?: HpFxEvent['damageParts'] },
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   let entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
@@ -3513,12 +3514,20 @@ export function applyDamage(
     entity.curHp > 0 &&
     nextCur === 0;
   const spell=spellImpactName(opts?.spell);
+  // Only defended, additive components cross the feedback channel. Invalid or
+  // stale cosmetic metadata falls back to the authoritative full delta.
+  const parts=opts?.damageParts?.filter(p=>Number.isFinite(p.amount)&&p.amount>0)
+    .map(p=>({amount:p.amount,...(isDamageType(p.damageType)?{damageType:p.damageType!.trim().toLowerCase()}:{}),
+      ...(spellImpactName(p.spell)?{spell:spellImpactName(p.spell)}:{})}));
+  const damageParts=amount>0&&parts?.length&&(parts.length>1||parts[0].spell)&&
+    parts.reduce((sum,p)=>sum+p.amount,0)===amount?parts:undefined;
   if ((fxDelta !== 0 || spell) && hpFxQueue.length < 200)
     hpFxQueue.push({
       sessionId: entity.sessionId,
       kind,
       refId,
       delta: fxDelta,
+      ...(damageParts ? {damageParts} : {}),
       ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),
       // Type only rides on damage (heals are sign-coded green client-side).

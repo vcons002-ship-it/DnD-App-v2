@@ -3,6 +3,7 @@ import { Circle, Group, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { Token } from '../../../shared/types';
 import type { HpFloater } from '../state/socket';
+import {hpNumbers,placeHpNumbers,HP_NUMBER_HOLD_MS,HP_NUMBER_FADE_MS,type HpNumber,type HpNumberPosition} from '../lib/hpFeedback';
 import {spellImpactStyle} from '../../../shared/spellImpact';
 
 /**
@@ -17,7 +18,7 @@ import {spellImpactStyle} from '../../../shared/spellImpact';
  *
  * Performance: everything is one-shot Konva tweens on non-listening,
  * non-perfect-draw nodes — no idle animation loops, no shadows on particles —
- * and every node unmounts with the store's ~1.2 s floater expiry.
+ * and every node unmounts with the store's 4.3 s feedback expiry.
  */
 const BURSTS: Record<string, { emoji: string; color: string; palette: string[] }> = {
   fire: { emoji: '🔥', color: '#ff8c3b', palette: ['#ff9b3b', '#ffd34d', '#ff5e2f'] },
@@ -371,72 +372,25 @@ function BurstFx({
   );
 }
 
-/**
- * Floating "−X" / "+X" combat feedback over a token: pops at the token's rim,
- * drifts upward and fades out (~0.9 s Konva.Tween, same pattern as the token's
- * turn-ring animation). Entirely click-through; the store expires each floater
- * shortly after the tween ends. A small deterministic x-jitter (from the
- * floater id) keeps rapid hits readable instead of stacking exactly.
- */
-function FloaterText({
-  floater,
-  token,
-  pxPerFoot,
-  gridSizePx,
-}: {
-  floater: HpFloater;
-  token: Token;
-  pxPerFoot: number;
-  gridSizePx: number;
-}) {
-  const group = useRef<Konva.Group>(null);
-  const radius = (token.widthFt * pxPerFoot) / 2;
-  const fontSize = Math.max(16, gridSizePx * 0.5);
-  const jitter = ((floater.id % 5) - 2) * radius * 0.25;
-
-  useEffect(() => {
-    const node = group.current;
-    if (!node) return;
-    const tween = new Konva.Tween({
-      node,
-      y: node.y() - radius * 1.8,
-      opacity: 0,
-      duration: 1.6,
-      easing: Konva.Easings.EaseOut,
-    });
-    tween.play();
-    return () => {
-      tween.destroy();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const heal = floater.delta > 0;
-  const text = `${heal ? '+' : '−'}${Math.abs(floater.delta)}`;
-  return (
-    <Group
-      ref={group}
-      x={token.x + jitter}
-      y={token.y - radius - fontSize * 0.4}
-      listening={false}
-    >
-      <Text
-        name="hp-floater-number"
-        text={text}
-        fontSize={fontSize}
-        fontStyle="bold"
-        fill={heal ? '#39c46b' : '#e23b3b'}
-        stroke="#000"
-        strokeWidth={Math.max(1, fontSize * 0.08)}
-        shadowColor="#000"
-        shadowBlur={4}
-        shadowOpacity={0.8}
-        align="center"
-        width={fontSize * 4}
-        offsetX={fontSize * 2}
-      />
-    </Group>
-  );
+/** Readable type/source feedback with a full-opacity hold, then a gentle fade. */
+function FloaterText({number,position,fontSize}:{number:HpNumber;position:HpNumberPosition;fontSize:number}) {
+  const group=useRef<Konva.Group>(null);
+  useEffect(()=>{
+    const node=group.current;if(!node)return;
+    const drift=new Konva.Tween({node,y:position.y-fontSize*1.1,duration:(HP_NUMBER_HOLD_MS+HP_NUMBER_FADE_MS)/1000,easing:Konva.Easings.Linear});
+    let fade:Konva.Tween|undefined;
+    const timer=setTimeout(()=>{fade=new Konva.Tween({node,opacity:0,duration:HP_NUMBER_FADE_MS/1000,easing:Konva.Easings.EaseIn});fade.play();},HP_NUMBER_HOLD_MS);
+    drift.play();return()=>{clearTimeout(timer);drift.destroy();fade?.destroy();};
+  },[]);
+  const width=fontSize*5.2;
+  return <Group ref={group} x={position.x} y={position.y} listening={false}>
+    <Text name="hp-floater-number" text={`${number.delta>0?'+':'\u2212'}${Math.abs(number.delta)}`}
+      fontSize={fontSize} fontStyle="bold" fill={number.color} stroke="#08090d" strokeWidth={Math.max(1.5,fontSize*.09)} fillAfterStrokeEnabled
+      shadowColor="#000" shadowBlur={5} shadowOpacity={.9} align="center" width={width} offsetX={width/2} listening={false}/>
+    <Text name="hp-floater-label" text={number.label} y={fontSize*1.12} fontSize={Math.max(10,fontSize*.36)}
+      fontStyle="bold" fill={number.color} stroke="#08090d" strokeWidth={1.8} fillAfterStrokeEnabled
+      shadowColor="#000" shadowBlur={4} shadowOpacity={1} align="center" width={width} offsetX={width/2} listening={false}/>
+  </Group>;
 }
 
 /** All live floaters for the current map, anchored to their creatures' tokens. */
@@ -453,27 +407,21 @@ export const HpFxLayer = memo(function HpFxLayer({
   pxPerFoot: number;
   gridSizePx: number;
 }) {
+  const cachedPositions=useRef(new Map<string,HpNumberPosition>());
+  const fontSize=Math.max(16,gridSizePx*.5);
+  const numbers=floaters.flatMap(f=>{
+    const token=tokens.find(t=>t.kind===f.kind&&t.refId===f.refId);if(!token)return [];
+    return hpNumbers(f).map((number,i)=>({id:`${f.id}:${i}`,number,x:token.x,
+      y:token.y-token.widthFt*pxPerFoot/2-fontSize*.4}));
+  });
+  const positions=placeHpNumbers(numbers,fontSize,cachedPositions.current);
+  cachedPositions.current=positions;
   if (floaters.length === 0) return null;
-  return (
-    <>
-      {floaters.map((f) => {
-        const token = tokens.find((t) => t.kind === f.kind && t.refId === f.refId);
-        if (!token) return null; // creature isn't on the viewed map
-        return (
-          <Group key={f.id} listening={false}>
-            <BurstFx floater={f} token={token} pxPerFoot={pxPerFoot} spellEffects3D={spellEffects3D} />
-            {/* A pure-effect event (loot sparkle) has no number to float. */}
-            {f.delta !== 0 && (
-              <FloaterText
-                floater={f}
-                token={token}
-                pxPerFoot={pxPerFoot}
-                gridSizePx={gridSizePx}
-              />
-            )}
-          </Group>
-        );
-      })}
-    </>
-  );
+  return <>
+    {floaters.map(f=>{
+      const token=tokens.find(t=>t.kind===f.kind&&t.refId===f.refId);
+      return token?<Group key={`burst:${f.id}`} listening={false}><BurstFx floater={f} token={token} pxPerFoot={pxPerFoot} spellEffects3D={spellEffects3D}/></Group>:null;
+    })}
+    {numbers.map(item=><FloaterText key={item.id} number={item.number} position={positions.get(item.id)!} fontSize={fontSize}/>)}
+  </>;
 });
