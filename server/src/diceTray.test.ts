@@ -1,4 +1,4 @@
-import {dieResultStrength,dieResultTier,diceRevealTimes} from '../../client/src/lib/diceTrayTypes.js';
+import {dieResultStrength,dieResultTier,dieResultLabel,dieResultEmphasis,diceRevealTimes} from '../../client/src/lib/diceTrayTypes.js';
 import {diceEntrySide} from '../../client/src/lib/diceEntrySide.js';
 import {describe,it,expect} from 'vitest';
 import {Vec3,Quaternion} from 'cannon-es';
@@ -25,10 +25,20 @@ describe('physics dice tray',()=>{
   for(const value of [1,60,100])for(const d of physicalDice([die(100,value)]))
     expect(dieResultStrength(d)).toBeCloseTo((value-1)/99);
  });
- it('uses a 16 mm acrylic d6 mass and slightly reduced gravity in free flight',()=>{
+ it('labels high and maximum damage faces across die sizes, including 7 on a d8',()=>{
+  for(const [sides,value] of [[6,5],[8,7],[10,9],[12,11],[100,99]]){
+   const die={sides,value,index:0,set:0};
+   expect(dieResultTier(die)).toBe('high');expect(dieResultLabel(die)).toBe('HIGH');expect(dieResultEmphasis(die)).toBeGreaterThan(.75);
+  }
+  for(const sides of [4,6,8,10,12,100]){
+   const die={sides,value:sides,index:0,set:0};expect(dieResultLabel(die)).toBe('MAX');expect(dieResultEmphasis(die)).toBe(1);
+  }
+  expect(dieResultLabel({sides:20,value:20,index:0,set:0})).toBe('');
+ });
+ it('uses a 17.6 mm acrylic d6 mass and slightly reduced gravity in free flight',()=>{
   const mesh=faceForwardMesh(dieMesh(6)),radius=REFERENCE_D6_EDGE*Math.sqrt(3)/2;
   const vertices=mesh.vertices.map(v=>new Vec3(v[0]*radius,v[1]*radius,v[2]*radius));
-  expect(diceMassKg(vertices,mesh.faces)).toBeCloseTo(.00487424,8);
+  expect(diceMassKg(vertices,mesh.faces)).toBeCloseTo(.00648761344,8);
   const t=simulateToss([{sides:6,value:1,index:0,set:0}],42);
   const metresPerUnit=radius/t.radius;
   const acceleration=(t.frames[16]-2*t.frames[9]+t.frames[2])*metresPerUnit/(t.step*t.step);
@@ -48,7 +58,7 @@ describe('physics dice tray',()=>{
     for(let k=0;k<7;k++)expect(toss.frames[settledOffset+k]).toBeCloseTo(toss.frames[finalOffset+k],3);
     const labels=trayFaceValues(d,toss.topFaces[i]);expect(labels[toss.topFaces[i]]).toBe(d.value);expect(new Set(labels).size).toBe(d.sides);
     const last=((toss.frameCount-1)*dice.length+i)*7;
-    expect(Math.abs(toss.frames[last])).toBeLessThan(7.01);expect(Math.abs(toss.frames[last+1])).toBeLessThan(4.51);expect(toss.frames[last+2]).toBeGreaterThan(0);
+    expect(Math.abs(toss.frames[last])).toBeLessThan(7.01*toss.trayScale!);expect(Math.abs(toss.frames[last+1])).toBeLessThan(4.51*toss.trayScale!);expect(toss.frames[last+2]).toBeGreaterThan(0);
     for(let k=0;k<7;k++)expect(toss.frames[last+k]).toBeCloseTo(toss.frames[last-dice.length*7+k],3);
    });
   }
@@ -57,11 +67,11 @@ describe('physics dice tray',()=>{
   const dice=Array.from({length:14},(_,index)=>({sides:index%2?8:6,value:3,index,set:0}));
   const a=simulateToss(dice,17),b=simulateToss(dice,17);expect(a.frames).toEqual(b.frames);expect(a.topFaces).toEqual(b.topFaces);
  });
- it('scales dice down gradually with the full physical pool and settles large pools',()=>{
-  let previous=Infinity;
+ it('keeps physical dice fixed while growing the tray and settles large pools',()=>{
+  let previous=0;
   for(const count of [1,2,4,8,14,20,40]){
    const dice=Array.from({length:count},(_,index)=>({sides:6,value:3,index,set:0}));
-   const toss=simulateToss(dice,42);expect(toss.radius).toBeLessThanOrEqual(previous);previous=toss.radius;
+   const toss=simulateToss(dice,42);expect(toss.radius).toBe(1.1);expect(toss.trayScale).toBeGreaterThanOrEqual(previous);previous=toss.trayScale!;
    expect(toss.duration).toBeLessThanOrEqual(12);
    dice.forEach((die,i)=>{
     const offset=((toss.frameCount-1)*dice.length+i)*7;
@@ -114,8 +124,8 @@ describe('physics dice tray',()=>{
    if(side==='right')expect(t.frames[0]).toBeGreaterThan(7.2+t.radius);
    for(let i=0;i<dice.length;i++){
     const last=((t.frameCount-1)*dice.length+i)*7;
-    expect(Math.abs(t.frames[last])).toBeLessThan(7.01);
-    expect(Math.abs(t.frames[last+1])).toBeLessThan(4.51);
+    expect(Math.abs(t.frames[last])).toBeLessThan(7.01*t.trayScale!);
+    expect(Math.abs(t.frames[last+1])).toBeLessThan(4.51*t.trayScale!);
    }
   }
  },15000);

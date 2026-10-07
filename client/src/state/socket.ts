@@ -1,5 +1,7 @@
+import {scheduleHpFeedback,hpNumberStacks,hpStackEnd,hpImpactId,type ScheduledHpEvent} from '../lib/hpFeedback';
 import {partySpell} from '../../../shared/partySpells';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
+import {resultTrayFor} from '../lib/rollTrayPresentation';
 import {spellAreaFor,type SpellArea} from '../../../shared/spellAreas';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
 import type { ClassRosterEntry, LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from '../../../shared/levelingTypes';
@@ -25,7 +27,6 @@ import type {
   DiceRollPayload,
   Disposition,
   FogLayer,
-  HpFxEvent,
   ImportCharConflict,
   ImportConflictResolution,
   InventoryItem,
@@ -68,7 +69,7 @@ async function requestLeveling<T>(socket: TypedSocket | null, status: Status,
 export type WeaponAttackOptions = { offhand: boolean; twoHanded: boolean };
 
 /** One floating damage/heal number over a token (client-side, transient). */
-export type HpFloater = HpFxEvent & { id: number };
+export type HpFloater = ScheduledHpEvent;
 let nextFloaterId = 1;
 /** Per-token expiry timers for live drag ghosts (cleared/rearmed each update). */
 const dragGhostTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -88,6 +89,8 @@ const heldHpFx = new Map<string, HpFloater[]>();
 
 type Store = {
   liveDice: LiveDiceFrame | null;
+  skippedLiveDiceId: string | null;
+  skipLiveDice: () => void;
   teleportCast:AbilityRollPayload|null;
   clearTeleportCast:()=>void;
   areaCast:{payload:AbilityRollPayload;spec:SpellArea;name:string;repeat?:import('../../../shared/types').SpellRepeatPayload}|null;
@@ -118,7 +121,7 @@ type Store = {
   hurtFx: { id: number; amount: number } | null;
   /** Brief attack-roll REVEAL animation (the latest attack's d20 + outcome +
    *  damage), shown to everyone and auto-dismissed; click/tap skips it early. */
-  rollFx: { id: number; reveal: RollReveal; rollId: string; impactReady?: boolean; hasMapImpact?: boolean } | null;
+  rollFx: { id: number; reveal: RollReveal; rollId: string; tray?: LiveDiceFrame; impactReady?: boolean; hasMapImpact?: boolean } | null;
   /** Dismiss the current roll-reveal animation (click/tap to skip). */
   dismissRollFx: () => void;
   /** Per-user toggle: show the roll-reveal animation (default ON). */
@@ -275,6 +278,7 @@ type Store = {
   ) => Promise<ImportCharConflict[]>;
   setFogLayer: (mapId: string, layer: FogLayer, enabled: boolean) => void;
   setVisionFog: (mapId:string,layer:FogLayer,enabled:boolean)=>void;
+  setExplorationMode: (mapId:string,mode:'remembered'|'revealed')=>void;
   paintFog: (
     mapId: string,
     layer: FogLayer,
@@ -482,6 +486,18 @@ export function getPlayerId(): string {
 }
 
 const queuedRollFx: NonNullable<Store['rollFx']>[] = [];
+// A command can roll damage and then saves. Retain its actual completed throws
+// so a final damage calculation never borrows a target's saving-throw tray.
+const completedLiveTrays = new Map<string, LiveDiceFrame>();
+// HP packets can belong to a live-only spell summary rather than the arithmetic
+// card currently on screen. Gate all map impacts, not just matching roll IDs.
+const queuedHpFx: HpFloater[] = [];
+let hpFxFrame: number | undefined;
+function clearQueuedHpFx() {
+  queuedHpFx.length = 0;
+  if (hpFxFrame !== undefined) cancelAnimationFrame(hpFxFrame);
+  hpFxFrame = undefined;
+}
 /** Conditions can arrive with the resolved snapshot before their save animation
  * completes. Use the same queue as damage impacts to avoid revealing early. */
 export function isRollImpactPending(rollId:string|undefined){
@@ -491,6 +507,17 @@ export function isRollImpactPending(rollId:string|undefined){
 }
 export const useStore = create<Store>((set, get) => ({
   liveDice: null,
+  skippedLiveDiceId: null,
+  skipLiveDice: () => {
+    const frame = get().liveDice;
+    if (!frame) return;
+    set({ liveDice: null, skippedLiveDiceId: frame.id });
+    // Clear cosmetic cards too. The real roll/HP still resolves on the server.
+    for (const fx of queuedRollFx.splice(0)) get().releaseRollImpact(fx.rollId);
+    get().dismissRollFx();
+    get().socket?.emit('dice:skip', {id: frame.id});
+    get().socket?.emit('dice:ready', {id: frame.id});
+  },
   teleportCast:null,
   clearTeleportCast:()=>set({teleportCast:null}),
   areaCast:null,
@@ -507,28 +534,64 @@ export const useStore = create<Store>((set, get) => ({
   aiBusy: false,
   hpFx: [],
   presentHpFx: (added) => {
-    if (!added.length) return;
-    set((st) => ({ hpFx: [...st.hpFx, ...added] }));
-    // Lifetimes begin when DISPLAYED, not while waiting for a die to land.
-    setTimeout(() => {
-      const ids = new Set(added.map((f) => f.id));
-      set((st) => ({ hpFx: st.hpFx.filter((f) => !ids.has(f.id)) }));
-    }, 1900);
-    const snap = get().snapshot;
-    const hurt = added.filter((e) => e.delta < 0 && e.kind === 'pc' &&
-      snap?.characters.some((c) => c.id === e.refId && c.claimedBy === get().socket?.id))
-      .reduce((sum, e) => sum - e.delta, 0);
-    if (hurt > 0) {
-      const fxId = nextFloaterId++;
-      set({ hurtFx: { id: fxId, amount: hurt } });
-      setTimeout(() => set((st) => st.hurtFx?.id === fxId ? { hurtFx: null } : {}), 900);
-    }
+    queuedHpFx.push(...added);
+    if (!queuedHpFx.length || hpFxFrame !== undefined) return;
+    const flush = () => {
+      const state = get();
+      // Live command commits may publish effects before dice:finished. Also
+      // finish every visible modifier/result sequence before showing the map FX.
+      if (state.showRollAnim && (state.liveDice || (state.rollFx && !state.rollFx.impactReady) || queuedRollFx.length > 0)) {
+        hpFxFrame = requestAnimationFrame(flush);
+        return;
+      }
+      if (state.showRollAnim && state.rollFx && !state.rollFx.hasMapImpact) {
+        set({ rollFx: { ...state.rollFx, hasMapImpact: true } });
+        // Paint the compact result card before starting the effect's lifetime.
+        hpFxFrame = requestAnimationFrame(flush);
+        return;
+      }
+      hpFxFrame = undefined;
+      const displayed = queuedHpFx.splice(0);
+      if (!displayed.length) return;
+      const feedback=scheduleHpFeedback(displayed,performance.now(),state.hpFx);
+      set((st) => ({ hpFx: [...st.hpFx, ...feedback.events] }));
+      // Lifetimes begin when DISPLAYED, not while loading/rolling/adding bonuses.
+      const expire=()=>{
+        const st=get(),now=performance.now(),keep=new Set<number>();
+        const waiting=new Set([...queuedHpFx,...[...heldHpFx.values()].flat()].map(hpImpactId));
+        const assigning=new Set(st.snapshot?.rollLog.flatMap(r=>{
+          const apply=r.apply,pending=r.pending;
+          return apply&&(apply.darts&&(apply.consumedDarts??0)<apply.darts||apply.attacks&&(apply.consumedAttacks??0)<apply.attacks)?[r.id]
+            :pending&&!pending.done&&(pending.impact?.id||pending.sourceRollId)?[pending.impact?.id??pending.sourceRollId!]:[];
+        }));
+        let next=Infinity;
+        for(const group of hpNumberStacks(st.hpFx)){
+          const end=hpStackEnd(group),pinned=waiting.has(hpImpactId(group.event))||assigning.has(hpImpactId(group.event));
+          if(end>now||pinned){group.events.forEach(e=>keep.add(e.id));next=Math.min(next,pinned?now+500:end);}
+        }
+        for(const event of st.hpFx)if(!event.delta){const end=(event.numberStartAt??now)+4000;if(end>now){keep.add(event.id);next=Math.min(next,end);}}
+        set({hpFx:st.hpFx.filter(e=>keep.has(e.id))});
+        if(Number.isFinite(next))setTimeout(expire,Math.max(100,next-now+100));
+      };
+      setTimeout(expire,feedback.expiryMs);
+      if (displayed.some(e => e.delta > 0)) playHeal();
+      const hurt = displayed.filter((e) => e.delta < 0 && e.kind === 'pc' &&
+        state.snapshot?.characters.some((c) => c.id === e.refId && c.claimedBy === state.socket?.id))
+        .reduce((sum, e) => sum - e.delta, 0);
+      if (hurt > 0) {
+        const fxId = nextFloaterId++;
+        set({ hurtFx: { id: fxId, amount: hurt } });
+        setTimeout(() => set((st) => st.hurtFx?.id === fxId ? { hurtFx: null } : {}), 900);
+      }
+    };
+    // Allow snapshot/dice:finished handlers and React's compact layout to paint.
+    hpFxFrame = requestAnimationFrame(() => { hpFxFrame = requestAnimationFrame(flush); });
   },
   releaseRollImpact: (rollId) => {
     const waiting = heldHpFx.get(rollId);
     heldHpFx.delete(rollId);
     // A late fx packet for a completed reveal must display immediately too.
-    set((st) => st.rollFx?.rollId === rollId ? { rollFx: { ...st.rollFx, impactReady: true, hasMapImpact: !!waiting?.length } } : {});
+    set((st) => st.rollFx?.rollId === rollId ? { rollFx: { ...st.rollFx, impactReady: true, hasMapImpact: st.rollFx.hasMapImpact || !!waiting?.length } } : {});
     if (waiting) get().presentHpFx(waiting);
   },
   hurtFx: null,
@@ -677,6 +740,7 @@ export const useStore = create<Store>((set, get) => ({
     seenRollIds = new Set();
     rollSfxReady = false;
     heldHpFx.clear();
+    clearQueuedHpFx();
     // Session-scoped transient state must not carry over to a different game:
     // clear the ephemeral fx timers + slices and any armed toggles (an armed
     // "Apply damage" / advantage would otherwise fire against a foreign id).
@@ -686,7 +750,7 @@ export const useStore = create<Store>((set, get) => ({
     }
     set({
       status: 'connecting',
-      areaCast:null,teleportCast:null,
+      areaCast:null,teleportCast:null,liveDice:null,skippedLiveDiceId:null,
       error: null,
       dmPassphrase: dmPassphrase ?? null,
       chatAccessToken: null,
@@ -746,13 +810,21 @@ export const useStore = create<Store>((set, get) => ({
     };
 
     socket.on('dice:frame',frame=>{
+      if(get().skippedLiveDiceId){
+        set({skippedLiveDiceId:frame.id});socket.emit('dice:ready',{id:frame.id});return;
+      }
       if(!get().showRollAnim){socket.emit('dice:ready',{id:frame.id});return;}
       const previous=get().liveDice;
       if(previous?.id===frame.id && previous.seq>=frame.seq)return;
       if(previous?.id!==frame.id)get().dismissRollFx();
+      if(frame.done)completedLiveTrays.set(frame.id,frame);
       set({liveDice:frame});
     });
-    socket.on('dice:finished',({id})=>{if(get().liveDice?.id===id)set({liveDice:null});});
+    socket.on('dice:finished',({id})=>{
+      if(get().liveDice?.id===id)set({liveDice:null});
+      if(get().skippedLiveDiceId===id)set({skippedLiveDiceId:null});
+      completedLiveTrays.clear();
+    });
     socket.on('fx:initiative', ({mapId}) => set({initiativeFx: {id: Date.now(), mapId}}));
     socket.on('fx:rest', ({kind}) => set({restFx: {id: Date.now(), kind}}));
     socket.on('state:snapshot', (snapshot) => {
@@ -768,7 +840,7 @@ export const useStore = create<Store>((set, get) => ({
         if (fresh) {
           // When a roll will ANIMATE, the overlay plays its hit/miss/impact cues in
           // sync with the animation beats — so suppress the immediate cue here.
-          const willAnimate = !!fresh.reveal && get().showRollAnim;
+          const willAnimate = !!fresh.reveal && get().showRollAnim && !get().skippedLiveDiceId;
           // A skill/save/check tick fires immediately ONLY when it won't animate —
           // when it does, the reveal overlay plays the tick itself at the result
           // beat. Match the reveal KIND (covers 'Pick lock'/'Disarm trap', whose
@@ -783,6 +855,9 @@ export const useStore = create<Store>((set, get) => ({
             // Preserve every resolved save; a damage summary must not replace it.
             for(const entry of unseen.filter(e=>e.reveal)) {
               queuedRollFx.push({id:nextFloaterId++,rollId:entry.id,
+                // Keep the actual settled tray through the modifier/result beat.
+                // Do not replace it with a second, synthetic dice screen.
+                tray:resultTrayFor(completedLiveTrays.values(),entry.reveal!),
                 reveal:snapshot.role==='player'?withRollComparison(entry.reveal!,entry.detail):entry.reveal!});
             }
             if(!get().rollFx)set({rollFx:queuedRollFx.shift() ?? null});
@@ -819,8 +894,7 @@ export const useStore = create<Store>((set, get) => ({
         set(st => st.rollFx?.rollId === current.rollId ? {rollFx: {...st.rollFx, hasMapImpact: true}} : {});
       }
       get().presentHpFx(immediate);
-      if (immediate.some((e) => e.delta > 0)) playHeal();
-      else if (immediate.some((e) => e.delta < 0 &&
+      if (immediate.some((e) => e.delta < 0 &&
         (!get().showRollAnim || !e.rollId || current?.rollId !== e.rollId))) playHit();
     });
     // Live drag preview from another user — update the ghost and (re)arm its
@@ -979,7 +1053,8 @@ export const useStore = create<Store>((set, get) => ({
     // Keep the last snapshot on screen during a blip; flag reconnecting unless we
     // intentionally left (disconnect()/leave sets status to 'idle' separately).
     socket.on('disconnect', (reason) => {
-      set({liveDice:null, areaCast:null,teleportCast:null, chatAccessToken: null});
+      completedLiveTrays.clear();
+      set({liveDice:null, skippedLiveDiceId:null, areaCast:null,teleportCast:null, chatAccessToken: null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });
@@ -995,10 +1070,12 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   disconnect: () => {
+    completedLiveTrays.clear();
     clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
     heldHpFx.clear();
-    queuedRollFx.length=0;set({ liveDice:null, socket: null, status: 'idle', snapshot: null, chatAccessToken: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
+    clearQueuedHpFx();
+    queuedRollFx.length=0;set({ liveDice:null, skippedLiveDiceId:null, socket: null, status: 'idle', snapshot: null, chatAccessToken: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
   },
 
   selectMap: (mapId) => {
@@ -1056,6 +1133,7 @@ export const useStore = create<Store>((set, get) => ({
   setFogLayer: (mapId, layer, enabled) =>
     get().socket?.emit('fog:setLayer', { mapId, layer, enabled }),
   setVisionFog: (mapId,layer,enabled)=>get().socket?.emit('fog:setVision',{mapId,layer,enabled}),
+  setExplorationMode: (mapId,mode)=>get().socket?.emit('fog:setExploration',{mapId,mode}),
   paintFog: (mapId, layer, cells, reveal) =>
     get().socket?.emit('fog:paint', { mapId, layer, cells, reveal }),
   coverFog: (mapId, layer) =>

@@ -1,4 +1,6 @@
 import {partySpell} from '../../shared/partySpells.js';
+import {advancedSpell} from '../../shared/advancedSpells.js';
+import {castSpikeGrowth} from './advancedSpells.js';
 import {syncPassWithoutTrace} from './partySpellEffects.js';
 import {spellAreaFor,pointInSpellArea,areaOrigin,type SpellAreaPlacement} from '../../shared/spellAreas.js';
 import type {Character,Monster,SheetAbility,TokenKind} from '../../shared/types.js';
@@ -43,6 +45,7 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
    seen.add(key);return true;
  });
  if(spec.maxTargets&&targets.length>spec.maxTargets)return false;
+ if(advancedSpell(a)==='spike growth')return castSpikeGrowth(sid,roller,kind,caster.id,a,p,level??2);
  const before=new Set(listRollLog(sid).map(r=>r.id));
  if(!cast(!!spec.ongoing&&!spec.initialEffect))return false;
  const entries=listRollLog(sid).filter(r=>!before.has(r.id)),source=[...entries].reverse().find(r=>r.apply);

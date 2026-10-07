@@ -1,7 +1,11 @@
+import {isInvisible} from '../../shared/advancedSpells.js';
+import {seesInvisible} from '../../shared/invisibleSight.js';
+import {tokenDistanceFt} from '../../shared/distance.js';
+import {heldCasts,eligibleCounterspellers} from './counterspell.js';
 import {doorApproachPoints} from '../../shared/mapWalls.js';
 import {chatForViewer} from './privateChat.js';
 import {activeMarks} from './marks.js';
-import {rememberTerrain} from './exploration.js';
+import {rememberTerrain,rememberFigures} from './exploration.js';
 import {createPlayerVision,visionContains,fogVisionContains,usesMapVision,usesTokenVision} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
@@ -56,7 +60,7 @@ const stripListFog = (m: MapState): MapState => ({
  * totals. Keep the raw faces and outcome, without exposing an anonymous bonus
  * that lets a player recover the creature's statistics.
  */
-function redactCreatureMods(e: RollEntry,privateStats=false): RollEntry {
+export function redactCreatureMods(e: RollEntry,privateStats=false): RollEntry {
   if(/^(Pick lock|Disarm trap)$/i.test(e.label??'')){
     const hideDc=(text:string)=>text.replace(/\s*vs DC\s+-?\d+/gi,'');
     e={...e,expr:hideDc(e.expr),detail:hideDc(e.detail)};
@@ -339,8 +343,23 @@ export function createSnapshotBuilder(
       // Clone the viewer's map; never mutate the shared map used by DM snapshots.
       if(map?.environment && mapFog)map={...map,environment:{...map.environment,
         lights:map.environment.lights.filter(light=>mapFog.has(`${Math.floor(light.x/grid)},${Math.floor(light.y/grid)}`))}};
+      const manualVisible=(t:Token)=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y});
+      const partySees=(t:Token)=>manualVisible(t)&&fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&party.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
+      const remembered=map?rememberFigures(map,data.mapImages,data.tokens,partySees,(x,y)=>fogVisionContains(partyVision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?toPlayerMonster(m):undefined;}):[];
+      const rememberedById=new Map(remembered.map(r=>[r.token.id,r]));
+      const retainedDisplays=new Map<string,MonsterPublic>();
       tokens = tokens.flatMap(t => {
         if(t.isHidden)return [];
+        const retained=rememberedById.get(t.id);
+        const retain=()=>{
+          if(!retained||map?.explorationMode!=='revealed'||!manualVisible(retained.token)||!fogVisionContains(playerVision,retained.token.x,retained.token.y,false))return [];
+          if(retained.monster)retainedDisplays.set(t.refId,retained.monster);
+          return [{...retained.token,sharedSightOnly:true,revealedOnly:true}];
+        };
+        if(isInvisible(t.kind==='pc'?charById.get(t.refId):monById.get(t.refId))&&t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly'){
+          const sees=data.tokens.some(o=>o.kind==='pc'&&owned.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map)));
+          if(!sees)return retain();
+        }
         const door=map?.walls?.find(w=>w.door&&w.tokenId===t.id);
         if(door)return doorApproachPoints(door).some(p=>tokenVisibleAt({role,hidden:false,owned:false,foe:true,mapFog,tokenFog,grid,x:p.x,y:p.y})&&fogVisionContains(playerVision,p.x,p.y,usesTokenVision(map)))?[t]:[];
         const personallyVisible = tokenVisibleAt({ role, hidden: false,
@@ -349,8 +368,10 @@ export function createSnapshotBuilder(
         mapFog, tokenFog, grid, x: t.x, y: t.y }) && fogVisionContains(playerVision,t.x,t.y,usesTokenVision(map));
         if(personallyVisible)return [t];
         // Party positions are always known. Explicit DM hiding still wins.
-        // Objects remain personal; remembered terrain never retains enemies.
-        if(t.kind==='pc')return [{...t,sharedSightOnly:true}];
+        // The normal remembered mode retains only terrain, not lost creatures.
+        if(t.kind==='pc')return [{...t,sharedSightOnly:true,...(map?.explorationMode==='revealed'?{revealedOnly:true}:{})}];
+        const kept=retain();if(kept.length)return kept;
+        if(map?.explorationMode==='revealed'&&playerVision?.heavy&&!fogVisionContains(playerVision,t.x,t.y,false))return [];
         if(monById.get(t.refId)?.objectKind || !party.size)return [];
         const partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
           foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map));
@@ -369,7 +390,7 @@ export function createSnapshotBuilder(
       );
       shapedMonsters = monsters
         .filter((m) => visibleMonIds.has(m.id))
-        .map(toPlayerMonster);
+        .map(m=>retainedDisplays.get(m.id)??toPlayerMonster(m));
       // Strip other players' infrastructure ids (live socket + durable browser
       // id): a leaked ownerId is a character-hijack key — rejoin with it and the
       // server hands you that PC. Keep the VIEWER'S OWN character intact, since
@@ -440,12 +461,24 @@ export function createSnapshotBuilder(
         ...(e.pending ? {pending:{...e.pending,target:{...e.pending.target,name:caption(e.pending.target.name)!}}} : {}),
       }));
     }
-    tokens=tokens.map(t=>{const e=t.kind==='pc'?charById.get(t.refId):monById.get(t.refId);return {...t,leavesNoTracks:e?.conditions.some(c=>c.combatEffect?.stealthBonus===10)};});
+    tokens=tokens.map(t=>{const e=t.kind==='pc'?charById.get(t.refId):monById.get(t.refId);return {...t,invisible:isInvisible(e),leavesNoTracks:e?.conditions.some(c=>c.combatEffect?.stealthBonus===10)};});
+    const spikeMeasurements=[...characters,...monsters].flatMap(e=>e.conditions.flatMap(c=>{
+      const zone=c.combatEffect?.spikeArea;if(!zone||!c.isConcentration||zone.mapId!==map?.id)return [];
+      const px=map.gridSizePx/map.feetPerSquare;
+      return [{id:c.id,mapId:zone.mapId,kind:'circle' as const,origin:{x:zone.x,y:zone.y},target:{x:zone.x+zone.radiusFt*px,y:zone.y},createdBy:'Spike Growth',spellArea:{spec:{kind:'sphere' as const,sizeFt:20,rangeFt:150,ongoing:true},angle:0},spellName:'Spike Growth'}];
+    }));
     return {
       role,
       ...(playerVision?{playerVision}:{}),
       ...(role==='player'?{exploredTerrain:exploredTerrain??[]}:{}),
       initiativePending: session.initiativePending,
+      counterspellCasts:heldCasts(sessionId).flatMap(c=>{
+        const caster=data.tokens.find(t=>t.id===c.casterTokenId),mine=!!caster&&caster.kind==='pc'&&owned.has(caster.refId);
+        const reactors=eligibleCounterspellers(c).filter(t=>c.reactors.includes(t.id)&&(role==='dm'||t.kind==='pc'&&owned.has(t.refId)));
+        if(role!=='dm'&&!mine&&!reactors.length)return [];
+        const e=caster&&(caster.kind==='pc'?charById.get(caster.refId):monById.get(caster.refId));
+        return [{id:c.id,spell:c.spell,casterName:role==='dm'||caster?.kind!=='monster'?e?.name??'Caster':e&&'disposition'in e?`${playerMonsterName(e)}${caster.revealTag&&caster.revealTag!=='U'?` ${caster.revealTag}`:''}`:'Caster',expiresAt:c.expiresAt,mine,reactors:reactors.map(t=>({tokenId:t.id,kind:t.kind,refId:t.refId,name:(t.kind==='pc'?charById.get(t.refId):monById.get(t.refId))!.name}))}];
+      }),
       shieldReactions:rawRollLog.filter(e=>e.pending?.shield&&!e.pending.done&&(role==='dm'||e.pending.target.kind==='pc'&&charById.get(e.pending.target.refId)?.claimedBy===socketId)).map(e=>({rollId:e.id,kind:e.pending!.target.kind,refId:e.pending!.target.refId,name:e.pending!.target.name,magicMissile:e.pending!.shield!.attackTotal===undefined})),
       ripostes: listRipostes(sessionId).filter(o =>
         (role === 'dm' || charById.get(o.owner)?.claimedBy === socketId) &&
@@ -479,7 +512,7 @@ export function createSnapshotBuilder(
         role === 'dm' ? (templates ??= listMonsterTemplates(sessionId)) : [],
       rollLog: role === 'dm' ? shapedRollLog : playerLogNames(shapedRollLog),
       chat: shapedChat,
-      measurements: data.measurements,
+      measurements: [...data.measurements,...spikeMeasurements],
       annotations: data.annotations,
       mapImages: data.mapImages,
     };

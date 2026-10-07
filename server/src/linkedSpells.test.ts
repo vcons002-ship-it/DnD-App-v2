@@ -7,13 +7,30 @@ import {effectiveSpeed,spellActionBlock} from '../../shared/spellBuffs.js';
 import type {SheetAbility} from '../../shared/types.js';
 import {getSpell,getAllSpells} from './spells/srd.js';
 import {resolveAbilityRoll,resolveAttack,resolveForcedSave,resolveAttackDamage,resolveCheck} from './combat.js';
-import {repeatSpell,moveSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner} from './linkedSpells.js';
+import {repeatSpell,moveSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,sorcerousBonus} from './linkedSpells.js';
 import {expireTimedSpellEffects,processHitEffects,expireOnCasterTurn} from './hitEffectTurns.js';
 import {runLiveCommand} from './liveRolls.js';
 import {drainHpFx} from './sessions.js';
 import {createSession,createMap,setActiveMap,setManualDamage,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,getToken,listTokens,listRollLog,setSheetAbility,setCondition,setCombatRound,setActiveTurn,applyDamage,endConcentration,updateMonster,moveToken} from './sessions.js';
 
 afterEach(()=>vi.restoreAllMocks());
+it('tosses simultaneous bursts in waves while preserving the casting limit',()=>{
+ const requests:any[]=[];const faces=[8,8,2,8];
+ const rolls=withDiceSource((sides,info)=>{requests.push({sides,info});return sides.map(()=>faces.shift()!);},()=>sorcerousBonus({spell:'Sorcerous Burst',abilityId:'burst',casterKind:'pc',casterId:'test',castLevel:0,dc:15,modifier:4},[8,8]));
+ expect(rolls.map(r=>r.rolls[0])).toEqual([8,8,2,8]);
+ expect(requests.map(r=>r.sides)).toEqual([[8,8],[8,8]]);
+ expect(requests.map(r=>r.info.triggerRule)).toEqual([
+  {kind:'sorcerous-burst',used:2,limit:4,queued:0},
+  {kind:'sorcerous-burst',used:4,limit:4,queued:0},
+ ]);
+ expect(requests[1].info.label).toBe('Sorcerous Burst — Bonus 2d8 (4 of 4)');
+});
+it('clamps a simultaneous bonus wave to the remaining casting limit',()=>{
+ const requests:number[][]=[];
+ const rolls=withDiceSource(sides=>{requests.push(sides);return sides.map(()=>8);},()=>sorcerousBonus({spell:'Sorcerous Burst',abilityId:'burst',casterKind:'pc',casterId:'test',castLevel:0,dc:15,modifier:3},[8,8]));
+ expect(requests).toEqual([[8,8],[8]]);expect(rolls).toHaveLength(3);
+});
+
 const dice=(value:number,fn:()=>unknown)=>withDiceSource(s=>s.map(n=>Math.min(n,value)),fn);
 function setup(name:string){
   const session=createSession('Linked spells'),map=createMap(session.id,{name:'Arena'});setActiveMap(session.id,map.id);setManualDamage(session.id,false);
@@ -156,6 +173,8 @@ describe('linked damage and saving throws',()=>{
   it('Sorcerous Burst chains maximum rolls up to the casting modifier, including critical base dice',()=>{
     const f=setup('Sorcerous Burst');dice(20,()=>f.cast(0,'fire'));const attack=listRollLog(f.session.id).find(r=>r.label==='Attack')!;
     expect(attack.reveal?.damageDice?.filter(d=>d.label==='Sorcerous Burst bonus')).toHaveLength(4);expect(500-monsterHp(f)).toBe(96);
+    expect(attack.reveal?.damageDice?.[0].faces).toEqual([8,8,8,8]);
+    expect(attack.reveal?.damageDice?.[1].label).toBe('CRIT');
   });
   it.each([1,15])('Ice Knife explodes on a hit or miss (attack face %i), with grouped saves after damage',face=>{
     const f=setup('Ice Knife');withDiceSource(s=>s.map(n=>n===20?face:4),()=>f.cast(2));

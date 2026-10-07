@@ -1,3 +1,4 @@
+import {damageRollBreakdown} from '../../shared/rollBreakdown.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { HpFxEvent, SheetAbility, StateSnapshot } from '../../shared/types.js';
 import { resolveAbilityRoll, resolveAttack, resolveAttackDamage, resolveForcedSave } from './combat.js';
@@ -117,9 +118,15 @@ describe('exact attack damage-to-reveal correlation', () => {
     const first = listRollLog(f.session.id).at(-1)!;
     resolveForcedSave(f.session.id, cast.id, f.targetToken.id);
     const second = listRollLog(f.session.id).at(-1)!;
-    expect(drainHpFx(f.session.id).map((event) => ({ delta: event.delta, rollId: event.rollId }))).toEqual([
+    const effects=drainHpFx(f.session.id);
+    expect(effects.map(event=>event.impact)).toEqual([{id:cast.id,order:0},{id:cast.id,order:1}]);
+    expect(effects.map((event) => ({ delta: event.delta, rollId: event.rollId }))).toEqual([
       { delta: -4, rollId: first.id }, { delta: -4, rollId: second.id },
     ]);
+    expect(first.reveal?.damageDice).toEqual([{label:'1d4',value:3,faces:[3]}]);
+    expect(first.reveal?.damageMods).toEqual([{label:'Magic Missile bonus',value:1}]);
+    expect(damageRollBreakdown(first)).toContain('1 Magic Missile bonus');
+    expect(first.reveal?.damage).toBe(4); // CHA 18 does not add +4.
     expect(first.id).not.toBe(cast.id);
     expect(second.id).not.toBe(first.id);
     expect(getMonster(f.target.id)!.curHp).toBe(192);
@@ -133,7 +140,7 @@ describe('exact attack damage-to-reveal correlation', () => {
       resolveForcedSave(f.session.id, cast.id, f.targetToken.id);
       const result = listRollLog(f.session.id).at(-1)!;
       expect(result.reveal?.kind).toBe('check');
-      expect(drainHpFx(f.session.id)[0]).toMatchObject({ delta: dc === 5 ? -6 : -12, rollId: result.id });
+      expect(drainHpFx(f.session.id)[0]).toMatchObject({ delta: dc === 5 ? -6 : -12, rollId: result.id,impact:{id:cast.id} });
     });
   }
 
@@ -167,11 +174,13 @@ describe('exact attack damage-to-reveal correlation', () => {
     const f = fixture(false);
     setHideDmRolls(f.session.id, true);
     const result = attack(f, 'DM');
+    applyDamage('monster',f.target.id,2,'force',false,result.id,{impact:{id:result.id,order:0}});
     const { player, dm } = views(f);
     expect(player.snapshot.rollLog.some((roll) => roll.id === result.id)).toBe(false);
-    expect(player.events).toHaveLength(1);
-    expect(player.events[0].rollId).toBeUndefined();
+    expect(player.events).toHaveLength(2);
+    expect(player.events.every(e=>!e.rollId&&!e.impact)).toBe(true);
     expect(dm.events[0].rollId).toBe(result.id);
+    expect(dm.events[1].impact).toEqual({id:result.id,order:0});
   });
 
   it('hidden target tokens still emit no player damage feedback', () => {

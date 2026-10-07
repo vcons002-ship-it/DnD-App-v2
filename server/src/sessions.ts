@@ -1,4 +1,5 @@
 import { starterCreatures } from './creatures/starterLibrary.js';
+import {spikeMovement} from './advancedSpells.js';
 import {parseChatPrivacy, type ChatPrivacy, type StoredChatMessage} from './privateChat.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
 import {rollDice,withDiceMetadata} from '../../shared/dice.js';
@@ -334,6 +335,11 @@ export function setVisionFog(sessionId:string,mapId:string,layer:FogLayer,enable
   return db.prepare(`UPDATE maps SET ${column}=? WHERE id=? AND session_id=?`).run(enabled?1:0,mapId,sessionId).changes>0;
 }
 
+export function setExplorationMode(sessionId:string,mapId:string,mode:'remembered'|'revealed'):boolean {
+  if(mode!=='remembered'&&mode!=='revealed')return false;
+  return db.prepare('UPDATE maps SET exploration_mode=? WHERE id=? AND session_id=?').run(mode,mapId,sessionId).changes>0;
+}
+
 /** Reveal or re-hide "col,row" cells on one fog layer of a map. */
 export function paintFog(
   mapId: string,
@@ -647,7 +653,9 @@ export function moveToken(tokenId: string, x: number, y: number, blockWalls=fals
   }
   const facing = facingAfterMove(previous.x, previous.y, nextX, nextY, previous.facing);
   db.prepare('UPDATE tokens SET x = ?, y = ?, facing = ? WHERE id = ?').run(nextX, nextY, facing, tokenId);
-  return getToken(tokenId);
+  const next=getToken(tokenId)!;
+  spikeMovement(previous,next);
+  return next;
 }
 
 /** Change only the visible 3D base; occupied space and range math stay intact. */
@@ -3409,21 +3417,24 @@ export function setEntityIcon(
 // the token). Never persisted; capped so an undrained queue can't grow forever.
 const hpFxQueue: (HpFxEvent & { sessionId: string })[] = [];
 /** A non-damaging spell impact uses the same visibility/timing channel. */
-export function queueSpellImpact(sessionId:string,kind:TokenKind,refId:string,spell:string,rollId?:string,areaWidthFt?:number){
+export function queueSpellImpact(sessionId:string,kind:TokenKind,refId:string,spell:string,rollId?:string,areaWidthFt?:number,areaPosition?:HpFxEvent['areaPosition']){
   const name=spellImpactName(spell);
-  if(name&&hpFxQueue.length<200)hpFxQueue.push({sessionId,kind,refId,delta:0,spell:name,...(rollId?{rollId}:{}),...(areaWidthFt?{areaWidthFt}:{})});
+  if(name&&hpFxQueue.length<200)hpFxQueue.push({sessionId,kind,refId,delta:0,spell:name,...(areaPosition?{areaPosition}:{}),...(rollId?{rollId}:{}),...(areaWidthFt?{areaWidthFt}:{})});
 }
 export function checkpointHpFx(){const saved=hpFxQueue.slice();return ()=>{hpFxQueue.splice(0,hpFxQueue.length,...saved);};}
 export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta, damageType, effect, rollId, spell, areaWidthFt } = hpFxQueue[i];
+    const { kind, refId, delta, damageType, damageParts, effect, rollId, spell, areaWidthFt, areaPosition, impact } = hpFxQueue[i];
     mine.unshift({
       kind,
       refId,
       delta,
+      ...(impact ? {impact} : {}),
+      ...(damageParts ? {damageParts} : {}),
       ...(areaWidthFt ? {areaWidthFt} : {}),
+      ...(areaPosition ? {areaPosition} : {}),
       ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),
       ...(damageType ? { damageType } : {}),
@@ -3451,7 +3462,7 @@ export function applyDamage(
    *  a dead creature — and it reconciles the whole death state (saves, Dead
    *  mark, downed conditions), not just the HP number. Callers must gate it on
    *  the DM role; spells, abilities and potions never pass it. */
-  opts?: { correction?: boolean; spell?: string },
+  opts?: { correction?: boolean; spell?: string; damageParts?: HpFxEvent['damageParts'];impact?:HpFxEvent['impact'] },
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   let entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
@@ -3504,12 +3515,21 @@ export function applyDamage(
     entity.curHp > 0 &&
     nextCur === 0;
   const spell=spellImpactName(opts?.spell);
+  // Only defended, additive components cross the feedback channel. Invalid or
+  // stale cosmetic metadata falls back to the authoritative full delta.
+  const parts=opts?.damageParts?.filter(p=>Number.isFinite(p.amount)&&p.amount>0)
+    .map(p=>({amount:p.amount,...(isDamageType(p.damageType)?{damageType:p.damageType!.trim().toLowerCase()}:{}),
+      ...(spellImpactName(p.spell)?{spell:spellImpactName(p.spell)}:{})}));
+  const damageParts=amount>0&&parts?.length&&(parts.length>1||parts[0].spell)&&
+    parts.reduce((sum,p)=>sum+p.amount,0)===amount?parts:undefined;
   if ((fxDelta !== 0 || spell) && hpFxQueue.length < 200)
     hpFxQueue.push({
       sessionId: entity.sessionId,
       kind,
       refId,
       delta: fxDelta,
+      ...(opts?.impact ? {impact:opts.impact} : {}),
+      ...(damageParts ? {damageParts} : {}),
       ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),
       // Type only rides on damage (heals are sign-coded green client-side).
@@ -3683,6 +3703,11 @@ export function clearCondition(
     JSON.stringify(conditions),
     refId,
   );
+  if(removed?.combatEffect?.summoned&&kind==='monster'){
+    for(const map of listMaps(entity.sessionId))for(const token of listTokens(map.id))if(token.kind===kind&&token.refId===refId)deleteToken(token.id);
+    deleteMonster(refId);
+    return null;
+  }
   if(removed?.combatEffect?.summonTokenId){
     const token=getToken(removed.combatEffect.summonTokenId),weapon=token?.kind==='monster'?getMonster(token.refId):null;
     if(weapon?.sessionId===entity.sessionId&&weapon.modelType==='spiritual-weapon'){

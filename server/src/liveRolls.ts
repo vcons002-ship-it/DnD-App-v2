@@ -1,14 +1,18 @@
+import {liveDiceResultWaitMs,liveCalculationWaitMs} from '../../shared/dicePresentationTiming.js';
 import {randomInt,randomUUID} from 'node:crypto';
 import {createLiveWorld} from '../../shared/liveDicePhysics.js';
 import {withDiceSource,rollDice,type PhysicalDiceInfo} from '../../shared/dice.js';
 import {db} from './db.js';
 import {checkpointHpFx,faceTokenToward} from './sessions.js';
 import {checkpointReactions} from './reactions.js';
-import {stageRollEffects,stagedRollFacing,type RollFacing} from './liveRollContext.js';
+import {stageRollEffects,stagedRollFacing,withLiveCalculationPresenter,type RollFacing} from './liveRollContext.js';
+import type {RollReveal} from '../../shared/types.js';
 import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../shared/liveDiceTypes.js';
+import {matchingDiceTrigger,sorcerousDiceTrigger} from '../../shared/diceTriggers.js';
 
 class NeedDice extends Error {constructor(public sides:number[],public info:PhysicalDiceInfo,public facing:RollFacing[]){super('Waiting for physical dice');}}
+class NeedCalculation extends Error {constructor(public key:string,public reveal:RollReveal){super('Waiting for roll calculation');}}
 const queues=new Map<string,Promise<void>>();
 export const rollInProgress=(sid:string)=>queues.has(sid);
 export function enqueueRoll(sid:string,run:()=>Promise<void>|void,onError:(e:unknown)=>void){
@@ -26,7 +30,8 @@ export function keptPhysicalSet(values:number[],info:PhysicalDiceInfo):number|un
   return info.advantage==='adv' ? (totals[0]>=totals[1]?0:1) : (totals[0]<=totals[1]?0:1);
 }
 
-type LiveRollMeta={label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;onFacing?:()=>void};
+type BurstTray={world:ReturnType<typeof createLiveWorld>;id:string;seq:number;sides:number[];critical:boolean[];capacity:number;parents:number[];links:{from:number;to:number}[]};
+type LiveRollMeta={burstTray?:{current?:BurstTray};label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void};
 
 export async function physicalFaces(
   sides:number[], publish:(frame:LiveDiceFrame)=>void,
@@ -34,7 +39,8 @@ export async function physicalFaces(
 ) {
   if(sides.some(s=>![4,6,8,10,12,20,100].includes(s)))
     throw new UnsupportedPhysicalDice('Live rolls support d4, d6, d8, d10, d12, d20 and d100. Choose one of these dice.');
-  const {ready,onFacing,...displayMeta}=meta;
+  const {ready,onFacing,waitForPresentation,burstTray,...displayMeta}=meta;
+  if(typeof info?.triggerRule==='object'&&burstTray)return burstFaces(sides,publish,meta,seed,info);
   // A caster initiates these commands, but the saved creatures own the dice.
   // Batches containing NPC saves use the shared DM tray rather than the caster.
   if(info?.saveDice?.some(save=>save.target.kind==='monster')){
@@ -73,7 +79,12 @@ export async function physicalFaces(
       const kept=state.done&&info?.advantage&&offset+logical.length===sides.length
         ? keptPhysicalSet([...result,...decode(state.values as number[])],info) : undefined;
       const impacts=world.drainImpacts();
-      publish({...state,poses:state.poses.map(v=>Math.round(v*10000)/10000),...(impacts.length?{impacts}:{}),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta});
+      // Announce on settlement, before the reading hold and command commit.
+      // Orb pools fit one tray; never treat a partial chunk as the whole spell.
+      const burst=typeof info?.triggerRule==='object'?info.triggerRule:undefined;
+      const diceTrigger=state.done&&offset===0&&logical.length===sides.length
+        ?info?.triggerRule==='orb-matches'?matchingDiceTrigger(state.values as number[]):burst?sorcerousDiceTrigger(state.values as number[],burst.used,burst.limit,burst.queued):undefined:undefined;
+      publish({...state,...(burst?{burstProgress:{used:burst.used,limit:burst.limit}}:{}),...(diceTrigger?{diceTrigger}:{}),poses:state.poses.map(v=>Math.round(v*10000)/10000),...(impacts.length?{impacts}:{}),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta});
       return state;
     };
     const prepared=ready?.(id);
@@ -94,36 +105,96 @@ export async function physicalFaces(
       },1000/30);
     });
     // Allow the visible face-to-result animation to finish before publishing damage.
-    await new Promise(resolve=>setTimeout(resolve,1640+expanded.length*80+(info?.saveDice?1800:0)));
+    const readingMs=liveDiceResultWaitMs(expanded.length, !!info?.saveDice);
+    if(waitForPresentation)await waitForPresentation(id,readingMs);
+    else await new Promise(resolve=>setTimeout(resolve,readingMs));
     result.push(...decode(values)); offset+=logical.length;
   }
   return result;
+}
+/** Sorcerous Burst continues in one authoritative world and one rendered tray. */
+async function burstFaces(sides:number[],publish:(frame:LiveDiceFrame)=>void,meta:LiveRollMeta,seed:number,info:PhysicalDiceInfo){
+ const burst=info.triggerRule;if(typeof burst!=='object')throw new Error('Missing burst rule');
+ const {ready,onFacing,waitForPresentation,burstTray,...display}=meta;
+ let tray=burstTray!.current;
+ if(burst.used===0){
+  const capacity=Math.min(40,sides.length+burst.limit);
+  tray={world:createLiveWorld(sides.map((sides,index)=>({sides,value:1,index,set:0})),seed,'bottom',capacity),id:randomUUID(),seq:0,sides:[...sides],critical:sides.map((_,i)=>!!info.criticalDice?.[i]||!!info.critical||info.criticalFrom!==undefined&&i>=info.criticalFrom),capacity,parents:[],links:[]};
+  burstTray!.current=tray;
+ }
+ if(!tray)throw new Error('Missing original burst tray');
+ const start=burst.used===0?0:tray.sides.length;
+ if(start){
+  if(sides.some(side=>side!==8)||sides.length>tray.parents.length)throw new Error('Missing triggering burst dice');
+  const parents=tray.parents.splice(0,sides.length);
+  parents.forEach((from,i)=>tray.links.push({from,to:start+i}));
+  tray.world.appendDice(sides.map((sides,i)=>({sides,value:1,index:start+i,set:0})));
+  tray.sides.push(...sides);tray.critical.push(...sides.map(()=>false));
+ }
+ const current=tray;
+ const emit=()=>{
+  const state=current.world.snapshot(),faces=state.values.slice(start) as number[];
+  const trigger=state.done?sorcerousDiceTrigger(faces,burst.used,burst.limit,burst.queued):undefined;
+  const impacts=current.world.drainImpacts();
+  publish({...state,...display,id:current.id,seq:current.seq++,sides:[...current.sides],sets:current.sides.map(()=>0),critical:[...current.critical],percentile:current.sides.map(()=>null),burstCapacity:current.capacity,burstLinks:[...current.links],burstProgress:{used:burst.used,limit:burst.limit},...(trigger?{diceTrigger:{...trigger,groups:trigger.groups.map(g=>({...g,indices:g.indices.map(i=>i+start)}))}}:{}),...(impacts.length?{impacts}:{})});
+  return state;
+ };
+ const prepared=start?undefined:ready?.(current.id);emit();await prepared;
+ const faces=await new Promise<number[]>((resolve,reject)=>{
+  let last=performance.now(),credit=0;
+  const timer=setInterval(()=>{try{
+   const now=performance.now();credit+=Math.min(.1,(now-last)/1000)*LIVE_DICE_PRESENTATION_RATE;last=now;
+   while(credit>=1/120){current.world.advance(1/120);credit-=1/120;if(current.world.snapshot().done)break;}
+   const state=emit();if(state.done){clearInterval(timer);resolve(state.values.slice(start) as number[]);}
+  }catch(e){clearInterval(timer);reject(e);}},1000/30);
+ });
+ faces.forEach((face,i)=>{if(face===8)current.parents.push(start+i);});
+ const readingMs=liveDiceResultWaitMs(faces.length);
+ if(waitForPresentation)await waitForPresentation(current.id,readingMs);else await new Promise(resolve=>setTimeout(resolve,readingMs));
+ return faces;
 }
 /** Each synchronous pass is atomic. An unresolved die suspends the command,
  * rolls back DB/transient effects, and resumes with the actual settled faces.
  * No transaction or database lock is held while the physics runs. */
 export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?:PhysicalDiceInfo)=>void,meta:LiveRollMeta,roll=physicalFaces){
+ meta={...meta,burstTray:{}};
  const tape:{sides:number[];faces:number[]}[]=[];
+ const calculated=new Set<string>();let lastFrame:LiveDiceFrame|undefined,lastInfo:PhysicalDiceInfo|undefined;
  for(;;){
   let cursor=0;const undoHp=checkpointHpFx(),undoReactions=checkpointReactions();
   try{
-   const pass=db.transaction(()=>stageRollEffects(()=>withDiceSource((sides,info)=>{
+   const pass=db.transaction(()=>stageRollEffects(()=>withLiveCalculationPresenter((key,reveal)=>{
+    if(!lastFrame)return false;
+    if(!calculated.has(key))throw new NeedCalculation(key,reveal);
+    return true;
+   },()=>withDiceSource((sides,info)=>{
     if(!sides.length)return [];
     const recorded=tape[cursor++];
     if(!recorded)throw new NeedDice(sides,info,stagedRollFacing());
     if(recorded.sides.join(',')!==sides.join(','))throw new Error('Roll context changed before completion');
     return recorded.faces.slice();
-   },()=>{run();if(cursor!==tape.length)throw new Error('Roll context changed before completion');})))();
+   },()=>{run();if(cursor!==tape.length)throw new Error('Roll context changed before completion');}))))();
    for(const effect of pass.effects)effect();return;
   }catch(e){
    undoHp();undoReactions();
+   if(e instanceof NeedCalculation){
+    if(lastFrame){
+     lastFrame={...lastFrame,seq:lastFrame.seq+1,calculation:{...e.reveal,physical:true}};
+     if(meta.burstTray?.current?.id===lastFrame.id)meta.burstTray.current.seq=Math.max(meta.burstTray.current.seq,lastFrame.seq+1);
+     publish(lastFrame,lastInfo);
+     const ms=liveCalculationWaitMs(e.reveal.damageMods?.length??0);
+     if(meta.waitForPresentation)await meta.waitForPresentation(lastFrame.id,ms);
+     else if(roll===physicalFaces)await new Promise(resolve=>setTimeout(resolve,ms));
+    }
+    calculated.add(e.key);continue;
+   }
    if(!(e instanceof NeedDice))throw e;
    // The validated roll is about to start. Persist only its presentation turn;
    // HP, slots and dice outcomes remain rolled back until the command commits.
    let turned=false;
    for(const facing of e.facing)turned=faceTokenToward(facing.sessionId,facing.attackerTokenId,facing.targetTokenId)||turned;
    if(turned)meta.onFacing?.();
-   tape.push({sides:e.sides,faces:await roll(e.sides,frame=>publish(frame,e.info),{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
+   tape.push({sides:e.sides,faces:await roll(e.sides,frame=>{lastFrame=frame;lastInfo=e.info;publish(frame,e.info);},{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
   }
  }
 }

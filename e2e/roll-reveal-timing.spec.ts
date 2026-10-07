@@ -89,8 +89,7 @@ async function armManualDamage(page: Page, f: Awaited<ReturnType<typeof fixture>
   throw new Error('Five consecutive misses');
 }
 async function floaters(page: Page) {
-  return page.evaluate(() => ((window as any).Konva?.stages ?? []).flatMap((stage: any) => stage.find('Text')
-    .filter((node: any) => /^[+\u2212]\d+$/.test(node.text()) && node.fill() === '#e23b3b')
+  return page.evaluate(() => ((window as any).Konva?.stages ?? []).flatMap((stage: any) => stage.find('.hp-floater-number')
     .map((node: any) => node.text())));
 }
 async function resolveDamage(page: Page, f: Awaited<ReturnType<typeof fixture>>, id: string) {
@@ -98,6 +97,51 @@ async function resolveDamage(page: Page, f: Awaited<ReturnType<typeof fixture>>,
     {timeout: 30_000}).toBe(true);
   return (await f.snapshot()).rollLog.findLast(r => r.label === 'Damage')!;
 }
+
+test('skill and attack modifiers count into the total inside the original live tray', async ({page,request}) => {
+  const f=await fixture(request,page);
+  for(const kind of ['skill','attack'] as const){
+    if(kind==='skill'){
+      await page.locator('.hud-actions').getByRole('button',{name:'Checks',exact:true}).click();
+      await page.locator('.compact-checks').getByRole('button',{name:/^Roll Athletics check /}).click();
+    }
+    else await page.locator('.compact-player-combat').getByRole('button',{name:/Timing greatsword/}).click();
+    const live=page.locator('[data-live-dice="true"]');
+    await expect(live).toBeVisible();
+    await page.evaluate(()=>{(window as any).__originalTrayCanvas=document.querySelector('.dice-tray-canvas');});
+    const result=page.locator('[data-dice-presentation="result"]');
+    const equation=result.getByLabel('Roll calculation');
+    await expect(equation.locator('.rr-adjustment')).not.toHaveCount(0,{timeout:35000});
+    expect(await page.evaluate(()=>document.querySelector('.dice-tray-canvas')===(window as any).__originalTrayCanvas),
+      'The settled tray stays mounted while bonuses appear').toBe(true);
+    await expect(result.locator('.physics-dice-tray')).toBeVisible();
+    await expect(page.locator('.dice-tray-canvas')).toHaveCount(1);
+    await expect(result.locator('.rr-dice-row,.die-3d,.die')).toHaveCount(0);
+    await expect(equation).toContainText(kind==='skill'?'STR':'hit');
+    const row=(await f.snapshot()).rollLog.findLast(r=>r.reveal?.kind===(kind==='skill'?'check':'attack'))!;
+    await expect(equation.locator('.rr-total')).toHaveText(String(row.total));
+    expect(await equation.evaluate(el=>{
+      const equation=el.getBoundingClientRect(),card=el.closest('.roll-reveal')!.getBoundingClientRect();
+      return equation.top>=card.top&&equation.bottom<=card.bottom&&equation.bottom<=innerHeight;
+    }),'Dice and modifiers fit together without scrolling').toBe(true);
+    await page.screenshot({path:test.info().outputPath(`${kind}-modifiers-in-tray.png`)});
+    const before=Number(await result.locator('.dice-tray-canvas').getAttribute('data-render-time'));
+    await page.waitForTimeout(200);
+    expect(Number(await result.locator('.dice-tray-canvas').getAttribute('data-render-time'))).toBeGreaterThan(before);
+    if(kind==='attack'){
+      const stamp=result.getByLabel('Roll result',{exact:true});
+      await expect(stamp).toBeVisible();
+      expect(await stamp.evaluate(el=>{
+        const text=el.getBoundingClientRect(),card=el.closest('.roll-reveal')!.getBoundingClientRect(),style=getComputedStyle(el);
+        return Math.abs(text.left+text.width/2-card.left-card.width/2)<3 && text.top>card.top && text.bottom<card.bottom &&
+          style.position==='absolute' && style.backgroundColor==='rgba(0, 0, 0, 0)' && parseFloat(style.fontSize)>=32 && style.textShadow!=='none';
+      }),'Outcome is large outlined text centered over the tray, without its own card').toBe(true);
+      await page.screenshot({path:test.info().outputPath('attack-outcome-over-tray.png')});
+    }
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.roll-reveal')).toHaveCount(0);
+  }
+});
 
 test('live damage stays out of HP and history until the dice settle, then exposes map impact', async ({page,request}) => {
   const f=await fixture(request,page), pending=await armManualDamage(page,f);
@@ -107,6 +151,7 @@ test('live damage stays out of HP and history until the dice settle, then expose
   await expect(live).toBeVisible();
   await expect(live.locator('.roll-reveal-title')).toContainText('Timing greatsword');
   await expect(live.locator('.roll-reveal-who')).toContainText('Timing target');
+  await page.evaluate(()=>{(window as any).__damageTrayCanvas=document.querySelector('.dice-tray-canvas');});
   expect((await f.snapshot()).rollLog.length).toBe(oldCount);
   expect((await f.snapshot()).monsters.find(m=>m.id===f.target.id)!.curHp).toBe(200);
   expect(await floaters(page)).toEqual([]);
@@ -117,12 +162,16 @@ test('live damage stays out of HP and history until the dice settle, then expose
     const sample=()=>{
       const live=document.querySelector('[data-live-dice="true"]');
       const popup=document.querySelector('.roll-reveal');
-      const fx=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('Text').filter((n:any)=>/^[+\u2212]\d+$/.test(n.text())&&n.fill()==='#e23b3b'));
+      const fx=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('.hp-floater-number'));
       samples.push({live:!!live,settled:live?.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled',ready:popup?.getAttribute('data-impact-ready')==='true',fx:fx.length,impact:!!popup?.closest('.is-impact'),height:popup?.getBoundingClientRect().height??0});
       if(live||!fx.length)requestAnimationFrame(sample);
     };sample();
   });
   const result=await resolveDamage(page,f,pending.id);
+  const calculation=page.locator('[data-dice-presentation="result"]');
+  await expect(calculation.getByLabel('Damage or dice calculation').locator('.rr-adjustment')).toContainText([/\+4\s*STR/]);
+  expect(await page.evaluate(()=>document.querySelector('.dice-tray-canvas')===(window as any).__damageTrayCanvas)).toBe(true);
+  await expect(calculation.locator('.physics-dice-tray')).toBeVisible();
   await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
   await expect(live).toHaveCount(0);
   expect((await f.snapshot()).monsters.find(m=>m.id===f.target.id)!.curHp).toBe(200-result.total);
@@ -142,6 +191,7 @@ test('skipping the bonus reveal releases damage immediately', async ({page,reque
   await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
   await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30_000});
   await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','false');
+  await expect(page.locator('[data-dice-presentation="result"] .physics-dice-tray')).toBeVisible();
   expect(await floaters(page)).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.locator('.roll-reveal')).toHaveCount(0);
@@ -195,29 +245,26 @@ test('a concentration reminder cannot suppress the completed damage reveal',asyn
   await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
 });
 
-test('a targeted save preserves the damage impact and then shows the separate saving throw result',async({page,request})=>{
+test('a targeted save preserves the damage impact without repeating the live saving throw',async({page,request})=>{
   const f=await fixture(request,page);
   await page.locator('.compact-player-combat').getByRole('button',{name:/Timing flame/}).click();
   await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
   await expect(page.locator('[data-live-dice="true"] .roll-reveal-who')).toContainText('Timing target T1');
   await expect.poll(async()=>(await f.snapshot()).rollLog.at(-1)?.reveal?.kind,{timeout:45_000}).toBe('check');
   const rolls=(await f.snapshot()).rollLog, save=rolls.at(-1)!, damage=rolls.findLast(r=>r.reveal?.kind==='damage')!;
-  // Damage and saves intentionally have separate arithmetic cards. The earlier
-  // damage card must not be mistaken for the later queued saving throw.
+  // The saving throw is already presented in the live tray. A second popup
+  // after damage would repeat it and cover the map impact.
+  expect(save.reveal!.presentedLive).toBe(true);
   const damageCard=page.locator(`.roll-reveal[data-roll-id="${damage.id}"]`);
   await expect(damageCard).toBeVisible({timeout:15_000});
   await expect(damageCard.locator('.roll-reveal-who')).toContainText('Timing target T1');
   await expect(damageCard).toHaveAttribute('data-impact-ready','true');
-  expect(await floaters(page)).toEqual([]);
   expect((await damageCard.boundingBox())!.height).toBeLessThanOrEqual(180);
+  await expect.poll(()=>floaters(page)).not.toEqual([]);
   await damageCard.click();
   const saveCard=page.locator(`.roll-reveal[data-roll-id="${save.id}"]`);
-  await expect(saveCard).toBeVisible();
-  await expect(saveCard.locator('.rr-title')).toContainText('DEX');
-  await expect(saveCard.locator('.rr-title')).toContainText(/Saving Throw/i);
-  await expect(saveCard.getByRole('status',{name:'Roll result',exact:true})).toHaveText(save.reveal!.outcome==='pass'?'SAVE PASSED':'SAVE FAILED');
-  await expect(saveCard).toHaveAttribute('data-impact-ready','true');
-  await expect.poll(()=>floaters(page)).not.toEqual([]);
+  await page.waitForTimeout(500);
+  await expect(saveCard).toHaveCount(0);
 });
 
 test('natural twenty check rendering announces the face and retains the total',async({page,request})=>{
@@ -278,7 +325,8 @@ for(const outcome of ['hit','miss','crit','fumble','pass','fail'] as const){
   if(outcome==='crit')await expect(page.getByLabel('Critical hit celebration')).toBeVisible();
   await expect(result).toBeVisible();
   await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
-  await expect(result).toBeVisible();
+  if(outcome==='pass'||outcome==='fail')await expect(result).toBeVisible();
+  else await expect(result).toBeHidden(); // text-only stamp clears with the full tray
   const times=await page.evaluate(()=>(window as any).__stampTimes);
   expect(times.impact-times.stamp).toBeGreaterThanOrEqual(1000);
  });

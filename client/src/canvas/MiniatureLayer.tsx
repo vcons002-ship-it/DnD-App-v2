@@ -41,6 +41,7 @@ import {
 
 export type MiniatureToken = {
   sharedSightOnly?: boolean;
+  invisible?: boolean;
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
   carriedLantern?: boolean;
@@ -79,6 +80,7 @@ type Props = {
   environmentPreview?: EnvironmentPreviewSettings;
 };
 export type MiniatureLayerHandle = {
+  headPosition: (id:string)=>{x:number;y:number}|undefined;
   setFootprints: (marks:FootprintMark[])=>void;
   spellCast: (tokenIds: string[]) => void;
   setView: (view: BattlefieldView) => void;
@@ -229,6 +231,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let lastFailedIds: string | undefined;
   const manifests = new Map<string, Promise<FxManifest | null>>();
   const instances = new Map<string, Instance>();
+  const opacityFades=new Map<string,{start:number;from:number;to:number;value:number}>();
   const shaderWarmup=createMiniatureShaderWarmup(renderer,createMiniatureTorchLighting(localShadows.uniforms));
   const loading = new Map<string, string>();
   const moves = new Map<string, { x: number; y: number; facing: number; fromX: number; fromY: number; until: number }>();
@@ -364,9 +367,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (animated) { instance.mixer?.setTime(seconds); applyFx(instance, seconds); }
         instance.lightning?.update(seconds, now / 1000, reducedMotion.matches, token.hidden);
       }
+      for(const [id,fade] of opacityFades){
+        const instance=instances.get(id);if(!instance){opacityFades.delete(id);continue;}
+        const t=reducedMotion.matches?1:Math.min(1,(now-fade.start)/850),ease=t*t*(3-2*t);fade.value=fade.from+(fade.to-fade.from)*ease;
+        instance.materials.forEach((m,i)=>{if(t<1&&!m.transparent){m.transparent=true;m.needsUpdate=true;}m.opacity=instance.originalOpacity[i]*fade.value;});
+      }
       const impactLights=spellImpacts.tick(now,props.environmentPreview?.pixelsPerFoot??12.8,reducedMotion.matches,id=>{
         const impact=props.spellImpacts?.find(e=>e.tokenId===id);if(!impact)return;
-        const instance=instances.get(id),point=props.visualPosition?.(id)??impact;
+        const instance=instances.get(id),point=impact.fixed?impact:props.visualPosition?.(id)??impact;
         return {...point,visible:props.isVisibleAt?.(id,point.x,point.y)??true,
           height:instance?.mistBody?instance.mistBody.height*instance.root.scale.x:undefined};
       });
@@ -434,11 +442,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const sw=renderer.domElement.width,sh=renderer.domElement.height;
         if(sharedCanvas.width!==sw||sharedCanvas.height!==sh){sharedCanvas.width=sw;sharedCanvas.height=sh;}
         sharedCanvas.dataset.tokenIds=[...sharedIds].filter(id=>visible.has(id)).join(',');
+        sharedCanvas.style.filter=useStore.getState().snapshot?.map?.explorationMode==='revealed'?'none':'grayscale(1)';
+        sharedCanvas.style.opacity=useStore.getState().snapshot?.map?.explorationMode==='revealed'?'1':'.78';
         sharedCanvas.style.display=sharedCanvas.dataset.tokenIds?'block':'none';
         // Static awareness need not redraw for weather or torch flicker. Camera,
         // pose, name, appearance and foreground occlusion changes invalidate it.
         const sharedKey=JSON.stringify([sw,sh,camera.projectionMatrix.elements,camera.matrixWorld.elements,
-          environment?.heavyDarkness,ambient.intensity,key.intensity,scene.environmentIntensity,ambient.color.toArray(),key.color.toArray(),
+          useStore.getState().snapshot?.map?.explorationMode,environment?.heavyDarkness,ambient.intensity,key.intensity,scene.environmentIntensity,ambient.color.toArray(),key.color.toArray(),
           props.tokens.map(t=>{const i=instances.get(t.id);return [t.id,t.sharedSightOnly,t.tint,t.shade,t.mirrorImages,i?.root.visible,i?.root.position.toArray(),i?.root.rotation.y,i?.root.scale.x];}),
           labels.map(l=>{if(!labelVersions.has(l.canvas))labelVersions.set(l.canvas,++nextLabelVersion);return [l.id,labelVersions.get(l.canvas),l.points,l.opacity];})]);
         if(sharedKey!==sharedFrameKey||[...instances.values()].some(i=>i.mixer)){
@@ -453,11 +463,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
             scene.overrideMaterial=null;camera.layers.set(4);renderer.autoClear=false;
             // Shared sight uses the map's unlit darkvision appearance. Daylight
             // lighting here made party sightings much brighter than personal sight.
-            if(!environment?.heavyDarkness){
+            if(!environment?.heavyDarkness||useStore.getState().snapshot?.map?.explorationMode==='revealed'){
               ambient.intensity=NEUTRAL_MINIATURE_LIGHTING.ambient;key.intensity=NEUTRAL_MINIATURE_LIGHTING.key;
               scene.environmentIntensity=NEUTRAL_MINIATURE_LIGHTING.reflection;
             }
-            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,!!environment?.darkvisionTerrain,[]);}
+            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,!!environment?.darkvisionTerrain&&useStore.getState().snapshot?.map?.explorationMode!=='revealed',[]);}
             renderer.render(scene,camera);
             sharedContext.drawImage(renderer.domElement,0,0);
             camera.layers.mask=layers;renderer.autoClear=autoClear;
@@ -513,7 +523,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
-    if (!failed && (archArtStudy?.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active)) queueDraw();
+    if (!failed && (archArtStudy?.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
   };
   const queueDraw = () => {
     if (frame || frameQueued || disposed || failed) return;
@@ -600,7 +610,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.selectionRing.visible = !!token.selected;
     instance.selectionRing.scale.setScalar(token.definition.baseDiameter);
     instance.selectionRing.material.opacity = token.hidden ? 0.45 : 1;
-    instance.outlineMaterial.visible = !!token.outline;
+    instance.outlineMaterial.visible = !!token.outline && !token.invisible;
     instance.outlineMaterial.color.set(token.outline ?? "#000000");
     instance.outlineMaterial.opacity = token.hidden ? 0.45 : 1;
     instance.outlineViewport.value.set(Math.max(1, props.width), Math.max(1, props.height));
@@ -610,9 +620,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (token.tint && !material.userData.pewterBase) material.color.multiply(new Color(token.tint));
         if (token.shade && !material.userData.pewterBase) material.color.multiply(new Color(...token.shade));
       }
-      const transparent = token.hidden || instance.originalTransparent[index];
+      const transparent = !!(token.hidden || token.invisible || instance.originalTransparent[index]);
       if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
-      material.opacity = instance.originalOpacity[index] * (token.hidden ? 0.45 : 1);
+      const targetOpacity=token.invisible?.28:token.hidden?.45:1;
+      const previous=opacityFades.get(token.id);
+      if(!previous)opacityFades.set(token.id,{start:performance.now(),from:targetOpacity,to:targetOpacity,value:targetOpacity});
+      else if(previous.to!==targetOpacity)opacityFades.set(token.id,{start:performance.now(),from:previous.value,to:targetOpacity,value:previous.value});
+      material.opacity = instance.originalOpacity[index]*opacityFades.get(token.id)!.value;
     });
     instance.mirrors.update(token.mirrorImages??0,camera,!!token.sharedSightOnly,token.hidden);
     {
@@ -913,6 +927,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   sync(initial);
   return {
     sync,
+    headPosition(id){
+      const instance=instances.get(id);
+      if(disposed||!instance?.root.visible)return undefined;
+      // The existing mark anchor is measured above the model, including its base scale.
+      const point=instance.root.localToWorld(instance.hunterMark.position.clone()).project(camera);
+      return {x:(point.x+1)*props.width/2,y:(1-point.y)*props.height/2};
+    },
     setFootprints(marks){if(disposed)return;footprints.sync(marks);host.dataset.footprintCount=String(marks.length);invalidate();},
     spellCast(tokenIds) {
       if (disposed || document.hidden) return;
@@ -983,6 +1004,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     return () => { socket?.off('fx:spellCast', cast); };
   }, [socket]);
   useImperativeHandle(ref, () => ({
+    headPosition: (id) => engine.current?.headPosition(id),
     setFootprints: (marks) => engine.current?.setFootprints(marks),
     spellCast: (tokenIds) => engine.current?.spellCast(tokenIds),
     setView: (view) => engine.current?.setView(view),
@@ -1009,6 +1031,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
   useEffect(() => { engine.current?.sync(props); }, [props]);
   return <div ref={host} className="miniature-layer" aria-hidden="true"
     data-testid="miniature-layer" data-miniature-count={state.ids.length}
+    data-invisible-miniature-count={state.ids.filter(id=>props.tokens.find(t=>t.id===id)?.invisible).length}
     data-personal-miniature-count={state.ids.filter(id=>!props.tokens.find(t=>t.id===id)?.sharedSightOnly).length}
     data-miniature-ids={state.ids.join(',')} data-miniature-status={state.status}
     data-tilt-degrees={props.tiltDegrees} />;

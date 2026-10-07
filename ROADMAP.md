@@ -4,7 +4,181 @@ Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
 
+## Dice comparison - October 2026
+
+- [x] Confirmed Chromatic Orb matching faces link on the settled tray, highlight
+  their result boxes by group, and announce Orb can leap before targeting.
+  Trigger metadata is reusable and skips automatically with the roll.
+
+- [x] High damage-die results show HIGH as well as their proportional glow,
+  including 7 on a d8; maximum results retain MAX.
+
+- [x] Chromatic Orb hides its matching-dice target prompt throughout live rolls,
+  including the interval before the previous cast snapshot is committed.
+
+- [x] Chromatic Orb matching links begin on the first authoritative settled frame,
+  during number flights and the existing reading hold, before final damage resolution.
+- [x] Sorcerous Burst keeps all base, critical and recursive bonus dice in the
+  original live physics tray. Each triggering 8 links with an arrow to the exact
+  bonus die it creates; settled faces and result boxes persist throughout the chain.
+  Multiple bursts from one throw toss their bonus dice together as a single wave,
+  retaining individual parent links and the shared casting-modifier cap.
+  Triggering faces flash with a purple bloom before bonus dice launch, retain a soft
+  source glow, and form tethers only as the new dice enter the tray.
+  Future bonus materials are prepared with the first tray, without a mid-chain load.
+- [x] Magic Missile separates its d4 face from the fixed +1 spell bonus,
+  labeled in both the tray count-up and roll log; no CHA damage is added.
+
+- [x] Shared damage aligns across victims, including a weapon hit's AoE rider.
+  Separately clicked projectiles retain global click order and accumulate one
+  running total per creature for that cast, including late-arriving darts.
+
+- [x] Floating numbers face the screen at every map tilt and rotation, with
+  upward screen movement and a faster 640 ms cadence between components.
+  One red total hovers above the measured 3D figure and counts up as each colored
+  damage component arrives; AoE victims show their colored splash component too.
+
+- [x] Floating damage components rise one at a time into the longer-held red
+  running total. Repeated hits queue per creature;
+  nearby AoE victims keep independent feedback. Attack outcomes stamp large,
+  outlined text across the dice tray without a separate result panel.
+
+- [x] Weapon damage shows DEX/STR on the weapon's own settled dice before
+  Hunter's Mark or other riders roll; the mark d6 never receives the bow's
+  modifier display. Hail of Thorns then rolls thorns and grouped saves. A rollback-safe
+  presentation checkpoint keeps HP, concentration and slot use atomic; the
+  committed bow entry no longer reopens its calculation after the saves.
+
+- [x] Combined weapon/rider results retain their matching completed dice throw,
+  rather than a later area-spell burst. Returning to an earlier settled tray
+  for its calculation fills its result boxes without repeating number flights.
+
+- [x] A red floating total sums simultaneous damage to each creature (including
+  bow, Hunter's Mark and Hail of Thorns). Smaller colored numbers show the
+  components only for mixed hits; totals stay compact above their own tokens.
+
+- [x] Floating HP feedback separates defended damage components by type and
+  source: physical bow damage, violet Hunter's Mark force damage, and green
+  Hail of Thorns piercing damage get distinct colors with small token-local
+  offsets and the original upward float, without captions or map-wide spacing.
+  Numbers hold at full opacity for 2.4 seconds and fade over 1.6
+  seconds. Combined hits still apply HP/death/concentration once; mixed save
+  spells preserve per-type resistance and save reductions in their breakdown.
+
+- [x] Cure Wounds, Hail of Thorns and other map impacts wait for the live tray
+  and modifier/result sequences, then paint the compact card before playing
+  healing/damage effects. Healing audio and effect lifetimes start on display.
+  Dice materials, critical variants and tray textures preload in the background
+  for the claimed character and DM, with a bounded resident shader cache.
+  Cold dice loading now has a visible loading state and a 15-second readiness
+  grace rather than launching after 2.5 seconds; disconnects release the wait.
+  Settled dice continue material animations during number flights and remain
+  visible for two seconds after the final result fills; the server shares that
+  presentation timing. Browser regressions cover both spells, skipping, delayed
+  readiness, preload reuse and animation/reading time after settling. Click/tap
+  the tray, Skip, or Escape at any time to hide it; an owner skip bypasses the
+  remaining reading hold while server physics/outcomes continue unchanged.
+
+
+- [x] d10/d20 are 12% larger in both rendering and physical contacts; launch
+  spacing accommodates the larger dice. Tray key lighting moves to the side
+  for readable top faces. Varis mote is veiled by foreground resin/inclusions.
+
+- [x] Varis mote is now one larger optical image across facets, with broad
+  motion through the die, nearby resin illumination and soft light on the tray.
+
+- [x] Varis resin contains a small green-gold magical mote drifting inside
+  each die, with independent phases and refracted, depth-attenuated glow.
+
+- [x] Druk gold numerals/edge trim and DM gold numerals use a polished
+  conductor finish: warm gold reflections, smooth softbox highlights and
+  narrow glints with readable shadow values. Other dice materials stay intact.
+
+- [x] Varis now pairs the original forest-resin material with the woodland
+  wake as the development default. The roller exposes this combination
+  explicitly alongside moss agate, enchanted amber and the old vine trail.
+
+- [x] Added Varis moss-agate/woodland wake and optional enchanted amber
+  comparisons. Enchanted amber adds warm internal pockets,
+  suspended fern silhouettes and wood fibres beneath the green resin surface.
+  Both use the same wake, wood numerals and bronze trim; model and roller
+  selectors retain moss agate and the original resin/vine for comparison.
+
+- [x] Optional Varis moss-agate material and windblown woodland wake preview:
+  internal moss inclusions/mineral veins, existing wood/bronze inlays, and
+  short tumbling leaves, seeds and motes using bounded shared meshes. Roller
+  and rotatable model toggles compare against the current vine/resin style;
+  gameplay appearance defaults and authoritative dice physics stay unchanged.
+
+- [x] Varis thorns are short natural pointed prickles placed independently
+  between leaf stems along the main vine, replacing the hooked clusters.
+  Their placement follows the actual path and shares the vine fade timing.
+
+- [x] Varis vine has broad hooked thorns projecting from the main root and
+  smaller offshoot barbs, with woody bases tapering to pale sharp tips. Their
+  overhead silhouettes remain visible and fade with the surrounding vine.
+
+- [x] Varis foliage uses sparse short offshoots with smaller paired leaves and
+  thorns, anchored to the main root samples. Root, foliage and sparks share a
+  1.8-second lifetime and fade curve; roots retain their width while fading.
+
+- [x] Varis main rolling trail is a rounded, bark-textured woody vine with
+  irregular thickness and restrained green light inside seams, replacing the
+  additive bright green ribbon. Shared materials and fixed geometry buffers
+  preserve bounded trail updates and fading for large dice pools.
+
+- [x] Dice appearance revision: optional denser DM resin and background
+  comparison, 2.5x faster Vanec lightning propagation, and bounded instanced
+  folded leaves/curved vine stems/3D thorns sprouting along Varis roll paths.
+  Botanical branches fade with the trail; gameplay defaults stay unchanged.
+
+
+- [x] Preview-only subtle DM volume light, Vanec lightning leader propagation
+  with following branches and return stroke, and depth-tested emerald/gold
+  Varis rolling trails. Rotatable viewer and live-physics comparison expose the
+  effects without changing gameplay defaults.
+
+
+- [x] Independent rotatable 3D viewers for Druk, Varis, Vanec and the DM,
+  with all standard die types and percentile pairs. Preview-only Vanec
+  lightning uses coherent flickering filaments inside the glass volume and an
+  on/off comparison; current gameplay lightning stays unchanged. Explicit
+  dark numeral backings keep DM rear inlays subdued from every camera angle.
+
+
+- [x] Standalone party/DM comparison uses the actual app materials and live
+  physics in one shared tray: full 32-die sets plus four simultaneous examples
+  of each standard die type and percentile pair. Labels follow each die.
+  Per-die themes are optional; normal gameplay tray rendering is unchanged.
+
 ## Spellbook combat compatibility - October 2026
+
+- [x] Dispel Magic: creature/object/Spike Growth area chooser, authoritative sight
+  and 120-foot range, actual casting-level provenance, automatic lower-level
+  removal and live spellcasting checks for higher levels. Uses linked cleanup
+  for buffs, terrain, marks and supported summons; preserves other recipients
+  and spells elsewhere. Legacy unknown levels and custom magic stay manual.
+- [x] Distinct advanced-spell effects: eased Invisibility shimmer, merged 3D
+  brambles, Counterspell collapse on the interrupted caster and cyan-white
+  Dispel Magic wave. Fix darkvision-ground occlusion without bypassing figure
+  depth; retain reduced-motion and local geometry-based lighting.
+
+- [x] Invisibility: willing touch-target chooser, upcast target count, linked
+  concentration and per-recipient ending on attacks, damage and casting. Party
+  and DM see translucent miniatures; hostile invisible creatures are removed
+  from player snapshots unless an active sense detects them.
+- [x] Spike Growth: persistent 20-foot-radius ground area, difficult-terrain
+  movement preview, automatic 2d4 Piercing per five feet traveled inside it,
+  accumulated short moves and overlapping-area protection. Teleports and
+  rejected wall crossings do not trigger travel damage; concentration cleanup
+  removes the area. Discovery and movement budgets remain table-managed.
+- [x] Counterspell: 2024 reaction window for visible enemy casters within 60 feet,
+  available-slot/reaction checks, labeled caster CON save, slot preservation for
+  interrupted casts and original-owner continuation on pass/timeout. Includes
+  area spells, summons and post-hit spell buttons. Nested Counterspells and
+  unusual imperceptible casting remain manual. Disposable server and browser
+  regressions cover all three workflows; see
+  [`docs/ADVANCED_SPELLS_2026-10-06.md`](docs/ADVANCED_SPELLS_2026-10-06.md).
 
 - [x] Successful Shield reactions show a blue `Blocked!` popup for four seconds,
   with reduced-motion support. Passing, natural 20s and hits that still meet the
@@ -2520,8 +2694,52 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Purple DM/NPC dice use midnight purple semi-transparent resin with subtle moving violet energy inside, cloudy depth and reflective gold numeral inlays without outlines. The central glow was removed for numeral readability. A standalone mobile review viewer shares the actual meshes and shader, with drag rotation, zoom and d4–d20 selection. DM tray artwork preloads alongside the party trays; browser regression measures startup through the actual DM controls. Player class materials remain independent.
 - [x] Runtime profiles recognize unchanged saved entries; explicit custom/manual mechanics remain table-managed. Command and Alter Self are unchanged.
 
-## Approved dice materials - October 2026
+- [x] DM purple resin faces transmit substantially more tray detail, with thicker reflective grazing edges and opaque gold numerals. Player dice and roll physics are unchanged. Daylight Spike Growth review captures its persistent ground thorns from 45 degrees and overhead.
 
-- [x] Druk smooth obsidian and gold with understated recessed molten fissures; Vanec dark-red glass and silver with fast, independently timed lightning; Varis forest resin with wood/bronze inlays and branching leaf/thorn rolling trails; DM purple refracting resin with flowing black ink and soft interior light.
-- [x] All approved effects are gameplay defaults, with critical dice keeping their gold treatment. DM modifier/result screens keep the same 3D material and readable gold numerals.
-- [x] Character dice roller at `/dice-comparison.html`: one selected character/DM, custom counts, individual results and total, own tray artwork, up to 40 physical dice or 20 percentile pairs. Rotatable models at `/dice-models.html` include effect comparisons.
+- [x] Purple DM dice use a closed physically transmissive resin body: tray refraction, purple volume absorption, glossy environment reflections and separate opaque gold numeral inlays. Spike Growth has denser/thicker merged brambles with 48 softly drifting green motes rendered in two instanced meshes; reduced motion freezes drift and cleanup releases instance buffers.
+
+- [x] DM resin readability: lighter surface filtering, purple absorption through depth, restrained face reflections, and double-sided opaque gold cutouts included in the refraction pass. Rear inlays and tray texture are visible through the body; soft contact shadows replace unsupported opaque resin shadows. Recorded creature d20 checks and general 2d6 rolls in the real tray.
+
+- [x] DM resin clouds and readable inlays: inward-facing numeral backs are dark and included in refraction; bright gold fronts draw after transmission to avoid refracted bright duplicates. Eight bounded interior samples create slowly drifting dark violet clouds inside the physical resin body, without extra light sources or a central glow.
+
+- [x] Modifier/result screens use the roller's 3D die material for DM rolls as well as players, removing the legacy DM-only flat polygon. Purple resin clouds remain animated at a bounded 10 fps while settled; reduced motion stays static. Browser regression verifies material continuity during the labeled modifier step for creature checks and general dice rolls.
+
+- [x] DM modifier/result dice have a larger, consistently brighter gold result engraving, an exactly front-facing result pose, and subdued neighboring numerals. This applies only to standalone settled result rendering; the approved tray labels, lighting, pose and resin settings remain unchanged.
+
+- [x] Keep revealed fog option: saved per map, retains full-color explored terrain and frozen last-seen figures, with heavy-darkness range and explicit DM cover preserved. Retained figures cannot be targeted; unseen movement and stat changes are not disclosed.
+
+- [x] Vanec lightning preview accelerated again: leaders and return strokes travel twice as fast as the previous preview, with a new discharge every 0.6 seconds.
+
+- [x] Vanec lightning uses an independent randomized clock per die: roughly 1.4?3.6 seconds between discharges, staggered initial flashes, and unchanged fast leader/return-stroke travel. Background resumes never queue catch-up flashes.
+
+- [x] Druk molten cracks refined to understated deep-red heat inside narrow recessed splits: irregular fractured edges, chipped shoulders, view-dependent cavity reflections, and preserved smooth obsidian rather than bright orange outlines.
+
+- [x] Druk molten preview glow lifted modestly inside the fissures, with restrained warm spill on chipped shoulders and unchanged obsidian/gold lighting.
+
+- [x] DM resin preview: restored glossy transmission, slowly advected black ink curls inside the volume and restrained backlighting; comparison toggle preserves the earlier material and gold inlay legibility.
+
+- [x] Approved character/DM dice effects enabled in gameplay and modifier screens. Dice review roller selects one character at a time, with custom counts, individual results and totals; caps at 40 physical dice (20 percentile pairs).
+
+- [x] Frictionless tray wall lining prevents d10 wall-spinning hangs; live server and playback physics agree, with floor friction and wall restitution preserved. Known wall-contact seeds covered by regression test.
+
+- [x] DM dice gold inlays use a satin finish with compressed reflection peaks and steadier contrast, preserving glossy purple resin and flowing interior ink.
+
+- [x] Underlined every 6 digit on 3D dice, including 16 and percentile 60, using each die's existing number inlay material in trays and result screens.
+
+- [x] Enlarged dice numerals across every material: single digits, two-digit/percentile faces, tetrahedral corner labels and settled result dice retain six underlines.
+
+- [x] Brightened Varis's copper-bronze numeral rims with steadier contrast between reflections, preserving dark wood inlays and the existing die-edge finish.
+
+- [x] Roomier tray proportions for pools of up to ten physical dice (about 22% more rolling width per die), smoothly returning to the existing large-pool layout by twenty; live and playback physics share the same sizing.
+
+- [x] Fixed physical dice size and expanding trays: a 16 mm d6 reference with a roughly 20 x 13 cm minimum bed; pool growth expands collision bounds and the rendered tray together, with camera/shadow framing and stereo impact positions following its footprint. Older frames retain their recorded layout.
+
+- [x] Increased the fixed dice reference to 17.6 mm (10% larger), keeping the tray growth curve independent of die size and preserving consistent physical units and density-based mass.
+
+- [x] Varis ribbons, sparks, leaves and thorns follow the full expanding dice tray rather than the original fixed bounds; Druk d6 gold bands are thinner while retaining rounded obsidian shoulders and the existing collision shape.
+
+- [x] Large dice pools release as one spread-out handful with separated shallow rows, tray-aware forward travel and gravity-derived entry clearance; live and playback worlds share the launch, avoiding vertical entry piles while preserving small throws and natural contacts.
+
+- [x] Varis dice trails use textured twisting wood, tapered hooked thorns, curled serrated foliage and fine pulsing magical veins with a restrained ground glow; shared instanced geometry/materials keep detailed brambles reusable across large rolls.
+
+- [x] Live roll modifiers now count into the final total inside the original dice tray, retaining the actual settled dice and animated materials instead of opening a separate modifier screen. Skill checks, attacks, healing and damage preserve their server-authored labels, outcomes, skip controls and hidden DM bonuses. Grouped saves keep their existing per-creature results, and unmodified damage goes directly from the tray to the compact map-impact summary.

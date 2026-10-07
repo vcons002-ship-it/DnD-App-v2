@@ -1,4 +1,15 @@
 // Only populated during a synchronous, rollback-safe command pass.
+import type {RollReveal} from '../../shared/types.js';
+let calculationPresenter:((key:string,reveal:RollReveal)=>boolean)|undefined;
+export function withLiveCalculationPresenter<T>(present:(key:string,reveal:RollReveal)=>boolean,run:()=>T):T {
+ const previous=calculationPresenter;calculationPresenter=present;
+ try{return run();}finally{calculationPresenter=previous;}
+}
+/** Suspend only the presentation; the surrounding command still commits once. */
+export function presentLiveCalculation(key:string,reveal:RollReveal){
+ if(!active||!calculationPresenter)return false;
+ return calculationPresenter(key,reveal);
+}
 export type RollFacing={sessionId:string;attackerTokenId:string;targetTokenId:string};
 let facing:RollFacing[]=[];
 export const stagedRollFacing=()=>facing.slice();

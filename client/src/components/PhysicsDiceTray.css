@@ -61,7 +61,7 @@
 
 /* Clear the battlefield exactly when the held impact and HP floaters start. */
 .roll-reveal-backdrop.is-impact{align-items:flex-start;padding-top:92px;}
-.roll-reveal-backdrop.is-impact .roll-reveal{width:min(460px,calc(100vw - 28px));min-width:0;max-height:180px;padding:10px 18px;gap:3px;overflow:hidden;animation:none;}
+.roll-reveal-backdrop.is-impact .roll-reveal{box-sizing:border-box;width:min(460px,calc(100vw - 28px));min-width:0;max-height:180px;padding:10px 18px;gap:3px;overflow:hidden;animation:none;}
 .roll-reveal-backdrop.is-impact .roll-reveal-tohit,
 .roll-reveal-backdrop.is-impact .roll-reveal-damage,
 .roll-reveal-backdrop.is-impact .critical-flourish,
@@ -117,3 +117,68 @@
 .tray-save-equation {font-size:17px;font-weight:800;color:#fff1cf;min-height:1.2em;}
 @keyframes save-bonus-add {from{opacity:0;transform:translateY(-12px) scale(1.3);}to{opacity:1;transform:none;}}
 @media(prefers-reduced-motion:reduce){.tray-save-outcome em{animation:none;}}
+
+.live-dice-footer{display:flex;align-items:center;justify-content:center;gap:18px;}
+.live-dice-footer button{font-size:12px;padding:3px 10px;}
+
+/* One continuous tray: settled dice remain in place while labeled modifiers
+   arrive below their result boxes. Only the finished map impact collapses it. */
+.tray-roll-result{width:100%;}
+.tray-roll-result .roll-reveal-tohit,.tray-roll-result .roll-reveal-damage{margin:0;}
+.tray-roll-result .roll-reveal-outcome{margin:6px 0;font-size:clamp(24px,4vw,38px);}
+[data-dice-presentation]:not(.is-impact)>.roll-reveal{width:min(760px,calc(100vw - 28px),max(300px,calc((90dvh - 360px)*1.49)));}
+.roll-reveal-backdrop.is-impact .physics-dice-tray,
+.roll-reveal-backdrop.is-impact .live-dice-footer,
+.roll-reveal-backdrop.is-impact .roll-reveal-title{display:none;}
+
+/* A result lands across the tray itself, with no extra card behind the text. */
+.roll-reveal:has(.physics-dice-tray){position:relative;}
+.tray-roll-result>div{box-shadow:none;background:transparent;}
+.roll-reveal:has(.physics-dice-tray) .roll-reveal-outcome{
+ position:absolute;z-index:8;left:0;right:0;top:43%;margin:0;padding:0 10px;
+ text-align:center;font:900 clamp(32px,7vw,88px)/1.08 Georgia,serif;letter-spacing:.035em;
+ pointer-events:none;background:none;border:0;box-shadow:none;
+ -webkit-text-stroke:1.5px #111318;paint-order:stroke fill;
+ text-shadow:0 3px 0 #0b0e14,2px 0 3px #080b10,-2px 0 3px #080b10,0 0 22px currentColor;
+ transform:translateY(-50%);animation:tray-outcome-pop .65s cubic-bezier(.2,.8,.25,1) both;
+}
+@keyframes tray-outcome-pop{
+ 0%{opacity:0;transform:translateY(-50%) scale(1.4) rotate(-4deg);}
+ 38%{opacity:1;transform:translateY(-50%) scale(.96) rotate(1deg);}
+ 70%,100%{opacity:1;transform:translateY(-50%) scale(1) rotate(0);}
+}
+.roll-reveal-backdrop.is-impact .roll-reveal-outcome{display:none;}
+@media(prefers-reduced-motion:reduce){.roll-reveal:has(.physics-dice-tray) .roll-reveal-outcome{animation:none;}}
+
+/* Confirmed dice triggers connect the exact settled faces, not the result boxes. */
+.tray-trigger-links{visibility:hidden;position:absolute;top:0;left:0;width:100%;height:auto;aspect-ratio:15.2/10.2;pointer-events:none;z-index:4;overflow:visible;}
+.tray-trigger-links path{fill:none;stroke:currentColor;stroke-linecap:round;}
+.tray-trigger-aura{stroke-width:12;opacity:.2;}
+.tray-trigger-core{stroke-width:2.5;opacity:.9;}
+.tray-trigger-spark{stroke-width:5;stroke-dasharray:4 60;animation:tray-trigger-flow 1s linear infinite;}
+.tray-trigger-links circle{fill:none;stroke:currentColor;stroke-width:3;stroke-dasharray:25 8;animation:tray-trigger-ring 1.2s ease-in-out infinite alternate;}
+.tray-die-result[data-trigger="matched"]{border-color:var(--trigger-color)!important;box-shadow:0 0 12px var(--trigger-color),inset 0 0 7px #ffffff20!important;}
+.tray-trigger-result{padding:8px 12px;text-align:center;color:#b9f9ff;text-shadow:0 1px 3px #000,0 0 12px #44c9ff55;animation:tray-trigger-arrival .4s ease-out;}
+.tray-trigger-result strong{display:block;font:900 clamp(22px,4vw,32px)/1.2 Georgia,serif;}
+.tray-trigger-result span{display:block;font-size:13px;}
+.tray-trigger-result em{display:inline-block;margin:4px 6px;font-style:normal;font-weight:700;}
+@keyframes tray-trigger-flow{to{stroke-dashoffset:-128;}}
+@keyframes tray-trigger-ring{from{opacity:.6;stroke-dashoffset:0;}to{opacity:1;stroke-dashoffset:16;}}
+@keyframes tray-trigger-arrival{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
+@media(prefers-reduced-motion:reduce){.tray-trigger-links *,.tray-trigger-result{animation:none!important;}}
+.tray-burst-progress{position:absolute;top:12px;left:20px;z-index:6;padding:6px 10px;border:1px solid #c291e7;border-radius:6px;background:#160d27e8;color:#ebd6ff;font:600 14px/1.2 system-ui;pointer-events:none;}
+.tray-burst-die{animation:tray-burst-pulse 1s ease-in-out infinite alternate;}
+.tray-burst-die path{fill:#301346dd;stroke-width:3;}
+.tray-burst-die text{fill:#f0d9ff;font:900 26px system-ui;stroke:none;}
+[data-dice-trigger="burst"]{color:#eac6ff;}
+[data-dice-trigger="burst-limit"]{color:#d2bddf;}
+@keyframes tray-burst-pulse{from{opacity:.6;}to{opacity:1;}}
+
+/* Burst charges the actual triggering face before its child enters the tray.
+   The same keyed source retains a soft glow while the moving tether forms. */
+.tray-trigger-links .tray-burst-bloom{animation:tray-burst-face-flash 900ms ease-out both;}
+.tray-trigger-links .tray-burst-shockwave{stroke:#e6aaff;stroke-width:3;stroke-dasharray:none;transform-box:fill-box;transform-origin:center;animation:tray-burst-shockwave 750ms ease-out both;}
+.tray-trigger-links .tray-burst-shockwave.is-second{animation-delay:120ms;}
+.tray-trigger-links [data-burst-child]{transition:opacity 120ms ease-out;}
+@keyframes tray-burst-face-flash{0%{opacity:0;transform:scale(.35);}18%{opacity:1;transform:scale(1.1);}45%{opacity:.8;transform:scale(1);}100%{opacity:.18;transform:scale(.85);}}
+@keyframes tray-burst-shockwave{0%{opacity:0;transform:scale(.45);}15%{opacity:1;}100%{opacity:0;transform:scale(2.3);}}

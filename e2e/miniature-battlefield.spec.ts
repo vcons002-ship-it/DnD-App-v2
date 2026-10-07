@@ -562,6 +562,7 @@ async function tokenView(page: Page, id: string) {
       healthY: node.findOne('.token-health')?.y(),
       healthBars: node.find('Rect').filter((n: any) => n.height() === 6).map((n: any) => ({ width: n.width(), fill: n.fill() })),
       visibleBodyImages: node.find('Image').filter((n: any) => n.isVisible()).length,
+      mapX:node.x(),mapY:node.y(),
       sharedSightOnly: node.getLayer().name()==='shared-sight-layer',
       bodyVisible: node.findOne('.token-body')?.isVisible(),
       miniatureReady: node.getAttr('miniatureReady'),
@@ -3394,4 +3395,65 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
  const vineTop=vineSources.at(-1).positions[0][1];
  expect(vineTop-vineSources[0].positions[0][1],'Vine light rises along the growing vine, scaled to this creature').toBeGreaterThan(vineTop*.25);
  expect(errors).toEqual([]);
+});
+
+
+test('Keep revealed fog retains color and last-seen figures across all lighting levels',async({page,request,browser},info)=>{
+ test.setTimeout(150000);await page.setViewportSize({width:1500,height:1000});
+ const art=await sharp({create:{width:1200,height:800,channels:3,background:'#b6caaa'}}).png().toBuffer();
+ const f=await fixture(page,request,art),[druk,varis,vanec]=f.ready.tokens;
+ f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:120,locked:false});
+ for(const [i,t] of [druk,varis,vanec].entries())f.socket.emit('token:move',{tokenId:t.id,x:200,y:200+i*200});
+ f.socket.emit('monster:create',{name:'Remembered Goblin',maxHp:7,modelType:'goblin'});
+ const template=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Remembered Goblin')!;
+ f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x:750,y:200});
+ const enemy=(await f.snapshot()).tokens.find(t=>t.kind==='monster')!;
+ f.socket.emit('character:update',{characterId:druk.refId,weapons:[{name:'Longbow',kind:'ranged',damage:'1d8',attackBonus:5}]});
+ f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'barrier',kind:'rectangle',ax:500,ay:-10000,bx:520,by:10000,door:true,open:false}});
+ await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+ await page.getByTitle('Fog of war',{exact:true}).click();await page.getByLabel('Revealed areas',{exact:true}).selectOption('revealed');
+ await expect.poll(async()=>(await f.snapshot()).map!.explorationMode).toBe('revealed');
+ await page.screenshot({path:info.outputPath('keep-revealed-setting.png')});
+ const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}}),player=await context.newPage(),errors:string[]=[];
+ player.on('pageerror',e=>errors.push(e.message));
+ try{
+  await enter(player,f.code,'Druk',false);await expect.poll(async()=>(await tokenView(player,druk.id))?.miniatureReady,{timeout:60000}).toBe(true);
+  expect(await tokenView(player,enemy.id)).toBeNull();
+  f.socket.emit('map:setDoor',{mapId:f.mapId,doorId:'barrier',open:true});
+  f.socket.emit('token:move',{tokenId:druk.id,x:650,y:200});
+  await expect.poll(async()=>(await tokenView(player,enemy.id))?.miniatureReady,{timeout:60000}).toBe(true);
+  f.socket.emit('token:move',{tokenId:druk.id,x:200,y:200});
+  await expect.poll(async()=>(await tokenView(player,druk.id))?.mapX).toBe(200);
+  f.socket.emit('map:setDoor',{mapId:f.mapId,doorId:'barrier',open:false});
+  await expect.poll(async()=>(await tokenView(player,enemy.id))?.sharedSightOnly).toBe(true);
+  f.socket.emit('token:move',{tokenId:enemy.id,x:900,y:200});
+  for(const mode of ['day','regular','heavy']){
+   f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:mode!=='day',lighting:mode==='day'?'day':'dungeon',lightLevel:.2,heavyDarkness:mode==='heavy',mist:false,shadows:false,lights:[]}});
+   await expect(player.getByTestId('player-vision')).toHaveAttribute('data-heavy',String(mode==='heavy'));
+   await expect(player.getByTestId('explored-terrain-grade')).toHaveCSS('filter','none');
+   await expect(player.getByTestId('shared-sight-miniatures')).toHaveCSS('filter','none');
+   await expect.poll(async()=>(await tokenView(player,enemy.id))?.mapX).toBe(750);
+   await player.waitForTimeout(700);
+   await player.screenshot({path:info.outputPath('keep-revealed-'+mode+'.png')});
+   const view=(await tokenView(player,druk.id))!,point=offsetPoint(view,450,100),shot=await player.screenshot();
+   const patch=await sharp(shot).extract({left:Math.round(point.x)-4,top:Math.round(point.y)-4,width:8,height:8}).toBuffer();
+   const {channels}=await sharp(patch).stats();const color=channels.slice(0,3).map(c=>c.mean);
+   expect(Math.max(...color)-Math.min(...color)).toBeGreaterThan(15);expect(Math.max(...color)).toBeGreaterThan(100);
+   await player.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await player.waitForTimeout(650);
+   await expect.poll(async()=>(await tokenView(player,enemy.id))?.miniatureReady).toBe(true);
+   await player.screenshot({path:info.outputPath('keep-revealed-'+mode+'-tilted.png')});
+   await player.getByRole('button',{name:'Flat battlefield view',exact:true}).click();await player.waitForTimeout(650);
+   const targets=await player.getByLabel('Attack target',{exact:true}).locator('option').allTextContents();expect(targets.join(' ')).not.toContain('Remembered Goblin');
+  }
+  f.socket.emit('token:move',{tokenId:druk.id,x:50,y:200});
+  await expect.poll(async()=>tokenView(player,enemy.id)).toBeNull();
+  await player.waitForTimeout(700);
+  const limitedView=(await tokenView(player,druk.id))!,beyond=offsetPoint(limitedView,650,100),limitedShot=await player.screenshot();
+  const limitedPatch=await sharp(limitedShot).extract({left:Math.round(beyond.x)-3,top:Math.round(beyond.y)-3,width:6,height:6}).toBuffer();
+  const limitedStats=await sharp(limitedPatch).stats();
+  expect(Math.max(...limitedStats.channels.slice(0,3).map(c=>c.mean))).toBeLessThan(10);
+  f.socket.emit('fog:setExploration',{mapId:f.mapId,mode:'remembered'});
+  await expect(player.getByTestId('explored-terrain-grade')).not.toHaveCSS('filter','none');
+  expect(errors).toEqual([]);
+ }finally{await context.close();}
 });

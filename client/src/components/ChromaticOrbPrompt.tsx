@@ -10,6 +10,7 @@ import './chromatic-orb.css';
 export function ChromaticOrbPrompt() {
   const snapshot = useStore(s => s.snapshot);
   const rollFx = useStore(s => s.rollFx);
+  const liveDice = useStore(s => s.liveDice);
   const targeting = useStore(s => s.orbTarget);
   const setTargeting = useStore(s => s.setOrbTarget);
   const leap = useStore(s => s.combatOrbLeap);
@@ -18,7 +19,8 @@ export function ChromaticOrbPrompt() {
   const entry = [...(snapshot?.rollLog ?? [])].reverse().find(r => r.apply?.orb?.available &&
     (!r.pending || r.pending.done) && (snapshot?.role !== 'dm' || r.roller === 'DM'));
   const orb = entry?.apply?.orb;
-  const ready = !!entry && !rollFx && snapshot?.map?.id === orb?.origin.mapId;
+  // The old cast remains available in the snapshot until live physics commits.
+  const ready = !!entry && !rollFx && !liveDice && snapshot?.map?.id === orb?.origin.mapId;
   useEffect(() => {
     if (!ready || !entry || heard.current === entry.id) return;
     heard.current = entry.id;

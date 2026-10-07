@@ -314,7 +314,16 @@ const importSessionRows = db.transaction(
     // 7. Per-map extras + the session-wide logs.
     for(const explored of data.exploredTerrain??[]){
       const map=newRef(explored.map_id,mapIds);
-      if(map)insertRow('explored_terrain',explored,{map_id:map});
+      if(map){
+        let memory:unknown[]=[];
+        try{const value=JSON.parse(String(explored.token_memory??'[]'));if(Array.isArray(value))memory=value;}catch{}
+        const remapped=memory.flatMap((item:any)=>{
+          const t=item?.token,id=newRef(t?.id,tokIds),ref=newRef(t?.refId,t?.kind==='pc'?charIds:monIds);
+          if(!id||!ref||t.mapId!==explored.map_id)return [];
+          return [{token:{...t,id,mapId:map,refId:ref},...(item.monster?{monster:{...item.monster,id:ref}}:{})}];
+        });
+        insertRow('explored_terrain',explored,{map_id:map,token_memory:JSON.stringify(remapped)});
+      }
     }
     for (const r of data.measurements)
       insertRow('measurements', r, {

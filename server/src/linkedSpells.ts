@@ -23,7 +23,7 @@ export function spellCondition(ctx:LinkedSpellContext,kind:TokenKind,id:string,l
   // A recast replaces this caster's same effect, without removing other spells.
   for(const c of entity(kind,id)?.conditions??[])if(c.combatEffect?.spell===ctx.spell&&c.combatEffect.casterId===ctx.casterId&&!c.isConcentration)clearCondition(kind,id,c.id);
   const c:Condition={id:newId(),label,aura:kind===ctx.casterKind&&id===ctx.casterId?'green':'red',isConcentration:false,
-    combatEffect:{casterKind:ctx.casterKind,casterId:ctx.casterId,spell:ctx.spell,castId:newId(),dc:ctx.dc,
+    combatEffect:{casterKind:ctx.casterKind,casterId:ctx.casterId,spell:ctx.spell,castLevel:ctx.castLevel,abilityId:ctx.abilityId,castId:newId(),dc:ctx.dc,
       expiresAt:Date.now()+60000,...(round?{expiresRound:round+10}:{}),...extra}};
   setCondition(kind,id,c);return c;
 }
@@ -34,7 +34,7 @@ export function startSpellUse(ctx:LinkedSpellContext,a:SheetAbility,targetTokenI
   const caster=entity(ctx.casterKind,ctx.casterId)!;
   const conc=caster.conditions.find(c=>c.isConcentration);
   const rounds=p.rounds??10,round=getSessionById(caster.sessionId)?.combatRound??0;
-  if(p.concentration&&conc)setCondition(ctx.casterKind,ctx.casterId,{...conc,combatEffect:{casterKind:ctx.casterKind,casterId:ctx.casterId,spell:a.name,castId:conc.id,expiresAt:Date.now()+rounds*6000,...(round?{expiresRound:round+rounds}:{})}});
+  if(p.concentration&&conc)setCondition(ctx.casterKind,ctx.casterId,{...conc,combatEffect:{casterKind:ctx.casterKind,casterId:ctx.casterId,spell:a.name,castLevel:ctx.castLevel,castId:conc.id,expiresAt:Date.now()+rounds*6000,...(round?{expiresRound:round+rounds}:{})}});
   return spellCondition(ctx,ctx.casterKind,ctx.casterId,a.name,{abilityId:a.id,castLevel:ctx.castLevel,targetTokenId,
     spellAction:p.action,concentration:p.concentration,castId:p.concentration?conc!.id:newId(),
     expiresAt:Date.now()+rounds*6000,...(round?{expiresRound:round+rounds}:{}),lastUseTurn:turnKey(caster.sessionId)});
@@ -52,7 +52,7 @@ export function summonSpiritualWeapon(ctx:LinkedSpellContext,a:SheetAbility,mapI
   setCondition(ctx.casterKind,ctx.casterId,{...condition,combatEffect:{...condition.combatEffect!,summonTokenId:token.id,lastUseTurn:undefined,
     weaponMoveTurn:turnKey(caster.sessionId),weaponMovedFt:20}});
   setCondition('monster',token.refId,{id:newId(),label:'Spectral force',aura:'blue',isConcentration:false,
-    combatEffect:{casterKind:ctx.casterKind,casterId:ctx.casterId,spell:a.name,castId:condition.combatEffect!.castId}});
+    combatEffect:{casterKind:ctx.casterKind,casterId:ctx.casterId,spell:a.name,castLevel:ctx.castLevel,castId:condition.combatEffect!.castId}});
   addRollLog(caster.sessionId,{roller:caster.name,label:a.name,expr:'Summon',total:0,
     detail:'Spiritual Weapon appears. Choose a creature within 5 ft for its immediate attack. On later turns, drag the weapon up to 20 ft and use its Bonus Action attack; no new slot.'});
   return token;
@@ -107,11 +107,16 @@ export function mirrorIntercept(sid:string,attacker:Token,target:Token,roller:st
 }
 
 export function sorcerousBonus(ctx:LinkedSpellContext,faces:number[]) {
-  const rolls:NonNullable<ReturnType<typeof rollDice>>[]=[];
+  const rolls:NonNullable<ReturnType<typeof rollDice>>[]=[],limit=Math.max(0,ctx.modifier);
   let triggers=faces.filter(v=>v===8).length;
-  while(triggers>0&&rolls.length<Math.max(0,ctx.modifier)){
-    triggers--;const r=withDiceMetadata({label:'Sorcerous Burst — Bonus d8'},()=>rollDice('1d8'))!;rolls.push(r);
-    if(r.rolls[0]===8)triggers++;
+  while(triggers>0&&rolls.length<limit){
+    // Every burst in this wave is tossed together. Only their new 8s can
+    // create the next wave, and all waves share the original per-cast cap.
+    const count=Math.min(triggers,limit-rolls.length),used=rolls.length+count;
+    const label=count===1?`Bonus d8 ${used} of ${limit}`:`Bonus ${count}d8 (${used} of ${limit})`;
+    const wave=withDiceMetadata({label:`Sorcerous Burst — ${label}`,triggerRule:{kind:'sorcerous-burst',used,limit,queued:0}},
+      ()=>rollDicePool(Array.from({length:count},()=>({expr:'1d8'})))) as NonNullable<ReturnType<typeof rollDice>>[];
+    rolls.push(...wave);triggers=wave.filter(r=>r.rolls[0]===8).length;
   }
   return rolls;
 }

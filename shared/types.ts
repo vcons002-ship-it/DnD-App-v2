@@ -25,6 +25,7 @@ export type Condition = {
    *  applied independently. Absent = applied by a person or a spell. */
   source?: 'down';
   combatEffect?: {
+    spikeArea?: {mapId:string;x:number;y:number;radiusFt:number;remainders:Record<string,number>};
     commandWord?: string; commandStarted?: boolean; commandResolved?: boolean;
     casterKind: 'pc' | 'monster'; casterId: string; spell: string;
     dc?: number; dice?: string; damageType?: string; phase?: 'start' | 'end'; save?: string;
@@ -41,6 +42,8 @@ export type Condition = {
     duplicates?: number;
     castLevel?: number; abilityId?: string; targetTokenId?: string;
     spellAction?: string; lastUseTurn?: string; itemDropped?: boolean;
+    /** Compatible summoned instances are removed with this spell effect. */
+    summoned?: boolean;
     /** A spell force is an object token, not a summoned creature with HP. */
     summonTokenId?: string; weaponMoveTurn?: string; weaponMovedFt?: number;
     speedReduction?: number; preventsHealing?: boolean; noOpportunityAttacks?: boolean;
@@ -153,6 +156,10 @@ export type Token = {
   /** Viewer-only live party awareness. Render grayscale; never a direct target.
    * Not stored on tokens or retained after the party loses sight of a creature. */
   sharedSightOnly?: boolean;
+  /** Full-color last-seen reference in Keep revealed fog; never a direct target. */
+  revealedOnly?: boolean;
+  /** Owner/party/DM ghost rendering; unseen hostile tokens never arrive. */
+  invisible?: boolean;
   /** Server-assigned public encounter tag; U means not yet revealed (DM only). */
   revealTag?: string;
   id: string;
@@ -829,6 +836,7 @@ export type MapState = {
   /** Hide the grid overlay entirely. */
   gridHidden: boolean;
   /** Automatic sight-based fog. Missing legacy values default to enabled. */
+  explorationMode?: 'remembered' | 'revealed';
   mapVisionEnabled?: boolean;
   tokenVisionEnabled?: boolean;
   /** Whether each manually painted cover layer is active on this map. */
@@ -877,6 +885,7 @@ export type StateSnapshot = {
   playerVision?: import('./playerVision.js').PlayerVision;
   initiativePending?: boolean;
   ripostes?: RiposteOpportunity[];
+  counterspellCasts?: {id:string;spell:string;casterName:string;expiresAt:number;mine:boolean;reactors:{tokenId:string;kind:TokenKind;refId:string;name:string}[]}[];
   shieldReactions?: {rollId:string;kind:TokenKind;refId:string;name:string;magicMissile:boolean}[];
   role: Role;
   sessionCode: string;
@@ -993,6 +1002,7 @@ export type ChatSendResult = {ok:boolean;error?:string};
 
 /** A persistent measuring shape on a map (a spell AOE or a ruler). */
 export type Measurement = {
+  spellName?: string;
   id: string;
   mapId: string;
   /** `ruler` = thin two-point measure; `line` = 5-ft-wide AOE; `emanation` =
@@ -1044,6 +1054,8 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  /** Confirmed rule trigger; indices identify exact flattened damage dice. */
+  diceTrigger?:{kind?:'burst'|'burst-limit';title:string;detail:string;diceCount:number;groups:{value:number;indices:number[]}[]};
   /** This result (including bonuses) was already presented in the live group tray. */
   presentedLive?: boolean;
   /** Plain-language effect result alongside the target's save result. */
@@ -1102,6 +1114,10 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  diceTrigger?:RollReveal['diceTrigger'];
+  impact?: HpFxEvent['impact'];
+  /** Defended cosmetic components; HP/concentration still resolve once. */
+  damageParts?: HpDamagePart[];
   /** Server-only reaction gate; public offers expose no attack math. */
   awaitingShield?: boolean;
   shield?: {abilityId:string;attackTotal?:number;natural20?:boolean;automatic:boolean};
@@ -1110,6 +1126,8 @@ export type PendingDamage = {
   spellDamageAmount?: number;
   /** Server-only continuation. Removed from every outgoing snapshot. */
   live?: {kind: 'weapon' | 'spell'; args: unknown[]; fixed: unknown};
+  /** Its arithmetic already appeared before a subsequent live spell/save throw. */
+  damagePresented?:boolean;
   hitOptions?: { abilityIds: string[]; targetTokenId: string; attackerTokenId: string; weaponIndex: number; turn: string; used: string[]; multiplier: number; rawDamage: number };
 
   maneuver?: { abilityIds: string[]; targetTokenId?:string; rawDamage: number; multiplier: number; minimumAdjustment: number; dc: number };
@@ -1189,7 +1207,7 @@ export type RollEntry = {
     effect?: {
       commandWord?: string;
       casterKind: TokenKind; casterId: string; spell: string; condition: string;
-      eligibleCreatureType?: string; durationRounds: number; expiresAt: number;
+      castLevel?: number; eligibleCreatureType?: string; durationRounds: number; expiresAt: number;
       expiresRound?: number; castId: string; concentrationConditionId: string;
       repeatSave?: string; repeatDamage?: string; damageType?: string; attackDisadvantage?: boolean; checkDisadvantage?: boolean;
     };
@@ -1502,6 +1520,8 @@ export type AbilityReorderPayload = { kind: TokenKind; refId: string; orderedIds
  * the DC/to-hit derive from its CR (no spell-slot spend).
  */
 export type AbilityRollPayload = {
+  targetTokenIds?: string[];
+  dispelTarget?: {tokenId:string} | {effectId:string;mapId:string};
   commandWord?: string;
   destination?: {mapId:string;x:number;y:number};
   area?: import('./spellAreas.js').SpellAreaPlacement;
@@ -1716,6 +1736,7 @@ export type ServerError = { code: string; message: string };
 // Client -> Server event names.
 export interface ClientToServerEvents {
   'dice:ready': (payload:{id:string}) => void;
+  'dice:skip': (payload:{id:string}) => void;
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   'map:select': (payload: MapSelectPayload) => void;
   'map:setActive': (payload: MapSetActivePayload) => void;
@@ -1749,6 +1770,7 @@ export interface ClientToServerEvents {
   ) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:setVision': (payload: FogSetVisionPayload) => void;
+  'fog:setExploration': (payload: {mapId:string;mode:'remembered'|'revealed'}) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload, placed?: (p: {x:number;y:number}) => void) => void;
@@ -1817,6 +1839,7 @@ export interface ClientToServerEvents {
   'ability:remove': (payload: AbilityRemovePayload) => void;
   'ability:reorder': (payload: AbilityReorderPayload) => void;
   'ability:roll': (payload: AbilityRollPayload) => void;
+  'spell:counterspell': (payload:{castId:string;reactorTokenId?:string;pass?:boolean;level?:number;slotPool?:'spellcasting'|'pact';continueCast?:boolean})=>void;
   'spell:shield': (payload: {rollId:string;pass?:boolean;level?:number;slotPool?:'spellcasting'|'pact'}) => void;
   'spell:wake': (payload: {actorTokenId:string;targetTokenId:string}) => void;
   'haste:action': (payload: HasteActionPayload) => void;
@@ -1910,11 +1933,19 @@ export type JoinAck =
 
 // Server -> Client event names.
 /** Transient combat feedback: an HP change to float over the creature's token
- *  ("−7" red / "+5" green). Carries only the DELTA (never totals) and is sent
+ *  (type-colored damage / green healing). Carries only damage/healing amounts
+ *  (never current/max HP) and is sent
  *  per-viewer, filtered to tokens that viewer's snapshot actually contains.
  *  `damageType` (canonical 5e type, when the source knew it) drives a brief
  *  elemental burst on the token — e.g. a flame flash for fire damage. */
+export type HpDamagePart = { amount: number; damageType?: string; spell?: string };
 export type HpFxEvent = {
+  /** Cosmetic shared impact; order identifies separately clicked strikes within a cast. */
+  impact?: {id:string;order?:number};
+  /** Post-defense parts of this delta, never extra HP applications. */
+  damageParts?: HpDamagePart[];
+  /** Server-selected world-space spell origin, gated like its map location. */
+  areaPosition?: {mapId:string;x:number;y:number;radiusFt:number};
   /** Server-selected footprint of a single area impact, in feet. */
   areaWidthFt?: number;
   /** Cosmetic source name, including spell riders on a weapon hit. */
@@ -1930,7 +1961,7 @@ export type HpFxEvent = {
   damageType?: string;
   /** One-shot extra: 'death' (a creature just dropped to 0 — skull + smoke
    *  puff) or 'loot' (a container was plundered — gold sparkle; delta 0). */
-  effect?: 'death' | 'loot';
+  effect?: 'spell-area' | 'death' | 'loot';
 };
 
 export interface ServerToClientEvents {

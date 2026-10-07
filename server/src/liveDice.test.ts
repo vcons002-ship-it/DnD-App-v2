@@ -1,3 +1,4 @@
+import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS} from '../../shared/dicePresentationTiming.js';
 import {createSession,createCharacter,createMap,setActiveMap,createToken,createMonsterTemplate,instantiateMonster,setManualDamage,listRollLog,getMonster,getRollEntry,getCharacter} from './sessions.js';
 import {resolveAttack,resolveAttackDamage,resolveSmite} from './combat.js';
 import {buildSnapshot} from './visibility.js';
@@ -9,6 +10,7 @@ import {db} from './db.js';
 import {runLiveCommand,keptPhysicalSet,physicalFaces} from './liveRolls.js';
 import {afterRollCommit} from './liveRollContext.js';
 import {LIVE_DICE_PRESENTATION_RATE,LIVE_DICE_REROLL_WAIT_SECONDS} from '../../shared/liveDiceTypes.js';
+import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
 
 it('uses authoritative faces for expressions, advantage and d20 combat math',()=>{
  expect(withDiceSource(s=>s.map((_,i)=>i+2),()=>rollDice('2d6+3'))?.total).toBe(8);
@@ -28,14 +30,15 @@ it('groups mixed normal and crit damage without doubling flat modifiers',()=>{
  expect(()=>withDiceSource(()=>[1],()=>rollDicePool([{expr:'2d6'}]))).toThrow('Invalid authoritative');
 });
 it('streams normal and gold critical dice together in the same live world',async()=>{
- const frames:any[]=[];
- const values=await physicalFaces([6,6,6,6],f=>frames.push(f),{label:'Critical damage',roller:'Druk',className:'Fighter'},42,
+ const frames:any[]=[];let settledAt=0;
+ const values=await physicalFaces([6,6,6,6],f=>{frames.push(f);if(f.done)settledAt=performance.now();},{label:'Critical damage',roller:'Druk',className:'Fighter'},42,
   {expr:'2d6+2d6',criticalDice:[false,false,true,true]});
  expect(new Set(frames.map(f=>f.id)).size).toBe(1);
  expect(frames[0].sides).toEqual([6,6,6,6]);
  expect(frames[0].values).toEqual([null,null,null,null]);
  expect(frames.every(f=>JSON.stringify(f.critical)==='[false,false,true,true]')).toBe(true);
  expect(frames.at(-1).values).toEqual(values);
+ expect(performance.now()-settledAt).toBeGreaterThanOrEqual(DIE_REVEAL_MS+LIVE_DICE_RESULT_HOLD_MS);
 },20000);
 
 it('a monster saving against a player spell uses DM dice instead of the caster class',async()=>{
@@ -44,6 +47,22 @@ it('a monster saving against a player spell uses DM dice instead of the caster c
   {expr:'Saving Throw',saveDice:[{target:{kind:'monster',refId:'goblin'},modifier:-1,dc:15,group:'goblin'}]});
  expect(frames.length).toBeGreaterThan(0);
  expect(frames.every(f=>f.dmDice===true&&f.className===''&&f.affinity===undefined)).toBe(true);
+},20000);
+
+it('publishes exact Orb matches on the first settled frame before waiting for number flights',async()=>{
+ const frames:import('../../shared/liveDiceTypes.js').LiveDiceFrame[]=[];let held=false;
+ const values=await physicalFaces(Array(9).fill(8),f=>frames.push(f),{
+  label:'Chromatic Orb — Spell Damage',roller:'Vanec',className:'Sorcerer',
+  waitForPresentation:async()=>{
+   held=true;
+   expect(frames.filter(f=>!f.done).every(f=>!f.diceTrigger)).toBe(true);
+   const settled=frames.find(f=>f.done)!;
+   expect(settled.diceTrigger).toEqual(matchingDiceTrigger(settled.values as number[]));
+   expect(settled.diceTrigger?.groups.length).toBeGreaterThan(0);
+   expect(settled.calculation).toBeUndefined();
+  },
+ },42,{expr:'9d8',triggerRule:'orb-matches'});
+ expect(held).toBe(true);expect(frames.at(-1)?.values).toEqual(values);
 },20000);
 describe('incremental authoritative physics',()=>{
  it('releases jumbled dice with visible end-over-end and sideways tumble from every seat',()=>{
@@ -169,4 +188,22 @@ it('keeps live weapon and Smite damage atomic, and refuses invalid choices befor
  expect(getCharacter(pc.id)?.spellSlots.L1.used).toBe(1);
  expect(getCharacter(target.id)?.deathSaves.failures).toBe(3);
  expect(listRollLog(session.id).find(e=>e.label==='Damage')?.total).toBe(27);
+});
+
+
+it('lands enlarged d10/d20 beside an unchanged d6 with floor contacts matching their sizes',()=>{
+ const world=createLiveWorld([6,10,20].map((sides,index)=>({sides,value:1,index,set:0})),93);
+ const radii=world.bodies.map(body=>Math.max(...(body.shapes[0] as import('cannon-es').ConvexPolyhedron).vertices.map(v=>v.length())));
+ expect(radii[1]).toBeGreaterThan(radii[0]*1.1);
+ expect(radii[2]).toBeGreaterThan(radii[0]*1.1);
+ let frame=world.snapshot();
+ for(let i=0;i<120*40&&!frame.done;i++)frame=world.advance(1/120);
+ expect(frame.done).toBe(true);
+ world.bodies.forEach((body,index)=>{
+  const shape=body.shapes[0] as import('cannon-es').ConvexPolyhedron;
+  const bottom=Math.min(...shape.vertices.map(v=>body.quaternion.vmult(v).z+body.position.z));
+  expect(Math.abs(bottom)).toBeLessThan(.01);
+  expect(frame.values[index]).toBeGreaterThanOrEqual(1);
+  expect(frame.values[index]).toBeLessThanOrEqual([6,10,20][index]);
+ });
 });

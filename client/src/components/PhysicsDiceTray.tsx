@@ -35,12 +35,11 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
         clearTimeout(timeout);worker?.terminate();
         if(dead)return;if(!event.data.toss){fallback();return;}
         try{
-          const module=await import('../lib/diceTrayRenderer');if(dead)return;
+          const module=await import('../lib/diceTrayRenderer');await module.waitForDiceGraphics();if(dead)return;
           const art=await module.loadTrayTexture(theme.id);if(dead){art?.dispose();return;}
           const toss=event.data.toss;renderer=module.createTrayRenderer(expanded,toss,theme,comparison?.kept,art);
           const node=canvas.current!,ctx=node.getContext('2d');if(!ctx){fallback();return;}
           const delivered=new Set<number>(),launched=new Set<number>();
-          let finalTrayDrawn=false;
           const revealTimes=diceRevealTimes(toss.settleTimes,ROLL_PLAYBACK_RATE);
           const finishAt=Math.max(toss.duration/ROLL_PLAYBACK_RATE,...revealTimes.map(t=>t+.85));
           let elapsed=0,previous=performance.now();setStatus('rolling');
@@ -56,10 +55,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
             const width=node.clientWidth||600,height=width*10.2/15.2,dpr=Math.min(2,devicePixelRatio||1);
             if(node.width!==Math.round(width*dpr)){node.width=Math.round(width*dpr);node.height=Math.round(height*dpr);}
             try{
-              if(!finalTrayDrawn){
-                renderer!.draw(ctx,width,height,dpr,Math.min(elapsed*ROLL_PLAYBACK_RATE,toss.duration),now);
-                finalTrayDrawn=elapsed*ROLL_PLAYBACK_RATE>=toss.duration;
-              }
+              renderer!.draw(ctx,width,height,dpr,Math.min(elapsed*ROLL_PLAYBACK_RATE,toss.duration),now);
             }catch{fallback();return;}
             const simNow=Math.min(elapsed*ROLL_PLAYBACK_RATE,toss.duration);
             if(sound){
@@ -99,7 +95,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
               const flight=flights.current[i];
               if(flight?.dataset.phase==='flash'&&elapsed-revealTimes[i]>=DIE_FLASH_MS/1000)flight.dataset.phase='flying';
             });
-            if(elapsed>=finishAt&&delivered.size===expanded.length){setStatus('settled');complete();return;}
+            if(!completed&&elapsed>=finishAt&&delivered.size===expanded.length){setStatus('settled');complete();}
             raf=requestAnimationFrame(draw);
           };raf=requestAnimationFrame(draw);
         }catch{fallback();}

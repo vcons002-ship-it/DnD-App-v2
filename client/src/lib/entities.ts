@@ -107,7 +107,7 @@ export const sameConditions = (a: Condition[], b: Condition[]): boolean =>
 
 export const sameTokenFields = (a: Token, b: Token): boolean =>
   JSON.stringify(a.markLabels??[]) === JSON.stringify(b.markLabels??[]) &&
-  a.sharedSightOnly === b.sharedSightOnly &&
+  a.sharedSightOnly === b.sharedSightOnly && a.invisible===b.invisible &&
   a.id === b.id &&
   a.kind === b.kind &&
   a.refId === b.refId &&

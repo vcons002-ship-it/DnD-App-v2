@@ -1,7 +1,7 @@
 import type {Condition,HpFxEvent} from './types.js';
 
-export type SpellImpactStyle={kind:'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
-export const LINKED_SPELL_FX=['Shield','Misty Step','Hypnotic Pattern','Pass without Trace','Command','Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
+export type SpellImpactStyle={kind:'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
+export const LINKED_SPELL_FX=['Dispel Magic','Invisibility','Spike Growth','Counterspell','Shield','Misty Step','Hypnotic Pattern','Pass without Trace','Command','Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
 const colors:Record<string,string>={fire:'#ff702c',cold:'#72cbff',lightning:'#96cfff',thunder:'#b9a7ff',acid:'#b5ed43',poison:'#68d868',necrotic:'#a471df',radiant:'#ffe6a0',force:'#bc9bff',psychic:'#ff79cd'};
 /** Only cosmetic spell identifiers cross the FX channel, never a hidden
  * attack's full title, weapon details or modifier breakdown. */
@@ -24,12 +24,17 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
     'chill touch':['drain','necrotic'],'shocking grasp':['burst','lightning'],
   };
   const partyStyles:Record<string,SpellImpactStyle>={
+    'dispel magic':{kind:'dispel',color:'#aff8ff',radiusFt:10,strength:1.4,duration:2000},
+    'invisibility':{kind:'shimmer',color:'#bba3ed',radiusFt:8,strength:.7,duration:1400},
+    'counterspell':{kind:'counter',color:'#d4b8ff',radiusFt:10,strength:1.6,duration:1700},
+    'spike growth':{kind:'vines',color:'#86b867',radiusFt:8,strength:.6,duration:1500},
     'shield':{kind:'shield',color:'#8bbdff',radiusFt:10,strength:1.3,duration:1800},
     'misty step':{kind:'mist',color:'#c7deef',radiusFt:8,strength:.7,duration:1600},
     'hypnotic pattern':{kind:'pattern',color:'#ec91f5',radiusFt:12,strength:1.1,duration:2200},
     'pass without trace':{kind:'veil',color:'#729b89',radiusFt:5,strength:0,duration:1900},
     'command':{kind:'command',color:'#ffe1a0',radiusFt:8,strength:1,duration:1700},
   };
+  if(name==='spike growth'&&event.effect==='spell-area')return {kind:'thorns',color:'#9ce76a',radiusFt:7,strength:.18,duration:1700};
   if(partyStyles[name])return partyStyles[name];
   const form=forms[name];
   if(form)return {kind:form[0],color:name==='vampiric touch'?'#d62c46':event.delta>0?'#67e596':name==='phantasmal killer'?'#b4a4ef':colors[form[1]],radiusFt:/storm|strike|call lightning/.test(name)?22:12,strength:2.1,duration:form[0]==='burst'?1000:form[0]==='aura'?2100:1700};

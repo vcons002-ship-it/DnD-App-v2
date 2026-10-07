@@ -8,6 +8,7 @@ import {buildSnapshot} from './visibility.js';
 import {db} from './db.js';
 import {runLiveCommand} from './liveRolls.js';
 import type {PhysicalDiceInfo} from '../../shared/dice.js';
+import {castMark} from './marks.js';
 
 afterEach(()=>vi.restoreAllMocks());
 function fixture(){
@@ -45,6 +46,10 @@ describe('Hail of Thorns on a ranged hit',()=>{
   expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
   expect(resolveHitFeature(f.s.id,'Varis',hit.id,f.ab.id,2).ok).toBe(false);
   const impact=drainHpFx(f.s.id),area=impact.filter(e=>e.areaWidthFt);
+  expect(impact.filter(e=>e.damageParts?.[0].spell==='Hail of Thorns').map(e=>e.damageParts)).toEqual([
+    [{amount:12,damageType:'piercing',spell:'Hail of Thorns'}],
+    [{amount:6,damageType:'piercing',spell:'Hail of Thorns'}],
+  ]);
   expect(area).toHaveLength(1);expect(area[0]).toMatchObject({refId:f.main.m.id,areaWidthFt:15,spell:'Hail of Thorns'});
   expect(new Set(impact.map(e=>e.rollId)).size).toBe(1);
   expect(listRollLog(f.s.id).find(r=>r.id===area[0].rollId)?.reveal?.damageDice?.[0].faces).toEqual([6,6]);
@@ -76,6 +81,39 @@ describe('Hail of Thorns on a ranged hit',()=>{
   expect(requests.map(r=>r.sides)).toEqual([[10,10],[20,20]]);
   expect(requests[1].info?.label).toBe('Hail of Thorns — DEX Saving Throws');
   expect(requests[1].info?.saveDice?.map(d=>d.target.refId)).toEqual([f.main.m.id,f.near.m.id]);
+  expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
+ });
+ it.each([false,true])('presents bow modifiers on the weapon throw before mark/burst/saves (mark=%s), atomically',async(mark)=>{
+  const f=fixture(),order:string[]=[],calculations:any[]=[];
+  if(mark){
+    const ab={id:'mark',name:"Hunter's Mark",type:'spell' as const,level:1,description:'',tags:['concentration']};setSheetAbility('pc',f.ch.id,ab);
+    expect(castMark(f.s.id,'pc',f.ch.id,ab,f.main.t.id,1)).toBe(true);
+  }
+  const dice:Parameters<typeof runLiveCommand>[3]=async(sides,publish,meta)=>{
+    order.push(`dice:${sides.join(',')}`);
+    expect(getMonster(f.main.m.id)!.curHp).toBe(100);
+    expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(0);
+    const values=sides.map(s=>s===20?10:4);
+    publish({id:`throw:${order.length}`,seq:1,label:meta.label,roller:'Varis',className:'Ranger',sides,values,
+      poses:sides.flatMap(()=>[0,0,1,0,0,0,1]),radius:1,elapsed:3,done:true,sets:sides.map(()=>0),
+      critical:sides.map(()=>false),percentile:sides.map(()=>null),rerolls:sides.map(()=>0)});
+    return values;
+  };
+  const meta={label:'Bow',roller:'Varis',className:'Ranger'};
+  await runLiveCommand(()=>{resolveAttack(f.s.id,'Varis',f.at.id,f.main.t.id,0);},()=>{},meta,dice);
+  const hit=listRollLog(f.s.id).find(r=>r.pending)!;order.length=0;
+  await runLiveCommand(()=>{expect(resolveHitFeature(f.s.id,'Varis',hit.id,f.ab.id,2).ok).toBe(true);},frame=>{
+    if(frame.calculation){order.push('bow calculation');calculations.push(frame.calculation);
+      expect(frame.sides,'DEX is calculated over the weapon die, not the mark d6').toEqual([8]);
+      expect(getMonster(f.main.m.id)!.curHp).toBe(100);
+      expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(0);
+    }
+  },{...meta,waitForPresentation:async()=>{order.push('calculation hold');}},dice);
+  expect(order).toEqual(['dice:8','bow calculation','calculation hold',...(mark?['dice:6']:[]),'dice:10,10','dice:20,20']);
+  expect(calculations).toHaveLength(1);
+  expect(calculations[0]).toMatchObject({title:'Bow — Damage Roll',damage:9,damageMods:[{label:'DEX',value:5}]});
+  expect(listRollLog(f.s.id).find(r=>r.label==='Damage')?.reveal?.presentedLive).toBe(true);
+  expect(getMonster(f.main.m.id)!.curHp).toBe(mark?79:83);
   expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
  });
 });

@@ -4,6 +4,7 @@
 // live server world. Framework-free; cannon-es is only touched through the
 // minimal shapes below.
 
+import {REFERENCE_D6_EDGE} from './diceTrayLayout.js';
 export type DiceImpactSurface = 'die' | 'wall' | 'floor';
 export type DiceImpact = {
   /** Simulation seconds at the collision. */
@@ -19,8 +20,8 @@ export type DiceImpact = {
 
 /** Below this an impact is a resting jitter, not a sound (m/s). */
 export const MIN_IMPACT_SPEED = 0.025;
-/** Physical size behind the simulation units (a 16 mm d6; see the worlds). */
-export const metresPerUnitFor = (radius: number) => (0.016 * Math.sqrt(3) / 2) / radius;
+/** Physical size behind the simulation units (a 17.6 mm d6; see the worlds). */
+export const metresPerUnitFor = (radius: number) => (REFERENCE_D6_EDGE * Math.sqrt(3) / 2) / radius;
 /** Half-width of the tray bed in simulation units (both worlds use ±7.2). */
 const TRAY_HALF_WIDTH = 7.2;
 
@@ -41,9 +42,13 @@ export function recordDiceImpacts(
   metresPerUnit: number,
   clock: () => number,
   sink: DiceImpact[],
-): void {
-  const index = new Map<unknown, number>(dice.map((b, i) => [b, i]));
+  trayHalfWidth=TRAY_HALF_WIDTH,
+) {
+  const index = new Map<unknown, number>(),attached=new Set<BodyLike>();
+  const register=()=>{
+  dice.forEach((b,i)=>index.set(b,i));
   dice.forEach((body, i) => {
+    if(attached.has(body))return;attached.add(body);
     body.addEventListener('collide', (event) => {
       const other = index.get(event.body);
       // Two dice each receive the event — keep the lower index's copy only.
@@ -55,8 +60,9 @@ export function recordDiceImpacts(
         die: i,
         with: other !== undefined ? 'die' : walls.has(event.body) ? 'wall' : 'floor',
         speed: Math.round(speed * 1000) / 1000,
-        x: Math.round(Math.max(-1, Math.min(1, body.position.x / TRAY_HALF_WIDTH)) * 100) / 100,
+        x: Math.round(Math.max(-1, Math.min(1, body.position.x / trayHalfWidth)) * 100) / 100,
       });
     });
   });
+  };register();return register;
 }

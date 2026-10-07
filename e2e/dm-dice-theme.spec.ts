@@ -46,17 +46,18 @@ test('monster rolls and general DM rolls keep one purple theme live and after se
     await page.getByTitle('Plain STR ability check (no proficiency)',{exact:true}).click();
    }
    const live=page.locator('[data-live-dice="true"]');await expect(live).toBeVisible({timeout:30000});
+   await page.evaluate(()=>{(window as any).__dmTrayCanvas=document.querySelector('.dice-tray-canvas');});
    await expect(live.locator('.physics-dice-tray')).toHaveAttribute('data-theme','dm-neutral-roll');
    await expect(live.locator('.physics-dice-tray')).toHaveAttribute('data-material','purple-resin',{timeout:5000});
    await page.waitForTimeout(1500);await page.screenshot({path:info.outputPath(disposition+'-live-purple-gold.png')});
    await expect(live).toHaveCount(0,{timeout:45000});
    const result=page.locator('.roll-reveal');await expect(result).toBeVisible();
    await expect(result).toHaveAttribute('data-dice-theme','dm-neutral-roll');
-   const images=result.locator('canvas.three-die');await expect(images).toHaveCount(disposition==='general'?2:1);
-   for(const image of await images.all()){
-    await expect(image).toHaveAttribute('data-theme','dm-neutral-roll');
-    await expect(image).toHaveAttribute('data-material','purple-resin');
-   }
+   await expect(result.locator('canvas.three-die')).toHaveCount(0);
+   await expect(result.locator('.physics-dice-tray')).toHaveAttribute('data-theme','dm-neutral-roll');
+   await expect(result.locator('.physics-dice-tray')).toHaveAttribute('data-material','purple-resin');
+   await expect(result.locator('.tray-die-result')).toHaveCount(disposition==='general'?2:1);
+   expect(await page.evaluate(()=>document.querySelector('.dice-tray-canvas')===(window as any).__dmTrayCanvas)).toBe(true);
    await expect(result.locator('.die')).toHaveCount(0);
    await expect(result.locator('.rr-adjustment')).toBeVisible();
    await page.screenshot({path:info.outputPath(disposition+'-modifier-resin.png')});

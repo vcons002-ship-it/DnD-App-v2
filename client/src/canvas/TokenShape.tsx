@@ -1,3 +1,4 @@
+import {difficultTravel} from '../../../shared/advancedSpells';
 import {mirrorImageCount,MIRROR_IMAGE_SPREAD} from '../../../shared/linkedSpells';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {stopAtWalls,wallCollisionRadiusFt,type MapWall} from '../../../shared/mapWalls';
@@ -57,6 +58,7 @@ type Props = {
   movementWalls?: readonly MapWall[];
   /** A hint, rather than a hard cap; the table handles accumulated movement. */
   movementAllowanceFt?: number;
+  terrainZones?: readonly {x:number;y:number;radiusFt:number}[];
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
@@ -100,6 +102,7 @@ function TokenShapeInner({
   miniatureDiameterFt,
   movementWalls,
   movementAllowanceFt,
+  terrainZones,
   onSelect,
   onActivate,
   onMove,
@@ -219,8 +222,10 @@ function TokenShapeInner({
     onDragPreview?.(token,visible ? {x:cx,y:cy,facing} : null);
     if (distText.current) {
       const distance = moveDistanceFt(cx-origin.x,cy-origin.y,pxPerFoot);
-      distText.current.text(`${distance} ft${movementAllowanceFt === undefined ? '' : ` / ${movementAllowanceFt} ft`}`);
-      distText.current.fill(movementAllowanceFt !== undefined && distance > movementAllowanceFt ? '#ff9276' : '#ffd21a');
+      const difficult=difficultTravel(origin,{x:cx,y:cy},terrainZones??[],pxPerFoot);
+      const cost=Math.round((distance+difficult)*10)/10;
+      distText.current.text(`${distance} ft${difficult>.01?` ? costs ${cost} ft`:''}${movementAllowanceFt === undefined ? '' : ` / ${movementAllowanceFt} ft`}`);
+      distText.current.fill(movementAllowanceFt !== undefined && cost > movementAllowanceFt ? '#ff9276' : '#ffd21a');
       distText.current.position({x:(origin.x+cx)/2,y:(origin.y+cy)/2-distText.current.fontSize()*1.1});
     }
     dragOverlay.current?.getLayer()?.batchDraw();
@@ -521,7 +526,7 @@ function TokenShapeInner({
               y={-radius}
               width={radius * 2}
               height={radius * 2}
-              opacity={isDead ? 0.5 : 1}
+              opacity={token.invisible ? .28 : isDead ? 0.5 : 1}
             />
             {selected && (
               <Rect
@@ -536,7 +541,7 @@ function TokenShapeInner({
           </>
         ) : (
           <>
-            <Group opacity={isDead ? 0.5 : 1} clipFunc={clip}>
+            <Group opacity={token.invisible ? .28 : isDead ? 0.5 : 1} clipFunc={clip}>
               <KonvaImage
                 image={iconImg}
                 x={-radius}
@@ -550,7 +555,7 @@ function TokenShapeInner({
         )
       ) : (
         <>
-          <Silhouette fill={fill} opacity={isDead ? 0.5 : 1} />
+          <Silhouette fill={fill} opacity={token.invisible ? .28 : isDead ? 0.5 : 1} />
           {hasEmojiIcon && !isDead && (
             <Text
               text={display.icon}
@@ -822,7 +827,7 @@ export const TokenShape = memo(
     p.viewRotation === n.viewRotation &&
     p.miniatureDiameterFt === n.miniatureDiameterFt &&
     p.movementWalls === n.movementWalls &&
-    p.movementAllowanceFt === n.movementAllowanceFt &&
+    p.movementAllowanceFt === n.movementAllowanceFt && p.terrainZones===n.terrainZones &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&
     p.onMove === n.onMove &&

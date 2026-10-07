@@ -316,7 +316,21 @@ test('Orb matching dice offers a free leap, sorted targets and right-click casti
   await expect(page.getByRole('region',{name:'Chromatic Orb',exact:true})).toHaveCount(0);
   const beforeDamage=new Set((await f.snapshot()).rollLog.map(r=>r.id));
   await page.locator('.player-damage-dock .damage-prompt-btn').click();
+  // Links must appear during the first settled live frame, before number
+  // flights finish or the final damage result is committed.
+  await expect(page.locator('[data-live-dice="true"] [data-dice-trigger="matched"]')).toContainText('Orb can leap!',{timeout:LIVE_COMBAT_TIMEOUT});
+  await expect(page.locator('[data-live-dice="true"] .tray-trigger-links')).toHaveAttribute('data-geometry',/.+/);
+  await expect(page.locator('[data-live-dice="true"] .tray-die-result[data-filled="false"]').first()).toBeVisible();
   const orbDamage=await waitForCombatRoll(f.snapshot,beforeDamage,r=>r.label==='Damage');
+  const trigger=page.locator('[data-dice-trigger="matched"]');
+  await expect(trigger).toContainText('Orb can leap!');
+  const matching=orbDamage.reveal!.diceTrigger!;
+  const matchedIndices=matching.groups.flatMap(g=>g.indices);
+  await expect(page.locator('.tray-die-result[data-trigger="matched"]')).toHaveCount(matchedIndices.length);
+  expect(await page.locator('.tray-die-result[data-trigger="matched"]').evaluateAll(es=>es.map(e=>Number((e as HTMLElement).dataset.dieId)))).toEqual([...matchedIndices].sort((a,b)=>a-b));
+  await expect(page.locator('.tray-trigger-links')).toBeVisible();
+  await expect(page.locator('.tray-trigger-links')).toHaveAttribute('data-geometry',/.+/);
+  await page.screenshot({path:testInfo.outputPath('orb-matching-dice-links.png')});
   await f.dismissReveal(orbDamage.id);
   const prompt=page.getByRole('region',{name:'Chromatic Orb',exact:true});
   await expect(prompt).toContainText('Matching dice');
@@ -344,6 +358,8 @@ test('Orb matching dice offers a free leap, sorted targets and right-click casti
   const used=(await f.snapshot()).characters.find(c=>c.id===f.characterId)!.spellSlots.L7.used;
   const beforeLeap=new Set((await f.snapshot()).rollLog.map(r=>r.id));
   await prompt.getByRole('button',{name:'Confirm target'}).click();
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible({timeout:LIVE_COMBAT_TIMEOUT});
+  await expect(prompt).toHaveCount(0);
   const next=await waitForCombatRoll(f.snapshot,beforeLeap,r=>r.label==='Attack' && r.expr.startsWith('Chromatic Orb'));
   expect((await f.snapshot()).characters.find(c=>c.id===f.characterId)!.spellSlots.L7.used).toBe(used);
   await f.dismissReveal(next.id);
@@ -366,4 +382,21 @@ test('Orb matching dice offers a free leap, sorted targets and right-click casti
   await expect(menu.getByRole('button',{name:'Adv',exact:true})).toHaveClass(/on/);
   await page.screenshot({path:testInfo.outputPath('expanded-token-menu.png')});
   await menu.getByLabel('Close token actions').click();
+});
+
+
+test('Magic Missile adds its labeled fixed bonus inside the tray',async({page,request},testInfo)=>{
+ const f=await fixture(request,page);
+ const target=f.ready.tokens.find(t=>t.kind==='monster')!;
+ await f.row('Magic Missile').getByRole('button').click();
+ await page.locator('.player-damage-dock .damage-prompt-btn').click();
+ const before=new Set((await f.snapshot()).rollLog.map(r=>r.id));
+ await f.clickToken(target.id);
+ const dart=await waitForCombatRoll(f.snapshot,before,r=>r.label==='Damage'&&r.expr==='dart 1');
+ expect(dart.reveal?.damageMods).toEqual([{label:'Magic Missile bonus',value:1}]);
+ const bonus=page.locator('.roll-reveal .rr-adjustment').filter({hasText:'Magic Missile bonus'});
+ await expect(bonus).toBeVisible({timeout:LIVE_COMBAT_TIMEOUT});
+ await expect(bonus).toContainText('1');
+ await page.screenshot({path:testInfo.outputPath('magic-missile-fixed-bonus.png')});
+ await f.dismissReveal(dart.id);
 });

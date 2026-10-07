@@ -33,7 +33,7 @@ export function castCommand(sid:string,roller:string,kind:TokenKind,id:string,a:
   const dc=a.roll?.dc??(8+(kind==='pc'?proficiencyBonus(e.level):profBonusFor({stats:scores,level:e.level,isMonster:true}))+spellcastingMod(scores,spellcastingKeyFor('className'in e?e:{},a)));
   const entry:Omit<RollEntry,'id'>={createdAt:Date.now(),roller,label:'Command',expr:`Command: ${selected}`,total:0,detail:`Command: ${selected}. ${commandInstruction(selected)} Choose up to ${level} target(s); Wisdom saves resolve before the command takes effect on their next turn.`,
     apply:{amount:0,dc,save:'WIS',saveDamage:'none',targetMode:level>1?'multiple':'single',maxTargets:level,owner:kind==='pc'?id:undefined,
-      effect:{casterKind:kind,casterId:id,spell:'Command',condition:`Command: ${selected}`,commandWord:selected,durationRounds:1,expiresAt:Date.now()+60000,castId:newId(),concentrationConditionId:''}}};
+      effect:{casterKind:kind,casterId:id,spell:'Command',castLevel:level,condition:`Command: ${selected}`,commandWord:selected,durationRounds:1,expiresAt:Date.now()+60000,castId:newId(),concentrationConditionId:''}}};
   if(targetTokenId){const error=commandTargetError(sid,{...entry,id:''},targetTokenId);if(error)return error;}
   const logged=addRollLog(sid,entry);
   if(targetTokenId)resolveForcedSave(sid,logged.id,targetTokenId);

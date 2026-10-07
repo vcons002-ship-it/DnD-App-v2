@@ -1,12 +1,11 @@
+import {DIE_FLASH_MS,DIE_FLIGHT_MS,DIE_REVEAL_MS} from '../../../shared/dicePresentationTiming.js';
+export {DIE_FLASH_MS,DIE_FLIGHT_MS,DIE_REVEAL_MS} from '../../../shared/dicePresentationTiming.js';
 /** DOM rectangles include CSS zoom; translate() coordinates do not. */
 export function diceFlightPoint(root:{left:number;top:number;width:number},localWidth:number,x:number,y:number){
  const scale=root.width/localWidth||1;
  return {x:(x-root.left)/scale,y:(y-root.top)/scale};
 }
 
-export const DIE_FLASH_MS=460;
-export const DIE_FLIGHT_MS=650;
-export const DIE_REVEAL_MS=DIE_FLASH_MS+DIE_FLIGHT_MS;
 /** The flash stays on the face. Only the lift-off phase travels to the box. */
 export function diceFlightKeyframes(sx:number,sy:number,tx:number,ty:number,emphasis:number):{offset:number;transform:string;opacity:number}[]{
  const pose=(x:number,y:number,scale=1)=>`translate3d(${x}px,${y}px,0) translate(-50%,-50%) scale(${scale})`;

@@ -26,12 +26,14 @@ describe('Chromatic Orb leaps', () => {
     const f=setup(); f.cast(f.target().id,level);
     for(let n=0;n<level;n++) {
       const previous=f.last(), target=f.target();
+      expect(previous.reveal?.diceTrigger).toMatchObject({title:'Orb can leap!',diceCount:level+2,groups:[{value:5,indices:Array.from({length:level+2},(_,i)=>i)}]});
       expect(previous.apply?.orb).toMatchObject({available:true,leapsUsed:n,slotLevel:level});
       expect(resolveOrbLeap(f.session.id,previous.id,target.id)).toEqual({ok:true});
       expect(getMonster(target.refId)!.curHp).toBe(1000-(level+2)*5);
       expect(resolveOrbLeap(f.session.id,previous.id,f.target().id).ok).toBe(false);
     }
     expect(f.last().apply?.orb).toMatchObject({available:false,leapsUsed:level});
+    expect(f.last().reveal?.diceTrigger).toBeUndefined();
     expect(f.last().apply?.orb?.visited).toHaveLength(level+1);
   });
   it('waits for manual damage, rejects generic apply, repeats, objects and out-of-range targets', () => {
@@ -42,6 +44,7 @@ describe('Chromatic Orb leaps', () => {
     resolveForcedSave(f.session.id,entry.id,near.id);
     expect(getMonster(near.refId)!.curHp).toBe(1000);
     expect(resolveAttackDamage(f.session.id,'Caster',entry.id)).toBe(true);
+    expect(listRollLog(f.session.id).at(-1)?.reveal?.diceTrigger).toMatchObject({diceCount:5,groups:[{value:5,indices:[0,1,2,3,4]}]});
     const duplicate=createToken({mapId:f.map.id,kind:'monster',refId:first.refId,x:200,y:100});
     expect(resolveOrbLeap(f.session.id,entry.id,duplicate.id).ok).toBe(false);
     expect(resolveOrbLeap(f.session.id,entry.id,far.id).ok).toBe(false);
@@ -57,6 +60,7 @@ describe('Chromatic Orb leaps', () => {
     expect(f.last().apply?.orb?.available).toBe(false);
     random.mockReturnValue(.5).mockReturnValueOnce(.5).mockReturnValueOnce(.01).mockReturnValueOnce(.2).mockReturnValueOnce(.3);
     f.cast(t.id); expect(f.last().apply?.orb?.available).toBe(false);
+    expect(f.last().reveal?.diceTrigger).toBeUndefined();
     updateMonster(t.refId,{immunities:['lightning']}); f.cast(t.id);
     expect(f.last().apply?.orb?.available).toBe(true);
     expect(f.last().pending).toBeUndefined();

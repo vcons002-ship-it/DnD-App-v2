@@ -34,7 +34,7 @@ import { useBoxSelection } from './useBoxSelection';
 import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
 import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
-import { HpFxLayer } from './HpFx';
+import { HpFxLayer, HpNumberLayer } from './HpFx';
 import {spellImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
 import type {SpellImpact} from './spellImpactEffects';
 import { DragGhostLayer } from './DragGhostLayer';
@@ -403,6 +403,7 @@ export function MapStage({
   const tokenLayerRef = useRef<Konva.Layer>(null);
   const sharedTokenLayerRef = useRef<Konva.Layer>(null);
   const miniatureRef = useRef<MiniatureLayerHandle>(null);
+  const hpHeadPosition=useCallback((id:string)=>miniatureRef.current?.headPosition(id),[]);
   const footprintMarks=useRef<FootprintMark[]>([]);
   const readFootprints=useCallback(()=>footprintMarks.current,[]);
   const updateFootprints=useCallback((marks:FootprintMark[])=>{footprintMarks.current=marks;miniatureRef.current?.setFootprints(marks);},[]);
@@ -1167,11 +1168,12 @@ export function MapStage({
     const ownerId = useStore.getState().socket?.id;
     const owned = new Set(snapshot.characters.filter(c => c.claimedBy === ownerId).map(c => c.id));
     const friendly = new Set(snapshot.monsters.filter(m => m.disposition === 'friendly').map(m => m.id));
-    const tokens = new Map(snapshot.tokens.map(t => [t.id, { kind:t.kind, hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly,
+    const tokens = new Map(snapshot.tokens.map(t => [t.id, { kind:t.kind, hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly, revealedOnly:t.revealedOnly,
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
-      return !!token && (token.sharedSightOnly ? (token.kind==='pc' || fogVisionContains(presentation.partyVision(),x,y,usesTokenVision(snapshot.map))) :
+      if(!token&&(id.startsWith('area:')||id.startsWith('spike-area:')))return isDm || fogVisionContains(presentation.personalVision(),x,y,true)&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(x/grid)},${Math.floor(y/grid)}`));
+      return !!token && (token.sharedSightOnly ? (token.kind==='pc' || (token.revealedOnly?fogVisionContains(presentation.personalVision(),x,y,false)&&tokenVisibleAt({...token,role:snapshot.role,mapFog:mapFogEnabled?mapRevealed:null,tokenFog:tokenFogEnabled?tokenRevealed:null,grid,x,y}):fogVisionContains(presentation.partyVision(),x,y,usesTokenVision(snapshot.map)))) :
         (token.owned || fogVisionContains(presentation.personalVision(),x,y,usesTokenVision(snapshot.map))) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
     };
@@ -1212,6 +1214,7 @@ export function MapStage({
     return definition ? [definition] : [];
   }) : [])], [snapshot.characters, use3dTokens, use3dMonsters]);
 
+  const terrainZones=useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]);
   const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
     if(map?.walls?.some(w=>w.tokenId===token.id))return [];
     if (!(token.kind === 'pc' ? use3dTokens : use3dMonsters)) return [];
@@ -1224,6 +1227,7 @@ export function MapStage({
       facing: token.facing ?? 0,
       mirrorImages:dead ? 0 : mirrorImageCount(display.conditions),
       sharedSightOnly: token.sharedSightOnly,
+      invisible:token.invisible,
       carriedLantern:!dead && !token.sharedSightOnly && token.carriedLantern,
       combatRole: !dead && !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
       hunterMarked: !dead && !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
@@ -1242,14 +1246,15 @@ export function MapStage({
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
   const spellImpacts=useMemo<SpellImpact[]>(()=>[...hpFx.flatMap(event=>{
     if(!spellImpactStyle(event))return [];
+    if(event.areaPosition){const p=event.areaPosition;if(p.mapId!==snapshot.map?.id)return [];return [{id:event.id,event,startAt:event.numberStartAt,tokenId:`area:${event.id}`,x:p.x,y:p.y,diameter:event.spell==='Dispel Magic'?Math.min(12,p.radiusFt*2)*pxPerFoot:p.radiusFt*2*pxPerFoot,fixed:true}];}
     const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
     if(!token)return [];
     // The active restraint is already the visible impact; stacking an identical
     // transient mesh would briefly double its brightness and number of links.
     if(spellImpactStyle(event)?.kind==='chains'&&resolveToken(snapshot,token).conditions.some(c=>persistentSpellVisual(c)===event.spell))return [];
-    return [{id:event.id,event,tokenId:token.id,x:token.x,y:token.y,
+    return [{id:event.id,event,startAt:event.numberStartAt,tokenId:token.id,x:token.x,y:token.y,
       diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot}];
-  }),...snapshot.tokens.flatMap(token=>{
+  }),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
     if(token.sharedSightOnly||(!isDm&&token.isHidden))return [];
     return resolveToken(snapshot,token).conditions.flatMap(condition=>{
       const spell=persistentSpellVisual(condition);if(!spell||isRollImpactPending(condition.combatEffect?.visualRollId))return [];
@@ -1286,8 +1291,8 @@ export function MapStage({
     if (groundTokens) groundTokens.style.zIndex = '0';
     if (foreground) foreground.style.zIndex = '2';
     const shared=sharedTokenLayerRef.current?.getNativeCanvasElement();
-    if(shared){shared.style.zIndex='4';shared.style.filter='grayscale(1)';shared.style.opacity='.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
-  }, [dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
+    if(shared){shared.style.zIndex='4';shared.style.filter=map?.explorationMode==='revealed'?'none':'grayscale(1)';shared.style.opacity=map?.explorationMode==='revealed'?'1':'.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
+  }, [dprKey, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -1977,7 +1982,7 @@ export function MapStage({
         key={t.id}
         token={t}
         presentation={presentation}
-        sharedDarkvision={!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy}
+        sharedDarkvision={!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy&&map?.explorationMode!=='revealed'}
         display={d}
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
@@ -1987,6 +1992,7 @@ export function MapStage({
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
         movementWalls={isDm?undefined:map?.walls}
+        terrainZones={terrainZones}
         movementAllowanceFt={movementSpeed === undefined ? undefined : movementSpeed * (hasteDash ? 2 : 1)}
         draggable={
           !t.sharedSightOnly && draggableTokens && movable && (isDm || !speedIsZero(creature ?? {})) && !fogActive && !measureActive && !saveResolve && !orbTarget
@@ -2263,6 +2269,8 @@ export function MapStage({
                       onFinish={cancelWallStroke}
                       onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>
                     <FogMenu
+                      explorationMode={map?.explorationMode??'remembered'}
+                      onExplorationMode={mode=>map&&useStore.getState().setExplorationMode(map.id,mode)}
                       mapVisionEnabled={usesMapVision(map)}
                       tokenVisionEnabled={map?.tokenVisionEnabled!==false}
                       onToggleVision={layer=>map&&setVisionFog(map.id,layer,!(layer==='map'?usesMapVision(map):map.tokenVisionEnabled!==false))}
@@ -2508,7 +2516,7 @@ export function MapStage({
                 if(m.spellArea){const {spec,angle}=m.spellArea;
                   const caster=m.tokenId?snapshot.tokens.find(t=>t.id===m.tokenId):origin;
                   if(!caster)return null;
-                  return <SpellAreaShapes key={m.id} scale={view.scale} spec={{...spec,self:!!m.tokenId}} placement={{mapId:m.mapId,points:[origin],angle}} caster={caster} pxPerFoot={1/fpp} targets={[]} onRemove={removeMode?()=>removeMeasurement(m.id):undefined}/>;
+                  return <SpellAreaShapes raised={miniatureTokens.length>0} spellName={m.spellName} key={m.id} scale={view.scale} spec={{...spec,self:!!m.tokenId}} placement={{mapId:m.mapId,points:[origin],angle}} caster={caster} pxPerFoot={1/fpp} targets={[]} onRemove={removeMode?()=>removeMeasurement(m.id):undefined}/>;
                 }
                 return (
                   <MeasureShape
@@ -2668,7 +2676,6 @@ export function MapStage({
                 floaters={hpFx}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
-                gridSizePx={grid}
               />
               {/* Live "laser pointers" for everyone else on this map. */}
               {showCursors && (
@@ -2679,6 +2686,14 @@ export function MapStage({
               x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale * groundScaleY}>
               {renderTokens(false, true)}{renderTokens(true, true)}
             </Layer>
+            <Layer name="hp-number-layer" listening={false} ref={layer=>{
+              if(!layer)return;const canvas=layer.getNativeCanvasElement();
+              canvas.style.zIndex='5';canvas.style.pointerEvents='none';canvas.dataset.testid='hp-number-canvas';
+            }}>
+              <HpNumberLayer floaters={hpFx} tokens={snapshot.tokens} pxPerFoot={pxPerFoot} gridSizePx={grid}
+                headPosition={hpHeadPosition}
+                view={view} width={size.w} height={size.h} tilt={tiltDegrees} rotation={rotationDegrees}/>
+            </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
             <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
@@ -2686,7 +2701,7 @@ export function MapStage({
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
-          {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} presentation={presentation} vision={snapshot.playerVision} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+          {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>}
           {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
           {!wallActive&&nearbyDoors.length>0&&!doorDragPreview&&<div data-testid="door-controls" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,display:'flex',gap:8,padding:8,background:'#161b23ee',border:'1px solid #aa8550',borderRadius:6}}>

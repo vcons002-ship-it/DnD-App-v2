@@ -14,7 +14,7 @@ export type PlayerVisionHandle={memoryCanvas:()=>HTMLCanvasElement|null;frame:()
  * desaturation remains above both. Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
 type MemoryTerrain={environment?:MapEnvironment;explored?:ExploredTerrain;tiles:TerrainTile[];bounds:{x:number;y:number;w:number;h:number};grid?:{size:number;x:number;y:number}};
-export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;mapFogOfWar?:boolean;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
+export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;mapFogOfWar?:boolean;keepRevealed?:boolean;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
  const shade=useRef<HTMLDivElement>(null);
  const nearShade=useRef<HTMLDivElement>(null),nearPaths=useRef<SVGGElement>(null);
  const root=useRef<HTMLDivElement>(null);
@@ -23,12 +23,13 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const sightPaths=useRef<SVGClipPathElement>(null),lightClips=useRef<SVGGElement>(null);
  const memoryPaths=useRef<SVGClipPathElement>(null),memoryPlane=useRef<HTMLDivElement>(null),memoryMap=useRef<HTMLDivElement>(null);
  const memoryCanvas=useRef<HTMLCanvasElement>(null);
+ const retainedRange=useRef<SVGGElement>(null);
  const memoryProjection=useRef<{geometry:ExploredTerrain|undefined;camera:string}|null>(null);
  const polygonCache=useRef(new Map<string,{key:string;points:WallPoint[]}>());
  const id=useId().replace(/:/g,'');
  const lightId=`vision-lights-${id}`,shadeId=`vision-shade-${id}`,nearId=`vision-near-${id}`,coverId=`vision-cover-${id}`;
  const sightId=`vision-sight-${id}`;
- const memoryId=`vision-memory-${id}`;
+ const memoryId=`vision-memory-${id}`,rangeId=`vision-retained-range-${id}`;
  useLayoutEffect(()=>{
   const parent=root.current?.parentElement;
   parent?.style.setProperty('--player-vision-cover',props.mapFogOfWar===false&&!props.vision.heavy?'none':`url(#${coverId})`);
@@ -102,6 +103,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   // Keep the SVG mask in the DOM and share light geometry between both masks.
   // Encoding/decoding two large SVG image URLs per frame caused mobile stalls.
   originPaths.current.innerHTML=circles;
+  if(retainedRange.current)retainedRange.current.innerHTML=vision.heavy?vision.origins.map(o=>`<path fill="white" d="${path(o,vision.radius)}"/>`).join(''):`<rect width="${width}" height="${height}" fill="white"/>`;
   lightPaths.current.innerHTML=lights;
   // Cosmetic flashes restore color only inside already-visible terrain. They
   // never enter the sight-cover mask or authorize/persist exploration.
@@ -127,9 +129,10 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    <clipPath id={sightId} clipPathUnits="userSpaceOnUse" ref={sightPaths}/><g ref={lightClips}/>
    <clipPath id={memoryId} clipPathUnits="userSpaceOnUse" ref={memoryPaths}/>
    <g id={lightId} ref={lightPaths}/>
+   <mask id={rangeId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}><g ref={retainedRange}/></mask>
    <g id={`${nearId}-paths`} ref={nearPaths}/>
    <mask id={shadeId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
-    <rect width={props.width} height={props.height} fill="white"/><use href={`#${nearId}-paths`} fill="black"/><use href={`#${lightId}`}/><g ref={spellPaths}/>
+    <rect width={props.width} height={props.height} fill="white"/><use href={`#${nearId}-paths`} fill="black"/><use href={`#${lightId}`}/><g ref={spellPaths}/>{props.keepRevealed&&<g clipPath={`url(#${memoryId})`} mask={`url(#${rangeId})`}><rect width={props.width} height={props.height} fill="black"/></g>}
    </mask>
    <mask id={nearId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
     <rect width={props.width} height={props.height} fill="black"/><use href={`#${nearId}-paths`} fill="white"/><use href={`#${lightId}`}/>
@@ -139,15 +142,15 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    </mask>
   </defs></svg>
   <div data-testid="automatic-map-fog" style={{display:props.mapFogOfWar===false&&!props.vision.heavy?'none':undefined,position:'absolute',inset:0,background:'#050608',maskImage:`url(#${coverId})`}}>
-   {terrain&&b&&<div data-testid="explored-terrain" style={{position:'absolute',inset:0,clipPath:`url(#${memoryId})`}}>
-    <div ref={memoryPlane} data-testid="explored-terrain-grade" style={{position:'absolute',width:props.width,height:props.height,transformOrigin:'50% 50%',filter:`grayscale(1) brightness(${exploredTerrainBrightness(terrain.environment,props.vision.heavy)})`}}>
+   {terrain&&b&&<div data-testid="explored-terrain" style={{position:'absolute',inset:0,clipPath:`url(#${memoryId})`,maskImage:props.keepRevealed?`url(#${rangeId})`:undefined}}>
+    <div ref={memoryPlane} data-testid="explored-terrain-grade" style={{position:'absolute',width:props.width,height:props.height,transformOrigin:'50% 50%',filter:props.keepRevealed?'none':`grayscale(1) brightness(${exploredTerrainBrightness(terrain.environment,props.vision.heavy)})`}}>
      <div ref={memoryMap} style={{position:'absolute',transformOrigin:'0 0'}}>
       {!terrain.tiles.length&&<div style={{position:'absolute',left:b.x,top:b.y,width:b.w,height:b.h,background:'#2a2f3a'}}/>}
       {terrain.tiles.map((t,i)=><img key={`${t.url}:${i}`} src={t.url} alt="" draggable={false} style={{position:'absolute',left:t.x,top:t.y,width:t.w,height:t.h,maxWidth:'none'}}/>)}
       {g&&g.size>0&&<div style={{position:'absolute',left:b.x,top:b.y,width:b.w,height:b.h,backgroundImage:'linear-gradient(to right,#ffffff50 1px,transparent 1px),linear-gradient(to bottom,#ffffff50 1px,transparent 1px)',backgroundSize:`${g.size}px ${g.size}px`,backgroundPosition:`${g.x-b.x}px ${g.y-b.y}px`}}/>}
      </div>
     </div>
-    {props.vision.heavy&&<canvas ref={memoryCanvas} data-testid="darkvision-memory-terrain" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%'}}/>}
+    {props.vision.heavy&&!props.keepRevealed&&<canvas ref={memoryCanvas} data-testid="darkvision-memory-terrain" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%'}}/>}
    </div>}
   </div>
  </div>
