@@ -6,6 +6,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Varis resin contains a small green-gold magical mote drifting inside
+  each die, with independent phases and refracted, depth-attenuated glow.
+
+- [x] Druk gold numerals/edge trim and DM gold numerals use a polished
+  conductor finish: warm gold reflections, smooth softbox highlights and
+  narrow glints with readable shadow values. Other dice materials stay intact.
+
 - [x] Varis now pairs the original forest-resin material with the woodland
   wake as the development default. The roller exposes this combination
   explicitly alongside moss agate, enchanted amber and the old vine trail.

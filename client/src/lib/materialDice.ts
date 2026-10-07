@@ -9,6 +9,7 @@ import type { DiceTheme } from '../../../shared/diceThemes';
 // One offscreen WebGL context shared by all visible dice. Each result is copied
 // into its existing 2D canvas; no extra contexts compete with the battlefield.
 let stage: ReturnType<typeof makeStage> | undefined;
+let rangerMoteSequence=0;
 function drawDieNumeral(ctx:CanvasRenderingContext2D,text:string,x:number,y:number){
   ctx.fillText(text,x,y);
   if(!text.includes('6'))return;
@@ -54,6 +55,7 @@ uniform float numeralEmphasis;
 uniform float moltenCracks;
 uniform float mossAgate;
 uniform float enchantedAmber;
+uniform float motePhase;
 uniform float internalLightning;
 uniform float lightningPhase; uniform float lightningSeed;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -134,6 +136,23 @@ vec3 studioLight(vec3 r){
  float fill=softbox(r,vec3(.85,.2,-.7),.3,.8);
  float rim=softbox(r,vec3(.2,-.8,.5),.6,.12);
  return vec3(.1+.12*(r.y*.5+.5))+vec3(.96,.98,1.)*(key*1.35+fill*.8+rim*.45);
+}
+// Polished gold reflects the studio with its measured conductor tint. The
+// broad reflection stays smooth; a narrow secondary source provides a glint.
+vec3 polishedGoldSurface(vec3 n,vec3 incoming){
+ vec3 f0=vec3(1.,.766,.336);
+ vec3 reflected=rotation*reflect(incoming,n);
+ float nv=max(.001,dot(n,-incoming));
+ vec3 fresnel=f0+(1.-f0)*pow(1.-nv,5.);
+ vec3 environment=studioLight(reflected);
+ // Dark reflection gaps and bright softboxes make the inlay read as metal.
+ // A restrained warm floor keeps small numerals readable between glints.
+ vec3 gold=fresnel*(environment*.92+vec3(.16));
+ float glint=softbox(reflected,vec3(.55,.8,.7),.055,.36);
+ gold+=fresnel*glint*.75;
+ // Preserve the warm metal hue in bright reflections instead of bleaching it.
+ float brightness=max(gold.r,max(gold.g,gold.b));
+ return gold/(1.+max(0.,brightness-1.15)*.42);
 }
 // Keep the frame dark; numeral rims use a brighter copper-bronze for legibility.
 vec3 bronzeSurface(vec3 n,vec3 incoming){
@@ -257,6 +276,21 @@ void main(){
    through=mix(chalcedony,mossColor/max(.0001,mossDepth),1.-exp(-mossDepth*2.8));
    smoke*=.12;
  }
+ // An enclosed light is evaluated along the refracted ray analytically, so
+ // its tiny core cannot disappear between the volume samples during rotation.
+ if(style==2){
+   float room=1.;
+   for(int j=0;j<20;j++){if(j>=count)break;room=min(room,planes[j].w);}
+   float clock=time*.72+motePhase;
+   vec3 center=room*vec3(sin(clock)*.32,sin(clock*.81+1.7)*.28,cos(clock*.63+.6)*.30);
+   float travel=clamp(dot(center-pos,ray),.0,distance);
+   float separation=length(pos+ray*travel-center);
+   float core=exp(-pow(separation/(room*.045),2.));
+   float halo=exp(-pow(separation/(room*.18),2.));
+   float inside=smoothstep(.0,.035,travel)*(1.-smoothstep(distance-.035,distance,travel));
+   float pulse=.9+.1*sin(clock*2.3);
+   energy+=(vec3(.8,1.,.36)*core*2.3+vec3(.12,.40,.025)*halo*.48)*inside*pulse*exp(-travel*.9-smoke*.55);
+ }
  through=through*exp(-smoke*1.9)+energy;
  float fresnel=.04+.96*pow(1.-max(0.,dot(-incoming,n)),5.);
  vec3 reflected=studioLight(rotation*reflect(incoming,n));
@@ -336,7 +370,11 @@ void main(){
    }
    else if(style==2){color=bronzeSurface(n,incoming);}
    else {
-     vec3 f0=style==3?(metalEdge?vec3(.78,.83,.90):vec3(.95,.64,.22)):style==0?vec3(.97,.96,.93):style==1?vec3(.95,.64,.22):vec3(.66,.34,.12);
+     vec3 f0=(style==1||style==3)?vec3(1.,.766,.336):style==0?vec3(.97,.96,.93):vec3(.66,.34,.12);
+     vec3 inlay;
+     if(style==1||style==3){
+       inlay=polishedGoldSurface(n,incoming);
+     }else{
      vec3 axis=abs(n.x)>.95?vec3(0,1,0):vec3(1,0,0);
      vec3 tangent=normalize(axis-n*dot(axis,n));
      float brushing=(noise(vec3(tex*vec2(900.,70.),3.))-.5)*.025;
@@ -348,22 +386,16 @@ void main(){
      float nv=max(.001,dot(worldN,view));
      vec3 fresnelMetal=f0+(1.-f0)*pow(1.-nv,5.);
      // Conductors are lit by colored reflections, not a yellow/brown diffuse fill.
-     vec3 inlay=pow(r,vec3(1.8))*fresnelMetal*1.6;
+     inlay=pow(r,vec3(1.8))*fresnelMetal*1.6;
      vec3 l=normalize(vec3(-.65,.65,1.)),h=normalize(l+view);
      float nl=max(.001,dot(worldN,l)),nh=max(0.,dot(worldN,h)),vh=max(0.,dot(view,h));
-     float rough=style==3?.48:style==0?.2:style==1?.23:.3,aa=pow(rough,4.);
+     float rough=style==0?.2:.3,aa=pow(rough,4.);
      float denominator=nh*nh*(aa-1.)+1.;
      float distribution=aa/(3.14159*denominator*denominator);
      float k=pow(rough+1.,2.)/8.;
      float geometry=(nv/(nv*(1.-k)+k))*(nl/(nl*(1.-k)+k));
      vec3 f=f0+(1.-f0)*pow(1.-vh,5.);
      inlay+=f*distribution*geometry/(4.*nv)*.6;
-     if(style==3){
-       // Satin gold keeps a stable warm contrast against the glossy resin.
-       // Compress reflection peaks before tone mapping can bleach the numeral
-       // into the same white highlight as the surrounding face.
-       float reflectedLight=dot(inlay,vec3(.2126,.7152,.0722));
-       inlay=f0*(.32+.78*reflectedLight/(1.+reflectedLight));
      }
      // A dark cut wall around the metal catches a narrow, beveled rim.
      float wall=metalEdge||style==3?0.:max(max(texture2D(etching,tex+vec2(.008,0)).r,texture2D(etching,tex-vec2(.008,0)).r),max(texture2D(etching,tex+vec2(0,.008)).r,texture2D(etching,tex-vec2(0,.008)).r));
@@ -482,7 +514,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePhase:{value:style===2?rangerMoteSequence++*2.399963:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const lightning=createLightningTiming();
   const updateLightning=(now:number)=>{
     if(!uniforms.internalLightning.value)return;
