@@ -44,3 +44,25 @@ it('keeps recursive Burst rolls, parent links and monotonically ordered frames i
  const initial=frames.find(f=>f.done)!;
  expect(frames.filter(f=>f.sides.length>1).every(f=>JSON.stringify(f.poses.slice(0,7))===JSON.stringify(initial.poses))).toBe(true);
 },20000);
+
+it('launches two burst children in one physical frame with separate parents, then continues their next wave',async()=>{
+ const frames:LiveDiceFrame[]=[];let result:number[]=[];
+ await runLiveCommand(()=>{
+  const initial=withDiceMetadata({triggerRule:{kind:'sorcerous-burst',used:0,limit:3,queued:0}},()=>rollDice('2d8'))!;
+  const extra=sorcerousBonus({spell:'Sorcerous Burst',abilityId:'burst',casterKind:'pc',casterId:'test',castLevel:0,dc:15,modifier:3},initial.rolls);
+  result=[...initial.rolls,...extra.flatMap(r=>r.rolls)];
+ },frame=>frames.push(frame),{label:'Burst',roller:'Vanec',className:'Sorcerer',waitForPresentation:async()=>{}},
+ (sides,publish,meta,_seed,info)=>physicalFaces(sides,publish,meta,51,info));
+ expect(result.slice(0,4)).toEqual([8,8,5,8]);expect(result).toHaveLength(5);
+ expect(new Set(frames.map(f=>f.id)).size).toBe(1);
+ expect(frames.some(f=>f.sides.length===3)).toBe(false);
+ const launch=frames.find(f=>f.sides.length===4)!;
+ expect(launch.values).toEqual([8,8,null,null]);
+ expect(launch.burstLinks).toEqual([{from:0,to:2},{from:1,to:3}]);
+ expect(launch.burstProgress).toEqual({used:2,limit:3});
+ const moving=frames.filter(f=>f.sides.length===4&&!f.done);
+ expect(moving.some(f=>f.poses[14]!==launch.poses[14]&&f.poses[21]!==launch.poses[21])).toBe(true);
+ const final=frames.at(-1)!;
+ expect(final.values).toEqual(result);expect(final.burstLinks).toEqual([{from:0,to:2},{from:1,to:3},{from:3,to:4}]);
+ expect(final.burstProgress).toEqual({used:3,limit:3});
+},20000);

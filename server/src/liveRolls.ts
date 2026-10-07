@@ -125,10 +125,11 @@ async function burstFaces(sides:number[],publish:(frame:LiveDiceFrame)=>void,met
  if(!tray)throw new Error('Missing original burst tray');
  const start=burst.used===0?0:tray.sides.length;
  if(start){
-  if(sides.length!==1||sides[0]!==8)throw new Error('Burst adds one d8 at a time');
-  const parent=tray.parents.shift();if(parent===undefined)throw new Error('Missing triggering burst die');
-  tray.links.push({from:parent,to:start});
-  tray.world.appendDice([{sides:8,value:1,index:start,set:0}]);tray.sides.push(8);tray.critical.push(false);
+  if(sides.some(side=>side!==8)||sides.length>tray.parents.length)throw new Error('Missing triggering burst dice');
+  const parents=tray.parents.splice(0,sides.length);
+  parents.forEach((from,i)=>tray.links.push({from,to:start+i}));
+  tray.world.appendDice(sides.map((sides,i)=>({sides,value:1,index:start+i,set:0})));
+  tray.sides.push(...sides);tray.critical.push(...sides.map(()=>false));
  }
  const current=tray;
  const emit=()=>{

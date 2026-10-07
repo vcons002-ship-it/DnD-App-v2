@@ -107,11 +107,16 @@ export function mirrorIntercept(sid:string,attacker:Token,target:Token,roller:st
 }
 
 export function sorcerousBonus(ctx:LinkedSpellContext,faces:number[]) {
-  const rolls:NonNullable<ReturnType<typeof rollDice>>[]=[];
+  const rolls:NonNullable<ReturnType<typeof rollDice>>[]=[],limit=Math.max(0,ctx.modifier);
   let triggers=faces.filter(v=>v===8).length;
-  while(triggers>0&&rolls.length<Math.max(0,ctx.modifier)){
-    triggers--;const r=withDiceMetadata({label:`Sorcerous Burst — Bonus d8 ${rolls.length+1} of ${Math.max(0,ctx.modifier)}`,triggerRule:{kind:'sorcerous-burst',used:rolls.length+1,limit:Math.max(0,ctx.modifier),queued:triggers}},()=>rollDice('1d8'))!;rolls.push(r);
-    if(r.rolls[0]===8)triggers++;
+  while(triggers>0&&rolls.length<limit){
+    // Every burst in this wave is tossed together. Only their new 8s can
+    // create the next wave, and all waves share the original per-cast cap.
+    const count=Math.min(triggers,limit-rolls.length),used=rolls.length+count;
+    const label=count===1?`Bonus d8 ${used} of ${limit}`:`Bonus ${count}d8 (${used} of ${limit})`;
+    const wave=withDiceMetadata({label:`Sorcerous Burst — ${label}`,triggerRule:{kind:'sorcerous-burst',used,limit,queued:0}},
+      ()=>rollDicePool(Array.from({length:count},()=>({expr:'1d8'})))) as NonNullable<ReturnType<typeof rollDice>>[];
+    rolls.push(...wave);triggers=wave.filter(r=>r.rolls[0]===8).length;
   }
   return rolls;
 }
