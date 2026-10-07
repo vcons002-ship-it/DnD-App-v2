@@ -16,7 +16,7 @@ const roller=document.querySelector<HTMLSelectElement>('#roller')!;
 const count=document.querySelector<HTMLInputElement>('#count')!;
 const rangerLook=document.querySelector<HTMLSelectElement>('#ranger-look')!;
 const requestedLook=new URLSearchParams(location.search).get('ranger');
-rangerLook.value=requestedLook==='vine'||requestedLook==='amber'?requestedLook:'moss';
+rangerLook.value=requestedLook&&['vine','amber','moss','resin'].includes(requestedLook)?requestedLook:'resin';
 const results=document.querySelector<HTMLDivElement>('.results')!;
 let sides=6,seed=2026100600,epoch=0;
 let renderer:ReturnType<typeof createTrayRenderer>|undefined;
@@ -29,7 +29,7 @@ async function roll(next=sides){
  if(!count.reportValidity())return;
  const quantity=Number(count.value),player=Number(roller.value),current=++epoch;
  const moss=rangerLook.value==='moss',amber=rangerLook.value==='amber';
- materials[1]=amber?'Enchanted amber, fern inclusions, wood & bronze | Woodland wake':moss?'Moss agate, wood & bronze | Windblown woodland wake':'Forest resin, wood & bronze';
+ materials[1]=amber?'Enchanted amber, fern inclusions, wood & bronze | Woodland wake':moss?'Moss agate, wood & bronze | Windblown woodland wake':rangerLook.value==='resin'?'Original forest resin, wood & bronze | Woodland wake':'Forest resin, wood & bronze | Vine trail';
  sides=next;done=false;tray.dataset.state='preparing';
  buttons.forEach(b=>{b.disabled=true;if(b.dataset.sides)b.setAttribute('aria-pressed',String(Number(b.dataset.sides)===sides));});
  roller.disabled=count.disabled=rangerLook.disabled=true;
@@ -47,7 +47,7 @@ async function roll(next=sides){
  toss={radius:snapshot.radius,trayScale:snapshot.trayScale,frames:new Float32Array(snapshot.poses),frameCount:1,step:1,topFaces:dice.map(()=>0),duration:Infinity,settleTimes:[],wallHits:0};
  const art=await loadTrayTexture(themes[player].id);
  if(current!==epoch){art?.dispose();return;}
- const nextRenderer=createTrayRenderer(dice,toss,themes[player],undefined,art,true,undefined,{molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true,mossAgate:moss,enchantedAmber:amber,woodlandWake:moss||amber});
+ const nextRenderer=createTrayRenderer(dice,toss,themes[player],undefined,art,true,undefined,{molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true,mossAgate:moss,enchantedAmber:amber,woodlandWake:rangerLook.value!=='vine'});
  labels=dice.map(d=>{const l=document.createElement('div');l.className='die-label';l.textContent=`#${d.index+1}${d.tens?' tens':d.ones?' ones':''}`;l.hidden=true;tray.append(l);return l;});
  const r=tray.getBoundingClientRect();
  await nextRenderer.prepare(r.width,r.height,Math.min(devicePixelRatio,1.5));

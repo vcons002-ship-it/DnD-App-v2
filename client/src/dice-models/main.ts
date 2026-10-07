@@ -33,7 +33,7 @@ const views=names.map((name,i)=>{
 });
 const rangerMaterial=document.querySelector<HTMLSelectElement>('#ranger-material')!;
 const requestedMaterial=new URLSearchParams(location.search).get('ranger');
-rangerMaterial.value=requestedMaterial==='amber'?'amber':requestedMaterial==='vine'?'resin':'moss';
+rangerMaterial.value=requestedMaterial==='amber'?'amber':requestedMaterial==='moss'?'moss':'resin';
 function rangerDescription(){return rangerMaterial.value==='amber'?'Enchanted amber resin, suspended fern fragments, wood and bronze':rangerMaterial.value==='moss'?'Moss agate, lacquered wood and bronze':descriptions[1];}
 function choose(){
  const sides=Number(select.value);

@@ -2,9 +2,13 @@
 
 Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
-included. Status: ☐ todo · ◐ partially done · ☑ done.
+included. Status: â˜ todo Â· â— partially done Â· â˜‘ done.
 
 ## Dice comparison - October 2026
+
+- [x] Varis now pairs the original forest-resin material with the woodland
+  wake as the development default. The roller exposes this combination
+  explicitly alongside moss agate, enchanted amber and the old vine trail.
 
 - [x] Accepted Varis moss-agate/woodland wake is the development appearance
   default. Optional enchanted amber comparison adds warm internal pockets,
@@ -324,14 +328,14 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Rests, turn hand-off, player settings, dice sounds, recharge - October 2026
 
-- [x] **Short and Long Rest (2024).** DM toolbar **🏕 Rest ▾** (two-click confirm) rests the
-  whole party (`rest:party`); a DM 🏕/☕ on any sheet rests one character
+- [x] **Short and Long Rest (2024).** DM toolbar **ðŸ• Rest â–¾** (two-click confirm) rests the
+  whole party (`rest:party`); a DM ðŸ•/â˜• on any sheet rests one character
   (`rest:character`). Rules are pure in `shared/rests.ts`. A **Long Rest** restores HP, all
   Hit Dice, every slot and counter, and ends temp HP; it skips the dead and anyone at 0 HP
-  (2024 needs ≥ 1 HP). A **Short Rest** fully refills short-rest features (Ki/Focus, Action Surge,
+  (2024 needs â‰¥ 1 HP). A **Short Rest** fully refills short-rest features (Ki/Focus, Action Surge,
   Superiority Dice, Bardic Inspiration from bard 5, Warlock Pact slots) and
   gives back ONE use of Second Wind / Rage / Channel Divinity / Wild Shape. Custom counters
-  carry their own `recharge` (a chip on the sheet toggles Short ↔ Long). Limited-use
+  carry their own `recharge` (a chip on the sheet toggles Short â†” Long). Limited-use
   abilities ready on their rest. A chat summary lists what each character recovered, plus a
   "Long Rest" banner and chord for everyone (`fx:rest`).
 - [x] **Hit Dice.** Track total spending and each die-size pool for structured multiclass
@@ -343,23 +347,23 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   menu attack AS it), opens the inspector, and brings it into view via `MapStage`'s
   `focusRequest`: the camera moves only if the token is near the edge, and respects
   tilt/rotation. Joining or reconnecting mid-turn never steals the selection.
-- [x] **Player settings.** The player's ⚙ Interface panel gains **Sound & dice** — the shared
+- [x] **Player settings.** The player's âš™ Interface panel gains **Sound & dice** â€” the shared
   `SoundSettings` block also used by the DM's Settings: sound on/off, master volume,
   dice sounds, roll animations (per device).
 - [x] **Dice sounds from the real physics.** Both simulations record every genuine strike
   (`shared/diceImpacts.ts`: cannon-es fires `collide` once per new contact; speed along the
-  normal in m/s, die / wall / floor, stereo position; die–die recorded once). The tray toss
+  normal in m/s, die / wall / floor, stereo position; dieâ€“die recorded once). The tray toss
   carries them in `Toss.impacts`; live server frames carry the strikes since the previous
   frame (`LiveDiceFrame.impacts`). `client/src/lib/diceSfx.ts` turns each into a
   filtered-noise clack (bright die-on-die, wooden wall knock, duller floor thud; loudness
   from impact speed, pitch from die size) timed to the picture, plus a per-die rolling
   rumble that follows that die's speed and fades as it settles. Noise sources only.
 - [x] **Monster Recharge, manually resolved.** `SheetAbility.recharge` (`{min}` for
-  "Recharge 5–6", `{rest}` for "1/Day" / "after a Short or Long Rest") is parsed at insert
+  "Recharge 5â€“6", `{rest}` for "1/Day" / "after a Short or Long Rest") is parsed at insert
   (`parseRecharge`) and asked for explicitly in the AI creature prompt. A limited-use attack
   stays an ability with an attack roll rather than becoming an at-will weapon. AI token fill
   adds a missing breath weapon even when the creature already has other abilities, but never
-  a second copy. Using it marks it **Spent**; the DM's ⟳ chip readies it after their own d6
+  a second copy. Using it marks it **Spent**; the DM's âŸ³ chip readies it after their own d6
   (`ability:setRecharge`, written in place). Older creatures read the marker from the name.
 
 ## Private discoveries and chat - October 2026
@@ -661,7 +665,7 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Ctrl-drag selects token base centers in overhead and tilted views;
   Ctrl+Shift-drag adds to selection, Ctrl-click toggles, and Escape cancels.
 
-### Character miniatures — September 2026
+### Character miniatures â€” September 2026
 
 - [x] Players can size their own 3D character in Character; DMs can size any
   character in the inspector's DM tools. Both use a compact inline row.
@@ -671,259 +675,259 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] DM view parity verified: all three 3D miniatures, 2D/3D and Overhead/45-degree
   controls, reload persistence, and independence from connected players.
 
-- ☑ Vanec's staff and palm lightning have luminous cores and crimson halos;
+- â˜‘ Vanec's staff and palm lightning have luminous cores and crimson halos;
   accepted spells/cantrips trigger a shared 2.4-second charge and fade, with
   visibility filtering and a restrained reduced-motion highlight.
-- ☑ Rigid lightning branches are replaced at runtime by independently flickering
+- â˜‘ Rigid lightning branches are replaced at runtime by independently flickering
   energy filaments that curl above the palm and crawl around the staff ruby.
-- ☑ The 45-degree battlefield uses tabletop perspective with a receding far edge,
+- â˜‘ The 45-degree battlefield uses tabletop perspective with a receding far edge,
   matching 3D camera and inverse pointer projection; overhead remains flat.
-- ☑ Druk has a detailed dark basalt base top; the decorated rim is preserved.
-- ☑ Ready miniatures receive input only through their circular base footprint.
-- ☑ Per-player 2D/3D token controls persist independently of the viewing angle;
+- â˜‘ Druk has a detailed dark basalt base top; the decorated rim is preserved.
+- â˜‘ Ready miniatures receive input only through their circular base footprint.
+- â˜‘ Per-player 2D/3D token controls persist independently of the viewing angle;
   2D restores the original portraits and skips miniature loading.
-- ☑ Active-turn rings sit on the ground beneath the 3D figures and follow held drags.
-- ☑ Miniatures face the start-to-end direction of their last move, shared by all
+- â˜‘ Active-turn rings sit on the ground beneath the 3D figures and follow held drags.
+- â˜‘ Miniatures face the start-to-end direction of their last move, shared by all
   viewers and retained after reconnecting. Stationary drops preserve facing.
 
-- ☑ Druk, Varis and Vanec use their 3D miniatures on the battlefield, retaining
+- â˜‘ Druk, Varis and Vanec use their 3D miniatures on the battlefield, retaining
   health bars, selection and the existing token controls.
-- ☑ PC names and crowns appear only on 2D fallback tokens; ready 3D miniatures omit them.
-- ☑ Flat tokens render beneath miniature geometry so rear monsters cannot cover
+- â˜‘ PC names and crowns appear only on 2D fallback tokens; ready 3D miniatures omit them.
+- â˜‘ Flat tokens render beneath miniature geometry so rear monsters cannot cover
   the figures; miniature health/status HUD and map tools remain above them.
-- ☑ Overhead is the default; an optional 45-degree tilt projects map and models together;
+- â˜‘ Overhead is the default; an optional 45-degree tilt projects map and models together;
   drag, pan, zoom, touch and measurement use the same map coordinates.
-- ☑ Each player can switch between Overhead and 45 degrees beside zoom. The choice
+- â˜‘ Each player can switch between Overhead and 45 degrees beside zoom. The choice
   stays local, persists on reload, and preserves the current zoom and center.
-- ☑ Full-detail assets, lazy loading, preserved Vanec effects and portrait
+- â˜‘ Full-detail assets, lazy loading, preserved Vanec effects and portrait
   fallback when a model or WebGL is unavailable. See
   [runtime assets and verification](docs/MINIATURE_BATTLEFIELD_2026-09-20.md).
 
-### Player dark-fantasy preview — September 2026
+### Player dark-fantasy preview â€” September 2026
 
-- ☑ Bottom-left race/class orb HUD, animated HP/temp HP, editable jewel resource
+- â˜‘ Bottom-left race/class orb HUD, animated HP/temp HP, editable jewel resource
   rows and visibly marked extra spell-slot capacity; existing counters retained.
-- ☑ Independent top-right combat and bottom-right chat; existing combat controls,
+- â˜‘ Independent top-right combat and bottom-right chat; existing combat controls,
   log overlay and dice picker reused. DM layout/mechanics unchanged.
-- ☑ 3D d4/d6/d8/d10/d12/d20 and paired-d10 percentile dice in the existing popup;
+- â˜‘ 3D d4/d6/d8/d10/d12/d20 and paired-d10 percentile dice in the existing popup;
   server-authoritative outcomes and reduced-motion fallback.
-- ☑ Fully isolated testing, resource maximum preservation, role/session gates,
+- â˜‘ Fully isolated testing, resource maximum preservation, role/session gates,
   async error handling and verified backup-completion reporting.
-- ☑ Campaign-copy startup compatibility and desktop/laptop browser walkthrough.
-- ☑ Player review revision 2: face-forward dice landings; both authoritative
+- â˜‘ Campaign-copy startup compatibility and desktop/laptop browser walkthrough.
+- â˜‘ Player review revision 2: face-forward dice landings; both authoritative
   advantage/disadvantage sets; left-edge relief-icon rail with hover/focus help;
   compact orb/resource dock; single-heading, corner-docked combat console.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_2_2026-09-16.md).
-- ☑ Player review revision 3: independent two-axis combat/chat resizing; smaller
+- â˜‘ Player review revision 3: independent two-axis combat/chat resizing; smaller
   browser-local UI scale controls; bottom activity feed and chat bubble; compact
   Skills/Abilities/Saves drawer; Roman resource medallions and orb identity crest.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_3_2026-09-16.md).
-- ☑ Player review revision 4: connected responsive dice picker; familiar Stat/Save
+- â˜‘ Player review revision 4: connected responsive dice picker; familiar Stat/Save
   popup; unobscured guardian art; non-scrolling class-resource clusters with a
   separate custom drawer; directly editable named condition chips.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_4_2026-09-16.md).
-- ☑ Player review revision 5: unobstructed common damage-action dock; existing
+- â˜‘ Player review revision 5: unobstructed common damage-action dock; existing
   spell targeting beside weapon damage; engraved identity and AC shield above
   the orb; selectable compact/concentric resources without visible fractions.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_5_2026-09-16.md).
-- ☑ Player review revision 6: bottom-aligned concentric resource sigils with
+- â˜‘ Player review revision 6: bottom-aligned concentric resource sigils with
   upward, level-aligned jewels; transparent map-through orb/name/resource art;
   integrated AC/temp HP and relocated utility controls; liquid depth, bubbles
   and cosmetic HP-change reactions; corrected female guardian artwork.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_6_2026-09-16.md).
-- ☑ Player review revision 7: temporary HP at the bottom-right of the guardian
+- â˜‘ Player review revision 7: temporary HP at the bottom-right of the guardian
   artwork opposite AC, with clear resource-symbol spacing.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_7_2026-09-16.md).
-- ☑ Player review revision 8: restored the original resource-symbol height;
+- â˜‘ Player review revision 8: restored the original resource-symbol height;
   only temporary HP is compacted to fit below it at the bottom-right.
   [Revision notes](docs/PLAYER_HUD_REVISION_8_2026-09-16.md).
-- ☑ Player review revision 9: temporary HP is a transparent animated ward over
+- â˜‘ Player review revision 9: temporary HP is a transparent animated ward over
   the globe with blue +X text; AC is an engraved metal shield nudged left.
   Resource positions and existing health behavior are unchanged.
   [Revision notes](docs/PLAYER_HUD_REVISION_9_2026-09-16.md).
-- ☑ Player review revision 10: replaced the temporary-HP crest with a spherical
+- â˜‘ Player review revision 10: replaced the temporary-HP crest with a spherical
   magical force field; no effect or bonus remains visible at zero temporary HP.
   [Revision notes](docs/PLAYER_HUD_REVISION_10_2026-09-16.md).
-- ☑ Player review revision 11: refined ruby life-fluid with a thin wet surface,
+- â˜‘ Player review revision 11: refined ruby life-fluid with a thin wet surface,
   depth-aware translucency, irregular currents and distinct damage/healing
   motion; no minimum wobble or changes to gameplay, art placement or resources.
   [Revision notes](docs/PLAYER_HUD_REVISION_11_2026-09-16.md).
-- ☑ Player review revision 12: visible rolling liquid crests and contained
+- â˜‘ Player review revision 12: visible rolling liquid crests and contained
   damage splashes, stronger internal depth, and temporary-HP hit ripples with
   a brief final-hit dissipation; no gameplay or HUD geometry changes.
   [Revision notes](docs/PLAYER_HUD_REVISION_12_2026-09-16.md).
-- ☑ Player review revision 13: dimensional colored resource gems in engraved
+- â˜‘ Player review revision 13: dimensional colored resource gems in engraved
   sockets, inner emission and finite spend/restore energy streams; existing
   counters, extra-capacity guidance, click targets and arc geometry retained.
   [Revision notes](docs/PLAYER_HUD_REVISION_13_2026-09-16.md).
-- ☑ Player review revision 14: nine concentric resource rings with a wider
+- â˜‘ Player review revision 14: nine concentric resource rings with a wider
   segmented filigree base and matching bottom-feed clearance; original orb,
   symbol baseline and ordinary five-or-fewer-ring layout retained.
   [Revision notes](docs/PLAYER_HUD_REVISION_14_2026-09-16.md).
-- ☑ Player review revision 15: tenth outer resource ring, adjacent additional-
+- â˜‘ Player review revision 15: tenth outer resource ring, adjacent additional-
   resources icon, and a shared overflow drawer instead of upper resource rows.
   Saved counters and existing correction/spending controls are unchanged.
   [Revision notes](docs/PLAYER_HUD_REVISION_15_2026-09-16.md).
-- ☑ Player review revision 16: custom trackers fill available resource rings
+- â˜‘ Player review revision 16: custom trackers fill available resource rings
   after spell slots and class resources; priority-based ten-row rack and shared
   overflow, with existing saved counters and resource behavior retained.
   [Revision notes](docs/PLAYER_HUD_REVISION_16_2026-09-16.md).
-- ☑ Player review revision 17: per-custom-resource Show by orb preference in
+- â˜‘ Player review revision 17: per-custom-resource Show by orb preference in
   Character > Resources, browser-local to each character; empty overflow icon
   and drawer are hidden. No counter or DM behavior changes.
   [Revision notes](docs/PLAYER_HUD_REVISION_17_2026-09-16.md).
-- ☑ Player review revision 18: reviewed spell saves/targeting, separate spell
+- â˜‘ Player review revision 18: reviewed spell saves/targeting, separate spell
   attack damage and per-ray attacks, casting/healing corrections, per-cast
   damage types and silhouette-accurate token clicks. Shared mechanics corrected;
   DM layout and saved definitions retained. Further spell lifecycle work is open.
   [Revision notes and remaining backlog](docs/PLAYER_HUD_REVISION_18_2026-09-16.md).
-- ☑ Main reconciliation and release defaults: concentric arcs, final guardian
+- â˜‘ Main reconciliation and release defaults: concentric arcs, final guardian
   art and compact player layout by default; newer Main initiative/racial-trait,
   ADV/DIS, Slides overlay and reveal-timing fixes retained.
-- ☑ Player review revision 19: narrower Skills/Stats/Save drawer; shared
+- â˜‘ Player review revision 19: narrower Skills/Stats/Save drawer; shared
   per-attacker 2H/off-hand intent for panel and right-click attacks; non-overlapping
   player toolbar settings; character-matched resource trim with neutral fallback.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_19_2026-09-17.md).
-- ☑ Player review revision 20: visible inner gem emission and small colored
+- â˜‘ Player review revision 20: visible inner gem emission and small colored
   bloom; exact per-roll floating-damage timing and painted 3D landing callbacks.
   Authoritative HP and the existing manual damage workflow remain unchanged.
   [Revision notes and evidence](docs/PLAYER_HUD_REVISION_20_2026-09-17.md).
-- ☑ Player review revision 21: an engraved skull-and-tally crest in the health
+- â˜‘ Player review revision 21: an engraved skull-and-tally crest in the health
   orb's lower rim, using the existing saved kill count and matching Cinzel type.
   No new kill-credit automation or changes to DM layout, AC or resource positions.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_21_2026-09-17.md).
-- ☑ Player review revision 22: visible per-die damage and modifier breakdowns
+- â˜‘ Player review revision 22: visible per-die damage and modifier breakdowns
   in full history and the bottom overlay; new rolls retain bonus/rider faces
   without changing damage calculations, spending or animation steps.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_22_2026-09-17.md).
-- ☑ Player review revision 23: resource-gem light now fades down and up on a
+- â˜‘ Player review revision 23: resource-gem light now fades down and up on a
   visible 3.6-second cycle, with a broader colored halo and tiered inner glow.
   Spent gems remain dark; reduced motion keeps steady illumination.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_23_2026-09-17.md).
-- ☑ Player review revision 24: moved the breathing light inside each gemstone,
+- â˜‘ Player review revision 24: moved the breathing light inside each gemstone,
   with a deeper crystal body, clipped luminous core and refracted facet light;
   exterior bloom is now a faint spill around the unchanged socket.
   [Revision notes and validation](docs/PLAYER_HUD_REVISION_24_2026-09-17.md).
-- ◐ PR #66 merged into Main and the official local updater built its client and
+- â— PR #66 merged into Main and the official local updater built its client and
   server code. Production service restart did not complete after UAC was cancelled;
   revisions 19-24 are development-only and have not been deployed to production.
   See [release scope](docs/PLAYER_HUD_RELEASE_2026-09-16.md).
 - See [implementation, validation and explicit exclusions](docs/PLAYER_HUD_PREVIEW_2026-09-15.md).
 
-- ☑ **Durable sessions [req].** Every session code, its game state (maps, tokens,
+- â˜‘ **Durable sessions [req].** Every session code, its game state (maps, tokens,
   positions, HP, conditions, initiative), and created/last-played **dates**
   persist in local SQLite (`server/src/db.ts`). Restarting the server / re-running
   `start.bat` never resets state; loading a code restores the exact board.
   Schema upgrades use idempotent `ensureColumn` migrations so old saves keep
   working. `data/` and `uploads/` are never wiped by start/build.
-- ☑ **Session directory [req].** `GET /api/sessions` lists past sessions
+- â˜‘ **Session directory [req].** `GET /api/sessions` lists past sessions
   (code, name, map count, dates), surfaced on the DM landing page for one-click
   resume.
-- ☑ **Edit / delete saved sessions [req].** Each saved-session row on the DM
-  landing page shows its **name** and has **✎ edit** (rename + change the join
-  **code**) and **🗑 delete** actions. Because all data is keyed by `sessions.id`
+- â˜‘ **Edit / delete saved sessions [req].** Each saved-session row on the DM
+  landing page shows its **name** and has **âœŽ edit** (rename + change the join
+  **code**) and **ðŸ—‘ delete** actions. Because all data is keyed by `sessions.id`
   (not `code`), changing the code is a one-line `UPDATE` that **preserves every map,
-  token and log** — only links to the old code stop working. Delete cascades via
+  token and log** â€” only links to the old code stop working. Delete cascades via
   `ON DELETE CASCADE`. Server: `changeSessionCode` / `deleteSession`
   (`sessions.ts`) + `PATCH`/`DELETE /api/sessions/:code` (gated by the DM passphrase
   when configured); validated by tests.
-- ☑ **Import maps from another session [req].** A DM **"⇪ Import maps from another
+- â˜‘ **Import maps from another session [req].** A DM **"â‡ª Import maps from another
   session"** dialog (`ImportMapsDialog` in `DmPanel`): enter a code, preview its maps
   (`GET /api/sessions/:code/maps`) with token counts, **pick** which, and deep-copy
   each picked map + its tokens + the creatures/PCs they reference into the current
   session (`importMaps` in `sessions.ts`, a transactional generic `cloneRow`; fresh
   ids, monster template links + player claims dropped, images shared by global path).
-  DM-gated socket `session:importMaps` → `afterChange()`. Source session untouched;
+  DM-gated socket `session:importMaps` â†’ `afterChange()`. Source session untouched;
   validated by tests.
 
-## Phase 2 — Canvas UX, DM combat tooling, persistence polish ✅ (done)
+## Phase 2 â€” Canvas UX, DM combat tooling, persistence polish âœ… (done)
 
-- ☑ **Map zoom & pan [req].** Wheel-zoom toward the cursor + drag-to-pan in
+- â˜‘ **Map zoom & pan [req].** Wheel-zoom toward the cursor + drag-to-pan in
   `MapStage.tsx`, with a **Fit** button to reset to fit-to-window.
-- ☑ **Collapsible *and* resizable side panels [req].** `SidePanel.tsx` —
+- â˜‘ **Collapsible *and* resizable side panels [req].** `SidePanel.tsx` â€”
   drag handle + collapse toggle, width/collapsed persisted to localStorage.
-- ☑ **Direct click-to-place + multi-placement [req].** Clicking anywhere on the
+- â˜‘ **Direct click-to-place + multi-placement [req].** Clicking anywhere on the
   map places; placing mode stays active to drop several in a row (Esc or
   re-clicking the unit stops).
-- ☑ **Delete token (DM) [req].** Delete button on the selected-token panel +
+- â˜‘ **Delete token (DM) [req].** Delete button on the selected-token panel +
   Delete/Backspace removes the whole selection.
-- ☑ **Death marker [req].** 💀 overlay + dimmed token at 0 HP.
-- ☑ **Three concentric status rings [req].** `presentAuras()` + nested rings in
+- â˜‘ **Death marker [req].** ðŸ’€ overlay + dimmed token at 0 HP.
+- â˜‘ **Three concentric status rings [req].** `presentAuras()` + nested rings in
   `TokenShape.tsx`; buff/negative/concentration show together.
-- ☑ **Initiative tracker [req].** Roll-all (d20), Next (advances active turn,
+- â˜‘ **Initiative tracker [req].** Roll-all (d20), Next (advances active turn,
   wraps), Clear; list sorted by initiative; active turn highlighted on the token
   (dashed ring) and in the panel.
-- ☑ **Multi-select + map thumbnails [req].** Shift/Ctrl-click multi-select with
+- â˜‘ **Multi-select + map thumbnails [req].** Shift/Ctrl-click multi-select with
   group drag; image thumbnails in the map switcher.
-- ☑ **Delete map [req].** Per-map ✕ in the DM map switcher (`map:delete`, with a
+- â˜‘ **Delete map [req].** Per-map âœ• in the DM map switcher (`map:delete`, with a
   confirm). Removes the map plus its token placements and any monster instances
   those tokens uniquely referenced; templates and instances still placed on other
   maps are kept. Deleting the active map promotes the next remaining map (or
   none) and clears a dangling turn marker.
-- ☑ **Carry tokens between maps [req].** "Bring tokens to this map" (PCs /
+- â˜‘ **Carry tokens between maps [req].** "Bring tokens to this map" (PCs /
   Monsters / All); source map retains its tokens; HP/conditions carry via refs.
 
-## Phase 2 follow-ups — token UX & permissions [req]
+## Phase 2 follow-ups â€” token UX & permissions [req]
 
 Smaller refinements on top of the shipped Phase 2 work.
 
-- ☑ **Hover token menu [req].** Hovering a token shows a small read-only card
+- â˜‘ **Hover token menu [req].** Hovering a token shows a small read-only card
   (`TokenHoverCard`) with name, HP where visible, and conditions for both DM and
   players; **right-click / 500ms long-press** opens the fuller floating action
-  menu (`FloatingMenu` — Duplicate / Hide / Delete for the DM), wired in
+  menu (`FloatingMenu` â€” Duplicate / Hide / Delete for the DM), wired in
   `TokenShape` and rendered as an overlay by `MapStage`.
-- ☑ **Players cannot resize tokens [req].** `token:resize` is now DM-only and the
+- â˜‘ **Players cannot resize tokens [req].** `token:resize` is now DM-only and the
   size buttons are disabled for players (they may still move tokens).
-- ☑ **Players place their own token [req].** A "📍 Place my token" button in
+- â˜‘ **Players place their own token [req].** A "ðŸ“ Place my token" button in
   PlayerPanel lets a player click the active map to drop their claimed
   character once (`token:spawn` now allows a player to place only their own
   claimed PC, on the active map, no duplicates).
-- ☑ **High-visibility PC tokens [req].** Player-character tokens wear a 👑 crown
+- â˜‘ **High-visibility PC tokens [req].** Player-character tokens wear a ðŸ‘‘ crown
   above the rim (with the name lifted to clear it) so the party stands out clearly
   from creature tokens, without the old glowing halo crowding the status rings.
-- ☑ **Temporary HP [req].** Characters and monsters carry a flat 2024-rules
+- â˜‘ **Temporary HP [req].** Characters and monsters carry a flat 2024-rules
   temp-HP buffer pool (`tempHp`, server-side `temp_hp`), set via the stat block's
   "Temp" field (DM for creatures, owning player for their own PC). Damage drains
   temp HP first with overflow to real HP, and healing never refills it
   (`applyDamage`, the single chokepoint for direct/AOE/combat damage). Shown as a
   cyan "+N" on the token HP bar and a "+N temp" suffix in panels/cards; visible to
   players for their own PCs and friendly/neutral creatures.
-- ☑ **Short AI creature names [req].** The Gemini creature lookup now returns a
+- â˜‘ **Short AI creature names [req].** The Gemini creature lookup now returns a
   short, flavorful name (e.g. "Bandit Captain") instead of echoing the whole
   free-text description; applies on the create flow only (back-fill leaves names).
-- ☑ **Initiative *order* on token [req].** The on-token badge now shows turn ORDER
-  (1, 2, 3 …); the DM initiative list shows BOTH the order (#) and the roll.
-- ☑ **Carry-tokens confirmation [req].** `copyTokens` returns a count; the server
+- â˜‘ **Initiative *order* on token [req].** The on-token badge now shows turn ORDER
+  (1, 2, 3 â€¦); the DM initiative list shows BOTH the order (#) and the roll.
+- â˜‘ **Carry-tokens confirmation [req].** `copyTokens` returns a count; the server
   sends a `notice` the DM surfaces as a bottom toast ("Brought N tokens to this
   map"), auto-dismissed after 3s.
-- ☑ **Clearer player character selection [req].** Explicit per-character "Play"
+- â˜‘ **Clearer player character selection [req].** Explicit per-character "Play"
   CTA, a "you" badge on the claimed character, and a "Change" button that releases
   it and reopens the chooser. New `character:release`; `claimCharacter` now frees
   any prior claim so a player holds exactly one.
 
-## Phase 3 — Fog of war & map masking ✅ (mostly done)
+## Phase 3 â€” Fog of war & map masking âœ… (mostly done)
 
-- ☑ Fog of war: per-map grid-cell fog stored in SQLite (`maps.fog_revealed`).
-  DM Reveal/Hide brush with **1×/3×/5× brush sizes** + Cover-all / Reveal-all.
+- â˜‘ Fog of war: per-map grid-cell fog stored in SQLite (`maps.fog_revealed`).
+  DM Reveal/Hide brush with **1Ã—/3Ã—/5Ã— brush sizes** + Cover-all / Reveal-all.
   DM sees through (translucent); players see solid cover; fog-covered tokens are
   filtered out server-side in `visibility.ts` (covered tests).
-- ☑ **Token-only fog [req].** Per-map fog *mode* (`off` / `map` / `tokens`).
+- â˜‘ **Token-only fog [req].** Per-map fog *mode* (`off` / `map` / `tokens`).
   In `tokens` mode the map stays fully visible to players but creature tokens in
   covered cells are hidden; the DM sees a translucent purple marker of the hidden
   region. (`tokens` mode seeds revealed so the DM paints spots to hide.)
-- ☑ **Hide individual tokens [req].** DM "Hide from players" toggle on the
+- â˜‘ **Hide individual tokens [req].** DM "Hide from players" toggle on the
   selected-token panel (`token:setHidden`); hidden tokens never reach players
   regardless of fog.
-- ☑ **DM "curtain" [req].** Served by the same system: **Cover all**, then reveal
-  the starting area — a large map appears smaller until players investigate.
+- â˜‘ **DM "curtain" [req].** Served by the same system: **Cover all**, then reveal
+  the starting area â€” a large map appears smaller until players investigate.
   (If a distinct hard-rectangular crop is ever wanted, revisit.)
-- ☑ Save/load is provided by the durable-session invariant — fog, tokens, and
+- â˜‘ Save/load is provided by the durable-session invariant â€” fog, tokens, and
   board state persist by session code and reload on restart (verified by tests).
-- ☐ **Live tokens over Google Slides (stretch, if feasible) [req].** Overlay the
+- â˜ **Live tokens over Google Slides (stretch, if feasible) [req].** Overlay the
   interactive token layer on top of a linked Slides embed so tokens can be placed
-  on Slides maps. Technically tricky (cross-origin iframe) — investigate an
+  on Slides maps. Technically tricky (cross-origin iframe) â€” investigate an
   absolutely-positioned transparent canvas over the iframe.
-- ☑ **Combined map + token fog, painted separately [req].** A map now has two
+- â˜‘ **Combined map + token fog, painted separately [req].** A map now has two
   independent fog layers, each with its own enabled flag + revealed-cell set
   (`mapFogRevealed` / `tokenFogRevealed`), both active at once. The fog toolbar
   toggles each layer on/off and a **Paint: Map / Tokens** selector picks which
@@ -933,188 +937,188 @@ Smaller refinements on top of the shipped Phase 2 work.
   DM-only purple marker. The old single `fogMode` migrates into the matching
   layer (verified by a two-layer test).
 
-## Phase 4 — Creature data & token art ✅ (done)
+## Phase 4 â€” Creature data & token art âœ… (done)
 
-- ☑ SRD creature search (offline, curated subset in `server/src/creatures/srd.ts`)
+- â˜‘ SRD creature search (offline, curated subset in `server/src/creatures/srd.ts`)
   with autofill, plus a key-gated **Gemini fallback** (`creatures/gemini.ts`,
   fails safe) for names not in the SRD. Surfaced via `GET /api/creatures` and
   `POST /api/creatures/lookup`. *(Future: optional live Open5e fetch for the full
   bestiary; the curated list keeps it fully offline today.)*
-- ☑ **Spawn multiple monsters at once [req].** Count field → N independent
+- â˜‘ **Spawn multiple monsters at once [req].** Count field â†’ N independent
   records, auto-numbered "Goblin 1..N"; checks existing names and continues the
   numbering so names never collide (verified by tests).
-- ☑ **Duplicate token (DM) [req].** Right-click / long-press a placed token (or
-  the selected-token panel) → "Duplicate" drops a second, independently-tracked
+- â˜‘ **Duplicate token (DM) [req].** Right-click / long-press a placed token (or
+  the selected-token panel) â†’ "Duplicate" drops a second, independently-tracked
   copy one square over, carrying the source's current HP/conditions and taking
   the next sequential name ("Goblin 2"). Replaces the old spawn-list "Copy"
   template button, which sequential instancing already made redundant.
-- ☑ **Auto token icons [req].** Emoji icon auto-assigned by creature name/type
+- â˜‘ **Auto token icons [req].** Emoji icon auto-assigned by creature name/type
   (`iconForCreature`), rendered on the token (DM + players).
-- ☑ **Custom icon upload + bulk apply [req].** Upload an image (`POST /api/icons`)
+- â˜‘ **Custom icon upload + bulk apply [req].** Upload an image (`POST /api/icons`)
   or set an emoji on the selected token; applies to the whole multi-selection.
 
 ### Phase 4 refinements (later pass)
 
-- ☑ **Gemini env fix.** `.env` is now loaded from the repo root even when the
-  server runs with cwd = `server/` (npm workspaces) — that's why the key wasn't
+- â˜‘ **Gemini env fix.** `.env` is now loaded from the repo root even when the
+  server runs with cwd = `server/` (npm workspaces) â€” that's why the key wasn't
   picked up. Failures are also logged server-side now.
-- ☑ **Full stat blocks.** Monsters carry AC, speed, ability scores, actions and
+- â˜‘ **Full stat blocks.** Monsters carry AC, speed, ability scores, actions and
   traits (SRD + Gemini); the DM sees a full stat block (`StatBlock.tsx`) on the
   selected token.
-- ☑ **One button per creature [req].** Creating a creature makes a reusable
+- â˜‘ **One button per creature [req].** Creating a creature makes a reusable
   *template* (one spawn button); each click-to-place spawns a unique **numbered
-  instance** (Goblin 1, 2, 3…) with its own HP/conditions. Templates vs instances
+  instance** (Goblin 1, 2, 3â€¦) with its own HP/conditions. Templates vs instances
   via `is_template`/`template_id`.
-- ☑ **Delete spawn buttons [req].** ✕ on each creature template removes it
+- â˜‘ **Delete spawn buttons [req].** âœ• on each creature template removes it
   (`monster:delete`) so the list stays short.
 
 ## Persistent creature & item library [req]
 
-- ☑ **Save custom / AI creatures & items for reuse [req].** _(Shipped — see
+- â˜‘ **Save custom / AI creatures & items for reuse [req].** _(Shipped â€” see
   "Cross-session library (creatures + items)" in the DONE ledger below.)_ Store
   custom-made and Gemini-generated creatures (and, later, items) in a
   **cross-session local library** so they're searchable and reusable in any
-  future session — not just the session they were made in. Details:
+  future session â€” not just the session they were made in. Details:
   - A library table (e.g. `library_creatures`, `library_items`) at the app level,
     independent of any one session's templates.
   - The creature search (`GET /api/creatures`) merges results from **SRD + your
     saved library**, so your homebrew/AI creatures show up in autofill.
-  - **DM-controlled save only — no auto-save.** AI results are *not* saved
+  - **DM-controlled save only â€” no auto-save.** AI results are *not* saved
     automatically; the DM saves explicitly via a "Save to library" button.
   - **Save under a DM-edited name.** The name saved is whatever the DM enters at
     save time, not the query. e.g. query AI for "bandit with a short sword", then
-    save it as just "bandit" — future searches for "bandit" hit the library and
+    save it as just "bandit" â€” future searches for "bandit" hit the library and
     **don't call the AI again**.
-  - Pairs with item tracking (Phase 5) — saved items become a pickable catalog.
+  - Pairs with item tracking (Phase 5) â€” saved items become a pickable catalog.
 
-## Phase 5a — Characters, NPCs & editing [req]
+## Phase 5a â€” Characters, NPCs & editing [req]
 
-- ☑ **Players see & edit their own character; view party + friendly sheets [req].**
+- â˜‘ **Players see & edit their own character; view party + friendly sheets [req].**
   A character's full sheet (`CharacterSheet` = tagged `StatBlock` + skills) is now
   shown to players: editable for their own character (and the DM), read-only for
   party members (expandable in PlayerPanel) and for any **Friendly** creature.
   `SelectedTokenPanel` shows the read-only block to players when the snapshot
   carries full data (friendly creatures / other PCs); `StatBlock` gained a
   read-only mode (no Edit/AI when `onSave` is omitted).
-- ☑ **Skills with proficiency + bonuses [req].** `shared/skills.ts` defines the 18
+- â˜‘ **Skills with proficiency + bonuses [req].** `shared/skills.ts` defines the 18
   5e skills (ability map), `proficiencyBonus(level)`, and `skillBonus`. Characters
   store `proficientSkills`; `CharacterSkills` shows each skill's ability, a
   proficiency toggle (owner/DM editable), the proficiency bonus, and the computed
   stat-based total. AI character generation/fill can set proficiencies.
-- ☑ **Automated skill checks [req].** Clicking a skill rolls it server-side
-  (`skill:roll` → `resolveSkillRoll`): d20 (with the creature's adv/dis toggle) +
+- â˜‘ **Automated skill checks [req].** Clicking a skill rolls it server-side
+  (`skill:roll` â†’ `resolveSkillRoll`): d20 (with the creature's adv/dis toggle) +
   the sheet's ability modifier + proficiency bonus when proficient, logged to the
   shared roll log as "<Skill> check" (own color tier). Owner/DM-gated.
-- ☑ **Click a stat block to roll its save [req].** Each ability score in a
-  `StatBlock` is clickable to roll that creature's saving throw (`save:roll` →
+- â˜‘ **Click a stat block to roll its save [req].** Each ability score in a
+  `StatBlock` is clickable to roll that creature's saving throw (`save:roll` â†’
   `resolveSave`): d20 + ability modifier + proficiency when proficient in the save,
   honoring the creature's adv/dis toggle and conditions. Works for a PC (owner/DM)
   and a monster (DM). The per-creature adv/dis toggle also now drives **bulk saves**
   (`combat:save` carries an `advantageByToken` map from each selected creature's
   toggle) and the **"Apply damage" click-to-target save** (`save:resolve` carries
   the clicked creature's advantage).
-- ☑ **Create party characters [req].** Both the DM (DmPanel) and players
-  (PlayerPanel) can add characters — name, race, class, HP, ability scores — via
-  a `NewCharacterForm` → `character:create` → `createCharacter()`. Players can
+- â˜‘ **Create party characters [req].** Both the DM (DmPanel) and players
+  (PlayerPanel) can add characters â€” name, race, class, HP, ability scores â€” via
+  a `NewCharacterForm` â†’ `character:create` â†’ `createCharacter()`. Players can
   create one and immediately claim it.
-- ☑ **Pre-placement creature editing [req].** Each DM spawn-list creature has an
+- â˜‘ **Pre-placement creature editing [req].** Each DM spawn-list creature has an
   "Edit" toggle opening a `TemplateEditor`: adjust the full tagged stat block,
-  "✨ Fill missing details with AI", and set the token image (emoji/upload) BEFORE
+  "âœ¨ Fill missing details with AI", and set the token image (emoji/upload) BEFORE
   placing. Edits target the template, so every instance placed afterwards
   inherits them.
-- ☑ **Bulk multi-select token edits [req].** Selecting >1 token shows a
+- â˜‘ **Bulk multi-select token edits [req].** Selecting >1 token shows a
   `BulkActionsPanel`: AOE Damage/Heal all, apply/clear conditions on all, set one
   token image on all (`tokens:setIcon`), and (DM) hide/show, hide/show role
   badges, and delete the whole selection. New `tokens:damage` /
   `tokens:setCondition` / `tokens:clearConditions` / `tokens:setHidden` events.
-- ☑ **Disposition on every creature [req].** Each creature carries a
+- â˜‘ **Disposition on every creature [req].** Each creature carries a
   `disposition` (`friendly` / `neutral` / `enemy`, default enemy) set via a
   selector on the DM's selected-token panel (`monster:update`). It shapes the
   player payload in `visibility.ts` (3-tier `toPlayerMonster`):
-  - **Friendly** — full stat block visible (like a party member).
-  - **Neutral** — name + HP + type + AC only.
-  - **Enemy** — name + conditions only (the original hostile view).
+  - **Friendly** â€” full stat block visible (like a party member).
+  - **Neutral** â€” name + HP + type + AC only.
+  - **Enemy** â€” name + conditions only (the original hostile view).
   Instances inherit their template's disposition; a small green/amber/red dot on
   the token shows it at a glance to DM and players (verified by per-tier tests).
   *(NPCs are just creatures with a non-enemy disposition; explicit NPC/character
   creation is the next item.)*
-- ☑ **Editable NPC/creature stats [req].** `StatBlock` has a display ↔ edit
-  toggle; the DM can patch every tagged field in place — name, type, HP/AC/speed,
-  ability scores, resist/vulnerable, Weapons, Actions, Traits — via
+- â˜‘ **Editable NPC/creature stats [req].** `StatBlock` has a display â†” edit
+  toggle; the DM can patch every tagged field in place â€” name, type, HP/AC/speed,
+  ability scores, resist/vulnerable, Weapons, Actions, Traits â€” via
   `monster:update` (dynamic patch, clamps curHp to a lowered max).
-- ☑ **Tagged creature data [req].** Creatures carry structured `weapons`
+- â˜‘ **Tagged creature data [req].** Creatures carry structured `weapons`
   (name + melee/ranged + damage + to-hit) alongside stats/actions/abilities, so
   missing data is obvious and reusable by later features (combat-role now, attack
   rolls in WP11).
-- ☑ **AI back-fill of missing fields [req].** "✨ Fill missing details with AI"
-  on the stat panel → `ai:fillCreature` asks Gemini for the SRD block and merges
+- â˜‘ **AI back-fill of missing fields [req].** "âœ¨ Fill missing details with AI"
+  on the stat panel â†’ `ai:fillCreature` asks Gemini for the SRD block and merges
   ONLY empty fields (type/HP/AC/speed/stats/resist/weapons/actions/traits),
   never overwriting DM edits. Fails safe with no/invalid key (tested).
-- ☑ **Combat-role badge [req].** Each token shows ⚔️ melee / 🏹 ranged / ✨ caster,
+- â˜‘ **Combat-role badge [req].** Each token shows âš”ï¸ melee / ðŸ¹ ranged / âœ¨ caster,
   derived from creature data (`shared/combatRole.ts`) and computed server-side so
-  it reaches players even on enemies. DM can override (Auto/⚔️/🏹/✨) or hide the
+  it reaches players even on enemies. DM can override (Auto/âš”ï¸/ðŸ¹/âœ¨) or hide the
   badge across a multi-selection (`tokens:setCombatRole` /
   `tokens:setHideCombatRole`).
 
-## Phase 5 — Player resources, items, Roll20, dice
+## Phase 5 â€” Player resources, items, Roll20, dice
 
-- ☑ **Cross-session library (creatures + items) [req].** App-wide
+- â˜‘ **Cross-session library (creatures + items) [req].** App-wide
   `library_creatures` / `library_items` (`server/library.ts`); creature search +
-  lookup merge the library (a hit skips Gemini), "💾 Save to library" with a
+  lookup merge the library (a hit skips Gemini), "ðŸ’¾ Save to library" with a
   side-by-side conflict prompt, and items feed the inventory "add from library"
   picker. (WP5)
-- ☑ **Class-specific limited-use resources [req].** `server/data/classTables.ts`
+- â˜‘ **Class-specific limited-use resources [req].** `server/data/classTables.ts`
   (5e spell-slot + class-resource tables) auto-fills `spellSlots`/`resources` on
   create and re-derives on level/class change (preserving used + custom).
   `CharacterResources` shows clickable pip trackers + custom counters
   (`resource:set`). (WP6)
-- ☑ **Item / inventory tracking [req].** Characters carry `items`;
+- â˜‘ **Item / inventory tracking [req].** Characters carry `items`;
   `CharacterItems` is an editable list (qty steppers, free-form add, "add from
   library") via `item:set`/`item:remove`. (WP6)
-- ☑ **Import/export character sheet [req].** `shared/sheetIO.ts`: a robust
-  PLAIN-TEXT scraper (any sheet — name/race/class/level, HP `x/y`, AC, speed,
+- â˜‘ **Import/export character sheet [req].** `shared/sheetIO.ts`: a robust
+  PLAIN-TEXT scraper (any sheet â€” name/race/class/level, HP `x/y`, AC, speed,
   ability scores via abbreviations OR full words, skill proficiencies, spell
   slots) AND a lossless JSON round-trip (Export JSON + import). `SheetImportExport`
   (on the editable character sheet) previews exactly which fields will be
   **overwritten** and confirms before applying; everything it doesn't recognize is
   preserved. (No public Roll20 API, so this works for any pasted sheet.) (WP7)
   **Improved:** the scraper now infers **skill + saving-throw proficiencies** from
-  listed bonuses (bonus ≥ ability-mod + proficiency-bonus — catches Roll20/D&D
+  listed bonuses (bonus â‰¥ ability-mod + proficiency-bonus â€” catches Roll20/D&D
   Beyond pastes with no markers), scrapes **feats + a "Features & Traits" block**
   into free-text traits, and captures **spells (by level) + weapon masteries** as
   `sheetAbilities` whose names are **resolved against the local rules DB at import**
   (`POST /api/spells/resolve`) so known entries arrive **rollable** (unknown stay as
   references). The preview is now **per-section checkboxes** (apply only some, or
   "Only empty fields") instead of an all-or-nothing overwrite. A per-entry
-  **"⚡ Make rollable"** button (CharacterSpells) looks a text-only ability up in
+  **"âš¡ Make rollable"** button (CharacterSpells) looks a text-only ability up in
   the rules (local DB first via `/spells/lookup`, AI fallback) and replaces it
-  **in place** (same id — no duplicate), for homebrew/non-SRD spells the import
+  **in place** (same id â€” no duplicate), for homebrew/non-SRD spells the import
   couldn't resolve.
-- ☑ **Drag-reorder toolbar sections [req].** _(Shipped — see "Drag-reorder DM
+- â˜‘ **Drag-reorder toolbar sections [req].** _(Shipped â€” see "Drag-reorder DM
   panel sections" in the DONE ledger; `ReorderableSections` everywhere, with tap
-  ▲/▼ on touch.)_ DM and players drag to reorder the main sections within their
+  â–²/â–¼ on touch.)_ DM and players drag to reorder the main sections within their
   side toolbars (e.g. Maps / Spawn / Initiative), persisted per role.
-- ☑ Buff/nerf buttons with custom text (drive the green/red rings) — via the
+- â˜‘ Buff/nerf buttons with custom text (drive the green/red rings) â€” via the
   existing `ConditionPicker` custom buff/nerf + auras.
-- ☒ **Collapsible Roll20 embed [req]** — REMOVED. The `Roll20Panel` `<iframe>`
+- â˜’ **Collapsible Roll20 embed [req]** â€” REMOVED. The `Roll20Panel` `<iframe>`
   never worked (Roll20 blocks framing via X-Frame-Options) so it was deleted from
   the UI + code; share a Roll20 link via chat instead (clickable links). Sheet
   import (paste text) stays and was improved.
-- ☑ **Dice roller + shared roll log [req].** `shared/dice.ts` parser
-  (`NdM±K`, multi-term, d20 adv/dis); `dice:roll` is computed authoritatively on
+- â˜‘ **Dice roller + shared roll log [req].** `shared/dice.ts` parser
+  (`NdMÂ±K`, multi-term, d20 adv/dis); `dice:roll` is computed authoritatively on
   the server and written to a persisted `roll_log`, surfaced in every snapshot.
   `DicePanel` (quick dice, expression, adv/dis, label) + a shared log visible to
   all, in both views' left sidebar. (WP7)
-- ☑ **Automated combat rolls [req].** `shared/combatMath.ts` (pure, tested):
+- â˜‘ **Automated combat rolls [req].** `shared/combatMath.ts` (pure, tested):
   proficiency by PC level OR monster CR, weapon to-hit (tagged value or
-  ability mod + prof; ranged→DEX, melee→better of STR/DEX), damage parse with
+  ability mod + prof; rangedâ†’DEX, meleeâ†’better of STR/DEX), damage parse with
   crit (double dice on nat-20, auto-miss on nat-1), and saving throws. The
   server resolves `combat:attack` authoritatively (to-hit vs the target's AC,
-  damage auto-applied on a hit, logged to the shared roll log) — gated to the DM
+  damage auto-applied on a hit, logged to the shared roll log) â€” gated to the DM
   or the player who owns the attacking PC. `AttackControls` on the selected-token
   panel rolls each weapon at a chosen target (adv/dis). `combat:save` rolls a
   DC-X ability save for the whole multi-selection from `BulkActionsPanel`. (WP11)
-- ☑ **Spells & abilities on the character sheet [req].** `CharacterSpells`
+- â˜‘ **Spells & abilities on the character sheet [req].** `CharacterSpells`
   adds a searchable spell/ability menu to the sheet: a local rules database
   (`server/src/spells/srd.ts`, curated SRD spells + class features with
   structured rolls) is queried first via `GET /api/spells`, with a key-gated
@@ -1124,25 +1128,25 @@ Smaller refinements on top of the shipped Phase 2 work.
   upcast by the chosen slot level, cantrips scaled by caster level
   (`shared/spellMath.ts`, pure + tested). Rolls land in the shared roll log;
   owner/DM-gated like items. (extends the WP11 structured-spell follow-up)
-- ☑ **Weapon masteries (2024), tag-driven [req].** Modeled per the books: you gain
+- â˜‘ **Weapon masteries (2024), tag-driven [req].** Modeled per the books: you gain
   mastery in specific weapons, so entries are named **"<Weapon> Mastery"**
   (e.g. "Longbow Mastery") and carry that weapon's mechanic as `weaponLabel`
-  (e.g. "Slow"). `server/src/masteries/srd.ts` maps every 2024 weapon → its mastery
+  (e.g. "Slow"). `server/src/masteries/srd.ts` maps every 2024 weapon â†’ its mastery
   property (plus **Great Weapon Master**, a feat, same format); searchable by weapon
   OR mechanic. **Weapons carry `tags`** (a type + props, e.g. `["halberd","heavy"]`,
   edited in `StatBlock`); a mastery declares `appliesToTags`, and an **active**
   mastery in the abilities list triggers on any attack with a weapon whose tags
-  overlap — no per-weapon binding.
+  overlap â€” no per-weapon binding.
   `resolveAttack` then adjusts the attack server-side: **Graze** (ability-mod damage
   on a miss), **Cleave** (weapon damage minus the ability modifier to the target,
   then one-shot toggles off), **Great Weapon Master** (proficiency-bonus damage on a
   hit, all Heavy weapons), and a generic on-hit `bonusDamage` lever (homebrew/AI).
   The rest (Push/Sap/Slow/Topple/Vex/Nick) are collapsible descriptions handled
   manually. The weapon display **bold-lists the mechanic** of each applicable
-  mastery via `weaponLabel` (defaults to the name) — e.g. a `[longbow][heavy]`
+  mastery via `weaponLabel` (defaults to the name) â€” e.g. a `[longbow][heavy]`
   weapon shows `Slow, GWM`, and a heavy melee weapon also shows the melee-only
   `meleeLabel` `Hew` (GWM's extra-attack mechanic).
-- ☑ **Battle Master maneuvers, tag-driven [req].** `server/src/maneuvers/srd.ts`
+- â˜‘ **Battle Master maneuvers, tag-driven [req].** `server/src/maneuvers/srd.ts`
   carries the full 2024 maneuver set (`GET /api/maneuvers`, also folded into the
   sheet "add" search). A maneuver is a toggleable sheet entry (`type: 'maneuver'`)
   that spends a **Superiority Die** (`Character.superiorityDie`, default d8; the
@@ -1151,33 +1155,33 @@ Smaller refinements on top of the shipped Phase 2 work.
   it per `addDieTo`: **attack** (Precision, added to the to-hit), **damage** (folded
   into the hit), **heal**/**none** (rolled + noted). A `save` rider logs its own
   click-to-target save (DC 8 + prof + STR/DEX mod) whose **failure applies a
-  condition** via the existing force-save tool (`apply.onFail` → Prone/Frightened/
+  condition** via the existing force-save tool (`apply.onFail` â†’ Prone/Frightened/
   Grappled). The maneuver spends a die and one-shot toggles itself off, exactly
   like Cleave; positional/reaction effects are noted for manual resolution.
-- ☑ **Ability modifier added at roll time (PCs).** PC weapons store **dice only**;
+- â˜‘ **Ability modifier added at roll time (PCs).** PC weapons store **dice only**;
   `rollWeaponAttack` adds the wielder's ability modifier (finesse-aware) from their
   live stat on a hit. Monsters' stat-block damage is left pre-baked (no auto-add).
   Off-hand / Cleave attacks omit that modifier. The sheet shows the effective
   damage (dice + current mod).
-- ☑ **Weapon magic bonus as a separate field.** `Weapon.magicBonus` is its own
+- â˜‘ **Weapon magic bonus as a separate field.** `Weapon.magicBonus` is its own
   damage modifier (not the ability mod), so it survives effects that strip the
   ability mod (Cleave / off-hand). `rollWeaponAttack` adds it to every hit (not
   doubled on a crit); editable in `StatBlock`.
-- ☑ **Off-hand, versatile (2H), and finesse [req].** `AttackControls` has
+- â˜‘ **Off-hand, versatile (2H), and finesse [req].** `AttackControls` has
   **Off-hand** and (when a weapon is versatile) **2H** toggles alongside adv/dis,
-  threaded through `combat:attack` → `resolveAttack`. Off-hand omits the ability
+  threaded through `combat:attack` â†’ `resolveAttack`. Off-hand omits the ability
   modifier (decided before the roll, unified with Cleave); 2H rolls the weapon's
-  `versatileDamage` dice. `weaponAbility` is tag-aware — only `finesse` melee
+  `versatileDamage` dice. `weaponAbility` is tag-aware â€” only `finesse` melee
   weapons use the better of STR/DEX (others use STR). The `light` tag is reserved
   for future off-hand feats. Weapon editor gains a 2H-damage field; tags carry the
   mechanics.
-- ☑ **2024 weapon database [req].** `server/src/weapons/srd.ts` holds every 2024
+- â˜‘ **2024 weapon database [req].** `server/src/weapons/srd.ts` holds every 2024
   PHB weapon with dice, damage type, properties, range, versatile dice, and its
-  mastery property; `GET /api/weapons` searches it. The weapon editor’s **“+ From
-  book”** picker fills a sheet weapon from it — **dice-only** damage (the wielder’s
+  mastery property; `GET /api/weapons` searches it. The weapon editorâ€™s **â€œ+ From
+  bookâ€** picker fills a sheet weapon from it â€” **dice-only** damage (the wielderâ€™s
   modifier is added at roll time) and `tags` = type + properties (so
   masteries/finesse/versatile/heavy all light up automatically).
-- ☑ **Player combat console (right panel) [req].** For a player, selecting ANY
+- â˜‘ **Player combat console (right panel) [req].** For a player, selecting ANY
   token turns the right `SelectedTokenPanel` into a combat console for THEIR own
   PC: `AttackControls` (attacker = the player's own token) defaults its target to
   the clicked token, plus `CharacterSpells` (abilities/masteries). The player's
@@ -1186,25 +1190,25 @@ Smaller refinements on top of the shipped Phase 2 work.
   context. The attack **target dropdown excludes friendly creatures** (friendly
   monsters + other PCs) for players. DM behavior is unchanged (DM still attacks
   AS the selected token).
-- ☑ **Collapsible creature "Details" for players [req].** A player's combat
+- â˜‘ **Collapsible creature "Details" for players [req].** A player's combat
   console now leads with a collapsible, read-only **Details** panel (below the
   name/HP), **collapsed by default** and sticky (`detailsExpanded` in the store).
-  Expanding it shows exactly what the creature's disposition tier grants — a full
+  Expanding it shows exactly what the creature's disposition tier grants â€” a full
   read-only `StatBlock` for a Friendly creature, type/AC/conditions for Neutral,
   conditions only for Enemy, or a read-only `CharacterSheet` for an allied PC.
   **Double-clicking a token** selects it and auto-expands the panel (`onActivate`
-  on `TokenShape` → `MapStage`).
-- ☑ **Floating-menu select-then-attack [req].** Select a token (the attacker),
+  on `TokenShape` â†’ `MapStage`).
+- â˜‘ **Floating-menu select-then-attack [req].** Select a token (the attacker),
   then right-click another token to attack it: the `FloatingMenu` offers the
   **selected token's** weapons, targeting the right-clicked token. Gated exactly
   like the server `combat:attack` (DM, or the owner of the attacking PC; no
   attacks when nothing else is selected or you right-click your own selection).
-  One button per weapon → `combatAttack`. A right-click never changes selection
-  (`TokenShape` ignores non-primary mouse buttons in its click handler — Konva
+  One button per weapon â†’ `combatAttack`. A right-click never changes selection
+  (`TokenShape` ignores non-primary mouse buttons in its click handler â€” Konva
   otherwise synthesizes a left-click for the right button), so the attacker stays
   selected without needing Ctrl.
-- ☑ **Latest-roll overlay [req].** The shared roll log stays in the left panel; a
-  **⤢ Overlay** toggle (`DicePanel` → `showRollOverlay` store flag, **on by default**)
+- â˜‘ **Latest-roll overlay [req].** The shared roll log stays in the left panel; a
+  **â¤¢ Overlay** toggle (`DicePanel` â†’ `showRollOverlay` store flag, **on by default**)
   shows a compact, **click-through** (`pointer-events:none`) `RollLogOverlay` pinned to
   the **bottom-left** of the map. It's a live feed: every roll under a minute old is
   **stacked** as a single line (newest nearest the corner, capped at 6), each fading in
@@ -1212,32 +1216,32 @@ Smaller refinements on top of the shipped Phase 2 work.
   just the **most-recent roll, which always stays visible**. The map stays fully
   clickable underneath. DM **Clear** stays in the left UI. The overlay shows only the
   one-line `detail` (never a roll's long `description`).
-- ☑ **Quick-dice D20 button [req].** A **D20-shaped** quick-roll button (`DiceButtonOverlay`)
-  pinned to the **bottom-right** of the map, toggled by a **🎲 Dice** button (`DicePanel`
-  → `showDiceButton` store flag, **on by default**). Sits **semi-transparent/unobtrusive**
-  until hovered, then fades to full opacity and reveals the basic dice (d4–d20, d100)
-  above it; clicking the d20 rolls `1d20`, clicking a die rolls one of it — all through the
+- â˜‘ **Quick-dice D20 button [req].** A **D20-shaped** quick-roll button (`DiceButtonOverlay`)
+  pinned to the **bottom-right** of the map, toggled by a **ðŸŽ² Dice** button (`DicePanel`
+  â†’ `showDiceButton` store flag, **on by default**). Sits **semi-transparent/unobtrusive**
+  until hovered, then fades to full opacity and reveals the basic dice (d4â€“d20, d100)
+  above it; clicking the d20 rolls `1d20`, clicking a die rolls one of it â€” all through the
   same server-authoritative `dice:roll` path into the shared roll log. Shown for DM + players
   (rendered once in shared `MapStage`).
-- ☑ **Roll-overlay rework [req].** Each overlay line now shows its **full text**
+- â˜‘ **Roll-overlay rework [req].** Each overlay line now shows its **full text**
   (wraps, never truncated). New rolls fade in and, when idle, fade out **~20s**
   later, leaving a faint latest line as a hover target. **Hovering** fades the panel
-  to full opacity — within a minute it reveals the recent stack; once the latest roll
+  to full opacity â€” within a minute it reveals the recent stack; once the latest roll
   is **over a minute** old, hovering shows only that single latest roll
   (`RollLogOverlay` + `.roll-log-overlay` CSS).
-- ☑ **Player roll log on the right [req].** In the PLAYER view the shared roll log
+- â˜‘ **Player roll log on the right [req].** In the PLAYER view the shared roll log
   (`DicePanel`) lives in the RIGHT panel **beneath** the combat console, so clicking
   an attack shows the result immediately below. The DM keeps the left-panel log.
-- ☑ **Spell descriptions in the full log [req].** `RollEntry` carries an optional
+- â˜‘ **Spell descriptions in the full log [req].** `RollEntry` carries an optional
   `description`; `resolveAbilityRoll` attaches the cast spell/ability's full rules
   text. The **full** roll log (`DicePanel`) renders it (so others can read it); the
   compact overlay shows only the one-line result. Persisted via an idempotent
-  `ensureColumn('roll_log','description',…)`.
-- ☑ **Every roll animates, not just combat [req].** The staged roll-reveal overlay
-  (`RollRevealOverlay`) — a tumbling die that lands, modifier chips flying in, a
-  result stamp, a counting-up total — now fires for **all** rolls, not only attacks
+  `ensureColumn('roll_log','description',â€¦)`.
+- â˜‘ **Every roll animates, not just combat [req].** The staged roll-reveal overlay
+  (`RollRevealOverlay`) â€” a tumbling die that lands, modifier chips flying in, a
+  result stamp, a counting-up total â€” now fires for **all** rolls, not only attacks
   and spell damage. Two new `RollReveal.kind`s (`shared/rollReveal.ts` builders,
-  unit-tested): **`check`** (a single d20 + chips → total, with an optional
+  unit-tested): **`check`** (a single d20 + chips â†’ total, with an optional
   PASS/FAIL vs a DC) covers **skill checks, saving throws, ability checks, death
   saves, and lock/trap checks** (`resolveSkillRoll`/`resolveSave`/`resolveCheck`/
   `resolveSaves`/`resolveForcedSave`/`resolveObjectCheck`/`resolveDeathSave`); and
@@ -1248,7 +1252,7 @@ Smaller refinements on top of the shipped Phase 2 work.
   `hideMods` path; the per-user **showRollAnim** toggle still suppresses it, and the
   overlay stays click-through + skippable. Sound stays in sync (the reveal plays the
   tick/whiff at the result beat instead of an immediate cue).
-- ☑ **Monster attack rolls (parse `actions` → `weapons`) [req].** SRD/AI monsters
+- â˜‘ **Monster attack rolls (parse `actions` â†’ `weapons`) [req].** SRD/AI monsters
   store attacks as free-text `actions`; `shared/monsterAttacks.ts`
   (`weaponsFromActions`, pure + tested) turns any action that has **both** a
   `+N to hit` and damage dice into a rollable `Weapon` (melee/ranged inferred from
@@ -1256,16 +1260,16 @@ Smaller refinements on top of the shipped Phase 2 work.
   save/recharge breath) as leftovers. Wired into `createMonsterTemplate` (the
   single SRD/AI/library/copy chokepoint) so spawned monsters get rollable weapons.
   The DM can also **build/edit attacks** in the creature's `StatBlock` editor: a
-  single **"+ Attack"** picker pulls from BOTH libraries — the 2024 weapon book
+  single **"+ Attack"** picker pulls from BOTH libraries â€” the 2024 weapon book
   (`/api/weapons`) and a new **natural-attacks library** (`server/src/attacks/natural.ts`,
-  `/api/attacks`: Bite, Claw, Slam…) — plus a **Custom (blank)** row. A creature pick
-  is stored **dice-only with a `diceOnly` flag**, so — exactly like a PC weapon — the
+  `/api/attacks`: Bite, Claw, Slamâ€¦) â€” plus a **Custom (blank)** row. A creature pick
+  is stored **dice-only with a `diceOnly` flag**, so â€” exactly like a PC weapon â€” the
   ability modifier and to-hit are pulled from the creature's **live stats** at roll
   time (`rollWeaponAttack` adds the mod for `!isMonster || weapon.diceOnly`; tags carry
   finesse so STR/DEX is chosen correctly). Pre-baked SRD/parsed/hand-typed monster
-  damage stays as-is (no flag), so it isn't double-counted. A **↻ Pull attacks from
+  damage stays as-is (no flag), so it isn't double-counted. A **â†» Pull attacks from
   description** button re-runs the parser on the creature's `actions` on demand.
-- ☑ **Structured monster action rolls [req].** A monster `action` can carry the same
+- â˜‘ **Structured monster action rolls [req].** A monster `action` can carry the same
   structured `roll` (`AbilityRoll`) PCs use, so the DM one-clicks a breath weapon /
   spell-like action: the server (`resolveMonsterAction`, mirror of `resolveAbilityRoll`)
   rolls the damage and shows the **save DC computed from the monster's CR + casting
@@ -1273,57 +1277,57 @@ Smaller refinements on top of the shipped Phase 2 work.
   the stat block, logged with the action's description. Kinds: attack (to-hit + dmg),
   save (dmg + "DC N <ability> save for half"), damage, heal. DM-gated socket
   `monster:action`; authored/edited in the creature `StatBlock` (kind/dice/save/DC/type)
-  with a **↻ Derive rolls from descriptions** button (`parseActionRoll` scrapes DC +
+  with a **â†» Derive rolls from descriptions** button (`parseActionRoll` scrapes DC +
   dice from SRD/AI text). Per-target saves + damage reuse the existing bulk-save +
   damage tooling (parity with PC spell rolls); `roll`/`dc` optional so old saves load.
-- ☑ **"Apply damage" → click-to-target saves [req].** A save/damage spell's damage roll
+- â˜‘ **"Apply damage" â†’ click-to-target saves [req].** A save/damage spell's damage roll
   (PC `resolveAbilityRoll` or monster `resolveMonsterAction`) carries a DM-only `apply`
   payload (rolled **amount** + server-computed **DC** + save ability) on its `RollEntry`.
-  In the full log the DM gets an **"🎯 Apply damage"** button that arms a **click-to-target
+  In the full log the DM gets an **"ðŸŽ¯ Apply damage"** button that arms a **click-to-target
   mode** on the map: each creature clicked rolls **its own** save (ability + proficiency +
   conditions) vs the DC and **auto-applies full (fail) / half (pass)** of the amount
-  × resist/vuln (`resolveForcedSave` reuses `rollSavingThrow`/`saveAdvantage`/`applyDamage`/
+  Ã— resist/vuln (`resolveForcedSave` reuses `rollSavingThrow`/`saveAdvantage`/`applyDamage`/
   `damageMultiplier`); every save is logged. Keep clicking targets until **Esc**; the
   source roll keeps its payload so many targets reuse one roll. Save-less (`damage`-kind)
   applies full with no save. `apply` is **stripped for players** in `visibility.ts`; the
   bulk-selection manual path stays as the alternative. Persisted via
-  `ensureColumn('roll_log','apply',…)`; DM-gated socket `save:resolve`.
-- ☑ **Hide enemy AC in the roll log [req].** For players, `buildSnapshot` redacts
-  `vs AC N` → `vs AC ?` in roll-log attack details (centralized at the one
+  `ensureColumn('roll_log','apply',â€¦)`; DM-gated socket `save:resolve`.
+- â˜‘ **Hide enemy AC in the roll log [req].** For players, `buildSnapshot` redacts
+  `vs AC N` â†’ `vs AC ?` in roll-log attack details (centralized at the one
   role-shaping point); the d20/total and HIT/MISS/CRIT resolution stay visible.
-- ☑ **GWM folded into the initial damage [req].** Flat mastery damage (Great Weapon
+- â˜‘ **GWM folded into the initial damage [req].** Flat mastery damage (Great Weapon
   Master's proficiency bonus, flat homebrew `bonusDamage`) is pre-computed before
   the roll and folded into the damage number/breakdown via `rollWeaponAttack`'s
   `bonusDamage`/`bonusLabel`, instead of being appended as a trailing note.
   Dice-based bonuses and Graze (on a miss) still roll separately.
-- ☑ **Save/load characters between sessions [req].** A cross-session
+- â˜‘ **Save/load characters between sessions [req].** A cross-session
   **character library** mirroring the creature one: `library_characters`
   (`db.ts`), `saveLibraryCharacter`/`search`/`get`/`delete` (`library.ts`),
   `/api/library/characters` routes, and a `LibraryCharacterDialog`. **Players and
-  the DM** both use it — a "💾 Save to library" button on the editable
+  the DM** both use it â€” a "ðŸ’¾ Save to library" button on the editable
   `CharacterSheet` saves the full sheet minus session state (keeps
-  `sheetAbilities`/`items`/`spellSlots`/`resources`), and a "📂 Load saved
+  `sheetAbilities`/`items`/`spellSlots`/`resources`), and a "ðŸ“‚ Load saved
   character" picker (`LibraryCharacterPicker`) in `PlayerPanel` (claims it) and
-  `DmPanel` (unclaimed) instantiates it via `character:loadFromLibrary` →
+  `DmPanel` (unclaimed) instantiates it via `character:loadFromLibrary` â†’
   `createCharacterFromLibrary`.
-- ☑ **Resizable grid + map scale [req].** A DM control in the map toolbar sets a
+- â˜‘ **Resizable grid + map scale [req].** A DM control in the map toolbar sets a
   map's cell size (px, visual only) and its **real-world width in feet**
-  (`maps.width_ft`, the source of truth for scale → feet-per-pixel = width ÷ image
+  (`maps.width_ft`, the source of truth for scale â†’ feet-per-pixel = width Ã· image
   width). Feet-per-square is shown as a **derived read-out**, and scale can also
   be set by **dragging a reference line** of known length ("Set scale"). Scale is
-  persisted via `map:setGrid` (carries `widthFt`) → `updateMapGrid`, broadcast.
+  persisted via `map:setGrid` (carries `widthFt`) â†’ `updateMapGrid`, broadcast.
   Distances are computed **client-side** from feet-per-pixel; maps with no width
   set fall back to the legacy feet-per-square model (so old saves are unchanged),
   and a fresh map's width is **derived from its pixel size** (default 5 ft/50 px)
   and prefilled for the DM to adjust. Placed AOEs **keep their footprint** when
   scale changes (stored in px; labels recompute).
-- ☑ **Grid square set in FEET [req].** The DM's `ScaleMenu` now takes the **grid
+- â˜‘ **Grid square set in FEET [req].** The DM's `ScaleMenu` now takes the **grid
   square size in feet** (e.g. 5) instead of pixels; the pixel cell is **derived**
-  from the map scale (`feet × image width ÷ width_ft`) and shown as a read-out, so a
+  from the map scale (`feet Ã— image width Ã· width_ft`) and shown as a read-out, so a
   square always means real feet. Changing the map width re-derives px to preserve the
-  chosen feet-per-square. Client-side derivation only — the `map:setGrid` payload is
+  chosen feet-per-square. Client-side derivation only â€” the `map:setGrid` payload is
   unchanged. Legacy maps with no width fall back to the px field.
-- ☑ **More visible grid [req].** Grid lines are visible at rest (`#ffffff5c`) and
+- â˜‘ **More visible grid [req].** Grid lines are visible at rest (`#ffffff5c`) and
   **light up** (`#ffffffcc`, thicker) while a token is **dragging** or a **measure**
   tool is active, for easier alignment (`MapStage` `gridHot`, fed by a new
   `onDragActive` signal from `TokenShape`).
@@ -1334,62 +1338,62 @@ Smaller refinements on top of the shipped Phase 2 work.
   oldest-first. Prints are enlarged 30% for readability over textured maps.
   Six active trails are retained with a bounded overflow fade; map changes reset
   trails, and existing per-position visibility gates remain in effect.
-- ☑ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
-  toolbar (`MeasureMenu`) for everyone, with a shape per row — **Circle, Cone,
-  Line, Square/Cube, Emanation** — each expanding to **Custom / Small / Large**,
+- â˜‘ **Measuring tools (AOE shapes) [req].** A **"Measure" dropdown** in the map
+  toolbar (`MeasureMenu`) for everyone, with a shape per row â€” **Circle, Cone,
+  Line, Square/Cube, Emanation** â€” each expanding to **Custom / Small / Large**,
   plus a **snap-to-grid** toggle, a **click-to-remove** mode, and Clear mine /
   Clear all. **Standard** (small/large) shapes use classic 5e sizes (Circle r
-  15/20, Cone 15/60, Line 30/100 ×5 ft, Square 10/20, Emanation 10/30 ft) with
-  feet markers that track the grid; they're placed **click-anchor → rotate →
+  15/20, Cone 15/60, Line 30/100 Ã—5 ft, Square 10/20, Emanation 10/30 ft) with
+  feet markers that track the grid; they're placed **click-anchor â†’ rotate â†’
   click** (Circle/Square commit on one click). **Custom** keeps the drag-between-
   two-points mechanic (custom Line = a thin ruler; standard Line = a 5-ft AOE).
   **Emanation** centres on a token and follows it. Shapes are **shared**
-  (server-persisted `measurements` table — `kind` ∈ cone/circle/line/square/
-  emanation/ruler, optional `tokenId` — broadcast in the snapshot, coloured per
+  (server-persisted `measurements` table â€” `kind` âˆˆ cone/circle/line/square/
+  emanation/ruler, optional `tokenId` â€” broadcast in the snapshot, coloured per
   drawer) and **persist** until cleared; players remove/clear only their own, the
   DM any. Tokens become non-listening while measuring so clicks never select them.
-- ☑ **Roll log in the DM Data view [req].** The `/dm/data` dashboard gains a fixed
+- â˜‘ **Roll log in the DM Data view [req].** The `/dm/data` dashboard gains a fixed
   **right column** with the full `DicePanel` (roller + shared log) beside the card
   grid, so rolls are visible on the second screen.
 
 ## Combat & startup QOL (req)
 
-- ☑ **Players restricted to their own PC's status.** `condition:set`/`condition:clear`
+- â˜‘ **Players restricted to their own PC's status.** `condition:set`/`condition:clear`
   are now role-gated in `socketHandlers.ts`: a player may only change conditions on
   the PC they've claimed (`claimedBy === socket.id`); creatures stay DM-controlled,
   and bulk `tokens:setCondition`/`tokens:clearConditions` are DM-only.
-- ☑ **Floating-menu attacker defaults to the player's own PC.** `floatingAttacker`
+- â˜‘ **Floating-menu attacker defaults to the player's own PC.** `floatingAttacker`
   (`MapStage`) makes the right-click menu attack **as the player's claimed PC** by
-  default, unless a **friendly creature is selected** (companion/summon) — then that
+  default, unless a **friendly creature is selected** (companion/summon) â€” then that
   creature attacks. Players may now attack with friendly creatures: the `combat:attack`
   gate allows a non-PC attacker when its disposition is `friendly`. DM behavior
   unchanged (attacks as the selected token).
-- ☑ **Floating menu shows who's attacking.** A prominent `.fm-attacker` header
-  (“⚔️ Attacking as **X** → Y”) replaces the subtle note, so the attacker is clear
+- â˜‘ **Floating menu shows who's attacking.** A prominent `.fm-attacker` header
+  (â€œâš”ï¸ Attacking as **X** â†’ Yâ€) replaces the subtle note, so the attacker is clear
   before a weapon is clicked.
-- ☑ **Condition-driven advantage/disadvantage (conservative).** `shared/conditionEffects.ts`
+- â˜‘ **Condition-driven advantage/disadvantage (conservative).** `shared/conditionEffects.ts`
   (pure + tested) maps a conservative subset of 5e conditions to adv/dis on attacks
   (prone target = melee adv / ranged dis; restrained/blinded/paralyzed/stunned/
   unconscious/petrified target = adv; invisible attacker = adv; blinded/poisoned/
   prone/restrained/frightened attacker = dis; invisible target = dis) and saves
-  (restrained → DEX-save dis). It folds the manually-requested adv/dis in and applies
-  the **5e cancel rule** (any adv + any dis → straight). Wired into `resolveAttack`
+  (restrained â†’ DEX-save dis). It folds the manually-requested adv/dis in and applies
+  the **5e cancel rule** (any adv + any dis â†’ straight). Wired into `resolveAttack`
   and `resolveSaves`; the reasons are noted in the roll log.
-- ☑ **Resistances/vulnerabilities applied to damage.** `damageMultiplier`
+- â˜‘ **Resistances/vulnerabilities applied to damage.** `damageMultiplier`
   (`shared/combatMath.ts`) halves (resist) / doubles (vulnerable) auto-attack damage by
   the weapon's `damageType` in `resolveAttack`, noting it in the log. (Data already
   existed on creatures/PCs; now it's mechanical.)
-- ☑ **DEX modifier added to initiative.** `rollAllInitiative`/`rollMissingInitiative`
+- â˜‘ **DEX modifier added to initiative.** `rollAllInitiative`/`rollMissingInitiative`
   roll `d20 + DEX mod` from the token's creature instead of a flat d20.
-- ☑ **Saving-throw proficiencies.** `Character`/`Monster` carry `saveProficiencies`
+- â˜‘ **Saving-throw proficiencies.** `Character`/`Monster` carry `saveProficiencies`
   (ability codes; idempotent `save_proficiencies` columns). `rollSavingThrow` adds the
-  proficiency bonus on a proficient save; edited via a “Save proficiencies” chip row in
+  proficiency bonus on a proficient save; edited via a â€œSave proficienciesâ€ chip row in
   `StatBlock` and shown read-only.
-- ☑ **Custom memorable session codes.** The DM may choose a vanity code (e.g. `TAVERN`)
+- â˜‘ **Custom memorable session codes.** The DM may choose a vanity code (e.g. `TAVERN`)
   when creating a session (`createSession(name, code)` + `normalizeSessionCode`,
-  `SessionCodeError` → HTTP 409), giving a stable `/join?code=TAVERN` link; random codes
+  `SessionCodeError` â†’ HTTP 409), giving a stable `/join?code=TAVERN` link; random codes
   remain the default. Input + inline error in `DmRoute`.
-- ◐ **5e mechanics automation** (audit). Automated **since this note**:
+- â— **5e mechanics automation** (audit). Automated **since this note**:
   mechanical condition effects (auto-fail STR/DEX saves while paralyzed/stunned,
   adv/dis from conditions, prone/incapacitated location rules), **concentration**
   (auto-set + CON save prompt on damage), **death saving throws**, and
@@ -1398,18 +1402,18 @@ Smaller refinements on top of the shipped Phase 2 work.
   but never auto-expire), **action economy** (action/bonus/reaction tracking),
   and movement restriction from **grappled/restrained**.
 
-## Phase 6 — AI assistance (future)
+## Phase 6 â€” AI assistance (future)
 
-- ◐ AI-assisted spell/ability lookup is **done** for the sheet (Gemini fills a
+- â— AI-assisted spell/ability lookup is **done** for the sheet (Gemini fills a
   structured spell when it's not in the local database); full spell-effect
   resolution (auto-applying area damage to targets) and rules/item lookup remain.
-- ☐ AI-generated enemy combat dialogue on hit/miss/target.
+- â˜ AI-generated enemy combat dialogue on hit/miss/target.
 
-## Phase 7 — UX shell & integrations (future)
+## Phase 7 â€” UX shell & integrations (future)
 
-- ☑ **DM Data mode (second-screen dashboard) [req].** A standalone `/dm/data`
-  route (`DmDataRoute` → `DmDataView`) opened in a new window via a 🗔 **Data
-  view** button in the DM toolbar — for a second monitor / tablet, freeing the map
+- â˜‘ **DM Data mode (second-screen dashboard) [req].** A standalone `/dm/data`
+  route (`DmDataRoute` â†’ `DmDataView`) opened in a new window via a ðŸ—” **Data
+  view** button in the DM toolbar â€” for a second monitor / tablet, freeing the map
   screen of its sidebars. It connects as another DM client (no new server state)
   and always mirrors the LIVE active map (re-selects it if the main DM switches).
   A grid of **compact cards** (name, HP bar, quick damage/heal, AC, ability
@@ -1417,21 +1421,21 @@ Smaller refinements on top of the shipped Phase 2 work.
   (over everything, flowed into responsive columns so the full token panel fits
   on screen without a skinny scrolling card). The per-card **Status** picker opens
   in a floating popover ABOVE the grid (no longer clipped behind cards). The
-  overlay reuses the exact same `SelectedTokenPanel` the map uses — editable stat
+  overlay reuses the exact same `SelectedTokenPanel` the map uses â€” editable stat
   block + AI fill, disposition, combat-role, icon tools, conditions,
-  duplicate/hide/delete, damage/heal, resize. **Sort** by initiative / A–Z / type
+  duplicate/hide/delete, damage/heal, resize. **Sort** by initiative / Aâ€“Z / type
   (players first, then creatures grouped by type), then **drag-reorder** cards. A
   per-card **checkbox multi-selects**, which mirrors to the map window
   (BroadcastChannel between DM tabs via `useSelection` `syncKey`) and drives the
   `BulkActionsPanel` from the Data screen. Initiative header: **Roll all** resets
   the round (re-roll everyone, auto-highlight the top), **Add rolls** rolls only
   combatants who haven't yet, Next / Clear. *(Future: selectable/toggleable panels.)*
-- ☑ **Top app toolbar [req].** Shared `TopToolbar` replaces the ad-hoc headers in
+- â˜‘ **Top app toolbar [req].** Shared `TopToolbar` replaces the ad-hoc headers in
   `DmView` / `PlayerView`, role-aware:
-  - **Load session** (DM) / **Leave** (player) — disconnects and returns to the
+  - **Load session** (DM) / **Leave** (player) â€” disconnects and returns to the
     landing/resume screen.
-  - **Settings** (DM) — `SettingsModal` edits the **Gemini API key** (masked,
-    write-only — blank keeps the current one) and **model** (auto-detect when
+  - **Settings** (DM) â€” `SettingsModal` edits the **Gemini API key** (masked,
+    write-only â€” blank keeps the current one) and **model** (auto-detect when
     blank), via `GET/POST /api/settings` (`settings.ts`). The raw key is never
     returned to clients; saves persist to `data/settings.json`, apply on top of
     env at boot, and reset the Gemini model cache. Gated by the DM passphrase
@@ -1441,77 +1445,77 @@ Smaller refinements on top of the shipped Phase 2 work.
     now live in the top toolbar (above the map) instead of the in-canvas corner.
     They're **portaled** (`createPortal`) into a `#map-tool-slot` in `TopToolbar`
     but keep all their state/handlers in `MapStage`, so the canvas interactions are
-    unchanged — a low-risk relocation. **Fit + zoom %** stay in the canvas corner
+    unchanged â€” a low-risk relocation. **Fit + zoom %** stay in the canvas corner
     (they're tied to pan/zoom). Measure shows for everyone; Scale/Fog are DM-only.
   *(Future settings to add as rows: default fog, grid size, theme, Discord
   channel for the integration below.)*
-- ☐ **Discord video integration [req].** Bring the table's Discord voice/video
+- â˜ **Discord video integration [req].** Bring the table's Discord voice/video
   into the app so players don't need to juggle windows. Feasibility caveat (like
-  Roll20): Discord has no general embeddable video iframe — viable paths are
+  Roll20): Discord has no general embeddable video iframe â€” viable paths are
   (a) a **Discord Activity** via the Embedded App SDK (richest, requires a
   registered Discord app + running inside Discord), or (b) a **launch / deep-link**
   button that opens the table's voice/video channel (`discord://` / invite URL),
-  optionally remembered per session. Start with (b) — a "Join voice" button in
-  the new top toolbar with a per-session channel/invite setting — and investigate
+  optionally remembered per session. Start with (b) â€” a "Join voice" button in
+  the new top toolbar with a per-session channel/invite setting â€” and investigate
   (a) as the deeper integration.
 
-## Polish batch — token sizing, panel UX, spawn/import, rules & data
+## Polish batch â€” token sizing, panel UX, spawn/import, rules & data
 
-- ☑ **Token footprint in feet [req].** Tokens carry a real-world `widthFt`
+- â˜‘ **Token footprint in feet [req].** Tokens carry a real-world `widthFt`
   (default 5ft = Medium), rendered via the map's pixels-per-foot, so a token keeps
   its size when the DM changes only the visual grid cell. New `width_ft` column
   (backfilled `size*5`); resize works in 5ft steps; legacy `size` kept in sync.
-- ☑ **Creature search full-width [req].** The DM creature-search box spans the
+- â˜‘ **Creature search full-width [req].** The DM creature-search box spans the
   panel with HP / Add creature / AI on the row below (`.add-monster` column layout).
 - [x] **Footstep trail rework [req].** Physical spacing (2.2 ft for Medium,
   scaled for creature size), progressive deposition and softer oldest-first fade.
   Long moves retain the newest 48 steps without stretching stride spacing.
-- ☑ **DM removes PCs from the spawn list [req].** DM-gated `character:delete`
-  removes a character + its tokens via a 🗑 button, refused while a connected
+- â˜‘ **DM removes PCs from the spawn list [req].** DM-gated `character:delete`
+  removes a character + its tokens via a ðŸ—‘ button, refused while a connected
   player holds the claim (`isConnected`).
-- ☑ **Map-import conflict resolution [req].** Same-named characters prompt the DM
-  per-conflict — **Reuse** (link), **Overwrite** (replace; never an actively-claimed
-  PC), or **New** (duplicate) — via `session:importPreview` + resolutions on
+- â˜‘ **Map-import conflict resolution [req].** Same-named characters prompt the DM
+  per-conflict â€” **Reuse** (link), **Overwrite** (replace; never an actively-claimed
+  PC), or **New** (duplicate) â€” via `session:importPreview` + resolutions on
   `session:importMaps`. Monsters still import as fresh instances.
-- ☑ **Second Wind 2024 [req].** Fighter Second Wind uses scale 2 / 3 / 4 by level.
-- ☑ **AI PC weapons are dice-only [req].** AI character fills produce dice-only
+- â˜‘ **Second Wind 2024 [req].** Fighter Second Wind uses scale 2 / 3 / 4 by level.
+- â˜‘ **AI PC weapons are dice-only [req].** AI character fills produce dice-only
   damage (no baked-in `+mod`/to-hit) so the combat system adds the live ability
   mod + proficiency (`diceOnly`).
-- ☑ **Item library seeded [req].** A curated SRD/OGL catalogue (gear, tools, armor,
+- â˜‘ **Item library seeded [req].** A curated SRD/OGL catalogue (gear, tools, armor,
   weapons, potions, and representative magic items, each with a description) is
   seeded once at boot (`server/src/items/srd.ts`, guarded by an `app_meta` marker).
-- ☑ **Attack-from-description discoverability [req].** The prose→attacks action is
+- â˜‘ **Attack-from-description discoverability [req].** The proseâ†’attacks action is
   relabelled "Generate attacks from description" and grouped with **+ Attack** in
   the `StatBlock` weapons editor with a fuller tooltip.
-- ☑ **Player notes on creatures/NPCs [req].** A shared free-text note per
+- â˜‘ **Player notes on creatures/NPCs [req].** A shared free-text note per
   monster/NPC the DM and any player can read/edit (visible on every disposition
   tier), via `player_notes` + a player-writable `creature:setNotes`, shown in both
   the player Details panel and the DM token panel.
-- ☑ **Open-source license + SRD attribution.** The repo carries a standard **MIT
-  `LICENSE`** (code, © 2026 vcons002) and the root `package.json` declares
+- â˜‘ **Open-source license + SRD attribution.** The repo carries a standard **MIT
+  `LICENSE`** (code, Â© 2026 vcons002) and the root `package.json` declares
   `"license": "MIT"`. The README's **License & attribution** section credits the
   bundled D&D content to the **SRD 5.1 / 5.2** under **CC-BY-4.0** with Wizards of
   the Coast's required notice (consistent with the existing SRD-safe data note in
   `server/src/items/srd.ts`); no proprietary PHB/DMG/MM text is included.
-- ☑ **User-facing feature guide.** [`FEATURES.md`](FEATURES.md) — a plain-language
+- â˜‘ **User-facing feature guide.** [`FEATURES.md`](FEATURES.md) â€” a plain-language
   DM + player tour (where each tool lives, how to use it, clicks/keys), kept
   alongside the README (install/run) and this backlog.
-- ☑ **Weapon to-hit transparency, tag chips & double-count fix.** (1) The attack
-  roll now spells out the to-hit like the damage breakdown —
+- â˜‘ **Weapon to-hit transparency, tag chips & double-count fix.** (1) The attack
+  roll now spells out the to-hit like the damage breakdown â€”
   `d20[10] +2[DEX] +2[PROF]` (derived) or `+5[hit]` for a fixed bonus
   (`weaponAttackBonusDetail`). **Spell attacks and monster `action` attacks** get
-  the same treatment — `d20[10] +3[CHA] +2[PROF]` (casting ability + proficiency,
+  the same treatment â€” `d20[10] +3[CHA] +2[PROF]` (casting ability + proficiency,
   by level for PCs / by CR for monsters) via `spellAttackBonusDetail`. (2) Weapon
   **tags** are edited as add/remove
   **chips** (`TagInput`, with common-tag suggestions) on **both** creature and PC
   attacks, instead of a comma string. (3) **No more double-counted ability mod:**
   dice-only weapons (all PC weapons + creature library picks flagged `diceOnly`)
-  carry dice only — the engine now ignores any stray baked flat in their damage
+  carry dice only â€” the engine now ignores any stray baked flat in their damage
   string, the editor labels the damage field "dice only" (don't include the mod),
   and the read view strips it. (4) A creature's **to-hit is shown** and
-  auto-derives from ability modifier + proficiency **by CR** (2024 rule: CR 0–4
-  +2, 5–8 +3, 9–12 +4…), with an editor blurb; the "hit" field overrides.
-- ☑ **Full 2024 SRD spell list + Spellbook + tag search.** Bundled the complete
+  auto-derives from ability modifier + proficiency **by CR** (2024 rule: CR 0â€“4
+  +2, 5â€“8 +3, 9â€“12 +4â€¦), with an editor blurb; the "hit" field overrides.
+- â˜‘ **Full 2024 SRD spell list + Spellbook + tag search.** Bundled the complete
   **SRD 5.2 spell set** (`spells/spellList.ts`, ~317 spells across all classes;
   merged into `srd.ts`, full list wins, curated class abilities preserved). Each
   spell carries `classes` + `tags` (school, classes, damage type, `cantrip`/
@@ -1520,173 +1524,173 @@ Smaller refinements on top of the shipped Phase 2 work.
   & masteries are likewise findable by their category words. A new **Spellbook**
   modal (`Spellbook.tsx`, `GET /api/spells/all`) browses the whole list with a
   class filter + keyword search, grouped by level, add-to-sheet (marks owned).
-- ☑ **Magic Missile / split-damage spells.** Multi-instance damage spells declare
+- â˜‘ **Magic Missile / split-damage spells.** Multi-instance damage spells declare
   separate `instances` (Magic Missile: 3 darts of `1d4+1`, +1 per slot above 1st);
   the server rolls each dart into `apply.split`, and the DM assigns **one dart per
   clicked target** (the button counts down "Dart n/N") instead of the full total
   hitting everyone. Resist/vuln still apply per dart.
-- ☑ **Drag-reorder DM panel sections.** The DM's left panel (Maps/Spawn/Initiative,
+- â˜‘ **Drag-reorder DM panel sections.** The DM's left panel (Maps/Spawn/Initiative,
   Dice & Roll Log, Roll20) reorders by dragging each section's handle; order
-  persists per browser (`ReorderableSections`, native HTML5 DnD — same pattern as
+  persists per browser (`ReorderableSections`, native HTML5 DnD â€” same pattern as
   the Data view cards). _(Closes the deferred WP7 "drag-reorder toolbar sections".)_
-- ☑ **Attack-as-the-acting-creature.** A player attacking with a friendly
-  companion/summon (the floating menu's "Attacking as …") is now attributed in the
+- â˜‘ **Attack-as-the-acting-creature.** A player attacking with a friendly
+  companion/summon (the floating menu's "Attacking as â€¦") is now attributed in the
   roll log to **that creature**, not the player's own PC (server derives the roller
   from the attacking token; a player's own token is unchanged; DM stays "DM").
-- ☑ **Weapon damage types as a set list + secondary damage.** Damage type is picked
+- â˜‘ **Weapon damage types as a set list + secondary damage.** Damage type is picked
   from the canonical 5e list (`shared/damage.ts`, incl. the magical types) via a
   select in the weapon editor for **both** creatures and PCs (legacy values
   preserved). Weapons gained a **secondary typed rider** (`extraDamage` +
-  `extraDamageType`, e.g. a flaming sword's 1d8 slashing + 1d6 fire) — rolled on a
+  `extraDamageType`, e.g. a flaming sword's 1d8 slashing + 1d6 fire) â€” rolled on a
   hit, doubled on a crit, resisted on its **own** type independently of the main
   damage. The magic-bonus field is **restored on creature attacks** (was PC-only).
-- ☑ **Class-feature stances + feature library.** A new `stance` ability type
+- â˜‘ **Class-feature stances + feature library.** A new `stance` ability type
   (toggle that stays on) plus a curated feature library (`features/srd.ts`: Rage,
   Reckless Attack, Hunter's Mark, Action Surge, Channel Divinity, Wild Shape,
   Bardic Inspiration, Ki, Lay on Hands, Indomitable), surfaced in the "+ Add"
-  search. Stances modify the character's qualifying weapon attacks server-side —
+  search. Stances modify the character's qualifying weapon attacks server-side â€”
   flat/dice **bonus damage** (Rage +2 melee, Hunter's Mark +1d6) folded into the
   hit, and **advantage** (Reckless Attack); each is gated by weapon kind. Features
   with a linked **`useCounter`** auto-create a tracked resource on add, and
   toggling a stance ON spends one use.
-- ☑ **Player sheet layout pass.** HP +/- buttons are small and inline beside the
+- â˜‘ **Player sheet layout pass.** HP +/- buttons are small and inline beside the
   HP line; **Skills** is collapsible; the **Conditions** editor is **collapsed by
   default for players** while the list of **active conditions stays visible** below
   it; **Add resource** is a button beside the Resources header that reveals the
   field on click; **Items** is relabelled **Inventory** and moved below Skills.
-- ☑ **Searchable inventory + item descriptions.** The item-library picker has a
+- â˜‘ **Searchable inventory + item descriptions.** The item-library picker has a
   search box (server matches name OR description), and every inventory/library item
-  has an ℹ️ button opening a description window (library items ship with SRD
+  has an â„¹ï¸ button opening a description window (library items ship with SRD
   descriptions that ride onto the item when added).
-- ☑ **PC weapon lines show dice only.** A character's weapon line reads just the
+- â˜‘ **PC weapon lines show dice only.** A character's weapon line reads just the
   dice (e.g. "Greatsword 1d12 slashing") instead of re-deriving "+5 to hit. 1d12+3"
-  from live stats — the modifier/to-hit are still applied at roll time. **Dice-only
+  from live stats â€” the modifier/to-hit are still applied at roll time. **Dice-only
   creature attacks now read the same way** (no re-derived to-hit/mod), since they're
   computed from stats + proficiency at roll time; truly pre-baked monster attacks
   still show their baked to-hit + damage.
-- ☑ **Hunter's Mark marks a chosen target.** A `stance` can be `targeted`: its
+- â˜‘ **Hunter's Mark marks a chosen target.** A `stance` can be `targeted`: its
   bonus (e.g. +1d6) applies **only to attacks against the marked token**. The combat
   console shows a target picker beside the toggle; switching the stance on defaults
   to the current target, and re-selecting moves the mark. Hunter's Mark is a
   **spell-backed stance** (`level: 1`, labelled as a spell): toggling it on **spends
   a 1st-level spell slot and starts concentration**, and toggling it off ends that
-  concentration. (Rage/Reckless Attack are class-feature stances — no slot.)
-- ☑ **Concentration: auto-set + prompt on damage.** Casting a concentration spell
-  (detected by tag/meta) now **starts concentration** on the caster automatically —
+  concentration. (Rage/Reckless Attack are class-feature stances â€” no slot.)
+- â˜‘ **Concentration: auto-set + prompt on damage.** Casting a concentration spell
+  (detected by tag/meta) now **starts concentration** on the caster automatically â€”
   a blue `Concentration: <spell>` condition that **replaces any prior one** (5e's
-  one-at-a-time rule); buff spells with no damage roll get a **🔮 Cast** button to
+  one-at-a-time rule); buff spells with no damage roll get a **ðŸ”® Cast** button to
   trigger it. If another concentration is already running, casting a new one first
-  **warns the player** ("already concentrating on X — casting Y will end it") and
+  **warns the player** ("already concentrating on X â€” casting Y will end it") and
   lets them confirm or cancel. When a concentrating creature then takes damage, the roll log posts
-  the **DC = max(10, ⌊damage/2⌋)** CON save needed to maintain it (fired from every
+  the **DC = max(10, âŒŠdamage/2âŒ‹)** CON save needed to maintain it (fired from every
   damage path: weapon hits, spell saves/auto-hit, Magic Missile darts, manual HP).
-- ☑ **Upcasting for all leveled spells.** Any leveled spell can be cast with a
-  higher slot via the level selector (not only dice-scaling ones) — including
-  no-roll concentration buffs like Bless — spending the chosen slot; an "At higher
+- â˜‘ **Upcasting for all leveled spells.** Any leveled spell can be cast with a
+  higher slot via the level selector (not only dice-scaling ones) â€” including
+  no-roll concentration buffs like Bless â€” spending the chosen slot; an "At higher
   levels" note (added to ~80 spells) describes the non-damage upcast effect.
-- ☑ **Death saves.** A downed PC (0 HP) shows a Death Saves tracker (3✓/3✗ pips +
-  Roll) — server-resolved (10+ success, nat 20 → 1 HP, nat 1 = two failures, 3✓
-  stable, 3✗ dead); healing above 0 resets, damage while down adds a failure.
-- ☑ **On-hit / on-fail status effects + target status tags.** Stances gain an
-  on-hit save rider (Ensnaring Strike: hit → STR save or Restrained, via the
+- â˜‘ **Death saves.** A downed PC (0 HP) shows a Death Saves tracker (3âœ“/3âœ— pips +
+  Roll) â€” server-resolved (10+ success, nat 20 â†’ 1 HP, nat 1 = two failures, 3âœ“
+  stable, 3âœ— dead); healing above 0 resets, damage while down adds a failure.
+- â˜‘ **On-hit / on-fail status effects + target status tags.** Stances gain an
+  on-hit save rider (Ensnaring Strike: hit â†’ STR save or Restrained, via the
   click-to-target `apply.onFail` flow) and a `marksTargetWith` tag that puts a
   status (e.g. "Marked" for Hunter's Mark) on the marked creature, following the
   mark and clearing when the stance ends.
-- ☑ **Fully-statted SRD bestiary.** Completed `creatures/srd.ts` so EVERY entry
+- â˜‘ **Fully-statted SRD bestiary.** Completed `creatures/srd.ts` so EVERY entry
   has a canonical CR (`level`), AC, speed, ability scores, and attacks (the
   `SrdEntry` type now requires them; a completeness test guards it). Creatures
   added from search arrive combat-ready at their intended power level (Goblin
   stays CR 1/4, never inflated). Themed AI variants are grounded on the nearest
   base (`findBaseCreature`, fed into the creature-AI prompt as a floor) so a
   "Stone Goblin"/"Blood Goblin" scales UP from the standard Goblin.
-- ☑ **In-app chat.** Shared, persistent per-session chat (`chat_messages` →
+- â˜‘ **In-app chat.** Shared, persistent per-session chat (`chat_messages` â†’
   snapshot, `chat:send`) with a `ChatPanel` in the DM left panel and player view.
-- ☑ **Clickable links in chat.** Bare `http(s)` URLs and `[label](url)` markdown
-  in any chat message render as safe anchors (`shared/linkify.ts` →
+- â˜‘ **Clickable links in chat.** Bare `http(s)` URLs and `[label](url)` markdown
+  in any chat message render as safe anchors (`shared/linkify.ts` â†’
   `lib/linkify.tsx`) opened in a new tab with `rel="noopener noreferrer"`. The DM
   (or anyone) can drop a web link/handout for players to click. SECURITY: only
-  `http(s)` is recognized — never raw HTML, never `javascript:`/`data:` — so chat
+  `http(s)` is recognized â€” never raw HTML, never `javascript:`/`data:` â€” so chat
   can't inject markup or a scripted href.
-- ☑ **Chat speech bubbles over PC tokens.** A player's typing pops a transient
-  "•••" bubble over their claimed PC token for the OTHERS in the session
-  (`chat:typing` → ephemeral `fx:typing`, throttled, idle-cleared), and sending a
+- â˜‘ **Chat speech bubbles over PC tokens.** A player's typing pops a transient
+  "â€¢â€¢â€¢" bubble over their claimed PC token for the OTHERS in the session
+  (`chat:typing` â†’ ephemeral `fx:typing`, throttled, idle-cleared), and sending a
   message floats the words over the token for everyone, sender included
   (`fx:say`). Both are server-fanned ephemeral FX (no DB/snapshot), keyed to the
   speaker's `claimed_by` character (`getClaimedCharacterId`), rendered by a Konva
   `SpeechBubbles` layer (auto-measured rounded bubble + downward tail) that
   auto-expires; the say bubble supersedes any lingering typing bubble.
-- ☑ **App-wide AI gateway (Gemini default + local Ollama).** `server/src/ai/` is
+- â˜‘ **App-wide AI gateway (Gemini default + local Ollama).** `server/src/ai/` is
   the ONE chokepoint every AI feature routes through: `ollama.ts` (local HTTP
   client + health probe + model list) and `gateway.ts` with `generateText`
   (prose) + `generateJson` (structured, fence-stripped). Backend selection is
-  centralized: a global `aiMode` (Settings) — **`gemini`** (best quality, local
+  centralized: a global `aiMode` (Settings) â€” **`gemini`** (best quality, local
   fallback) is the **default**, **`local`** is a lockdown that forces Ollama with
   no cloud calls. A per-call `prefer` overrides the default unless the lockdown
   is on. Creature/character/item/spell generation use the default; their guards +
   `/api/*` `aiAvailable` flags respect `aiMode` (in `local`, available only when
   Ollama is reachable). `callGemini` gained a JSON opt-out (`callGeminiText`).
-- ☑ **Chat AI-backend dropdown.** The DM's `/ask` chat has a quick dropdown
-  (`GET /api/ai/models` → locally-pulled Ollama models + Gemini when keyed),
+- â˜‘ **Chat AI-backend dropdown.** The DM's `/ask` chat has a quick dropdown
+  (`GET /api/ai/models` â†’ locally-pulled Ollama models + Gemini when keyed),
   **defaulting to a local model**, persisted per browser; the choice rides the
   `assistant:ask` payload (`backend: { prefer, ollamaModel }`) so each question
-  can pick its model — overriding the global default (but not the lockdown).
-- ☑ **Assistant thinking + Stop + non-blocking.** A live in-chat "thinking"
+  can pick its model â€” overriding the global default (but not the lockdown).
+- â˜‘ **Assistant thinking + Stop + non-blocking.** A live in-chat "thinking"
   indicator (server-driven `assistant:thinking`) with a **Stop** button
-  (`assistant:cancel` → an `AbortController` aborts the in-flight LLM call, also
+  (`assistant:cancel` â†’ an `AbortController` aborts the in-flight LLM call, also
   on disconnect). The local call has a generous 10-min budget so slow models
-  don't time out, and the handler `await`s without blocking — **other chat keeps
-  flowing while it thinks**. Stopping posts a "⏹ Stopped." note instead of a
+  don't time out, and the handler `await`s without blocking â€” **other chat keeps
+  flowing while it thinks**. Stopping posts a "â¹ Stopped." note instead of a
   stale answer.
-- ☑ **Live cursor "laser pointers".** Every participant's cursor shows as a
-  small labeled arrow on the shared map (`cursor:move` → `broadcastCursor` →
+- â˜‘ **Live cursor "laser pointers".** Every participant's cursor shows as a
+  small labeled arrow on the shared map (`cursor:move` â†’ `broadcastCursor` â†’
   `fx:cursor`, rendered by a Konva `CursorPointers` layer, colored per person via
   `rollerColor`). Ephemeral (no DB/snapshot), map-scoped (a DM's pointer on a
   staging map never shows to players), throttled ~20/s in image coords (correct
   under any pan/zoom), auto-expiring and cleared on mouse-leave/disconnect.
-  **On by default**, with two per-browser toggles: "👆 See pointers" (hide
-  OTHERS' pointers in your view) and "📡 Share mine" (stop broadcasting your own
-  — the DM's "point privately" control for looking at hidden tokens / unrevealed
-  fog). NB: there is deliberately **no fog-based auto-hide** — any fog-dependent
+  **On by default**, with two per-browser toggles: "ðŸ‘† See pointers" (hide
+  OTHERS' pointers in your view) and "ðŸ“¡ Share mine" (stop broadcasting your own
+  â€” the DM's "point privately" control for looking at hidden tokens / unrevealed
+  fog). NB: there is deliberately **no fog-based auto-hide** â€” any fog-dependent
   visibility would leak the fog boundary as the pointer winked in/out, so the DM
   self-mutes instead.
-- ☑ **Condition auto-fail saves + check disadvantage.** Extended
+- â˜‘ **Condition auto-fail saves + check disadvantage.** Extended
   `shared/conditionEffects.ts`: `saveAutoFail` (Paralyzed/Stunned/Unconscious/
-  Petrified automatically FAIL Strength & Dexterity saves — no roll, full damage)
+  Petrified automatically FAIL Strength & Dexterity saves â€” no roll, full damage)
   is wired into `resolveForcedSave` + the bulk save roller; `checkAdvantage`
-  (Poisoned/Frightened → disadvantage on ability checks) is wired into
+  (Poisoned/Frightened â†’ disadvantage on ability checks) is wired into
   `resolveSkillRoll`. Both stay conservative (position/sense-dependent cases
   remain the DM's call). The log shows "auto-fails (Paralyzed)".
-- ☑ **Rules tooltips on conditions.** Condition chips (the picker grid, the active
+- â˜‘ **Rules tooltips on conditions.** Condition chips (the picker grid, the active
   list, and the player hover card) carry a `title` with the full 5e rules text
-  from `shared/conditionRules.ts` — instant, deterministic, no LLM call. Distinct
+  from `shared/conditionRules.ts` â€” instant, deterministic, no LLM call. Distinct
   from `conditionEffects.ts` (the narrower subset the engine auto-applies to
   rolls).
-- ☑ **"Ask the buddy about this".** A ❓ on every roll-log entry (DM) pre-fills
+- â˜‘ **"Ask the buddy about this".** A â“ on every roll-log entry (DM) pre-fills
   `/ask` with that roll's detail/description, so the grounded assistant is one
   click from any result.
-- ☑ **AI NPC dialogue → speech bubble.** A "💬 Speak (AI)" action on any creature
+- â˜‘ **AI NPC dialogue â†’ speech bubble.** A "ðŸ’¬ Speak (AI)" action on any creature
   token (`creature:speak`) asks the LLM for one in-character line and floats it
   over the token via the existing `fx:say` bubble system (the `SpeechBubbles`
   finder now matches any token kind, not just PCs). Phase 6 'AI enemy dialogue'.
-- ☑ **Session recap.** A DM "📜 Recap" button (`assistant:recap`) summarizes the
-  recent roll log + chat into a "Previously…" recap and posts it to chat for
+- â˜‘ **Session recap.** A DM "ðŸ“œ Recap" button (`assistant:recap`) summarizes the
+  recent roll log + chat into a "Previouslyâ€¦" recap and posts it to chat for
   everyone (`recapSession`).
-- ☑ **Grounded answers + large context window.** The assistant system prompt
+- â˜‘ **Grounded answers + large context window.** The assistant system prompt
   forbids inventing rules/numbers not in the retrieved context (say "not covered"
   instead), while explicitly allowing **labeled interpretation** ("Rules as
-  written: … — Interpretation: …"). Runs at low temperature (0.1) over a generous
+  written: â€¦ â€” Interpretation: â€¦"). Runs at low temperature (0.1) over a generous
   10-chunk grounding slice, and sets Ollama's **`num_ctx`** (`config.ollamaNumCtx`,
-  default 8192) so the excerpts aren't truncated — a too-small window is a top
+  default 8192) so the excerpts aren't truncated â€” a too-small window is a top
   cause of hallucinated rules.
-- ☑ **Rulebook reader + page citations.** PDF chunks now record their **page
+- â˜‘ **Rulebook reader + page citations.** PDF chunks now record their **page
   range** (`chunkRulebookPages`), so an assistant answer cites the rulebook
   **pages it drew on** (stored on the `ChatMessage.pages`, rendered as clickable
-  `p.N` chips). A toolbar **📖 Rulebook** button (DM, when one is uploaded) opens
+  `p.N` chips). A toolbar **ðŸ“– Rulebook** button (DM, when one is uploaded) opens
   a searchable **`RulebookViewer`** (`GET /api/rulebook/content`); clicking a
   citation opens it scrolled to that page.
-- ☑ **DM rules-assistant chatbot.** The DM types `/ask` (or `/rule`/`/rules`)
+- â˜‘ **DM rules-assistant chatbot.** The DM types `/ask` (or `/rule`/`/rules`)
   `<question>` in chat to query a grounded 5e (2024) rules assistant
-  (`assistant:ask` → `answerRules`) via the AI gateway above. Grounding corpus
+  (`assistant:ask` â†’ `answerRules`) via the AI gateway above. Grounding corpus
   (`server/src/assistant/`):
   a hand-authored **SRD 5.2 rules digest** + the app's structured data (spells,
   skills, feats) + an optional **uploaded rulebook PDF** (`POST /api/rulebook`,
@@ -1694,62 +1698,62 @@ Smaller refinements on top of the shipped Phase 2 work.
   retrieval is dependency-free keyword scoring with a rulebook boost. The Q&A is
   posted as **DM-only chat** (`chat_messages.dm_only`, stripped from player
   snapshots in `visibility.ts`).
-- ☑ **Map annotation layer.** Freehand pen + text labels drawn on the active map
-  (`annotations` table → snapshot, `annotation:add/remove/clear`), shared and
+- â˜‘ **Map annotation layer.** Freehand pen + text labels drawn on the active map
+  (`annotations` table â†’ snapshot, `annotation:add/remove/clear`), shared and
   persistent, with colour swatches and Clear mine/all (players clear only theirs).
-- ☑ **AI lookup retry.** `callGemini` now retries transient HTTP errors (429/5xx,
+- â˜‘ **AI lookup retry.** `callGemini` now retries transient HTTP errors (429/5xx,
   e.g. model-overloaded) with backoff, not just network throws.
-- ☑ **Import maps from a session list.** The "import maps from another session"
-  dialog lists all saved sessions to pick from (name · code · map count) instead of
+- â˜‘ **Import maps from a session list.** The "import maps from another session"
+  dialog lists all saved sessions to pick from (name Â· code Â· map count) instead of
   requiring a typed code (manual entry kept as a fallback).
-- ☑ **Mobile / touch responsive mode.** On narrow screens the side panels become
+- â˜‘ **Mobile / touch responsive mode.** On narrow screens the side panels become
   overlay drawers (collapsed to an edge tab by default) so the map is full-width;
   larger tap targets, wrapping top bar, and `touch-action: none` on the stage.
-- ☑ **Connection resilience.** Resilient Socket.IO reconnection with the last
+- â˜‘ **Connection resilience.** Resilient Socket.IO reconnection with the last
   snapshot kept on screen and outgoing actions buffered/flushed on reconnect; a
-  "Reconnecting…" banner (new `reconnecting` status) signals the offline state.
-- ☑ **Player landing saved-session list.** The player join screen lists saved
+  "Reconnectingâ€¦" banner (new `reconnecting` status) signals the offline state.
+- â˜‘ **Player landing saved-session list.** The player join screen lists saved
   games from the public `/api/sessions` directory to click into (mirroring the DM
   landing), with the manual code box as fallback.
-- ☑ **Class-ability variants in search.** ~57 curated subclass/variant features
-  across all classes (rages, Metamagic, Channel Divinity, Invocations, …), tagged
+- â˜‘ **Class-ability variants in search.** ~57 curated subclass/variant features
+  across all classes (rages, Metamagic, Channel Divinity, Invocations, â€¦), tagged
   by class + family keyword + `variant`, so a search like "rage" surfaces every
   rage variant (feature-search limit raised so families aren't truncated).
-- ☑ **Non-combat objects (MVP).** Traps, doors, chests, and hidden items as map
+- â˜‘ **Non-combat objects (MVP).** Traps, doors, chests, and hidden items as map
   objects (a Monster flagged `objectKind`), reusing placement/templates/hiding/
   conditions/visibility. `ObjectControls` toggles state (Locked/Open/Disarmed/
-  Looted/…) as conditions + reveal/hide, in the floating menu and token panel;
+  Looted/â€¦) as conditions + reveal/hide, in the floating menu and token panel;
   players see state read-only; objects get no combat-role badge. Remote DM
   session/map loading verified already working (no change).
-- ☑ **Loot & gold.** Containers (chest/item/other objects) hold a `loot` payload
+- â˜‘ **Loot & gold.** Containers (chest/item/other objects) hold a `loot` payload
   (`{ gold, items }`) the DM stocks via `LootControls` (free-add or item-library
   picker). Loot is hidden from players until the object is **opened/unlocked**
   (gated in `visibility.ts`); then a player can **Take** items + gold into their
-  claimed character — items merge into the inventory, gold into a per-character
-  `gold` purse — or the DM hands loot to any PC. A drained container auto-flags
+  claimed character â€” items merge into the inventory, gold into a per-character
+  `gold` purse â€” or the DM hands loot to any PC. A drained container auto-flags
   itself Looted/Taken. `loot:take`/`object:setLoot` are role-gated; instances
   inherit a template's loot. (Shops/currency-denominations still deferred.)
-- ☑ **Trap mechanics.** A trap carries an authored stat-block action (save/attack
-  with a structured roll); `TrapControls` gives the DM a **⚡ Trigger** button per
-  action (fired via the existing `monster:action` → roll-log → click-to-apply
+- â˜‘ **Trap mechanics.** A trap carries an authored stat-block action (save/attack
+  with a structured roll); `TrapControls` gives the DM a **âš¡ Trigger** button per
+  action (fired via the existing `monster:action` â†’ roll-log â†’ click-to-apply
   flow, and flips the trap to Triggered) plus a **disarm DC** field (`objectDc`).
-  A player holding a character gets a **🔧 Disarm** button → `trap:disarm` rolls a
+  A player holding a character gets a **ðŸ”§ Disarm** button â†’ `trap:disarm` rolls a
   server-authoritative DEX (Sleight of Hand) check vs the DC and, on success,
   flips the trap to Disarmed. (No auto-trigger-on-entry / passive-Perception
-  detection — deferred.)
-- ☑ **AI actions carry structured rolls.** Gemini creature/character generation
+  detection â€” deferred.)
+- â˜‘ **AI actions carry structured rolls.** Gemini creature/character generation
   now attaches a structured `roll` to each `action` (explicit from the model, else
   scraped from a "DC <n> <ability> saving throw, <dice> <type> damage" description),
   and `createMonsterTemplate` scrapes the same from free-text/SRD/pasted actions.
   So AI-built traps and breath weapons are immediately rollable and offer the
   **Apply damage** save flow, instead of becoming plain weapon attacks.
-- ☑ **iPad / touch polish.** Two-finger **pinch-to-zoom** on the map plus on-screen
-  **−/+ zoom buttons** beside Fit (a shared `zoomAtPoint` helper backs wheel,
+- â˜‘ **iPad / touch polish.** Two-finger **pinch-to-zoom** on the map plus on-screen
+  **âˆ’/+ zoom buttons** beside Fit (a shared `zoomAtPoint` helper backs wheel,
   buttons and pinch; panning pauses mid-pinch); a wider, `touch-action:none`
   **sidebar resize handle** that also works on mobile drawers; long-press callout
   suppression over the canvas; and a friendly **HEIC/HEIF upload guard** (most
   browsers can't render those photos).
-- ☑ **DM Data view upgrades.** A header **map switcher** to view ANY map
+- â˜‘ **DM Data view upgrades.** A header **map switcher** to view ANY map
   (non-active are preview-only) with a **Make active** button; it auto-follows the
   live map only when it *changes* (set here or from the main DM UI). A stale
   active-turn pointer no longer **blanks** the view (guarded lookup), and a routes
@@ -1757,88 +1761,88 @@ Smaller refinements on top of the shipped Phase 2 work.
   instead of a white screen. AI fills here now show the **banner + toast** (the
   view renders `AiStatus`/`Toast`/`ConnectionStatus`). The roll log is a
   **collapsible/resizable `SidePanel`**, and the card grid sits in a
-  definite-height scroll box so cards flow + scroll (never overlap) — reliable on
+  definite-height scroll box so cards flow + scroll (never overlap) â€” reliable on
   iOS Safari, where the nested-flex height chain was collapsing them.
-- ☑ **Review quick-wins batch (hardening + perf + UI polish).** Server: session
+- â˜‘ **Review quick-wins batch (hardening + perf + UI polish).** Server: session
   guards on `monster:update`/`monster:delete`/`ai:fillCreature`/`monster:action`
   (`monsterInSession`), players can't move **hidden** tokens (`token:move` guard),
-  `takeLoot` runs in a transaction, `applyDamage` clamps to ±10 000 (truncated),
+  `takeLoot` runs in a transaction, `applyDamage` clamps to Â±10 000 (truncated),
   dice expressions cap terms/total dice (100/1000), idempotent **indexes** on the
   hot per-session/per-map columns, and the roll log **prunes to the newest 500**
-  per session. Client: a manual **"Dead" condition** shows the 💀 even on enemies
+  per session. Client: a manual **"Dead" condition** shows the ðŸ’€ even on enemies
   (players already auto-skull friendlies at 0 HP), `TokenShape` + Data-view cards
-  are **memoized** (content comparators + identity-stable handlers — dragging one
+  are **memoized** (content comparators + identity-stable handlers â€” dragging one
   token no longer redraws them all), global **`:focus-visible`** ring, bigger
-  touch targets (26px `.qbtn`, ≥32px on coarse pointers), section labels are real
+  touch targets (26px `.qbtn`, â‰¥32px on coarse pointers), section labels are real
   `h4`s, brighter `--muted`, the **player console + player left panel** use the
   same reorderable/collapsible sections as the DM, and all layout prefs
   (panels/sections/Roll20 URL) are **namespaced per session code**. Tests:
   `quickwins.test.ts` + dice-cap cases. Deferred to dedicated PRs: snapshot-perf
   rework; actions/sheetAbilities merge (must keep AI action flavor).
-- ☑ **Ability-system merge (ONE rollable system).** Legacy free-text monster
-  `actions` are now only a *transport* shape (SRD/AI/paste): at creature insert —
-  and via an idempotent startup **migration** of old saves — weapon-like entries
+- â˜‘ **Ability-system merge (ONE rollable system).** Legacy free-text monster
+  `actions` are now only a *transport* shape (SRD/AI/paste): at creature insert â€”
+  and via an idempotent startup **migration** of old saves â€” weapon-like entries
   ("+4 to hit, 1d6+2 slashing") become rollable `weapons` and the rest become
   rich `sheetAbilities` (structured rolls kept, or scraped with
   `parseActionRoll`); stored monsters keep `actions` empty. The DM-only
-  `monster:action` event and `resolveMonsterAction` are gone — everything rolls
+  `monster:action` event and `resolveMonsterAction` are gone â€” everything rolls
   through `ability:roll`, and `resolveAbilityRoll` (PC) /
   `resolveMonsterSheetAbility` (creature) are thin wrappers over ONE shared
   `resolveSheetAbilityFor` core (PC: sheet-derived DC/to-hit + slot spend;
   monster: CR-based prof + best INT/WIS/CHA, explicit stat-block DC wins).
-  Floating menu, trap **⚡ Trigger**, and the token panel all roll creature
+  Floating menu, trap **âš¡ Trigger**, and the token panel all roll creature
   abilities via the one path; `updateMonster`/AI-fill convert incoming `actions`
   patches the same way (deduped by name); the **creature library** round-trips
   `sheetAbilities` (new idempotent column). AI generation keeps its action
-  flavor — the prompt now explicitly arms humanoids (bandits, soldiers, guards)
+  flavor â€” the prompt now explicitly arms humanoids (bandits, soldiers, guards)
   with named MANUFACTURED weapons and beasts with natural attacks. The
-  natural-attacks library (`/api/attacks`) grew 16 → ~36 entries (large/huge
-  variants, Stomp/Trample/Wing/Tusk…, typed touch/drain attacks, ranged
+  natural-attacks library (`/api/attacks`) grew 16 â†’ ~36 entries (large/huge
+  variants, Stomp/Trample/Wing/Tuskâ€¦, typed touch/drain attacks, ranged
   Spit/Quill/Rock/Web). Tests: conversion at create, raw-row migration
   idempotence, ported action-roll suites (205 passing).
-- ☑ **Chat dice + working heals.** Typing **`/roll 2d6+3`** (or `/r`, optional
+- â˜‘ **Chat dice + working heals.** Typing **`/roll 2d6+3`** (or `/r`, optional
   `adv`/`dis`) into chat rolls server-side into the shared roll log (invalid
-  dice → notice; parser `parseRollCommand` in `shared/dice.ts`). **Heal
+  dice â†’ notice; parser `parseRollCommand` in `shared/dice.ts`). **Heal
   abilities now actually heal**: a targeted heal applies the HP on cast (heal
   SPELLS add the caster's spellcasting mod; plain abilities use their dice as
-  written) — the combat console gets a **Heal target** dropdown (self default +
+  written) â€” the combat console gets a **Heal target** dropdown (self default +
   allies via `healTargets`), and the floating menu applies heals to the
-  right-clicked token, including your own (right-click yourself → "Casting as …
-  → self" lists your heals). Untargeted heals still just log.
-- ☑ **Roll-log HP accounting.** Every roll that changes HP (weapon hits,
+  right-clicked token, including your own (right-click yourself â†’ "Casting as â€¦
+  â†’ self" lists your heals). Untargeted heals still just log.
+- â˜‘ **Roll-log HP accounting.** Every roll that changes HP (weapon hits,
   targeted spell attacks, Apply-damage saves + darts, heals) records a DM-only
-  `hpNote` on its `RollEntry` — "Druk HP 42→38" (temp HP shows as "42+5") —
+  `hpNote` on its `RollEntry` â€” "Druk HP 42â†’38" (temp HP shows as "42+5") â€”
   shown as a cyan line in the full log and the map overlay, so mistakes are
   easy to spot and hand-correct. Persisted (`roll_log.hp_note`, idempotent
   column) as `{kind, refId, text}` so `visibility.ts` shapes it per viewer:
   players see HP changes for **PCs and friendly/neutral creatures**; only
   ENEMY creature changes are stripped (their HP stays hidden, matching the
   disposition tiers).
-- ☑ **Floating damage/heal numbers.** Every HP change pops a bold **red −X /
+- â˜‘ **Floating damage/heal numbers.** Every HP change pops a bold **red âˆ’X /
   green +X** above the creature's token that drifts up and fades (~0.9 s
   `Konva.Tween`, click-through, x-jitter so rapid hits stack readably). Server-
   pushed: `applyDamage` queues `{kind, refId, delta}` (temp-HP absorption reads
   as the full hit) and `broadcastSnapshots` drains it into a per-viewer
-  **`fx:hp`** event filtered against each client's own snapshot tokens — so
+  **`fx:hp`** event filtered against each client's own snapshot tokens â€” so
   hidden/fog-covered/off-map creatures never pop a number for players, and only
   the delta (already log-visible) is revealed, never totals. Covers weapon
-  hits, spells, heals, manual ±HP buttons and bulk AOE.
-- ☑ **Mobile/touch fixes + reliable updates.** (1) The SPA shell (`index.html`)
+  hits, spells, heals, manual Â±HP buttons and bulk AOE.
+- â˜‘ **Mobile/touch fixes + reliable updates.** (1) The SPA shell (`index.html`)
   is served **`no-cache`** while hashed `/assets` stay immutable, so a phone
   always picks up the latest bundle after the host rebuilds (a stale cached
-  `index.html` was why new features — floating numbers, HP notes — silently
-  never appeared on mobile). (2) `ReorderableSections` gains tap **▲/▼** reorder
-  buttons — HTML5 drag-and-drop never fires on touch, so the grip alone left
+  `index.html` was why new features â€” floating numbers, HP notes â€” silently
+  never appeared on mobile). (2) `ReorderableSections` gains tap **â–²/â–¼** reorder
+  buttons â€” HTML5 drag-and-drop never fires on touch, so the grip alone left
   mobile unable to reorder; the buttons work everywhere (de-emphasised on
-  hover pointers, enlarged on coarse pointers). (3) A **"Placing <unit> — ✕
+  hover pointers, enlarged on coarse pointers). (3) A **"Placing <unit> â€” âœ•
   Done"** banner shows over the map whenever a spawn is armed (`PlacementBanner`),
-  giving a touch-reachable cancel since Esc/​re-tapping the side drawer isn't
+  giving a touch-reachable cancel since Esc/â€‹re-tapping the side drawer isn't
   practical mid-place on a phone. (4) `install.bat`/`install.sh` now **force-sync
   to the remote tip** (`reset --hard origin/<branch>`) and **fail loudly** if the
   working tree can't be updated, instead of a silent `git pull` leaving stale
-  code — gitignored `server/data`/`.env` are never touched.
-- ☑ **UI polish round (mobile + consistency).** (1) Roll-log entries compact on
-  phones (smaller total/meta/notes in the ≤820px drawer). (2) **DM right panel
+  code â€” gitignored `server/data`/`.env` are never touched.
+- â˜‘ **UI polish round (mobile + consistency).** (1) Roll-log entries compact on
+  phones (smaller total/meta/notes in the â‰¤820px drawer). (2) **DM right panel
   for PCs mirrors the creature layout**: Spells & Abilities (+ free-text
   actions) is its own reorderable section above Sheet info, and `CharacterSheet`
   gains `abilitiesElsewhere` so the sheet omits them there. (3) Ability rolls
@@ -1849,7 +1853,7 @@ Smaller refinements on top of the shipped Phase 2 work.
   free) so the combat console doesn't fall back to the generic panel. (5)
   **Traits & Feats moved up** to sit with the character info box (stats +
   weapons), above Resources/Skills/Inventory.
-- ☑ **Snapshot-performance rework** (review #7). `visibility.ts` now exposes
+- â˜‘ **Snapshot-performance rework** (review #7). `visibility.ts` now exposes
   `createSnapshotBuilder(sessionId)`: all session-wide queries (creatures, roll
   log, chat, maps) run ONCE per change-cycle, creature lookups go through
   in-memory id maps (kills the per-token `getMonster`/`getCharacter` N+1 in
@@ -1857,25 +1861,25 @@ Smaller refinements on top of the shipped Phase 2 work.
   are cached across viewers, and player-shaped monsters/roll log are computed
   once and shared by every player connection. `broadcastSnapshots` builds one
   builder per cycle; `buildSnapshot` keeps its signature (join + tests
-  unchanged). Bench (35 tokens, 6 clients): ~8.2 ms → ~1.5 ms per change-cycle
-  (≈5.6×), on top of the already-removed N+1. Parity + reuse covered by new
+  unchanged). Bench (35 tokens, 6 clients): ~8.2 ms â†’ ~1.5 ms per change-cycle
+  (â‰ˆ5.6Ã—), on top of the already-removed N+1. Parity + reuse covered by new
   `createSnapshotBuilder` tests.
-- ☑ **Combat round counter + objects sit out of initiative.** Sessions carry a
+- â˜‘ **Combat round counter + objects sit out of initiative.** Sessions carry a
   `combat_round` counter (idempotent column, 0 = no combat): **Roll all** starts
   round 1, **Next** increments it when the turn order wraps past the LAST
   combatant (latecomers added via **Add rolls** mid-round slot in without
   resetting or double-counting; a vanished current token restarts the same
-  round), **Clear** zeroes it, and a **↺ reset** button (`initiative:resetRound`,
+  round), **Clear** zeroes it, and a **â†º reset** button (`initiative:resetRound`,
   DM-only) sets it back to 1 without touching anyone's rolls. Shown as a
   **Round N chip** in the top toolbar (everyone), the Initiative header, and
   the Data-view turn line. **Objects (chests/doors/traps/items) never roll
   initiative**: Roll all/Add rolls skip them (Roll all also clears a stray roll
   an object had in an old save), the turn order excludes them defensively, and
   the Initiative panel doesn't list them.
-- ☑ **Initiative robustness.** The round counter is a **DM-editable field** in
-  the Initiative header (`initiative:setRound`, clamped 0–999) instead of just
-  reset-to-1. **Dead combatants keep their slot** in the order (dimmed 💀 row)
-  but `advanceTurn` walks past them — wraps crossed while skipping still count
+- â˜‘ **Initiative robustness.** The round counter is a **DM-editable field** in
+  the Initiative header (`initiative:setRound`, clamped 0â€“999) instead of just
+  reset-to-1. **Dead combatants keep their slot** in the order (dimmed ðŸ’€ row)
+  but `advanceTurn` walks past them â€” wraps crossed while skipping still count
   the round, and PCs at 0 HP **keep their turn** for death saves (skipped only
   at 3 failures or the Dead mark). **Deleting the current-turn token** ticks
   the marker to the next living combatant first (wrapping counts the round, as
@@ -1883,141 +1887,141 @@ Smaller refinements on top of the shipped Phase 2 work.
   cleanup through the same guard, and deleting the only living combatant
   clears the marker.
 
-## Feature batch — combat gates, loot, shapes, spells, grid, decals & ownership
+## Feature batch â€” combat gates, loot, shapes, spells, grid, decals & ownership
 
-- ☑ **Player move gate [req].** `token:move` lets players move only **PCs and
-  FRIENDLY creatures** — enemy/neutral creatures and **objects**
+- â˜‘ **Player move gate [req].** `token:move` lets players move only **PCs and
+  FRIENDLY creatures** â€” enemy/neutral creatures and **objects**
   (chests/doors/traps) are blocked server-side, and the client no longer marks
   unmovable tokens draggable (the drag used to ghost locally before the server
   rejected it). Hidden-token block unchanged.
-- ☑ **Token size typed entry [req].** Manual half-foot entry + −/+ 2.5 ft
+- â˜‘ **Token size typed entry [req].** Manual half-foot entry + âˆ’/+ 2.5 ft
   buttons; `resizeToken` snaps to 0.5 and clamps [0.5, 120] (min lowered from
   2.5 for small objects).
-- ☑ **Neutral reveals nothing more than enemy [req].** Players see name +
+- â˜‘ **Neutral reveals nothing more than enemy [req].** Players see name +
   conditions only for BOTH; the amber dot is the only difference. Removed the
   `MonsterNeutral` type + client guards; `hpNote` visibility tightened to
   **friendly/PC-only**.
-- ☑ **"Clear" initiative → "End combat" [req].** Renamed in the Initiative panel
+- â˜‘ **"Clear" initiative â†’ "End combat" [req].** Renamed in the Initiative panel
   and the Data view (it already cleared rolls, the turn marker, and the round).
-- ☑ **Hide DM rolls [req].** A DM toggle in the dice panel; while on, DM-rolled
+- â˜‘ **Hide DM rolls [req].** A DM toggle in the dice panel; while on, DM-rolled
   log entries are flagged `dm_only` and filtered from player snapshots (damage
-  still applies, floating ±X still pop). `sessions.hide_dm_rolls` +
+  still applies, floating Â±X still pop). `sessions.hide_dm_rolls` +
   `roll_log.dm_only` (idempotent), `session:setHideDmRolls`,
   `snapshot.hideDmRolls`.
-- ☑ **Player unlock/open objects [req].** Players (and DM) get **Pick lock /
+- â˜‘ **Player unlock/open objects [req].** Players (and DM) get **Pick lock /
   Open / Close** on doors & chests: `object:interact` + `resolveObjectCheck`
   (generalized from `resolveTrapDisarm`) rolls DEX (Sleight of Hand) vs the
   object's DC and clears Locked on success; open/close is blocked while locked;
   DM can force-unlock.
-- ☑ **Creature loot [req].** The DM stocks + reveals loot on ANY creature via a
-  Loot section in the token panel; `lootVisibleToPlayers` extends to creatures —
+- â˜‘ **Creature loot [req].** The DM stocks + reveals loot on ANY creature via a
+  Loot section in the token panel; `lootVisibleToPlayers` extends to creatures â€”
   takeable only once **dead** *and* "Loot revealed" is toggled (enables a
   perception-roll gate). `object:setLoot`/`loot:take` drop the objectKind
-  requirement (session-scoped). Loot rows gain an **ⓘ** description toggle.
-- ☑ **Token shapes [req].** `tokens.shape` (circle/square/diamond/triangle/
-  image; objects default by kind — chests/doors square, traps triangular);
+  requirement (session-scoped). Loot rows gain an **â“˜** description toggle.
+- â˜‘ **Token shapes [req].** `tokens.shape` (circle/square/diamond/triangle/
+  image; objects default by kind â€” chests/doors square, traps triangular);
   `TokenShape` renders each silhouette with matching image clip (`image` draws
   pasted art unclipped, selection-only outline); Shape picker in DM tools;
   `token:setShape` (DM-only).
-- ☑ **Custom item descriptions + AI-generated items [req].** The loot editor's
-  manual "+ Add" gains a Description field, plus an "AI generate" row —
+- â˜‘ **Custom item descriptions + AI-generated items [req].** The loot editor's
+  manual "+ Add" gains a Description field, plus an "AI generate" row â€”
   `POST /api/items/generate {prompt}` reuses `callGemini` and drops the item
   straight into the container (key-gated + fail-safe).
-- ☑ **Prepared/cantrip soft counters + action economy.** `shared/spellPrep.ts`
+- â˜‘ **Prepared/cantrip soft counters + action economy.** `shared/spellPrep.ts`
   (`cantripsKnown` + `spellCapacity`: prepared casters = mod+level/half, known
   casters = per-class table, null for martials; `parseActionType`).
-  `CharacterSpells` header shows "Cantrips x/y · Prepared|Known a/b" (red over
-  the cap, never blocks); ✓ Prep toggle per leveled spell
+  `CharacterSpells` header shows "Cantrips x/y Â· Prepared|Known a/b" (red over
+  the cap, never blocks); âœ“ Prep toggle per leveled spell
   (`SheetAbility.prepared`); `SheetAbility.actionType` auto-derived from meta,
-  editable, shown as ●/⚡/↩ icons.
-- ☑ **Grid hide, offset, lock & match-to-map-grid [req].** Maps gain
+  editable, shown as â—/âš¡/â†© icons.
+- â˜‘ **Grid hide, offset, lock & match-to-map-grid [req].** Maps gain
   `grid_offset_x/y`, `grid_locked`, `grid_hidden` (idempotent columns;
   `map:setGrid` carries them, offsets normalize into one cell). Scale menu adds
-  **Hide grid** and **Match map grid (drag a square)** — the drag sets cell size
+  **Hide grid** and **Match map grid (drag a square)** â€” the drag sets cell size
   (longer side) + grid origin offset and locks the grid; locked disables the
   grid-square input (Unlock control) while feet/width inputs still work (scale
   is width-ft based, so distance changes never resize the cell). Grid render
   honors the offset and skips when hidden.
-- ☑ **Paste images as object tokens or scenery decals [req].** DM presses Ctrl+V
-  → upload (reuses `/api/icons`) → dialog offers **Object** (`object:paste`
+- â˜‘ **Paste images as object tokens or scenery decals [req].** DM presses Ctrl+V
+  â†’ upload (reuses `/api/icons`) â†’ dialog offers **Object** (`object:paste`
   creates a non-combat 'other' object + an `image`-shaped token) or **Scenery
   decal** (annotations gain an `image` kind drawn UNDER the tokens, clamped to
-  ~6 squares). Paste dialog supports drag-select **✂ Crop**, **🪄 Cut
+  ~6 squares). Paste dialog supports drag-select **âœ‚ Crop**, **ðŸª„ Cut
   background** (corner flood-fill to transparency, checkerboard preview), and
-  **↺ Undo edits** (`lib/imageEdit.ts`). Pasting an `<img>` copied from a web
-  page / Google Slides works even when the clipboard only carries a URL —
+  **â†º Undo edits** (`lib/imageEdit.ts`). Pasting an `<img>` copied from a web
+  page / Google Slides works even when the clipboard only carries a URL â€”
   `POST /api/icons/from-url` fetches it server-side (http(s) only, image/* only,
   25 MB cap, browser-like UA for googleusercontent), with specific error
   reasons surfaced in the toast. Never hijacks a paste aimed at a text field.
-- ☑ **Decal manipulation + lock [req].** Decals are DM-draggable
+- â˜‘ **Decal manipulation + lock [req].** Decals are DM-draggable
   (`annotation:move`) with an aspect-locked **corner resize** handle (constant
-  screen size at any zoom; `annotation:resize`, clamped 8–20000 px), a **🔒
+  screen size at any zoom; `annotation:resize`, clamped 8â€“20000 px), a **ðŸ”’
   Decals** toggle making them click-through/undraggable (DM-local, persisted
   per session; the eraser still removes locked decals), and **Clear decals**
-  (`annotation:clear` by kind — strokes/text stay). Fixed DM "Clear mine"
+  (`annotation:clear` by kind â€” strokes/text stay). Fixed DM "Clear mine"
   (role was hardcoded to player).
-- ☑ **Mobile hold-to-open menu + ❔ Guide.** Long-press (~0.5 s) opens the
+- â˜‘ **Mobile hold-to-open menu + â” Guide.** Long-press (~0.5 s) opens the
   floating menu and **releasing keeps it open** (close events swallowed 450 ms
   after opening; the touch is marked consumed so touchend doesn't re-select).
-  A **❔ Guide** button in the top toolbar for BOTH roles opens `GuideModal`
+  A **â” Guide** button in the top toolbar for BOTH roles opens `GuideModal`
   with Desktop/Mobile control tabs (auto-selected by pointer type), pointing at
   FEATURES.md for the full tour.
-- ☑ **Durable per-player character ownership [req].** Each browser keeps a
+- â˜‘ **Durable per-player character ownership [req].** Each browser keeps a
   persistent random `playerId` (localStorage) sent in the join handshake;
   `characters.owner_player_id` is set on first claim / creation / claimed
   library load and never overwritten. `character:claim` rejects characters held
   by another live socket OR owned by a different player; reconnects by the
-  owner keep working. DM-only `character:unlock` (🔓 in the spawn list) clears
-  owner + claim for device switches; the player picker shows a 🔒 locked badge;
+  owner keep working. DM-only `character:unlock` (ðŸ”“ in the spawn list) clears
+  owner + claim for device switches; the player picker shows a ðŸ”’ locked badge;
   auto-reclaim honors ownership; `updateCharacter`'s allow-list already
   excludes `ownerId`/`claimedBy` so patches can't forge it.
-- ☑ **Stability fixes.** Data-view expand overlay uses a CSS **grid** of
+- â˜‘ **Stability fixes.** Data-view expand overlay uses a CSS **grid** of
   sections (multi-columns rebalanced on resize and overlapped in Chrome);
-  damage at 0 HP still floats the attempted −X (death-save failures read on the
+  damage at 0 HP still floats the attempted âˆ’X (death-save failures read on the
   map); weapon `extraDamage` riders roll ONCE on a hit and are **no longer
   doubled on a crit** (amends the earlier rider entry); window-snap glitches
   fixed (`.center`/`.stage-wrap` clip overflow, ResizeObserver updates coalesced
   per animation frame, a `devicePixelRatio` watcher remounts the Stage when
   monitor scaling changes).
-- ☑ **Cloud deployment kit (`deploy/`).** Host the app 24/7 on a free GCP
+- â˜‘ **Cloud deployment kit (`deploy/`).** Host the app 24/7 on a free GCP
   e2-micro VM with one permanent HTTPS link instead of the per-restart
-  quick-tunnel URL: `deploy/README.md` (beginner click-by-click walkthrough —
-  GCP VM + static IP → free DuckDNS hostname → `deploy/setup.sh` one-shot
-  provisioner (swapfile, Node 20, build, systemd `dndapp.service`) → Caddy
-  auto-HTTPS), all purely additive — no app-code or run-script changes; the
+  quick-tunnel URL: `deploy/README.md` (beginner click-by-click walkthrough â€”
+  GCP VM + static IP â†’ free DuckDNS hostname â†’ `deploy/setup.sh` one-shot
+  provisioner (swapfile, Node 20, build, systemd `dndapp.service`) â†’ Caddy
+  auto-HTTPS), all purely additive â€” no app-code or run-script changes; the
   local PC + quick-tunnel workflow is untouched (`PUBLIC_URL` set + blank
   `CF_TUNNEL_NAME` skips cloudflared).
-- ☑ **Color-coded Data-view cards [req].** `/dm/data` cards tint by type —
+- â˜‘ **Color-coded Data-view cards [req].** `/dm/data` cards tint by type â€”
   PC cyan, friendly green, neutral amber, enemy red, object gray (faint
-  background + 3px left border, the token dot colors) — via a
+  background + 3px left border, the token dot colors) â€” via a
   disposition/objectKind class on `DataCard`; the turn (gold border) and
   multi-select (outline) markers render on top.
-- ☑ **Mobile double-tap fix [req].** Double-tapping a token now works on touch:
+- â˜‘ **Mobile double-tap fix [req].** Double-tapping a token now works on touch:
   `TokenShape` detects two quick nearby touches itself (Konva's synthesized
   `dbltap` was unreliable next to the long-press handlers; a drag clears the
-  pending tap, a `lastActivate` guard de-dupes if both fire) — AND the result
+  pending tap, a `lastActivate` guard de-dupes if both fire) â€” AND the result
   is visible on phones: `handleTokenActivate` bumps a store `rightPanelNudge`
   that pops the right `SidePanel` drawer open (`openSignal` prop; panels start
   collapsed under 820px).
-- ☑ **Unified "Combat" right-panel section (both roles) [req].** ONE rolling
+- â˜‘ **Unified "Combat" right-panel section (both roles) [req].** ONE rolling
   surface at the top of the token panel: a **Target** dropdown
   (`validTargets`; players exclude friendlies, default = the clicked token)
-  plus buttons for every rollable action of the selected attacker — weapons
+  plus buttons for every rollable action of the selected attacker â€” weapons
   (off-hand/2H toggles, `combat:attack`) and rollable abilities via a new
-  shared `AbilityButtons` (attack → vs AC, save/damage → the target rolls and
-  takes it now, heals → own ally select with self default; inline upcast level
+  shared `AbilityButtons` (attack â†’ vs AC, save/damage â†’ the target rolls and
+  takes it now, heals â†’ own ally select with self default; inline upcast level
   select; concentration confirm), also reused by the floating menu so the two
-  can't drift. The old separate Attacks section (`AttackControls`) is removed —
-  moved, not duplicated — and the Spells & Abilities section keeps
-  add/edit/✓ Prep/stances with its roll buttons hidden
+  can't drift. The old separate Attacks section (`AttackControls`) is removed â€”
+  moved, not duplicated â€” and the Spells & Abilities section keeps
+  add/edit/âœ“ Prep/stances with its roll buttons hidden
   (`CharacterSpells rollsElsewhere`); the player's left-panel sheet still casts
   untargeted as before. `ReorderableSections` now slots never-seen section ids
   at their fallback index (not appended), so 'combat' lands on TOP for users
   with a saved order.
-- ☑ **Combat section round 2: right-click targeting, toggles & resources [req].**
+- â˜‘ **Combat section round 2: right-click targeting, toggles & resources [req].**
   (1) **Right-clicking a token fills the Combat section's Target dropdown**
   (store `combatTarget` {id, nonce}; set in `handleTokenMenu`, consumed only on
-  change so a stale value never overrides the clicked-token default) — the same
+  change so a stale value never overrides the clicked-token default) â€” the same
   aim as the floating menu, so closing the menu leaves the panel armed at that
   target. (2) **Damage-altering toggles moved into the Combat section**:
   `AbilityToggles` chips (effect masteries On/Off, maneuvers Armed, stances
@@ -2025,29 +2029,29 @@ Smaller refinements on top of the shipped Phase 2 work.
   ONE shared `useAbilityToggles` hook also used by `CharacterSpells`' inline
   buttons (left-panel sheet keeps them; right-panel lists hide them via
   `rollsElsewhere`). (3) The player console's **Spells & Abilities is now a
-  read-only reference list** (collapsible rows → description/meta) — add/edit/
+  read-only reference list** (collapsible rows â†’ description/meta) â€” add/edit/
   prep stays on the left-panel sheet. (4) **Resources ride in the Combat
   section** (`CharacterResources compact`: spendable spell-slot/counter pips,
   add/remove hidden) while the full tracker stays on the character sheet.
   Concentration-confirm extracted to `lib/spellcasting.confirmConcentration`
   (one implementation for casts, quick-casts, and stance activation). (5) The
   Combat section **always shows** for a creature/PC (not just when it has
-  attacks) so toggles/resources always have a home — `CombatSection` renders a
+  attacks) so toggles/resources always have a home â€” `CombatSection` renders a
   "No attacks or rollable abilities." note where the buttons would be.
-- ☑ **Claim-based character ownership (reconnect-friendly) [req].** Replaced the
+- â˜‘ **Claim-based character ownership (reconnect-friendly) [req].** Replaced the
   "owned even while offline" lock with a live-claim model: a PC is unclaimable by
   others only while `claimedBy` is a connected socket OR one inside a short
   **disconnect grace window** (`CLAIM_GRACE_MS`, `pendingReleases` map +
-  `isClaimProtected`/`claimHolderPlayerId` in `socketHandlers.ts`) — a blip no
+  `isClaimProtected`/`claimHolderPlayerId` in `socketHandlers.ts`) â€” a blip no
   longer de-selects a character, and after the window it frees for anyone.
   `owner_player_id` is repurposed to the **last holder** (updated on every
   identified claim, one per player via `clearOwnershipElsewhere`) used purely for
   **reconnect priority**: `join` calls `reclaimForPlayer` to cancel the pending
   release and hand the player back the character they last held if still free.
-  Explicit "Change" clears that record so it won't snap back; DM 🔓-unlock stays
-  as a stuck-claim fallback. Picker drops the offline 🔒-locked state (taken =
+  Explicit "Change" clears that record so it won't snap back; DM ðŸ”“-unlock stays
+  as a stuck-claim fallback. Picker drops the offline ðŸ”’-locked state (taken =
   actively held). Tests updated for last-holder semantics + `clearOwnershipElsewhere`.
-- ☑ **Visual polish pass (clarity + consistency) + grid-square drag.** Purely
+- â˜‘ **Visual polish pass (clarity + consistency) + grid-square drag.** Purely
   cosmetic except one grid tweak. CSS (`styles.css`): consolidated drifting colors
   into tokens (`--gold`, `--cyan-bright`, `--ok`, `--bad`, `--chat-dm/player`) so
   active-turn gold / PC cyan read consistently; form controls gained hover
@@ -2057,9 +2061,9 @@ Smaller refinements on top of the shipped Phase 2 work.
   red (`zero-hp`), dead initiative rows are dimmed+italic but legible, roll-log
   rows got breathing room. **Grid:** "Match map grid" now drags a **box with a
   live square preview** (corner-to-corner over one printed square) instead of an
-  ambiguous line — `MapStage` renders a `Rect` and commits a square-derived
-  size/offset; the 📏 set-scale tool keeps its line.
-- ☑ **Subclass + spell-list allowances + feats [req].** `Character.subclass`
+  ambiguous line â€” `MapStage` renders a `Rect` and commits a square-derived
+  size/offset; the ðŸ“ set-scale tool keeps its line.
+- â˜‘ **Subclass + spell-list allowances + feats [req].** `Character.subclass`
   (column + sheet identity field, shown in the subtitle, saved to the library /
   JSON export, scraped from pasted sheets, AI-filled): `deriveClassResources`
   now derives **third-caster slots** (Eldritch Knight / Arcane Trickster) and
@@ -2067,21 +2071,21 @@ Smaller refinements on top of the shipped Phase 2 work.
   `spellPrep` honors EK/AT cantrips (2@3, 3@10) + a known-spells table. New
   `shared/spellLists.ts` computes the **allowed spell lists** from class +
   subclass + feat names (Magic Initiate per-class, Artificer Initiate,
-  Fey/Shadow Touched — matched in Traits & Feats AND sheet abilities), shown as
+  Fey/Shadow Touched â€” matched in Traits & Feats AND sheet abilities), shown as
   a "Lists:" breakdown under the spell counters, whose caps now include feat
-  bonuses. The features search gained a curated **feat list** (Magic Initiate ×3,
+  bonuses. The features search gained a curated **feat list** (Magic Initiate Ã—3,
   Fey/Shadow Touched, Lucky, Tough, Alert).
-- ☑ **Sheet math depth: stat modifiers, magic items, feat cap, spell-header clarity [req].**
+- â˜‘ **Sheet math depth: stat modifiers, magic items, feat cap, spell-header clarity [req].**
   A unified modifier model (`shared/modifiers.ts`): `SheetModifier` (target =
   ability/save/skill/attack/AC/initiative) on `Character.modifiers` (ASI/Resilient/
   racial) and on `InventoryItem.modifiers` gated by an `equipped` toggle. Effective
   score = base `stats` + ability modifiers; flat save/skill/attack/AC bonuses layer
-  on at roll time. The server folds them in at ONE chokepoint — the `Combatant`
+  on at roll time. The server folds them in at ONE chokepoint â€” the `Combatant`
   adapter in `combat.ts` swaps in `effectiveStats`/`effectiveAc` (fixing attack/save
-  mods, defender AC, spell DC/attack, concentration, DEX initiative) — plus flat
+  mods, defender AC, spell DC/attack, concentration, DEX initiative) â€” plus flat
   extras in the save/skill/attack resolvers; monsters (no modifiers) are unchanged.
   **Stat-math hover:** each ability cell shows the effective score with a `title`
-  breakdown ("20 = 18 base + 2 Belt…") and a • dot when modified. **Magic items:**
+  breakdown ("20 = 18 base + 2 Beltâ€¦") and a â€¢ dot when modified. **Magic items:**
   per-item effects editor + equipped/attuned toggle (`ModifierEditor`, reused for
   character ASIs). **Feat cap:** `shared/feats.ts` `featSlots` (ASI 4/8/12/16/19 +
   Fighter 6/14 + Rogue 10) with a HARD block on adding feats/ASIs past it, shown as
@@ -2090,31 +2094,31 @@ Smaller refinements on top of the shipped Phase 2 work.
   (`spellBudgetBreakdown`). Persisted via `ensureColumn` (characters +
   library_characters) and the items JSON; round-trips through library + JSON sheet
   I/O. +21 tests (modifiers/feats/breakdown).
-- ☑ **Item-library modifiers: SRD presets + AI [req].** `LibraryItem` carries
+- â˜‘ **Item-library modifiers: SRD presets + AI [req].** `LibraryItem` carries
   `modifiers` (stored in `library_items.data` JSON; one-time `items_modifiers_v1`
   backfill upgrades already-seeded libraries without touching DM-edited effects).
-  SRD presets on the catalogue's numeric magic items — several allow MULTIPLE
+  SRD presets on the catalogue's numeric magic items â€” several allow MULTIPLE
   effects per item (Cloak/Ring of Protection = +1 AC **and** +1 all saves, Luckstone
-  = +1 all skills + saves) — plus a new `SheetModifier.set` flag for score-floor
+  = +1 all skills + saves) â€” plus a new `SheetModifier.set` flag for score-floor
   items ("your STR **becomes** 19": Gauntlets of Ogre Power, Headband of Intellect,
   Amulet of Health, Hill Giant potion; `effectiveStats` floors after bonuses, shown
-  as "→19" in the stat-math hover and "=19" in `ModifierEditor`, which also gained a
+  as "â†’19" in the stat-math hover and "=19" in `ModifierEditor`, which also gained a
   "+ bonus / = set to" picker). `generateItemAI` now emits a structured `modifiers`
   array, validated by the new `sanitizeModifiers` (shared, also guards the REST
   save path). Pickers (`CharacterItems`/`LootControls`, incl. the loot AI path) copy
-  modifiers onto the added item with a ✦n badge, and `setLoot` no longer strips them
+  modifiers onto the added item with a âœ¦n badge, and `setLoot` no longer strips them
   from containers. +4 tests (set-floor math, sanitizer, library round-trip, seed
   presets + backfill).
-- ☑ **Manual item-library save (custom + AI) [req].** AI item generation no
+- â˜‘ **Manual item-library save (custom + AI) [req].** AI item generation no
   longer auto-saves: `POST /api/items/generate` returns the item (with
   `modifiers`) for the container/inventory, and saving to the library is an
-  explicit **💾** choice — the SAME path for custom and AI items. A new
+  explicit **ðŸ’¾** choice â€” the SAME path for custom and AI items. A new
   `ItemLibrarySaveDialog` (mirroring the creature/character save) posts to
   `POST /api/library/items`, which now does a name-conflict check
-  (`getLibraryItemByName` → 409 + existing, `?overwrite=true` to replace) and
-  carries the item's `modifiers`. The 💾 button sits on every inventory + loot
+  (`getLibraryItemByName` â†’ 409 + existing, `?overwrite=true` to replace) and
+  carries the item's `modifiers`. The ðŸ’¾ button sits on every inventory + loot
   row. +1 test (`getLibraryItemByName`).
-- ☑ **Modifier/item audit fixes [req].** Three-agent audit of the modifier/item/
+- â˜‘ **Modifier/item audit fixes [req].** Three-agent audit of the modifier/item/
   loot surface; everything actionable fixed. **Trust:** client-supplied
   modifiers/items are now sanitized at EVERY write site (`character:update`,
   `item:set`, `object:setLoot`, `createCharacter`, character-library REST) via
@@ -2130,25 +2134,25 @@ Smaller refinements on top of the shipped Phase 2 work.
   **UI:** sheet AC shows the EFFECTIVE value (dot + breakdown title); prepared
   cap uses effective stats; loot gold edit is draft-based (focus+blur no longer
   zeroes a container); loot writes rebase on the latest container (an awaited AI
-  add can't resurrect taken items); loot rows show the ✦n effects badge; save
-  dialog catches network errors + can't double-save; pickers refresh after a 💾
+  add can't resurrect taken items); loot rows show the âœ¦n effects badge; save
+  dialog catches network errors + can't double-save; pickers refresh after a ðŸ’¾
   save; JSON sheet export now includes `saveProficiencies`/`sheetAbilities`/
   `gold`. +6 tests (sanitize-on-write, malformed-row tolerance, spell-attack
   extra, death-save extra, friendly-loot gate).
-- ☑ **DM loot-item effects editor + typed damage bursts [req].** Every loot row's
-  ✦ opens the shared `ModifierEditor` for the DM (add/tweak an item's magic
-  effects IN the container — e.g. fix up an AI item before a player loots it);
-  players keep the read-only ✦n badge + summary tooltip. **Elemental burst FX:**
+- â˜‘ **DM loot-item effects editor + typed damage bursts [req].** Every loot row's
+  âœ¦ opens the shared `ModifierEditor` for the DM (add/tweak an item's magic
+  effects IN the container â€” e.g. fix up an AI item before a player loots it);
+  players keep the read-only âœ¦n badge + summary tooltip. **Elemental burst FX:**
   `HpFxEvent` carries an optional `damageType` (queued by `applyDamage`, threaded
   from weapon type / flaming-sword rider / spell attacks / magic-missile darts /
   forced saves; canonical types only, damage only). On the canvas, a typed hit
-  pops the type's emoji (🔥❄️⚡☠️…) + a tinted ring pulse over the struck token
-  (`BurstFx` in `HpFx.tsx`); heals pulse a soft green ring + ✨. Physical/untyped
+  pops the type's emoji (ðŸ”¥â„ï¸âš¡â˜ ï¸â€¦) + a tinted ring pulse over the struck token
+  (`BurstFx` in `HpFx.tsx`); heals pulse a soft green ring + âœ¨. Physical/untyped
   damage stays plain (no noise). Performance-safe: one-shot Konva tweens on
   non-listening nodes, no idle loops, expired with the existing ~1.2 s floater
   lifecycle. Verified live in the browser (burst + no-burst probes, screenshots).
   +1 test (typed fx queue).
-- ☑ **Richer combat FX + drag-distance readout [req].** Upgraded the bursts from
+- â˜‘ **Richer combat FX + drag-distance readout [req].** Upgraded the bursts from
   emoji-fades to a small composable Konva particle engine (`HpFx.tsx`): typed
   bursts add a radial spark spray in the type's palette, lightning swaps the glyph
   for a jagged white-on-gold bolt, heals get rising sparkles, a creature dying
@@ -2160,95 +2164,95 @@ Smaller refinements on top of the shipped Phase 2 work.
   imperative refs + `batchDraw` so the drag never re-renders), cleared on release;
   local-only, never broadcast. All one-shot tweens on non-listening nodes.
   Verified live (bolt, death puff, vignette, drag tether + "70 ft" label, gone on
-  release — screenshots). +3 tests (death-once/monsters-only, loot sparkle).
-- ☑ **Shared (broadcast) drag-distance preview [req].** The drag tether + "N ft"
+  release â€” screenshots). +3 tests (death-once/monsters-only, loot sparkle).
+- â˜‘ **Shared (broadcast) drag-distance preview [req].** The drag tether + "N ft"
   readout is now visible to the whole table in real time, via an ephemeral
-  `token:drag` → `fx:tokenDrag` path that mirrors `fx:hp`: throttled (~18 fps) by
+  `token:drag` â†’ `fx:tokenDrag` path that mirrors `fx:hp`: throttled (~18 fps) by
   the dragger, NO DB write / snapshot, fanned out by `broadcastTokenDrag` only to
   viewers who can see the token at its live position. The gate reuses a new shared
   `coveredByFog` helper (de-dups the snapshot's own fog check) plus the
   `isHidden`/same-map checks, so a hidden or fog-covered drag never leaks to
-  players — exactly what a committed move would show, no more. Watchers render a
+  players â€” exactly what a committed move would show, no more. Watchers render a
   declarative `DragGhostLayer`; each ghost auto-expires ~0.32 s after updates stop
   (covers release AND disconnect). Sender gated like `token:move`. +6 tests
   (`coveredByFog` math; fan-out to all-but-sender, cross-session isolation,
   payload, hidden gate, fog gate, off-map skip). Polish: the "N ft" label rides
   the tether's midpoint in gold (matching the line) on both the local overlay and
   watchers' ghosts.
-- ☑ **Resource auto-spend on ability use + always-on stat tooltip [req].**
+- â˜‘ **Resource auto-spend on ability use + always-on stat tooltip [req].**
   Rolling a non-spell sheet ability whose name matches a class-resource counter
-  (Second Wind, Bardic Inspiration, Channel Divinity…) now spends one use
-  (`spendResourceForAbility`, case-insensitive, soft — an empty pool nudges via
+  (Second Wind, Bardic Inspiration, Channel Divinityâ€¦) now spends one use
+  (`spendResourceForAbility`, case-insensitive, soft â€” an empty pool nudges via
   notice but never blocks, mirroring the spell-slot path; leveled spells keep
   spending slots, never both). The stat-cell tooltip now ALWAYS leads with the
   math ("STR 16 = 16 base", full part list when modified) instead of only when
-  modifiers apply — so "roll STR save" no longer crowds out the breakdown and an
+  modifiers apply â€” so "roll STR save" no longer crowds out the breakdown and an
   unequipped magic item is visible at a glance. +1 test.
-- ☑ **Feats & ASIs redesign + feat-cap bug fix [req].** ROOT BUG: `sanitizeModifiers`
+- â˜‘ **Feats & ASIs redesign + feat-cap bug fix [req].** ROOT BUG: `sanitizeModifiers`
   (added to the `character:update` path in the audit pass) was dropping the `slot`
-  flag, so every ASI saved un-flagged and the feat cap counted nothing — now
+  flag, so every ASI saved un-flagged and the feat cap counted nothing â€” now
   preserved (+2 tests: flag survives sanitize, and an ASI round-trips through
   `character:update` with `slot` intact). UI: `CharacterModifiers` is rebuilt as a
   **compact** list by default (entries grouped by source: name + effect summary +
-  ✎/✕) instead of an always-open builder; **"+ Add feat / ASI"** opens a draft
+  âœŽ/âœ•) instead of an always-open builder; **"+ Add feat / ASI"** opens a draft
   with a **search picker** over a new `shared/featLibrary` (the two ASI options +
   ~20 numeric half-feats) that **autofills** the effect, editable, then an explicit
   **Save** locks it in. Every entry counts toward the cap (auto-`slot`, no
   checkbox); "+ Add" is HARD-blocked at the cap. Moved inside the sheet's **Traits
   & Feats** collapsible. Verified live: the section renders nested and the cap
   hard-blocks at level 1 (0/0).
-- ☑ **Color-coded panel sections [req].** Every reorderable section header gets a
+- â˜‘ **Color-coded panel sections [req].** Every reorderable section header gets a
   per-id accent (central map in `ReorderableSections`, so the DM panel, player
-  console, and token panel stay consistent): combat red · conditions amber ·
-  spells violet · loot gold · sheet/character blue · maps green · initiative
-  orange · dice cyan · notes slate · DM tools steel · Roll20 rose. Rendered as a
+  console, and token panel stay consistent): combat red Â· conditions amber Â·
+  spells violet Â· loot gold Â· sheet/character blue Â· maps green Â· initiative
+  orange Â· dice cyan Â· notes slate Â· DM tools steel Â· Roll20 rose. Rendered as a
   3px left bar + a faint header tint + a gently tinted label (`--sec-accent`
-  CSS variable + `color-mix`) — scannable, not loud — and a 5% wash of the
+  CSS variable + `color-mix`) â€” scannable, not loud â€” and a 5% wash of the
   accent over the WHOLE section body (the bar spans the full section). Applies
   to both roles automatically; unknown ids keep the plain look. Verified live
   (DM left + token panel screenshots).
-- ☑ **Skill-check roll log shows a labelled breakdown [req].** `resolveSkillRoll`
+- â˜‘ **Skill-check roll log shows a labelled breakdown [req].** `resolveSkillRoll`
   (and the pick-lock/disarm Sleight-of-Hand check) now log the proficiency as an
-  explicit `+P[PROF]` term in a `+M[ABILITY] +P[PROF] +X[source]` breakdown —
-  matching the attack/save log style — instead of cooking the bonus into one
-  number with a trailing "(proficient)". E.g. "Druk — Athletics: d20[20] +0[STR]
+  explicit `+P[PROF]` term in a `+M[ABILITY] +P[PROF] +X[source]` breakdown â€”
+  matching the attack/save log style â€” instead of cooking the bonus into one
+  number with a trailing "(proficient)". E.g. "Druk â€” Athletics: d20[20] +0[STR]
   = 20", or proficient "+3[DEX] +3[PROF]". Verified live + test updated.
-- ☑ **Panning the map keeps token selection [req].** Clicking empty map to pan no
+- â˜‘ **Panning the map keeps token selection [req].** Clicking empty map to pan no
   longer deselects: the deselect now fires on RELEASE only when the pointer barely
   moved (a real click), so a pan drag (which moves the pointer) preserves the
-  selection — you can look around mid-decision. `MapStage` arms a screen-space
-  `clickStart` on an empty-space press and compares it on `pointerup` (≤5 px).
-- ☑ **Map scale: closer zoom + quick presets [req].** Max zoom is now
-  `max(fit×20, 6)` so you can get right in to native-pixel detail even on a big
-  high-res map (it was capped at `fit×12`). The Scale dropdown gained one-click
-  width presets (Room 30′ / Chamber 60′ / Hall 120′ / Cavern 240′ / Vista 480′)
-  that set the whole map's real-world width — the lever for the feel of scale
-  (bigger space = smaller-reading tokens) — with the active one highlighted and a
+  selection â€” you can look around mid-decision. `MapStage` arms a screen-space
+  `clickStart` on an empty-space press and compares it on `pointerup` (â‰¤5 px).
+- â˜‘ **Map scale: closer zoom + quick presets [req].** Max zoom is now
+  `max(fitÃ—20, 6)` so you can get right in to native-pixel detail even on a big
+  high-res map (it was capped at `fitÃ—12`). The Scale dropdown gained one-click
+  width presets (Room 30â€² / Chamber 60â€² / Hall 120â€² / Cavern 240â€² / Vista 480â€²)
+  that set the whole map's real-world width â€” the lever for the feel of scale
+  (bigger space = smaller-reading tokens) â€” with the active one highlighted and a
   clearer tooltip.
-- ☑ **Multi-image maps (tiles) [req].** A map can now be composed of several
+- â˜‘ **Multi-image maps (tiles) [req].** A map can now be composed of several
   image files in addition to its base image. New `map_images` table (id, map_id,
   image_path, x, y, w, h, z) + `MapImage` type + `mapImages` on the snapshot
   (shaped per viewed map exactly like annotations, sent to DM AND players). DM
   CRUD via `mapImage:add/move/resize/reorder/remove` (gated DM-only, clamped).
-  Client: the **🧩 Tiles** toolbar dropdown (`TilesMenu`) uploads a file → places
+  Client: the **ðŸ§© Tiles** toolbar dropdown (`TilesMenu`) uploads a file â†’ places
   it at the map's right edge, an **Arrange** toggle makes tiles draggable +
   corner-resizable on canvas (reusing `DecalImage`), and a list reorders/removes
   each. `MapStage` computes the composite EXTENT (base image + all tiles' x+w /
-  y+h) and uses it for fit, the grid, fog cols/rows, and the scale denominator —
+  y+h) and uses it for fit, the grid, fog cols/rows, and the scale denominator â€”
   so grid/fog/scale span the whole composite; legacy single-image maps are
   unchanged (extent == base size). Base sits at the origin, tiles extend
   right/down. +3 server tests (CRUD/reorder/clamp, snapshot to both roles,
   cascade-on-map-delete). Verified live: base + tile render as one battlemap with
   the grid spanning both.
-- ☑ **Tiles: any direction + grid-based scale [req].** Tiles can now extend the
-  map in ANY direction — `MapStage` computes the composite extent as a true
-  bounding box `(minX,minY)→(maxX,maxY)` whose min corner may be NEGATIVE (a tile
+- â˜‘ **Tiles: any direction + grid-based scale [req].** Tiles can now extend the
+  map in ANY direction â€” `MapStage` computes the composite extent as a true
+  bounding box `(minX,minY)â†’(maxX,maxY)` whose min corner may be NEGATIVE (a tile
   left/up of the origin); fit, the grid lines, the fog draw + paint + the
   cover/reveal-all cell enumeration all iterate that box's cell range instead of
   `0..cols`. Existing tokens never move (absolute coords). The map scale is now
-  **purely grid-based**: feet-per-pixel = feetPerSquare ÷ gridSizePx (fixed by the
-  grid), so the map's total width in feet is a DERIVED read-out (extent × fpp) and
-  adding/moving/**resizing** a tile only changes how many squares the map spans —
+  **purely grid-based**: feet-per-pixel = feetPerSquare Ã· gridSizePx (fixed by the
+  grid), so the map's total width in feet is a DERIVED read-out (extent Ã— fpp) and
+  adding/moving/**resizing** a tile only changes how many squares the map spans â€”
   it never rescales the existing map. This replaced the earlier `keepScale` hack
   (no more proportional-width writes / rounding drift); the scale-set flows store
   a float feet-per-square so it's exact, and match-grid keeps the feet-per-square
@@ -2258,55 +2262,55 @@ Smaller refinements on top of the shipped Phase 2 work.
   the grid square staying 5 ft throughout; tiles also build leftward with a
   continuous grid.
 
-## Post-playtest pass (15 fixes & features — Phases 1–3 of the plan)
+## Post-playtest pass (15 fixes & features â€” Phases 1â€“3 of the plan)
 
-- ☑ **Token fog hides only enemy/neutral.** PCs + friendly creatures stay visible
+- â˜‘ **Token fog hides only enemy/neutral.** PCs + friendly creatures stay visible
   to players under token fog (map-fog terrain blackout unchanged).
-- ☑ **Players see who is dead.** Server-computed `dead` flag on `MonsterPublic`
+- â˜‘ **Players see who is dead.** Server-computed `dead` flag on `MonsterPublic`
   shows a skull on defeated enemies while HP stays hidden.
-- ☑ **Active-player end turn.** `initiative:endTurn` lets the player whose token
+- â˜‘ **Active-player end turn.** `initiative:endTurn` lets the player whose token
   is up advance their own turn; `initiative:next` stays DM-only.
-- ☑ **Magic Missile per-dart by the caster.** The casting player assigns darts by
+- â˜‘ **Magic Missile per-dart by the caster.** The casting player assigns darts by
   click (each rolls its own damage, capped at the dart count).
-- ☑ **Sorcerous Burst** added to the spell DB (2024 sorcerer cantrip, rollable).
-- ☑ **Custom spell authoring.** "✏️ Custom spell" seeds a homebrew spell with an
+- â˜‘ **Sorcerous Burst** added to the spell DB (2024 sorcerer cantrip, rollable).
+- â˜‘ **Custom spell authoring.** "âœï¸ Custom spell" seeds a homebrew spell with an
   inline editor (name/level/school/action + roll kind/dice/save/dc/type).
-- ☑ **Spell view redesign.** Collapsible Cantrips / Level N / Other groups with
-  per-group tap ▲/▼ reorder, persisted via `ability:reorder`.
-- ☑ **Kill count.** PCs tally enemies dropped to 0 HP (weapon + targeted spell
-  attacks); a 💀 sheet badge + a shared `KillScoreboard` (initiative header + Data
+- â˜‘ **Spell view redesign.** Collapsible Cantrips / Level N / Other groups with
+  per-group tap â–²/â–¼ reorder, persisted via `ability:reorder`.
+- â˜‘ **Kill count.** PCs tally enemies dropped to 0 HP (weapon + targeted spell
+  attacks); a ðŸ’€ sheet badge + a shared `KillScoreboard` (initiative header + Data
   view). Durable `characters.kill_count`, public in snapshots.
-- ☑ **DM speaks as the selected token.** `chat:send` carries `speakAsTokenId`; the
-  DM's message shows the token's name + a bubble over it (🗣 toggle by the input).
-- ☑ **AI-fill shops.** `POST /api/shops/generate` stocks a decal shop popup from a
-  description (✨ AI fill in the editor), key-gated/fail-safe.
-- ☑ **Lightweight summons.** `summon:create` spawns a friendly companion token
-  (Mage Hand / familiar / custom) the owner can drag; ✋ Summon panel for DM +
+- â˜‘ **DM speaks as the selected token.** `chat:send` carries `speakAsTokenId`; the
+  DM's message shows the token's name + a bubble over it (ðŸ—£ toggle by the input).
+- â˜‘ **AI-fill shops.** `POST /api/shops/generate` stocks a decal shop popup from a
+  description (âœ¨ AI fill in the editor), key-gated/fail-safe.
+- â˜‘ **Lightweight summons.** `summon:create` spawns a friendly companion token
+  (Mage Hand / familiar / custom) the owner can drag; âœ‹ Summon panel for DM +
   players.
-- ☑ **Combat audio cues.** Procedural Web Audio blips (hit/miss/heal/check) from
-  `fx:hp` + new roll-log entries; default on, per-device mute in Settings → Sound.
-- ☑ **Save-for-half / crit-damage / Chromatic Orb** — reproduced and verified
+- â˜‘ **Combat audio cues.** Procedural Web Audio blips (hit/miss/heal/check) from
+  `fx:hp` + new roll-log entries; default on, per-device mute in Settings â†’ Sound.
+- â˜‘ **Save-for-half / crit-damage / Chromatic Orb** â€” reproduced and verified
   WORKING in the current engine (regression tests added): a PC save spell deals
   **half on a pass, not 0**; weapon damage (crit-doubled) still lands when a
   Pushing-Attack save rider fires; Chromatic Orb is in the spell DB with a proper
   attack roll (so it appears in the floating menu once added from search).
-- ☑ **Player-visible death marker fixed.** The server already shaped a `dead`
+- â˜‘ **Player-visible death marker fixed.** The server already shaped a `dead`
   flag onto enemies for players (they never receive enemy HP), but the client's
-  `resolveToken` dropped it while building the token display — so players saw the
-  transient death *puff* and never the persistent 💀. `TokenDisplay` now carries
+  `resolveToken` dropped it while building the token display â€” so players saw the
+  transient death *puff* and never the persistent ðŸ’€. `TokenDisplay` now carries
   `dead`, `resolveToken` passes it through, and `sameTokenDisplay` compares it
   (without that the memoized token never re-renders on death, since HP is hidden
   and nothing else about the token changes). Server contract locked by tests.
-- ☑ **DM map re-ordering.** Maps carry a `sort_order` (idempotent `ensureColumn`,
+- â˜‘ **DM map re-ordering.** Maps carry a `sort_order` (idempotent `ensureColumn`,
   nullable-safe): `listMaps` orders by it with `created_at` as the tiebreak, so an
   existing campaign's order is unchanged until the DM reorders, and a new map takes
   `MAX+1` (lands at the end). `map:reorder` (DM-gated) stamps 1..N via `reorderMaps`,
-  which ignores unknown/foreign ids and keeps any map the client omitted — a stale
-  list can't drop a map. UI: tap ▲/▼ per row in the DM map list (touch-friendly,
+  which ignores unknown/foreign ids and keeps any map the client omitted â€” a stale
+  list can't drop a map. UI: tap â–²/â–¼ per row in the DM map list (touch-friendly,
   matching `ReorderableSections`).
-- ☑ **Choose who rolls initiative.** "Roll all" pulled EVERY non-object token into
+- â˜‘ **Choose who rolls initiative.** "Roll all" pulled EVERY non-object token into
   combat (hidden ambushers, bystander NPCs). Tokens now have a tri-state
-  `inCombat`: **auto** (default — joins if visible, so a hidden ambusher waits and
+  `inCombat`: **auto** (default â€” joins if visible, so a hidden ambusher waits and
   joins later via **Add rolls**), **always** (an invisible stalker is still a
   combatant), **never** (a bystander standing in the open). One shared
   `rollsInitiative()` predicate governs both `rollAllInitiative` and
@@ -2314,38 +2318,38 @@ Smaller refinements on top of the shipped Phase 2 work.
   clears its initiative so it leaves the order immediately. Cycled from the DM's
   token controls (`TokenAdminButtons`, so it's in both the right-click menu and
   the token panel).
-- ☑ **Monster Library window (`/dm/library`).** The DM's left panel had grown
+- â˜‘ **Monster Library window (`/dm/library`).** The DM's left panel had grown
   crowded, and exploration turned up a real gap behind the clutter: the
-  cross-campaign creature library was effectively **write-only** — `GET
+  cross-campaign creature library was effectively **write-only** â€” `GET
   /api/library/creatures` and `DELETE /api/library/creatures/:name` existed and
   were unit-tested but had **zero client callers**, so saved creatures surfaced
   only indirectly (truncated to 8) inside the search typeahead. A new standalone
-  window, opened from the toolbar beside "🗔 Data view" and mirroring the
+  window, opened from the toolbar beside "ðŸ—” Data view" and mirroring the
   `/dm/data` pattern (own `DmLibraryRoute` entry; a second window never inherits
-  the main screen's login), gathers three sources behind one search box —
+  the main screen's login), gathers three sources behind one search box â€”
   **This session** (`snapshot.monsterTemplates`, edited via the existing
   `TemplateEditor`), **Saved library** (browse / add / delete-with-confirm), and
-  **Find new** (SRD search + AI lookup) — with a full-width stat block in a right
+  **Find new** (SRD search + AI lookup) â€” with a full-width stat block in a right
   `SidePanel`. Preview of a not-yet-added creature reuses `StatBlock` read-only
   via a new `templateToStatSheet` adapter (`lib/entities.ts`), since a
   `CreatureTemplate` lacks the `id`/`curHp`/`tempHp`/`saveProficiencies` a
   `StatSheet` needs. **Placement** hands off to the map window over a
   BroadcastChannel (`lib/spawnChannel.ts`, mirroring `useSelection`): the library
-  arms `DmView`'s existing `pending` state and the DM clicks the exact spot —
+  arms `DmView`'s existing `pending` state and the DM clicks the exact spot â€”
   the sender holds its channel open, since closing right after `postMessage`
   can drop the message. **Purely additive**: no server, schema or shared-type
   changes (every endpoint and event already existed), and the left panel is
   untouched. Covered by two new e2e tests, including the full two-window chain.
-- ☑ **"Who rolls initiative" — made real, and moved into the initiative window.**
+- â˜‘ **"Who rolls initiative" â€” made real, and moved into the initiative window.**
   The first attempt (`50df21e`) added the `rollsInitiative` predicate but the DM
   saw no change, for three compounding reasons: (1) the 'auto' default fell
   through to `!isHidden`, which on a map where nothing is explicitly hidden is
-  *exactly* the old behavior; (2) **fog was ignored** — a creature concealed under
+  *exactly* the old behavior; (2) **fog was ignored** â€” a creature concealed under
   map/token fog was still dragged into every fight; (3) exclusion was invisible
   (`InitiativePanel` listed every non-object token regardless of initiative) and
   the only toggle sat in `TokenAdminButtons`, buried in the right-click menu and
   the collapsible "DM tools" section. Now: **'auto' pre-marks** each creature from
-  concealment — hidden by hand **or under fog** — via a fog-aware `rollsInitiative`
+  concealment â€” hidden by hand **or under fog** â€” via a fog-aware `rollsInitiative`
   (`coveredByFog` moved to a framework-free `shared/fog.ts` so `sessions.ts` can
   use it without a circular import; token fog conceals only foes, so the party
   still fights). The effective state ships as a server-computed
@@ -2355,83 +2359,83 @@ Smaller refinements on top of the shipped Phase 2 work.
   via a new bulk `tokens:setInCombat` (one event + one broadcast, not N), and
   anyone left out drops into a collapsed **"Not in combat (N)"** group instead of
   cluttering the order. Typing a roll into a row now also marks that creature
-  in-combat, closing the `initiative:set` bypass. The stray ⚔ button was removed
-  from `TokenAdminButtons` — marking happens in the initiative window and nowhere
+  in-combat, closing the `initiative:set` bypass. The stray âš” button was removed
+  from `TokenAdminButtons` â€” marking happens in the initiative window and nowhere
   else.
-- ☑ **Combat feel: damage is its own roll, Savage Attacker, potion use, findable
+- â˜‘ **Combat feel: damage is its own roll, Savage Attacker, potion use, findable
   ADV/DIS.** Four table-driven asks from a live session.
   **(1) Damage as a second click.** `resolveAttack` rolled to-hit *and* damage in
   one call and auto-applied HP, so the damage dice never got their moment. The
-  hit now computes its damage exactly as before — masteries, stances, riders,
-  resistance, crit — but *parks* it on `RollEntry.pending` (a new `roll_log`
+  hit now computes its damage exactly as before â€” masteries, stances, riders,
+  resistance, crit â€” but *parks* it on `RollEntry.pending` (a new `roll_log`
   column, so it survives a refresh, a reconnect, or a restart) instead of
   applying it, and holds the damage half of the reveal back. A loud
-  `DamagePrompt` pinned over the map (Enter/Space too) and a `🎲 Roll damage`
+  `DamagePrompt` pinned over the map (Enter/Space too) and a `ðŸŽ² Roll damage`
   button in the log then play the dice burst and take the HP off via
-  `combat:damage` → `resolveAttackDamage`. Pre-rolling was deliberate: the
+  `combat:damage` â†’ `resolveAttackDamage`. Pre-rolling was deliberate: the
   numbers can't drift if a stance is toggled or the target moves between clicks,
   and all the one-shot Cleave/maneuver/stance bookkeeping stays put.
   `pending.done` is stamped **before** applying, so a double-click can't damage
   twice; `visibility.ts` ships the payload only to the DM and the attacker (the
   existing `apply.owner` per-socket overlay, generalized). A **miss is
-  unchanged** — Graze is a flat modifier, not a roll. Session-wide
+  unchanged** â€” Graze is a flat modifier, not a roll. Session-wide
   `manual_damage` (default on) reverts to auto-apply from Settings.
-  **(2) Savage Attacker** — the 2024 feat as a stance toggle: new
+  **(2) Savage Attacker** â€” the 2024 feat as a stance toggle: new
   `StanceSpec.rerollDamageDice`, a feat entry in `features/srd.ts`, and
   `rollWeaponAttack` rolling the weapon's damage-dice set twice (crit dice
   included) and keeping the better, logged as `[SAVAGE kept/dropped]`. Needed no
-  new UI — `AbilityToggles` renders any stance's chip.
-  **(3) Potion use** — a 🧪 button on any inventory row that parses as a
+  new UI â€” `AbilityToggles` renders any stance's chip.
+  **(3) Potion use** â€” a ðŸ§ª button on any inventory row that parses as a
   consumable (`shared/consumables.ts`: an explicit `InventoryItem.use`, else a
   heal-verb scrape tight enough that a rope's "has 2 hit points" isn't a potion,
   else the standard-potion name table). `item:use` re-parses server-side, rolls,
   heals (or grants non-stacking temp HP), logs it with a dice reveal, and spends
   one from the stack.
-  **(4) ADV/DIS** — the real bug was that `AdvantageToggle` was mounted in the
+  **(4) ADV/DIS** â€” the real bug was that `AdvantageToggle` was mounted in the
   dice/skills panels but **not in `CombatSection`**, the one surface both roles
   actually attack from. It's now there in a new big `size="lg"` variant, keyed on
   the same `attacker.refId` the attack already consumes, with an "advantage
   armed" read-out above the weapon buttons.
-- ☑ **Initiative: no corpses, no orphaned turn marker; racial traits; bulk
+- â˜‘ **Initiative: no corpses, no orphaned turn marker; racial traits; bulk
   disposition.** Three reports from the table.
   **(1) "A dead guard was chosen" + "the marker sometimes doesn't show"** turned
   out to be four separate defects, all now agreeing with rules `advanceTurn` and
   `deleteToken` already implemented: `rollsInitiative`'s 'auto' branch had no
-  dead check (a corpse joined every new fight — an explicit DM tick still drags
+  dead check (a corpse joined every new fight â€” an explicit DM tick still drags
   one in); `firstInInitiative` returned the top of the order *including a dead
   token*, which is literally what "Roll all" handed the marker to;
   `setTokenInCombat(id, false)` cleared the token's roll but left
-  `activeTurnTokenId` pointing at it, orphaning the marker so `▸` rendered
+  `activeTurnTokenId` pointing at it, orphaning the marker so `â–¸` rendered
   nowhere (the guard `deleteToken` already had is now the shared
   `passTurnOnFrom`); and `InitiativePanel` split rows on `inCombatEffective`
-  while the server's order is "has a rolled initiative" — so a creature that
+  while the server's order is "has a rolled initiative" â€” so a creature that
   rolled and then slipped under fog held the marker from inside the collapsed
   "Not in combat" group. Rows now enter the order on `initiative !== null ||
   inCombatEffective`, and the tick box shows the effective state rather than the
-  group it landed in. A PC at 0 HP is still not "dead" — they keep their turn for
+  group it landed in. A PC at 0 HP is still not "dead" â€” they keep their turn for
   death saves.
   **(2) Racial traits are their own source** (`server/src/races/srd.ts`), not
-  another `school: 'Feat'` string — the prompting case was a player whose Savage
+  another `school: 'Feat'` string â€” the prompting case was a player whose Savage
   Attacks comes from their race being sent to the Feats list, where it isn't even
   the same rule. Both editions ship, tagged, since 2024 removed Half-Orc and
   Half-Elf and promoted Orc to a full species. **Half-Orc's `Savage Attacks`
   adds one extra weapon die on a CRIT** (`StanceSpec.extraCritDie`), distinct
-  from the Savage Attacker feat's reroll-and-keep-better; the two compose. A 🧬
+  from the Savage Attacker feat's reroll-and-keep-better; the two compose. A ðŸ§¬
   button on the add-row seeds the search from the sheet's `race`.
-  **(3) Bulk disposition** — `tokens:setDisposition` + a `setTokensDisposition`
+  **(3) Bulk disposition** â€” `tokens:setDisposition` + a `setTokensDisposition`
   domain helper, with a "Disposition (all)" row in `BulkActionsPanel` reusing the
   single-token `.disposition-btns`. DM-only (disposition drives player
   visibility) and PC tokens are skipped, with the count of what will actually
   change shown when PCs are in the selection.
-- ☑ **Trust fixes (25 Sep review §6).** Every rules bug the review verified,
+- â˜‘ **Trust fixes (25 Sep review Â§6).** Every rules bug the review verified,
   each with a regression test that fails on the old code.
   **Rules policy:** new additions use 2024 definitions; a saved sheet entry is
-  **never silently converted** — an outdated DB-sourced entry gets an explicit
-  "⬆ Update" button (`shared/rulesUpdate.ts`; keeps id/prep, switches stances
+  **never silently converted** â€” an outdated DB-sourced entry gets an explicit
+  "â¬† Update" button (`shared/rulesUpdate.ts`; keeps id/prep, switches stances
   OFF). Where the engine ignored an entry's own text, the engine is fixed (the
   legacy Divine Smite ability now spends the slot it says it does).
   **HP & death:** ordinary healing never revives the dead (PC: 3 failures or a
-  Dead mark; monster: 0 HP or Dead) — the DM's manual heal is the deliberate
+  Dead mark; monster: 0 HP or Dead) â€” the DM's manual heal is the deliberate
   correction path (`applyDamage(..., {correction})`) and reconciles death saves
   and conditions. Dropping to 0 adds Unconscious/Incapacitated/Prone tagged
   `Condition.source: 'down'` (only where absent); healing removes only those
@@ -2440,7 +2444,7 @@ Smaller refinements on top of the shipped Phase 2 work.
   its own condition, stance and mark.
   **Damage math:** `immunities` on every creature/character/library row
   (`ensureColumn`), parsed strictly by `parseDamageTrait` (type + "nonmagical" /
-  "non-silvered" source properties — never a substring); weapons carry explicit
+  "non-silvered" source properties â€” never a substring); weapons carry explicit
   `magical`/`silvered`, stances `magicalAttacks`; spell damage is magical;
   immunity wins. SRD immunities filled in (Young Red Dragon fire moved from
   resistance). Crits double `extraDamage` and a damage Superiority Die (dice
@@ -2448,7 +2452,7 @@ Smaller refinements on top of the shipped Phase 2 work.
   instead of erasing it.
   **Class features:** Rage (B/P/S resistance, +2/+3/+4, STR-check adv), Reckless
   Attack (`enemiesHaveAdvantage`). **Divine Smite, 2024 timing:** chosen AFTER a
-  qualifying melee hit (`RollEntry.smite` → `combat:smite` → `resolveSmite`),
+  qualifying melee hit (`RollEntry.smite` â†’ `combat:smite` â†’ `resolveSmite`),
   never pre-armed; the choice offers slot levels plus the Paladin-2
   once-per-long-rest free casting (`Divine Smite (free)` counter); `smite.used`
   is stamped before spending, so a retry can't double-spend or double-damage.
@@ -2461,7 +2465,7 @@ Smaller refinements on top of the shipped Phase 2 work.
   level-up share it; `spendSpellSlot` falls back to a pact slot and reports the
   level spent). Channel Divinity / Wild Shape scale by level.
   **Correctness:** SRD/library creatures no longer arrive with every attack
-  twice — insert drops an action only when `isCleanAttackDuplicate` proves it's
+  twice â€” insert drops an action only when `isCleanAttackDuplicate` proves it's
   a bare attack line identical to a stored weapon (riders/saves/"plus" damage
   are kept). The DM's big `DamagePrompt` + hotkey ignore player-owned hits (the
   log button stays as the DM override; e2e `damage-prompt-ownership`).
@@ -2599,7 +2603,7 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Hypnotic Pattern: measured 30-foot cube, grouped Wisdom saves, linked Charmed/Incapacitated and speed zero, action-block explanation, wake-up on damage (including temporary-HP absorption) or an adjacent creature?s Shake awake action, and concentration/duration cleanup. No repeat saving throw is invented.
 - [x] Pass without Trace: chosen recipients in a moving 30-foot emanation, named +10 Stealth modifier, automatic leave/re-entry updates, no stacking, suppressed footprint trails, and one-hour/concentration cleanup.
 - [x] Footprint trails share the miniature ground depth buffer, so darkness terrain cannot cover them and figures still occlude them. The original 2D fallback and fog visibility checks remain active; regular-darkness pixel regression and Pass without Trace suppression verified.
-- [x] Purple DM/NPC dice use midnight purple semi-transparent resin with subtle moving violet energy inside, cloudy depth and reflective gold numeral inlays without outlines. The central glow was removed for numeral readability. A standalone mobile review viewer shares the actual meshes and shader, with drag rotation, zoom and d4–d20 selection. DM tray artwork preloads alongside the party trays; browser regression measures startup through the actual DM controls. Player class materials remain independent.
+- [x] Purple DM/NPC dice use midnight purple semi-transparent resin with subtle moving violet energy inside, cloudy depth and reflective gold numeral inlays without outlines. The central glow was removed for numeral readability. A standalone mobile review viewer shares the actual meshes and shader, with drag rotation, zoom and d4â€“d20 selection. DM tray artwork preloads alongside the party trays; browser regression measures startup through the actual DM controls. Player class materials remain independent.
 - [x] Runtime profiles recognize unchanged saved entries; explicit custom/manual mechanics remain table-managed. Command and Alter Self are unchanged.
 
 - [x] DM purple resin faces transmit substantially more tray detail, with thicker reflective grazing edges and opaque gold numerals. Player dice and roll physics are unchanged. Daylight Spike Growth review captures its persistent ground thorns from 45 degrees and overhead.
