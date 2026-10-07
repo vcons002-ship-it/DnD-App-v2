@@ -2694,3 +2694,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Large dice pools release as one spread-out handful with separated shallow rows, tray-aware forward travel and gravity-derived entry clearance; live and playback worlds share the launch, avoiding vertical entry piles while preserving small throws and natural contacts.
 
 - [x] Varis dice trails use textured twisting wood, tapered hooked thorns, curled serrated foliage and fine pulsing magical veins with a restrained ground glow; shared instanced geometry/materials keep detailed brambles reusable across large rolls.
+
+- [x] Live roll modifiers now count into the final total inside the original dice tray, retaining the actual settled dice and animated materials instead of opening a separate modifier screen. Skill checks, attacks, healing and damage preserve their server-authored labels, outcomes, skip controls and hidden DM bonuses. Grouped saves keep their existing per-creature results, and unmodified damage goes directly from the tray to the compact map-impact summary.

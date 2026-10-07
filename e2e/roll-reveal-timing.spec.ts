@@ -98,6 +98,41 @@ async function resolveDamage(page: Page, f: Awaited<ReturnType<typeof fixture>>,
   return (await f.snapshot()).rollLog.findLast(r => r.label === 'Damage')!;
 }
 
+test('skill and attack modifiers count into the total inside the original live tray', async ({page,request}) => {
+  const f=await fixture(request,page);
+  for(const kind of ['skill','attack'] as const){
+    if(kind==='skill'){
+      await page.locator('.hud-actions').getByRole('button',{name:'Checks',exact:true}).click();
+      await page.locator('.compact-checks').getByRole('button',{name:/^Roll Athletics check /}).click();
+    }
+    else await page.locator('.compact-player-combat').getByRole('button',{name:/Timing greatsword/}).click();
+    const live=page.locator('[data-live-dice="true"]');
+    await expect(live).toBeVisible();
+    await page.evaluate(()=>{(window as any).__originalTrayCanvas=document.querySelector('.dice-tray-canvas');});
+    const result=page.locator('[data-dice-presentation="result"]');
+    const equation=result.getByLabel('Roll calculation');
+    await expect(equation.locator('.rr-adjustment')).not.toHaveCount(0,{timeout:35000});
+    expect(await page.evaluate(()=>document.querySelector('.dice-tray-canvas')===(window as any).__originalTrayCanvas),
+      'The settled tray stays mounted while bonuses appear').toBe(true);
+    await expect(result.locator('.physics-dice-tray')).toBeVisible();
+    await expect(page.locator('.dice-tray-canvas')).toHaveCount(1);
+    await expect(result.locator('.rr-dice-row,.die-3d,.die')).toHaveCount(0);
+    await expect(equation).toContainText(kind==='skill'?'STR':'hit');
+    const row=(await f.snapshot()).rollLog.findLast(r=>r.reveal?.kind===(kind==='skill'?'check':'attack'))!;
+    await expect(equation.locator('.rr-total')).toHaveText(String(row.total));
+    expect(await equation.evaluate(el=>{
+      const equation=el.getBoundingClientRect(),card=el.closest('.roll-reveal')!.getBoundingClientRect();
+      return equation.top>=card.top&&equation.bottom<=card.bottom&&equation.bottom<=innerHeight;
+    }),'Dice and modifiers fit together without scrolling').toBe(true);
+    await page.screenshot({path:test.info().outputPath(`${kind}-modifiers-in-tray.png`)});
+    const before=Number(await result.locator('.dice-tray-canvas').getAttribute('data-render-time'));
+    await page.waitForTimeout(200);
+    expect(Number(await result.locator('.dice-tray-canvas').getAttribute('data-render-time'))).toBeGreaterThan(before);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.roll-reveal')).toHaveCount(0);
+  }
+});
+
 test('live damage stays out of HP and history until the dice settle, then exposes map impact', async ({page,request}) => {
   const f=await fixture(request,page), pending=await armManualDamage(page,f);
   const oldCount=(await f.snapshot()).rollLog.length;
@@ -106,6 +141,7 @@ test('live damage stays out of HP and history until the dice settle, then expose
   await expect(live).toBeVisible();
   await expect(live.locator('.roll-reveal-title')).toContainText('Timing greatsword');
   await expect(live.locator('.roll-reveal-who')).toContainText('Timing target');
+  await page.evaluate(()=>{(window as any).__damageTrayCanvas=document.querySelector('.dice-tray-canvas');});
   expect((await f.snapshot()).rollLog.length).toBe(oldCount);
   expect((await f.snapshot()).monsters.find(m=>m.id===f.target.id)!.curHp).toBe(200);
   expect(await floaters(page)).toEqual([]);
@@ -122,6 +158,10 @@ test('live damage stays out of HP and history until the dice settle, then expose
     };sample();
   });
   const result=await resolveDamage(page,f,pending.id);
+  const calculation=page.locator('[data-dice-presentation="result"]');
+  await expect(calculation.getByLabel('Damage or dice calculation').locator('.rr-adjustment')).toContainText([/\+4\s*STR/]);
+  expect(await page.evaluate(()=>document.querySelector('.dice-tray-canvas')===(window as any).__damageTrayCanvas)).toBe(true);
+  await expect(calculation.locator('.physics-dice-tray')).toBeVisible();
   await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
   await expect(live).toHaveCount(0);
   expect((await f.snapshot()).monsters.find(m=>m.id===f.target.id)!.curHp).toBe(200-result.total);
@@ -141,6 +181,7 @@ test('skipping the bonus reveal releases damage immediately', async ({page,reque
   await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
   await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30_000});
   await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','false');
+  await expect(page.locator('[data-dice-presentation="result"] .physics-dice-tray')).toBeVisible();
   expect(await floaters(page)).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.locator('.roll-reveal')).toHaveCount(0);

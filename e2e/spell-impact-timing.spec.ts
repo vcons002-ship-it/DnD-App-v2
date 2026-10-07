@@ -111,6 +111,7 @@ for (const scenario of [
     if (spell === 'Cure Wounds') {
       await page.locator('.compact-player-combat').getByRole('button', { name: /Cure Wounds/ }).click();
       await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+      await page.evaluate(()=>{(window as any).__healingTrayCanvas=document.querySelector('.dice-tray-canvas');});
       if (!cold) await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-dice-preloaded', 'true');
     } else await page.locator('.damage-prompt').getByRole('button', { name: scenario.mark ? 'L2' : 'L1', exact: true }).click();
     if (scenario.skip) {
@@ -124,6 +125,17 @@ for (const scenario of [
         await page.getByRole('button', {name: 'Skip roll animation'}).click();
       } else await page.getByRole('status', {name: 'Live dice roll', exact: true}).click();
       await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0, {timeout: 700});
+    }
+    if(spell==='Cure Wounds'&&!scenario.skip){
+      const result=page.locator('[data-dice-presentation="result"]');
+      await expect(result.getByLabel('Damage or dice calculation').locator('.rr-adjustment')).toContainText([/\+4\s*WIS modifier/],{timeout:35000});
+      expect(await page.evaluate(()=>document.querySelector('.dice-tray-canvas')===(window as any).__healingTrayCanvas)).toBe(true);
+      await expect(result.locator('.physics-dice-tray')).toBeVisible();
+      expect(await result.getByLabel('Damage or dice calculation').evaluate(el=>{
+        const equation=el.getBoundingClientRect(),card=el.closest('.roll-reveal')!.getBoundingClientRect();
+        return equation.top>=card.top&&equation.bottom<=card.bottom&&equation.bottom<=innerHeight;
+      }),'The full modifier equation is readable without scrolling the tray').toBe(true);
+      await page.screenshot({path:test.info().outputPath('healing-modifiers-in-tray.png')});
     }
     await expect.poll(() => page.evaluate(() => (window as any).__impactSamples.some((s: any) => s.fx > 0)),
       { timeout: 90000 }).toBe(true);

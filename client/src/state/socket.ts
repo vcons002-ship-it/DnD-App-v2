@@ -1,6 +1,7 @@
 import {HP_NUMBER_EXPIRY_MS} from '../lib/hpFeedback';
 import {partySpell} from '../../../shared/partySpells';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
+import {resultTrayFor} from '../lib/rollTrayPresentation';
 import {spellAreaFor,type SpellArea} from '../../../shared/spellAreas';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
 import type { ClassRosterEntry, LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from '../../../shared/levelingTypes';
@@ -121,7 +122,7 @@ type Store = {
   hurtFx: { id: number; amount: number } | null;
   /** Brief attack-roll REVEAL animation (the latest attack's d20 + outcome +
    *  damage), shown to everyone and auto-dismissed; click/tap skips it early. */
-  rollFx: { id: number; reveal: RollReveal; rollId: string; impactReady?: boolean; hasMapImpact?: boolean } | null;
+  rollFx: { id: number; reveal: RollReveal; rollId: string; tray?: LiveDiceFrame; impactReady?: boolean; hasMapImpact?: boolean } | null;
   /** Dismiss the current roll-reveal animation (click/tap to skip). */
   dismissRollFx: () => void;
   /** Per-user toggle: show the roll-reveal animation (default ON). */
@@ -486,6 +487,9 @@ export function getPlayerId(): string {
 }
 
 const queuedRollFx: NonNullable<Store['rollFx']>[] = [];
+// A command can roll damage and then saves. Retain its actual completed throws
+// so a final damage calculation never borrows a target's saving-throw tray.
+const completedLiveTrays = new Map<string, LiveDiceFrame>();
 // HP packets can belong to a live-only spell summary rather than the arithmetic
 // card currently on screen. Gate all map impacts, not just matching roll IDs.
 const queuedHpFx: HpFloater[] = [];
@@ -799,11 +803,13 @@ export const useStore = create<Store>((set, get) => ({
       const previous=get().liveDice;
       if(previous?.id===frame.id && previous.seq>=frame.seq)return;
       if(previous?.id!==frame.id)get().dismissRollFx();
+      if(frame.done)completedLiveTrays.set(frame.id,frame);
       set({liveDice:frame});
     });
     socket.on('dice:finished',({id})=>{
       if(get().liveDice?.id===id)set({liveDice:null});
       if(get().skippedLiveDiceId===id)set({skippedLiveDiceId:null});
+      completedLiveTrays.clear();
     });
     socket.on('fx:initiative', ({mapId}) => set({initiativeFx: {id: Date.now(), mapId}}));
     socket.on('fx:rest', ({kind}) => set({restFx: {id: Date.now(), kind}}));
@@ -835,6 +841,9 @@ export const useStore = create<Store>((set, get) => ({
             // Preserve every resolved save; a damage summary must not replace it.
             for(const entry of unseen.filter(e=>e.reveal)) {
               queuedRollFx.push({id:nextFloaterId++,rollId:entry.id,
+                // Keep the actual settled tray through the modifier/result beat.
+                // Do not replace it with a second, synthetic dice screen.
+                tray:resultTrayFor(completedLiveTrays.values(),entry.reveal!),
                 reveal:snapshot.role==='player'?withRollComparison(entry.reveal!,entry.detail):entry.reveal!});
             }
             if(!get().rollFx)set({rollFx:queuedRollFx.shift() ?? null});
@@ -1030,6 +1039,7 @@ export const useStore = create<Store>((set, get) => ({
     // Keep the last snapshot on screen during a blip; flag reconnecting unless we
     // intentionally left (disconnect()/leave sets status to 'idle' separately).
     socket.on('disconnect', (reason) => {
+      completedLiveTrays.clear();
       set({liveDice:null, skippedLiveDiceId:null, areaCast:null,teleportCast:null, chatAccessToken: null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
@@ -1046,6 +1056,7 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   disconnect: () => {
+    completedLiveTrays.clear();
     clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
     heldHpFx.clear();

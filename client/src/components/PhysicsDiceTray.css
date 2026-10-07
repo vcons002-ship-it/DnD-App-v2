@@ -120,3 +120,13 @@
 
 .live-dice-footer{display:flex;align-items:center;justify-content:center;gap:18px;}
 .live-dice-footer button{font-size:12px;padding:3px 10px;}
+
+/* One continuous tray: settled dice remain in place while labeled modifiers
+   arrive below their result boxes. Only the finished map impact collapses it. */
+.tray-roll-result{width:100%;}
+.tray-roll-result .roll-reveal-tohit,.tray-roll-result .roll-reveal-damage{margin:0;}
+.tray-roll-result .roll-reveal-outcome{margin:6px 0;font-size:clamp(24px,4vw,38px);}
+[data-dice-presentation]:not(.is-impact)>.roll-reveal{width:min(760px,calc(100vw - 28px),max(300px,calc((90dvh - 360px)*1.49)));}
+.roll-reveal-backdrop.is-impact .physics-dice-tray,
+.roll-reveal-backdrop.is-impact .live-dice-footer,
+.roll-reveal-backdrop.is-impact .roll-reveal-title{display:none;}
