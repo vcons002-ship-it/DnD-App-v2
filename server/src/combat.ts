@@ -12,7 +12,7 @@ import {mirrorIntercept,startSpellUse,spellCondition,sorcerousBonus,linkedHit,li
 import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
 import {isValidDiceExpression,withDiceMetadata,usingPhysicalDice} from '../../shared/dice.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
-import {isLiveCommand} from './liveRollContext.js';
+import {isLiveCommand,presentLiveCalculation} from './liveRollContext.js';
 import {commandTargetError} from './commandSpell.js';
 import {commandInstruction} from '../../shared/commandSpell.js';
 import type {AttackOutcome} from '../../shared/combatMath.js';
@@ -1313,6 +1313,7 @@ export function resolveAttackDamage(
     detail: `${p.weapon} → ${p.target.name}: ${p.amount}${p.damageBreakdown?.mixedTypes ? ' mixed-type' : p.damageType ? ` ${p.damageType}` : ''} damage${p.crit ? ' — CRIT' : ''}`,
     hpNote,
     reveal: {
+      presentedLive:!!p.damagePresented&&usingPhysicalDice(),
       kind: 'damage',
       attacker: entry.reveal?.attacker ?? attacker.name,
       target: p.target.name,
@@ -1327,6 +1328,19 @@ export function resolveAttackDamage(
   }, damageRollId);
   if(p.spellLink&&linkedTarget)linkedDamageComplete(sessionId,roller,p.spellLink,linkedTarget,p.spellDamageAmount??p.amount);
   return true;
+}
+
+/** Present the completed hit before a follow-up area spell requests its dice.
+ * No damage, resource, or log entry is committed by this presentation pause. */
+export function presentAttackDamage(sessionId:string,rollId:string){
+ const entry=getRollEntry(rollId,sessionId),p=entry?.pending;
+ if(!p||p.done||p.damagePresented)return;
+ if(presentLiveCalculation(`weapon-damage:${rollId}`,{
+  kind:'damage',attacker:entry!.reveal?.attacker??entry!.roller,target:p.target.name,
+  title:`${p.weapon} — Damage Roll`,outcome:p.crit?'crit':'hit',
+  damageDice:p.dice,damageMods:p.mods,damageBreakdown:p.damageBreakdown,
+  damage:p.amount,damageType:p.damageType,
+ }))setRollPending(rollId,{...p,damagePresented:true});
 }
 
 /** Roll a saving throw for each token vs a DC and log pass/fail. Each token may

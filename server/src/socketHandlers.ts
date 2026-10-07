@@ -90,7 +90,7 @@ import {
   type IOServer,
 } from './connections.js';
 import { answerRules, recapSession, creatureLine } from './assistant/index.js';
-import { buildSnapshot, lootVisibleToPlayers } from './visibility.js';
+import { buildSnapshot, lootVisibleToPlayers,redactCreatureMods } from './visibility.js';
 import {
   captureTokenDelete,
   captureCreatureDelete,
@@ -439,7 +439,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 }
                 // An automatic area save must not expose an unseen bystander.
                 if(info?.target&&!targetLabels.get(labelKey)&&getConn(id)?.role!=='dm')continue;
-                io.to(id).emit('dice:frame',{...frame,target:targetLabels.get(labelKey)});lastDelivered.set(id,frame.id);
+                const target=targetLabels.get(labelKey);
+                const calculation=frame.calculation?{...frame.calculation,target}:undefined;
+                const safeCalculation=calculation&&getConn(id)?.role!=='dm'&&(frame.dmDice||isDm())
+                  ?redactCreatureMods({id:frame.id,roller:frame.roller,label:frame.label,expr:'',total:0,detail:'',createdAt:0,reveal:calculation},true).reveal:calculation;
+                io.to(id).emit('dice:frame',{...frame,target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
               }},meta);
             }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});activeDiceId=undefined;skipDicePresentation=false;}
           },failed);

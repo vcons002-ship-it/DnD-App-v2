@@ -1122,6 +1122,8 @@ export type PendingDamage = {
   spellDamageAmount?: number;
   /** Server-only continuation. Removed from every outgoing snapshot. */
   live?: {kind: 'weapon' | 'spell'; args: unknown[]; fixed: unknown};
+  /** Its arithmetic already appeared before a subsequent live spell/save throw. */
+  damagePresented?:boolean;
   hitOptions?: { abilityIds: string[]; targetTokenId: string; attackerTokenId: string; weaponIndex: number; turn: string; used: string[]; multiplier: number; rawDamage: number };
 
   maneuver?: { abilityIds: string[]; targetTokenId?:string; rawDamage: number; multiplier: number; minimumAdjustment: number; dc: number };

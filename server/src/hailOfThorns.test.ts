@@ -82,4 +82,32 @@ describe('Hail of Thorns on a ranged hit',()=>{
   expect(requests[1].info?.saveDice?.map(d=>d.target.refId)).toEqual([f.main.m.id,f.near.m.id]);
   expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
  });
+ it('presents bow modifiers before the burst and saves, without publishing early HP or spending twice',async()=>{
+  const f=fixture(),order:string[]=[],calculations:any[]=[];
+  const dice:Parameters<typeof runLiveCommand>[3]=async(sides,publish,meta)=>{
+    order.push(`dice:${sides.join(',')}`);
+    expect(getMonster(f.main.m.id)!.curHp).toBe(100);
+    expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(0);
+    const values=sides.map(s=>s===20?10:4);
+    publish({id:`throw:${order.length}`,seq:1,label:meta.label,roller:'Varis',className:'Ranger',sides,values,
+      poses:sides.flatMap(()=>[0,0,1,0,0,0,1]),radius:1,elapsed:3,done:true,sets:sides.map(()=>0),
+      critical:sides.map(()=>false),percentile:sides.map(()=>null),rerolls:sides.map(()=>0)});
+    return values;
+  };
+  const meta={label:'Bow',roller:'Varis',className:'Ranger'};
+  await runLiveCommand(()=>{resolveAttack(f.s.id,'Varis',f.at.id,f.main.t.id,0);},()=>{},meta,dice);
+  const hit=listRollLog(f.s.id).find(r=>r.pending)!;order.length=0;
+  await runLiveCommand(()=>{expect(resolveHitFeature(f.s.id,'Varis',hit.id,f.ab.id,2).ok).toBe(true);},frame=>{
+    if(frame.calculation){order.push('bow calculation');calculations.push(frame.calculation);
+      expect(getMonster(f.main.m.id)!.curHp).toBe(100);
+      expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(0);
+    }
+  },{...meta,waitForPresentation:async()=>{order.push('calculation hold');}},dice);
+  expect(order).toEqual(['dice:8','bow calculation','calculation hold','dice:10,10','dice:20,20']);
+  expect(calculations).toHaveLength(1);
+  expect(calculations[0]).toMatchObject({title:'Bow — Damage Roll',damage:9,damageMods:[{label:'DEX',value:5}]});
+  expect(listRollLog(f.s.id).find(r=>r.label==='Damage')?.reveal?.presentedLive).toBe(true);
+  expect(getMonster(f.main.m.id)!.curHp).toBe(83);
+  expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
+ });
 });

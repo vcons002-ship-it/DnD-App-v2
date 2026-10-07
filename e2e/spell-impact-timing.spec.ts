@@ -9,6 +9,7 @@ test.use({ serviceWorkers: 'block' });
 for (const scenario of [
   { spell: 'Cure Wounds', cold: false },
   { spell: 'Hail of Thorns', cold: false, mark: true },
+  { spell: 'Hail of Thorns', cold: false, mark: true, skip:'escape' },
   { spell: 'Cure Wounds', cold: true },
   { spell: 'Cure Wounds', cold: true, skip: 'click' },
   { spell: 'Cure Wounds', cold: false, skip: 'button' },
@@ -32,8 +33,8 @@ for (const scenario of [
     headers: { 'x-dm-passphrase': DM_SECRET }, data: { name: 'Spell impact presentation' },
   })).json();
   const socket = io(`http://localhost:${PORT}`, { transports: ['websocket'] });
-  const frames: { elapsed: number; at: number }[] = [];
-  socket.on('dice:frame', frame => frames.push({ elapsed: frame.elapsed, at: Date.now() }));
+  const frames: { elapsed: number; at: number;label:string;calculation:boolean }[] = [];
+  socket.on('dice:frame', frame => frames.push({ elapsed: frame.elapsed, at: Date.now(),label:frame.label,calculation:!!frame.calculation }));
   const snapshot = async () => {
     const result = await socket.timeout(8000).emitWithAck('join', {
       sessionCode: code, role: 'dm', dmPassphrase: DM_SECRET,
@@ -97,7 +98,10 @@ for (const scenario of [
         const fx = ((window as any).Konva?.stages ?? []).flatMap((stage: any) => stage.find('.hp-floater-number'));
         const tray = document.querySelector('.physics-dice-tray');
         const boxes = [...document.querySelectorAll('.tray-die-result')];
-        samples.push({ time: performance.now(), fx: fx.length,
+        samples.push({ time: performance.now(), wall:Date.now(), fx: fx.length,
+          title:document.querySelector('.roll-reveal-title')?.textContent,
+          adjustment:!!document.querySelector('.rr-adjustment'),
+          calculation:document.querySelector('.rr-equation')?.textContent,
           numbers: fx.map((node: any) => ({ text: node.text(), total:node.hasName('hp-floater-total'),color: node.fill(), opacity: node.getParent().opacity(), x: node.getParent().x(), y: node.getParent().y() })),
           live: !!document.querySelector('[data-live-dice="true"]'),
           settled: tray?.getAttribute('data-status') === 'settled',
@@ -115,6 +119,7 @@ for (const scenario of [
       if (!cold) await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-dice-preloaded', 'true');
     } else await page.locator('.damage-prompt').getByRole('button', { name: scenario.mark ? 'L2' : 'L1', exact: true }).click();
     if (scenario.skip) {
+      if(spell==='Hail of Thorns')await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
       if (scenario.skip === 'escape') {
         // Exercise the added reading pause after every number has arrived.
         await expect(page.locator('.tray-die-result[data-filled="false"]')).toHaveCount(0, {timeout: 30000});
@@ -151,7 +156,12 @@ for (const scenario of [
     expect(samples.some((s: any) => s.live)).toBe(true);
     expect(samples.filter((s: any) => s.fx && (s.live || s.large)).slice(0, 5),
       'Map effects must not play beneath the live tray or a full result card').toEqual([]);
-    if (scenario.mark) {
+    if (scenario.mark&&!scenario.skip) {
+      const firstSave=frames.find(f=>f.label.includes('DEX Saving Throws'))!.at;
+      const bowCalculation=samples.filter((s:any)=>s.title?.includes('Timing bow')&&s.adjustment);
+      expect(bowCalculation.length,'Bow modifiers are shown during the damage phase').toBeGreaterThan(0);
+      expect(bowCalculation.every((s:any)=>s.wall<firstSave),'Bow arithmetic finishes before the first save frame').toBe(true);
+      expect(frames.filter(f=>f.calculation)).toHaveLength(1);
       const together = samples.find((s: any) => new Set(s.numbers.map((n: any) => n.color)).size >= 4);
       expect(together, 'Bow, force mark, and piercing thorns have three distinct colors').toBeTruthy();
       const totals=together.numbers.filter((n:any)=>n.total),components=together.numbers.filter((n:any)=>!n.total);
@@ -172,7 +182,8 @@ for (const scenario of [
     }
     if (scenario.skip) {
       await expect(page.locator('.roll-reveal')).toHaveCount(0);
-      expect((await snapshot()).characters.find((c: any) => c.id === caster.id).curHp).toBeGreaterThan(10);
+      if(spell==='Cure Wounds')expect((await snapshot()).characters.find((c: any) => c.id === caster.id).curHp).toBeGreaterThan(10);
+      else expect((await snapshot()).monsters.some((m:any)=>m.curHp<200)).toBe(true);
     } else if (spell === 'Cure Wounds') {
       const filling = samples.filter((s: any) => s.live && s.settled && !s.filled && s.renderTime);
       expect(filling.at(-1).renderTime - filling[0].renderTime,

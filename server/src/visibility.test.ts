@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSnapshot, createSnapshotBuilder, coveredByFog } from './visibility.js';
+import { buildSnapshot, createSnapshotBuilder, coveredByFog,redactCreatureMods } from './visibility.js';
 import {
   createMonsterTemplate,
   instantiateMonster,
@@ -59,6 +59,15 @@ const spawnInstance = (
 import type { Monster, MonsterPublic } from '../../shared/types.js';
 
 describe('creature roll redaction + player AOE visibility', () => {
+  it('redacts intermediate live damage calculations with the same policy as final creature rolls',()=>{
+    const reveal={kind:'damage' as const,physical:true,attacker:'DM',target:'Varis',outcome:'hit' as const,
+      title:'Bow — Damage Roll',damage:9,damageDice:[{label:'1d8',value:4,faces:[4]}],
+      damageMods:[{label:'DEX',value:5}],damageBreakdown:{dice:[{label:'1d8',value:4,faces:[4]}],mods:[{label:'DEX',value:5}]}};
+    const player=redactCreatureMods({id:'live',roller:'DM',label:'Bow',expr:'',total:9,detail:'',createdAt:0,reveal},true).reveal!;
+    expect(player.hideModifiers).toBe(true);expect(player.damageMods).toEqual([]);
+    expect(player.damageBreakdown?.mods).toEqual([]);expect(player.damageDice?.[0].faces).toEqual([4]);
+    expect(reveal.damageMods).toEqual([{label:'DEX',value:5}]);
+  });
   it('removes DM dice modifiers from every player result field and keeps their full log intact',()=>{
     const s=createSession('Private DM dice'),map=createMap(s.id,{name:'Arena'});setActiveMap(s.id,map.id);
     addRollLog(s.id,{roller:'DM',label:'1d20+7',expr:'1d20+7',total:19,detail:'1d20[12]+7 = 19 vs DC 17',description:'Private calculation',

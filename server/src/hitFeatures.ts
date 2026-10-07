@@ -1,4 +1,4 @@
-import {materializeLiveDamage} from './combat.js';
+import {materializeLiveDamage,presentAttackDamage} from './combat.js';
 import { abilityKey, hitFeature, hitSpell } from '../../shared/hitFeatures.js';
 import type { Character, Token, Weapon, SheetAbility, Condition } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
@@ -102,6 +102,7 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
   if(key==='stunning strike') setResource(ch.id,'resources',pool!,{used:ch.resources[pool!].used+1});
   const n=level??1;
   if(key==='hail of thorns') {
+    presentAttackDamage(sid,rollId);
     const map=getMap(target.mapId)!;
     const dc=spellSaveDC(ch.level,effectiveStats(ch).scores,spellcastingKeyFor(ch,ab));
     const seen=new Set<string>();

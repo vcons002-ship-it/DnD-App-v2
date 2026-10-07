@@ -60,7 +60,7 @@ const stripListFog = (m: MapState): MapState => ({
  * totals. Keep the raw faces and outcome, without exposing an anonymous bonus
  * that lets a player recover the creature's statistics.
  */
-function redactCreatureMods(e: RollEntry,privateStats=false): RollEntry {
+export function redactCreatureMods(e: RollEntry,privateStats=false): RollEntry {
   if(/^(Pick lock|Disarm trap)$/i.test(e.label??'')){
     const hideDc=(text:string)=>text.replace(/\s*vs DC\s+-?\d+/gi,'');
     e={...e,expr:hideDc(e.expr),detail:hideDc(e.detail)};

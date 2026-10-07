@@ -1,15 +1,17 @@
-import {liveDiceResultWaitMs} from '../../shared/dicePresentationTiming.js';
+import {liveDiceResultWaitMs,liveCalculationWaitMs} from '../../shared/dicePresentationTiming.js';
 import {randomInt,randomUUID} from 'node:crypto';
 import {createLiveWorld} from '../../shared/liveDicePhysics.js';
 import {withDiceSource,rollDice,type PhysicalDiceInfo} from '../../shared/dice.js';
 import {db} from './db.js';
 import {checkpointHpFx,faceTokenToward} from './sessions.js';
 import {checkpointReactions} from './reactions.js';
-import {stageRollEffects,stagedRollFacing,type RollFacing} from './liveRollContext.js';
+import {stageRollEffects,stagedRollFacing,withLiveCalculationPresenter,type RollFacing} from './liveRollContext.js';
+import type {RollReveal} from '../../shared/types.js';
 import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../shared/liveDiceTypes.js';
 
 class NeedDice extends Error {constructor(public sides:number[],public info:PhysicalDiceInfo,public facing:RollFacing[]){super('Waiting for physical dice');}}
+class NeedCalculation extends Error {constructor(public key:string,public reveal:RollReveal){super('Waiting for roll calculation');}}
 const queues=new Map<string,Promise<void>>();
 export const rollInProgress=(sid:string)=>queues.has(sid);
 export function enqueueRoll(sid:string,run:()=>Promise<void>|void,onError:(e:unknown)=>void){
@@ -107,26 +109,41 @@ export async function physicalFaces(
  * No transaction or database lock is held while the physics runs. */
 export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?:PhysicalDiceInfo)=>void,meta:LiveRollMeta,roll=physicalFaces){
  const tape:{sides:number[];faces:number[]}[]=[];
+ const calculated=new Set<string>();let lastFrame:LiveDiceFrame|undefined,lastInfo:PhysicalDiceInfo|undefined;
  for(;;){
   let cursor=0;const undoHp=checkpointHpFx(),undoReactions=checkpointReactions();
   try{
-   const pass=db.transaction(()=>stageRollEffects(()=>withDiceSource((sides,info)=>{
+   const pass=db.transaction(()=>stageRollEffects(()=>withLiveCalculationPresenter((key,reveal)=>{
+    if(!lastFrame)return false;
+    if(!calculated.has(key))throw new NeedCalculation(key,reveal);
+    return true;
+   },()=>withDiceSource((sides,info)=>{
     if(!sides.length)return [];
     const recorded=tape[cursor++];
     if(!recorded)throw new NeedDice(sides,info,stagedRollFacing());
     if(recorded.sides.join(',')!==sides.join(','))throw new Error('Roll context changed before completion');
     return recorded.faces.slice();
-   },()=>{run();if(cursor!==tape.length)throw new Error('Roll context changed before completion');})))();
+   },()=>{run();if(cursor!==tape.length)throw new Error('Roll context changed before completion');}))))();
    for(const effect of pass.effects)effect();return;
   }catch(e){
    undoHp();undoReactions();
+   if(e instanceof NeedCalculation){
+    if(lastFrame){
+     lastFrame={...lastFrame,seq:lastFrame.seq+1,calculation:{...e.reveal,physical:true}};
+     publish(lastFrame,lastInfo);
+     const ms=liveCalculationWaitMs(e.reveal.damageMods?.length??0);
+     if(meta.waitForPresentation)await meta.waitForPresentation(lastFrame.id,ms);
+     else if(roll===physicalFaces)await new Promise(resolve=>setTimeout(resolve,ms));
+    }
+    calculated.add(e.key);continue;
+   }
    if(!(e instanceof NeedDice))throw e;
    // The validated roll is about to start. Persist only its presentation turn;
    // HP, slots and dice outcomes remain rolled back until the command commits.
    let turned=false;
    for(const facing of e.facing)turned=faceTokenToward(facing.sessionId,facing.attackerTokenId,facing.targetTokenId)||turned;
    if(turned)meta.onFacing?.();
-   tape.push({sides:e.sides,faces:await roll(e.sides,frame=>publish(frame,e.info),{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
+   tape.push({sides:e.sides,faces:await roll(e.sides,frame=>{lastFrame=frame;lastInfo=e.info;publish(frame,e.info);},{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
   }
  }
 }

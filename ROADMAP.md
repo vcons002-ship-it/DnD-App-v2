@@ -6,6 +6,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Hail of Thorns shows the completed bow/mark damage calculation on its
+  settled tray before rolling thorns and grouped saves. A rollback-safe
+  presentation checkpoint keeps HP, concentration and slot use atomic; the
+  committed bow entry no longer reopens its calculation after the saves.
+
 - [x] Combined weapon/rider results retain their matching completed dice throw,
   rather than a later area-spell burst. Returning to an earlier settled tray
   for its calculation fills its result boxes without repeating number flights.

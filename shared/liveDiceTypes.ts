@@ -1,4 +1,6 @@
 export type LiveDiceFrame = {
+ /** Calculation presented on this settled throw before the next throw starts. */
+ calculation?:import('./types.js').RollReveal;
  id:string;seq:number;label:string;roller:string;className:string;
  target?:string;
  /** Offset is used only by the server to match a chunk to private save metadata. */
