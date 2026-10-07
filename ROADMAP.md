@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Varis thorns are short natural pointed prickles placed independently
+  between leaf stems along the main vine, replacing the hooked clusters.
+  Their placement follows the actual path and shares the vine fade timing.
+
 - [x] Varis vine has broad hooked thorns projecting from the main root and
   smaller offshoot barbs, with woody bases tapering to pale sharp tips. Their
   overhead silhouettes remain visible and fade with the surrounding vine.

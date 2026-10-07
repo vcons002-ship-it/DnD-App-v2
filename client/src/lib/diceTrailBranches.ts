@@ -52,18 +52,17 @@ export function createBotanicalTrailAssets(){
    piece(new THREE.TubeGeometry(veinlet,3,.0022,3,false).scale(.65,.65,.65),'#8a9a5c',1,at,angle);
   }
  }
- // Broad woody barbs project sideways so their hooked silhouettes read overhead.
- // The two root barbs attach directly to the main vine; a smaller one guards the offshoot.
- for(const [x,y,z,angle,scale] of [[0,0,.055,-.60,1],[0,.025,.06,2.60,.85],[.005,.32,.09,-1.1,.65]]){
-  const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0),new THREE.Vector3(.06,.18,.095),new THREE.Vector3(.09,.36,.17),new THREE.Vector3(.015,.51,.18),new THREE.Vector3(-.06,.48,.14)]);
-  const g=new THREE.TubeGeometry(curve,10,.085,8,false),p=g.attributes.position;
-  for(let i=0;i<p.count;i++){
-   const t=g.attributes.uv.getX(i),center=curve.getPointAt(t),taper=Math.pow(1-t,1.15);
-   p.setXYZ(i,center.x+(p.getX(i)-center.x)*taper,center.y+(p.getY(i)-center.y)*taper,center.z+(p.getZ(i)-center.z)*taper);
-  }
-  g.computeVertexNormals();g.scale(scale,scale,scale);piece(g,'#392e22',3,new THREE.Vector3(x,y,z),angle,'#c9bea1');
+ const foliagePieces=pieces.splice(0);
+ // A short natural prickle: broad at the vine, tapering to a simple point.
+ const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0),new THREE.Vector3(0,.09,.045),new THREE.Vector3(.012,.19,.08),new THREE.Vector3(.028,.28,.10)]);
+ const thorn=new THREE.TubeGeometry(curve,6,.067,7,false),positions=thorn.attributes.position;
+ for(let i=0;i<positions.count;i++){
+  const t=thorn.attributes.uv.getX(i),center=curve.getPointAt(t),taper=Math.pow(1-t,1.2);
+  positions.setXYZ(i,center.x+(positions.getX(i)-center.x)*taper,center.y+(positions.getY(i)-center.y)*taper,center.z+(positions.getZ(i)-center.z)*taper);
  }
- const base=mergeGeometries(pieces)!;pieces.forEach(g=>g.dispose());
+ thorn.computeVertexNormals();piece(thorn,'#443522',3,new THREE.Vector3(0,0,.065),0,'#9d8960');
+ const base=mergeGeometries(foliagePieces)!,thornBase=mergeGeometries(pieces)!;
+ [...foliagePieces,...pieces].forEach(g=>g.dispose());
  const bark=document.createElement('canvas');bark.width=bark.height=128;
  const context=bark.getContext('2d')!,image=context.createImageData(128,128);
  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
@@ -91,16 +90,30 @@ export function createBotanicalTrailAssets(){
    totalEmissiveRadiance+=vec3(.10,.38,.16)*veins*(.12+pulse*.8)*leafFade;
   `);
  };
- material.customProgramCacheKey=()=> 'varis-hooked-thorns-v4';
- return {base,material,time,dispose(){base.dispose();material.dispose();bump.dispose();}};
+ material.customProgramCacheKey=()=> 'varis-natural-thorns-v5';
+ return {base,thornBase,material,time,dispose(){base.dispose();thornBase.dispose();material.dispose();bump.dispose();}};
 }
 /** A bounded instanced botanical wake with physical wood, foliage and thorn detail. */
 export function createTrailBranches(scene:THREE.Scene,radius:number,shared?:ReturnType<typeof createBotanicalTrailAssets>){
  const assets=shared??createBotanicalTrailAssets(),capacity=16,lifetime=DICE_TRAIL_LIFETIME;
- const geometry=new THREE.BufferGeometry();for(const [name,attribute] of Object.entries(assets.base.attributes))geometry.setAttribute(name,attribute);
- const fade=new THREE.InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(THREE.DynamicDrawUsage);geometry.setAttribute('sproutFade',fade);
- const mesh=new THREE.InstancedMesh(geometry,assets.material,capacity);mesh.count=0;mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);
- const sprouts:Sprout[]=[],transform=new THREE.Object3D();let lastDistance:number|undefined,sequence=0;
+ function layer(base:THREE.BufferGeometry,part:string){
+  const geometry=new THREE.BufferGeometry();for(const [name,attribute] of Object.entries(base.attributes))geometry.setAttribute(name,attribute);
+  const fade=new THREE.InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(THREE.DynamicDrawUsage);geometry.setAttribute('sproutFade',fade);
+  const mesh=new THREE.InstancedMesh(geometry,assets.material,capacity);mesh.count=0;mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.userData.trailPart=part;scene.add(mesh);
+  return {geometry,fade,mesh};
+ }
+ const foliage=layer(assets.base,'foliage'),prickles=layer(assets.thornBase,'thorns');
+ const sprouts:Sprout[]=[],thorns:Sprout[]=[],transform=new THREE.Object3D();
+ let lastDistance:number|undefined,lastLeaf:{x:number;y:number}|undefined,thornPlaced=false,sequence=0,thornSequence=0;
+ function render(items:Sprout[],target:ReturnType<typeof layer>,now:number,oldestRootTime:number){
+  while(items.length&&(now-items[0].born>lifetime||items[0].born<oldestRootTime||items.length>capacity))items.shift();
+  items.forEach((s,i)=>{
+   const age=(now-s.born)/lifetime,growth=THREE.MathUtils.smoothstep(age,0,.07),alpha=diceTrailFade(age),size=radius*s.scale*growth;
+   transform.position.set(s.x,s.y,.027);transform.rotation.set(0,0,s.angle);
+   transform.scale.set(size*s.stretch,size,size*(1.15-.25*s.stretch));transform.updateMatrix();target.mesh.setMatrixAt(i,transform.matrix);target.fade.setX(i,alpha);
+  });
+  target.mesh.count=items.length;target.mesh.instanceMatrix.needsUpdate=true;target.fade.needsUpdate=true;
+ }
  return {
   count(){return sprouts.length;},
   update(now:number,root?:{x:number;y:number;angle:number;distance:number},oldestRootTime=0){
@@ -108,16 +121,15 @@ export function createTrailBranches(scene:THREE.Scene,radius:number,shared?:Retu
    if(root&&(lastDistance===undefined||root.distance-lastDistance>radius*1.15)){
     const side=sequence++%2?Math.PI:0,jitter=Math.sin(sequence*17.13)*.26;
     sprouts.push({x:root.x,y:root.y,born:now,angle:root.angle+side+jitter,scale:.72+(Math.sin(sequence*8.7)+1)*.12,stretch:.85+(Math.sin(sequence*11.3)+1)*.15});
-    lastDistance=root.distance;
+    lastDistance=root.distance;lastLeaf={x:root.x,y:root.y};thornPlaced=false;
+   }else if(root&&lastDistance!==undefined&&lastLeaf&&!thornPlaced&&root.distance-lastDistance>radius*.52&&Math.hypot(root.x-lastLeaf.x,root.y-lastLeaf.y)>radius*.40){
+    // Independent samples between leaf stems, never part of the leaf cluster.
+    const side=thornSequence++%2?Math.PI:0,jitter=Math.sin(thornSequence*13.7)*.22;
+    thorns.push({x:root.x,y:root.y,born:now,angle:root.angle+side+jitter,scale:.85+(Math.sin(thornSequence*7.9)+1)*.12,stretch:1});
+    thornPlaced=true;
    }
-   while(sprouts.length&&(now-sprouts[0].born>lifetime||sprouts[0].born<oldestRootTime||sprouts.length>capacity))sprouts.shift();
-   sprouts.forEach((s,i)=>{
-    const age=(now-s.born)/lifetime,growth=THREE.MathUtils.smoothstep(age,0,.07),alpha=diceTrailFade(age),size=radius*s.scale*growth;
-    transform.position.set(s.x,s.y,.027);transform.rotation.set(0,0,s.angle);
-    transform.scale.set(size*s.stretch,size,size*(1.15-.25*s.stretch));transform.updateMatrix();mesh.setMatrixAt(i,transform.matrix);fade.setX(i,alpha);
-   });
-   mesh.count=sprouts.length;mesh.instanceMatrix.needsUpdate=true;fade.needsUpdate=true;
+   render(sprouts,foliage,now,oldestRootTime);render(thorns,prickles,now,oldestRootTime);
   },
-  dispose(){scene.remove(mesh);geometry.dispose();if(!shared)assets.dispose();}
+  dispose(){for(const target of [foliage,prickles]){scene.remove(target.mesh);target.geometry.dispose();}if(!shared)assets.dispose();}
  };
 }
