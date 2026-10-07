@@ -1246,13 +1246,13 @@ export function MapStage({
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
   const spellImpacts=useMemo<SpellImpact[]>(()=>[...hpFx.flatMap(event=>{
     if(!spellImpactStyle(event))return [];
-    if(event.areaPosition){const p=event.areaPosition;if(p.mapId!==snapshot.map?.id)return [];return [{id:event.id,event,tokenId:`area:${event.id}`,x:p.x,y:p.y,diameter:event.spell==='Dispel Magic'?Math.min(12,p.radiusFt*2)*pxPerFoot:p.radiusFt*2*pxPerFoot,fixed:true}];}
+    if(event.areaPosition){const p=event.areaPosition;if(p.mapId!==snapshot.map?.id)return [];return [{id:event.id,event,startAt:event.numberStartAt,tokenId:`area:${event.id}`,x:p.x,y:p.y,diameter:event.spell==='Dispel Magic'?Math.min(12,p.radiusFt*2)*pxPerFoot:p.radiusFt*2*pxPerFoot,fixed:true}];}
     const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
     if(!token)return [];
     // The active restraint is already the visible impact; stacking an identical
     // transient mesh would briefly double its brightness and number of links.
     if(spellImpactStyle(event)?.kind==='chains'&&resolveToken(snapshot,token).conditions.some(c=>persistentSpellVisual(c)===event.spell))return [];
-    return [{id:event.id,event,tokenId:token.id,x:token.x,y:token.y,
+    return [{id:event.id,event,startAt:event.numberStartAt,tokenId:token.id,x:token.x,y:token.y,
       diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot}];
   }),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
     if(token.sharedSightOnly||(!isDm&&token.isHidden))return [];

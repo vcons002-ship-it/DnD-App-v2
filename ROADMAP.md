@@ -6,6 +6,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 
 ## Dice comparison - October 2026
 
+- [x] Shared damage aligns across victims, including a weapon hit's AoE rider.
+  Separately clicked projectiles retain global click order and accumulate one
+  running total per creature for that cast, including late-arriving darts.
+
 - [x] Floating numbers face the screen at every map tilt and rotation, with
   upward screen movement and a faster 640 ms cadence between components.
   One red total hovers above the measured 3D figure and counts up as each colored

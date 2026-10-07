@@ -193,6 +193,9 @@ for (const scenario of [
       expect(splash.some((n:any)=>!n.total&&n.color==='#b4f47e'),'Splash victims also get a colored AoE component').toBe(true);
       const neighbor=after.tokens.find((t:any)=>t.kind==='monster'&&t.x===690);
       expect(Math.max(...splash.filter((n:any)=>n.total).map(amount))).toBe(200-after.monsters.find((m:any)=>m.id===neighbor.refId).curHp);
+      const mainThorns=mainSamples.find((s:any)=>s.numbers.some((n:any)=>!n.total&&n.color==='#b4f47e'))!.time;
+      const splashThorns=samples.find((s:any)=>s.numbers.some((n:any)=>n.x===690&&!n.total&&n.color==='#b4f47e'))!.time;
+      expect(Math.abs(mainThorns-splashThorns),'Shared AoE numbers appear on the same frame across victims').toBeLessThan(40);
       expect(samples.every((s:any)=>s.numbers.every((n:any)=>n.x===650||n.x===690)),
         'Every number rises from its own token center').toBe(true);
       expect(await page.evaluate(() => ((window as any).Konva?.stages??[]).flatMap((stage:any)=>stage.find('.hp-floater-label')).length)).toBe(0);

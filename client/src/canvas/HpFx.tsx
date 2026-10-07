@@ -1,9 +1,9 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, Group, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { Token } from '../../../shared/types';
 import type { HpFloater } from '../state/socket';
-import {hpNumberStacks,hpNumberSequence,hpTotalTimeline,HP_NUMBER_HOLD_MS,HP_NUMBER_FADE_MS,type HpNumber} from '../lib/hpFeedback';
+import {hpNumberStacks,hpNumberSequence,hpTotalTimeline,hpStackStart,HP_NUMBER_HOLD_MS,HP_NUMBER_FADE_MS,type HpNumber} from '../lib/hpFeedback';
 import {spellImpactStyle} from '../../../shared/spellImpact';
 import {mapToScreen,projectGround,type BattlefieldView} from './miniatureProjection';
 
@@ -406,6 +406,7 @@ function FloaterText({number,position,fontSize,rise,startAt,holdMs,fadeMs,target
 function RunningTotal({numbers,position,fontSize,startAt,targetX,tokenId,headPosition}:{numbers:HpNumber[];position:{x:number;y:number};fontSize:number;startAt:number;targetX:number;tokenId:string;headPosition:HeadPosition}){
   const anchor=useRef<Konva.Group>(null),group=useRef<Konva.Group>(null),text=useRef<Konva.Text>(null);
   const timeline=hpTotalTimeline(numbers);
+  const timingKey=timeline.map(t=>`${t.delayMs}:${t.delta}`).join(',');
   useEffect(()=>{
     const node=group.current,label=text.current;if(!node||!label)return;
     const milestones=hpTotalTimeline(numbers),last=milestones.at(-1);if(!last)return;
@@ -422,11 +423,11 @@ function RunningTotal({numbers,position,fontSize,startAt,targetX,tokenId,headPos
       }
       const shown=Math.ceil(-amount),value=`\u2212${shown}`;
       if(value!==previousText){label.text(value);previousText=value;}
-      node.opacity(elapsed<0?0:elapsed<=last.delayMs+HP_NUMBER_HOLD_MS?1:Math.max(0,1-(elapsed-last.delayMs-HP_NUMBER_HOLD_MS)/HP_NUMBER_FADE_MS));
+      node.opacity(elapsed<milestones[0].delayMs-220?0:elapsed<=last.delayMs+HP_NUMBER_HOLD_MS?1:Math.max(0,1-(elapsed-last.delayMs-HP_NUMBER_HOLD_MS)/HP_NUMBER_FADE_MS));
       if(elapsed>last.delayMs+HP_NUMBER_HOLD_MS+HP_NUMBER_FADE_MS)animation.stop();
     },node.getLayer());
     animation.start();return()=>{animation.stop();};
-  },[startAt,tokenId,headPosition]);
+  },[startAt,tokenId,headPosition,timingKey]);
   if(!timeline.length)return null;
   const width=fontSize*4;
   return <Group ref={anchor} x={position.x} y={position.y} listening={false}><Group ref={group} opacity={0} listening={false}>
@@ -446,7 +447,7 @@ export const HpNumberLayer=memo(function HpNumberLayer({floaters,tokens,pxPerFoo
     const ground=mapToScreen(token.x,token.y,view,tilt),anchor=projectGround(ground.x,ground.y,width,height,tilt,rotation);
     if(!Number.isFinite(anchor.x)||!Number.isFinite(anchor.y))return [];
     const radius=token.widthFt*pxPerFoot*view.scale/2;
-    const position={x:anchor.x,y:anchor.y-Math.min(64,radius)-fontSize*.4},startAt=f.numberStartAt??performance.now();
+    const position={x:anchor.x,y:anchor.y-Math.min(64,radius)-fontSize*.4},startAt=hpStackStart(numbers,f.numberStartAt??performance.now());
     return <Group key={id} listening={false}>
       {hpNumberSequence(numbers).map(({number,delayMs,holdMs,fadeMs},i)=><FloaterText key={i} number={number} position={position} fontSize={fontSize} rise={fontSize*1.3}
         startAt={startAt+delayMs} holdMs={holdMs} fadeMs={fadeMs} targetX={token.x} tokenId={token.id} headPosition={headPosition}/>)}
@@ -454,6 +455,12 @@ export const HpNumberLayer=memo(function HpNumberLayer({floaters,tokens,pxPerFoo
     </Group>;
   })}</>;
 });
+
+function DelayedBurst({floater,token,pxPerFoot,spellEffects3D}:{floater:HpFloater;token:Token;pxPerFoot:number;spellEffects3D:boolean}){
+  const [ready,setReady]=useState((floater.numberStartAt??0)<=performance.now());
+  useEffect(()=>{if(ready)return;const timer=setTimeout(()=>setReady(true),Math.max(0,(floater.numberStartAt??0)-performance.now()));return()=>clearTimeout(timer);},[floater.numberStartAt,ready]);
+  return ready?<BurstFx floater={floater} token={token} pxPerFoot={pxPerFoot} spellEffects3D={spellEffects3D}/>:null;
+}
 
 /** Spell bursts remain on the ground plane; numbers use HpNumberLayer above it. */
 export const HpFxLayer = memo(function HpFxLayer({spellEffects3D=false,floaters,tokens,pxPerFoot}:{
@@ -463,7 +470,7 @@ export const HpFxLayer = memo(function HpFxLayer({spellEffects3D=false,floaters,
   return <>
     {floaters.map(f=>{
       const token=tokens.find(t=>t.kind===f.kind&&t.refId===f.refId);
-      return token?<Group key={`burst:${f.id}`} listening={false}><BurstFx floater={f} token={token} pxPerFoot={pxPerFoot} spellEffects3D={spellEffects3D}/></Group>:null;
+      return token?<Group key={`burst:${f.id}`} listening={false}><DelayedBurst floater={f} token={token} pxPerFoot={pxPerFoot} spellEffects3D={spellEffects3D}/></Group>:null;
     })}
   </>;
 });

@@ -1112,6 +1112,7 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  impact?: HpFxEvent['impact'];
   /** Defended cosmetic components; HP/concentration still resolve once. */
   damageParts?: HpDamagePart[];
   /** Server-only reaction gate; public offers expose no attack math. */
@@ -1936,6 +1937,8 @@ export type JoinAck =
  *  elemental burst on the token — e.g. a flame flash for fire damage. */
 export type HpDamagePart = { amount: number; damageType?: string; spell?: string };
 export type HpFxEvent = {
+  /** Cosmetic shared impact; order identifies separately clicked strikes within a cast. */
+  impact?: {id:string;order?:number};
   /** Post-defense parts of this delta, never extra HP applications. */
   damageParts?: HpDamagePart[];
   /** Server-selected world-space spell origin, gated like its map location. */

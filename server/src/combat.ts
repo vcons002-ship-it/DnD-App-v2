@@ -370,9 +370,10 @@ export function applyDamageNoted(
   rollId?: string,
   spell?: string,
   damageParts?: HpDamagePart[],
+  impact?: import('../../shared/types.js').HpFxEvent['impact'],
 ): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const after = applyDamage(kind, refId, amount, damageType, crit, rollId, {spell,damageParts});
+  const after = applyDamage(kind, refId, amount, damageType, crit, rollId, {spell,damageParts,impact});
   if (!before || !after) return undefined;
   if(amount>0&&attacker)breakInvisibility(attacker.kind,attacker.refId,'dealing damage');
   // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
@@ -1314,6 +1315,7 @@ export function resolveAttackDamage(
     impactRollId ?? damageRollId,
     [p.weapon,...p.dice.map(d=>d.label)].join(" + "),
     p.damageParts,
+    p.impact,
   );
   noteConcentration(sessionId, p.target.kind, p.target.refId, p.amount);
   const linkedTarget=p.spellLink&&listTokens(getSessionById(sessionId)?.activeMapId??'').find(t=>t.kind===p.target.kind&&t.refId===p.target.refId);
@@ -1623,6 +1625,7 @@ export function resolveForcedSave(
       damageBonus: apply.damageBonus,
       advantage: index === 0 ? apply.attack.advantage ?? advantage : advantage,
       attacker: apply.attack.attacker, sourceRollId: rollId,
+      impact:{id:rollId,order:index},
     });
     return;
   }
@@ -1651,7 +1654,7 @@ export function resolveForcedSave(
     const shield=missile?shieldGate(sessionId,tok.kind,tok.refId):undefined;
     dmg = missile&&shieldAcBonus((tok.kind==='pc'?getCharacter(tok.refId):getMonster(tok.refId))!)?0:Math.floor(base * mult);
     const dartRollId = newId();
-    const dartNote = shield?undefined:applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, spellImpactName(src?.expr)??spellImpactName(src?.label));
+    const dartNote = shield?undefined:applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, dartRollId, spellImpactName(src?.expr)??spellImpactName(src?.label),undefined,{id:rollId,order:dartIdx});
     if(!shield)noteConcentration(sessionId, r.kind, r.refId, dmg);
     setRollApply(rollId, { ...apply, consumedDarts: dartIdx + 1 }); // spend the dart
     addRollLog(sessionId, {
@@ -1661,7 +1664,7 @@ export function resolveForcedSave(
       expr: `dart ${dartIdx + 1}`,
       detail: shield?`${r.name}: Magic Missile targets you ? choose Shield or pass.`:missile&&dmg===0?`${r.name}: Shield blocks Magic Missile ? no damage.`:`${r.name}: takes ${dmg}${typeTxt}${mult !== 1 ? (mult === 0 ? ' (immune)' : mult < 1 ? ' (½ resisted)' : ' (×2 vulnerable)') : ''}`,
       hpNote: dartNote,
-      ...(shield?{pending:{shield:{...shield,automatic:true},target:{kind:tok.kind,refId:tok.refId,name:r.name},attacker:apply.caster??{kind:'pc' as const,refId:apply.owner!},weapon:'Magic Missile',amount:dmg,crit:false,dice:[{label:apply.dice??'dart',value:base,faces:dartFaces}],mods:dmg!==base?[{label:'Damage adjustment',value:dmg-base}]:[],damageType:apply.damageType,owner:apply.owner}}:{}),
+      ...(shield?{pending:{impact:{id:rollId,order:dartIdx},shield:{...shield,automatic:true},target:{kind:tok.kind,refId:tok.refId,name:r.name},attacker:apply.caster??{kind:'pc' as const,refId:apply.owner!},weapon:'Magic Missile',amount:dmg,crit:false,dice:[{label:apply.dice??'dart',value:base,faces:dartFaces}],mods:dmg!==base?[{label:'Damage adjustment',value:dmg-base}]:[],damageType:apply.damageType,owner:apply.owner}}:{}),
       // A quick per-dart damage burst (the animation fires once per assigned dart).
       reveal: {
         kind: 'damage',
@@ -1778,7 +1781,7 @@ export function resolveForcedSave(
   // Clients never wait on a source roll that has already finished or is hidden.
   const fxRollId = saveReveal ? resolutionRollId : src?.reveal ? src.id : undefined;
   if(apply.effect&&appliedSpellCondition)queueSpellImpact(sessionId,tok.kind,tok.refId,apply.effect.spell,fxRollId);
-  const saveNote = dmg ? applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId, spellImpactName(src?.expr)??spellImpactName(src?.label), defendedParts(saveReveal?.outcome==='pass')) : undefined;
+  const saveNote = dmg ? applyDamageNoted(r.kind, r.refId, dmg, apply.damageType, undefined, false, fxRollId, spellImpactName(src?.expr)??spellImpactName(src?.label), defendedParts(saveReveal?.outcome==='pass'),{id:rollId}) : undefined;
   noteConcentration(sessionId, r.kind, r.refId, dmg);
   // Mark this target consumed so a repeat click on the same creature is rejected.
   setRollApply(rollId, {
@@ -1849,6 +1852,7 @@ export function resolveTargetedSpellAttack(opts: {
   /** A placed spell force supplies reach/facing while its caster owns the roll. */
   originTokenId?: string;
   sourceRollId?: string;
+  impact?: import('../../shared/types.js').HpFxEvent['impact'];
   orb?: OrbChain;
   liveResume?: {id:string;fixed:{face:number;detail:string;hit:boolean;crit:boolean}};
 }): boolean {
@@ -1947,7 +1951,7 @@ export function resolveTargetedSpellAttack(opts: {
   const deferDamage = (!!opts.liveResume || !!getSessionById(opts.sessionId)?.manualDamage) && hit && applied > 0 && !!opts.attacker;
   consumeHitAdvantage(tt!);
   if (applied > 0 && !deferDamage) {
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId, opts.title, hitDamageParts);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId, opts.title, hitDamageParts,opts.impact);
     noteConcentration(opts.sessionId, t.kind, t.refId, applied);
   }
   const result = hit ? (crit ? 'HIT — CRIT' : 'HIT') : 'MISS';
@@ -1996,6 +2000,7 @@ export function resolveTargetedSpellAttack(opts: {
     ...(deferDamage && opts.attacker ? {
       pending: {
         spellLink:opts.linked, spellDamageAmount,
+        ...(opts.impact?{impact:opts.impact}:{}),
         ...(opts.sourceRollId ? { sourceRollId: opts.sourceRollId } : {}),
         target: { kind: t.kind, refId: t.refId, name: t.name },
         attacker: opts.attacker,

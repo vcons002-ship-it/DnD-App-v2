@@ -1,4 +1,4 @@
-import {scheduleHpFeedback} from '../lib/hpFeedback';
+import {scheduleHpFeedback,hpNumberStacks,hpStackEnd,hpImpactId,type ScheduledHpEvent} from '../lib/hpFeedback';
 import {partySpell} from '../../../shared/partySpells';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import {resultTrayFor} from '../lib/rollTrayPresentation';
@@ -27,7 +27,6 @@ import type {
   DiceRollPayload,
   Disposition,
   FogLayer,
-  HpFxEvent,
   ImportCharConflict,
   ImportConflictResolution,
   InventoryItem,
@@ -70,7 +69,7 @@ async function requestLeveling<T>(socket: TypedSocket | null, status: Status,
 export type WeaponAttackOptions = { offhand: boolean; twoHanded: boolean };
 
 /** One floating damage/heal number over a token (client-side, transient). */
-export type HpFloater = HpFxEvent & { id: number; numberStartAt?: number };
+export type HpFloater = ScheduledHpEvent;
 let nextFloaterId = 1;
 /** Per-token expiry timers for live drag ghosts (cleared/rearmed each update). */
 const dragGhostTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -557,10 +556,24 @@ export const useStore = create<Store>((set, get) => ({
       const feedback=scheduleHpFeedback(displayed,performance.now(),state.hpFx);
       set((st) => ({ hpFx: [...st.hpFx, ...feedback.events] }));
       // Lifetimes begin when DISPLAYED, not while loading/rolling/adding bonuses.
-      setTimeout(() => {
-        const ids = new Set(displayed.map((f) => f.id));
-        set((st) => ({ hpFx: st.hpFx.filter((f) => !ids.has(f.id)) }));
-      }, feedback.expiryMs);
+      const expire=()=>{
+        const st=get(),now=performance.now(),keep=new Set<number>();
+        const waiting=new Set([...queuedHpFx,...[...heldHpFx.values()].flat()].map(hpImpactId));
+        const assigning=new Set(st.snapshot?.rollLog.flatMap(r=>{
+          const apply=r.apply,pending=r.pending;
+          return apply&&(apply.darts&&(apply.consumedDarts??0)<apply.darts||apply.attacks&&(apply.consumedAttacks??0)<apply.attacks)?[r.id]
+            :pending&&!pending.done&&(pending.impact?.id||pending.sourceRollId)?[pending.impact?.id??pending.sourceRollId!]:[];
+        }));
+        let next=Infinity;
+        for(const group of hpNumberStacks(st.hpFx)){
+          const end=hpStackEnd(group),pinned=waiting.has(hpImpactId(group.event))||assigning.has(hpImpactId(group.event));
+          if(end>now||pinned){group.events.forEach(e=>keep.add(e.id));next=Math.min(next,pinned?now+500:end);}
+        }
+        for(const event of st.hpFx)if(!event.delta){const end=(event.numberStartAt??now)+4000;if(end>now){keep.add(event.id);next=Math.min(next,end);}}
+        set({hpFx:st.hpFx.filter(e=>keep.has(e.id))});
+        if(Number.isFinite(next))setTimeout(expire,Math.max(100,next-now+100));
+      };
+      setTimeout(expire,feedback.expiryMs);
       if (displayed.some(e => e.delta > 0)) playHeal();
       const hurt = displayed.filter((e) => e.delta < 0 && e.kind === 'pc' &&
         state.snapshot?.characters.some((c) => c.id === e.refId && c.claimedBy === state.socket?.id))

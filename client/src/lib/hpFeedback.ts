@@ -10,7 +10,10 @@ const colors:Record<string,string>={
   lightning:'#fff078',thunder:'#b9b5ff',acid:'#c9f775',poison:'#7ae291',necrotic:'#c49aef',
   radiant:'#ffe8a0',force:'#d1b1ff',psychic:'#ff9ce4',
 };
-export type HpNumber = {delta:number;label:string;color:string;total?:boolean};
+export type HpNumber = {delta:number;label:string;color:string;total?:boolean;startAt?:number};
+export type ScheduledHpEvent=HpFxEvent&{id:number;numberStartAt?:number;componentStarts?:number[]};
+export const hpImpactId=(event:ScheduledHpEvent)=>event.impact?.id??event.rollId??String(event.id);
+const stackId=(event:ScheduledHpEvent)=>event.delta<0?`${event.kind}:${event.refId}:${hpImpactId(event)}`:`heal:${event.id}`;
 /** Parts are only a visual breakdown of the already-applied full delta. */
 export function hpNumbers(event:HpFxEvent):HpNumber[]{
   if(!event.delta)return [];
@@ -32,27 +35,33 @@ export function hpNumbers(event:HpFxEvent):HpNumber[]{
 
 /** One red total per creature/impact, including both a hit and its AoE rider.
  * Colored parts explain that total; they never apply more HP damage. */
-export function hpNumberStacks<T extends HpFxEvent&{id:number}>(events:T[]){
-  const groups=new Map<string,{event:T;parts:HpNumber[]}>();
+export function hpNumberStacks<T extends ScheduledHpEvent>(events:T[]){
+  const groups=new Map<string,{event:T;parts:HpNumber[];events:T[]}>();
   for(const event of events){
     if(!event.delta)continue;
-    const id=event.delta<0?`${event.kind}:${event.refId}:${event.rollId??event.id}`:`heal:${event.id}`;
-    const group=groups.get(id)??{event,parts:[]};
-    group.parts.push(...hpNumbers(event));groups.set(id,group);
+    const id=stackId(event);
+    const group=groups.get(id)??{event,parts:[],events:[]};
+    group.events.push(event);
+    group.parts.push(...hpNumbers(event).map((part,i)=>({...part,...(event.componentStarts?.[i]!==undefined?{startAt:event.componentStarts[i]}:{})})));
+    groups.set(id,group);
   }
-  return [...groups].map(([id,{event,parts}])=>{
-    if(event.delta>0)return {id,event,numbers:parts};
+  return [...groups].map(([id,{event,parts,events}])=>{
+    parts.sort((a,b)=>(a.startAt??0)-(b.startAt??0));
+    if(event.delta>0)return {id,event,events,numbers:parts};
     const total:HpNumber={delta:parts.reduce((sum,p)=>sum+p.delta,0),label:'Total',color:'#ff5a60',total:true};
-    return {id,event,numbers:[...parts,total]};
+    return {id,event,events,numbers:[...parts,total]};
   });
 }
 
 /** Each colored part rises into the persistent running total above the head. */
 export function hpNumberSequence(numbers:HpNumber[]){
   let delayMs=0;
+  const starts=numbers.flatMap(n=>n.startAt===undefined?[]:[n.startAt]);
+  const origin=starts.length?Math.min(...starts):0;
   return numbers.filter(number=>!number.total).map(number=>{
     const holdMs=number.total||number.delta>0?HP_NUMBER_HOLD_MS:HP_COMPONENT_HOLD_MS;
     const fadeMs=number.total||number.delta>0?HP_NUMBER_FADE_MS:HP_COMPONENT_FADE_MS;
+    if(number.startAt!==undefined)delayMs=number.startAt-origin;
     const item={number,delayMs,holdMs,fadeMs};delayMs+=holdMs+fadeMs+HP_NUMBER_GAP_MS;
     return item;
   });
@@ -73,17 +82,54 @@ export function hpFeedbackDuration(numbers:HpNumber[]){
   return last?last.delayMs+last.holdMs+last.fadeMs:0;
 }
 
-/** Queue repeated hits on one creature without delaying other AoE victims. */
-export function scheduleHpFeedback<T extends HpFxEvent&{id:number;numberStartAt?:number}>(events:T[],now:number,existing:(HpFxEvent&{id:number;numberStartAt?:number})[]=[]){
-  const available=new Map<string,number>(),starts=new Map<string,number>();
-  let expiresAt=now;
-  for(const {id,event,numbers} of [...hpNumberStacks(existing),...hpNumberStacks(events)]){
-    const target=`${event.kind}:${event.refId}`;
-    const start=event.numberStartAt??Math.max(now,available.get(target)??now);
-    const end=start+hpFeedbackDuration(numbers);
-    available.set(target,Math.max(available.get(target)??0,end+HP_NUMBER_GAP_MS));
-    starts.set(id,start);expiresAt=Math.max(expiresAt,end);
+export function hpStackStart(numbers:HpNumber[],fallback:number){
+  const starts=numbers.flatMap(n=>n.startAt===undefined?[]:[n.startAt]);
+  return starts.length?Math.min(...starts):fallback;
+}
+export function hpStackEnd(group:ReturnType<typeof hpNumberStacks>[number]){
+  return hpStackStart(group.numbers,group.event.numberStartAt??0)+hpFeedbackDuration(group.numbers);
+}
+const beatKey=(event:ScheduledHpEvent,number:HpNumber)=>event.impact?.order!==undefined
+  ?`strike:${event.impact.order}:${number.label}`:`part:${number.label}`;
+/** Shared impacts use shared beats, even when one victim also took a weapon hit.
+ * Separately clicked strikes use their authoritative order across all targets. */
+export function scheduleHpFeedback<T extends ScheduledHpEvent>(events:T[],now:number,existing:ScheduledHpEvent[]=[]){
+  const available=new Map<string,number>(),plans=new Map<string,Map<string,number>>();
+  for(const group of hpNumberStacks(existing))available.set(`${group.event.kind}:${group.event.refId}`,
+    Math.max(available.get(`${group.event.kind}:${group.event.refId}`)??0,hpStackEnd(group)+HP_NUMBER_GAP_MS));
+  for(const event of existing){
+    const plan=plans.get(hpImpactId(event))??new Map<string,number>();
+    hpNumbers(event).forEach((n,i)=>plan.set(beatKey(event,n),event.componentStarts?.[i]??event.numberStartAt??now));
+    plans.set(hpImpactId(event),plan);
   }
-  return {events:events.map(event=>({...event,numberStartAt:starts.get(event.delta<0?`${event.kind}:${event.refId}:${event.rollId??event.id}`:`heal:${event.id}`)??now})),
-    expiryMs:expiresAt-now+300};
+  const batches=new Map<string,T[]>();
+  for(const event of events){const id=hpImpactId(event),batch=batches.get(id)??[];batch.push(event);batches.set(id,batch);}
+  const scheduled=new Map<number,T&{numberStartAt:number;componentStarts:number[]}>();
+  for(const [id,batch] of batches){
+    const plan=plans.get(id)??new Map<string,number>();
+    const base=plan.size?Math.min(...plan.values()):Math.max(now,...batch.map(e=>available.get(`${e.kind}:${e.refId}`)??now));
+    // Later manual AoE applications must not reuse a beat that already played.
+    // Keep past individual strike beats intact for cumulative click ordering.
+    for(const event of batch)for(const part of hpNumbers(event)){
+      const key=beatKey(event,part),previous=plan.get(key);
+      if(event.impact?.order===undefined&&previous!==undefined&&previous<now-50)plan.set(key,now);
+    }
+    const ordered=[...batch].sort((a,b)=>(a.impact?.order??0)-(b.impact?.order??0));
+    for(const event of ordered)for(const n of hpNumbers(event)){
+      const key=beatKey(event,n);
+      if(plan.has(key))continue;
+      plan.set(key,plan.size?Math.max(now,Math.max(...plan.values())+HP_COMPONENT_HOLD_MS+HP_COMPONENT_FADE_MS+HP_NUMBER_GAP_MS):base);
+    }
+    for(const event of batch){
+      const componentStarts=hpNumbers(event).map(n=>plan.get(beatKey(event,n))!);
+      // Area-only geometry uses the same beat as its colored damage components.
+      const matching=[...plan].find(([key])=>event.spell&&key.toLowerCase().includes(event.spell.toLowerCase()));
+      scheduled.set(event.id,{...event,numberStartAt:componentStarts[0]??matching?.[1]??base,componentStarts});
+    }
+    plans.set(id,plan);
+    for(const group of hpNumberStacks(batch.map(e=>scheduled.get(e.id)!)))available.set(`${group.event.kind}:${group.event.refId}`,hpStackEnd(group)+HP_NUMBER_GAP_MS);
+  }
+  const result=events.map(event=>scheduled.get(event.id)!);
+  const expiresAt=Math.max(now,...hpNumberStacks([...existing,...result]).map(hpStackEnd));
+  return {events:result,expiryMs:expiresAt-now+300};
 }

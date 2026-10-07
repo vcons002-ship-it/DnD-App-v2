@@ -4,7 +4,7 @@ import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
 import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeometry';
 
-export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;persistent?:boolean;fixed?:boolean};
+export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;startAt?:number;persistent?:boolean;fixed?:boolean};
 type Effect={input:SpellImpact;style:SpellImpactStyle;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
 
 /** Bounded, short-lived world-space geometry. No model downloads or new lights
@@ -60,7 +60,7 @@ export function createSpellImpactEffects(scene:Scene){
     // draw afterwards with depth testing intact, so terrain cannot erase the
     // field and a foreground figure still occludes its particles and thorns.
     root.traverse(node=>{if(node instanceof Mesh)node.renderOrder=5;});
-    scene.add(root);effects.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
+    scene.add(root);effects.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:input.startAt??now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
   }
   return {
     sync(inputs:readonly SpellImpact[],now:number){
@@ -72,7 +72,7 @@ export function createSpellImpactEffects(scene:Scene){
     tick(now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
       const lights:TorchLight[]=[];
       for(const [id,e] of effects){
-        const age=now-e.start;if(!e.input.persistent&&age>=e.style.duration){dispose(e);effects.delete(id);continue;}
+        const age=now-e.start;if(age<0){e.root.visible=false;continue;}if(!e.input.persistent&&age>=e.style.duration){dispose(e);effects.delete(id);continue;}
         const p=position(e.input.tokenId);e.root.visible=!!p?.visible;if(!p?.visible)continue;
         const size=Math.max(pixelsPerFoot*2,e.input.diameter),height=Math.max(size*.85,p.height??size*1.5);
         e.root.position.set(p.x,0,p.y);e.root.scale.set(size,e.style.kind==='thorns'?size:height/1.2,size);
