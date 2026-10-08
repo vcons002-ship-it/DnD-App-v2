@@ -2,6 +2,8 @@
 
 ## Character roll-strength art - October 2026
 
+- [x] Vanec lightning frequency now scales with a much wider exponential gap: low rolls spark then pause, strong rolls repeat several times during the result hold, and maxima retain rapid randomized crimson bursts. Confirmation resets an inherited idle pause.
+
 - [x] Varis maximum centers its mote and softly rotates eight green-gold shafts through the resin and out into the air, with shorter lengths, narrow widths and gentle fades. Internal illumination stays subdued; hard spotlight cones and bright face apertures remain removed. Reduced motion omits escaping rays.
 
 - [x] Reworked Druk's release into a dominant draining mass with asymmetric tapered lobes and varied small drops, sharing the pool's molten surface and cooling crust.

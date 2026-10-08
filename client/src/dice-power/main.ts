@@ -7,6 +7,8 @@ const sides=document.querySelector<HTMLSelectElement>('#sides')!,critical=docume
 const focus=document.querySelector<HTMLInputElement>('#focus')!;
 const descriptions:Record<string,string>={fighter:'Higher rolls light branching cracks while keeping gold numbers readable. A maximum heats to molten lava and explodes into solid obsidian shards. Lava drains from the opened center into a bright pool as the shards settle and fade.',sorcerer:'A higher value charges more frequent internal lightning. A maximum fires crimson lightning bursts from changing directions throughout the red glass.',ranger:'The enclosed mote grows brighter with the value. On a maximum, the mote swings into the center, brightens the resin and sends gentle rotating beams through its faces into the air.'};
 const reviewParams=new URLSearchParams(location.search);
+const requestedSides=reviewParams.get('sides');
+if(requestedSides&&['4','6','8','10','12','20','100'].includes(requestedSides))sides.value=requestedSides;
 let theme=reviewParams.get('character')??'fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
 if(!['fighter','sorcerer','ranger','dm'].includes(theme))theme='fighter';
 focus.checked=reviewParams.get('closeup')==='1';

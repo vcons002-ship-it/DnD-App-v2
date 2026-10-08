@@ -20,12 +20,26 @@ it('starts independently for separate dice and avoids catch-up bursts on resume'
  expect(a.advance(100).phase).toBe(3);expect(a.advance(100.19).phase).toBe(3);
  expect(a.advance(100.2).phase).toBe(0);expect(a.advance(100.3).phase).toBeCloseTo(.5);
 });
-it('charges more frequently for stronger confirmed rolls',()=>{
- const low=createLightningTiming(()=>.5),high=createLightningTiming(()=>.5);
- low.advance(0,0);high.advance(0,.95);low.advance(1.3,0);high.advance(1.3,.95);
- // A high roll reaches a second discharge while a minimum is still cooling.
- expect(high.advance(2.51,.95).phase).toBeLessThan(1);
- expect(low.advance(2.51,0).phase).toBe(3);
+it('makes a d6 five visibly more active than a one within the result hold',()=>{
+ const flashes=(value:number,seconds:number)=>{
+  const clock=createLightningTiming(()=>.5);let previous=3,count=0;
+  for(let tick=0;tick<seconds*120;tick++){
+   const phase=clock.advance(tick/120,(value-1)/5,value===6).phase;
+   if(phase<previous)count++;previous=phase;
+  }
+  return count;
+ };
+ expect(flashes(1,2)).toBe(1);
+ expect(flashes(5,2)).toBeGreaterThanOrEqual(3);
+ expect(flashes(3,6)).toBeGreaterThan(flashes(1,6));
+ expect(flashes(5,6)).toBeGreaterThanOrEqual(flashes(1,6)*4);
+ expect(flashes(6,2)).toBeGreaterThan(flashes(5,2)*2);
+});
+it('starts the confirmed result promptly rather than inheriting a long idle pause',()=>{
+ const clock=createLightningTiming(()=>1);
+ clock.advance(0);
+ expect(clock.advance(.5,.8).phase).toBe(3);
+ expect(clock.advance(.8,.8).phase).toBe(0);
 });
 it('maximum rolls have frequent separate flashes with fully dark gaps and new channels',()=>{
  let n=0;const clock=createLightningTiming(()=>((n++*17)%101)/100);

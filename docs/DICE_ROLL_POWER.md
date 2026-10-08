@@ -36,7 +36,10 @@ dice. A maximum damage die is still damage, not a critical hit.
   incandescent lava with a few dark obsidian islands; numbers and gold trim
   remain distinct. This molten appearance stays on the intact die only. Its result still fills the normal result box.
 - **Vanec:** stronger results shorten randomized pauses between internal
-  discharges. A maximum fires rapid crimson bursts with brief dark gaps,
+  discharges exponentially. A minimum sparks once on confirmation, then pauses
+  roughly 4–6 seconds; a 5 on a d6 repeats about every 0.5–0.7 seconds.
+  Maximum results remain faster, at roughly 0.12–0.21 seconds between crimson
+  bursts with brief dark gaps,
   rotating the whole coherent branching field randomly in three dimensions
   each burst. Geometry and timing remain independent for each die.
 - **Varis:** his enclosed wandering mote grows more luminous with strength. A
