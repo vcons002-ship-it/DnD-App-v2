@@ -496,6 +496,7 @@ uniform float resinTime;
 uniform float resinGlow;
 uniform float resinDensity;
 uniform float resinInk;
+uniform float resinMaximum;
 uniform vec4 resinPlanes[20];
 uniform int resinPlaneCount;
 float resinHash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -505,14 +506,14 @@ float resinNoise(vec3 p){
 }`;
 const resinInkField=`
 float resinInkDensity(vec3 p,float t){
- // Slowly advected lobes stretch into thin curls, like ink mixing in liquid.
- vec3 q=p*2.6+vec3(t*.045,-t*.075,t*.028);
- vec3 warp=vec3(resinNoise(q+vec3(0.,t*.09,4.)),resinNoise(q+vec3(8.,0.,-t*.07)),resinNoise(q+vec3(-t*.06,13.,0.)))-.5;
- q+=warp*2.2;
+ // Advected lobes tumble and stretch into curls inside the refracting volume.
+ vec3 q=p*2.6+vec3(t*.15,-t*.23,t*.11);
+ vec3 warp=vec3(resinNoise(q+vec3(0.,t*.28,4.)),resinNoise(q+vec3(8.,0.,-t*.22)),resinNoise(q+vec3(-t*.19,13.,0.)))-.5;
+ q+=warp*2.5;
  float cloud=resinNoise(q)*.65+resinNoise(q*2.07+warp)*.25+resinNoise(q*4.1)*.1;
  vec3 center=p-vec3(.07,.12,-.04);
  float envelope=exp(-dot(center*vec3(1.05,.8,1.05),center*vec3(1.05,.8,1.05))*1.65);
- return smoothstep(.43,.64,cloud)*envelope;
+ return smoothstep(.40,.62,cloud)*envelope;
 }
 `;
 const resinCloudTransmission=`
@@ -534,11 +535,13 @@ const resinCloudTransmission=`
    float interior=smoothstep(.015,.16,min(travel,cloudLength-travel));
    if(resinInk>.5){
      float ink=resinInkDensity(point,resinTime);
-     float opacity=1.-exp(-ink*cloudStep*interior*4.2);
+     float opacity=1.-exp(-ink*cloudStep*interior*4.8);
      // Light behind and between dark lobes gives a readable silhouette.
      vec3 lamp=point-vec3(-.18,.2,-.1);
      float illumination=exp(-dot(lamp,lamp)*2.1)*resinGlow;
-     inkLight+=inkTransmission*(vec3(.002,.0006,.005)*opacity+vec3(.14,.062,.26)*illumination*(1.-opacity)*cloudStep*interior);
+     vec3 pigment=mix(vec3(.002,.0006,.005),vec3(.065,.0006,.002),resinMaximum);
+     vec3 innerLight=mix(vec3(.24,.095,.43),vec3(.38,.006,.010),resinMaximum);
+     inkLight+=inkTransmission*(pigment*opacity+innerLight*illumination*(1.-opacity)*cloudStep*interior);
      inkTransmission*=1.-opacity;
    }else{
      vec3 curl=vec3(sin(point.y*2.4+resinTime*.18),cos(point.z*2.1-resinTime*.14),sin(point.x*2.7+resinTime*.12))*.25;
@@ -581,8 +584,11 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const power=createRollPowerState(sides);
   const powerArt=theme.id==='ranger'?createDicePowerArt(root,theme.id):undefined;
   let powerView=power.advance(0),powerReduced=false;
+  const resinMaximum={value:0};
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
+    // A color transition stays available with reduced motion, without flashes.
+    resinMaximum.value=powerView.maximum?THREE.MathUtils.smoothstep(powerView.age,0,.35):0;
     uniforms.rollPower.value=powerView.strength;
     uniforms.moltenWarning.value=style===1&&powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(powerView.age,.1,DRUK_EXPLOSION_DELAY-.03):0;
     uniforms.rollMaximum.value=powerView.maximum&&!powerReduced?1:0;
@@ -696,6 +702,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       shader.uniforms.resinGlow=uniforms.resinGlow;
       shader.uniforms.resinDensity=uniforms.resinDensity;
       shader.uniforms.resinInk=uniforms.resinInk;
+      shader.uniforms.resinMaximum=resinMaximum;
       shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
       shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
@@ -705,7 +712,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
         reflectedLight.directSpecular*=topReflection;reflectedLight.indirectSpecular*=topReflection;`);
       shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
     };
-    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v5';
+    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v6';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   const shatter=theme.id==='fighter'?createDiceShatterArt(root,source.faces.map(ids=>ids.map(i=>vertices[i])),crit):undefined;

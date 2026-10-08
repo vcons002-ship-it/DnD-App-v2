@@ -1,6 +1,6 @@
 # Character dice power
 
-Druk, Vanec and Varis react to each die's natural confirmed result. Strength
+Druk, Vanec, Varis and the DM react to each die's natural confirmed result. Strength
 runs from 0 for a 1 to 1 for the highest face: maximum d4, d6, d8, d10, d12
 and d20 results all reach full power. Both halves of percentile dice use the
 complete d100 result. Modifiers and the sum of a pool do not charge individual
@@ -16,11 +16,13 @@ dice. A maximum damage die is still damage, not a critical hit.
   markings or the molten warning layer. Cannon rigid bodies handle
   the forceful launch and collisions with the tray and other shards. They stop
   tumbling before fading in place, without melting or liquid splashes. A bright
-  molten core falls from the exploded die, then spreads into a bright
+  irregular molten interior drains through short viscous strands that thin and
+  break into uneven falling drops as the shell opens, then spreads into a bright
   lava pool at its explosion position until the roll is
   cleared. Its irregular cooled rim, drifting molten channels and dark floating
   crust retain texture around the hot center. A soft amber spill stays on the
-  felt; pools add no particles, physics bodies or dynamic lights.
+  felt. The release is bounded to twelve drops and six connecting strands;
+  it adds no fluid solver, rigid bodies or dynamic lights.
   High natural rolls expose more branching fissures and hotter lava glow,
   while retaining predominantly black obsidian behind the readable gold numbers.
   Crack width and heat are capped below the maximum's warning intensity.
@@ -35,7 +37,13 @@ dice. A maximum damage die is still damage, not a critical hit.
   each burst. Geometry and timing remain independent for each die.
 - **Varis:** his enclosed wandering mote grows more luminous with strength. A
   maximum draws it smoothly into the center, where it stays while 22 soft light
-  streams radiate above, below and around the resin. The rays grow as it arrives.
+  streams radiate above, below and around the resin. The rays grow as it arrives,
+  then rotate smoothly through three axes around the centered mote. Each die
+  starts at its own orientation; the mote stays fixed and the rays remain 3D.
+- **DM:** more active curling ink is silhouetted against soft internal purple
+  light within the refracting resin. A confirmed maximum transitions the cloud
+  to blood red. Gold numerals stay on the opaque front inlay, outside the cloud
+  shader. Reduced motion retains the color change without flashing.
 
 The live tray receives confirmed faces directly from `LiveDiceFrame.values`.
 Unknown/moving dice keep their ordinary material. Power changes ease in, and
@@ -53,7 +61,7 @@ inactive. Shard shadows reuse the existing tray shadow map. Server roll physics,
 outcomes, HP, skip behavior and roll ownership are unchanged.
 
 `/dice-power.html` compares explicitly labeled sample values and replays maxima.
-It is an art review, not a gameplay roll. Switch between the three characters,
+It is an art review, not a gameplay roll. Switch between the three characters and the DM,
 all supported die types, gold critical dice, and an explosion close-up. Browser regressions also roll
 real d20s in the player UI to verify the art follows server-confirmed values.
 

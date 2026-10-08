@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createDiceLavaRelease} from './diceLavaRelease';
 
 const vertex=`varying vec2 poolUV;
 void main(){poolUV=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
@@ -9,8 +10,8 @@ float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
 float fbm(vec2 p){return noise(p)*.57+noise(p*2.03)*.28+noise(p*4.07)*.15;}
 float boundary(vec2 p){return length(p)-(.77+(fbm(p*4.+seed)-.5)*.22);}
 `;
-/** One persistent, die-sized molten puddle per confirmed maximum. No simulation,
- * particles, lights, or extra render passes; glow stays on the tray floor. */
+/** One persistent, die-sized molten puddle per confirmed maximum. Its bounded
+ * visual release needs no fluid solver or lights; glow stays on the tray floor. */
 export function createDiceLavaPool(parent:THREE.Group){
  const uniforms={time:{value:0},alpha:{value:0},spread:{value:0},seed:{value:0}};
  const declarations='varying vec2 poolUV;uniform float time,alpha,spread,seed;';
@@ -55,34 +56,21 @@ export function createDiceLavaPool(parent:THREE.Group){
   #include <colorspace_fragment>
  }`,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
  const geometry=new THREE.PlaneGeometry(2,2),surface=new THREE.Mesh(geometry,material),glow=new THREE.Mesh(geometry,glowMaterial);
- const dropGeometry=new THREE.SphereGeometry(1,20,14);
- const dropMaterial=new THREE.ShaderMaterial({uniforms,vertexShader:`uniform float time;varying vec3 liquidPos;
- void main(){liquidPos=position;vec3 p=position*(1.+.055*sin(position.y*7.+time*13.));gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,fragmentShader:'uniform float time,seed;'+noise+`
- varying vec3 liquidPos;
- void main(){float flow=fbm(liquidPos.xy*4.+liquidPos.z+seed+vec2(time*.3,-time*.2));
- vec3 color=mix(vec3(1.8,.065,.001),vec3(4.,1.2,.06),flow);
- color*=.8+.2*abs(liquidPos.z);gl_FragColor=vec4(color,1.);
- #include <tonemapping_fragment>
- #include <colorspace_fragment>
- }`});
- const drop=new THREE.Mesh(dropGeometry,dropMaterial);drop.visible=false;
- const group=new THREE.Group();group.visible=false;group.userData.dicePowerArt=true;group.add(glow,surface,drop);parent.add(group);
- let releaseHeight=0;
+ const group=new THREE.Group();group.visible=false;group.userData.dicePowerArt=true;group.add(glow,surface);parent.add(group);
+ const release=createDiceLavaRelease(group,uniforms);
  surface.position.z=.018;surface.renderOrder=2;glow.position.z=.012;glow.scale.setScalar(2.4);glow.renderOrder=1;
  return {
-  start(origin:THREE.Vector3,radius:number,floor:number,seed:number){group.position.set(origin.x,origin.y,floor);group.scale.setScalar(radius*1.5);uniforms.seed.value=seed;releaseHeight=Math.max(.35,(origin.z-floor)/(radius*1.5));},
-  prewarm(enabled:boolean){group.visible=enabled;drop.visible=enabled;dropMaterial.colorWrite=!enabled;uniforms.alpha.value=0;},
+  start(origin:THREE.Vector3,radius:number,floor:number,seed:number){group.position.set(origin.x,origin.y,floor);group.scale.setScalar(radius*1.5);uniforms.seed.value=seed;release.start(Math.max(.35,(origin.z-floor)/(radius*1.5)),seed);},
+  prewarm(enabled:boolean){group.visible=enabled;release.prewarm(enabled);uniforms.alpha.value=0;},
   visible(){return group.visible&&uniforms.alpha.value>0;},
-  dropping(){return group.visible&&drop.visible;},
+  dropping(){return group.visible&&release.active();},
   update(now:number,age:number,visible:boolean){
    group.visible=visible;uniforms.time.value=now/1000;
-   const fall=THREE.MathUtils.clamp(age/.22,0,1);
-   drop.visible=visible&&fall<1;drop.position.z=releaseHeight*(1-fall*fall);
-   drop.scale.set(.30*(1-fall*.15),.30*(1-fall*.15),.30*(1+fall*.8));
-   uniforms.alpha.value=visible?THREE.MathUtils.smoothstep(age,.18,.32):0;
-   uniforms.spread.value=THREE.MathUtils.lerp(.20,1,THREE.MathUtils.smoothstep(age,.18,.65));
+   release.update(age,visible);
+   uniforms.alpha.value=visible?THREE.MathUtils.smoothstep(age,release.impact(),release.impact()+.18):0;
+   uniforms.spread.value=THREE.MathUtils.lerp(.20,1,THREE.MathUtils.smoothstep(age,release.impact(),release.end()+.25));
   },
-  clear(){group.visible=false;drop.visible=false;uniforms.alpha.value=0;},
-  dispose(){parent.remove(group);geometry.dispose();dropGeometry.dispose();material.dispose();glowMaterial.dispose();dropMaterial.dispose();},
+  clear(){group.visible=false;release.clear();uniforms.alpha.value=0;},
+  dispose(){release.dispose();parent.remove(group);geometry.dispose();material.dispose();glowMaterial.dispose();},
  };
 }

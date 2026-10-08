@@ -2,6 +2,10 @@
 
 ## Character roll-strength art - October 2026
 
+- [x] DM resin clouds curl more actively with stronger internal contrast; confirmed maximum faces turn the cloud blood red, preserving separate opaque gold numerals. DM is included in the roll-strength art reviewer.
+
+- [x] Varis maximum-roll rays rotate smoothly in three dimensions around the centered mote, with independent starting orientations and the existing bounded instanced geometry.
+
 - [x] Druk lava fissures and heat, Vanec discharge frequency, and Varis mote illumination scale with each confirmed natural face on d20 and all damage dice. Maximum rolls fracture Druk into textured pieces of the original die with shared contact physics; solid shards settle before fading in place, fire randomly oriented crimson lightning bursts for Vanec, or center Varis's mote before releasing a sphere of soft light streams. Live/playback/standalone dice share the treatment, including percentile pairs and gold critical dice; repeated frames cannot retrigger bursts and reduced motion omits maximum geometry. `/dice-power.html` compares labeled sample values. See `docs/DICE_ROLL_POWER.md`.
 
 Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
@@ -2759,3 +2763,4 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Fixed shard-interior heat sharing the intact die's roll-power uniform, which incorrectly dimmed ordinary high-roll cracks. Restored the readable high-roll glow without widening fissures or reducing black obsidian coverage.
 - [x] Druk maxima leave bright, persistent lava pools at their explosion positions: cooled irregular rims, moving molten channels, floating crust and soft felt glow. Solid obsidian shards still settle and fade; pools clear with the roll.
 - [x] Druk maximum sequence now heats and shudders for 0.85 seconds before the shard explosion, then drops a molten core that spreads into the persistent lava pool. Cosmetic shaking leaves authoritative die poses and results untouched.
+- [x] Druk lava now drains from the opened interior through six tapering viscous strands and twelve uneven ballistic drops. The bright pool begins forming on contact, replacing the single falling sphere.

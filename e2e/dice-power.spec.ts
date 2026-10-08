@@ -14,7 +14,7 @@ test('character power art scales d20 and damage faces, including maxima and gold
   await page.locator(`button[data-theme="${theme}"]`).click();await page.getByLabel('Die type').selectOption(String(sides));
   await expect(page.locator('#tray')).toHaveAttribute('data-sides',String(sides));
   await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
-  await page.waitForTimeout(1100);
+  await page.waitForTimeout(1500);
   const power=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
   expect(power).toHaveLength(3);expect(power.every((p:any)=>p.known)).toBe(true);
   expect(power[0].maximum).toBe(false);expect(power[2].maximum).toBe(true);
@@ -51,7 +51,7 @@ test('Druk shatters every die shape, stays broken during the result hold and res
  await page.goto('/dice-power.html');const canvas=page.locator('#tray canvas');
  for(const sides of [4,8,10,12,100]){
   await page.getByLabel('Die type').selectOption(String(sides));await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
-  await page.waitForTimeout(1100);
+  await page.waitForTimeout(1500);
   const power=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
   expect(power.filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments>0)).toBe(true);
   expect(power.filter((p:any)=>!p.maximum).every((p:any)=>!p.broken)).toBe(true);
@@ -62,7 +62,7 @@ test('Druk shatters every die shape, stays broken during the result hold and res
  expect(held.filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments===0)).toBe(true);
  expect(held.filter((p:any)=>p.maximum).every((p:any)=>p.pools===1&&p.lava===0&&p.physics.bodies===0)).toBe(true);
  await page.getByRole('button',{name:'Replay maximum',exact:true}).click();await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
- await page.waitForTimeout(1100);
+ await page.waitForTimeout(1500);
  expect(JSON.parse((await canvas.getAttribute('data-roll-power'))!).filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments>0)).toBe(true);
  expect(errors).toEqual([]);
 });
@@ -101,6 +101,24 @@ test('Druk ordinary high rolls keep visibly hotter cracks than low rolls',async(
   return {low:heat(.18),high:heat(.41)};
  });
  expect(glow.high).toBeGreaterThan(glow.low*1.5+10);
+});
+
+test('DM maximum changes the internal ink to red while ordinary rolls stay purple',async({page},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
+ await page.setViewportSize({width:1150,height:1000});await page.goto('/dice-power.html');
+ await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+ await page.locator('button[data-theme="dm"]').click();await expect(page.locator('#tray')).toHaveAttribute('data-theme','dm');
+ await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');await page.waitForTimeout(750);
+ const ink=await page.evaluate(()=>{
+  const canvas=document.querySelector<HTMLCanvasElement>('#tray canvas')!,ctx=canvas.getContext('2d')!;
+  const red=(x:number)=>{const {data}=ctx.getImageData(canvas.width*x,canvas.height*.35,canvas.width*.18,canvas.height*.3);let count=0;
+   for(let i=0;i<data.length;i+=4)if(data[i]>55&&data[i]>data[i+1]*1.8&&data[i]>data[i+2]*1.3)count++;
+   return count;};
+  return {low:red(.18),maximum:red(.60)};
+ });
+ expect(ink.maximum).toBeGreaterThan(ink.low+100);
+ await page.screenshot({path:info.outputPath('dm-purple-and-blood-red-ink.png')});expect(errors).toEqual([]);
 });
 
 test('Druk warning visibly grows from cracks to a mostly incandescent shell before the shard burst',async({page},info)=>{

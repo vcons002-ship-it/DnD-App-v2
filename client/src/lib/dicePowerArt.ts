@@ -7,6 +7,8 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
  const group=new THREE.Group();root.add(group);
  const transform=new THREE.Object3D(),color=new THREE.Color(),up=new THREE.Vector3(0,0,1);
  const inverse=new THREE.Quaternion(),direction=new THREE.Vector3(),rayAxis=new THREE.Vector3(0,1,0);
+ const rayRotation=new THREE.Quaternion(),rayEuler=new THREE.Euler();
+ const rayPhase=(root.id*2.399963)%(Math.PI*2);
  const count=kind==='fighter'?18:22;
  const geometry=kind==='fighter'?new THREE.IcosahedronGeometry(1,1):new THREE.BufferGeometry();
  if(kind==='ranger'){
@@ -59,6 +61,9 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
    if(maximum&&!reduced){
     // Keep eruption gravity in world-up even when a polyhedron rests tilted.
     group.quaternion.copy(inverse.copy(root.quaternion).invert());
+    // Rotate directions, not their parent: the centered mote remains the origin
+    // while the entire spherical ray field turns smoothly through three axes.
+    if(kind==='ranger')rayRotation.setFromEuler(rayEuler.set(age*.47+rayPhase,age*.31,age*.62+rayPhase*.4,'XYZ'));
     for(let i=0;i<count;i++){
      if(kind==='fighter'){
       const t=age-DRUK_EXPLOSION_DELAY-random(i+1)*.045,life=1.35+random(i+2)*.55;
@@ -78,9 +83,9 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
      }else{
       // Fibonacci sphere: a luminous volume above, below and around the mote,
       // rather than a horizontal fan. Rays begin inside the resin at the mote.
-      const angle=i*2.399963+Math.sin(now*.00023+i)*.12;
+      const angle=i*2.399963;
       const vertical=1-2*(i+.5)/count,radial=Math.sqrt(1-vertical*vertical);
-      direction.set(Math.cos(angle)*radial,Math.sin(angle)*radial,vertical);
+      direction.set(Math.cos(angle)*radial,Math.sin(angle)*radial,vertical).applyQuaternion(rayRotation);
       const length=2.5+random(i+5)*1.25;
       transform.position.copy(mote).applyQuaternion(root.quaternion).addScaledVector(direction,length*.5);
       transform.quaternion.setFromUnitVectors(rayAxis,direction);
