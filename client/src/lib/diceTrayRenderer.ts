@@ -84,7 +84,9 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
   const trayScale=toss.trayScale??1;
   const tray=new THREE.Group();tray.scale.set(trayScale,trayScale,1);scene.add(tray);
-  const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60*trayScale);camera.position.set(0,-8,25).multiplyScalar(trayScale);camera.lookAt(0,0,.25);
+  // Frame every physical pool at the same apparent tray size. Larger pools
+  // retain their established dice-to-tray ratio and therefore look smaller.
+  const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60*trayScale);camera.position.set(0,-8,25).multiplyScalar(trayScale);camera.lookAt(0,0,.25*trayScale);camera.updateMatrixWorld();
   let tableScene:ReturnType<typeof createDiceTableScene>|undefined;
   let tableKey='',sceneRevision=0,preparedSize='';
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.45));
@@ -188,12 +190,12 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     startTableCamera(){tableScene?.run();},
     setTableMap(snapshot:StateSnapshot,viewerId?:string){tableScene?.map(snapshot,viewerId);},
     tableCameraState(){return tableScene?.state();},
-    // Grow the physical tray inside a fixed viewport, with enough camera
-    // clearance for its new size. Live dice start after this geometry settles.
-    setLiveTraySize(scale:number,viewScale:number){
-      tray.scale.set(scale,scale,1);
-      camera.position.set(0,-8,25).multiplyScalar(viewScale);camera.lookAt(0,0,.25);
-      camera.zoom=1;camera.updateMatrixWorld();camera.updateProjectionMatrix();
+    trayFootprint(){
+      // Project the actual deck corners for browser framing checks.
+      return [[-7.4,-4.9],[7.4,-4.9],[7.4,4.9],[-7.4,4.9]].map(([x,y])=>{
+        const p=new THREE.Vector3(x*trayScale,y*trayScale,0).project(camera);
+        return {x:(p.x+1)/2,y:(1-p.y)/2};
+      });
     },
     setReviewZoom(zoom:number){camera.zoom=zoom;camera.updateProjectionMatrix();},
     setResults(values:readonly (number|null)[]){liveResults=values;},

@@ -68,15 +68,17 @@ a rest. Combined spell slots must not raise a class's spell-learning allowance.
 ## Optional captures and AI demonstrations
 
 `dice-rider-reading.spec.ts` exercises real attack, weapon damage, superiority
-dice and a target save. Consecutive rolls retain one card, crossfade for 180 ms,
-and acknowledge readiness only after that fade so the toss remains visible.
+dice and a target save. Consecutive rolls retain one card and acknowledge
+readiness after the artwork handoff so the toss remains visible.
 The outer roll window keeps fixed bounds throughout an automatic roll sequence,
 including new dice pools, modifier chips and DM saves. Its result areas reserve
-space and scroll within that space. Same-theme pools continuously resize the 3D
-tray geometry inside a fixed viewport over 460 ms; no card transform, same-tray
-bitmap swap, or canvas remount. Different character/DM artwork retains its
-360 ms crossfade within that viewport. Browser assertions measure the card's
-position, size and transform every frame as well as intermediate tray scales.
+space and scroll within that space. The tray fills its fixed viewport at the
+same apparent size for every pool. Existing physical dice-to-tray ratios are
+preserved: larger pools make dice appear smaller, without growing the visible
+tray, remounting its canvas or scaling the card. Different character/DM artwork
+retains its 360 ms crossfade within that viewport. Browser assertions measure
+card bounds, canvas visibility and actual projected deck corners across weapon,
+rider and save rolls, alongside the pool's unchanged physical die radius.
 Incoming dice
 bypass only their entry rim; the other three walls always collide. A small
 throw has an upward release velocity as well as horizontal travel and spin.

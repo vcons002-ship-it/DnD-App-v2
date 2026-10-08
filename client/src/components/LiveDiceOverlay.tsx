@@ -12,7 +12,6 @@ import './PhysicsDiceTray.css';
 import {createDiceSound,rollingSpeeds} from '../lib/diceSfx';
 import {metresPerUnitFor} from '../../../shared/diceImpacts';
 import {liveNaturalCritical} from '../lib/diceFinaleTiming';
-import {trayResizeAt} from '../lib/diceTrayResize';
 import {playCritical} from '../lib/sfx';
 
 /** Render authoritative poses with a short interpolation buffer. No local physics,
@@ -39,16 +38,15 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  },[skip]);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const canvas=useRef<HTMLCanvasElement>(null),root=useRef<HTMLDivElement>(null),card=useRef<HTMLDivElement>(null);
- const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),previousTheme=useRef(diceThemeForRoll(frame.className,frame.dmDice).id),handoffDuration=useRef(180),previousTrayScale=useRef(frame.trayScale??1),handoffZoom=useRef(1),fromTrayScale=useRef(frame.trayScale??1),swappingTray=useRef(false);
+ const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),previousTheme=useRef(diceThemeForRoll(frame.className,frame.dmDice).id),handoffDuration=useRef(180),swappingTray=useRef(false);
  useLayoutEffect(()=>{
   const node=card.current;if(!node)return;
   const changed=previousId.current!==frame.id;
   const nextTheme=diceThemeForRoll(frame.className,frame.dmDice).id;
   if(changed){
-   const scale=frame.trayScale??1;fromTrayScale.current=previousTrayScale.current;handoffZoom.current=previousTrayScale.current/scale;
    swappingTray.current=nextTheme!==previousTheme.current;
-   handoffDuration.current=nextTheme!==previousTheme.current?360:Math.abs(handoffZoom.current-1)>.01?460:180;
-   previousTheme.current=nextTheme;previousTrayScale.current=scale;
+   handoffDuration.current=nextTheme!==previousTheme.current?360:180;
+   previousTheme.current=nextTheme;
   }
   if(changed&&canvas.current){canvas.current.dataset.physicsElapsed='0';canvas.current.dataset.rollPower='[]';canvas.current.dataset.explosionAt='';}
   if(changed&&swappingTray.current&&canvas.current&&outgoing.current&&!reduced){
@@ -128,6 +126,9 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    lease=module.acquireLiveTrayRenderer(context,Array.from({length:capacity},(_,index)=>({sides:frame.sides[index]??8,value:1,index,set:frame.sets[index],crit:frame.critical[index],tens:frame.percentile[index]==='tens',ones:frame.percentile[index]==='ones'})),toss,theme,art);
    renderer=lease.value;root.current!.dataset.rendererReused=String(lease.reused);
    const node=canvas.current!,ctx=node.getContext('2d')!;
+   node.dataset.trayFootprint=JSON.stringify(renderer.trayFootprint());
+   node.dataset.trayScale=String(frame.trayScale??1);
+   node.dataset.diceRadius=String(frame.radius);
    const width=node.clientWidth||600;
    await Promise.all([
     reduced?Promise.resolve():renderer.prepare(width,width*10.2/15.2,Math.min(2,devicePixelRatio||1),()=>!stopped),
@@ -150,9 +151,6 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
       renderer!.setResults(b.frame.values);
       renderer!.setExplosionTime(finale.current.deadline);
      if(zoomStartedAt===undefined)zoomStartedAt=now;
-     const resize=trayResizeAt(fromTrayScale.current,frame.trayScale??1,reduced?460:now-zoomStartedAt);
-     renderer!.setLiveTraySize(resize.scale,resize.viewScale);
-     node.dataset.trayScale=String(resize.scale);node.dataset.zoomProgress=String(resize.progress);
      if(!b.frame.done){resultsStartedAt=undefined;finalTrayDrawn=false;}
      const alpha=reset||a===b?1:Math.max(0,Math.min(1,(target-a.at)/(b.at-a.at)));
      const width=node.clientWidth||600,height=width*10.2/15.2,dpr=Math.min(2,devicePixelRatio||1);
@@ -197,10 +195,10 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
        const fade=cover.animate([{opacity:1,transform:'translateX(0)'},{opacity:0,transform:'translateX(-14px)'}],{duration:handoffDuration.current,easing:'ease-in-out',fill:'forwards'});animations.push(fade);
        animations.push(node.animate([{opacity:0,transform:'translateX(14px)'},{opacity:1,transform:'none'}],{duration:handoffDuration.current,easing:'ease-in-out'}));
        fade.finished.then(()=>{if(!stopped){cover.style.opacity='0';cover.dataset.phase='idle';handoffReady=true;}}).catch(()=>{});
-      }else if(cover){cover.style.opacity='0';cover.dataset.kind=Math.abs(handoffZoom.current-1)>.01?'tray-resize':'same-tray';cover.dataset.phase='resizing';}
+      }else if(cover){cover.style.opacity='0';cover.dataset.kind='same-tray';cover.dataset.phase='preparing';}
      }
      if(!swappingTray.current||reduced){handoffReady=now-zoomStartedAt>=handoffDuration.current||reduced;if(handoffReady&&outgoing.current)outgoing.current.dataset.phase='idle';}
-     // Begin physics after the tray resize/crossfade, so none of the actual toss is hidden.
+     // Begin physics after the artwork handoff, so none of the toss is hidden.
      if(!readySent&&handoffReady){readySent=true;useStore.getState().socket?.emit('dice:ready',{id:frame.id});}
      if(!result&&b.frame.done&&(finalWasDrawn||reduced)){
        // Start on the frame AFTER the final WebGL draw has painted. Otherwise
