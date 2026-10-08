@@ -13,7 +13,11 @@ dice. A maximum damage die is still damage, not a critical hit.
   faces use the same polished obsidian shader as the exterior, without gold
   markings or the molten warning layer. Cannon rigid bodies handle
   the forceful launch and collisions with the tray and other shards. They stop
-  tumbling before fading in place, without melting, liquid splashes or pools.
+  tumbling before fading in place, without melting or liquid splashes. A bright
+  lava pool remains at each maximum die's explosion position until the roll is
+  cleared. Its irregular cooled rim, drifting molten channels and dark floating
+  crust retain texture around the hot center. A soft amber spill stays on the
+  felt; pools add no particles, physics bodies or dynamic lights.
   High natural rolls expose more branching fissures and hotter lava glow,
   while retaining predominantly black obsidian behind the readable gold numbers.
   Crack width and heat are capped below the maximum's warning intensity.

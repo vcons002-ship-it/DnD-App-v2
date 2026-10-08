@@ -2757,3 +2757,4 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Druk ordinary high rolls retain predominantly black obsidian for gold-number contrast; narrower fissures and capped heat preserve readability. Mostly molten coverage remains exclusive to the maximum-roll explosion warning.
 - [x] Druk shard interiors use the same polished black obsidian shader as the exterior instead of a separate physical material that appeared gray under tray lighting.
 - [x] Fixed shard-interior heat sharing the intact die's roll-power uniform, which incorrectly dimmed ordinary high-roll cracks. Restored the readable high-roll glow without widening fissures or reducing black obsidian coverage.
+- [x] Druk maxima leave bright, persistent lava pools at their explosion positions: cooled irregular rims, moving molten channels, floating crust and soft felt glow. Solid obsidian shards still settle and fade; pools clear with the roll.

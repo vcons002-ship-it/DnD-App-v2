@@ -3,6 +3,7 @@ import type {Body} from 'cannon-es';
 import {fractureDie,type FracturePlane} from './diceFracture';
 import {createShatterWorld,type ShatterWorld} from './diceShatterPhysics';
 import {DRUK_EXPLOSION_DELAY} from './diceRollPower';
+import {createDiceLavaPool} from './diceLavaPool';
 
 type SurfaceVertex={p:THREE.Vector3;n:THREE.Vector3;uv:THREE.Vector2};
 function clipSurface(vertices:SurfaceVertex[],plane:FracturePlane){
@@ -22,6 +23,7 @@ function clipSurface(vertices:SurfaceVertex[],plane:FracturePlane){
 export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_critical:boolean){
  const original=root.children.filter((c):c is THREE.Mesh=>c instanceof THREE.Mesh&&!c.userData.dicePowerArt);
  const cells=fractureDie(faces),group=new THREE.Group();group.matrixAutoUpdate=false;group.userData.dicePowerArt=true;root.add(group);
+ const pool=createDiceLavaPool(group);
  const geometries:THREE.BufferGeometry[]=[],materials:THREE.Material[]=[],outerMaterials:THREE.ShaderMaterial[]=[];
  const fragments=cells.map(cell=>{
   const object=new THREE.Group();object.visible=false;group.add(object);
@@ -61,11 +63,12 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
  const random=(i:number)=>{const n=Math.sin(i*127.1+revision*47.7+311.7)*43758.5453;return n-Math.floor(n);};
  const clear=()=>{
   for(const f of fragments){if(f.body)physics?.remove(f.body);f.body=undefined;f.frozen=false;f.object.visible=false;}
-  active=false;erupted=false;
+  active=false;erupted=false;pool.clear();
  };
  const start=()=>{
   if(!physics){physics=createShatterWorld(.85,1,-1);owned=true;}
   revision++;root.getWorldPosition(origin);root.getWorldScale(scale);root.getWorldQuaternion(rotation);
+  pool.start(origin,scale.x,owned?-1:0,random(29)*100);
   for(const [i,f] of fragments.entries()){
    const size=scale.x,body=physics.addChunk(f.cell.vertices.map(v=>v.clone().multiplyScalar(size*.985).toArray()),f.cell.indices,f.cell.volume*Math.pow(size,3));f.body=body;
    const p=root.localToWorld(f.cell.center.clone());body.position.set(p.x,p.y,p.z);body.quaternion.set(rotation.x,rotation.y,rotation.z,rotation.w);
@@ -77,8 +80,8 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
  };
  return {
   setWorld(world:ShatterWorld){clear();if(owned)physics?.dispose();physics=world;owned=false;},
-  prewarm(enabled:boolean){for(const f of fragments)f.object.visible=enabled;for(const material of outerMaterials)material.uniforms.shatterFade.value=0;},
-  state(){return {broken,fragments:active?cells.length:0,frozenFragments:fragments.filter(f=>f.frozen).length,lava:0,pools:0,melting:0,preservedSurfaces:fragments.reduce((n,f)=>n+f.preserved,0),physics:physics?.stats()};},
+  prewarm(enabled:boolean){for(const f of fragments)f.object.visible=enabled;for(const material of outerMaterials)material.uniforms.shatterFade.value=0;pool.prewarm(enabled);},
+  state(){return {broken,fragments:active?cells.length:0,frozenFragments:fragments.filter(f=>f.frozen).length,lava:0,pools:broken?1:0,melting:0,preservedSurfaces:fragments.reduce((n,f)=>n+f.preserved,0),physics:physics?.stats()};},
   update(now:number,maximum:boolean,age:number,reduced:boolean,camera:THREE.Camera){
    broken=maximum&&!reduced&&age>=DRUK_EXPLOSION_DELAY;for(const object of original)object.visible=!broken;
    if(!broken&&erupted)clear();
@@ -86,6 +89,7 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
    if(owned)physics?.advance(now);
    root.updateMatrixWorld(true);group.matrix.copy(root.matrixWorld).invert();group.matrixWorldNeedsUpdate=true;group.updateMatrixWorld(true);
    const t=age-DRUK_EXPLOSION_DELAY,floor=owned?-1:0,heat=Math.exp(-Math.max(0,t)*.85),fade=broken?1-THREE.MathUtils.smoothstep(t,1.8,2.6):0;
+   pool.update(now,t,broken);
    for(const material of outerMaterials){material.uniforms.shatterFade.value=fade;material.uniforms.rollPower.value=heat;}
    for(const f of fragments){
     f.object.visible=active&&fade>0;if(!f.body)continue;
@@ -99,6 +103,6 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
    }
    if(active&&t>=2.6){for(const f of fragments)if(f.body)physics!.remove(f.body);active=false;}
   },
-  dispose(){clear();if(owned)physics?.dispose();for(const object of original)object.visible=true;geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());root.remove(group);},
+  dispose(){clear();pool.dispose();if(owned)physics?.dispose();for(const object of original)object.visible=true;geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());root.remove(group);},
  };
 }
