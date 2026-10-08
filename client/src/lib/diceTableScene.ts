@@ -7,6 +7,8 @@ import type {StateSnapshot} from '../../../shared/types';
 // session texture instead of rasterizing and uploading 263,000 points per roll.
 let tableGrain:THREE.CanvasTexture|undefined;
 let tableWarmup:Promise<void>|undefined;
+let tableBackground='';
+export const diceTableBackground=()=>tableBackground;
 export function preloadDiceTableTexture(){
  return tableWarmup??= (async()=>{
   const started=performance.now();
@@ -20,8 +22,21 @@ export function preloadDiceTableTexture(){
   }
   for(let y=0;y<1024;y+=256){ctx.fillStyle='#080402';ctx.fillRect(0,y,2048,2);}
   tableGrain=new THREE.CanvasTexture(wood);tableGrain.colorSpace=THREE.SRGBColorSpace;
+  tableBackground=wood.toDataURL('image/jpeg',.9);
   performance.measure('dice-table-texture-preparation',{start:started,end:performance.now()});
  })();
+}
+
+/** The production tray only needs the lacquered surface. No map, peer trays,
+ * camera rig or inactive dice are built for this background. */
+export function createPlainDiceTableSurface(scene:THREE.Scene,scale:number){
+ const geometry=new THREE.PlaneGeometry(60*scale,48*scale);
+ const material=new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.28,metalness:0,
+  envMap:scene.environment,envMapIntensity:.06,clearcoat:.3,clearcoatRoughness:.24});
+ const mesh=new THREE.Mesh(geometry,material);mesh.name='plain-dice-table';
+ mesh.position.z=-.56;mesh.receiveShadow=true;scene.add(mesh);
+ return {mesh,prepare(){if(material.map===tableGrain)return false;material.map=tableGrain??null;material.needsUpdate=true;return true;},
+  dispose(){scene.remove(mesh);geometry.dispose();material.dispose();}};
 }
 
 /** Decorative trays share the active tray's geometry; only their materials and

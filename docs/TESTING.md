@@ -33,7 +33,7 @@ CI uploads browser traces, screenshots, and failure context as `browser-test-res
 The current roller streams server physics before committing a result. Tests must wait for a particular roll or pending-hit ID and its final result, rather than assume it completes within five seconds.
 
 - A hit creates a pending damage choice without precomputed damage faces or modifiers. Rolling damage then commits the weapon, rider, modifiers, and HP change.
-- Floating damage components must sum to the defended HP event, with one HP/death/concentration application per combined hit. One red total per creature/impact includes both a weapon hit and its AoE rider; smaller colored components explain mixed hits. `hpFeedback`, `marks`, `hailOfThorns` and `areaSpells` cover type defenses and compact per-token offsets; nearby victims must never push numbers across the map. `hunters-mark` and `spell-impact-timing` exercise real bow/mark/thorns rolls and verify totals against HP loss, distinct colors, the four-second number lifetime, and numbers without long captions.
+- Floating damage components must sum to the defended HP event, with one HP/death/concentration application per combined hit. One red total per creature/impact includes both a weapon hit and its AoE rider; smaller colored components explain mixed hits. `hpFeedback`, `marks`, `hailOfThorns` and `areaSpells` cover type defenses and compact per-token offsets; nearby victims must never push numbers across the map. `hunters-mark` and `spell-impact-timing` exercise real bow/mark/thorns rolls and verify totals against HP loss, distinct colors, the readable component and final-total lifetimes, and numbers without long captions.
 - Compare visible physical faces and persisted arithmetic after settlement. Keep advantage/disadvantage kept/discarded checks, percentile arithmetic, critical extra dice, bonus labels, and class material checks.
 - Check the current live tray and result boxes. The old prerecorded renderer's comparison markup does not describe the live workflow.
 - Initiative starts with the DM; claimed players retain their own Roll initiative button. Your Turn and result announcements should be checked at their intended presentation phase.
@@ -79,8 +79,11 @@ checks that the canvas fills at least 80 percent of the window width on the
 desktop combat fixture. The tray fills its fixed viewport at the
 same apparent size for every pool. Existing physical dice-to-tray ratios are
 preserved: larger pools make dice appear smaller, without growing the visible
-tray, remounting its canvas or scaling the card. Different character/DM artwork
-retains its 360 ms crossfade within that viewport. Browser assertions measure
+tray, remounting its canvas or scaling the card. Different player artwork
+retains its 360 ms crossfade. Player/DM handoffs instead pan across plain
+lacquered wood in 460 ms; the incoming physics waits for the pan and the
+existing 220 ms anticipation. The same cached wood texture underlies each
+tray and is prepared only once per browser session. Browser assertions measure
 card bounds, canvas visibility and actual projected deck corners across weapon,
 rider and save rolls, alongside the pool's unchanged physical die radius.
 Incoming dice
@@ -97,9 +100,10 @@ dice and DM dice do not activate this clock.
 Results without modifiers retain their 2.5-second reading/effects hold. Set
 `DICE_RIDER_VIDEO` to capture this sequence with NVIDIA AV1.
 
-Camera panning is parked on `prototype/dice-table-camera-20261008` (commit
+The map-centered 3D camera-panning experiment is parked on `prototype/dice-table-camera-20261008` (commit
 `97e730c`). Its `dice-table-camera.spec.ts` and recordings are prototype evidence,
-not requirements for the production crossfade UI.
+not requirements for the production surface and two-image pan compositor.
+Private DM rolls still create no player tray or transition (`live-dice-contract`).
 The `dice-preload` browser suite waits for background preparation while the
 character chooser is still open, then verifies that the first d20 borrows a
 prepared scene and begins live physics within two seconds of clicking. It checks

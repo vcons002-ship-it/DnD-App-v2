@@ -215,7 +215,7 @@
 /* Canvas-heavy roll windows use viewport sizing, independently of HUD zoom. */
 .player-fantasy [data-dice-presentation]:not(.is-impact)>.roll-reveal{zoom:1;}
 .dice-tray-viewport{min-height:0;container-type:size;display:grid;place-items:center;overflow:hidden;}
-.dice-tray-stage{position:relative;width:min(100cqw,149.0196cqh);aspect-ratio:15.2/10.2;}
+.dice-tray-stage{position:relative;width:min(100cqw,149.0196cqh);aspect-ratio:15.2/10.2;overflow:hidden;border-radius:14px;background-color:#382217;background-size:cover;}
 .dice-tray-stage .dice-tray-canvas{background:transparent;}
 [data-dice-presentation]:not(.is-impact) .dice-tray-results{align-content:start;overflow:auto;min-height:0;padding:6px 0;margin:0;}
 .tray-result-panel{min-height:0;overflow:auto;}

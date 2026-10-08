@@ -1,5 +1,11 @@
 # Roadmap & Feature Backlog
 
+- [x] Dice trays sit on a cached lacquered wooden table. Visible player/DM
+  handoffs pan across plain wood in 460 ms inside the fixed roll window, then
+  release the toss after the existing anticipation. Same-tray transitions and
+  result-reading clocks are unchanged; private DM rolls stay private. The
+  map-centered camera prototype remains parked.
+
 - [x] Floating damage components hold for one second and fade for 400 ms, then
   the final red total stays fully visible for 3.2 seconds before its gentle fade.
   Timing begins after the roll sequence exposes the map; shared AoE and
