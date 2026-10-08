@@ -1,11 +1,11 @@
-import {liveDiceResultWaitMs,liveCalculationWaitMs} from '../../shared/dicePresentationTiming.js';
+import {liveDiceResultWaitMs,liveCalculationWaitMs,LIVE_DICE_RESULT_HOLD_MS} from '../../shared/dicePresentationTiming.js';
 import {randomInt,randomUUID} from 'node:crypto';
 import {createLiveWorld} from '../../shared/liveDicePhysics.js';
 import {withDiceSource,rollDice,type PhysicalDiceInfo} from '../../shared/dice.js';
 import {db} from './db.js';
 import {checkpointHpFx,faceTokenToward} from './sessions.js';
 import {checkpointReactions} from './reactions.js';
-import {stageRollEffects,stagedRollFacing,withLiveCalculationPresenter,type RollFacing} from './liveRollContext.js';
+import {stageRollEffects,stagedRollFacing,withLiveCalculationPresenter,resetLiveRollReveal,hasLiveRollReveal,type RollFacing} from './liveRollContext.js';
 import type {RollReveal} from '../../shared/types.js';
 import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../shared/liveDiceTypes.js';
@@ -13,6 +13,7 @@ import {matchingDiceTrigger,sorcerousDiceTrigger} from '../../shared/diceTrigger
 
 class NeedDice extends Error {constructor(public sides:number[],public info:PhysicalDiceInfo,public facing:RollFacing[]){super('Waiting for physical dice');}}
 class NeedCalculation extends Error {constructor(public key:string,public reveal:RollReveal){super('Waiting for roll calculation');}}
+class NeedReading extends Error {}
 const queues=new Map<string,Promise<void>>();
 export const rollInProgress=(sid:string)=>queues.has(sid);
 export function enqueueRoll(sid:string,run:()=>Promise<void>|void,onError:(e:unknown)=>void){
@@ -149,7 +150,8 @@ async function burstFaces(sides:number[],publish:(frame:LiveDiceFrame)=>void,met
   }catch(e){clearInterval(timer);reject(e);}},1000/30);
  });
  faces.forEach((face,i)=>{if(face===8)current.parents.push(start+i);});
- const readingMs=liveDiceResultWaitMs(faces.length);
+ // Bursting dice need time to show the link before the next live dice enter.
+ const readingMs=liveDiceResultWaitMs(faces.length,false,true);
  if(waitForPresentation)await waitForPresentation(current.id,readingMs);else await new Promise(resolve=>setTimeout(resolve,readingMs));
  return faces;
 }
@@ -160,6 +162,14 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
  meta={...meta,burstTray:{}};
  const tape:{sides:number[];faces:number[]}[]=[];
  const calculated=new Set<string>();let lastFrame:LiveDiceFrame|undefined,lastInfo:PhysicalDiceInfo|undefined;
+ const needsReading=()=>!!lastFrame?.done&&!lastFrame.calculation&&lastFrame.resultHoldMs===undefined&&!lastInfo?.saveDice&&!lastFrame.burstProgress;
+ const holdResult=async()=>{
+  if(!needsReading())return;
+  lastFrame={...lastFrame!,seq:lastFrame!.seq+1,resultHoldMs:LIVE_DICE_RESULT_HOLD_MS};
+  publish(lastFrame,lastInfo);
+  if(meta.waitForPresentation)await meta.waitForPresentation(lastFrame.id,LIVE_DICE_RESULT_HOLD_MS);
+  else if(roll===physicalFaces)await new Promise(resolve=>setTimeout(resolve,LIVE_DICE_RESULT_HOLD_MS));
+ };
  for(;;){
   let cursor=0;const undoHp=checkpointHpFx(),undoReactions=checkpointReactions();
   try{
@@ -172,11 +182,17 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
     const recorded=tape[cursor++];
     if(!recorded)throw new NeedDice(sides,info,stagedRollFacing());
     if(recorded.sides.join(',')!==sides.join(','))throw new Error('Roll context changed before completion');
+    if(cursor===tape.length)resetLiveRollReveal();
     return recorded.faces.slice();
-   },()=>{run();if(cursor!==tape.length)throw new Error('Roll context changed before completion');}))))();
+   },()=>{run();if(cursor!==tape.length)throw new Error('Roll context changed before completion');
+    // A rider may have no final reveal (the combined hit was already shown).
+    // Roll back before waiting, just as for explicit calculation stages.
+    if(needsReading()&&!hasLiveRollReveal())throw new NeedReading();
+   }))))();
    for(const effect of pass.effects)effect();return;
   }catch(e){
    undoHp();undoReactions();
+   if(e instanceof NeedReading){await holdResult();continue;}
    if(e instanceof NeedCalculation){
     if(lastFrame){
      lastFrame={...lastFrame,seq:lastFrame.seq+1,calculation:{...e.reveal,physical:true}};
@@ -189,6 +205,8 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
     calculated.add(e.key);continue;
    }
    if(!(e instanceof NeedDice))throw e;
+   // Never replace an unmodified throw with a save/rider before it was read.
+   await holdResult();
    // The validated roll is about to start. Persist only its presentation turn;
    // HP, slots and dice outcomes remain rolled back until the command commits.
    let turned=false;

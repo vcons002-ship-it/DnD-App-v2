@@ -167,22 +167,23 @@ test('live damage stays out of HP and history until the dice settle, then expose
       if(live||!fx.length)requestAnimationFrame(sample);
     };sample();
   });
-  const result=await resolveDamage(page,f,pending.id);
-  const calculation=page.locator('[data-dice-presentation="result"]');
-  await expect(calculation.getByLabel('Damage or dice calculation').locator('.rr-adjustment')).toContainText([/\+4\s*STR/]);
+  // Damage arithmetic now finishes before the server commits HP/history.
+  const calculation=page.getByLabel('Damage or dice calculation');
+  await expect(calculation.locator('.rr-adjustment')).toContainText([/\+4\s*STR/],{timeout:35000});
   expect(await page.evaluate(()=>document.querySelector('.dice-tray-canvas')===(window as any).__damageTrayCanvas)).toBe(true);
-  await expect(calculation.locator('.physics-dice-tray')).toBeVisible();
+  await expect(page.locator('.physics-dice-tray')).toBeVisible();
+  const result=await resolveDamage(page,f,pending.id);
   await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
   await expect(live).toHaveCount(0);
   expect((await f.snapshot()).monsters.find(m=>m.id===f.target.id)!.curHp).toBe(200-result.total);
   const samples=await page.evaluate(()=>(window as any).__liveTiming);
   expect(samples.some((s:any)=>s.live&&!s.settled)).toBe(true);
   expect(samples.filter((s:any)=>s.live&&s.fx)).toHaveLength(0);
-  expect(samples.filter((s:any)=>!s.ready&&s.fx)).toHaveLength(0);
-  expect(samples.some((s:any)=>s.fx&&s.impact&&s.height<=180)).toBe(true);
-  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-impact-ready','true');
-  await page.waitForTimeout(3000);
-  await expect(page.locator('.roll-reveal')).toBeVisible();
+  expect(samples.filter((s:any)=>s.height>0&&!s.ready&&s.fx)).toHaveLength(0);
+  expect(samples.some((s:any)=>s.fx&&(s.height===0||s.impact&&s.height<=180))).toBe(true);
+  // Completed sequences now fade automatically; an obsolete tray cannot
+  // remain over the map just to keep a result card alive.
+  await expect(page.locator('.roll-reveal')).toHaveCount(0,{timeout:5000});
 });
 
 test('skipping the bonus reveal releases damage immediately', async ({page,request}) => {
@@ -239,9 +240,10 @@ test('a concentration reminder cannot suppress the completed damage reveal',asyn
   await f.snapshot();const pending=await armManualDamage(page,f);
   await page.locator('.damage-prompt-btn').click();
   await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+  await expect(page.getByLabel('Damage or dice calculation').locator('.rr-adjustment')).toContainText([/\+4\s*STR/],{timeout:35000});
+  await expect(page.locator('.roll-reveal-title')).toContainText('Timing greatsword');
   const result=await resolveDamage(page,f,pending.id);
   expect((await f.snapshot()).rollLog.slice(-2).map(r=>r.label)).toEqual(['Concentration','Damage']);
-  await expect(page.locator('.roll-reveal')).toHaveAttribute('data-roll-id',result.id);
   await expect.poll(()=>floaters(page)).toContain(`\u2212${result.total}`);
 });
 

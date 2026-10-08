@@ -4,8 +4,16 @@ import { rollD20Detail, rollWeaponAttack } from '../../shared/combatMath.js';
 import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { withRollComparison } from '../../shared/dicePresentation.js';
 import type { RollReveal, Weapon } from '../../shared/types.js';
+import {DIE_REVEAL_MS,DIE_REVEAL_STAGGER_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs,liveCalculationWaitMs} from '../../shared/dicePresentationTiming.js';
 
 afterEach(() => vi.restoreAllMocks());
+
+it('hands faces straight to arithmetic while retaining reading time for completed results and grouped saves',()=>{
+  expect(liveDiceResultWaitMs(2)).toBe(250+DIE_REVEAL_MS+DIE_REVEAL_STAGGER_MS);
+  expect(liveDiceResultWaitMs(2,true)).toBe(liveDiceResultWaitMs(2)+LIVE_DICE_RESULT_HOLD_MS+1800);
+  expect(liveDiceResultWaitMs(2,false,true)).toBe(liveDiceResultWaitMs(2)+LIVE_DICE_RESULT_HOLD_MS);
+  expect(liveCalculationWaitMs(0)).toBeGreaterThanOrEqual(LIVE_DICE_RESULT_HOLD_MS);
+});
 
 describe('both server-recorded advantage/disadvantage candidates', () => {
   it.each(['adv', 'dis'] as const)('keeps complete multi-term %s sets, including negative dice, without changing the result', (mode) => {

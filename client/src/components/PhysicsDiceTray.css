@@ -1,4 +1,11 @@
 .physics-dice-tray{position:relative;width:100%;min-width:0;margin:10px 0;}
+.roll-overlay-presence{position:fixed;inset:0;z-index:60;pointer-events:none;animation:roll-overlay-enter 180ms ease-out;}
+.roll-overlay-presence.is-leaving{opacity:0;transition:opacity 180ms ease-out;}
+.roll-overlay-presence.is-leaving .roll-reveal{pointer-events:none;}
+.roll-overlay-presence .roll-reveal:has(.physics-dice-tray){animation:none;transform-origin:center;}
+.dice-tray-transition{position:absolute;left:0;top:0;width:100%;aspect-ratio:15.2/10.2;border-radius:14px;opacity:0;pointer-events:none;z-index:3;}
+@keyframes roll-overlay-enter{from{opacity:0;}to{opacity:1;}}
+@media(prefers-reduced-motion:reduce){.roll-overlay-presence{animation:none!important;transition:none!important;}}
 .dice-tray-canvas{display:block;width:100%;aspect-ratio:15.2/10.2;border-radius:14px;background:#111d1c;}
 .dice-tray-status{position:absolute;inset:0 0 40px;display:grid;place-content:center;color:#e6dac1;}
 .dice-tray-results{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding-top:8px;}
@@ -124,6 +131,9 @@
 /* One continuous tray: settled dice remain in place while labeled modifiers
    arrive below their result boxes. Only the finished map impact collapses it. */
 .tray-roll-result{width:100%;}
+.roll-reveal:has(.physics-dice-tray) .roll-reveal-outcome.tray-natural-critical{color:#ffcf4d;animation:tray-critical-arrival 2.4s ease-out both;}
+@keyframes tray-critical-arrival{0%{opacity:0;transform:translateY(-50%) scale(1.5);}12%,55%{opacity:1;transform:translateY(-50%) scale(1);}100%{opacity:0;transform:translateY(-50%) scale(1.03);}}
+@media(prefers-reduced-motion:reduce){.roll-reveal:has(.physics-dice-tray) .roll-reveal-outcome.tray-natural-critical{animation:none;}}
 .tray-roll-result .roll-reveal-tohit,.tray-roll-result .roll-reveal-damage{margin:0;}
 .tray-roll-result .roll-reveal-outcome{margin:6px 0;font-size:clamp(24px,4vw,38px);}
 [data-dice-presentation]:not(.is-impact)>.roll-reveal{width:min(760px,calc(100vw - 28px),max(300px,calc((90dvh - 360px)*1.49)));}

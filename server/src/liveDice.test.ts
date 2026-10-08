@@ -1,5 +1,5 @@
-import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS} from '../../shared/dicePresentationTiming.js';
-import {createSession,createCharacter,createMap,setActiveMap,createToken,createMonsterTemplate,instantiateMonster,setManualDamage,listRollLog,getMonster,getRollEntry,getCharacter} from './sessions.js';
+import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs} from '../../shared/dicePresentationTiming.js';
+import {createSession,createCharacter,createMap,setActiveMap,createToken,createMonsterTemplate,instantiateMonster,setManualDamage,listRollLog,getMonster,getRollEntry,getCharacter,addRollLog} from './sessions.js';
 import {resolveAttack,resolveAttackDamage,resolveSmite} from './combat.js';
 import {buildSnapshot} from './visibility.js';
 import {describe,it,expect} from 'vitest';
@@ -11,6 +11,29 @@ import {runLiveCommand,keptPhysicalSet,physicalFaces} from './liveRolls.js';
 import {afterRollCommit} from './liveRollContext.js';
 import {LIVE_DICE_PRESENTATION_RATE,LIVE_DICE_REROLL_WAIT_SECONDS} from '../../shared/liveDiceTypes.js';
 import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
+
+it('holds a final rider without a new result card, but does not delay a final attack calculation',async()=>{
+ const session=createSession('Final rider hold');const holds:number[]=[];let commits=0;
+ const frames:import('../../shared/liveDiceTypes.js').LiveDiceFrame[]=[];
+ const dice:typeof physicalFaces=async(sides,publish,meta)=>{
+  const values=sides.map(()=>8);publish({id:'rider',seq:0,done:true,sides,values,label:meta.label,roller:'Druk',className:'Fighter',sets:[0],critical:[false],percentile:[null],poses:[],rerolls:[0],radius:1,elapsed:1});return values;
+ };
+ await runLiveCommand(()=>{
+  const r=rollDice('1d8')!;
+  addRollLog(session.id,{roller:'Druk',label:'Combined hit already shown',expr:r.expr,total:r.total,detail:r.detail,reveal:{kind:'damage',attacker:'Druk',outcome:'hit',presentedLive:true}});
+  afterRollCommit(()=>commits++);
+ },frame=>frames.push(frame),{label:'Rider damage',roller:'Druk',className:'Fighter',waitForPresentation:async(_id,ms)=>{
+  holds.push(ms);expect(listRollLog(session.id)).toHaveLength(0);expect(commits).toBe(0);
+ }},dice);
+ expect(holds).toEqual([LIVE_DICE_RESULT_HOLD_MS]);expect(commits).toBe(1);
+ expect(frames.at(-1)?.resultHoldMs).toBe(LIVE_DICE_RESULT_HOLD_MS);
+ holds.length=0;
+ await runLiveCommand(()=>{
+  const r=rollDice('1d8')!;
+  addRollLog(session.id,{roller:'Druk',label:'Visible result',expr:r.expr,total:r.total,detail:r.detail,reveal:{kind:'dice',attacker:'Druk',outcome:'none',damage:r.total}});
+ },()=>{},{label:'Visible result',roller:'Druk',className:'Fighter',waitForPresentation:async(_id,ms)=>{holds.push(ms);}},dice);
+ expect(holds).toEqual([]);
+});
 
 it('uses authoritative faces for expressions, advantage and d20 combat math',()=>{
  expect(withDiceSource(s=>s.map((_,i)=>i+2),()=>rollDice('2d6+3'))?.total).toBe(8);
@@ -38,7 +61,9 @@ it('streams normal and gold critical dice together in the same live world',async
  expect(frames[0].values).toEqual([null,null,null,null]);
  expect(frames.every(f=>JSON.stringify(f.critical)==='[false,false,true,true]')).toBe(true);
  expect(frames.at(-1).values).toEqual(values);
- expect(performance.now()-settledAt).toBeGreaterThanOrEqual(DIE_REVEAL_MS+LIVE_DICE_RESULT_HOLD_MS);
+ const handoffMs=performance.now()-settledAt;
+ expect(handoffMs).toBeGreaterThanOrEqual(liveDiceResultWaitMs(4)-10);
+ expect(handoffMs).toBeLessThan(DIE_REVEAL_MS+LIVE_DICE_RESULT_HOLD_MS);
 },20000);
 
 it('a monster saving against a player spell uses DM dice instead of the caster class',async()=>{

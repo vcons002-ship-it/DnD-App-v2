@@ -67,6 +67,20 @@ a rest. Combined spell slots must not raise a class's spell-learning allowance.
 
 ## Optional captures and AI demonstrations
 
+`dice-rider-reading.spec.ts` exercises real attack, weapon damage, superiority
+dice and a target save. Consecutive rolls retain one card, crossfade for 180 ms,
+and acknowledge readiness only after that fade so the toss remains visible.
+Results without modifiers retain their 2.5-second reading/effects hold. Set
+`DICE_RIDER_VIDEO` to capture this sequence with NVIDIA AV1.
+
+Camera panning is parked on `prototype/dice-table-camera-20261008` (commit
+`97e730c`). Its `dice-table-camera.spec.ts` and recordings are prototype evidence,
+not requirements for the production crossfade UI.
+The `diceRendererCache` unit suite checks bounded retention, in-flight leases,
+large-pool disposal, session invalidation and maximum-roll state reset. The
+network contract checks that hidden DM rolls never reach either player while
+public player rolls still reach the DM and the rest of the party.
+
 Measured-area contracts live in `areaSpells`, `spell-execution` and
 `live-dice-workflow`: place/confirm before casting, grouped saves and automatic
 occupants, no repeated apply clicks, and cancellation without spending a slot.

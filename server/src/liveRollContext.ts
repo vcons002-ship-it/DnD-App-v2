@@ -16,10 +16,17 @@ export const stagedRollFacing=()=>facing.slice();
 export function noteRollFacing(value:RollFacing){if(active)facing.push(value);}
 let active=false;
 let effects:(()=>void)[]|null=null;
+let resultReveal=false;
+/** A final snapshot may render the last throw; earlier throws cannot use it. */
+export function noteLiveRollReveal(reveal:RollReveal|undefined){
+ if(active&&reveal&&!reveal.presentedLive)resultReveal=true;
+}
+export function resetLiveRollReveal(){if(active)resultReveal=false;}
+export const hasLiveRollReveal=()=>resultReveal;
 export const isLiveCommand=()=>active;
 export function stageRollEffects<T>(run:()=>T){
- active=true;effects=[];facing=[];
+ active=true;effects=[];facing=[];resultReveal=false;
  try {const value=run();return {value,effects};}
- finally {active=false;effects=null;facing=[];}
+ finally {active=false;effects=null;facing=[];resultReveal=false;}
 }
 export function afterRollCommit(effect:()=>void){if(effects)effects.push(effect);else effect();}

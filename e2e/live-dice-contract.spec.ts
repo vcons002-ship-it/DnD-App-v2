@@ -12,8 +12,9 @@ test('shared live faces, private rolls, percentile dice and server completion af
   s.on('dice:frame',f=>s.emit('dice:ready',{id:f.id}));return s;
  };
  try {
- const dm=await connect('dm'),player=await connect('player');const a:any[]=[],b:any[]=[];
+ const dm=await connect('dm'),player=await connect('player'),peer=await connect('player');const a:any[]=[],b:any[]=[],c:any[]=[];
  dm.on('dice:frame',f=>a.push(f));player.on('dice:frame',f=>b.push(f));
+ peer.on('dice:frame',f=>c.push(f));
  const snap=async(s=dm)=>(await s.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET})).snapshot;
  dm.emit('dice:roll',{expr:'1d100',label:'Percentile'});
  await expect.poll(async()=> (await snap()).rollLog.some((r:any)=>r.label==='Percentile'),{timeout:30000}).toBe(true);
@@ -24,10 +25,18 @@ test('shared live faces, private rolls, percentile dice and server completion af
  dm.emit('session:setHideDmRolls',{hide:true});await snap();dm.emit('dice:roll',{expr:'1d20',advantage:'adv',label:'Private advantage'});
  await expect.poll(async()=> (await snap()).rollLog.some((r:any)=>r.label==='Private advantage'),{timeout:30000}).toBe(true);
  expect(b.length).toBe(hidden);expect(a.length).toBeGreaterThan(first);
+ expect(c.some(f=>f.label==='Private advantage')).toBe(false);
  const playerView=await player.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'});
  expect(playerView.snapshot.rollLog.some((r:any)=>r.label==='Private advantage')).toBe(false);
  const frame=a.findLast(f=>f.done);expect(frame.kept).toBe(frame.values[0]>=frame.values[1]?0:1);
  expect((await snap()).rollLog.find((r:any)=>r.label==='Private advantage').total).toBe(Math.max(...frame.values));
+ // Hiding DM rolls does not hide a player's public roll from the other party
+ // members or DM. Those shared player rolls can switch the observed tray.
+ player.emit('dice:roll',{expr:'1d6',label:'Shared player roll'});
+ await expect.poll(async()=> (await snap()).rollLog.some((r:any)=>r.label==='Shared player roll'),{timeout:30000}).toBe(true);
+ expect(a.some(f=>f.label==='Shared player roll'&&f.done)).toBe(true);
+ expect(b.some(f=>f.label==='Shared player roll'&&f.done)).toBe(true);
+ expect(c.some(f=>f.label==='Shared player roll'&&f.done)).toBe(true);
  // A broken connection cannot cancel an already-started server roll.
  const disconnected=new Promise<void>(resolve=>dm.once('dice:frame',()=>{dm.disconnect();resolve();}));
  dm.emit('dice:roll',{expr:'1d6',label:'Disconnect completion'});await disconnected;

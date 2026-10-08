@@ -50,6 +50,7 @@ export function createWoodlandWake(scene:THREE.Scene,radius:number,indices:numbe
   particles.push({kind,x:x+nx*jitter-vx*.018,y:y+ny*jitter-vy*.018,z:radius*.12,vx:vx*.10+nx*(random(seed+1)-.5)*radius,vy:vy*.10+ny*(random(seed+1)-.5)*radius,born:now,life:650+random(seed+2)*400,seed,size:radius*(kind===0?.26+random(seed+3)*.13:.07),angle:Math.atan2(vy,vx)});
  }
  return {
+  reset(){particles.length=0;last.clear();leaves.mesh.count=seeds.mesh.count=0;moteGeometry.setDrawRange(0,0);},
   pointCount(){return particles.length;},
   branchCount(){return leaves.mesh.count;}, // Existing preview counter counts visible leaves.
   update(poses:THREE.Object3D[],now:number){

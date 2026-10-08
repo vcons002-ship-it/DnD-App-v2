@@ -1,5 +1,21 @@
 # Roadmap & Feature Backlog
 
+## Character roll-strength art - October 2026
+
+- [x] Production live dice use the approved 180 ms crossfade, retain consecutive throws in one card, wait for the fade before launching the toss and automatically dismiss completed sequences. Prepared-scene reuse remains enabled. The wooden table and camera-panning experiment is preserved on `prototype/dice-table-camera-20261008` at `97e730c` for later work.
+
+- [x] Natural attack 20s announce CRITICAL HIT immediately on the confirmed kept face, before modifiers. Druk maxima charge and shudder throughout calculation, burst one second before impact, and leave a smaller molten pool with flickering flame tongues and small radial splatter instead of falling blobs. Skip remains immediate.
+
+- [x] Vanec lightning frequency now scales with a much wider exponential gap: low rolls spark then pause, strong rolls repeat several times during the result hold, and maxima retain rapid randomized crimson bursts. Confirmation resets an inherited idle pause.
+
+- [x] Varis maximum centers its mote and softly rotates eight green-gold shafts through the resin and out into the air, with shorter lengths, narrow widths and gentle fades. Internal illumination stays subdued; hard spotlight cones and bright face apertures remain removed. Reduced motion omits escaping rays.
+
+- [x] Reworked Druk's release into a dominant draining mass with asymmetric tapered lobes and varied small drops, sharing the pool's molten surface and cooling crust.
+
+- [x] DM resin clouds curl more actively with stronger internal contrast; confirmed maximum faces turn the cloud blood red, preserving separate opaque gold numerals. DM is included in the roll-strength art reviewer.
+
+- [x] Druk lava fissures and heat, Vanec discharge frequency, and Varis mote illumination scale with each confirmed natural face on d20 and all damage dice. Maximum rolls fracture Druk into textured pieces of the original die with shared contact physics; solid shards settle before fading in place, fire randomly oriented crimson lightning bursts for Vanec, or center Varis's mote to softly illuminate the resin from within. Live/playback/standalone dice share the treatment, including percentile pairs and gold critical dice; repeated frames cannot retrigger bursts and reduced motion omits maximum geometry. `/dice-power.html` compares labeled sample values. See `docs/DICE_ROLL_POWER.md`.
+
 Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be
 included. Status: ☐ todo · ◐ partially done · ☑ done.
@@ -2742,4 +2758,21 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] Varis dice trails use textured twisting wood, tapered hooked thorns, curled serrated foliage and fine pulsing magical veins with a restrained ground glow; shared instanced geometry/materials keep detailed brambles reusable across large rolls.
 
-- [x] Live roll modifiers now count into the final total inside the original dice tray, retaining the actual settled dice and animated materials instead of opening a separate modifier screen. Skill checks, attacks, healing and damage preserve their server-authored labels, outcomes, skip controls and hidden DM bonuses. Grouped saves keep their existing per-creature results, and unmodified damage goes directly from the tray to the compact map-impact summary.
+- [x] Live roll modifiers now count into the final total inside the original dice tray, retaining the actual settled dice and animated materials instead of opening a separate modifier screen. Skill checks, attacks, healing and damage preserve their server-authored labels, outcomes, skip controls and hidden DM bonuses. Grouped saves keep their existing per-creature results. Arithmetic starts immediately after number flights, with the reading hold on the completed result. Unmodified damage and riders retain at least 2.5 seconds for reading and effects, including a server-held phase before follow-up saves or riders replace a tray; maximum Druk dice burst one second before that phase ends. Sorcerous Burst links and grouped saves retain their dedicated presentation timing.
+
+- [x] Refreshed standalone interactive dice roller for all three characters and the DM with current power materials, every supported die and custom quantities. Linked roll-strength comparison and repeatable static packaging include all four tray artworks.
+
+- [x] Consecutive live rolls keep the same window, crossfade the old painted tray into the prepared next tray, and smoothly resize/collapse instead of popping shut and open. Physics waits until the short crossfade finishes; final dismissal fades and reduced motion remains immediate. Combat timing recordings now preserve the full d20 arithmetic/outcome instead of automatically skipping the result.
+
+
+- [x] Druk explosion returned to solid textured shards: no melting, splashes, lava pools or spill lighting. Shards stop tumbling before fading in place; longer warning and stronger intact-die high-roll glow retained. Interactive roller refreshed.
+
+- [x] Druk higher natural rolls reveal additional branching fissures and stronger lava glow. Maximum-roll warnings grow to a mostly molten shell before the existing solid-shard explosion; no liquid lava or pools return.
+- [x] Druk ordinary high rolls retain predominantly black obsidian for gold-number contrast; narrower fissures and capped heat preserve readability. Mostly molten coverage remains exclusive to the maximum-roll explosion warning.
+- [x] Druk shard interiors use the same polished black obsidian shader as the exterior instead of a separate physical material that appeared gray under tray lighting.
+- [x] Fixed shard-interior heat sharing the intact die's roll-power uniform, which incorrectly dimmed ordinary high-roll cracks. Restored the readable high-roll glow without widening fissures or reducing black obsidian coverage.
+- [x] Druk maxima leave bright, persistent lava pools at their explosion positions: cooled irregular rims, moving molten channels, floating crust and soft felt glow. Solid obsidian shards still settle and fade; pools clear with the roll.
+- [x] Druk maximum sequence now heats and shudders for 0.85 seconds before the shard explosion, then drops a molten core that spreads into the persistent lava pool. Cosmetic shaking leaves authoritative die poses and results untouched.
+- [x] Druk lava now drains from the opened interior through six tapering viscous strands and twelve uneven ballistic drops. The bright pool begins forming on contact, replacing the single falling sphere.
+
+- Dice transitions: restored the approved 180 ms crossfade with visible toss entry and automatic sequence dismissal; camera-table panning is parked on `prototype/dice-table-camera-20261008`. Prepared-scene reuse remains enabled.

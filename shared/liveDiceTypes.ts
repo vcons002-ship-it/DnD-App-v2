@@ -7,6 +7,8 @@ export type LiveDiceFrame = {
  burstProgress?:{used:number;limit:number};
  /** Calculation presented on this settled throw before the next throw starts. */
  calculation?:import('./types.js').RollReveal;
+ /** Server-held reading/effects phase for a throw with no calculation card. */
+ resultHoldMs?:number;
  id:string;seq:number;label:string;roller:string;className:string;
  target?:string;
  /** Offset is used only by the server to match a chunk to private save metadata. */

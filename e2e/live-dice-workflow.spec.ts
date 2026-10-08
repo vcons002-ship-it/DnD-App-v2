@@ -54,10 +54,28 @@ test('server live fireball and manual weapon damage match the streamed faces',as
  {
    let hit:any;
    for(let i=0;i<5&&!hit;i++){
+     await dm.evaluate(()=>{
+       const timing={filled:0,calculation:0};(window as any).__modifierHandoff=timing;
+       let started=false;
+       const sample=()=>{
+         started ||= !!document.querySelector('[data-live-dice="true"]');
+         if(!started){requestAnimationFrame(sample);return;}
+         const tray=document.querySelector('.roll-reveal');
+         const boxes=tray?.querySelectorAll('.tray-die-result');
+         if(!timing.filled&&boxes?.length&&[...boxes].every(b=>b.getAttribute('data-filled')==='true'))timing.filled=performance.now();
+         if(timing.filled&&tray?.querySelector('.rr-equation')){timing.calculation=performance.now();return;}
+         requestAnimationFrame(sample);
+       };requestAnimationFrame(sample);
+     });
      await dm.locator('.compact-player-combat').getByRole('button',{name:/Quarterstaff/}).click();
      await expect(dm.locator('[data-live-dice="true"]')).toBeVisible();
      await expect(dm.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
      await expect(dm.locator('.rr-adjustment').first()).toBeVisible();
+     const handoff=await dm.evaluate(()=>(window as any).__modifierHandoff);
+     expect(handoff.filled).toBeGreaterThan(0);
+     expect(handoff.calculation).toBeGreaterThanOrEqual(handoff.filled);
+     expect(handoff.calculation-handoff.filled).toBeLessThan(1000);
+     await test.info().attach('modifier-handoff',{body:JSON.stringify({delayMs:handoff.calculation-handoff.filled}),contentType:'application/json'});
      await expect(dm.locator('.roll-reveal[data-impact-ready="false"]')).toBeVisible();
      hit=(await snap()).rollLog.findLast((r:any)=>r.pending&&!r.pending.done);
      if(!hit)await dm.keyboard.press('Escape');
