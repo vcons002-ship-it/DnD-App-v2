@@ -96,5 +96,9 @@ describe('save and healing presentation',()=>{
    const dmInitiated=shapeSaveFrame(frame,saves,t=>t.refId,{hideModifiersFor:()=>true,hideDc:true})!;
    expect(dmInitiated.saveDice!.every(d=>d.modifier===undefined&&d.dc===undefined)).toBe(true);
    expect(shapeSaveFrame({...frame,done:false,values:[null,null]},saves,t=>t.refId,{hideModifiersFor:()=>true})!.saveDice![0].outcome).toBeUndefined();
+   const known=shapeSaveFrame(frame,saves,t=>t.refId,{hideModifiersFor:t=>t.kind==='monster',nameFor:t=>t.refId==='enemy'?'Goblin G1':'Hero'})!;
+   expect(known.saveDice![0]).toMatchObject({name:'Goblin G1',dc:15,hideModifiers:true});
+   expect(known.saveDice![0]).not.toHaveProperty('modifier');
+   expect(JSON.stringify(known)).not.toContain('refId');
  });
 });

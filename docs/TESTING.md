@@ -86,6 +86,10 @@ existing 220 ms anticipation. The same cached wood texture underlies each
 tray and is prepared only once per browser session. Browser assertions measure
 card bounds, canvas visibility and actual projected deck corners across weapon,
 rider and save rolls, alongside the pool's unchanged physical die radius.
+The maneuver save heading identifies the saving creature rather than Druk,
+includes the known maneuver DC, and remains unclipped. Save-presentation unit
+tests cover full visible names, grouped/advantage dice, and independent DC and
+creature-modifier redaction; unknown DCs are never inferred from pass/fail.
 Incoming dice
 bypass only their entry rim; the other three walls always collide. A small
 throw has an upward release velocity as well as horizontal travel and spin.

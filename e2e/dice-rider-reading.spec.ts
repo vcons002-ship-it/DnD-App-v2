@@ -137,6 +137,9 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   await page.screenshot({path:test.info().outputPath('superiority-reading-and-effects.png')});
   const verdict=page.locator('.tray-save-verdict[data-outcome="PASS"],.tray-save-verdict[data-outcome="FAIL"]').first();
   await expect(verdict).toBeVisible({timeout:30000});
+  await expect(page.locator('.roll-reveal-title')).toContainText(/Ownership target.*Trip Attack.*STR Saving Throw.*DC 14/);
+  await expect(page.locator('.roll-reveal-title')).not.toContainText('Druk');
+  await expectUnclipped(page.locator('.roll-reveal-title'));
   await expectUnclipped(verdict);
   await expectUnclipped(page.locator('.tray-save-outcome b').first());
   await page.screenshot({path:test.info().outputPath('strength-save-result.png')});

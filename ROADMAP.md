@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Saving-throw tray headings name the creatures attempting the saves,
+  including their reveal tags, while keeping the spell/maneuver and saving
+  ability clear. Known player ability DCs and DM-visible DCs appear in the
+  heading; private creature/encounter DCs and creature bonuses remain hidden.
+
 - [x] Dice trays sit on a cached lacquered wooden table. Visible player/DM
   handoffs pan across plain wood in 460 ms inside the fixed roll window, then
   release the toss after the existing anticipation. Same-tray transitions and
