@@ -342,13 +342,16 @@ void main(){
      float mainSplit=moltenFracture(pos);
      // New tributary cracks emerge in stable locations as the result strengthens.
      // A noise ridge adds fine branching without another expensive Voronoi pass.
-     float growth=smoothstep(.28,.92,rollPower);
+     // Ordinary high rolls keep a predominantly black face behind the gold.
+     // The separate maximum warning below is the only mostly molten phase.
+     float crackPower=min(rollPower,.68);
+     float growth=smoothstep(.28,.92,crackPower);
      float tributary=abs(fbm(pos*8.2+vec3(fbm(pos*3.1)*1.7))-.5)*.6;
-     float raw=min(mainSplit,tributary+mix(.18,0.,growth));
+     float raw=min(mainSplit,tributary+mix(.18,.035,growth));
      float chip=fbm(pos*48.)*.013+noise(pos*110.)*.003;
-     float opening=.50+rollPower*2.5+eruptionPulse*.9;
+     float opening=.55+crackPower*1.1+eruptionPulse*.9;
       float mouth=max(0.,raw-chip)/opening,below=moltenFracture(pos+ray*.07)/opening;
-     float region=smoothstep(mix(.48,.12,growth),mix(.68,.32,growth),fbm(pos*1.55+vec3(4.,1.,9.)));
+     float region=smoothstep(mix(.48,.30,growth),mix(.68,.52,growth),fbm(pos*1.55+vec3(4.,1.,9.)));
      // Wide, dark chipped shoulders surround a much narrower split. Its
      // sloped sides change reflections with the view instead of glowing flat.
      float groove=(1.-smoothstep(.012,.115,mouth))*region;
@@ -363,8 +366,8 @@ void main(){
      float hotCore=1.-smoothstep(.003,.042,below);
      float pulse=.94+.06*sin(time*.9+fbm(pos*4.)*7.);
      vec3 magma=mix(vec3(.32,.006,.0005),vec3(1.4,.14,.004),hotCore);
-     float heat=.16+pow(rollPower,1.4)*8.5+eruptionPulse*5.;
-     color+=magma*cavity*pulse*heat+vec3(.14,.008,.0006)*groove*(.15+rollPower*2.8);
+     float heat=.16+pow(crackPower,1.4)*4.+eruptionPulse*5.;
+     color+=magma*cavity*pulse*heat+vec3(.14,.008,.0006)*groove*(.15+crackPower*1.4);
      // At the end of the warning, most of the shell becomes incandescent
      // lava separated by a few cooling obsidian islands. Inlays render later.
      float islands=smoothstep(.54,.67,fbm(pos*4.6+vec3(.2,-.1,.3)));

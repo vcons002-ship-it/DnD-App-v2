@@ -2754,3 +2754,4 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Druk explosion returned to solid textured shards: no melting, splashes, lava pools or spill lighting. Shards stop tumbling before fading in place; longer warning and stronger intact-die high-roll glow retained. Interactive roller refreshed.
 
 - [x] Druk higher natural rolls reveal additional branching fissures and stronger lava glow. Maximum-roll warnings grow to a mostly molten shell before the existing solid-shard explosion; no liquid lava or pools return.
+- [x] Druk ordinary high rolls retain predominantly black obsidian for gold-number contrast; narrower fissures and capped heat preserve readability. Mostly molten coverage remains exclusive to the maximum-roll explosion warning.
