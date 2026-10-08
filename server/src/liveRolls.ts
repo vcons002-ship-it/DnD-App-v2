@@ -5,8 +5,8 @@ import {withDiceSource,rollDice,type PhysicalDiceInfo} from '../../shared/dice.j
 import {db} from './db.js';
 import {checkpointHpFx,faceTokenToward} from './sessions.js';
 import {checkpointReactions} from './reactions.js';
-import {stageRollEffects,stagedRollFacing,withLiveCalculationPresenter,resetLiveRollReveal,hasLiveRollReveal,type RollFacing} from './liveRollContext.js';
-import type {RollReveal} from '../../shared/types.js';
+import {stageRollEffects,stagedRollFacing,stagedRollResults,withLiveCalculationPresenter,resetLiveRollReveal,hasLiveRollReveal,type RollFacing} from './liveRollContext.js';
+import type {RollReveal,HiddenRollResult} from '../../shared/types.js';
 import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../shared/liveDiceTypes.js';
 import {matchingDiceTrigger,sorcerousDiceTrigger} from '../../shared/diceTriggers.js';
@@ -14,6 +14,7 @@ import {matchingDiceTrigger,sorcerousDiceTrigger} from '../../shared/diceTrigger
 class NeedDice extends Error {constructor(public sides:number[],public info:PhysicalDiceInfo,public facing:RollFacing[]){super('Waiting for physical dice');}}
 class NeedCalculation extends Error {constructor(public key:string,public reveal:RollReveal){super('Waiting for roll calculation');}}
 class NeedReading extends Error {}
+class NeedApproval extends Error {constructor(public results:HiddenRollResult[]){super('Waiting for DM approval');}}
 const queues=new Map<string,Promise<void>>();
 export const rollInProgress=(sid:string)=>queues.has(sid);
 export function enqueueRoll(sid:string,run:()=>Promise<void>|void,onError:(e:unknown)=>void){
@@ -32,7 +33,7 @@ export function keptPhysicalSet(values:number[],info:PhysicalDiceInfo):number|un
 }
 
 type BurstTray={world:ReturnType<typeof createLiveWorld>;id:string;seq:number;sides:number[];critical:boolean[];capacity:number;parents:number[];links:{from:number;to:number}[]};
-type LiveRollMeta={burstTray?:{current?:BurstTray};label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void};
+type LiveRollMeta={burstTray?:{current?:BurstTray};label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void;deferFacing?:boolean;review?:(results:HiddenRollResult[])=>Promise<boolean>};
 
 export async function physicalFaces(
   sides:number[], publish:(frame:LiveDiceFrame)=>void,
@@ -40,7 +41,7 @@ export async function physicalFaces(
 ) {
   if(sides.some(s=>![4,6,8,10,12,20,100].includes(s)))
     throw new UnsupportedPhysicalDice('Live rolls support d4, d6, d8, d10, d12, d20 and d100. Choose one of these dice.');
-  const {ready,onFacing,waitForPresentation,burstTray,...displayMeta}=meta;
+  const {ready,onFacing,waitForPresentation,burstTray,review,deferFacing,...displayMeta}=meta;
   if(typeof info?.triggerRule==='object'&&burstTray)return burstFaces(sides,publish,meta,seed,info);
   // A caster initiates these commands, but the saved creatures own the dice.
   // Batches containing NPC saves use the shared DM tray rather than the caster.
@@ -116,7 +117,7 @@ export async function physicalFaces(
 /** Sorcerous Burst continues in one authoritative world and one rendered tray. */
 async function burstFaces(sides:number[],publish:(frame:LiveDiceFrame)=>void,meta:LiveRollMeta,seed:number,info:PhysicalDiceInfo){
  const burst=info.triggerRule;if(typeof burst!=='object')throw new Error('Missing burst rule');
- const {ready,onFacing,waitForPresentation,burstTray,...display}=meta;
+ const {ready,onFacing,waitForPresentation,burstTray,review,deferFacing,...display}=meta;
  let tray=burstTray!.current;
  if(burst.used===0){
   const capacity=Math.min(40,sides.length+burst.limit);
@@ -161,7 +162,7 @@ async function burstFaces(sides:number[],publish:(frame:LiveDiceFrame)=>void,met
 export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?:PhysicalDiceInfo)=>void,meta:LiveRollMeta,roll=physicalFaces){
  meta={...meta,burstTray:{}};
  const tape:{sides:number[];faces:number[]}[]=[];
- const calculated=new Set<string>();let lastFrame:LiveDiceFrame|undefined,lastInfo:PhysicalDiceInfo|undefined;
+ const calculated=new Set<string>();let lastFrame:LiveDiceFrame|undefined,lastInfo:PhysicalDiceInfo|undefined,approved=false,approvedResults:string|undefined;
  const needsReading=()=>!!lastFrame?.done&&!lastFrame.calculation&&lastFrame.resultHoldMs===undefined&&!lastInfo?.saveDice&&!lastFrame.burstProgress;
  const holdResult=async()=>{
   if(!needsReading())return;
@@ -188,10 +189,19 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
     // A rider may have no final reveal (the combined hit was already shown).
     // Roll back before waiting, just as for explicit calculation stages.
     if(needsReading()&&!hasLiveRollReveal())throw new NeedReading();
+    const results=stagedRollResults();
+    if(meta.review&&!approved&&results.length)throw new NeedApproval(results);
+    if(approved&&JSON.stringify(results)!==approvedResults)throw new Error('The hidden roll context changed. Nothing was applied; roll again to review the new result.');
    }))))();
    for(const effect of pass.effects)effect();return;
   }catch(e){
    undoHp();undoReactions();
+   if(e instanceof NeedApproval){
+    // The transaction has already rolled back: no HP, resources, conditions,
+    // roll history or network effects exist until the DM confirms this result.
+    if(!await meta.review!(e.results))return;
+    approvedResults=JSON.stringify(e.results);approved=true;continue;
+   }
    if(e instanceof NeedReading){await holdResult();continue;}
    if(e instanceof NeedCalculation){
     if(lastFrame){
@@ -210,7 +220,7 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
    // The validated roll is about to start. Persist only its presentation turn;
    // HP, slots and dice outcomes remain rolled back until the command commits.
    let turned=false;
-   for(const facing of e.facing)turned=faceTokenToward(facing.sessionId,facing.attackerTokenId,facing.targetTokenId)||turned;
+   if(!meta.deferFacing)for(const facing of e.facing)turned=faceTokenToward(facing.sessionId,facing.attackerTokenId,facing.targetTokenId)||turned;
    if(turned)meta.onFacing?.();
    tape.push({sides:e.sides,faces:await roll(e.sides,frame=>{lastFrame=frame;lastInfo=e.info;publish(frame,e.info);},{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
   }

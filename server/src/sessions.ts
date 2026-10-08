@@ -5,7 +5,7 @@ import {spellImpactName} from '../../shared/spellImpact.js';
 import {rollDice,withDiceMetadata} from '../../shared/dice.js';
 import {stopAtWalls,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
 import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
-import {isLiveCommand,noteRollFacing,noteLiveRollReveal} from './liveRollContext.js';
+import {isLiveCommand,noteRollFacing,noteLiveRollReveal,noteRollResult} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
 import { abilityKey, markSpell } from '../../shared/hitFeatures.js';
 import { checkReveal } from '../../shared/rollReveal.js';
@@ -1648,6 +1648,7 @@ export function addRollLog(
     entry.reveal={...entry.reveal,title:`${['Attack','Damage'].includes(entry.label)?entry.expr:entry.label} — ${entry.reveal.kind==='attack'?'Attack Roll':'Damage Roll'}`};
   if(entry.reveal && isLiveCommand())entry.reveal={...entry.reveal,physical:true};
   noteLiveRollReveal(entry.reveal);
+  noteRollResult({label:entry.label,detail:entry.detail,total:entry.total,reveal:entry.reveal});
   const createdAt = Date.now();
   // Hide-DM-rolls: a DM-rolled entry is flagged dmOnly while the session toggle
   // is on, so player snapshots can drop it (damage still applied separately).

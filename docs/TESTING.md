@@ -1,5 +1,18 @@
 # Automated verification
 
+`hidden-roll-approval.spec.ts` exercises the real DM attack menu, damage
+follow-up, native private-result approval dialog, and discard control. A second
+player window and socket verify that pending secret rolls send no dice, review,
+HP effects or history; another player/DM connection cannot approve the owner's
+result. HP changes only after approval. `hiddenRollApproval.test.ts` checks
+transaction rollback, unchanged resources/history/effects on cancellation, and
+one commit using the same faces after approval. A changed result is rejected.
+The live-dice contract checks that a disconnected DM's unapproved hidden roll
+is discarded and releases the queue, while public rolls still finish after a
+disconnect. For a direct Windows/RTX AV1 capture of the approval sequence, set
+`HIDDEN_REVIEW_VIDEO` to an absolute MP4 path and run the browser test headed;
+its recorder uses Windows Graphics Capture and NVIDIA AV1, not CDP screencasts.
+
 `npm test` runs server and shared-rule tests. `npm run test:e2e` builds the client and runs the normal Playwright browser suite against a disposable server and save. Neither command uses the installed campaign database. CI runs both suites, typechecking, and the production build.
 
 ```sh

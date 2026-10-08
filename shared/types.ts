@@ -1734,7 +1734,11 @@ export type InitiativeSetPayload = { tokenId: string; initiative: number | null 
 export type ServerError = { code: string; message: string };
 
 // Client -> Server event names.
+export type HiddenRollResult = {label:string;detail:string;total:number;reveal?:RollReveal};
+export type HiddenRollReview = {id:string;label:string;results:HiddenRollResult[]};
+
 export interface ClientToServerEvents {
+  'dice:confirmHidden': (payload:{id:string;apply:boolean}) => void;
   'dice:ready': (payload:{id:string}) => void;
   'dice:skip': (payload:{id:string}) => void;
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
@@ -1965,6 +1969,7 @@ export type HpFxEvent = {
 };
 
 export interface ServerToClientEvents {
+  'dice:hiddenReview': (review:HiddenRollReview|null)=>void;
   'dice:frame': (frame:import('./liveDiceTypes.js').LiveDiceFrame)=>void;
   'dice:finished': (payload:{id:string})=>void;
   'fx:initiative': (payload: { mapId: string }) => void;

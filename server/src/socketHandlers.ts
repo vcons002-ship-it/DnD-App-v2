@@ -310,6 +310,20 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     const trayReady=new Map<string,()=>void>();
     let activeDiceId:string|undefined,skipDicePresentation=false;
     let finishDicePresentation:(()=>void)|undefined;
+    let hiddenReview:{id:string;sessionId:string;finish:(apply:boolean)=>void}|undefined;
+    rawOn('dice:confirmHidden',(...args)=>{
+      const payload=args[0] as {id?:unknown;apply?:unknown}|undefined,conn=getConn(socket.id);
+      if(!hiddenReview||conn?.role!=='dm'||conn.sessionId!==hiddenReview.sessionId||payload?.id!==hiddenReview.id||typeof payload.apply!=='boolean')return;
+      hiddenReview.finish(payload.apply);
+    });
+    const reviewHidden=(sid:string,label:string,results:import('../../shared/types.js').HiddenRollResult[])=>new Promise<boolean>(resolve=>{
+      if(!socket.connected||getConn(socket.id)?.role!=='dm'){resolve(false);return;}
+      const id=newId();
+      const finish=(apply:boolean)=>{if(hiddenReview?.id!==id)return;clearTimeout(timer);hiddenReview=undefined;resolve(apply);};
+      const timer=setTimeout(()=>{finish(false);socket.emit('notice',{message:'Hidden roll expired without approval. Nothing was applied.'});},300000);
+      hiddenReview={id,sessionId:sid,finish};
+      socket.emit('dice:hiddenReview',{id,label,results});
+    });
     // Only the initiating connection may shorten its command's presentation.
     // Observers can hide a tray locally, but cannot hurry another player's roll.
     rawOn('dice:skip',(...args)=>{
@@ -455,8 +469,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 const safeCalculation=calculation&&getConn(id)?.role!=='dm'&&(frame.dmDice||isDm())
                   ?redactCreatureMods({id:frame.id,roller:frame.roller,label:frame.label,expr:'',total:0,detail:'',createdAt:0,reveal:calculation},true).reveal:calculation;
                 io.to(id).emit('dice:frame',{...frame,target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
-              }},meta);
-            }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});activeDiceId=undefined;skipDicePresentation=false;}
+              }},{...meta,...(privateRoll?{deferFacing:true,review:(results:import('../../shared/types.js').HiddenRollResult[])=>reviewHidden(sid,meta.label,results)}:{})});
+            }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);activeDiceId=undefined;skipDicePresentation=false;}
           },failed);
           return;
         }
@@ -2745,6 +2759,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     on('disconnect', () => {
+      hiddenReview?.finish(false);
       for (const finish of trayReady.values()) finish();
       finishDicePresentation?.();
       const sid = sessionId();

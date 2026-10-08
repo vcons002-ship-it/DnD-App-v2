@@ -13,6 +13,7 @@ test('shared live faces, private rolls, percentile dice and server completion af
  };
  try {
  const dm=await connect('dm'),player=await connect('player'),peer=await connect('player');const a:any[]=[],b:any[]=[],c:any[]=[];
+ dm.on('dice:hiddenReview',review=>{if(review)dm.emit('dice:confirmHidden',{id:review.id,apply:true});});
  dm.on('dice:frame',f=>a.push(f));player.on('dice:frame',f=>b.push(f));
  peer.on('dice:frame',f=>c.push(f));
  const snap=async(s=dm)=>(await s.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET})).snapshot;
@@ -37,12 +38,21 @@ test('shared live faces, private rolls, percentile dice and server completion af
  expect(a.some(f=>f.label==='Shared player roll'&&f.done)).toBe(true);
  expect(b.some(f=>f.label==='Shared player roll'&&f.done)).toBe(true);
  expect(c.some(f=>f.label==='Shared player roll'&&f.done)).toBe(true);
- // A broken connection cannot cancel an already-started server roll.
+ // Disconnect cannot silently approve an already-started private roll.
  const disconnected=new Promise<void>(resolve=>dm.once('dice:frame',()=>{dm.disconnect();resolve();}));
  dm.emit('dice:roll',{expr:'1d6',label:'Disconnect completion'});await disconnected;
  const replacement=await connect('dm');
- await expect.poll(async()=> (await snap(replacement)).rollLog.some((r:any)=>r.label==='Disconnect completion'),{timeout:30000}).toBe(true);
- const final=(await snap(replacement)).rollLog.filter((r:any)=>r.label==='Disconnect completion');expect(final).toHaveLength(1);expect(final[0].reveal.physical).toBe(true);
+ // A public roll completes after disconnect; an unapproved secret result must
+ // be discarded instead of publishing an outcome the DM never approved.
+ replacement.emit('session:setHideDmRolls',{hide:false});await snap(replacement);
+ replacement.emit('dice:roll',{expr:'1d6',label:'Queue recovered'});
+ await expect.poll(async()=> (await snap(replacement)).rollLog.some((r:any)=>r.label==='Queue recovered'),{timeout:30000}).toBe(true);
+ expect((await snap(replacement)).rollLog.some((r:any)=>r.label==='Disconnect completion')).toBe(false);
+ // Public rolls still finish if their initiating connection drops.
+ const publicDisconnected=new Promise<void>(resolve=>replacement.once('dice:frame',()=>{replacement.disconnect();resolve();}));
+ replacement.emit('dice:roll',{expr:'1d6',label:'Public disconnect completion'});await publicDisconnected;
+ const finalDm=await connect('dm');
+ await expect.poll(async()=> (await snap(finalDm)).rollLog.some((r:any)=>r.label==='Public disconnect completion'),{timeout:30000}).toBe(true);
  } finally {sockets.forEach(s=>s.disconnect());}
 });
 

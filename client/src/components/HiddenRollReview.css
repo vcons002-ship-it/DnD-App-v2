@@ -1,0 +1,17 @@
+.hidden-roll-review{color:#eee4d1;background:linear-gradient(145deg,#1b2230,#090e17);border:1px solid #bca16a;border-radius:14px;box-shadow:0 18px 80px #000b;width:min(760px,94vw);max-height:88dvh;padding:24px;overflow:auto}
+.hidden-roll-review::backdrop{background:#02050bc9}
+.hidden-roll-review h2{font:700 30px Georgia;margin:8px 0 12px;color:#f2d99d}
+.hidden-roll-review h3{font-size:20px;margin:0 0 8px;color:#f2d99d}
+.hidden-roll-review p{line-height:1.5;margin:8px 0;color:#cdd4df}
+.hidden-roll-private{font-size:12px;letter-spacing:.12em;color:#bea977}
+.hidden-roll-results{display:grid;gap:12px;margin:18px 0}
+.hidden-roll-results section{padding:16px;background:#ffffff06;border:1px solid #bca16a44;border-radius:8px}
+.hidden-roll-verdict{display:flex;justify-content:space-between;gap:12px;font-size:24px;margin-top:12px}
+.hidden-roll-verdict strong[data-outcome=hit],.hidden-roll-verdict strong[data-outcome=pass]{color:#86dfad}
+.hidden-roll-verdict strong[data-outcome=miss],.hidden-roll-verdict strong[data-outcome=fail],.hidden-roll-verdict strong[data-outcome=fumble]{color:#f2a0a0}
+.hidden-roll-verdict strong[data-outcome=crit]{color:#ffe083}
+.hidden-roll-equation{overflow-wrap:anywhere}
+.hidden-roll-review footer{border-top:1px solid #bca16a44;padding-top:16px;display:flex;gap:14px;align-items:center;justify-content:space-between}
+.hidden-roll-review footer span{font-size:13px;color:#b9c3d3}
+.hidden-roll-review footer div{display:flex;gap:10px;flex-shrink:0}
+@media(max-width:600px){.hidden-roll-review{padding:16px}.hidden-roll-review footer{align-items:stretch;flex-direction:column}.hidden-roll-review footer div{justify-content:flex-end}}

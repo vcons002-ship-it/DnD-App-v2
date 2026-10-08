@@ -164,7 +164,7 @@ test('a targeted saving-throw spell preserves its cast dice in history without t
   await expect(page.locator('.roll-log .roll-entry').last().locator('.roll-damage-breakdown')).toHaveCount(0);
 });
 
-test('enemy damage history exposes recorded dice but never restores modifier labels redacted from the player snapshot', async ({ page, request, browser }) => {
+test('enemy damage history shows players the damage total while keeping the full equation DM-only', async ({ page, request, browser }) => {
   const f = await fixture(request, page);
   f.socket.emit('session:setManualDamage', { manual: false });
   await f.snapshot();
@@ -179,7 +179,9 @@ test('enemy damage history exposes recorded dice but never restores modifier lab
   expect(attack!.reveal?.damageMods).toContainEqual({ label: 'STR', value: 4 });
   await page.getByRole('button', { name: 'Open chat and roll log', exact: true }).click();
   const playerBreakdown = page.locator('.roll-log .roll-damage-breakdown');
-  await expectRecordedDamage(playerBreakdown, attack!, false);
+  // A full equation would let players infer the concealed modifier by
+  // subtracting its dice from the damage total. This is intentionally compact.
+  await expect(playerBreakdown).toHaveText(`Damage: ${attack!.reveal!.damage} ${attack!.reveal!.damageType}`);
   await expect(playerBreakdown).not.toContainText('STR');
   await expect(page.locator('.roll-log')).not.toContainText('[STR]');
 
@@ -195,6 +197,7 @@ test('enemy damage history exposes recorded dice but never restores modifier lab
     // a hidden roll adds no player history entry at all.
     const playerRows = await page.locator('.roll-log .roll-entry').count();
     f.socket.emit('session:setHideDmRolls', { hide: true });
+    f.socket.on('dice:hiddenReview',review=>{if(review)f.socket.emit('dice:confirmHidden',{id:review.id,apply:true});});
     const previous = new Set((await f.snapshot()).rollLog.map(r => r.id));
     f.socket.emit('combat:attack', { attackerTokenId: f.target.id, targetTokenId: f.pc.id, weaponIndex: 0 });
     const last = await waitForCombatRoll(f.snapshot, previous, r => r.label === 'Attack' && r.roller === 'DM');

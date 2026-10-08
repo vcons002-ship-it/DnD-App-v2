@@ -38,7 +38,8 @@ test('Ice Knife saves precede damage, stay private to the DM, and never replay a
   await page.locator('.compact-player-combat').getByRole('button',{name:/Ice Knife/}).click();
   await expect.poll(()=>playerFrames.some(f=>f.done&&f.saveDice?.length===2),{timeout:45000}).toBe(true);
   const save=playerFrames.find(f=>f.done&&f.saveDice?.length===2);
-  expect(save.saveDice.every((d:any)=>d.hideModifiers&&d.modifier===undefined&&d.dc===undefined&&['pass','fail'].includes(d.outcome))).toBe(true);
+  // Vanec knows his own spell DC; goblin save bonuses remain private.
+  expect(save.saveDice.every((d:any)=>d.hideModifiers&&d.modifier===undefined&&d.dc===15&&['pass','fail'].includes(d.outcome))).toBe(true);
   const dmSave=dmFrames.find(f=>f.done&&f.saveDice?.length===2);
   expect(dmSave.saveDice.every((d:any)=>Number.isFinite(d.modifier)&&Number.isFinite(d.dc))).toBe(true);
   await expect(page.locator('.tray-save-outcome').first()).toContainText(/PASS|FAIL/,{timeout:5000});

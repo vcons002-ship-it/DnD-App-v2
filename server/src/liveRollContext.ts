@@ -1,5 +1,5 @@
 // Only populated during a synchronous, rollback-safe command pass.
-import type {RollReveal} from '../../shared/types.js';
+import type {RollReveal,HiddenRollResult} from '../../shared/types.js';
 let calculationPresenter:((key:string,reveal:RollReveal)=>boolean)|undefined;
 export function withLiveCalculationPresenter<T>(present:(key:string,reveal:RollReveal)=>boolean,run:()=>T):T {
  const previous=calculationPresenter;calculationPresenter=present;
@@ -17,6 +17,9 @@ export function noteRollFacing(value:RollFacing){if(active)facing.push(value);}
 let active=false;
 let effects:(()=>void)[]|null=null;
 let resultReveal=false;
+let reviewResults:HiddenRollResult[]=[];
+export const stagedRollResults=()=>reviewResults.slice();
+export function noteRollResult(result:HiddenRollResult){if(active)reviewResults.push(result);}
 /** A final snapshot may render the last throw; earlier throws cannot use it. */
 export function noteLiveRollReveal(reveal:RollReveal|undefined){
  if(active&&reveal&&!reveal.presentedLive)resultReveal=true;
@@ -25,8 +28,8 @@ export function resetLiveRollReveal(){if(active)resultReveal=false;}
 export const hasLiveRollReveal=()=>resultReveal;
 export const isLiveCommand=()=>active;
 export function stageRollEffects<T>(run:()=>T){
- active=true;effects=[];facing=[];resultReveal=false;
+ active=true;effects=[];facing=[];resultReveal=false;reviewResults=[];
  try {const value=run();return {value,effects};}
- finally {active=false;effects=null;facing=[];resultReveal=false;}
+ finally {active=false;effects=null;facing=[];resultReveal=false;reviewResults=[];}
 }
 export function afterRollCommit(effect:()=>void){if(effects)effects.push(effect);else effect();}

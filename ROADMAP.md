@@ -1,5 +1,12 @@
 # Roadmap & Feature Backlog
 
+- [x] Hidden DM rolls require a private result approval. The server rolls the
+  configured dice, applies modifiers, and presents the full result to the
+  initiating DM before committing HP, resources, conditions or roll history.
+  Apply commits that same result once; Discard, disconnect or a five-minute
+  approval timeout leaves it unapplied. Players receive no dice, review prompt,
+  private roll entry or early facing cue. Approved visible HP feedback remains.
+
 - [x] Saving-throw tray headings name the creatures attempting the saves,
   including their reveal tags, while keeping the spell/maneuver and saving
   ability clear. Known player ability DCs and DM-visible DCs appear in the
