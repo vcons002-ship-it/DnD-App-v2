@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Floating damage components hold for one second and fade for 400 ms, then
+  the final red total stays fully visible for 3.2 seconds before its gentle fade.
+  Timing begins after the roll sequence exposes the map; shared AoE and
+  individual projectile ordering use the same readable component beats.
+
 - [x] Small dice rolls launch on a higher hand-toss arc. Each prepared live tray
   pauses for 220 ms after its artwork handoff before acknowledging release;
   initial dice stay hidden until physics starts. Reading holds, contacts, large

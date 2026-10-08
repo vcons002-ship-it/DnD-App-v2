@@ -124,7 +124,8 @@ const manual=true;test('unmodified superiority dice retain reading time before t
       const tray=document.querySelector('.roll-reveal-backdrop'),boxes=[...document.querySelectorAll('.tray-die-result')];
       const card=document.querySelector('.roll-reveal');if(card&&!cards.has(card))cards.set(card,++nextCard);
       const bounds=card?.getBoundingClientRect(),canvasBounds=document.querySelector('.dice-tray-canvas')?.getBoundingClientRect();
-      samples.push({canvasBounds:canvasBounds?{width:canvasBounds.width,height:canvasBounds.height}:null,bounds:bounds?{x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height,transform:getComputedStyle(card!).transform}:null,compact:!!document.querySelector('.is-impact'),time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),handoffKind:document.querySelector('.dice-tray-transition')?.getAttribute('data-kind'),handoffStartedAt:Number(document.querySelector('.dice-tray-transition')?.getAttribute('data-started-at')||0),trayScale:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-tray-scale')||1),diceRadius:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-dice-radius')||0),footprint:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-tray-footprint')||'[]'),calculation:!!document.querySelector('[data-live-calculation="true"]'),modifiers:document.querySelectorAll('.rr-adjustment').length,explosionAt:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-explosion-at')||0),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
+      const hp=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('.hp-floater-number')).filter((n:any)=>n.getAbsoluteOpacity()>.01).map((n:any)=>({text:n.text(),total:n.hasName('hp-floater-total'),opacity:n.getAbsoluteOpacity()}));
+      samples.push({hp,canvasBounds:canvasBounds?{width:canvasBounds.width,height:canvasBounds.height}:null,bounds:bounds?{x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height,transform:getComputedStyle(card!).transform}:null,compact:!!document.querySelector('.is-impact'),time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),handoffKind:document.querySelector('.dice-tray-transition')?.getAttribute('data-kind'),handoffStartedAt:Number(document.querySelector('.dice-tray-transition')?.getAttribute('data-started-at')||0),trayScale:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-tray-scale')||1),diceRadius:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-dice-radius')||0),footprint:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-tray-footprint')||'[]'),calculation:!!document.querySelector('[data-live-calculation="true"]'),modifiers:document.querySelectorAll('.rr-adjustment').length,explosionAt:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-explosion-at')||0),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
       if((window as any).__riderSampling)requestAnimationFrame(sample);
     };sample();
   });
@@ -139,8 +140,16 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   await page.screenshot({path:test.info().outputPath('strength-save-result.png')});
   await expect.poll(async()=> (await snapshot()).rollLog.find(r=>r.id===hit.id)!.pending!.done,
     {timeout:LIVE_COMBAT_TIMEOUT}).toBe(true);
-  await page.waitForTimeout(1000);
+  const expectedDamage=(await snapshot()).rollLog.find(r=>r.id===hit.id)!.pending!.amount;
+  await page.waitForTimeout(6500);
   const samples=await page.evaluate(()=>{(window as any).__riderSampling=false;return (window as any).__riderSamples;});
+  const impact=samples.filter((s:any)=>s.hp.length);
+  expect(impact.length,'Trip Attack displays its damage on the battlefield').toBeGreaterThan(0);
+  expect(impact.every((s:any)=>!s.bounds||s.compact),'No full tray covers floating damage').toBe(true);
+  const components=impact.filter((s:any)=>s.hp.some((n:any)=>!n.total&&n.opacity>.95));
+  expect(components.at(-1).time-components[0].time,'Read the colored damage before it fades').toBeGreaterThanOrEqual(900);
+  const totals=impact.filter((s:any)=>s.hp.some((n:any)=>n.total&&n.opacity>.99&&n.text===`\u2212${expectedDamage}`));
+  expect(totals.at(-1).time-totals[0].time,'The finished red total stays readable after the save').toBeGreaterThanOrEqual(2900);
   const held=samples.find((s:any)=>s.hold==='2500'&&s.title?.includes('Superiority'));
   expect(held).toBeTruthy();
   const next=samples.find((s:any)=>s.time>held.time&&s.id&&s.id!==held.id);
