@@ -204,19 +204,26 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   // with its damage must never briefly paint the previous roll's final total.
   const tray = liveDice ?? rollFx?.tray;
   const compact = !!rollFx?.impactReady && ((!['check','dice'].includes(rollFx.reveal.kind??'attack')) || !!rollFx.hasMapImpact);
+  const sessionCode=useStore(s=>s.snapshot?.sessionCode);
+  const lastTray=useRef<{frame:NonNullable<typeof tray>;compact:boolean;session?:string}>();
+  const [closedTray,setClosedTray]=useState<string>();
+  if(lastTray.current?.session!==sessionCode)lastTray.current=undefined;
+  if(tray)lastTray.current={frame:tray,compact,session:sessionCode};
+  const idle=!!(!tray&&rollAnimations&&!reducedMotion&&lastTray.current&&closedTray!==lastTray.current.frame.id);
+  const displayTray=tray??(idle?lastTray.current?.frame:undefined);
   const sequence = visibleRollFx && (!liveDice||intermediate) ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={intermediate?`live:${liveDice!.id}`:visibleRollFx.id} rollFx={visibleRollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!visibleRollFx.reveal.physical} inlineTray={!!tray} intermediate={intermediate} dismiss={()=>{if(useStore.getState().rollFx?.id===visibleRollFx.id)dismiss();}} /></DiceThemeContext.Provider> : undefined;
   // Keep this component (and its WebGL canvas) mounted across the live/result
   // handoff. Bonuses count into the total underneath the real resting dice.
   const completed = intermediate?visibleRollFx:liveDice ? null : rollFx;
-  const content = tray ? <LiveDiceOverlay
-    frame={tray} result={sequence}
-    onSkip={liveDice?useStore.getState().skipLiveDice:dismiss}
-    impactReady={intermediate?false:!!rollFx?.impactReady} compact={!intermediate&&!!completed&&compact}
-    title={completed?.reveal.title?.replace(/\bsave\b/i,'Saving Throw')}
+  const content = displayTray ? <LiveDiceOverlay
+    frame={displayTray} result={sequence} idle={idle}
+    onSkip={()=>{setClosedTray(displayTray.id);if(!idle)(liveDice?useStore.getState().skipLiveDice:dismiss)();}}
+    impactReady={intermediate?false:!!rollFx?.impactReady} compact={idle?lastTray.current?.compact:!intermediate&&!!completed&&compact}
+    title={idle?'Dice table':completed?.reveal.title?.replace(/\bsave\b/i,'Saving Throw')}
     rollId={completed?.rollId} revealKind={completed?.reveal.kind}
     resultHeader={completed?.reveal}
-    finaleMs={completed?physicalRollTimeline(completed.reveal,true,rollTheme.id==='fighter'&&tray.values.some((v,i)=>v===tray.sides[i])).impact:undefined}
-    diceTrigger={completed&&tray.burstProgress?undefined:tray.diceTrigger??diceTriggerForTray(tray,completed?.reveal)}
+    finaleMs={completed?physicalRollTimeline(completed.reveal,true,rollTheme.id==='fighter'&&displayTray.values.some((v,i)=>v===displayTray.sides[i])).impact:undefined}
+    diceTrigger={idle||completed&&displayTray.burstProgress?undefined:displayTray.diceTrigger??diceTriggerForTray(displayTray,completed?.reveal)}
   /> : sequence;
   // Decided per roll, not once per mount: the guide may open or close between
   // rolls. Keyed so the modal layer comes and goes with the decision.

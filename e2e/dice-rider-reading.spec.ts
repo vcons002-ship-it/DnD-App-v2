@@ -88,7 +88,7 @@ const manual=true;test('unmodified superiority dice retain reading time before t
       await test.info().attach('attack-reading-timing',{body:JSON.stringify(timing),contentType:'application/json'});
       // Do not skip the attack result for a damage-timing demonstration: the
       // server commits before the client finishes arithmetic and reading time.
-      await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0,{timeout:15000});
+      await expect(page.locator('.roll-reveal-backdrop')).toHaveAttribute('data-table-idle','true',{timeout:15000});
       if(result.pending&&!result.pending.done)return result;
       expect(result.reveal?.outcome).toBe('fumble');
     }
@@ -125,7 +125,6 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   const next=samples.find((s:any)=>s.time>held.time&&s.id&&s.id!==held.id);
   const sequence=samples.filter((s:any)=>s.id&&s.time<=next.time+500);
   expect(new Set(sequence.map((s:any)=>s.card)).size).toBe(1);
-  expect(sequence.some((s:any)=>s.handoff==='crossfading')).toBe(true);
   expect(next.time-held.time).toBeGreaterThanOrEqual(2300);
   expect(held.filled).toBe(true);
   if(held.power.some((p:any)=>p.maximum)){

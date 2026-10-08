@@ -15,11 +15,12 @@ describe('shared dice table camera',()=>{
   expect(new Set(seats.map(s=>`${s.x},${s.y}`)).size).toBe(9);
   expect(seats.filter(s=>s.side==='top').map(s=>s.id)).toEqual(['dm']);
  });
- it('starts at the previous tray, rises during travel and finishes exactly at the live tray',()=>{
+ it('pans at a fixed zoom and leaves first and same-seat throws still',()=>{
   const from={x:-24,y:0},to={x:0,y:18};
   expect(diceTableCameraPose(from,to,0)).toEqual({x:-24,y:-18,lift:0});
-  expect(diceTableCameraPose(from,to,.5)).toMatchObject({x:-12,y:-9,lift:35});
+  expect(diceTableCameraPose(from,to,.5)).toMatchObject({x:-12,y:-9,lift:0});
   const last=diceTableCameraPose(from,to,1);expect(last.x).toBeCloseTo(0);expect(last.y).toBeCloseTo(0);expect(last.lift).toBeCloseTo(0);
-  expect(diceTableCameraPose(undefined,to,0)).toEqual({x:-0,y:-18,lift:110});
+  expect(diceTableCameraPose(undefined,to,0)).toEqual({x:0,y:0,lift:0});
+  expect(diceTableCameraPose(to,to,.5)).toEqual({x:0,y:0,lift:0});
  });
 });

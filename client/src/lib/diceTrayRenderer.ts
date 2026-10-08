@@ -8,6 +8,7 @@ import {createWoodlandWake} from './diceWoodlandWake';
 import {createShatterWorld} from './diceShatterPhysics';
 import {createDiceTableScene} from './diceTableScene';
 import type {DiceTableSeat} from './diceTableCamera';
+import type {StateSnapshot} from '../../../shared/types';
 
 export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean;mossAgate?:boolean;enchantedAmber?:boolean;woodlandWake?:boolean};
 
@@ -149,6 +150,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
       tableScene=createDiceTableScene(scene,tray,camera,trayScale,seats,activeId,fromId,art);
     },
     startTableCamera(){tableScene?.run();},
+    setTableMap(snapshot:StateSnapshot,viewerId?:string){tableScene?.map(snapshot,viewerId);},
     tableCameraState(){return tableScene?.state();},
     setReviewZoom(zoom:number){camera.zoom=zoom;camera.updateProjectionMatrix();},
     setResults(values:readonly (number|null)[]){liveResults=values;},

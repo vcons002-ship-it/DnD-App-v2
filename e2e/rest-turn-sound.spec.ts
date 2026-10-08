@@ -135,7 +135,7 @@ test('the dice make sound from real collisions, and the toggle silences them', a
     await page.locator('.compact-player-combat').getByRole('button', { name: /Rest greatsword/ }).click();
     await expect(page.locator('.roll-reveal')).toBeVisible();
     // A live server roll (headless, software WebGL) can take a while to present.
-    await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.locator('.roll-reveal-backdrop')).toHaveAttribute('data-table-idle','true', { timeout: 30_000 });
     return page.evaluate(() => (window as any).__diceSound as { loop: boolean }[]);
   };
   const heard = await roll();
@@ -183,7 +183,7 @@ test('the saved dice-sound choice survives a master mute and reopening settings'
   await panel.getByRole('button', { name: 'Close interface settings' }).click();
   await page.locator('.compact-player-combat').getByRole('button', { name: /Rest greatsword/ }).click();
   await expect(page.locator('.roll-reveal')).toBeVisible();
-  await expect(page.locator('.roll-reveal')).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.locator('.roll-reveal-backdrop')).toHaveAttribute('data-table-idle','true', { timeout: 30_000 });
   expect(await page.evaluate(() => (window as any).__diceSound.length)).toBe(0);
   // One click turns it back on — no off-and-on-again dance.
   await settings.click();

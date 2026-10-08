@@ -1,6 +1,6 @@
 export type DiceTableSeat={id:string;name:string;themeId:string;x:number;y:number;side:'bottom'|'left'|'right'|'top'};
-export const DICE_TABLE_PAN_MS=900;
-export const DICE_TABLE_ZOOM_MS=420;
+// Replaces the existing 180 ms handoff, never adds a second timing phase.
+export const DICE_TABLE_PAN_MS=180;
 
 /** The far edge belongs to the DM, never to an arbitrarily hashed player. */
 export function diceTableSeats(party:readonly {id:string;name:string;className:string}[],ownId:string|undefined,themeFor:(className:string)=>string):DiceTableSeat[]{
@@ -12,10 +12,9 @@ export function diceTableSeats(party:readonly {id:string;name:string;className:s
  return seats;
 }
 
-/** A gentle zoom out along the trip exposes the shared table between trays. */
+/** Fixed camera height: first/same-seat rolls remain still; other seats pan. */
 export function diceTableCameraPose(from:{x:number;y:number}|undefined,to:{x:number;y:number},progress:number){
  const p=Math.max(0,Math.min(1,progress)),e=p*p*(3-2*p);
  const dx=from?from.x-to.x:0,dy=from?from.y-to.y:0;
- const initial=!from;
- return {x:(initial?-to.x:dx)*(1-e),y:(initial?-to.y:dy)*(1-e),lift:initial?110*(1-e):Math.sin(Math.PI*p)*(Math.hypot(dx,dy)>1?35:2.5)};
+ return {x:dx*(1-e),y:dy*(1-e),lift:0};
 }

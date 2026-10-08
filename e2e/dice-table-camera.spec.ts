@@ -2,8 +2,9 @@ import {test,expect} from '@playwright/test';
 import {io,type Socket} from 'socket.io-client';
 import {DM_SECRET,PORT} from './playwright.config';
 import {startAv1Capture} from './av1Recorder';
+import {readFileSync} from 'node:fs';
 
-test('camera visits the local, left, right and far DM trays before each live toss',async({page,request})=>{
+test('fixed-zoom camera keeps the table mounted between rolls without an additional toss delay',async({page,request})=>{
  test.setTimeout(180000);
  const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Around the dice table'}})).json();
  const sockets:Socket[]=[];let owner:Socket|undefined;
@@ -29,8 +30,10 @@ test('camera visits the local, left, right and far DM trays before each live tos
   for(const c of party)dm.emit('character:update',{characterId:c.id,className:c.name==='Druk'?'Fighter':c.name==='Varis'?'Ranger':'Sorcerer'});
   dm.emit('session:setHideDmRolls',{hide:false});await snapshot();
   const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=1200;c.height=700;const x=c.getContext('2d')!;x.fillStyle='#1e2927';x.fillRect(0,0,1200,700);x.strokeStyle='#52615b';for(let i=0;i<1200;i+=64){x.strokeRect(i,0,64,700);}for(let j=0;j<700;j+=64)x.strokeRect(0,j,1200,64);return c.toDataURL('image/png').split(',')[1];});
-  const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Table preview',image:{name:'table.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')}}})).json();
+  const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Table preview',image:{name:'table.png',mimeType:'image/png',buffer:process.env.DICE_TABLE_MAP?readFileSync(process.env.DICE_TABLE_MAP):Buffer.from(png,'base64')}}})).json();
   dm.emit('map:setActive',{mapId:map.id});dm.emit('fog:setLayer',{mapId:map.id,layer:'map',enabled:false});await snapshot();
+  dm.emit('fog:setLayer',{mapId:map.id,layer:'tokens',enabled:false});
+  for(let i=0;i<party.length;i++)dm.emit('token:spawn',{mapId:map.id,kind:'pc',refId:party[i].id,x:500+i*90,y:340});
   const others=new Map<string,Socket>();
   for(const name of ['Varis','Vanec']){const s=await connect('player');s.emit('character:claim',{characterId:party.find((c:any)=>c.name===name).id});others.set(name,s);}
   await snapshot();
@@ -40,7 +43,7 @@ test('camera visits the local, left, right and far DM trays before each live tos
   await page.locator('.chat-dice-options summary').click();
   await page.evaluate(()=>{
    const samples:any[]=[];(window as any).__tableSamples=samples;(window as any).__tableSampling=true;
-   const sample=()=>{const canvas=document.querySelector('.dice-tray-canvas');if(canvas){const camera=JSON.parse(canvas.getAttribute('data-table-camera')||'{}');samples.push({time:performance.now(),id:document.querySelector('.roll-reveal-backdrop')?.getAttribute('data-roll-id'),camera,physics:Number(canvas.getAttribute('data-physics-elapsed')||0)});}if((window as any).__tableSampling)requestAnimationFrame(sample);};sample();
+   const sample=()=>{const canvas=document.querySelector('.dice-tray-canvas');if(canvas){(window as any).__firstTableCanvas??=canvas;const camera=JSON.parse(canvas.getAttribute('data-table-camera')||'{}');samples.push({time:performance.now(),id:document.querySelector('.roll-reveal-backdrop')?.getAttribute('data-roll-id'),camera,physics:Number(canvas.getAttribute('data-physics-elapsed')||0),sameCanvas:canvas===(window as any).__firstTableCanvas});}else if((window as any).__firstTableCanvas)samples.push({missing:true});if((window as any).__tableSampling)requestAnimationFrame(sample);};sample();
   });
   if(process.env.DICE_TABLE_VIDEO)capture=await startAv1Capture(page,process.env.DICE_TABLE_VIDEO);
   const turns=[{name:'Druk',expr:'2d6',side:'bottom'},{name:'Varis',expr:'1d8',side:'left'},{name:'Vanec',expr:'2d8',side:'right'},{name:'DM',expr:'1d20',side:'top'}];
@@ -57,17 +60,20 @@ test('camera visits the local, left, right and far DM trays before each live tos
    await expect(tray).toHaveAttribute('data-table-seat',id,{timeout:30000});await expect(tray).toHaveAttribute('data-table-side',turn.side);
    await page.waitForTimeout(450);await page.screenshot({path:test.info().outputPath(`${turn.name}-camera.png`)});
    await expect(page.locator('.tray-die-result').first()).toHaveAttribute('data-filled','true',{timeout:45000});
-   await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0,{timeout:20000});
+   await expect(page.locator('.roll-reveal-backdrop')).toHaveAttribute('data-table-idle','true',{timeout:20000});
    await page.waitForTimeout(300);
   }
   const samples=await page.evaluate(()=>{(window as any).__tableSampling=false;return (window as any).__tableSamples;});
   for(const turn of turns){
    const id=turn.name==='DM'?'dm':party.find((c:any)=>c.name===turn.name).id;
    const journey=samples.filter((s:any)=>s.camera.to===id);
-   expect(journey.some((s:any)=>s.camera.progress>0&&s.camera.progress<1)).toBe(true);
+   if(turn.name!=='Druk')expect(journey.some((s:any)=>s.camera.progress>0&&s.camera.progress<1&&s.camera.duration===180)).toBe(true);
    expect(journey.some((s:any)=>s.camera.done&&s.physics>0)).toBe(true);
    expect(journey.filter((s:any)=>s.physics>0).every((s:any)=>s.camera.done)).toBe(true);
   }
+  expect(samples.some((s:any)=>s.missing||!s.sameCanvas)).toBe(false);
+  await page.getByRole('button',{name:'Close dice table',exact:true}).click();
+  await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0);
   await test.info().attach('table-camera-timing',{body:JSON.stringify(samples),contentType:'application/json'});
  }finally{if(capture)await capture.stop();sockets.forEach(s=>s.disconnect());}
 });
