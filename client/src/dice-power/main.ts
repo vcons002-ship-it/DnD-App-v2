@@ -26,7 +26,7 @@ async function show(){
  const toss:Toss={frames,frameCount:1,step:1,radius:.85,topFaces:dice.map(()=>0),duration:0,settleTimes:dice.map(()=>0),wallHits:0};
  const art=await loadTrayTexture(theme);await waitForDiceGraphics();if(current!==epoch){art?.dispose();return;}
  const next=createTrayRenderer(dice,toss,theme==='dm'?diceThemeForRoll('',true):DICE_THEMES[theme as keyof typeof DICE_THEMES],undefined,art);
- next.setReviewZoom(focus.checked?1.5:1);
+ next.setReviewZoom(focus.checked?(theme==='ranger'?3:1.5):1);
  const rect=tray.getBoundingClientRect();await next.prepare(rect.width,rect.height,Math.min(devicePixelRatio,1.5));
  if(current!==epoch){next.dispose();return;}renderer=next;
  tray.dataset.theme=theme;tray.dataset.sides=String(n);

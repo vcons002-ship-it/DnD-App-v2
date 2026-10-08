@@ -338,8 +338,8 @@ void main(){
     }
     vec3 offset=pos-motePosition,shafts=vec3(0.);
     float tilt=time*.23,cs=cos(tilt),sn=sin(tilt);
-    for(int k=0;k<12;k++){
-     float z=1.-2.*(float(k)+.5)/12.,angle=float(k)*2.399963+time*.31;
+    for(int k=0;k<8;k++){
+     float z=1.-2.*(float(k)+.5)/8.,angle=float(k)*2.399963+time*.31;
      float radius=sqrt(1.-z*z);
      vec3 d=vec3(cos(angle)*radius,sin(angle)*radius,z);
      d=vec3(d.x,cs*d.y-sn*d.z,sn*d.y+cs*d.z);
@@ -348,15 +348,15 @@ void main(){
      float viewTravel=clamp(b*along-v,0.,chord);
      along=max(0.,dot(pos+incoming*viewTravel-motePosition,d));
      float separation=length(pos+incoming*viewTravel-motePosition-d*along);
-     float width=moteRoom*.13+along*.18;
-     float scatter=exp(-pow(separation/width,2.))*exp(-along/moteRoom*.8-viewTravel*.65);
+     float width=moteRoom*.035+along*.055;
+     float scatter=exp(-pow(separation/width,2.))*exp(-along/moteRoom*.35-viewTravel*.4);
      // Fade at the emitter and faces so these read as softly lit resin,
      // rather than hard beams or bright spots painted on the shell.
-     scatter*=smoothstep(0.,moteRoom*.22,along)*smoothstep(0.,moteRoom*.16,min(viewTravel,chord-viewTravel));
-     shafts+=vec3(.18,.48,.055)*scatter;
+     scatter*=smoothstep(0.,moteRoom*.08,along)*smoothstep(0.,moteRoom*.04,min(viewTravel,chord-viewTravel));
+     shafts+=vec3(.62,.90,.28)*scatter;
     }
-    energy+=shafts*depthFade*.65;
-    energy+=vec3(.15,.42,.035)*halo*depthFade*.5;
+    energy+=shafts*depthFade*2.2;
+    energy+=vec3(.15,.42,.035)*halo*depthFade*.25;
    }
  }
  through=through*exp(-smoke*1.9)+energy;

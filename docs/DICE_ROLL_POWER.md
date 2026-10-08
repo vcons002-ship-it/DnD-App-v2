@@ -41,8 +41,8 @@ dice. A maximum damage die is still damage, not a critical hit.
   each burst. Geometry and timing remain independent for each die.
 - **Varis:** his enclosed wandering mote grows more luminous with strength. A
   maximum draws it smoothly into the center, where it stays and softly lights
-  the surrounding resin. Broad, softly rotating light shafts remain enclosed
-  within the die, with a stronger green-gold bloom on a maximum. Distance
+  the surrounding resin. Eight distinct, softly rotating green-gold light shafts
+  remain enclosed within the die, with a brighter core against its green resin. Distance
   falloff, absorption and face angle shape the illumination. Shafts fade at
   the resin boundary instead of producing spotlights or bright exit spots.
   There are no outward beams, spotlight cones or bright face apertures.
