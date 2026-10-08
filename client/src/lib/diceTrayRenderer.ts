@@ -6,6 +6,8 @@ import type {DiceTheme} from '../../../shared/diceThemes';
 import {createDiceTrails} from './diceTrail';
 import {createWoodlandWake} from './diceWoodlandWake';
 import {createShatterWorld} from './diceShatterPhysics';
+import {createDiceTableScene} from './diceTableScene';
+import type {DiceTableSeat} from './diceTableCamera';
 
 export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean;mossAgate?:boolean;enchantedAmber?:boolean;woodlandWake?:boolean};
 
@@ -55,6 +57,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const trayScale=toss.trayScale??1;
   const tray=new THREE.Group();tray.scale.set(trayScale,trayScale,1);scene.add(tray);
   const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60*trayScale);camera.position.set(0,-8,25).multiplyScalar(trayScale);camera.lookAt(0,0,.25);
+  let tableScene:ReturnType<typeof createDiceTableScene>|undefined;
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.45));
   const light=new THREE.DirectionalLight(0xfff3dd,1.5);light.position.set(-9,3,6).multiplyScalar(trayScale);light.castShadow=true;light.shadow.mapSize.set(1024,1024);
   Object.assign(light.shadow.camera,{left:-10*trayScale,right:10*trayScale,top:8*trayScale,bottom:-8*trayScale,near:.1,far:35*trayScale});light.shadow.bias=-.0003;light.shadow.normalBias=.025;scene.add(light);
@@ -67,6 +70,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   // the silhouette or paint over the visible outside edge of the tray.
   box(0,0,-.30,15.05,10.05,.44,0x100e13);
   const floor=box(0,0,-.17,14.4,9.4,.3,0x182a27);
+  floor.name='tray-bed';
   const felt=document.createElement('canvas');felt.width=felt.height=128;
   const feltCtx=felt.getContext('2d')!;feltCtx.fillStyle='#1b3029';feltCtx.fillRect(0,0,128,128);
   for(let k=0;k<6000;k++){feltCtx.fillStyle=k%2?'#ffffff08':'#00000012';feltCtx.fillRect((k*73)%128,Math.floor(k*41.7)%128,1,1);}
@@ -139,6 +143,13 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const shatterWorld=dice.some((_,i)=>(dieThemes?.[i]??theme).id==='fighter')?createShatterWorld(toss.radius,trayScale):undefined;
   const shatterProxies=shatterWorld?handles.map((h,i)=>{h.setShatterWorld(shatterWorld);return shatterWorld.addDieProxy(dice[i].sides,toss.radius*diePhysicalScale(dice[i].sides));}):[];
   return {
+    setTableView(seats:readonly DiceTableSeat[],activeId:string,fromId:string|undefined,art:ReadonlyMap<string,THREE.Texture>){
+      tableScene?.dispose();art.forEach(t=>textures.push(t));
+      camera.far=250*trayScale;camera.updateProjectionMatrix();
+      tableScene=createDiceTableScene(scene,tray,camera,trayScale,seats,activeId,fromId,art);
+    },
+    startTableCamera(){tableScene?.run();},
+    tableCameraState(){return tableScene?.state();},
     setReviewZoom(zoom:number){camera.zoom=zoom;camera.updateProjectionMatrix();},
     setResults(values:readonly (number|null)[]){liveResults=values;},
     setFinaleDeadline(at:number|null|undefined){handles.forEach(h=>h.setExplosionAt(at==null?at:at-1000));},
@@ -165,11 +176,13 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
       return {x:(point.x+1)/2,y:(1-point.y)/2};
     },
     draw(ctx:CanvasRenderingContext2D,width:number,height:number,dpr:number,elapsed:number,now:number){
+      tableScene?.update(now);
       shatterWorld?.advance(now);
       const frame=Math.min(toss.frameCount-1,elapsed/toss.step),i=Math.floor(frame),j=Math.min(i+1,toss.frameCount-1),t=frame-i;
+      const waitingForCamera=tableScene!==undefined&&!tableScene.state().done;
       handles.forEach((h,k)=>{
-        h.object.visible=k<activeCount;shadows[k].visible=k<activeCount;
-        if(k>=activeCount){rings[k].visible=false;return;}
+        h.object.visible=k<activeCount&&!waitingForCamera;shadows[k].visible=k<activeCount&&!waitingForCamera;
+        if(k>=activeCount||waitingForCamera){rings[k].visible=false;return;}
         const x=(i*dice.length+k)*7,y=(j*dice.length+k)*7,f=toss.frames;
         h.object.position.set(THREE.MathUtils.lerp(f[x],f[y],t),THREE.MathUtils.lerp(f[x+1],f[y+1],t),THREE.MathUtils.lerp(f[x+2],f[y+2],t));
         a.fromArray(f,x+3);b.fromArray(f,y+3);h.object.quaternion.slerpQuaternions(a,b,t);
@@ -195,6 +208,6 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
       stage.renderer.render(scene,camera);stage.renderer.shadowMap.enabled=previousShadows;
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ctx.drawImage(stage.renderer.domElement,0,0,width,height);
     },
-    dispose(){trails?.dispose();light.shadow.dispose();handles.forEach(h=>h.dispose());shatterWorld?.dispose();geometry.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());scene.clear();}
+    dispose(){tableScene?.dispose();trails?.dispose();light.shadow.dispose();handles.forEach(h=>h.dispose());shatterWorld?.dispose();geometry.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());scene.clear();}
   };
 }

@@ -3,7 +3,8 @@ import {DIE_REVEAL_STAGGER_MS,liveDiceResultWaitMs} from '../../../shared/dicePr
 import {diceFlightPoint,diceFlightKeyframes,DIE_FLASH_MS,DIE_REVEAL_MS} from '../lib/diceFlightPosition';
 import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import {useStore} from '../state/socket';
-import {diceThemeForRoll} from '../../../shared/diceThemes';
+import {diceThemeForRoll,diceThemeForClass} from '../../../shared/diceThemes';
+import {diceTableSeats} from '../lib/diceTableCamera';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../../shared/liveDiceTypes';
 import {dieResultEmphasis,dieResultTier,dieResultLabel,type Toss} from '../lib/diceTrayTypes';
@@ -13,6 +14,8 @@ import {createDiceSound,rollingSpeeds} from '../lib/diceSfx';
 import {metresPerUnitFor} from '../../../shared/diceImpacts';
 import {liveNaturalCritical} from '../lib/diceFinaleTiming';
 import {playCritical} from '../lib/sfx';
+
+let lastTableFocus:{session:string;seat:string}|undefined;
 
 /** Render authoritative poses with a short interpolation buffer. No local physics,
  * face reassignment, trajectory retry, or client-generated result. */
@@ -44,6 +47,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  useLayoutEffect(()=>{
   const node=card.current;if(!node)return;
   const changed=previousId.current!==frame.id;
+  if(changed&&canvas.current){canvas.current.dataset.physicsElapsed='0';delete canvas.current.dataset.tableCamera;}
   if(changed&&canvas.current&&outgoing.current&&!reduced){
    // Copy once per throw, never per frame. Keep the old rendered artwork while
    // the next material prepares, then crossfade into the actual incoming tray.
@@ -125,6 +129,15 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    const art=await module.loadTrayTexture(theme.id);
    if(stopped){art?.dispose();return;}
    renderer=module.createTrayRenderer(Array.from({length:capacity},(_,index)=>({sides:frame.sides[index]??8,value:1,index,set:frame.sets[index],crit:frame.critical[index],tens:frame.percentile[index]==='tens',ones:frame.percentile[index]==='ones'})),toss,theme,undefined,art,true);
+   const ownId=viewer.snapshot?.characters.find(c=>c.claimedBy===viewer.socket?.id)?.id;
+   const seats=diceTableSeats(viewer.snapshot?.characters??[],ownId,c=>diceThemeForClass(c).id);
+   const seat=frame.dmDice?'dm':character?.id??seats[0].id;
+   const session=viewer.snapshot?.sessionCode??'';
+   if(!reduced){
+    const tableArt=await Promise.all([...new Set(seats.map(s=>s.themeId))].map(async id=>[id,await module.loadTrayTexture(id)] as const));
+    if(stopped){tableArt.forEach(([,t])=>t?.dispose());return;}
+    renderer.setTableView(seats,seat,lastTableFocus?.session===session?lastTableFocus.seat:undefined,new Map(tableArt.flatMap(([id,t])=>t?[[id,t]]:[])));
+   }
    const node=canvas.current!,ctx=node.getContext('2d')!;
    const width=node.clientWidth||600;
    await Promise.all([
@@ -159,7 +172,9 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
         renderer!.draw(ctx,width,height,dpr,alpha,now);
         node.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,shudder:p.shudder,pools:p.pools})));
        node.dataset.physicsElapsed=String(a.frame.elapsed+(b.frame.elapsed-a.frame.elapsed)*alpha);
-       node.dataset.renderTime=String(now);
+        node.dataset.renderTime=String(now);
+        const tableCamera=renderer!.tableCameraState();
+        if(tableCamera){node.dataset.tableCamera=JSON.stringify(tableCamera);node.dataset.tableSeat=tableCamera.to;node.dataset.tableSide=tableCamera.side;}
        finalTrayDrawn=b.frame.done&&alpha===1;
        const svg=links.current,trigger=triggerRef.current;
        if(svg){
@@ -191,7 +206,10 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
       }else handoffReady=true;
      }
      // Begin physics after the crossfade, so none of the actual toss is hidden.
-     if(!readySent&&handoffReady){readySent=true;useStore.getState().socket?.emit('dice:ready',{id:frame.id});}
+     if(handoffReady)renderer!.startTableCamera();
+     if(!readySent&&handoffReady&&(renderer!.tableCameraState()?.done??true)){
+      readySent=true;lastTableFocus={session,seat};useStore.getState().socket?.emit('dice:ready',{id:frame.id});
+     }
      if(!result&&b.frame.done&&(finalWasDrawn||reduced)){
        // Start on the frame AFTER the final WebGL draw has painted. Otherwise
        // GPU work can consume the flash and make every stagger launch at once.
