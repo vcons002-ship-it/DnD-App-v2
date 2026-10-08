@@ -44,12 +44,12 @@ export function createDiceTableScene(scene:THREE.Scene,tray:THREE.Group,camera:T
  let started:number|undefined,running=false,progress=0;
  const duration=!from||from.id===active.id?0:DICE_TABLE_PAN_MS;
  return {
-  run(){running=true;},
+  run(){running=true;started??=performance.now();},
   map(snapshot:StateSnapshot,viewerId?:string){board.update(snapshot,viewerId);},
   state(){return {from:from?.id??'overview',to:active.id,side:active.side,progress,done:progress>=1,duration};},
   update(now:number){
    if(running&&started===undefined)started=now;
-   progress=duration===0?1:started===undefined?0:Math.min(1,(now-started)/duration);
+   progress=duration===0?1:started===undefined?0:Math.max(0,Math.min(1,(now-started)/duration));
    const point=diceTableCameraPose(from,active,progress);
    camera.position.set(point.x,point.y-8,25+point.lift).multiplyScalar(scale);
    camera.lookAt(point.x*scale,point.y*scale,.25);

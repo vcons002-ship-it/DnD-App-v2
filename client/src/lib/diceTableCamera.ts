@@ -1,6 +1,6 @@
 export type DiceTableSeat={id:string;name:string;themeId:string;x:number;y:number;side:'bottom'|'left'|'right'|'top'};
-// Replaces the existing 180 ms handoff, never adds a second timing phase.
-export const DICE_TABLE_PAN_MS=180;
+// One short journey, including acceleration and braking; no second camera hold.
+export const DICE_TABLE_PAN_MS=460;
 
 /** The far edge belongs to the DM, never to an arbitrarily hashed player. */
 export function diceTableSeats(party:readonly {id:string;name:string;className:string}[],ownId:string|undefined,themeFor:(className:string)=>string):DiceTableSeat[]{
@@ -14,7 +14,7 @@ export function diceTableSeats(party:readonly {id:string;name:string;className:s
 
 /** Fixed camera height: first/same-seat rolls remain still; other seats pan. */
 export function diceTableCameraPose(from:{x:number;y:number}|undefined,to:{x:number;y:number},progress:number){
- const p=Math.max(0,Math.min(1,progress)),e=p*p*(3-2*p);
+ const p=Math.max(0,Math.min(1,progress)),e=p*p*p*(p*(p*6-15)+10);
  const dx=from?from.x-to.x:0,dy=from?from.y-to.y:0;
  return {x:dx*(1-e),y:dy*(1-e),lift:0};
 }

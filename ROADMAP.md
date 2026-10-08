@@ -2,7 +2,7 @@
 
 ## Character roll-strength art - October 2026
 
-- [x] Live dice use a dark lacquered wooden tabletop with a current-map/token overview at its center, the local player's tray nearest, other players to the left/right and the DM across the table. Fixed-zoom pans replace the original 180 ms handoff without adding roll delays; first and same-seat rolls stay still. The same tray canvas remains open between rolls until closed, preserving the earlier physics, modifier and reading timing, impact collapse and reduced-motion support.
+- [x] Live dice use a dark lacquered wooden tabletop with a current-map/token overview at its center, the local player's tray nearest, other players to the left/right and the DM across the table. A 460 ms fixed-zoom pan eases between seats; first and same-seat rolls stay still. Fixed card/camera bounds prevent resizing as modifiers and totals appear or the tray becomes idle. Live results have one 2.5-second reading phase instead of stacking legacy 6.5/8-second result holds. The same canvas remains open between rolls until closed; physics, modifier pacing, impact collapse and reduced-motion support are preserved.
 
 - [x] Natural attack 20s announce CRITICAL HIT immediately on the confirmed kept face, before modifiers. Druk maxima charge and shudder throughout calculation, burst one second before impact, and leave a smaller molten pool with flickering flame tongues and small radial splatter instead of falling blobs. Skip remains immediate.
 

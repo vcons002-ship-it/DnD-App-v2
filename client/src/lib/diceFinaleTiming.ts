@@ -13,5 +13,9 @@ export function physicalRollTimeline(reveal:RollReveal,inlineTray:boolean,drukMa
  const attackDamage=inlineTray&&!burst&&!!reveal.damageDice?.length;
  const adjustments=burst?reveal.damageMods??[]:attackDamage?[...(reveal.toHit??[]),...(reveal.damageMods??[])]:reveal.toHit??[];
  const complete=Math.max(reveal.diceTrigger?DICE_TRIGGER_HOLD_MS:0,burst&&!adjustments.length?LIVE_DICE_RESULT_HOLD_MS:adjustments.length*ROLL_MODIFIER_STEP_MS+ROLL_MODIFIER_COMPLETE_MS);
- return {complete,impact:Math.max(complete+(!burst&&reveal.outcome!=='none'?1200:0),drukMaximum?1200:0)};
+ // Unmodified damage already includes its reading phase in `complete`.
+ // Every other roll gets one reading phase after arithmetic, never the legacy
+ // 6.5/8-second hold on top. The finale finishes before the map impact begins.
+ const readingIncluded=burst&&!adjustments.length?LIVE_DICE_RESULT_HOLD_MS:0;
+ return {complete,impact:Math.max(complete+LIVE_DICE_RESULT_HOLD_MS-readingIncluded,drukMaximum?1200:0)};
 }

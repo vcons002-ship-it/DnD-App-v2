@@ -210,7 +210,9 @@ for (const scenario of [
       const filling = samples.filter((s: any) => s.live && s.settled && !s.filled && s.renderTime);
       expect(filling.at(-1).renderTime - filling[0].renderTime,
         'Dice material animations must continue during number flights').toBeGreaterThan(400);
-      const reading = samples.filter((s: any) => s.live && s.filled && s.renderTime);
+      // Reading continues in the same physical tray while its calculation is
+      // displayed; it is no longer an extra server-held pause before bonuses.
+      const reading = samples.filter((s: any) => s.large && s.settled && s.filled && s.renderTime);
       expect(reading.at(-1).renderTime - reading[0].renderTime,
         'Filled results remain readable with animated dice for at least 1.7 seconds').toBeGreaterThan(1700);
     }

@@ -74,7 +74,7 @@ const manual=true;test('unmodified superiority dice retain reading time before t
         const sample=()=>{
           const now=performance.now();
           if(!timing.outcomeAt&&document.querySelector('.tray-roll-result [data-phase="outcome"]'))timing.outcomeAt=now;
-          if(timing.outcomeAt&&document.querySelector('.roll-reveal[data-impact-ready="true"]')){timing.impactAt=now;return;}
+          if(timing.outcomeAt&&(document.querySelector('.roll-reveal[data-impact-ready="true"]')||document.querySelector('[data-table-idle="true"]'))){timing.impactAt=now;return;}
           requestAnimationFrame(sample);
         };requestAnimationFrame(sample);
       });
@@ -82,7 +82,7 @@ const manual=true;test('unmodified superiority dice retain reading time before t
       const result=await waitForCombatRoll(snapshot,previous,r=>r.label==='Attack');
       await expect(page.locator('.rr-adjustment').first()).toBeVisible();
       await expect(page.locator('.tray-roll-result [data-phase="outcome"]')).toBeVisible({timeout:10000});
-      await expect(page.locator('.roll-reveal[data-impact-ready="true"]')).toBeVisible({timeout:10000});
+      await expect(page.locator('.roll-reveal-backdrop')).toHaveAttribute('data-table-idle','true',{timeout:10000});
       const timing=await page.evaluate(()=>(window as any).__attackRead);
       expect(timing.impactAt-timing.outcomeAt).toBeGreaterThanOrEqual(1000);
       await test.info().attach('attack-reading-timing',{body:JSON.stringify(timing),contentType:'application/json'});
@@ -98,8 +98,12 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   const capture=process.env.DICE_RIDER_VIDEO?await startAv1Capture(page,process.env.DICE_RIDER_VIDEO):undefined;
   const hit=await attack();
   const before=(await snapshot()).monsters.find(m=>m.id===enemy.refId)!.curHp;
+  await expect(page.locator('.dice-table-actions .dp-maneuver-toggle')).toBeVisible();
+  const cardBeforeChoices=await page.locator('.live-dice-card').boundingBox();
   await page.locator('.dp-maneuver-toggle').click();
   await expect(page.locator('.dp-maneuver-btn')).toHaveText(['Trip Attack']);
+  await expect(page.locator('[data-table-idle="true"]')).toBeVisible();
+  expect(await page.locator('.live-dice-card').boundingBox()).toEqual(cardBeforeChoices);
   await page.screenshot({path:test.info().outputPath('maneuver-choices.png'),fullPage:true});
   const start=frames.length;
   await page.evaluate(()=>{
@@ -146,4 +150,11 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   expect(before-after.monsters.find(m=>m.id===enemy.refId)!.curHp).toBe(after.rollLog.find(r=>r.id===hit.id)!.pending!.amount);
   socket.emit('combat:maneuver',{rollId:hit.id,abilityId:'trip'});
   expect((await snapshot()).characters.find(c=>c.id===character.id)!.resources['Superiority Dice'].used).toBe(1);
+  // Explicitly closing an idle table must restore the ordinary damage dock.
+  await attack();
+  await page.getByRole('button',{name:'Close dice table',exact:true}).click();
+  await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0);
+  await expect(page.locator('.player-damage-dock .dp-maneuver-toggle')).toBeVisible();
+  await page.locator('.dp-maneuver-toggle').click();
+  await expect(page.locator('.dp-maneuver-btn')).toHaveText(['Trip Attack']);
 });
