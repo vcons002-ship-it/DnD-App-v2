@@ -35,6 +35,7 @@ export function createDiceMoteRays(root:THREE.Group,planes:THREE.Vector4[],room:
  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);root.add(mesh);
  const transform=new THREE.Object3D(),direction=new THREE.Vector3(),axis=new THREE.Vector3(0,1,0);
  return {
+  reset(){mesh.count=0;material.uniforms.strength.value=0;},
   count(){return mesh.count;},
   update(now:number,maximum:boolean,age:number,mote:THREE.Vector3,reduced:boolean){
    mesh.count=maximum&&!reduced?count:0;if(!mesh.count)return;

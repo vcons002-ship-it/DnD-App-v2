@@ -9,6 +9,7 @@ import {createShatterWorld} from './diceShatterPhysics';
 import {createDiceTableScene,preloadDiceTableTexture} from './diceTableScene';
 import type {DiceTableSeat} from './diceTableCamera';
 import type {StateSnapshot} from '../../../shared/types';
+import {createDiceRendererCache} from './diceRendererCache';
 
 export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean;mossAgate?:boolean;enchantedAmber?:boolean;woodlandWake?:boolean};
 
@@ -42,6 +43,15 @@ const graphicsPending=new Map<string,Promise<void>>();
 export const waitForDiceGraphics = (themeId?:string) => themeId===undefined?graphicsPreload:graphicsPending.get(themeId)??Promise.resolve();
 export const diceGraphicsPreloaded = (themeId: string) => warmedDice.has(themeId);
 export const prepareDiceTableTexture = preloadDiceTableTexture;
+const liveRenderers=createDiceRendererCache<ReturnType<typeof createTrayRenderer>>();
+let liveRendererContext='';
+export function acquireLiveTrayRenderer(context:string,dice:TrayDie[],toss:Toss,theme:DiceTheme,art?:THREE.Texture){
+  if(context!==liveRendererContext){liveRenderers.clear();liveRendererContext=context;}
+  const key=JSON.stringify([theme,toss.radius,toss.trayScale,dice.map(d=>[d.sides,d.set,!!d.crit,!!d.tens,!!d.ones])]);
+  const lease=liveRenderers.acquire(key,dice.length,()=>createTrayRenderer(dice,toss,theme,undefined,art,true));
+  if(lease.reused){art?.dispose();lease.value.resetForRoll(toss);}
+  return lease;
+}
 export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean) {
   const pending=graphicsPending.get(theme.id);if(pending)return pending;
   graphicsPreload = graphicsPreload.then(async () => {
@@ -79,6 +89,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const tray=new THREE.Group();tray.scale.set(trayScale,trayScale,1);scene.add(tray);
   const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60*trayScale);camera.position.set(0,-8,25).multiplyScalar(trayScale);camera.lookAt(0,0,.25);
   let tableScene:ReturnType<typeof createDiceTableScene>|undefined;
+  let tableKey='',sceneRevision=0,preparedSize='';
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.45));
   const light=new THREE.DirectionalLight(0xfff3dd,1.5);light.position.set(-9,3,6).multiplyScalar(trayScale);light.castShadow=true;light.shadow.mapSize.set(1024,1024);
   Object.assign(light.shadow.camera,{left:-10*trayScale,right:10*trayScale,top:8*trayScale,bottom:-8*trayScale,near:.1,far:35*trayScale});light.shadow.bias=-.0003;light.shadow.normalBias=.025;scene.add(light);
@@ -164,7 +175,15 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const shatterWorld=dice.some((_,i)=>(dieThemes?.[i]??theme).id==='fighter')?createShatterWorld(toss.radius,trayScale):undefined;
   const shatterProxies=shatterWorld?handles.map((h,i)=>{h.setShatterWorld(shatterWorld);return shatterWorld.addDieProxy(dice[i].sides,toss.radius*diePhysicalScale(dice[i].sides));}):[];
   return {
+    resetForRoll(next:Toss){
+      toss=next;liveResults=undefined;activeCount=dice.length;keptSet=undefined;
+      handles.forEach(h=>h.resetForRoll());shatterWorld?.reset();trails?.reset();
+      rings.forEach(r=>r.visible=false);shadows.forEach(s=>s.visible=false);
+    },
     setTableView(seats:readonly DiceTableSeat[],activeId:string,fromId:string|undefined,art:ReadonlyMap<string,THREE.Texture>){
+      const key=JSON.stringify([seats,activeId]);
+      if(tableScene&&key===tableKey){art.forEach(t=>t.dispose());tableScene.restart(fromId);return;}
+      tableKey=key;sceneRevision++;
       tableScene?.dispose();art.forEach(t=>textures.push(t));
       camera.far=250*trayScale;camera.updateProjectionMatrix();
       tableScene=createDiceTableScene(scene,tray,camera,trayScale,seats,activeId,fromId,art);
@@ -180,12 +199,13 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     trailPointCount(){return trails?.pointCount()??0;},
     trailBranchCount(){return trails?.branchCount()??0;},
     async prepare(width:number,height:number,dpr:number,canRender:()=>boolean=()=>true){
+      const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width),signature=`${rw}:${rh}:${sceneRevision}`;
+      if(preparedSize===signature)return;
       // Launch poses start outside the camera. Warm visible dice, transmission,
       // textures and shadow passes before acknowledging readiness to the server.
       // This detached WebGL canvas is never shown during preparation.
       handles.forEach(h=>{h.object.position.set(0,0,toss.radius);h.updatePose(camera,performance.now());});
       handles.forEach(h=>h.prewarmShatter(true));
-      const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
       const compile=(target:THREE.WebGLRenderTarget|null)=>{
         const previousTarget=stage.renderer.getRenderTarget(),shadows=stage.renderer.shadowMap.enabled;
         try {stage.renderer.shadowMap.enabled=true;stage.renderer.setRenderTarget(target);return stage.renderer.compileAsync(scene,camera);}
@@ -201,7 +221,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         // Never resize/draw its shared canvas for a cancelled background warmup.
         if(canRender()){
           const shadows=stage.renderer.shadowMap.enabled;
-          try {stage.renderer.setSize(rw,rh,false);stage.renderer.shadowMap.enabled=true;stage.renderer.render(scene,camera);}
+          try {stage.renderer.setSize(rw,rh,false);stage.renderer.shadowMap.enabled=true;stage.renderer.render(scene,camera);preparedSize=signature;}
           finally {stage.renderer.shadowMap.enabled=shadows;}
         }
       }
@@ -238,7 +258,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         const clearance=Math.max(0,h.object.position.z-dieRadius*.65);
         shadow.scale.setScalar(dieRadius*(1.0+clearance*.18));(shadow.material as THREE.MeshBasicMaterial).opacity=Math.max(.15,.9-clearance*.18);
       });
-      rangerIndices.forEach((index,k)=>handles[index].innerLightPosition(moteLights[k]));
+      rangerIndices.forEach((index,k)=>waitingForCamera?moteLights[k].set(0,0,-10000):handles[index].innerLightPosition(moteLights[k]));
       trails?.update(handles.map(h=>h.object),now);
       const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
       if(stage.renderer.domElement.width!==rw||stage.renderer.domElement.height!==rh)stage.renderer.setSize(rw,rh,false);

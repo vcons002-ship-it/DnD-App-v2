@@ -81,6 +81,7 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
   active=true;erupted=true;
  };
  return {
+  reset(){clear();broken=false;charge.position.set(0,0,0);charge.rotation.set(0,0,0);original.forEach(object=>object.visible=true);},
   setWorld(world:ShatterWorld){clear();if(owned)physics?.dispose();physics=world;owned=false;},
   prewarm(enabled:boolean){for(const f of fragments)f.object.visible=enabled;for(const material of outerMaterials)material.uniforms.shatterFade.value=0;pool.prewarm(enabled);},
   state(){return {broken,shudder:charge.position.length(),lavaDrop:pool.dropping(),fragments:active?cells.length:0,frozenFragments:fragments.filter(f=>f.frozen).length,lava:0,pools:pool.visible()?1:0,melting:0,preservedSurfaces:fragments.reduce((n,f)=>n+f.preserved,0),physics:physics?.stats()};},

@@ -27,7 +27,7 @@ export function preloadDiceTableTexture(){
 /** Decorative trays share the active tray's geometry; only their materials and
  * nameplates are additional. No inactive dice or physics worlds are created. */
 export function createDiceTableScene(scene:THREE.Scene,tray:THREE.Group,camera:THREE.PerspectiveCamera,scale:number,seats:readonly DiceTableSeat[],activeId:string,fromId:string|undefined,art:ReadonlyMap<string,THREE.Texture>){
- const active=seats.find(s=>s.id===activeId)??seats[0],from=seats.find(s=>s.id===fromId);
+ const active=seats.find(s=>s.id===activeId)??seats[0];let from=seats.find(s=>s.id===fromId);
  const group=new THREE.Group();scene.add(group);
  const materials:THREE.Material[]=[],textures:THREE.Texture[]=[],geometry:THREE.BufferGeometry[]=[];
  const bed=tray.children.find(c=>c.name==='tray-bed') as THREE.Mesh;
@@ -57,8 +57,9 @@ export function createDiceTableScene(scene:THREE.Scene,tray:THREE.Group,camera:T
   const plaque=new THREE.Mesh(g,m);plaque.position.set((seat.x-active.x)*scale,(seat.y-active.y-6)*scale,-.55);group.add(plaque);
  });
  let started:number|undefined,running=false,progress=0;
- const duration=!from||from.id===active.id?0:DICE_TABLE_PAN_MS;
+ let duration=!from||from.id===active.id?0:DICE_TABLE_PAN_MS;
  return {
+  restart(previousId:string|undefined){from=seats.find(s=>s.id===previousId);duration=!from||from.id===active.id?0:DICE_TABLE_PAN_MS;started=undefined;running=false;progress=0;},
   run(){running=true;started??=performance.now();},
   map(snapshot:StateSnapshot,viewerId?:string){board.update(snapshot,viewerId);},
   state(){return {from:from?.id??'overview',to:active.id,side:active.side,progress,done:progress>=1,duration};},

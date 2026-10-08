@@ -654,7 +654,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     for(const f of faces){const projection=f.n.dot(center);if(projection>0)fit=Math.min(fit,(f.n.dot(f.c)-room*.19)/projection);}
     center.multiplyScalar(fit);
   };
-  const lightning=createLightningTiming();
+  let lightning=createLightningTiming();
   const updateLightning=(now:number)=>{
     if(!uniforms.internalLightning.value&&!(theme.id==='sorcerer'&&powerView.maximum))return;
     const frame=lightning.advance(now/1000,powerView.known?powerView.strength:undefined,powerView.maximum&&!powerReduced);
@@ -757,6 +757,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
+    resetForRoll(){power.reset();powerView=power.advance(performance.now());explosionAt=undefined;shatter?.reset();moteRays?.reset();lightning=createLightningTiming();moteRevision=-1;lastValue=-1;lastReadable=false;},
     setRollResult(value:number|null|undefined,percentileValue?:number){power.setResult(value,percentileValue);},
     setReducedMotion(reduced:boolean){powerReduced=reduced;},
     setExplosionAt(at:number|null|undefined){explosionAt=at;},

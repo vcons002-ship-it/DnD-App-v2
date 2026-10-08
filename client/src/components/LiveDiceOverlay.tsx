@@ -100,6 +100,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  },[frame]);
  useEffect(()=>{
   let stopped=false,raf=0,renderer:ReturnType<typeof import('../lib/diceTrayRenderer').createTrayRenderer>|undefined;
+  let lease:ReturnType<typeof import('../lib/diceTrayRenderer').acquireLiveTrayRenderer>|undefined,initializationDone=false;
   // Revisiting an earlier completed throw for its arithmetic does not replay
   // number flights that the viewer already watched during the live roll.
   setArrived(result?frame.sides.map((_,i)=>i):[]);setFailed(false);setPrepared(false);
@@ -122,7 +123,9 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    root.current!.dataset.dicePreloaded=String(module.diceGraphicsPreloaded(theme.id));
    const art=await module.loadTrayTexture(theme.id);
    if(stopped){art?.dispose();return;}
-   renderer=module.createTrayRenderer(Array.from({length:capacity},(_,index)=>({sides:frame.sides[index]??8,value:1,index,set:frame.sets[index],crit:frame.critical[index],tens:frame.percentile[index]==='tens',ones:frame.percentile[index]==='ones'})),toss,theme,undefined,art,true);
+   const context=JSON.stringify([viewer.snapshot?.sessionCode,viewer.snapshot?.map?.id,viewer.snapshot?.role,viewer.socket?.id]);
+   lease=module.acquireLiveTrayRenderer(context,Array.from({length:capacity},(_,index)=>({sides:frame.sides[index]??8,value:1,index,set:frame.sets[index],crit:frame.critical[index],tens:frame.percentile[index]==='tens',ones:frame.percentile[index]==='ones'})),toss,theme,art);
+   renderer=lease.value;root.current!.dataset.rendererReused=String(lease.reused);
    preparation.models=performance.now();
    tableRenderer.current=renderer;
    const ownId=viewer.snapshot?.characters.find(c=>c.claimedBy===viewer.socket?.id)?.id;
@@ -139,7 +142,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    const width=node.clientWidth||600;
    preparation.table=performance.now();
    await Promise.all([
-    reduced?Promise.resolve():renderer.prepare(width,width*10.2/15.2,Math.min(2,devicePixelRatio||1)),
+    reduced?Promise.resolve():renderer.prepare(width,width*10.2/15.2,Math.min(2,devicePixelRatio||1),()=>!stopped),
     ...Array.from(root.current!.parentElement!.getAnimations()).map(a=>a.finished.catch(()=>{})),
    ]);
    if(stopped)return;
@@ -237,8 +240,8 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
     }
     raf=requestAnimationFrame(draw);
    };raf=requestAnimationFrame(draw);
-  })().catch(()=>{if(!stopped){setFailed(true);useStore.getState().socket?.emit('dice:ready',{id:frame.id});}});
-  return()=>{stopped=true;cancelAnimationFrame(raf);animations.forEach(a=>a.cancel());renderer?.dispose();if(tableRenderer.current===renderer)tableRenderer.current=undefined;};
+  })().catch(()=>{if(!stopped){setFailed(true);useStore.getState().socket?.emit('dice:ready',{id:frame.id});}}).finally(()=>{initializationDone=true;if(stopped)lease?.release();});
+  return()=>{stopped=true;cancelAnimationFrame(raf);animations.forEach(a=>a.cancel());if(initializationDone)lease?.release();if(tableRenderer.current===renderer)tableRenderer.current=undefined;};
  },[frame.id]);
  const value=(i:number)=>{const v=frame.values[i];return v===null?'?':frame.percentile[i]==='tens'?String((v-1)*10).padStart(2,'0'):frame.percentile[i]==='ones'?v-1:v;};
  const tier=(i:number)=>dieResultTier(liveDieResult(frame,i));

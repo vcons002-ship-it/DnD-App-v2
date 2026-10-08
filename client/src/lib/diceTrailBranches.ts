@@ -130,6 +130,7 @@ export function createTrailBranches(scene:THREE.Scene,radius:number,shared?:Retu
    }
    render(sprouts,foliage,now,oldestRootTime);render(thorns,prickles,now,oldestRootTime);
   },
+  reset(){sprouts.length=thorns.length=0;lastDistance=undefined;lastLeaf=undefined;thornPlaced=false;foliage.mesh.count=prickles.mesh.count=0;},
   dispose(){for(const target of [foliage,prickles]){scene.remove(target.mesh);target.geometry.dispose();}if(!shared)assets.dispose();}
  };
 }

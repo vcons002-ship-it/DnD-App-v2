@@ -36,6 +36,7 @@ export function createShatterWorld(radius:number,trayScale=1,floor=0){
    if(dynamic.size&&dt)world.step(1/240,dt*LIVE_DICE_PRESENTATION_RATE,12);
   },
   stats(){return {bodies:dynamic.size,collisions,wallHits,fragmentHits};},
+  reset(){for(const body of dynamic)world.removeBody(body);dynamic.clear();last=undefined;collisions=wallHits=fragmentHits=0;proxies.forEach(body=>{body.position.set(0,0,-100);body.collisionFilterMask=12;body.aabbNeedsUpdate=true;});},
   dispose(){for(const body of [...world.bodies])world.removeBody(body);dynamic.clear();proxies.length=0;},
  };
 }

@@ -24,6 +24,7 @@ export function createDiceTrails(scene:THREE.Scene,radius:number,indices:number[
   return {index,branches,points:[] as TrailPoint[],lastSample:undefined as TrailPoint|undefined,geometry,vine,root,sparksGeometry,sparksMaterial,sparks,sparkPosition,sparkColor};
  });
  return {
+  reset(){for(const trail of trails){trail.points.length=0;trail.lastSample=undefined;trail.geometry.setDrawRange(0,0);trail.sparksGeometry.setDrawRange(0,0);trail.branches.reset();}},
   pointCount(){return trails.reduce((sum,t)=>sum+t.points.length,0);},
   branchCount(){return trails.reduce((sum,t)=>sum+t.branches.count(),0);},
   update(poses:THREE.Object3D[],now:number){

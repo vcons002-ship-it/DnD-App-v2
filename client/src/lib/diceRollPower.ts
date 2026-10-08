@@ -17,6 +17,7 @@ export function diceRollPower(sides:number,value:number|null|undefined){
 export function createRollPowerState(sides:number){
  let result=diceRollPower(sides,null),strength=result.strength,last:number|undefined,born=-Infinity,revision=0;
  return {
+  reset(){result=diceRollPower(sides,null);strength=result.strength;last=undefined;born=-Infinity;revision=0;},
   setResult(value:number|null|undefined,percentileValue?:number){
    const next=diceRollPower(percentileValue===undefined?sides:100,value==null?null:percentileValue??value);
    if(next.maximum&&!result.maximum){born=NaN;revision++;}

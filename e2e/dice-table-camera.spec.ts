@@ -49,19 +49,23 @@ test('fixed-zoom camera keeps the table mounted between rolls without an additio
   }
   await page.evaluate(()=>{
    const samples:any[]=[];(window as any).__tableSamples=samples;(window as any).__tableSampling=true;
-   const sample=()=>{const canvas=document.querySelector('.dice-tray-canvas'),card=document.querySelector('.live-dice-card'),backdrop=document.querySelector('.roll-reveal-backdrop');if(canvas&&card){(window as any).__firstTableCanvas??=canvas;const camera=JSON.parse(canvas.getAttribute('data-table-camera')||'{}'),bounds=card.getBoundingClientRect(),view=canvas.getBoundingClientRect(),boxes=[...document.querySelectorAll('.tray-die-result')];samples.push({time:performance.now(),id:backdrop?.getAttribute('data-roll-id'),idle:backdrop?.getAttribute('data-table-idle')==='true',filled:document.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled'&&boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),bounds:{x:bounds.x,y:bounds.y,w:bounds.width,h:bounds.height,canvasY:view.y,canvasH:view.height},camera,preloaded:document.querySelector('.physics-dice-tray')?.getAttribute('data-dice-preloaded'),preparation:JSON.parse(document.querySelector('.physics-dice-tray')?.getAttribute('data-preparation')||'null'),physics:Number(canvas.getAttribute('data-physics-elapsed')||0),sameCanvas:canvas===(window as any).__firstTableCanvas});}else if((window as any).__firstTableCanvas)samples.push({missing:true});if((window as any).__tableSampling)requestAnimationFrame(sample);};sample();
+   const sample=()=>{const canvas=document.querySelector('.dice-tray-canvas'),card=document.querySelector('.live-dice-card'),backdrop=document.querySelector('.roll-reveal-backdrop');if(canvas&&card){(window as any).__firstTableCanvas??=canvas;const camera=JSON.parse(canvas.getAttribute('data-table-camera')||'{}'),bounds=card.getBoundingClientRect(),view=canvas.getBoundingClientRect(),boxes=[...document.querySelectorAll('.tray-die-result')];samples.push({time:performance.now(),id:backdrop?.getAttribute('data-roll-id'),idle:backdrop?.getAttribute('data-table-idle')==='true',filled:document.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled'&&boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),bounds:{x:bounds.x,y:bounds.y,w:bounds.width,h:bounds.height,canvasY:view.y,canvasH:view.height},camera,reused:document.querySelector('.physics-dice-tray')?.getAttribute('data-renderer-reused'),preloaded:document.querySelector('.physics-dice-tray')?.getAttribute('data-dice-preloaded'),preparation:JSON.parse(document.querySelector('.physics-dice-tray')?.getAttribute('data-preparation')||'null'),physics:Number(canvas.getAttribute('data-physics-elapsed')||0),sameCanvas:canvas===(window as any).__firstTableCanvas});}else if((window as any).__firstTableCanvas)samples.push({missing:true});if((window as any).__tableSampling)requestAnimationFrame(sample);};sample();
   });
   if(process.env.DICE_TABLE_VIDEO)capture=await startAv1Capture(page,process.env.DICE_TABLE_VIDEO);
-  const turns=[{name:'Druk',expr:'2d6+4',side:'bottom'},{name:'Druk',expr:'1d20+6',side:'bottom'},{name:'Varis',expr:'1d8+3',side:'left'},{name:'Vanec',expr:'2d8',side:'right'},{name:'DM',expr:'1d20+2',side:'top'}];
+  const turns=[{name:'Druk',expr:'2d6+4',side:'bottom'},{name:'Druk',expr:'1d20+6',side:'bottom'},{name:'Varis',expr:'1d8+3',side:'left'},{name:'Vanec',expr:'2d8',side:'right'},{name:'DM',expr:'1d20+2',side:'top'},{name:'Druk',expr:'2d6+4',side:'bottom'},{name:'Druk',expr:'1d20+6',side:'bottom'}];
+  const rolledIds:string[]=[];
   for(const turn of turns){
+   const previousRoll=await page.evaluate(()=>document.querySelector('.roll-reveal-backdrop')?.getAttribute('data-roll-id')??null);
    const id=turn.name==='DM'?'dm':party.find((c:any)=>c.name===turn.name).id;
    owner=turn.name==='DM'?dm:others.get(turn.name);
    if(turn.name==='Druk'){
     await page.locator('.chat-dice-options .dice-row input').nth(0).fill(turn.expr);
-    await page.locator('.chat-dice-options .dice-row input').nth(1).fill('Druk — Table roll');
+    await page.locator('.chat-dice-options .dice-row input').nth(1).fill('Druk â€” Table roll');
     await page.locator('.chat-dice-options').getByRole('button',{name:'Roll',exact:true}).click();
    }
-   else owner!.emit('dice:roll',{expr:turn.expr,label:`${turn.name} — Table roll`});
+   else owner!.emit('dice:roll',{expr:turn.expr,label:`${turn.name} â€” Table roll`});
+   await expect(page.locator('.roll-reveal-backdrop')).not.toHaveAttribute('data-roll-id',previousRoll??'');
+   rolledIds.push((await page.locator('.roll-reveal-backdrop').getAttribute('data-roll-id'))!);
    const tray=page.locator('.dice-tray-canvas');
    await expect(tray).toHaveAttribute('data-table-seat',id,{timeout:30000});await expect(tray).toHaveAttribute('data-table-side',turn.side);
    await page.waitForTimeout(450);await page.screenshot({path:test.info().outputPath(`${turn.name}-camera.png`)});
@@ -70,18 +74,19 @@ test('fixed-zoom camera keeps the table mounted between rolls without an additio
    await page.waitForTimeout(300);
   }
   const samples=await page.evaluate(()=>{(window as any).__tableSampling=false;return (window as any).__tableSamples;});
-  expect(await page.evaluate(()=>performance.getEntriesByName('dice-table-texture-preparation').length),'All five rolls reuse one table texture').toBe(1);
+  expect(await page.evaluate(()=>performance.getEntriesByName('dice-table-texture-preparation').length),'All seven rolls reuse one table texture').toBe(1);
   if(profiler){const {profile}=await profiler.send('Profiler.stop');await test.info().attach('table-cpu-profile',{body:JSON.stringify(profile),contentType:'application/json'});}
-  for(const turn of turns){
+  for(const [index,turn] of turns.entries()){
    const id=turn.name==='DM'?'dm':party.find((c:any)=>c.name===turn.name).id;
-   const journey=samples.filter((s:any)=>s.camera.to===id);
-   if(turn.name!=='Druk'){
+   const journey=samples.filter((s:any)=>s.id===rolledIds[index]&&s.camera.to===id);
+   if(index>0&&turn.side!==turns[index-1].side){
     const pan=journey.filter((s:any)=>s.camera.progress>0&&s.camera.progress<1);
     expect(pan.some((s:any)=>s.camera.duration===DICE_TABLE_PAN_MS)).toBe(true);
     expect(new Set(pan.map((s:any)=>s.camera.progress)).size).toBeGreaterThanOrEqual(8);
    }else expect(journey.every((s:any)=>s.camera.duration===0)).toBe(true);
    expect(journey.some((s:any)=>s.camera.done&&s.physics>0)).toBe(true);
    expect(journey.filter((s:any)=>s.physics>0).every((s:any)=>s.camera.done)).toBe(true);
+   if(index>=5)expect(journey.every((s:any)=>s.reused==='true'),'Repeated damage and attack reuse prepared GPU scenes').toBe(true);
   }
   expect(samples.some((s:any)=>s.missing||!s.sameCanvas)).toBe(false);
   const painted=samples.filter((s:any)=>s.bounds&&s.camera.to);
