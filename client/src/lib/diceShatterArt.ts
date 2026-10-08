@@ -38,7 +38,7 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
    if(!positions.length)continue;
    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(tex,2));geometries.push(geometry);
    const material=(source.material as THREE.ShaderMaterial).clone();
-   material.uniforms={...(source.material as THREE.ShaderMaterial).uniforms,eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},shardOrigin:{value:cell.center},shatterFade:{value:0},rollPower:{value:1},eruptionPulse:{value:0}};
+   material.uniforms={...(source.material as THREE.ShaderMaterial).uniforms,eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},shardOrigin:{value:cell.center},shatterFade:{value:0},rollPower:{value:1},eruptionPulse:{value:0},moltenWarning:{value:0}};
    material.vertexShader='uniform vec3 shardOrigin;\n'+material.vertexShader.replace('pos=position;','pos=position+shardOrigin;');
    material.fragmentShader='uniform float shatterFade;\n'+material.fragmentShader.replace('#include <tonemapping_fragment>','gl_FragColor.a*=shatterFade;\n#include <tonemapping_fragment>');
    material.transparent=true;materials.push(material);outerMaterials.push(material);

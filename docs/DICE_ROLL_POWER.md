@@ -12,8 +12,10 @@ dice. A maximum damage die is still damage, not a critical hit.
   solid dark obsidian with a little residual heat. Cannon rigid bodies handle
   the forceful launch and collisions with the tray and other shards. They stop
   tumbling before fading in place, without melting, liquid splashes or pools.
-  High natural rolls retain the stronger lava glow inside the intact die's
-  fissures. Its result still fills the normal result box.
+  High natural rolls expose more branching fissures and wider, hotter lava
+  glow. In the final warning before a maximum bursts, most of the shell becomes
+  incandescent lava with a few dark obsidian islands; numbers and gold trim
+  remain distinct. This molten appearance stays on the intact die only. Its result still fills the normal result box.
 - **Vanec:** stronger results shorten randomized pauses between internal
   discharges. A maximum fires rapid crimson bursts with brief dark gaps,
   rotating the whole coherent branching field randomly in three dimensions

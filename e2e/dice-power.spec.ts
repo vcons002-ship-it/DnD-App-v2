@@ -87,6 +87,27 @@ test('Druk warns before exploding then freezes solid shards before fading withou
  expect(replay.broken).toBe(false);expect(replay.pools).toBe(0);
 });
 
+test('Druk warning visibly grows from cracks to a mostly incandescent shell before the shard burst',async({page},info)=>{
+ await page.goto('/dice-power.html');await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+ const samples=await page.evaluate(()=>new Promise<{early:number;late:number}>((resolve,reject)=>{
+  const canvas=document.querySelector<HTMLCanvasElement>('#tray canvas')!,ctx=canvas.getContext('2d')!;
+  let early:number|undefined;const started=performance.now();
+  const orange=()=>{const {data}=ctx.getImageData(canvas.width*.6,canvas.height*.35,canvas.width*.2,canvas.height*.3);let count=0;
+   for(let i=0;i<data.length;i+=4)if(data[i]>125&&data[i]>data[i+1]*1.15&&data[i+1]>data[i+2]*1.5)count++;
+   return count;};
+  const frame=()=>{
+   const p=JSON.parse(canvas.dataset.rollPower??'[]')[2];
+   if(p?.age<.15&&early===undefined)early=orange();
+   if(p?.age>=.40&&p.age<.49&&early!==undefined){resolve({early,late:orange()});return;}
+   if(performance.now()-started>10000){reject(new Error('Missed warning sample'));return;}
+   requestAnimationFrame(frame);
+  };
+  document.querySelector<HTMLButtonElement>('#replay')!.click();requestAnimationFrame(frame);
+ }));
+ expect(samples.late).toBeGreaterThan(samples.early*1.1+20);
+ await page.screenshot({path:info.outputPath('druk-warning-growth.png')});
+});
+
 for(const [name,className,theme] of [['Druk','Fighter','fighter'],['Varis','Ranger','ranger'],['Vanec','Sorcerer','sorcerer']])
 test(`${name} powers live gameplay dice only after server face confirmation`,async({page,request})=>{
  test.setTimeout(60000);

@@ -57,7 +57,7 @@ uniform int style; uniform float critical; uniform bool numeralsOnly;
 uniform bool inlayBacking;
 uniform float numeralEmphasis;
 uniform float moltenCracks;
-uniform float rollPower; uniform float rollMaximum; uniform float eruptionPulse;
+uniform float rollPower; uniform float rollMaximum; uniform float eruptionPulse; uniform float moltenWarning;
 uniform float mossAgate;
 uniform float enchantedAmber;
 uniform vec3 motePosition;
@@ -339,11 +339,16 @@ void main(){
    vec3 polished=pow(studioLight(rotation*reflect(incoming,n))*1.4,vec3(1.5))*traySurfaceReflection(n);
    color=stone+polished*(.045+fresnel*.9);
    if(moltenCracks>.5){
-     float raw=moltenFracture(pos);
+     float mainSplit=moltenFracture(pos);
+     // New tributary cracks emerge in stable locations as the result strengthens.
+     // A noise ridge adds fine branching without another expensive Voronoi pass.
+     float growth=smoothstep(.28,.92,rollPower);
+     float tributary=abs(fbm(pos*8.2+vec3(fbm(pos*3.1)*1.7))-.5)*.6;
+     float raw=min(mainSplit,tributary+mix(.18,0.,growth));
      float chip=fbm(pos*48.)*.013+noise(pos*110.)*.003;
-     float opening=.60+rollPower*1.3+eruptionPulse*.45;
+     float opening=.50+rollPower*2.5+eruptionPulse*.9;
       float mouth=max(0.,raw-chip)/opening,below=moltenFracture(pos+ray*.07)/opening;
-     float region=smoothstep(.40,.65,fbm(pos*1.55+vec3(4.,1.,9.)));
+     float region=smoothstep(mix(.48,.12,growth),mix(.68,.32,growth),fbm(pos*1.55+vec3(4.,1.,9.)));
      // Wide, dark chipped shoulders surround a much narrower split. Its
      // sloped sides change reflections with the view instead of glowing flat.
      float groove=(1.-smoothstep(.012,.115,mouth))*region;
@@ -357,13 +362,15 @@ void main(){
      color*=1.-cavity*.82;
      float hotCore=1.-smoothstep(.003,.042,below);
      float pulse=.94+.06*sin(time*.9+fbm(pos*4.)*7.);
-     // Deep red heat is visible only at the bottom of a split. Broad stone
-     // faces stay polished black; tiny amber pockets hint at hotter magma.
-     vec3 magma=mix(vec3(.19,.003,.0005),vec3(.65,.045,.003),hotCore);
-     // Slightly stronger heat at the bottom, with a restrained spill onto
-     // the chipped shoulders; polished faces and gold retain their lighting.
-     float heat=.20+pow(rollPower,1.5)*5.8+eruptionPulse*4.;
-      color+=magma*cavity*pulse*heat+vec3(.065,.003,.0003)*groove*(.25+rollPower*2.);
+     vec3 magma=mix(vec3(.32,.006,.0005),vec3(1.4,.14,.004),hotCore);
+     float heat=.16+pow(rollPower,1.4)*8.5+eruptionPulse*5.;
+     color+=magma*cavity*pulse*heat+vec3(.14,.008,.0006)*groove*(.15+rollPower*2.8);
+     // At the end of the warning, most of the shell becomes incandescent
+     // lava separated by a few cooling obsidian islands. Inlays render later.
+     float islands=smoothstep(.54,.67,fbm(pos*4.6+vec3(.2,-.1,.3)));
+     vec3 nearBurst=mix(vec3(1.6,.04,.001),vec3(3.,.22,.004),fbm(pos*6.4+vec3(time*.12)));
+     nearBurst=mix(nearBurst,stone+polished*.05,islands*.97);
+     color=mix(color,nearBurst,moltenWarning*.99);
    }
  }
  if(style!=2)color+=energy*.35;
@@ -458,7 +465,7 @@ void main(){
    // Gold crit dice retain their identity and dark engraving while carrying
    // their character's maximum-roll heat/charge across the metallic shell.
    if(!engraved||cut>.85){
-    if(style==1&&rollPower>.2){float heat=1.-smoothstep(.002,.035,moltenFracture(pos));color+=vec3(1.8,.12,.004)*heat*rollPower;}
+    if(style==1&&rollPower>.2){float heat=1.-smoothstep(.002,.035+rollPower*.06,moltenFracture(pos));color+=vec3(2.8,.22,.006)*heat*rollPower;color=mix(color,vec3(4.,.55,.012),moltenWarning*.86);}
     if(style==0&&rollMaximum>.5){
      float channel=min(electricArc(pos,lightningSeed).x,electricArc(pos.yzx,lightningSeed+41.).x);
      float stroke=smoothstep(.12,.16,lightningPhase)*(1.-smoothstep(.60,.90,lightningPhase));
@@ -567,13 +574,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const power=createRollPowerState(sides);
   const powerArt=theme.id==='ranger'?createDicePowerArt(root,theme.id):undefined;
   let powerView=power.advance(0),powerReduced=false;
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
     uniforms.rollPower.value=powerView.strength;
+    uniforms.moltenWarning.value=style===1&&powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(powerView.age,.1,.47):0;
     uniforms.rollMaximum.value=powerView.maximum&&!powerReduced?1:0;
     uniforms.eruptionPulse.value=powerView.maximum&&!powerReduced?Math.exp(-Math.pow((powerView.age-(style===1?.44:.22))/(style===1?.29:.25),2.)):0;
   };
