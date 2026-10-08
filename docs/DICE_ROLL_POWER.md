@@ -50,6 +50,10 @@ dice. A maximum damage die is still damage, not a critical hit.
   brighten toward ivory-green, background rays recede, and optical thickness
   strengthens rays pointing toward the camera. Internal attenuation matches the
   near/far treatment while surface depth still hides rays behind the die.
+  Each beam intersects the actual die face planes. An illuminated aperture at
+  that point joins its visible internal path to the external beam, which starts
+  at the shell and bends slightly outward. This keeps the effect connected to
+  the enclosed light rather than a background halo.
 - **DM:** more active curling ink is silhouetted against soft internal purple
   light within the refracting resin. A confirmed maximum transitions the cloud
   to blood red. Gold numerals stay on the opaque front inlay, outside the cloud

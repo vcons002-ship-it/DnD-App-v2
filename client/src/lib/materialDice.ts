@@ -63,6 +63,8 @@ uniform float enchantedAmber;
 uniform vec3 motePosition;
 uniform float moteRoom;
 uniform vec3 rangerRays[22];
+uniform vec4 rangerRayExits[22];
+uniform vec3 rangerRayNormals[22];
 uniform float rangerRayGlow;
 uniform bool trayLighting;
 uniform float internalLightning;
@@ -309,6 +311,7 @@ void main(){
  // Keep one optical image across the facets: only the resin is refracted.
  // Project the enclosed emitter along the continuous camera ray, not a
  // separate bent ray per face (which produced multiple small copies).
+ vec3 escapedLight=vec3(0.);
  if(style==2){
    float travel=max(0.,dot(motePosition-pos,incoming));
    float separation=length(pos+incoming*travel-motePosition);
@@ -330,16 +333,19 @@ void main(){
     vec3 offset=pos-motePosition,beams=vec3(0.);
     for(int k=0;k<22;k++){
      vec3 d=rangerRays[k];float b=dot(incoming,d),v=dot(incoming,offset),r=dot(d,offset);
-     float along=max(0.,(r-b*v)/max(.001,1.-b*b));
+     float along=clamp((r-b*v)/max(.001,1.-b*b),0.,rangerRayExits[k].w);
      float viewTravel=clamp(b*along-v,0.,travel+moteRoom);
-     along=max(0.,dot(pos+incoming*viewTravel-motePosition,d));
+     along=clamp(dot(pos+incoming*viewTravel-motePosition,d),0.,rangerRayExits[k].w);
      float separation=length(pos+incoming*viewTravel-motePosition-d*along);
-     float width=.012+along*.032;
+     float width=.022+along*.070;
      float front=smoothstep(-.65,.85,dot(d,-incoming));
      vec3 light=mix(vec3(.16,.40,.08),vec3(.65,1.,.32),front);
-     beams+=light*exp(-pow(separation/width,2.))*exp(-along*.35-viewTravel*.45)*(.45+front*.75);
+     beams+=light*exp(-pow(separation/width,2.))*exp(-along*.22-viewTravel*.30)*(.55+front*.75);
+     vec3 exitDelta=pos-rangerRayExits[k].xyz;
+     float aperture=exp(-dot(exitDelta,exitDelta)/.0064)*pow(max(0.,dot(normalize(nor),rangerRayNormals[k])),12.);
+     escapedLight+=vec3(.70,1.25,.36)*aperture;
     }
-    energy+=min(beams,vec3(2.5))*rangerRayGlow*depthFade;
+    energy+=min(beams,vec3(2.5))*rangerRayGlow*depthFade*2.5;
    }
    // The same source illuminates the nearby resin and embedded inclusions.
    float proximity=dot(pos-motePosition,pos-motePosition)/(moteRoom*moteRoom);
@@ -349,6 +355,9 @@ void main(){
  float fresnel=.04+.96*pow(1.-max(0.,dot(-incoming,n)),5.);
  vec3 reflected=studioLight(rotation*reflect(incoming,n))*traySurfaceReflection(n);
  vec3 color=mix(through,reflected,fresnel*.88+(style==3?.02:.07));
+ // Light visibly crosses the resin wall at the same points that seed the
+ // external cones. Keep the ordinary metal inlays readable above this glow.
+ color+=escapedLight*rangerRayGlow*1.6;
  if(style==1){
    // Subtle volcanic flow bands beneath a smooth polish; no granular bump layer.
    float flow=fbm(pos*2.1+vec3(fbm(pos*3.)*.9));
@@ -601,9 +610,9 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const power=createRollPowerState(sides);
-  const powerArt=theme.id==='ranger'?createDicePowerArt(root,theme.id):undefined;
+  const powerArt=theme.id==='ranger'?createDicePowerArt(root,theme.id,planes.slice(0,faces.length)):undefined;
   const rangerRayGlow={value:0},rangerRays={value:powerArt?.rayDirections??Array.from({length:22},()=>new THREE.Vector3())};
-  Object.assign(uniforms,{rangerRayGlow,rangerRays});
+  Object.assign(uniforms,{rangerRayGlow,rangerRays,rangerRayExits:{value:powerArt?.rayExits??Array.from({length:22},()=>new THREE.Vector4())},rangerRayNormals:{value:powerArt?.rayNormals??Array.from({length:22},()=>new THREE.Vector3())}});
   let powerView=power.advance(0),powerReduced=false;
   const resinMaximum={value:0};
   const updatePower=(now:number)=>{

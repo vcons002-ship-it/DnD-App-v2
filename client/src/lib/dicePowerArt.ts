@@ -3,13 +3,15 @@ import {DRUK_EXPLOSION_DELAY} from './diceRollPower';
 
 /** Bounded cosmetic geometry attached to a die. No lights, extra simulations,
  * screen-space sprites, or changes to its physical body/numbered surfaces. */
-export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
+export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger',planes:THREE.Vector4[]=[]){
  const group=new THREE.Group();root.add(group);
  const transform=new THREE.Object3D(),color=new THREE.Color(),up=new THREE.Vector3(0,0,1);
  const inverse=new THREE.Quaternion(),direction=new THREE.Vector3(),rayAxis=new THREE.Vector3(0,1,0);
  const rayRotation=new THREE.Quaternion(),rayEuler=new THREE.Euler();
  const rayPhase=(root.id*2.399963)%(Math.PI*2);
  const rayDirections=Array.from({length:22},()=>new THREE.Vector3());
+ const rayExits=Array.from({length:22},()=>new THREE.Vector4()),rayNormals=Array.from({length:22},()=>new THREE.Vector3());
+ const exitPoint=new THREE.Vector3(),exitNormal=new THREE.Vector3();
  const count=kind==='fighter'?18:22;
  const geometry=kind==='fighter'?new THREE.IcosahedronGeometry(1,1):new THREE.BufferGeometry();
  if(kind==='ranger'){
@@ -18,7 +20,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
   // optical cross-section below replaces the two intersecting flat ribbons.
   const rings=16,segments=12;
   for(let j=0;j<=rings;j++)for(let k=0;k<=segments;k++){
-   const t=j/rings,angle=k/segments*Math.PI*2,width=.025+t*.65;
+   const t=j/rings,angle=k/segments*Math.PI*2,width=.10+t*.58;
    positions.push(Math.cos(angle)*width,t-.5,Math.sin(angle)*width);uv.push(k/segments,t);
   }
   for(let j=0;j<rings;j++)for(let k=0;k<segments;k++){const a=j*(segments+1)+k,b=a+segments+1;faces.push(a,a+1,b,a+1,b+1,b);}
@@ -73,6 +75,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
  let visible=0;
  return {
   rayDirections,
+  rayExits,rayNormals,
   count(){return visible;},
   update(now:number,maximum:boolean,age:number,mote:THREE.Vector3,reduced:boolean){
    visible=0;material.uniforms.clock.value=now/1000;
@@ -106,8 +109,21 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
       direction.set(Math.cos(angle)*radial,Math.sin(angle)*radial,vertical).applyQuaternion(rayRotation);
       // The body shader draws the enclosed section using these same directions.
       rayDirections[i].copy(direction).applyQuaternion(inverse);
-      const length=2.5+random(i+5)*1.25;
-      transform.position.copy(mote).applyQuaternion(root.quaternion).addScaledVector(direction,length*.5);
+      const local=rayDirections[i];let escape=Infinity;
+      for(const p of planes){
+       const dot=p.x*local.x+p.y*local.y+p.z*local.z;
+       if(dot<=.00001)continue;
+       const distance=(p.w-p.x*mote.x-p.y*mote.y-p.z*mote.z)/dot;
+       if(distance<escape){escape=distance;exitNormal.set(p.x,p.y,p.z);}
+      }
+      if(!Number.isFinite(escape)){escape=.6;exitNormal.copy(local);}
+      exitPoint.copy(mote).addScaledVector(local,escape);
+      rayExits[i].set(exitPoint.x,exitPoint.y,exitPoint.z,escape);rayNormals[i].copy(exitNormal);
+      // Start at the real face crossing, with a slight outward bend at the
+      // resin/air boundary. The face shader supplies the matching light aperture.
+      direction.copy(local).lerp(exitNormal,.14).normalize().applyQuaternion(root.quaternion);
+      const length=2.5+random(i+5)*1.25-escape;
+      transform.position.copy(exitPoint).applyQuaternion(root.quaternion).addScaledVector(direction,length*.5-.025);
       transform.quaternion.setFromUnitVectors(rayAxis,direction);
       // Rounded cone volumes foreshorten and overlap naturally as they rotate.
       transform.rotateY(i*.8);

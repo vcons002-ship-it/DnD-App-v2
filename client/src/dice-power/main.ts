@@ -6,7 +6,10 @@ const tray=document.querySelector<HTMLDivElement>('#tray')!,canvas=tray.querySel
 const sides=document.querySelector<HTMLSelectElement>('#sides')!,critical=document.querySelector<HTMLInputElement>('#critical')!;
 const focus=document.querySelector<HTMLInputElement>('#focus')!;
 const descriptions:Record<string,string>={fighter:'Higher rolls light branching cracks while keeping gold numbers readable. A maximum heats to molten lava and explodes into solid obsidian shards. Lava drains from the opened center into a bright pool as the shards settle and fade.',sorcerer:'A higher value charges more frequent internal lightning. A maximum fires crimson lightning bursts from changing directions throughout the red glass.',ranger:'The enclosed mote grows brighter with the value. On a maximum, the mote swings into the center and releases green-gold light streams that rotate smoothly in three dimensions around it.'};
-let theme='fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
+const reviewParams=new URLSearchParams(location.search);
+let theme=reviewParams.get('character')??'fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
+if(!['fighter','sorcerer','ranger','dm'].includes(theme))theme='fighter';
+focus.checked=reviewParams.get('closeup')==='1';
 descriptions.dm='Active inky clouds curl through purple resin, softly lit from within. A maximum natural result turns the cloud blood red while the gold numerals remain clear.';
 async function show(){
  const controls=[...document.querySelectorAll<HTMLButtonElement|HTMLSelectElement|HTMLInputElement>('nav button,nav select,nav input')];
