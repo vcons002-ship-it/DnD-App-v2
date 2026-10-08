@@ -120,9 +120,9 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   const toss:Toss={settleTimes:[],wallHits:0,frames:new Float32Array(capacity*14),frameCount:2,step:1,radius:frame.radius,trayScale:frame.trayScale,topFaces:Array(capacity).fill(0),duration:1};
   void (async()=>{
    const module=await import('../lib/diceTrayRenderer');
-   // A background compile already in progress shares this WebGL renderer. Finish
-   // it before preparing/drawing the live tray, while server physics is paused.
-   await module.waitForDiceGraphics();
+   // Reuse the selected material warmup without holding this throw behind
+   // another character's unrelated background preparation.
+   await module.waitForDiceGraphics(theme.id);
    if(stopped)return;
    root.current!.dataset.dicePreloaded=String(module.diceGraphicsPreloaded(theme.id));
    const art=await module.loadTrayTexture(theme.id);

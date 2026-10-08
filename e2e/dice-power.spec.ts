@@ -171,7 +171,7 @@ test(`${name} powers live gameplay dice only after server face confirmation`,asy
   await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.claim-row').filter({hasText:name}).click();
   await page.getByRole('button',{name:'Roll a d20',exact:true}).click();
   const tray=page.locator('.physics-dice-tray');await expect(tray).toHaveAttribute('data-theme',theme);
-  const canvas=tray.locator('.dice-tray-canvas');await expect(canvas).toHaveAttribute('data-roll-power',/"known":false/);
+  const canvas=tray.locator('.dice-tray-canvas');await expect(canvas).toHaveAttribute('data-roll-power',/"known":false/,{timeout:30000});
   await expect(tray).toHaveAttribute('data-status','settled',{timeout:30000});
   await page.waitForTimeout(650);
   const value=Number(await tray.locator('.tray-die-result').getAttribute('data-value'));
@@ -184,6 +184,7 @@ test(`${name} powers live gameplay dice only after server face confirmation`,asy
 test('reduced-motion art keeps readable strength without erupting particles or rays',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/dice-power.html');await page.waitForTimeout(600);
  const canvas=page.locator('#tray canvas');
+ await expect(canvas).toHaveAttribute('data-roll-power',/"maximum":true/,{timeout:30000});
  const power=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
  expect(power[2].maximum).toBe(true);expect(power[2].particles).toBe(0);
  expect(power[2].broken).toBe(false);expect(power[2].fragments).toBe(0);
