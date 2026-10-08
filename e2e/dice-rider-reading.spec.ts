@@ -6,6 +6,7 @@ import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
 import { completedDice, LIVE_COMBAT_TIMEOUT, observeCombatDice, waitForCombatRoll } from './helpers/combatLive';
 import {expectUnclipped} from './helpers/rollVisibility';
+import {DICE_TOSS_ANTICIPATION_MS} from '../shared/dicePresentationTiming';
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
@@ -73,10 +74,11 @@ const manual=true;test('unmodified superiority dice retain reading time before t
     for(let i=0;i<8;i++) {
       const previous=new Set((await snapshot()).rollLog.map(r=>r.id));
       await page.evaluate(()=>{
-        const timing={clickedAt:performance.now(),startedAt:0,outcomeAt:0,impactAt:0,frames:[] as any[]};(window as any).__attackRead=timing;
+        const timing={clickedAt:performance.now(),startedAt:0,anticipationAt:0,outcomeAt:0,impactAt:0,frames:[] as any[]};(window as any).__attackRead=timing;
         const sample=()=>{
           const now=performance.now();
           const canvas=document.querySelector('.dice-tray-canvas');
+          if(!timing.anticipationAt)timing.anticipationAt=Number(canvas?.getAttribute('data-toss-anticipation-at')??0);
           if(canvas)timing.frames.push({at:now,physics:Number(canvas.getAttribute('data-physics-elapsed')??0),render:Number(canvas.getAttribute('data-render-time')??0)});
           if(!timing.startedAt&&Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')??0)>0)timing.startedAt=now;
           if(!timing.outcomeAt&&document.querySelector('.tray-roll-result [data-phase="outcome"]'))timing.outcomeAt=now;
@@ -96,6 +98,8 @@ const manual=true;test('unmodified superiority dice retain reading time before t
       expect(entry[0]?.physics,'The first visible d20 update starts near release, not midway through the toss').toBeLessThan(.1);
       expect(new Set(entry.map((f:any)=>f.render)).size,'The entrance contains multiple rendered frames').toBeGreaterThan(5);
       expect(timing.startedAt-timing.clickedAt).toBeLessThan(2000);
+      expect(timing.anticipationAt).toBeGreaterThan(0);
+      expect(timing.startedAt-timing.anticipationAt,'The prepared tray gets a short pause before the live toss').toBeGreaterThanOrEqual(DICE_TOSS_ANTICIPATION_MS);
       expect(timing.impactAt-timing.outcomeAt).toBeGreaterThanOrEqual(1000);
       await test.info().attach('attack-reading-timing',{body:JSON.stringify(timing),contentType:'application/json'});
       // Do not skip the attack result for a damage-timing demonstration: the

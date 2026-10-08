@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Small dice rolls launch on a higher hand-toss arc. Each prepared live tray
+  pauses for 220 ms after its artwork handoff before acknowledging release;
+  initial dice stay hidden until physics starts. Reading holds, contacts, large
+  handfuls and result effects retain their existing settings.
+
 ## Character roll-strength art - October 2026
 
 - [x] Production live dice use the approved 180 ms crossfade, retain consecutive throws in one card, wait for the fade before launching the toss and automatically dismiss completed sequences. Prepared-scene reuse remains enabled. The wooden table and camera-panning experiment is preserved on `prototype/dice-table-camera-20261008` at `97e730c` for later work.

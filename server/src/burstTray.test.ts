@@ -5,13 +5,14 @@ import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
 import {physicalFaces,runLiveCommand} from './liveRolls.js';
 import {sorcerousBonus} from './linkedSpells.js';
 
+// Deterministic live trajectories for the higher hand-toss arc: maxima recur.
 const die={sides:8,value:1,index:0,set:0};
 const settle=(world:ReturnType<typeof createLiveWorld>)=>{
  for(let i=0;i<3000&&!world.snapshot().done;i++)world.advance(1/120);
  expect(world.snapshot().done).toBe(true);return world.snapshot();
 };
 it('adds physical dice without moving or rereading the original settled faces',()=>{
- const world=createLiveWorld([die],70,'bottom',4),first=settle(world);
+ const world=createLiveWorld([die],39,'bottom',4),first=settle(world);
  expect(first.values).toEqual([8]);
  world.appendDice([{...die,index:1}]);
  expect(world.snapshot().values).toEqual([8,null]);
@@ -19,11 +20,11 @@ it('adds physical dice without moving or rereading the original settled faces',(
  expect(second.values).toEqual([8,8]);expect(second.poses.slice(0,7)).toEqual(first.poses);
  expect(second.trayScale).toBe(first.trayScale);expect(second.elapsed).toBeGreaterThan(first.elapsed);
  world.appendDice([{...die,index:2}]);const third=settle(world);
- expect(third.values).toEqual([8,8,6]);expect(third.poses.slice(0,14)).toEqual(second.poses);
+ expect(third.values).toEqual([8,8,4]);expect(third.poses.slice(0,14)).toEqual(second.poses);
  expect(()=>world.appendDice([die,die])).toThrow('Unsupported');
 });
 it('rejects insertion while a die is still rolling',()=>{
- const world=createLiveWorld([die],70,'bottom',4);
+ const world=createLiveWorld([die],39,'bottom',4);
  expect(()=>world.appendDice([die])).toThrow('Finish the current throw');
 });
 it('keeps recursive Burst rolls, parent links and monotonically ordered frames in one tray',async()=>{
@@ -33,8 +34,8 @@ it('keeps recursive Burst rolls, parent links and monotonically ordered frames i
   const extra=sorcerousBonus({spell:'Sorcerous Burst',abilityId:'burst',casterKind:'pc',casterId:'test',castLevel:0,dc:15,modifier:3},initial.rolls);
   result=[...initial.rolls,...extra.flatMap(r=>r.rolls)];
  },frame=>frames.push(frame),{label:'Burst',roller:'Vanec',className:'Sorcerer',waitForPresentation:async()=>{}},
- (sides,publish,meta,_seed,info)=>physicalFaces(sides,publish,meta,70,info));
- expect(result).toEqual([8,8,6]);
+ (sides,publish,meta,_seed,info)=>physicalFaces(sides,publish,meta,39,info));
+ expect(result).toEqual([8,8,4]);
  expect(new Set(frames.map(f=>f.id)).size).toBe(1);
  expect(frames.every((f,i)=>i===0||f.seq>frames[i-1].seq)).toBe(true);
  const final=frames.at(-1)!;
@@ -52,8 +53,8 @@ it('launches two burst children in one physical frame with separate parents, the
   const extra=sorcerousBonus({spell:'Sorcerous Burst',abilityId:'burst',casterKind:'pc',casterId:'test',castLevel:0,dc:15,modifier:3},initial.rolls);
   result=[...initial.rolls,...extra.flatMap(r=>r.rolls)];
  },frame=>frames.push(frame),{label:'Burst',roller:'Vanec',className:'Sorcerer',waitForPresentation:async()=>{}},
- (sides,publish,meta,_seed,info)=>physicalFaces(sides,publish,meta,328,info));
- expect(result.slice(0,4)).toEqual([8,8,2,8]);expect(result).toHaveLength(5);
+ (sides,publish,meta,_seed,info)=>physicalFaces(sides,publish,meta,462,info));
+ expect(result.slice(0,4)).toEqual([8,8,7,8]);expect(result).toHaveLength(5);
  expect(new Set(frames.map(f=>f.id)).size).toBe(1);
  expect(frames.some(f=>f.sides.length===3)).toBe(false);
  const launch=frames.find(f=>f.sides.length===4)!;

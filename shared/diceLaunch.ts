@@ -21,16 +21,16 @@ export function releaseHandfulDie(body:Body,index:number,count:number,radius:num
   // landing on one another. All bodies start moving on the same physics step.
   const approach=radius+.4*trayScale+.005/metresPerUnit+(spread?row*spacing:0);
   body.position.copy(direction.scale(-extent-approach).vadd(cross.scale(lane*spacing-Math.tan(angle)*(approach+radius))));
-  body.position.z=((spread?.060:.045)+random()*.005)/metresPerUnit+(spread?0:row*radius*2.2);
+  body.position.z=((spread?.060:.070)+random()*.005)/metresPerUnit+(spread?0:row*radius*2.2);
   body.collisionFilterMask=1;
   body.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
   // The tray grows with the pool. Scale the throw's travel rather than letting
   // a large handful drop in the front quarter of the enlarged bed.
   const speed=(.55+random()*.15)*(spread?Math.sqrt(trayScale):1)/metresPerUnit;
   body.velocity.copy(direction.scale(Math.cos(angle)*speed).vadd(cross.scale(Math.sin(angle)*speed)));
-  // Even a single die leaves the hand with an upward component, rather than
-  // appearing as a vertical drop once it clears the near rim.
-  body.velocity.z=(spread?.40+random()*.04:.18+random()*.04)/metresPerUnit;
+  // Small rolls leave the hand above the rim on a visible upward arc. Keep the
+  // horizontal throw and large-handful clearance so the bed still gets used.
+  body.velocity.z=(spread?.40+random()*.04:.30+random()*.04)/metresPerUnit;
   if(spread){
     // Rear rows must remain airborne until the whole die clears the rim.
     // Derive their height from the actual throw velocity and gravity, rather

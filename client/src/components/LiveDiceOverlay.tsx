@@ -1,5 +1,5 @@
 import type {RollReveal} from '../../../shared/types';
-import {DIE_REVEAL_STAGGER_MS,DRUK_EXPLOSION_AFTER_TOTAL_MS} from '../../../shared/dicePresentationTiming';
+import {DIE_REVEAL_STAGGER_MS,DRUK_EXPLOSION_AFTER_TOTAL_MS,DICE_TOSS_ANTICIPATION_MS} from '../../../shared/dicePresentationTiming';
 import {diceFlightPoint,diceFlightKeyframes,DIE_FLASH_MS,DIE_REVEAL_MS} from '../lib/diceFlightPosition';
 import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import {useStore} from '../state/socket';
@@ -48,7 +48,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    handoffDuration.current=nextTheme!==previousTheme.current?360:180;
    previousTheme.current=nextTheme;
   }
-  if(changed&&canvas.current){canvas.current.dataset.physicsElapsed='0';canvas.current.dataset.rollPower='[]';canvas.current.dataset.explosionAt='';}
+  if(changed&&canvas.current){canvas.current.dataset.physicsElapsed='0';canvas.current.dataset.rollPower='[]';canvas.current.dataset.explosionAt='';canvas.current.dataset.tossAnticipationAt='';}
   if(changed&&swappingTray.current&&canvas.current&&outgoing.current&&!reduced){
    // Copy once per throw, never per frame. Keep the old rendered artwork while
    // the next material prepares, then crossfade into the actual incoming tray.
@@ -105,7 +105,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   // Revisiting an earlier completed throw for its arithmetic does not replay
   // number flights that the viewer already watched during the live roll.
   setArrived(result?frame.sides.map((_,i)=>i):[]);setFailed(false);setPrepared(false);
-  const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,handoffPainted=false,handoffReady=false,zoomStartedAt:number|undefined,resultsStartedAt:number|undefined,firstRevealIndex=0;
+  const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,handoffPainted=false,handoffReady=false,zoomStartedAt:number|undefined,anticipationStartedAt:number|undefined,resultsStartedAt:number|undefined,firstRevealIndex=0;
   const viewPose=(poses:number[])=>own?poses:poses.map((v,i)=>{
     // Same physical world viewed from the other side of the table.
     const offset=i-i%7;
@@ -147,7 +147,9 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
      const oldPose=reset?b.frame.poses:a.frame.poses;
      toss.frames.set(viewPose(b.frame.poses),0);toss.frames.set(viewPose(oldPose),0);
      toss.frames.set(viewPose(b.frame.poses),capacity*7);
-      renderer!.setActiveCount(b.frame.sides.length);
+      // Initial poses belong outside the tray; do not show a motionless die
+      // hanging over the rim while the new tray is being introduced.
+      renderer!.setActiveCount(b.frame.elapsed>0?b.frame.sides.length:0);
       renderer!.setResults(b.frame.values);
       renderer!.setExplosionTime(finale.current.deadline);
      if(zoomStartedAt===undefined)zoomStartedAt=now;
@@ -198,8 +200,12 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
       }else if(cover){cover.style.opacity='0';cover.dataset.kind='same-tray';cover.dataset.phase='preparing';}
      }
      if(!swappingTray.current||reduced){handoffReady=now-zoomStartedAt>=handoffDuration.current||reduced;if(handoffReady&&outgoing.current)outgoing.current.dataset.phase='idle';}
-     // Begin physics after the artwork handoff, so none of the toss is hidden.
-     if(!readySent&&handoffReady){readySent=true;useStore.getState().socket?.emit('dice:ready',{id:frame.id});}
+     // Finish the handoff, then leave a short visible beat before release.
+     // The server waits for this acknowledgement, so no live motion is skipped.
+     if(handoffReady&&anticipationStartedAt===undefined){anticipationStartedAt=now;node.dataset.tossAnticipationAt=String(now);}
+     if(!readySent&&anticipationStartedAt!==undefined&&(reduced||now-anticipationStartedAt>=DICE_TOSS_ANTICIPATION_MS)){
+       readySent=true;useStore.getState().socket?.emit('dice:ready',{id:frame.id});
+     }
      if(!result&&b.frame.done&&(finalWasDrawn||reduced)){
        // Start on the frame AFTER the final WebGL draw has painted. Otherwise
        // GPU work can consume the flash and make every stagger launch at once.
