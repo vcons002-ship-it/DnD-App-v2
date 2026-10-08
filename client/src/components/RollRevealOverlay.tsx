@@ -204,7 +204,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   // with its damage must never briefly paint the previous roll's final total.
   const tray = liveDice ?? rollFx?.tray;
   const compact = !!rollFx?.impactReady && ((!['check','dice'].includes(rollFx.reveal.kind??'attack')) || !!rollFx.hasMapImpact);
-  const sequence = visibleRollFx && (!liveDice||intermediate) ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={intermediate?`live:${liveDice!.id}`:visibleRollFx.id} rollFx={visibleRollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!visibleRollFx.reveal.physical} inlineTray={!!tray} intermediate={intermediate} dismiss={dismiss} /></DiceThemeContext.Provider> : undefined;
+  const sequence = visibleRollFx && (!liveDice||intermediate) ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={intermediate?`live:${liveDice!.id}`:visibleRollFx.id} rollFx={visibleRollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!visibleRollFx.reveal.physical} inlineTray={!!tray} intermediate={intermediate} dismiss={()=>{if(useStore.getState().rollFx?.id===visibleRollFx.id)dismiss();}} /></DiceThemeContext.Provider> : undefined;
   // Keep this component (and its WebGL canvas) mounted across the live/result
   // handoff. Bonuses count into the total underneath the real resting dice.
   const completed = intermediate?visibleRollFx:liveDice ? null : rollFx;
@@ -218,12 +218,26 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     finaleMs={completed?physicalRollTimeline(completed.reveal,true,rollTheme.id==='fighter'&&tray.values.some((v,i)=>v===tray.sides[i])).impact:undefined}
     diceTrigger={completed&&tray.burstProgress?undefined:tray.diceTrigger??diceTriggerForTray(tray,completed?.reveal)}
   /> : sequence;
-  if (!content) return null;
   // Decided per roll, not once per mount: the guide may open or close between
   // rolls. Keyed so the modal layer comes and goes with the decision.
   const lift = ownLevelUpRoll && !!document.querySelector('dialog[data-level-up][open]');
-  return lift ? <LevelUpRollLayer key="lift" player={player}>{content}</LevelUpRollLayer> : content;
+  const presented=<RollOverlayPresence content={content} reduced={reducedMotion}/>;
+  return lift ? <LevelUpRollLayer key="lift" player={player}>{presented}</LevelUpRollLayer> : presented;
 });
+
+/** Fade the final card out without dropping a frame between consecutive rolls.
+ * A new roll arriving during the fade reuses the existing tray component. */
+function RollOverlayPresence({content,reduced}:{content:ReactNode;reduced:boolean}){
+ const last=useRef(content),[visible,setVisible]=useState(!!content);
+ if(content)last.current=content;
+ useLayoutEffect(()=>{
+  if(content){setVisible(true);return;}
+  if(reduced){setVisible(false);return;}
+  const timer=setTimeout(()=>setVisible(false),180);return()=>clearTimeout(timer);
+ },[!!content,reduced]);
+ if(!content&&!visible)return null;
+ return <div className={`roll-overlay-presence${content?'':' is-leaving'}`}>{content??last.current}</div>;
+}
 
 /** A native character dialog is above ordinary fixed overlays. Let the real
  * Hit Die tray sit above the level-up guide without closing or losing its draft. */

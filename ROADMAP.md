@@ -2760,6 +2760,8 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] Refreshed standalone interactive dice roller for all three characters and the DM with current power materials, every supported die and custom quantities. Linked roll-strength comparison and repeatable static packaging include all four tray artworks.
 
+- [x] Consecutive live rolls keep the same window, crossfade the old painted tray into the prepared next tray, and smoothly resize/collapse instead of popping shut and open. Physics waits until the short crossfade finishes; final dismissal fades and reduced motion remains immediate. Combat timing recordings now preserve the full d20 arithmetic/outcome instead of automatically skipping the result.
+
 
 - [x] Druk explosion returned to solid textured shards: no melting, splashes, lava pools or spill lighting. Shards stop tumbling before fading in place; longer warning and stronger intact-die high-roll glow retained. Interactive roller refreshed.
 

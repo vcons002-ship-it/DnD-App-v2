@@ -69,8 +69,26 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   const attack = async () => {
     for(let i=0;i<8;i++) {
       const previous=new Set((await snapshot()).rollLog.map(r=>r.id));
+      await page.evaluate(()=>{
+        const timing={outcomeAt:0,impactAt:0};(window as any).__attackRead=timing;
+        const sample=()=>{
+          const now=performance.now();
+          if(!timing.outcomeAt&&document.querySelector('.tray-roll-result [data-phase="outcome"]'))timing.outcomeAt=now;
+          if(timing.outcomeAt&&document.querySelector('.roll-reveal[data-impact-ready="true"]')){timing.impactAt=now;return;}
+          requestAnimationFrame(sample);
+        };requestAnimationFrame(sample);
+      });
       await page.locator('.compact-player-combat').getByRole('button',{name:/Owner greatsword/}).click();
       const result=await waitForCombatRoll(snapshot,previous,r=>r.label==='Attack');
+      await expect(page.locator('.rr-adjustment').first()).toBeVisible();
+      await expect(page.locator('.tray-roll-result [data-phase="outcome"]')).toBeVisible({timeout:10000});
+      await expect(page.locator('.roll-reveal[data-impact-ready="true"]')).toBeVisible({timeout:10000});
+      const timing=await page.evaluate(()=>(window as any).__attackRead);
+      expect(timing.impactAt-timing.outcomeAt).toBeGreaterThanOrEqual(1000);
+      await test.info().attach('attack-reading-timing',{body:JSON.stringify(timing),contentType:'application/json'});
+      // Do not skip the attack result for a damage-timing demonstration: the
+      // server commits before the client finishes arithmetic and reading time.
+      await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0,{timeout:15000});
       if(result.pending&&!result.pending.done)return result;
       expect(result.reveal?.outcome).toBe('fumble');
     }
@@ -79,7 +97,6 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   await page.waitForTimeout(4500);
   const capture=process.env.DICE_RIDER_VIDEO?await startAv1Capture(page,process.env.DICE_RIDER_VIDEO):undefined;
   const hit=await attack();
-  await page.keyboard.press('Escape');
   const before=(await snapshot()).monsters.find(m=>m.id===enemy.refId)!.curHp;
   await page.locator('.dp-maneuver-toggle').click();
   await expect(page.locator('.dp-maneuver-btn')).toHaveText(['Trip Attack']);
@@ -87,9 +104,11 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   const start=frames.length;
   await page.evaluate(()=>{
     const samples:any[]=[];(window as any).__riderSamples=samples;(window as any).__riderSampling=true;
+    const cards=new WeakMap<Element,number>();let nextCard=0;
     const sample=()=>{
       const tray=document.querySelector('.roll-reveal-backdrop'),boxes=[...document.querySelectorAll('.tray-die-result')];
-      samples.push({time:performance.now(),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
+      const card=document.querySelector('.roll-reveal');if(card&&!cards.has(card))cards.set(card,++nextCard);
+      samples.push({time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
       if((window as any).__riderSampling)requestAnimationFrame(sample);
     };sample();
   });
@@ -104,6 +123,9 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   const held=samples.find((s:any)=>s.hold==='2500'&&s.title?.includes('Superiority'));
   expect(held).toBeTruthy();
   const next=samples.find((s:any)=>s.time>held.time&&s.id&&s.id!==held.id);
+  const sequence=samples.filter((s:any)=>s.id&&s.time<=next.time+500);
+  expect(new Set(sequence.map((s:any)=>s.card)).size).toBe(1);
+  expect(sequence.some((s:any)=>s.handoff==='crossfading')).toBe(true);
   expect(next.time-held.time).toBeGreaterThanOrEqual(2300);
   expect(held.filled).toBe(true);
   if(held.power.some((p:any)=>p.maximum)){
