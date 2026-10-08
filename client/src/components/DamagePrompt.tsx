@@ -1,8 +1,7 @@
 import { confirmConcentration } from '../lib/spellcasting';
 import { hitFeature, hitSpell } from '../../../shared/hitFeatures';
 import { isOnHitManeuver } from '../../../shared/maneuvers';
-import { useEffect, useLayoutEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
 import type { RollEntry, StateSnapshot } from '../../../shared/types';
 import { smiteChoices, smiteChoiceLabel, type SmiteChoice } from '../../../shared/smite';
 import { spellSlotOptions } from '../../../shared/spellSlotPools';
@@ -63,7 +62,6 @@ export function DamagePrompt() {
   // drop before offering the follow-up. Cleared when the animation ends OR the
   // viewer skips it (click / tap / Esc), so it never gates on the full runtime.
   const rollFx = useStore((s) => s.rollFx);
-  const [trayActions, setTrayActions] = useState<Element | null>(null);
   // The newest hit with something still to do. (The log is oldest-first and small.)
   const entry = snapshot
     ? [...snapshot.rollLog]
@@ -78,18 +76,6 @@ export function DamagePrompt() {
 
   // Armed = there's a follow-up AND its reveal has finished (or been skipped).
   const armed = !!entry && !!rollId && rollFx?.rollId !== rollId;
-
-  // Move the existing follow-up into the reserved result area while idle.
-  // Watch mounting/closing too: closing the table must restore the normal dock
-  // without needing another server snapshot. There is still only one prompt.
-  useLayoutEffect(() => {
-    if (!armed) { setTrayActions(null); return; }
-    const sync = () => setTrayActions(document.querySelector('[data-table-idle="true"] .dice-table-actions'));
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, {childList:true, subtree:true, attributes:true, attributeFilter:['data-table-idle']});
-    return () => observer.disconnect();
-  }, [armed]);
 
   useEffect(() => {
     if (!armed || !rollId || !damageReady) return;
@@ -110,7 +96,7 @@ export function DamagePrompt() {
   if (!armed || !entry || !rollId || (!damageReady && smiteOptions.length === 0)) return null;
   const p = entry.pending;
   const crit = !!(p?.crit ?? entry.smite?.crit);
-  const prompt = (
+  return (
     <div className="damage-prompt">
       {damageReady && p && (
         <button
@@ -173,5 +159,4 @@ export function DamagePrompt() {
       )}
     </div>
   );
-  return trayActions ? createPortal(prompt, trayActions) : prompt;
 }

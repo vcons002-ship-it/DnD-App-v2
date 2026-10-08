@@ -203,31 +203,20 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
   // with its damage must never briefly paint the previous roll's final total.
   const tray = liveDice ?? rollFx?.tray;
-  const compact = !!rollFx?.impactReady && !!rollFx.hasMapImpact;
-  const sessionCode=useStore(s=>s.snapshot?.sessionCode);
-  const showingMapImpact=useStore(s=>s.hpFx.length>0);
-  const lastTray=useRef<{frame:NonNullable<typeof tray>;compact:boolean;session?:string}>();
-  const [closedTray,setClosedTray]=useState<string>();
-  if(lastTray.current?.session!==sessionCode)lastTray.current=undefined;
-  if(tray)lastTray.current={frame:tray,compact,session:sessionCode};
-  const idle=!!(!tray&&rollAnimations&&!reducedMotion&&lastTray.current&&closedTray!==lastTray.current.frame.id);
-  // Grouped saves finish entirely in the live tray, with no later rollFx card.
-  // Their HP feedback must collapse the idle table too, on the same render.
-  if(idle&&showingMapImpact&&lastTray.current)lastTray.current.compact=true;
-  const displayTray=tray??(idle?lastTray.current?.frame:undefined);
+  const compact = !!rollFx?.impactReady && ((!['check','dice'].includes(rollFx.reveal.kind??'attack')) || !!rollFx.hasMapImpact);
   const sequence = visibleRollFx && (!liveDice||intermediate) ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={intermediate?`live:${liveDice!.id}`:visibleRollFx.id} rollFx={visibleRollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!visibleRollFx.reveal.physical} inlineTray={!!tray} intermediate={intermediate} dismiss={()=>{if(useStore.getState().rollFx?.id===visibleRollFx.id)dismiss();}} /></DiceThemeContext.Provider> : undefined;
   // Keep this component (and its WebGL canvas) mounted across the live/result
   // handoff. Bonuses count into the total underneath the real resting dice.
   const completed = intermediate?visibleRollFx:liveDice ? null : rollFx;
-  const content = displayTray ? <LiveDiceOverlay
-    frame={displayTray} result={sequence} idle={idle}
-    onSkip={()=>{setClosedTray(displayTray.id);if(!idle)(liveDice?useStore.getState().skipLiveDice:dismiss)();}}
-    impactReady={intermediate?false:!!rollFx?.impactReady} compact={idle?lastTray.current?.compact:!intermediate&&!!completed&&compact}
-    title={idle?'Dice table':completed?.reveal.title?.replace(/\bsave\b/i,'Saving Throw')}
+  const content = tray ? <LiveDiceOverlay
+    frame={tray} result={sequence}
+    onSkip={liveDice?useStore.getState().skipLiveDice:dismiss}
+    impactReady={intermediate?false:!!rollFx?.impactReady} compact={!intermediate&&!!completed&&compact}
+    title={completed?.reveal.title?.replace(/\bsave\b/i,'Saving Throw')}
     rollId={completed?.rollId} revealKind={completed?.reveal.kind}
     resultHeader={completed?.reveal}
-    finaleMs={completed?physicalRollTimeline(completed.reveal,true,rollTheme.id==='fighter'&&displayTray.values.some((v,i)=>v===displayTray.sides[i])).impact:undefined}
-    diceTrigger={idle||completed&&displayTray.burstProgress?undefined:displayTray.diceTrigger??diceTriggerForTray(displayTray,completed?.reveal)}
+    finaleMs={completed?physicalRollTimeline(completed.reveal,true,rollTheme.id==='fighter'&&tray.values.some((v,i)=>v===tray.sides[i])).impact:undefined}
+    diceTrigger={completed&&tray.burstProgress?undefined:tray.diceTrigger??diceTriggerForTray(tray,completed?.reveal)}
   /> : sequence;
   // Decided per roll, not once per mount: the guide may open or close between
   // rolls. Keyed so the modal layer comes and goes with the decision.
@@ -315,11 +304,9 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
   useEffect(() => {
     if (!rollFx || !reveal) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    let impactFrame = 0;
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
     const cleanup = () => {
       timers.forEach(clearTimeout);
-      cancelAnimationFrame(impactFrame);
       landings.current = {};
     };
 
@@ -349,20 +336,8 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         else if(isCheck||isDice)playSkill();else playHit();
       });
       if(!intermediate){
-        // A short compact summary may accompany the map effect. Checks and
-        // free rolls are finished here: their reading time was already paid.
-        at(impactAt,()=>{
-          releaseImpact(rollFx.rollId);
-          // Queued healing/damage marks its map impact on the next frame.
-          // Let that compact layout paint before deciding whether to keep a
-          // summary; otherwise an idle full table can cover the HP feedback.
-          impactFrame=requestAnimationFrame(()=>{
-            impactFrame=requestAnimationFrame(()=>{
-              if(useStore.getState().rollFx?.hasMapImpact)at(1200,dismiss);
-              else dismiss();
-            });
-          });
-        });
+        at(impactAt,()=>releaseImpact(rollFx.rollId));
+        at(impactAt+resultHoldMs,dismiss);
       }
       return cleanup;
     }
@@ -464,7 +439,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
 
   if (!rollFx || !reveal) return null;
 
-  const mapImpact = !!rollFx.impactReady && (inlineTray?!!rollFx.hasMapImpact:(!isCheck && !isDice) || !!rollFx.hasMapImpact);
+  const mapImpact = !!rollFx.impactReady && ((!isCheck && !isDice) || !!rollFx.hasMapImpact);
   const showNaturalTwenty = naturalTwenty && (staticReveal || (isCheck ? stage.phase === 'outcome' || stage.phase === 'damage' : !!rollFx.impactReady));
   const outcomeLabel = rollOutcomeLabel(reveal);
   // The result stamp shows once the roll resolves — but only when there IS a

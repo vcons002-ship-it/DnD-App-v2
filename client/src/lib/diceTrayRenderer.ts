@@ -56,7 +56,7 @@ export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean) {
   const pending=graphicsPending.get(theme.id);if(pending)return pending;
   graphicsPreload = graphicsPreload.then(async () => {
     if (!canStart() || warmedDice.has(theme.id)) return;
-    const [art] = await Promise.all([loadTrayTexture(theme.id),preloadDiceTableTexture()]);
+    const art = await loadTrayTexture(theme.id);
     if (!canStart()) { art?.dispose(); return; }
     const toss: Toss = {settleTimes: [], wallHits: 0, frames: new Float32Array(28),
       frameCount: 2, step: 1, radius: .65, trayScale: 1, topFaces: [0, 0], duration: 1};
@@ -66,9 +66,6 @@ export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean) {
       {sides: 20, value: 1, index: 0, set: 0},
       {sides: 6, value: 1, index: 1, set: 0, crit: true},
     ], toss, theme, undefined, art, true);
-    // Keep the table's physical lacquer and nameplate programs resident too;
-    // otherwise each incoming throw recompiles them during its first paint.
-    renderer.setTableView([{id:'warm',name:'',themeId:theme.id,x:0,y:-18,side:'bottom'}],'warm',undefined,new Map());
     try {
       await renderer.prepare(320, 320 * 10.2 / 15.2, 1,canStart);
       warmedDice.set(theme.id, renderer);

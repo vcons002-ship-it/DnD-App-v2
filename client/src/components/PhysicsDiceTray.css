@@ -7,11 +7,6 @@
 @keyframes roll-overlay-enter{from{opacity:0;}to{opacity:1;}}
 @media(prefers-reduced-motion:reduce){.roll-overlay-presence{animation:none!important;transition:none!important;}}
 .dice-tray-canvas{display:block;width:100%;aspect-ratio:15.2/10.2;border-radius:14px;background:#111d1c;}
-.roll-reveal-backdrop.is-idle .dice-tray-results,.roll-reveal-backdrop.is-idle .tray-trigger-result,.roll-reveal-backdrop.is-idle .tray-trigger-links,.roll-reveal-backdrop.is-idle .tray-number-flights{display:none;}
-.roll-reveal-backdrop.is-idle.is-impact .live-dice-footer{display:flex;}
-.roll-reveal-backdrop.is-idle .live-dice-card{pointer-events:none;}
-.roll-reveal-backdrop.is-idle .live-dice-footer button,.dice-table-actions button{pointer-events:auto;}
-.dice-table-actions .damage-prompt{position:static;inset:auto;transform:none;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;}
 .dice-tray-status{position:absolute;inset:0 0 40px;display:grid;place-content:center;color:#e6dac1;}
 .dice-tray-results{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;padding-top:8px;}
 .tray-die-result{font-size:12px;padding:3px 7px;border:1px solid #72664a;border-radius:5px;color:#cbc2ad;background:#171c20;}
@@ -182,23 +177,6 @@
 @keyframes tray-trigger-arrival{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
 @media(prefers-reduced-motion:reduce){.tray-trigger-links *,.tray-trigger-result{animation:none!important;}}
 .tray-burst-progress{position:absolute;top:12px;left:20px;z-index:6;padding:6px 10px;border:1px solid #c291e7;border-radius:6px;background:#160d27e8;color:#ebd6ff;font:600 14px/1.2 system-ui;pointer-events:none;}
-
-/* Keep the camera viewport and card in one place through rolling, arithmetic,
-   reading and idle. Only the intentional map-impact summary is compact. */
-.roll-reveal-backdrop:not(.is-impact)>.live-dice-card{
- box-sizing:border-box;height:min(900px,90dvh);overflow:hidden;
- display:grid;grid-template-rows:24px 24px auto minmax(0,1fr) 28px;
- align-items:start;justify-items:center;gap:6px;
-}
-.live-dice-card>.roll-reveal-title,.live-dice-card>.roll-reveal-who{
- width:100%;height:24px;line-height:24px;text-align:center;
- overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.live-dice-card>.physics-dice-tray{margin:0;min-height:0;}
-.live-dice-card .dice-tray-results{max-height:130px;overflow:auto;}
-.tray-calculation-slot{width:100%;min-height:0;height:100%;overflow:auto;}
-.live-dice-card>.live-dice-footer{width:100%;height:28px;margin:0;align-self:end;}
-.roll-reveal-backdrop.is-impact .tray-calculation-slot{height:auto;overflow:visible;}
 .tray-burst-die{animation:tray-burst-pulse 1s ease-in-out infinite alternate;}
 .tray-burst-die path{fill:#301346dd;stroke-width:3;}
 .tray-burst-die text{fill:#f0d9ff;font:900 26px system-ui;stroke:none;}

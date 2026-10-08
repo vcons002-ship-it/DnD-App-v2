@@ -67,16 +67,15 @@ a rest. Combined spell slots must not raise a class's spell-learning allowance.
 
 ## Optional captures and AI demonstrations
 
-`dice-table-camera.spec.ts` checks seven real server rolls across all four seats:
-one mounted canvas, stable window size, camera completion before physics starts,
-one result-reading phase, one shared wood-texture preparation, and reuse of the
-original prepared attack/damage scenes when the roller returns. Its
-`table-camera-timing` attachment includes animation-frame timestamps and the
-graphics/model/table/compile preparation stages. Set `DICE_TABLE_PROFILE=1` to
-also attach a Chrome CPU profile; compare ordinary runs separately because the
-profiler itself adds overhead. `DICE_TABLE_VIDEO` selects an optional NVIDIA AV1
-output file, and `DICE_TABLE_MAP` supplies an optional preview map image. Video
-frame repeats measure capture cadence, not the app's animation-frame cadence.
+`dice-rider-reading.spec.ts` exercises real attack, weapon damage, superiority
+dice and a target save. Consecutive rolls retain one card, crossfade for 180 ms,
+and acknowledge readiness only after that fade so the toss remains visible.
+Results without modifiers retain their 2.5-second reading/effects hold. Set
+`DICE_RIDER_VIDEO` to capture this sequence with NVIDIA AV1.
+
+Camera panning is parked on `prototype/dice-table-camera-20261008` (commit
+`97e730c`). Its `dice-table-camera.spec.ts` and recordings are prototype evidence,
+not requirements for the production crossfade UI.
 The `diceRendererCache` unit suite checks bounded retention, in-flight leases,
 large-pool disposal, session invalidation and maximum-roll state reset. The
 network contract checks that hidden DM rolls never reach either player while

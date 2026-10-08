@@ -74,7 +74,7 @@ const manual=true;test('unmodified superiority dice retain reading time before t
         const sample=()=>{
           const now=performance.now();
           if(!timing.outcomeAt&&document.querySelector('.tray-roll-result [data-phase="outcome"]'))timing.outcomeAt=now;
-          if(timing.outcomeAt&&(document.querySelector('.roll-reveal[data-impact-ready="true"]')||document.querySelector('[data-table-idle="true"]'))){timing.impactAt=now;return;}
+          if(timing.outcomeAt&&document.querySelector('.roll-reveal[data-impact-ready="true"]')){timing.impactAt=now;return;}
           requestAnimationFrame(sample);
         };requestAnimationFrame(sample);
       });
@@ -82,13 +82,13 @@ const manual=true;test('unmodified superiority dice retain reading time before t
       const result=await waitForCombatRoll(snapshot,previous,r=>r.label==='Attack');
       await expect(page.locator('.rr-adjustment').first()).toBeVisible();
       await expect(page.locator('.tray-roll-result [data-phase="outcome"]')).toBeVisible({timeout:10000});
-      await expect(page.locator('.roll-reveal-backdrop')).toHaveAttribute('data-table-idle','true',{timeout:10000});
+      await expect(page.locator('.roll-reveal[data-impact-ready="true"]')).toBeVisible({timeout:10000});
       const timing=await page.evaluate(()=>(window as any).__attackRead);
       expect(timing.impactAt-timing.outcomeAt).toBeGreaterThanOrEqual(1000);
       await test.info().attach('attack-reading-timing',{body:JSON.stringify(timing),contentType:'application/json'});
       // Do not skip the attack result for a damage-timing demonstration: the
       // server commits before the client finishes arithmetic and reading time.
-      await expect(page.locator('.roll-reveal-backdrop')).toHaveAttribute('data-table-idle','true',{timeout:15000});
+      await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0,{timeout:15000});
       if(result.pending&&!result.pending.done)return result;
       expect(result.reveal?.outcome).toBe('fumble');
     }
@@ -98,12 +98,8 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   const capture=process.env.DICE_RIDER_VIDEO?await startAv1Capture(page,process.env.DICE_RIDER_VIDEO):undefined;
   const hit=await attack();
   const before=(await snapshot()).monsters.find(m=>m.id===enemy.refId)!.curHp;
-  await expect(page.locator('.dice-table-actions .dp-maneuver-toggle')).toBeVisible();
-  const cardBeforeChoices=await page.locator('.live-dice-card').boundingBox();
   await page.locator('.dp-maneuver-toggle').click();
   await expect(page.locator('.dp-maneuver-btn')).toHaveText(['Trip Attack']);
-  await expect(page.locator('[data-table-idle="true"]')).toBeVisible();
-  expect(await page.locator('.live-dice-card').boundingBox()).toEqual(cardBeforeChoices);
   await page.screenshot({path:test.info().outputPath('maneuver-choices.png'),fullPage:true});
   const start=frames.length;
   await page.evaluate(()=>{
@@ -112,7 +108,7 @@ const manual=true;test('unmodified superiority dice retain reading time before t
     const sample=()=>{
       const tray=document.querySelector('.roll-reveal-backdrop'),boxes=[...document.querySelectorAll('.tray-die-result')];
       const card=document.querySelector('.roll-reveal');if(card&&!cards.has(card))cards.set(card,++nextCard);
-      samples.push({time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
+      samples.push({time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
       if((window as any).__riderSampling)requestAnimationFrame(sample);
     };sample();
   });
@@ -129,6 +125,9 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   const next=samples.find((s:any)=>s.time>held.time&&s.id&&s.id!==held.id);
   const sequence=samples.filter((s:any)=>s.id&&s.time<=next.time+500);
   expect(new Set(sequence.map((s:any)=>s.card)).size).toBe(1);
+  expect(sequence.some((s:any)=>s.handoff==='crossfading')).toBe(true);
+  expect(sequence.filter((s:any)=>s.handoff==='crossfading').every((s:any)=>s.physics===0),'The toss waits until the old tray has faded').toBe(true);
+  expect(sequence.some((s:any)=>s.handoff==='idle'&&s.physics>0),'The new toss is visible after the fade').toBe(true);
   expect(next.time-held.time).toBeGreaterThanOrEqual(2300);
   expect(held.filled).toBe(true);
   if(held.power.some((p:any)=>p.maximum)){
@@ -150,11 +149,4 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   expect(before-after.monsters.find(m=>m.id===enemy.refId)!.curHp).toBe(after.rollLog.find(r=>r.id===hit.id)!.pending!.amount);
   socket.emit('combat:maneuver',{rollId:hit.id,abilityId:'trip'});
   expect((await snapshot()).characters.find(c=>c.id===character.id)!.resources['Superiority Dice'].used).toBe(1);
-  // Explicitly closing an idle table must restore the ordinary damage dock.
-  await attack();
-  await page.getByRole('button',{name:'Close dice table',exact:true}).click();
-  await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0);
-  await expect(page.locator('.player-damage-dock .dp-maneuver-toggle')).toBeVisible();
-  await page.locator('.dp-maneuver-toggle').click();
-  await expect(page.locator('.dp-maneuver-btn')).toHaveText(['Trip Attack']);
 });

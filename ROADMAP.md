@@ -2,7 +2,7 @@
 
 ## Character roll-strength art - October 2026
 
-- [x] Live dice use a dark lacquered wooden tabletop with a current-map/token overview at its center, the local player's tray nearest, other players to the left/right and the DM across the table. A 460 ms fixed-zoom pan eases between seats; first and same-seat rolls stay still. Fixed card/camera bounds prevent resizing as modifiers and totals appear or the tray becomes idle. Live results have one 2.5-second reading phase instead of stacking legacy 6.5/8-second result holds. The same canvas remains open between rolls until closed; physics, modifier pacing, impact collapse and reduced-motion support are preserved.
+- [x] Production live dice use the approved 180 ms crossfade, retain consecutive throws in one card, wait for the fade before launching the toss and automatically dismiss completed sequences. Prepared-scene reuse remains enabled. The wooden table and camera-panning experiment is preserved on `prototype/dice-table-camera-20261008` at `97e730c` for later work.
 
 - [x] Natural attack 20s announce CRITICAL HIT immediately on the confirmed kept face, before modifiers. Druk maxima charge and shudder throughout calculation, burst one second before impact, and leave a smaller molten pool with flickering flame tongues and small radial splatter instead of falling blobs. Skip remains immediate.
 
@@ -2774,3 +2774,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Druk maxima leave bright, persistent lava pools at their explosion positions: cooled irregular rims, moving molten channels, floating crust and soft felt glow. Solid obsidian shards still settle and fade; pools clear with the roll.
 - [x] Druk maximum sequence now heats and shudders for 0.85 seconds before the shard explosion, then drops a molten core that spreads into the persistent lava pool. Cosmetic shaking leaves authoritative die poses and results untouched.
 - [x] Druk lava now drains from the opened interior through six tapering viscous strands and twelve uneven ballistic drops. The bright pool begins forming on contact, replacing the single falling sphere.
+
+- Dice transitions: restored the approved 180 ms crossfade with visible toss entry and automatic sequence dismissal; camera-table panning is parked on `prototype/dice-table-camera-20261008`. Prepared-scene reuse remains enabled.
