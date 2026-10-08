@@ -1,4 +1,4 @@
-import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS} from '../../shared/dicePresentationTiming.js';
+import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs} from '../../shared/dicePresentationTiming.js';
 import {createSession,createCharacter,createMap,setActiveMap,createToken,createMonsterTemplate,instantiateMonster,setManualDamage,listRollLog,getMonster,getRollEntry,getCharacter} from './sessions.js';
 import {resolveAttack,resolveAttackDamage,resolveSmite} from './combat.js';
 import {buildSnapshot} from './visibility.js';
@@ -38,7 +38,9 @@ it('streams normal and gold critical dice together in the same live world',async
  expect(frames[0].values).toEqual([null,null,null,null]);
  expect(frames.every(f=>JSON.stringify(f.critical)==='[false,false,true,true]')).toBe(true);
  expect(frames.at(-1).values).toEqual(values);
- expect(performance.now()-settledAt).toBeGreaterThanOrEqual(DIE_REVEAL_MS+LIVE_DICE_RESULT_HOLD_MS);
+ const handoffMs=performance.now()-settledAt;
+ expect(handoffMs).toBeGreaterThanOrEqual(liveDiceResultWaitMs(4)-10);
+ expect(handoffMs).toBeLessThan(DIE_REVEAL_MS+LIVE_DICE_RESULT_HOLD_MS);
 },20000);
 
 it('a monster saving against a player spell uses DM dice instead of the caster class',async()=>{

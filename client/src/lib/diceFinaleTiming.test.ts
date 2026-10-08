@@ -23,9 +23,9 @@ describe('natural critical and molten finale timing',()=>{
   expect(drukFinaleAge(10,explosionAt,explosionAt)).toBe(DRUK_EXPLOSION_DELAY);
   expect(drukFinaleAge(11,explosionAt+1000,explosionAt)).toBe(DRUK_EXPLOSION_DELAY+1);
  });
- it('allows a short finale for unmodified max damage without delaying ordinary damage',()=>{
+ it('keeps unmodified damage readable after its number flights',()=>{
   const reveal={kind:'damage',outcome:'hit',attacker:'Druk'} as const;
-  expect(physicalRollTimeline(reveal,true,true).impact).toBe(1200);
-  expect(physicalRollTimeline(reveal,true,false).impact).toBe(0);
+  expect(physicalRollTimeline(reveal,true,true).impact).toBe(2000);
+  expect(physicalRollTimeline(reveal,true,false).impact).toBe(2000);
  });
 });

@@ -149,7 +149,8 @@ async function burstFaces(sides:number[],publish:(frame:LiveDiceFrame)=>void,met
   }catch(e){clearInterval(timer);reject(e);}},1000/30);
  });
  faces.forEach((face,i)=>{if(face===8)current.parents.push(start+i);});
- const readingMs=liveDiceResultWaitMs(faces.length);
+ // Bursting dice need time to show the link before the next live dice enter.
+ const readingMs=liveDiceResultWaitMs(faces.length,false,true);
  if(waitForPresentation)await waitForPresentation(current.id,readingMs);else await new Promise(resolve=>setTimeout(resolve,readingMs));
  return faces;
 }

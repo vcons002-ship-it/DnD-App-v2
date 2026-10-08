@@ -311,8 +311,8 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         diceLocked:visualDiceCount,diceStopping:visualDiceCount,modsShown:0});
       adjustments.forEach((_,i)=>at(STEP_MS*(i+1),()=>setStage(p=>({...p,
         ...(isBurst?{modsShown:i+1}:attackWithDamage&&i>=toHit.length?{modsShown:i+1-toHit.length}:{toHitShown:i+1})}))));
-      // Unmodified damage already had its reading hold in the live tray.
-      // Clear it directly for the map impact rather than adding another screen.
+      // Keep unmodified damage readable here too: the server now hands off
+      // immediately after number flights instead of pausing before arithmetic.
       const {complete,impact:impactAt}=physicalRollTimeline(reveal,inlineTray,inlineTray&&rollTheme.id==='fighter'&&!!rollFx.tray?.values.some((v,i)=>v===rollFx.tray!.sides[i]));
       at(complete,()=>{
         setStage(p=>({...p,phase:isBurst?'damage':'outcome'}));
