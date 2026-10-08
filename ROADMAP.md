@@ -84,8 +84,11 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Cure Wounds, Hail of Thorns and other map impacts wait for the live tray
   and modifier/result sequences, then paint the compact card before playing
   healing/damage effects. Healing audio and effect lifetimes start on display.
-  Dice materials, critical variants and tray textures preload in the background
-  for the claimed character and DM, with a bounded resident shader cache.
+  Dice geometry, number variants, critical materials and tray textures preload
+  from session entry, before character selection, with a bounded party/DM cache.
+  An actual first-d20 scene is prepared and reused, and resizing a prepared
+  scene no longer repeats shader compilation. Roll headings are prominent,
+  high-contrast text with room for two lines and a separate actor/target line.
   Cold dice loading now has a visible loading state and a 15-second readiness
   grace rather than launching after 2.5 seconds; disconnects release the wait.
   Settled dice continue material animations during number flights and remain

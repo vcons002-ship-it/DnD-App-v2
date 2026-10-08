@@ -96,6 +96,13 @@ Results without modifiers retain their 2.5-second reading/effects hold. Set
 Camera panning is parked on `prototype/dice-table-camera-20261008` (commit
 `97e730c`). Its `dice-table-camera.spec.ts` and recordings are prototype evidence,
 not requirements for the production crossfade UI.
+The `dice-preload` browser suite waits for background preparation while the
+character chooser is still open, then verifies that the first d20 borrows a
+prepared scene and begins live physics within two seconds of clicking. It checks
+all three character themes and DM dice, shader errors and large heading size.
+Preloading includes every geometry/percentile variant plus critical materials,
+with at most three prospective player styles and the DM style resident. The
+selected character takes priority; queued themes yield when a roll begins.
 The `diceRendererCache` unit suite checks bounded retention, in-flight leases,
 large-pool disposal, session invalidation and maximum-roll state reset. The
 network contract checks that hidden DM rolls never reach either player while

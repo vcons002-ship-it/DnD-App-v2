@@ -1,4 +1,5 @@
 import {diceTriggerForTray} from '../lib/rollTrayPresentation';
+import {dicePreloadPlan} from '../lib/dicePreloadPlan';
 import {physicalRollTimeline,liveNaturalCritical} from '../lib/diceFinaleTiming';
 import {DICE_TRIGGER_HOLD_MS} from '../../../shared/diceTriggers';
 import {LiveDiceOverlay} from './LiveDiceOverlay';
@@ -145,27 +146,31 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     media.addEventListener('change', changed);
     return () => media.removeEventListener('change', changed);
   }, []);
-  const preloadClass = useStore(s => s.snapshot?.characters.find(c =>
-    c.claimedBy === s.socket?.id)?.className);
-  const preloadDm = useStore(s => s.snapshot?.role === 'dm');
+  const preloadContext=useStore(s=>s.snapshot?JSON.stringify(['crossfade',s.snapshot.sessionCode,s.snapshot.map?.id,s.snapshot.role,s.socket?.id]):'');
+  const preloadThemes=useStore(s=>JSON.stringify(dicePreloadPlan(
+    s.snapshot?.characters.map(c=>c.className)??[],
+    s.snapshot?.characters.find(c=>c.claimedBy===s.socket?.id)?.className,
+    s.snapshot?.role==='dm')));
   const rollAnimations = useStore(s => s.showRollAnim);
   const preloadBusy = useStore(s => !!s.liveDice || !!s.rollFx);
   useEffect(() => {
-    if (!rollAnimations || reducedMotion || preloadBusy || (!preloadDm && preloadClass === undefined)) return;
+    if (!rollAnimations || reducedMotion || preloadBusy || !preloadContext) return;
     let cancelled = false;
-    // Yield the initial UI paint, then prepare the viewer's material and the DM
-    // material (needed for creature saves). Do not start new GPU work mid-roll.
+    // Start as soon as the session loads, including the character chooser.
+    // Yield UI paint and avoid starting another theme during an active roll.
     const timer = setTimeout(() => {
       void import('../lib/diceTrayRenderer').then(async m => {
         const canStart = () => !cancelled && !useStore.getState().liveDice && !useStore.getState().rollFx;
-        for (const theme of [diceThemeForRoll(preloadClass, preloadDm), diceThemeForRoll('', true)]) {
+        for (const theme of JSON.parse(preloadThemes) as ReturnType<typeof dicePreloadPlan>) {
           if (!canStart()) break;
-          await m.preloadDiceGraphics(theme, canStart);
+          await m.preloadDiceGraphics(theme, canStart,preloadContext);
+          document.documentElement.dataset.dicePreloadedThemes=JSON.stringify(
+            (JSON.parse(preloadThemes) as ReturnType<typeof dicePreloadPlan>).filter(t=>m.diceGraphicsPreloaded(t.id)).map(t=>t.id));
         }
       }).catch(() => {});
-    }, 250);
+    }, 0);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [preloadClass, preloadDm, reducedMotion, rollAnimations, preloadBusy]);
+  }, [preloadContext, preloadThemes, reducedMotion, rollAnimations, preloadBusy]);
   const liveDice = useStore(s=>s.liveDice);
   const rollFx = useStore((s) => s.rollFx);
   const intermediate=!!liveDice?.calculation;
