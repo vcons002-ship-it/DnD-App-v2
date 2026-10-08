@@ -16,7 +16,7 @@ it('pours large handfuls through each rim and uses the bed instead of piling at 
   const entered=new Set<number>();
   while(!frame.done&&frame.elapsed<8){
    frame=world.advance(.025);
-   world.bodies.forEach((body,i)=>{if(body.collisionFilterMask===3)entered.add(i);});
+   world.bodies.forEach((body,i)=>{if(body.collisionFilterMask===7)entered.add(i);});
    if(frame.elapsed>.5)expect(entered.size,`${count} from ${side}: clear rim in one handful`).toBe(count);
   }
   expect(frame.done,`${count} from ${side}: settles`).toBe(true);

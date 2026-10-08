@@ -2,7 +2,7 @@ import {diceTriggerForTray} from '../lib/rollTrayPresentation';
 import {physicalRollTimeline,liveNaturalCritical} from '../lib/diceFinaleTiming';
 import {DICE_TRIGGER_HOLD_MS} from '../../../shared/diceTriggers';
 import {LiveDiceOverlay} from './LiveDiceOverlay';
-import {ROLL_MODIFIER_STEP_MS} from '../../../shared/dicePresentationTiming';
+import {ROLL_MODIFIER_STEP_MS,ROLL_TOTAL_TWEEN_MS,hasDrukMaximum} from '../../../shared/dicePresentationTiming';
 import { hasNaturalTwenty, rollOutcomeLabel } from '../../../shared/rollReveal';
 import {diceEntrySide} from '../lib/diceEntrySide';
 import type {DiceEntrySide} from '../lib/diceTrayTypes';
@@ -34,7 +34,7 @@ type Stage = {
 };
 
 /** Ease a displayed number toward `target` (cubic-out) so totals visibly climb. */
-function useTween(target: number, ms = 260): number {
+function useTween(target: number, ms = ROLL_TOTAL_TWEEN_MS): number {
   const [val, setVal] = useState(target);
   const from = useRef(target);
   useEffect(() => {
@@ -217,7 +217,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     title={completed?.reveal.title?.replace(/\bsave\b/i,'Saving Throw')}
     rollId={completed?.rollId} revealKind={completed?.reveal.kind}
     resultHeader={completed?.reveal}
-    finaleMs={completed?physicalRollTimeline(completed.reveal,true,rollTheme.id==='fighter'&&tray.values.some((v,i)=>v===tray.sides[i])).impact:undefined}
+    explosionMs={completed&&hasDrukMaximum(tray)?physicalRollTimeline(completed.reveal,true,true).explosion:undefined}
     diceTrigger={completed&&tray.burstProgress?undefined:tray.diceTrigger??diceTriggerForTray(tray,completed?.reveal)}
   /> : sequence;
   // Decided per roll, not once per mount: the guide may open or close between
@@ -330,7 +330,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         ...(isBurst?{modsShown:i+1}:attackWithDamage&&i>=toHit.length?{modsShown:i+1-toHit.length}:{toHitShown:i+1})}))));
       // Keep unmodified damage readable here too: the server now hands off
       // immediately after number flights instead of pausing before arithmetic.
-      const {complete,impact:impactAt}=physicalRollTimeline(reveal,inlineTray,inlineTray&&rollTheme.id==='fighter'&&!!rollFx.tray?.values.some((v,i)=>v===rollFx.tray!.sides[i]));
+      const {complete,impact:impactAt}=physicalRollTimeline(reveal,inlineTray,inlineTray&&!!rollFx.tray&&hasDrukMaximum(rollFx.tray));
       at(complete,()=>{
         setStage(p=>({...p,phase:isBurst?'damage':'outcome'}));
         if(earlyCritical){} // The live tray already announced the natural 20.

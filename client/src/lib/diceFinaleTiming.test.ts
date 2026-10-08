@@ -14,12 +14,12 @@ describe('natural critical and molten finale timing',()=>{
   expect(liveNaturalCritical({...frame,kept:0,label:'WIS Saving Throw'})).toBe(false);
   expect(liveNaturalCritical({...frame,kept:0,label:'Initiative'})).toBe(false);
  });
- it('keeps the shell intact for long reading holds, then bursts one second before impact',()=>{
+ it('keeps the shell intact for long reading holds, then bursts 750 ms after the final modifier total',()=>{
   expect(drukFinaleAge(30,30000,null)).toBeLessThan(DRUK_EXPLOSION_DELAY);
   const reveal={kind:'attack',outcome:'crit',d20:20,attacker:'Druk',toHit:[{label:'STR',value:5},{label:'PROF',value:3}]} as const;
   const timing=physicalRollTimeline({...reveal,toHit:[...reveal.toHit]},true,true);
-  expect(timing.complete).toBe(2000);expect(timing.impact).toBe(4500);
-  const explosionAt=10000+timing.impact-1000;
+  expect(timing.complete).toBe(1360);expect(timing.impact).toBe(3860);
+  const explosionAt=10000+timing.explosion!;
   expect(drukFinaleAge(10,explosionAt-1,explosionAt)).toBeLessThan(DRUK_EXPLOSION_DELAY);
   expect(drukFinaleAge(10,explosionAt,explosionAt)).toBe(DRUK_EXPLOSION_DELAY);
   expect(drukFinaleAge(11,explosionAt+1000,explosionAt)).toBe(DRUK_EXPLOSION_DELAY+1);
@@ -32,7 +32,7 @@ describe('natural critical and molten finale timing',()=>{
  });
  it('reads a failed check once after its modifiers without a legacy eight-second hold',()=>{
   const timing=physicalRollTimeline({kind:'check',attacker:'Varis',outcome:'fail',d20:7,toHit:[{label:'DEX',value:3},{label:'Proficiency',value:2}]},true);
-  expect(timing).toEqual({complete:2000,impact:2000+LIVE_DICE_RESULT_HOLD_MS});
+  expect(timing).toEqual({complete:2000,explosion:undefined,impact:2000+LIVE_DICE_RESULT_HOLD_MS});
  });
  it('gives maximum damage its finale during the same reading phase',()=>{
   const timing=physicalRollTimeline({kind:'damage',attacker:'Druk',outcome:'none',damage:10,damageMods:[{label:'STR',value:4}]},true,true);

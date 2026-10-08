@@ -108,7 +108,7 @@ const manual=true;test('unmodified superiority dice retain reading time before t
     const sample=()=>{
       const tray=document.querySelector('.roll-reveal-backdrop'),boxes=[...document.querySelectorAll('.tray-die-result')];
       const card=document.querySelector('.roll-reveal');if(card&&!cards.has(card))cards.set(card,++nextCard);
-      samples.push({time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
+      samples.push({time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),handoffKind:document.querySelector('.dice-tray-transition')?.getAttribute('data-kind'),explosionAt:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-explosion-at')||0),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
       if((window as any).__riderSampling)requestAnimationFrame(sample);
     };sample();
   });
@@ -128,11 +128,19 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   expect(sequence.some((s:any)=>s.handoff==='crossfading')).toBe(true);
   expect(sequence.filter((s:any)=>s.handoff==='crossfading').every((s:any)=>s.physics===0),'The toss waits until the old tray has faded').toBe(true);
   expect(sequence.some((s:any)=>s.handoff==='idle'&&s.physics>0),'The new toss is visible after the fade').toBe(true);
+  const changedTray=samples.filter((s:any)=>s.handoffKind==='tray-swap'&&s.handoff==='crossfading');
+  expect(changedTray.length).toBeGreaterThan(0);
+  expect(changedTray.at(-1).time-changedTray[0].time).toBeGreaterThanOrEqual(300);
+  expect(changedTray.every((s:any)=>s.physics===0),'DM tray swaps cannot hide the incoming throw').toBe(true);
   expect(next.time-held.time).toBeGreaterThanOrEqual(2300);
   expect(held.filled).toBe(true);
   if(held.power.some((p:any)=>p.maximum)){
     const exploded=samples.find((s:any)=>s.id===held.id&&s.power.some((p:any)=>p.maximum&&p.broken));
     expect(exploded).toBeTruthy();expect(exploded.time).toBeLessThan(next.time-500);
+    expect(exploded.time-exploded.explosionAt).toBeGreaterThanOrEqual(0);
+    expect(exploded.time-exploded.explosionAt).toBeLessThan(150);
+    expect(exploded.explosionAt-held.time).toBeGreaterThan(600);
+    expect(exploded.explosionAt-held.time).toBeLessThan(800);
     expect(samples.some((s:any)=>s.id===held.id&&s.power.some((p:any)=>p.maximum&&p.pools>0))).toBe(true);
   }
   await test.info().attach('rider-reading-timing',{body:JSON.stringify({heldMs:next.time-held.time,maximum:held.power.some((p:any)=>p.maximum),samples}),contentType:'application/json'});

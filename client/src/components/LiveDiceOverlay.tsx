@@ -1,5 +1,5 @@
 import type {RollReveal} from '../../../shared/types';
-import {DIE_REVEAL_STAGGER_MS,liveDiceResultWaitMs} from '../../../shared/dicePresentationTiming';
+import {DIE_REVEAL_STAGGER_MS,DRUK_EXPLOSION_AFTER_TOTAL_MS} from '../../../shared/dicePresentationTiming';
 import {diceFlightPoint,diceFlightKeyframes,DIE_FLASH_MS,DIE_REVEAL_MS} from '../lib/diceFlightPosition';
 import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import {useStore} from '../state/socket';
@@ -16,17 +16,16 @@ import {playCritical} from '../lib/sfx';
 
 /** Render authoritative poses with a short interpolation buffer. No local physics,
  * face reassignment, trajectory retry, or client-generated result. */
-export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=false,title,rollId,revealKind,resultHeader,diceTrigger,finaleMs}: {
- frame:LiveDiceFrame;result?:ReactNode;onSkip:()=>void;impactReady?:boolean;compact?:boolean;title?:string;rollId?:string;revealKind?:string;resultHeader?:{attacker:string;target?:string};diceTrigger?:RollReveal['diceTrigger'];finaleMs?:number;
+export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=false,title,rollId,revealKind,resultHeader,diceTrigger,explosionMs}: {
+ frame:LiveDiceFrame;result?:ReactNode;onSkip:()=>void;impactReady?:boolean;compact?:boolean;title?:string;rollId?:string;revealKind?:string;resultHeader?:{attacker:string;target?:string};diceTrigger?:RollReveal['diceTrigger'];explosionMs?:number;
 }){
  const skip=onSkip;
  const naturalCritical=liveNaturalCritical(frame),criticalPlayed=useRef<string>();
  useEffect(()=>{if(naturalCritical&&criticalPlayed.current!==frame.id){criticalPlayed.current=frame.id;playCritical();}},[naturalCritical,frame.id]);
  const finale=useRef<{id:string;deadline:number|null}>({id:frame.id,deadline:null});
  if(finale.current.id!==frame.id)finale.current={id:frame.id,deadline:null};
- if(frame.resultHoldMs!==undefined&&finale.current.deadline===null)finale.current.deadline=performance.now()+frame.resultHoldMs;
- if(finaleMs!==undefined&&finale.current.deadline===null)finale.current.deadline=performance.now()+finaleMs;
- if(frame.saveDice&&frame.done&&finale.current.deadline===null)finale.current.deadline=performance.now()+liveDiceResultWaitMs(frame.sides.length,true)-80;
+ if(frame.resultHoldMs!==undefined&&finale.current.deadline===null)finale.current.deadline=performance.now()+DRUK_EXPLOSION_AFTER_TOTAL_MS;
+ if(explosionMs!==undefined&&finale.current.deadline===null)finale.current.deadline=performance.now()+explosionMs;
  const links=useRef<SVGSVGElement>(null),triggerRef=useRef(diceTrigger);
  triggerRef.current=diceTrigger;
  const triggerColors=diceTrigger?.kind?['#e3b0ff']:['#89f3ff','#e3b0ff','#ffe296','#b0ffcf'];
@@ -39,11 +38,17 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  },[skip]);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const canvas=useRef<HTMLCanvasElement>(null),root=useRef<HTMLDivElement>(null),card=useRef<HTMLDivElement>(null);
- const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),bounds=useRef<DOMRect>();
+ const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),previousTheme=useRef(diceThemeForRoll(frame.className,frame.dmDice).id),handoffDuration=useRef(180),previousTrayScale=useRef(frame.trayScale??1),handoffZoom=useRef(1),bounds=useRef<DOMRect>();
  const layoutAnimation=useRef<Animation>();
  useLayoutEffect(()=>{
   const node=card.current;if(!node)return;
   const changed=previousId.current!==frame.id;
+  const nextTheme=diceThemeForRoll(frame.className,frame.dmDice).id;
+  if(changed){
+   const scale=frame.trayScale??1;handoffZoom.current=Math.max(.5,Math.min(2,previousTrayScale.current/scale));
+   handoffDuration.current=nextTheme!==previousTheme.current?360:Math.abs(handoffZoom.current-1)>.01?320:180;
+   previousTheme.current=nextTheme;previousTrayScale.current=scale;
+  }
   if(changed&&canvas.current)canvas.current.dataset.physicsElapsed='0';
   if(changed&&canvas.current&&outgoing.current&&!reduced){
    // Copy once per throw, never per frame. Keep the old rendered artwork while
@@ -57,12 +62,13 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   previousId.current=frame.id;
   layoutAnimation.current?.cancel();
   const next=node.getBoundingClientRect(),old=bounds.current;bounds.current=next;
-  if(!reduced&&!compact&&old&&next.width&&next.height&&
+  const zoom=compact?1.1:old&&next.width&&next.height?Math.max(.5,Math.min(2,Math.sqrt(old.width*old.height/(next.width*next.height)))):1;
+  if(!reduced&&old&&next.width&&next.height&&
     (Math.abs(old.width-next.width)>1||Math.abs(old.height-next.height)>1||Math.abs(old.top-next.top)>1)){
    layoutAnimation.current=node.animate([
-    {transform:`translate(${old.left+old.width/2-next.left-next.width/2}px,${old.top+old.height/2-next.top-next.height/2}px) scale(${old.width/next.width},${old.height/next.height})`},
+    {transform:`translate(${old.left+old.width/2-next.left-next.width/2}px,${old.top+old.height/2-next.top-next.height/2}px) scale(${zoom})`},
     {transform:'none'},
-   ],{duration:240,easing:'cubic-bezier(.2,.75,.25,1)'});
+   ],{duration:320,easing:'cubic-bezier(.2,.75,.25,1)'});
   }
   if(changed&&!reduced)node.querySelectorAll('.roll-reveal-title,.roll-reveal-who,.dice-tray-results').forEach(el=>el.animate([{opacity:0},{opacity:1}],{duration:180}));
  },[frame.id,compact,!!result,reduced]);
@@ -71,6 +77,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  const saveLabels=useRef<(HTMLSpanElement|null)[]>([]);
  const [arrived,setArrived]=useState<number[]>([]),[failed,setFailed]=useState(false),[prepared,setPrepared]=useState(false);
  const [bonusesShown,setBonusesShown]=useState(false);
+ if(frame.saveDice&&frame.done&&bonusesShown&&finale.current.deadline===null)finale.current.deadline=performance.now()+DRUK_EXPLOSION_AFTER_TOTAL_MS;
  useEffect(()=>{
    setBonusesShown(false);
    if(!frame.saveDice||!frame.done||(!failed&&arrived.length<frame.sides.length))return;
@@ -151,7 +158,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
      toss.frames.set(viewPose(b.frame.poses),capacity*7);
       renderer!.setActiveCount(b.frame.sides.length);
       renderer!.setResults(b.frame.values);
-      renderer!.setFinaleDeadline(finale.current.deadline);
+      renderer!.setExplosionTime(finale.current.deadline);
      if(!b.frame.done){resultsStartedAt=undefined;finalTrayDrawn=false;}
      const alpha=reset||a===b?1:Math.max(0,Math.min(1,(target-a.at)/(b.at-a.at)));
      const width=node.clientWidth||600,height=width*10.2/15.2,dpr=Math.min(2,devicePixelRatio||1);
@@ -165,6 +172,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
         node.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,shudder:p.shudder,pools:p.pools})));
        node.dataset.physicsElapsed=String(a.frame.elapsed+(b.frame.elapsed-a.frame.elapsed)*alpha);
        node.dataset.renderTime=String(now);
+       node.dataset.explosionAt=String(finale.current.deadline??'');
        finalTrayDrawn=b.frame.done&&alpha===1;
        const svg=links.current,trigger=triggerRef.current;
        if(svg){
@@ -191,7 +199,10 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
       const cover=outgoing.current;
       if(!reduced&&cover?.dataset.phase==='waiting'){
        cover.dataset.phase='crossfading';
-       const fade=cover.animate([{opacity:1},{opacity:0}],{duration:180,fill:'forwards'});animations.push(fade);
+       cover.dataset.kind=handoffDuration.current===360?'tray-swap':handoffDuration.current===320?'tray-zoom':'same-tray';
+       const swapping=handoffDuration.current===360,zoom=handoffZoom.current;
+       const fade=cover.animate([{opacity:1,transform:'translateX(0)'},{opacity:0,transform:`translateX(${swapping?-14:0}px) scale(${zoom})`}],{duration:handoffDuration.current,easing:'ease-in-out',fill:'forwards'});animations.push(fade);
+       if(swapping||Math.abs(zoom-1)>.01)animations.push(node.animate([{opacity:0,transform:`translateX(${swapping?14:0}px) scale(${1/zoom})`},{opacity:1,transform:'none'}],{duration:handoffDuration.current,easing:'ease-in-out'}));
        fade.finished.then(()=>{if(!stopped){cover.style.opacity='0';cover.dataset.phase='idle';handoffReady=true;}}).catch(()=>{});
       }else handoffReady=true;
      }

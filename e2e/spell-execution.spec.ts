@@ -331,8 +331,11 @@ test('Orb matching dice offers a free leap, sorted targets and right-click casti
   await expect(page.locator('.tray-trigger-links')).toBeVisible();
   await expect(page.locator('.tray-trigger-links')).toHaveAttribute('data-geometry',/.+/);
   await page.screenshot({path:testInfo.outputPath('orb-matching-dice-links.png')});
-  await f.dismissReveal(orbDamage.id);
+  // The leap prompt must appear at impact readiness, while the compact
+  // result still remains for reading; no skip/dismiss click is necessary.
+  await expect(page.locator('.roll-reveal[data-impact-ready="true"]')).toBeVisible({timeout:15000});
   const prompt=page.getByRole('region',{name:'Chromatic Orb',exact:true});
+  await expect(prompt).toBeVisible({timeout:500});
   await expect(prompt).toContainText('Matching dice');
   await expect(prompt).toContainText('Leap 1 of 7');
   await expect(prompt.locator('.orb-matches span')).not.toHaveCount(0);

@@ -20,7 +20,8 @@ export function ChromaticOrbPrompt() {
     (!r.pending || r.pending.done) && (snapshot?.role !== 'dm' || r.roller === 'DM'));
   const orb = entry?.apply?.orb;
   // The old cast remains available in the snapshot until live physics commits.
-  const ready = !!entry && !rollFx && !liveDice && snapshot?.map?.id === orb?.origin.mapId;
+  // The compact result can remain for reading without withholding the next leap.
+  const ready = !!entry && (!rollFx || !!rollFx.impactReady) && !liveDice && snapshot?.map?.id === orb?.origin.mapId;
   useEffect(() => {
     if (!ready || !entry || heard.current === entry.id) return;
     heard.current = entry.id;
@@ -59,7 +60,7 @@ export function ChromaticOrbPrompt() {
       <input type="checkbox" checked={includeAllies} onChange={e => setIncludeAllies(e.target.checked)} /> Include allies
     </label>
     <div className="orb-targets">
-      {!choosing ? <button className="btn" onClick={() => setTargeting({rollId:entry.id})}>Choose target</button> : <>
+      {!choosing ? <button className="btn" onClick={() => { if (rollFx?.impactReady) useStore.getState().dismissRollFx(); setTargeting({rollId:entry.id}); }}>Choose target</button> : <>
         {selected ? <>
           <p><strong>{targetLabel(snapshot, selected)}</strong> · {Math.round(tokenDistanceFt(orb.origin,selected,snapshot.map))} ft</p>
           {valid ? <button className="btn" onClick={() => { leap(entry.id,selected.id); setTargeting(null); }}>Confirm target</button>

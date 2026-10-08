@@ -28,7 +28,9 @@ export function releaseHandfulDie(body:Body,index:number,count:number,radius:num
   // a large handful drop in the front quarter of the enlarged bed.
   const speed=(.55+random()*.15)*(spread?Math.sqrt(trayScale):1)/metresPerUnit;
   body.velocity.copy(direction.scale(Math.cos(angle)*speed).vadd(cross.scale(Math.sin(angle)*speed)));
-  body.velocity.z=(spread?.40+random()*.04:random()*.04-.02)/metresPerUnit;
+  // Even a single die leaves the hand with an upward component, rather than
+  // appearing as a vertical drop once it clears the near rim.
+  body.velocity.z=(spread?.40+random()*.04:.18+random()*.04)/metresPerUnit;
   if(spread){
     // Rear rows must remain airborne until the whole die clears the rim.
     // Derive their height from the actual throw velocity and gravity, rather
