@@ -2,7 +2,7 @@
 
 ## Character roll-strength art - October 2026
 
-- [x] Varis maximum retains a centered mote glow and eight visibly distinct rotating light shafts enclosed in the resin, with narrower pale green-gold cores. Light fades at the die boundary; outward spotlight cones and face apertures remain removed.
+- [x] Varis maximum centers its mote and softly rotates eight green-gold shafts through the resin and out into the air, with shorter lengths, narrow widths and gentle fades. Internal illumination stays subdued; hard spotlight cones and bright face apertures remain removed. Reduced motion omits escaping rays.
 
 - [x] Reworked Druk's release into a dominant draining mass with asymmetric tapered lobes and varied small drops, sharing the pool's molten surface and cooling crust.
 

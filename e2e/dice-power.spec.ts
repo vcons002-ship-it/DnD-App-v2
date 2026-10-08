@@ -19,7 +19,10 @@ test('character power art scales d20 and damage faces, including maxima and gold
   expect(power).toHaveLength(3);expect(power.every((p:any)=>p.known)).toBe(true);
   expect(power[0].maximum).toBe(false);expect(power[2].maximum).toBe(true);
   expect(power[0].strength).toBeLessThan(.05);expect(power[2].strength).toBeGreaterThan(.95);
-  if(theme==='ranger')expect(power[2].particles).toBe(0);
+  if(theme==='ranger'){
+   expect(power[0].particles).toBe(0);expect(power[1].particles).toBe(0);
+   expect(power[2].particles).toBe(8);
+  }
   if(theme==='fighter'){
    expect(power[0].broken).toBe(false);expect(power[2].broken).toBe(true);
    expect(power[2].fragments).toBe(11);expect(power[2].lava).toBe(0);expect(power[2].pools).toBe(1);expect(power[2].particles).toBe(0);
