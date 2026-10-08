@@ -32,7 +32,7 @@ async function show(){
   const r=tray.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,1.5);
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
   renderer!.draw(ctx,r.width,r.height,dpr,0,now);
-  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,age:p.age,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,fragments:p.fragments,frozenFragments:p.frozenFragments,lava:p.lava,pools:p.pools,melting:p.melting,preservedSurfaces:p.preservedSurfaces,physics:p.physics,mote:p.mote})));
+  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,age:p.age,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,shudder:p.shudder,lavaDrop:p.lavaDrop,fragments:p.fragments,frozenFragments:p.frozenFragments,lava:p.lava,pools:p.pools,melting:p.melting,preservedSurfaces:p.preservedSurfaces,physics:p.physics,mote:p.mote})));
   requestAnimationFrame(draw);
  }
  requestAnimationFrame(draw);

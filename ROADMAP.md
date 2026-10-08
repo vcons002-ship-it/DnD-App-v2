@@ -2758,3 +2758,4 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Druk shard interiors use the same polished black obsidian shader as the exterior instead of a separate physical material that appeared gray under tray lighting.
 - [x] Fixed shard-interior heat sharing the intact die's roll-power uniform, which incorrectly dimmed ordinary high-roll cracks. Restored the readable high-roll glow without widening fissures or reducing black obsidian coverage.
 - [x] Druk maxima leave bright, persistent lava pools at their explosion positions: cooled irregular rims, moving molten channels, floating crust and soft felt glow. Solid obsidian shards still settle and fade; pools clear with the roll.
+- [x] Druk maximum sequence now heats and shudders for 0.85 seconds before the shard explosion, then drops a molten core that spreads into the persistent lava pool. Cosmetic shaking leaves authoritative die poses and results untouched.

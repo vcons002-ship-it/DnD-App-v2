@@ -22,6 +22,8 @@ function clipSurface(vertices:SurfaceVertex[],plane:FracturePlane){
  * rigid bodies. This cosmetic world starts only after a confirmed maximum. */
 export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_critical:boolean){
  const original=root.children.filter((c):c is THREE.Mesh=>c instanceof THREE.Mesh&&!c.userData.dicePowerArt);
+ // Shake only the visible shell, never the authoritative settled die pose.
+ const charge=new THREE.Group();charge.userData.dicePowerArt=true;root.add(charge);original.forEach(mesh=>charge.add(mesh));
  const cells=fractureDie(faces),group=new THREE.Group();group.matrixAutoUpdate=false;group.userData.dicePowerArt=true;root.add(group);
  const pool=createDiceLavaPool(group);
  const geometries:THREE.BufferGeometry[]=[],materials:THREE.Material[]=[],outerMaterials:THREE.ShaderMaterial[]=[];
@@ -68,7 +70,7 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
  const start=()=>{
   if(!physics){physics=createShatterWorld(.85,1,-1);owned=true;}
   revision++;root.getWorldPosition(origin);root.getWorldScale(scale);root.getWorldQuaternion(rotation);
-  pool.start(origin,scale.x,owned?-1:0,random(29)*100);
+  pool.start(origin,scale.x,owned?-1:0,random(29)*100+origin.x*3.17+origin.y*7.13);
   for(const [i,f] of fragments.entries()){
    const size=scale.x,body=physics.addChunk(f.cell.vertices.map(v=>v.clone().multiplyScalar(size*.985).toArray()),f.cell.indices,f.cell.volume*Math.pow(size,3));f.body=body;
    const p=root.localToWorld(f.cell.center.clone());body.position.set(p.x,p.y,p.z);body.quaternion.set(rotation.x,rotation.y,rotation.z,rotation.w);
@@ -81,9 +83,13 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
  return {
   setWorld(world:ShatterWorld){clear();if(owned)physics?.dispose();physics=world;owned=false;},
   prewarm(enabled:boolean){for(const f of fragments)f.object.visible=enabled;for(const material of outerMaterials)material.uniforms.shatterFade.value=0;pool.prewarm(enabled);},
-  state(){return {broken,fragments:active?cells.length:0,frozenFragments:fragments.filter(f=>f.frozen).length,lava:0,pools:broken?1:0,melting:0,preservedSurfaces:fragments.reduce((n,f)=>n+f.preserved,0),physics:physics?.stats()};},
+  state(){return {broken,shudder:charge.position.length(),lavaDrop:pool.dropping(),fragments:active?cells.length:0,frozenFragments:fragments.filter(f=>f.frozen).length,lava:0,pools:pool.visible()?1:0,melting:0,preservedSurfaces:fragments.reduce((n,f)=>n+f.preserved,0),physics:physics?.stats()};},
   update(now:number,maximum:boolean,age:number,reduced:boolean,camera:THREE.Camera){
    broken=maximum&&!reduced&&age>=DRUK_EXPLOSION_DELAY;for(const object of original)object.visible=!broken;
+   const tension=maximum&&!reduced&&!broken?THREE.MathUtils.smoothstep(age,.18,DRUK_EXPLOSION_DELAY):0;
+   const phase=age===Infinity?0:Math.PI*2*(age*7+age*age*6)+root.id*.71;
+   charge.position.set(Math.sin(phase)*.035*tension,Math.sin(phase*1.37+1.7)*.025*tension,Math.abs(Math.sin(phase*.87))*.016*tension);
+   charge.rotation.set(Math.sin(phase*1.13)*.055*tension,Math.sin(phase*.93+2.)*.045*tension,Math.sin(phase*1.27)*.04*tension);
    if(!broken&&erupted)clear();
    if(broken&&!erupted)start();
    if(owned)physics?.advance(now);
@@ -103,6 +109,6 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
    }
    if(active&&t>=2.6){for(const f of fragments)if(f.body)physics!.remove(f.body);active=false;}
   },
-  dispose(){clear();pool.dispose();if(owned)physics?.dispose();for(const object of original)object.visible=true;geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());root.remove(group);},
+  dispose(){clear();pool.dispose();if(owned)physics?.dispose();for(const object of original){object.visible=true;root.add(object);}root.remove(charge);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());root.remove(group);},
  };
 }

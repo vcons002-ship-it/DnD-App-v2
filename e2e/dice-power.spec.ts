@@ -14,7 +14,7 @@ test('character power art scales d20 and damage faces, including maxima and gold
   await page.locator(`button[data-theme="${theme}"]`).click();await page.getByLabel('Die type').selectOption(String(sides));
   await expect(page.locator('#tray')).toHaveAttribute('data-sides',String(sides));
   await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
-  await page.waitForTimeout(750);
+  await page.waitForTimeout(1100);
   const power=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
   expect(power).toHaveLength(3);expect(power.every((p:any)=>p.known)).toBe(true);
   expect(power[0].maximum).toBe(false);expect(power[2].maximum).toBe(true);
@@ -51,7 +51,7 @@ test('Druk shatters every die shape, stays broken during the result hold and res
  await page.goto('/dice-power.html');const canvas=page.locator('#tray canvas');
  for(const sides of [4,8,10,12,100]){
   await page.getByLabel('Die type').selectOption(String(sides));await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
-  await page.waitForTimeout(750);
+  await page.waitForTimeout(1100);
   const power=JSON.parse((await canvas.getAttribute('data-roll-power'))!);
   expect(power.filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments>0)).toBe(true);
   expect(power.filter((p:any)=>!p.maximum).every((p:any)=>!p.broken)).toBe(true);
@@ -62,7 +62,7 @@ test('Druk shatters every die shape, stays broken during the result hold and res
  expect(held.filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments===0)).toBe(true);
  expect(held.filter((p:any)=>p.maximum).every((p:any)=>p.pools===1&&p.lava===0&&p.physics.bodies===0)).toBe(true);
  await page.getByRole('button',{name:'Replay maximum',exact:true}).click();await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
- await page.waitForTimeout(750);
+ await page.waitForTimeout(1100);
  expect(JSON.parse((await canvas.getAttribute('data-roll-power'))!).filter((p:any)=>p.maximum).every((p:any)=>p.broken&&p.fragments>0)).toBe(true);
  expect(errors).toEqual([]);
 });
@@ -73,8 +73,10 @@ test('Druk warns before exploding then freezes solid shards and keeps the lava p
  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
  await page.waitForFunction(()=>JSON.parse(document.querySelector('canvas')!.getAttribute('data-roll-power')!)[0].age>=.30);
  const warning=JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0];
- expect(warning.age).toBeLessThan(.49);expect(warning.broken).toBe(false);expect(warning.pools).toBe(0);
- await expect.poll(async()=>JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0].broken).toBe(true);
+ expect(warning.age).toBeLessThan(.85);expect(warning.broken).toBe(false);expect(warning.pools).toBe(0);expect(warning.shudder).toBeGreaterThan(0);expect(warning.lavaDrop).toBe(false);
+ await page.waitForFunction(()=>{const p=JSON.parse(document.querySelector('canvas')!.getAttribute('data-roll-power')!)[0];return p.broken&&p.lavaDrop;});
+ const release=JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0];
+ expect(release.shudder).toBe(0);expect(release.pools).toBe(0);
  await page.waitForTimeout(1900);
  const shards=JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0];
  expect(shards.fragments).toBe(11);expect(shards.frozenFragments).toBe(11);expect(shards.melting).toBe(0);expect(shards.pools).toBe(1);expect(shards.lava).toBe(0);expect(shards.physics.bodies).toBe(0);
@@ -83,7 +85,7 @@ test('Druk warns before exploding then freezes solid shards and keeps the lava p
  const held=JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0];
  expect(held.fragments).toBe(0);expect(held.pools).toBe(1);
  await page.getByRole('button',{name:'Replay maximum',exact:true}).click();
- await page.waitForFunction(()=>{const p=JSON.parse(document.querySelector('canvas')!.getAttribute('data-roll-power')!)[0];return p.age>=.15&&p.age<.45;});
+ await page.waitForFunction(()=>{const p=JSON.parse(document.querySelector('canvas')!.getAttribute('data-roll-power')!)[0];return p.age>=.15&&p.age<.75;});
  const replay=JSON.parse((await page.locator('canvas').getAttribute('data-roll-power'))!)[0];
  expect(replay.broken).toBe(false);expect(replay.pools).toBe(0);
 });
@@ -112,7 +114,7 @@ test('Druk warning visibly grows from cracks to a mostly incandescent shell befo
   const frame=()=>{
    const p=JSON.parse(canvas.dataset.rollPower??'[]')[2];
    if(p?.age<.15&&early===undefined)early=orange();
-   if(p?.age>=.40&&p.age<.49&&early!==undefined){
+   if(p?.age>=.72&&p.age<.85&&early!==undefined){
     // The ordinary high die in the center must stay predominantly obsidian,
     // even when the maximum beside it reaches its incandescent warning.
     const {data}=ctx.getImageData(canvas.width*.46,canvas.height*.43,canvas.width*.08,canvas.height*.12);

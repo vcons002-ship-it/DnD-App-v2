@@ -55,13 +55,34 @@ export function createDiceLavaPool(parent:THREE.Group){
   #include <colorspace_fragment>
  }`,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
  const geometry=new THREE.PlaneGeometry(2,2),surface=new THREE.Mesh(geometry,material),glow=new THREE.Mesh(geometry,glowMaterial);
- const group=new THREE.Group();group.visible=false;group.userData.dicePowerArt=true;group.add(glow,surface);parent.add(group);
+ const dropGeometry=new THREE.SphereGeometry(1,20,14);
+ const dropMaterial=new THREE.ShaderMaterial({uniforms,vertexShader:`uniform float time;varying vec3 liquidPos;
+ void main(){liquidPos=position;vec3 p=position*(1.+.055*sin(position.y*7.+time*13.));gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);}`,fragmentShader:'uniform float time,seed;'+noise+`
+ varying vec3 liquidPos;
+ void main(){float flow=fbm(liquidPos.xy*4.+liquidPos.z+seed+vec2(time*.3,-time*.2));
+ vec3 color=mix(vec3(1.8,.065,.001),vec3(4.,1.2,.06),flow);
+ color*=.8+.2*abs(liquidPos.z);gl_FragColor=vec4(color,1.);
+ #include <tonemapping_fragment>
+ #include <colorspace_fragment>
+ }`});
+ const drop=new THREE.Mesh(dropGeometry,dropMaterial);drop.visible=false;
+ const group=new THREE.Group();group.visible=false;group.userData.dicePowerArt=true;group.add(glow,surface,drop);parent.add(group);
+ let releaseHeight=0;
  surface.position.z=.018;surface.renderOrder=2;glow.position.z=.012;glow.scale.setScalar(2.4);glow.renderOrder=1;
  return {
-  start(origin:THREE.Vector3,radius:number,floor:number,seed:number){group.position.set(origin.x,origin.y,floor);group.scale.setScalar(radius*1.5);uniforms.seed.value=seed;},
-  prewarm(enabled:boolean){group.visible=enabled;uniforms.alpha.value=0;},
-  update(now:number,age:number,visible:boolean){group.visible=visible;uniforms.time.value=now/1000;uniforms.alpha.value=visible?THREE.MathUtils.smoothstep(age,0,.18):0;uniforms.spread.value=THREE.MathUtils.lerp(.35,1,THREE.MathUtils.smoothstep(age,0,.42));},
-  clear(){group.visible=false;uniforms.alpha.value=0;},
-  dispose(){parent.remove(group);geometry.dispose();material.dispose();glowMaterial.dispose();},
+  start(origin:THREE.Vector3,radius:number,floor:number,seed:number){group.position.set(origin.x,origin.y,floor);group.scale.setScalar(radius*1.5);uniforms.seed.value=seed;releaseHeight=Math.max(.35,(origin.z-floor)/(radius*1.5));},
+  prewarm(enabled:boolean){group.visible=enabled;drop.visible=enabled;dropMaterial.colorWrite=!enabled;uniforms.alpha.value=0;},
+  visible(){return group.visible&&uniforms.alpha.value>0;},
+  dropping(){return group.visible&&drop.visible;},
+  update(now:number,age:number,visible:boolean){
+   group.visible=visible;uniforms.time.value=now/1000;
+   const fall=THREE.MathUtils.clamp(age/.22,0,1);
+   drop.visible=visible&&fall<1;drop.position.z=releaseHeight*(1-fall*fall);
+   drop.scale.set(.30*(1-fall*.15),.30*(1-fall*.15),.30*(1+fall*.8));
+   uniforms.alpha.value=visible?THREE.MathUtils.smoothstep(age,.18,.32):0;
+   uniforms.spread.value=THREE.MathUtils.lerp(.20,1,THREE.MathUtils.smoothstep(age,.18,.65));
+  },
+  clear(){group.visible=false;drop.visible=false;uniforms.alpha.value=0;},
+  dispose(){parent.remove(group);geometry.dispose();dropGeometry.dispose();material.dispose();glowMaterial.dispose();dropMaterial.dispose();},
  };
 }

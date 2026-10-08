@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {createLightningTiming} from './diceLightningTiming';
-import {createRollPowerState} from './diceRollPower';
+import {createRollPowerState,DRUK_EXPLOSION_DELAY} from './diceRollPower';
 import {createDicePowerArt} from './dicePowerArt';
 import {createDiceShatterArt} from './diceShatterArt';
 import type {ShatterWorld} from './diceShatterPhysics';
@@ -584,9 +584,9 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
     uniforms.rollPower.value=powerView.strength;
-    uniforms.moltenWarning.value=style===1&&powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(powerView.age,.1,.47):0;
+    uniforms.moltenWarning.value=style===1&&powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(powerView.age,.1,DRUK_EXPLOSION_DELAY-.03):0;
     uniforms.rollMaximum.value=powerView.maximum&&!powerReduced?1:0;
-    uniforms.eruptionPulse.value=powerView.maximum&&!powerReduced?Math.exp(-Math.pow((powerView.age-(style===1?.44:.22))/(style===1?.29:.25),2.)):0;
+    uniforms.eruptionPulse.value=powerView.maximum&&!powerReduced?Math.exp(-Math.pow((powerView.age-(style===1?DRUK_EXPLOSION_DELAY-.05:.22))/(style===1?.43:.25),2.)):0;
   };
   const motePhase=style===2?rangerMoteSequence++*2.399963:0;
   const moteStart=new THREE.Vector3();let moteRevision=-1;

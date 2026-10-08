@@ -6,7 +6,9 @@ and d20 results all reach full power. Both halves of percentile dice use the
 complete d100 result. Modifiers and the sum of a pool do not charge individual
 dice. A maximum damage die is still damage, not a critical hit.
 
-- **Druk:** after a 0.49-second warning glow, a maximum tears the actual die
+- **Druk:** during a 0.85-second buildup, a maximum heats to mostly molten lava
+  and shudders with increasing frequency and force. Only the visible shell
+  shakes; the settled physical pose and result stay unchanged. It then tears the actual die
   into eleven irregular solid shards. Exterior triangles retain their original
   materials, UVs, gold trim and portions of numerals. The fracture faces are
   solid dark obsidian with a little residual heat. Exposed interior fracture
@@ -14,7 +16,8 @@ dice. A maximum damage die is still damage, not a critical hit.
   markings or the molten warning layer. Cannon rigid bodies handle
   the forceful launch and collisions with the tray and other shards. They stop
   tumbling before fading in place, without melting or liquid splashes. A bright
-  lava pool remains at each maximum die's explosion position until the roll is
+  molten core falls from the exploded die, then spreads into a bright
+  lava pool at its explosion position until the roll is
   cleared. Its irregular cooled rim, drifting molten channels and dark floating
   crust retain texture around the hot center. A soft amber spill stays on the
   felt; pools add no particles, physics bodies or dynamic lights.
