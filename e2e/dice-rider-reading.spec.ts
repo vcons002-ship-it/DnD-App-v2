@@ -65,15 +65,17 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   await page.setViewportSize({width:1366,height:900});
   await page.goto(`/join?code=${code}`);
   await page.getByRole('button',{name:'Join',exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(document.documentElement.dataset.dicePreloadedThemes??'[]').includes('fighter'),{},{timeout:45000});
   await page.locator('.claim-row').filter({hasText:'Druk'}).click();
   await expect(page.locator('.compact-player-combat')).toBeVisible();
   const attack = async () => {
     for(let i=0;i<8;i++) {
       const previous=new Set((await snapshot()).rollLog.map(r=>r.id));
       await page.evaluate(()=>{
-        const timing={outcomeAt:0,impactAt:0};(window as any).__attackRead=timing;
+        const timing={clickedAt:performance.now(),startedAt:0,outcomeAt:0,impactAt:0};(window as any).__attackRead=timing;
         const sample=()=>{
           const now=performance.now();
+          if(!timing.startedAt&&Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')??0)>0)timing.startedAt=now;
           if(!timing.outcomeAt&&document.querySelector('.tray-roll-result [data-phase="outcome"]'))timing.outcomeAt=now;
           if(timing.outcomeAt&&document.querySelector('.roll-reveal[data-impact-ready="true"]')){timing.impactAt=now;return;}
           requestAnimationFrame(sample);
@@ -85,6 +87,8 @@ const manual=true;test('unmodified superiority dice retain reading time before t
       await expect(page.locator('.tray-roll-result [data-phase="outcome"]')).toBeVisible({timeout:10000});
       await expect(page.locator('.roll-reveal[data-impact-ready="true"]')).toBeVisible({timeout:10000});
       const timing=await page.evaluate(()=>(window as any).__attackRead);
+      console.log(`Druk maneuver example: first toss starts in ${Math.round(timing.startedAt-timing.clickedAt)} ms`);
+      expect(timing.startedAt-timing.clickedAt).toBeLessThan(2000);
       expect(timing.impactAt-timing.outcomeAt).toBeGreaterThanOrEqual(1000);
       await test.info().attach('attack-reading-timing',{body:JSON.stringify(timing),contentType:'application/json'});
       // Do not skip the attack result for a damage-timing demonstration: the
@@ -95,7 +99,6 @@ const manual=true;test('unmodified superiority dice retain reading time before t
     }
     throw new Error('No hit in eight attacks');
   };
-  await page.waitForTimeout(4500);
   const capture=process.env.DICE_RIDER_VIDEO?await startAv1Capture(page,process.env.DICE_RIDER_VIDEO):undefined;
   const hit=await attack();
   const before=(await snapshot()).monsters.find(m=>m.id===enemy.refId)!.curHp;
@@ -137,6 +140,7 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   const fixed=samples.filter((s:any)=>s.bounds&&!s.compact);
   for(const key of ['x','y','width','height'])expect(Math.max(...fixed.map((s:any)=>s.bounds[key]))-Math.min(...fixed.map((s:any)=>s.bounds[key])),`Roll window ${key} stays fixed through damage, modifiers and saves`).toBeLessThan(1);
   expect(fixed.every((s:any)=>s.canvasBounds?.width>300&&s.canvasBounds?.height>150),'The tray stays visibly rendered inside the fixed frame').toBe(true);
+  expect(fixed.every((s:any)=>s.canvasBounds.width/s.bounds.width>.8),'The rolling area fills the window instead of leaving wide empty margins').toBe(true);
   expect(fixed.every((s:any)=>s.bounds.transform==='none'),'The window itself never zooms or translates').toBe(true);
   const framed=fixed.filter((s:any)=>s.handoff==='idle'&&s.physics>0&&s.footprint.length===4);
   expect(framed.length).toBeGreaterThan(10);

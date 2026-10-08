@@ -197,7 +197,7 @@
 [data-dice-presentation]:not(.is-impact)>.roll-reveal{
  box-sizing:border-box;width:min(860px,calc(100vw - 28px));
  height:min(900px,calc(100dvh - 32px));max-height:none;
- display:grid;grid-template-rows:74px 28px minmax(0,1fr) 124px 30px;
+ display:grid;grid-template-rows:74px 28px minmax(0,1fr) 80px 30px;
  gap:6px;align-items:stretch;overflow:hidden;transform:none;transition:none;
 }
 [data-dice-presentation]:not(.is-impact) .roll-reveal-title,
@@ -210,8 +210,10 @@
 }
 [data-dice-presentation]:not(.is-impact) .roll-reveal-who{font-size:16px;color:#ece2d0;}
 [data-dice-presentation]:not(.is-impact) .physics-dice-tray{
- min-height:0;height:100%;align-self:stretch;margin:0;display:grid;grid-template-rows:minmax(0,1fr) 144px;gap:6px;
+ min-height:0;height:100%;align-self:stretch;margin:0;display:grid;grid-template-rows:minmax(0,1fr) 96px;gap:6px;
 }
+/* Canvas-heavy roll windows use viewport sizing, independently of HUD zoom. */
+.player-fantasy [data-dice-presentation]:not(.is-impact)>.roll-reveal{zoom:1;}
 .dice-tray-viewport{min-height:0;container-type:size;display:grid;place-items:center;overflow:hidden;}
 .dice-tray-stage{position:relative;width:min(100cqw,149.0196cqh);aspect-ratio:15.2/10.2;}
 .dice-tray-stage .dice-tray-canvas{background:transparent;}

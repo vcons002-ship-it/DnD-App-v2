@@ -72,7 +72,10 @@ dice and a target save. Consecutive rolls retain one card and acknowledge
 readiness after the artwork handoff so the toss remains visible.
 The outer roll window keeps fixed bounds throughout an automatic roll sequence,
 including new dice pools, modifier chips and DM saves. Its result areas reserve
-space and scroll within that space. The tray fills its fixed viewport at the
+space and scroll within that space. Reserved result rows are compact, and the
+roll window uses viewport sizing independently of player HUD zoom. The browser
+checks that the canvas fills at least 80 percent of the window width on the
+desktop combat fixture. The tray fills its fixed viewport at the
 same apparent size for every pool. Existing physical dice-to-tray ratios are
 preserved: larger pools make dice appear smaller, without growing the visible
 tray, remounting its canvas or scaling the card. Different character/DM artwork

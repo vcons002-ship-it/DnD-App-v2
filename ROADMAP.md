@@ -86,6 +86,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   healing/damage effects. Healing audio and effect lifetimes start on display.
   Dice geometry, number variants, critical materials and tray textures preload
   from session entry, before character selection, with a bounded party/DM cache.
+  Compact reserved result areas and viewport sizing independent of HUD zoom
+  keep the enlarged roll headings from shrinking the tray.
   An actual first-d20 scene is prepared and reused, and resizing a prepared
   scene no longer repeats shader compilation. Roll headings are prominent,
   high-contrast text with room for two lines and a separate actor/target line.
