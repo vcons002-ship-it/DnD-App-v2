@@ -91,7 +91,7 @@ it('manual save totals recalculate pass/fail and damage before separate approval
   return {action:'apply'};
  }},dice);
  expect(rolls).toBe(1);expect(reviews).toBe(2);expect(getCharacter(hero.id)!.curHp).toBe(38);
- expect(listRollLog(session.id)[0].total).toBe(18);
+ expect(listRollLog(session.id)[0]).toMatchObject({total:18,detail:'15 + 3 = 18',reveal:{kind:'check',d20:15,outcome:'pass'}});
 });
 
 it('rejects invalid manual faces without applying an outcome',async()=>{

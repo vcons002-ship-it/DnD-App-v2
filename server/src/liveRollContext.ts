@@ -15,8 +15,6 @@ let facing:RollFacing[]=[];
 export const stagedRollFacing=()=>facing.slice();
 export function noteRollFacing(value:RollFacing){if(active)facing.push(value);}
 let active=false;
-let manualResults=false;
-export const isManualRollResult=()=>active&&manualResults;
 let effects:(()=>void)[]|null=null;
 let resultReveal=false;
 let reviewResults:HiddenRollResult[]=[];
@@ -29,9 +27,9 @@ export function noteLiveRollReveal(reveal:RollReveal|undefined){
 export function resetLiveRollReveal(){if(active)resultReveal=false;}
 export const hasLiveRollReveal=()=>resultReveal;
 export const isLiveCommand=()=>active;
-export function stageRollEffects<T>(run:()=>T,manual=false){
- active=true;manualResults=manual;effects=[];facing=[];resultReveal=false;reviewResults=[];
+export function stageRollEffects<T>(run:()=>T){
+ active=true;effects=[];facing=[];resultReveal=false;reviewResults=[];
  try {const value=run();return {value,effects};}
- finally {active=false;manualResults=false;effects=null;facing=[];resultReveal=false;reviewResults=[];}
+ finally {active=false;effects=null;facing=[];resultReveal=false;reviewResults=[];}
 }
 export function afterRollCommit(effect:()=>void){if(effects)effects.push(effect);else effect();}

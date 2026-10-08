@@ -5,7 +5,7 @@ import {spellImpactName} from '../../shared/spellImpact.js';
 import {rollDice,withDiceMetadata} from '../../shared/dice.js';
 import {stopAtWalls,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
 import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
-import {isLiveCommand,isManualRollResult,noteRollFacing,noteLiveRollReveal,noteRollResult} from './liveRollContext.js';
+import {isLiveCommand,noteRollFacing,noteLiveRollReveal,noteRollResult} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
 import { abilityKey, markSpell } from '../../shared/hitFeatures.js';
 import { checkReveal } from '../../shared/rollReveal.js';
@@ -1644,8 +1644,6 @@ export function addRollLog(
    *  Never supplied by a client; ordinary log callers keep automatic IDs. */
   id = newId(),
 ): RollEntry {
-  if(isManualRollResult()&&(!entry.reveal?.kind||entry.reveal.kind==='check'||entry.reveal.kind==='dice'))
-    entry={...entry,detail:`DM-entered result — ${entry.detail}`};
   if(entry.reveal&&!entry.reveal.title&&(entry.reveal.kind==='attack'||entry.reveal.kind==='damage'))
     entry.reveal={...entry.reveal,title:`${['Attack','Damage'].includes(entry.label)?entry.expr:entry.label} — ${entry.reveal.kind==='attack'?'Attack Roll':'Damage Roll'}`};
   if(entry.reveal && isLiveCommand())entry.reveal={...entry.reveal,physical:true};
