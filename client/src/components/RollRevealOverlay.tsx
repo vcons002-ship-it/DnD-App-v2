@@ -203,6 +203,8 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
   // with its damage must never briefly paint the previous roll's final total.
   const tray = liveDice ?? rollFx?.tray;
+  const showingMapImpact=useStore(s=>s.hpFx.length>0);
+  const skippedLiveDice=useStore(s=>!!s.skippedLiveDiceId);
   const compact = !!rollFx?.impactReady && ((!['check','dice'].includes(rollFx.reveal.kind??'attack')) || !!rollFx.hasMapImpact);
   const sequence = visibleRollFx && (!liveDice||intermediate) ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={intermediate?`live:${liveDice!.id}`:visibleRollFx.id} rollFx={visibleRollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!visibleRollFx.reveal.physical} inlineTray={!!tray} intermediate={intermediate} dismiss={()=>{if(useStore.getState().rollFx?.id===visibleRollFx.id)dismiss();}} /></DiceThemeContext.Provider> : undefined;
   // Keep this component (and its WebGL canvas) mounted across the live/result
@@ -221,13 +223,13 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   // Decided per roll, not once per mount: the guide may open or close between
   // rolls. Keyed so the modal layer comes and goes with the decision.
   const lift = ownLevelUpRoll && !!document.querySelector('dialog[data-level-up][open]');
-  const presented=<RollOverlayPresence content={content} reduced={reducedMotion}/>;
+  const presented=<RollOverlayPresence content={content} reduced={reducedMotion} clearImmediately={showingMapImpact||skippedLiveDice}/>;
   return lift ? <LevelUpRollLayer key="lift" player={player}>{presented}</LevelUpRollLayer> : presented;
 });
 
 /** Fade the final card out without dropping a frame between consecutive rolls.
  * A new roll arriving during the fade reuses the existing tray component. */
-function RollOverlayPresence({content,reduced}:{content:ReactNode;reduced:boolean}){
+function RollOverlayPresence({content,reduced,clearImmediately}:{content:ReactNode;reduced:boolean;clearImmediately:boolean}){
  const last=useRef(content),[visible,setVisible]=useState(!!content);
  if(content)last.current=content;
  useLayoutEffect(()=>{
@@ -235,7 +237,8 @@ function RollOverlayPresence({content,reduced}:{content:ReactNode;reduced:boolea
   if(reduced){setVisible(false);return;}
   const timer=setTimeout(()=>setVisible(false),180);return()=>clearTimeout(timer);
  },[!!content,reduced]);
- if(!content&&!visible)return null;
+ // A skipped roll or map impact must never retain an obsolete full tray.
+ if(!content&&(!visible||clearImmediately))return null;
  return <div className={`roll-overlay-presence${content?'':' is-leaving'}`}>{content??last.current}</div>;
 }
 

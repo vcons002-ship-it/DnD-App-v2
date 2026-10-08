@@ -57,7 +57,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   previousId.current=frame.id;
   layoutAnimation.current?.cancel();
   const next=node.getBoundingClientRect(),old=bounds.current;bounds.current=next;
-  if(!reduced&&old&&next.width&&next.height&&
+  if(!reduced&&!compact&&old&&next.width&&next.height&&
     (Math.abs(old.width-next.width)>1||Math.abs(old.height-next.height)>1||Math.abs(old.top-next.top)>1)){
    layoutAnimation.current=node.animate([
     {transform:`translate(${old.left+old.width/2-next.left-next.width/2}px,${old.top+old.height/2-next.top-next.height/2}px) scale(${old.width/next.width},${old.height/next.height})`},
@@ -249,7 +249,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   return {'--roll-strength':strength,'--arrival-scale':1.12+strength*.5,'--arrival-glow':`${5+Math.pow(strength,3)*28}px`} as CSSProperties;
  };
  const target=resultHeader?resultHeader.target:frame.target;
- return <div className={`roll-reveal-backdrop${compact?' is-impact':''}`} data-live-dice={result?undefined:'true'} data-live-calculation={frame.calculation?'true':undefined} data-result-hold-ms={frame.resultHoldMs} data-dice-presentation={result?'result':'live'} data-roll-id={frame.id}><div ref={card} className={`roll-reveal${naturalCritical?' roll-reveal-crit':''}`} data-roll-id={rollId??frame.id} data-reveal-kind={revealKind} data-dice-theme={theme.id} data-impact-ready={impactReady} role="status" aria-label="Live dice roll" onClick={skip} title="Click or tap to skip animation">
+ return <div className={`roll-reveal-backdrop${compact?' is-impact':''}`} data-live-dice={result||compact?undefined:'true'} data-live-calculation={frame.calculation?'true':undefined} data-result-hold-ms={frame.resultHoldMs} data-dice-presentation={result?'result':'live'} data-roll-id={frame.id}><div ref={card} className={`roll-reveal${naturalCritical?' roll-reveal-crit':''}`} data-roll-id={rollId??frame.id} data-reveal-kind={revealKind} data-dice-theme={theme.id} data-impact-ready={impactReady} role="status" aria-label="Live dice roll" onClick={skip} title="Click or tap to skip animation">
   <div className="roll-reveal-title">{title??frame.label}</div>
   <div className="roll-reveal-who">{resultHeader?.attacker??frame.roller}{target&&<span className="rr-arrow"> &rarr; {target}</span>}</div>
   {naturalCritical&&!compact&&<div className="roll-reveal-outcome tray-natural-critical" role="status" aria-label="Roll result">CRITICAL HIT!</div>}
