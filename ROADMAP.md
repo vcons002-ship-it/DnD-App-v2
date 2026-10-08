@@ -2755,3 +2755,4 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] Druk higher natural rolls reveal additional branching fissures and stronger lava glow. Maximum-roll warnings grow to a mostly molten shell before the existing solid-shard explosion; no liquid lava or pools return.
 - [x] Druk ordinary high rolls retain predominantly black obsidian for gold-number contrast; narrower fissures and capped heat preserve readability. Mostly molten coverage remains exclusive to the maximum-roll explosion warning.
+- [x] Druk shard interiors use the same polished black obsidian shader as the exterior instead of a separate physical material that appeared gray under tray lighting.

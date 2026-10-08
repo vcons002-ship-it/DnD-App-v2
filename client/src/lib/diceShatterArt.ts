@@ -23,7 +23,6 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
  const original=root.children.filter((c):c is THREE.Mesh=>c instanceof THREE.Mesh&&!c.userData.dicePowerArt);
  const cells=fractureDie(faces),group=new THREE.Group();group.matrixAutoUpdate=false;group.userData.dicePowerArt=true;root.add(group);
  const geometries:THREE.BufferGeometry[]=[],materials:THREE.Material[]=[],outerMaterials:THREE.ShaderMaterial[]=[];
- const fractureMaterial=new THREE.MeshPhysicalMaterial({color:0x080608,roughness:.38,metalness:.08,clearcoat:.25,clearcoatRoughness:.3,emissive:0x280500,emissiveIntensity:.5,transparent:true,opacity:0,envMapIntensity:.35});materials.push(fractureMaterial);
  const fragments=cells.map(cell=>{
   const object=new THREE.Group();object.visible=false;group.add(object);
   let preserved=0;
@@ -47,6 +46,13 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
   const cut:number[]=[];
   for(const f of cell.faces.filter(f=>f.source<0))for(let j=1;j<f.points.length-1;j++)for(const p of [f.points[0],f.points[j],f.points[j+1]])cut.push(...p.clone().sub(cell.center).toArray());
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(cut,3));geometry.computeVertexNormals();geometries.push(geometry);
+  // Use the exterior's actual obsidian shader for the exposed core as well.
+  // Fresh fracture faces have no gold trim, numerals or molten warning layer.
+  const fractureMaterial=(original[0].material as THREE.ShaderMaterial).clone();
+  fractureMaterial.uniforms={...(original[0].material as THREE.ShaderMaterial).uniforms,eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},shardOrigin:{value:cell.center},shatterFade:{value:0},engraved:{value:false},metalEdge:{value:false},critical:{value:0},moltenCracks:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0}};
+  fractureMaterial.vertexShader='uniform vec3 shardOrigin;\n'+fractureMaterial.vertexShader.replace('pos=position;','pos=position+shardOrigin;');
+  fractureMaterial.fragmentShader='uniform float shatterFade;\n'+fractureMaterial.fragmentShader.replace('#include <tonemapping_fragment>','gl_FragColor.a*=shatterFade;\n#include <tonemapping_fragment>');
+  fractureMaterial.transparent=true;materials.push(fractureMaterial);outerMaterials.push(fractureMaterial);
   const inner=new THREE.Mesh(geometry,fractureMaterial);inner.userData.dicePowerArt=true;inner.userData.shatterChunk=true;object.add(inner);
   return {object,cell,preserved,body:undefined as Body|undefined,frozen:false};
  });
@@ -71,7 +77,7 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
  };
  return {
   setWorld(world:ShatterWorld){clear();if(owned)physics?.dispose();physics=world;owned=false;},
-  prewarm(enabled:boolean){for(const f of fragments)f.object.visible=enabled;fractureMaterial.opacity=0;},
+  prewarm(enabled:boolean){for(const f of fragments)f.object.visible=enabled;for(const material of outerMaterials)material.uniforms.shatterFade.value=0;},
   state(){return {broken,fragments:active?cells.length:0,frozenFragments:fragments.filter(f=>f.frozen).length,lava:0,pools:0,melting:0,preservedSurfaces:fragments.reduce((n,f)=>n+f.preserved,0),physics:physics?.stats()};},
   update(now:number,maximum:boolean,age:number,reduced:boolean,camera:THREE.Camera){
    broken=maximum&&!reduced&&age>=DRUK_EXPLOSION_DELAY;for(const object of original)object.visible=!broken;
@@ -80,7 +86,6 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
    if(owned)physics?.advance(now);
    root.updateMatrixWorld(true);group.matrix.copy(root.matrixWorld).invert();group.matrixWorldNeedsUpdate=true;group.updateMatrixWorld(true);
    const t=age-DRUK_EXPLOSION_DELAY,floor=owned?-1:0,heat=Math.exp(-Math.max(0,t)*.85),fade=broken?1-THREE.MathUtils.smoothstep(t,1.8,2.6):0;
-   fractureMaterial.opacity=fade;fractureMaterial.emissiveIntensity=heat*.5;
    for(const material of outerMaterials){material.uniforms.shatterFade.value=fade;material.uniforms.rollPower.value=heat;}
    for(const f of fragments){
     f.object.visible=active&&fade>0;if(!f.body)continue;

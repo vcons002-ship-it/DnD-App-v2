@@ -9,7 +9,9 @@ dice. A maximum damage die is still damage, not a critical hit.
 - **Druk:** after a 0.49-second warning glow, a maximum tears the actual die
   into eleven irregular solid shards. Exterior triangles retain their original
   materials, UVs, gold trim and portions of numerals. The fracture faces are
-  solid dark obsidian with a little residual heat. Cannon rigid bodies handle
+  solid dark obsidian with a little residual heat. Exposed interior fracture
+  faces use the same polished obsidian shader as the exterior, without gold
+  markings or the molten warning layer. Cannon rigid bodies handle
   the forceful launch and collisions with the tray and other shards. They stop
   tumbling before fading in place, without melting, liquid splashes or pools.
   High natural rolls expose more branching fissures and hotter lava glow,
