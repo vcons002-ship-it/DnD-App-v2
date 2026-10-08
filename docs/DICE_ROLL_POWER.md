@@ -21,8 +21,12 @@ dice. A maximum damage die is still damage, not a critical hit.
   lava pool at its explosion position until the roll is
   cleared. Its irregular cooled rim, drifting molten channels and dark floating
   crust retain texture around the hot center. A soft amber spill stays on the
-  felt. The release is bounded to twelve drops and six connecting strands;
+  felt. The release is bounded to eight drops and four connecting strands;
   it adds no fluid solver, rigid bodies or dynamic lights.
+  One dominant draining mass breaks into differently sized, bent, tapered lobes
+  and a few small drops. Smooth deformed normals and wet highlights replace
+  uniform round particles. Release and pool share the same molten channels,
+  cooling plates, palette and animation function.
   High natural rolls expose more branching fissures and hotter lava glow,
   while retaining predominantly black obsidian behind the readable gold numbers.
   Crack width and heat are capped below the maximum's warning intensity.
@@ -40,6 +44,8 @@ dice. A maximum damage die is still damage, not a critical hit.
   streams radiate above, below and around the resin. The rays grow as it arrives,
   then rotate smoothly through three axes around the centered mote. Each die
   starts at its own orientation; the mote stays fixed and the rays remain 3D.
+  The resin shader continues those same rays inside the die, from the enclosed
+  mote to the shell, where they join the external light streams.
 - **DM:** more active curling ink is silhouetted against soft internal purple
   light within the refracting resin. A confirmed maximum transitions the cloud
   to blood red. Gold numerals stay on the opaque front inlay, outside the cloud

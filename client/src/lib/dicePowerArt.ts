@@ -9,6 +9,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
  const inverse=new THREE.Quaternion(),direction=new THREE.Vector3(),rayAxis=new THREE.Vector3(0,1,0);
  const rayRotation=new THREE.Quaternion(),rayEuler=new THREE.Euler();
  const rayPhase=(root.id*2.399963)%(Math.PI*2);
+ const rayDirections=Array.from({length:22},()=>new THREE.Vector3());
  const count=kind==='fighter'?18:22;
  const geometry=kind==='fighter'?new THREE.IcosahedronGeometry(1,1):new THREE.BufferGeometry();
  if(kind==='ranger'){
@@ -34,7 +35,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
    #include <colorspace_fragment>
   }`:`uniform float clock;varying float life;varying vec2 tex;varying vec3 glow;void main(){
    float edge=pow(max(0.,1.-abs(tex.x-.5)*2.),2.);
-   float end=smoothstep(0.,.16,tex.y)*(1.-smoothstep(.48,1.,tex.y));
+   float end=1.-smoothstep(.38,1.,tex.y);
    float streams=.55+.45*pow(sin(tex.y*15.-clock*2.5+tex.x*3.),2.);
    gl_FragColor=vec4(glow,edge*end*streams*life);
    #include <tonemapping_fragment>
@@ -55,6 +56,7 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
  const random=(i:number)=>{const n=Math.sin(i*127.1+311.7)*43758.5453;return n-Math.floor(n);};
  let visible=0;
  return {
+  rayDirections,
   count(){return visible;},
   update(now:number,maximum:boolean,age:number,mote:THREE.Vector3,reduced:boolean){
    visible=0;material.uniforms.clock.value=now/1000;
@@ -86,6 +88,8 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
       const angle=i*2.399963;
       const vertical=1-2*(i+.5)/count,radial=Math.sqrt(1-vertical*vertical);
       direction.set(Math.cos(angle)*radial,Math.sin(angle)*radial,vertical).applyQuaternion(rayRotation);
+      // The body shader draws the enclosed section using these same directions.
+      rayDirections[i].copy(direction).applyQuaternion(inverse);
       const length=2.5+random(i+5)*1.25;
       transform.position.copy(mote).applyQuaternion(root.quaternion).addScaledVector(direction,length*.5);
       transform.quaternion.setFromUnitVectors(rayAxis,direction);

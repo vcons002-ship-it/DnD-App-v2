@@ -62,6 +62,8 @@ uniform float mossAgate;
 uniform float enchantedAmber;
 uniform vec3 motePosition;
 uniform float moteRoom;
+uniform vec3 rangerRays[22];
+uniform float rangerRayGlow;
 uniform bool trayLighting;
 uniform float internalLightning;
 uniform float lightningPhase; uniform float lightningSeed;
@@ -322,6 +324,21 @@ void main(){
    float depthFade=exp(-travel*.65-foreground*1.4);
    vec3 orb=vec3(.30,.82,.075)*core*1.8+vec3(.90,1.,.50)*pow(core,4.)*1.5;
    energy+=(orb+vec3(.10,.35,.018)*halo*.3)*depthFade*(.18+rollPower*1.85+rollMaximum*.35);
+   // Continue the external rays inside the resin, from the actual enclosed
+   // mote. The opaque surface otherwise clips them into a halo behind the die.
+   if(rangerRayGlow>0.){
+    vec3 offset=pos-motePosition;float beams=0.;
+    for(int k=0;k<22;k++){
+     vec3 d=rangerRays[k];float b=dot(incoming,d),v=dot(incoming,offset),r=dot(d,offset);
+     float along=max(0.,(r-b*v)/max(.001,1.-b*b));
+     float viewTravel=clamp(b*along-v,0.,travel+moteRoom);
+     along=max(0.,dot(pos+incoming*viewTravel-motePosition,d));
+     float separation=length(pos+incoming*viewTravel-motePosition-d*along);
+     float width=.012+along*.032;
+     beams+=exp(-pow(separation/width,2.))*exp(-along*.35);
+    }
+    energy+=vec3(.42,1.,.19)*min(beams,2.5)*rangerRayGlow*depthFade;
+   }
    // The same source illuminates the nearby resin and embedded inclusions.
    float proximity=dot(pos-motePosition,pos-motePosition)/(moteRoom*moteRoom);
    through+=vec3(.08,.22,.015)*.13/(.3+proximity)*(.2+rollPower*1.8);
@@ -583,12 +600,15 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const power=createRollPowerState(sides);
   const powerArt=theme.id==='ranger'?createDicePowerArt(root,theme.id):undefined;
+  const rangerRayGlow={value:0},rangerRays={value:powerArt?.rayDirections??Array.from({length:22},()=>new THREE.Vector3())};
+  Object.assign(uniforms,{rangerRayGlow,rangerRays});
   let powerView=power.advance(0),powerReduced=false;
   const resinMaximum={value:0};
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
     // A color transition stays available with reduced motion, without flashes.
     resinMaximum.value=powerView.maximum?THREE.MathUtils.smoothstep(powerView.age,0,.35):0;
+    rangerRayGlow.value=powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(powerView.age,.45,.85)*.55:0;
     uniforms.rollPower.value=powerView.strength;
     uniforms.moltenWarning.value=style===1&&powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(powerView.age,.1,DRUK_EXPLOSION_DELAY-.03):0;
     uniforms.rollMaximum.value=powerView.maximum&&!powerReduced?1:0;

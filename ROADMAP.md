@@ -2,6 +2,8 @@
 
 ## Character roll-strength art - October 2026
 
+- [x] Reworked Druk's release into a dominant draining mass with asymmetric tapered lobes and varied small drops, sharing the pool's molten surface and cooling crust. Varis rays continue inside the resin to the mote instead of being clipped into a background halo.
+
 - [x] DM resin clouds curl more actively with stronger internal contrast; confirmed maximum faces turn the cloud blood red, preserving separate opaque gold numerals. DM is included in the roll-strength art reviewer.
 
 - [x] Varis maximum-roll rays rotate smoothly in three dimensions around the centered mote, with independent starting orientations and the existing bounded instanced geometry.
