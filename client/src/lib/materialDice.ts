@@ -324,11 +324,40 @@ void main(){
    // The same source illuminates the nearby resin and embedded inclusions.
    float proximity=dot(pos-motePosition,pos-motePosition)/(moteRoom*moteRoom);
    through+=vec3(.08,.22,.015)*.13/(.3+proximity)*(.2+rollPower*1.8);
-   // Broad light absorption and scattering inside the resin, with a gentle
-   // maximum-roll lift. There are no face apertures or outward beam geometry.
+   // Maximum light spreads through the enclosed resin. Broad rotating shafts
+   // scatter softly inside it; they never project cones onto the tray.
    float incidence=max(0.,dot(-normalize(nor),normalize(motePosition-pos)));
    float falloff=1./(1.+proximity*.8);
-   energy+=vec3(.055,.18,.018)*incidence*falloff*depthFade*rollMaximum*(.975+.025*sin(time*1.7));
+   energy+=vec3(.10,.30,.035)*incidence*falloff*depthFade*rollMaximum*(.975+.025*sin(time*1.7));
+   if(rollMaximum>.5){
+    float chord=5.;
+    for(int j=0;j<20;j++){
+     if(j>=count)break;
+     float denom=dot(planes[j].xyz,incoming);
+     if(denom>.0001)chord=min(chord,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));
+    }
+    vec3 offset=pos-motePosition,shafts=vec3(0.);
+    float tilt=time*.23,cs=cos(tilt),sn=sin(tilt);
+    for(int k=0;k<12;k++){
+     float z=1.-2.*(float(k)+.5)/12.,angle=float(k)*2.399963+time*.31;
+     float radius=sqrt(1.-z*z);
+     vec3 d=vec3(cos(angle)*radius,sin(angle)*radius,z);
+     d=vec3(d.x,cs*d.y-sn*d.z,sn*d.y+cs*d.z);
+     float b=dot(incoming,d),v=dot(incoming,offset),r=dot(d,offset);
+     float along=clamp((r-b*v)/max(.001,1.-b*b),0.,moteRoom*1.7);
+     float viewTravel=clamp(b*along-v,0.,chord);
+     along=max(0.,dot(pos+incoming*viewTravel-motePosition,d));
+     float separation=length(pos+incoming*viewTravel-motePosition-d*along);
+     float width=moteRoom*.13+along*.18;
+     float scatter=exp(-pow(separation/width,2.))*exp(-along/moteRoom*.8-viewTravel*.65);
+     // Fade at the emitter and faces so these read as softly lit resin,
+     // rather than hard beams or bright spots painted on the shell.
+     scatter*=smoothstep(0.,moteRoom*.22,along)*smoothstep(0.,moteRoom*.16,min(viewTravel,chord-viewTravel));
+     shafts+=vec3(.18,.48,.055)*scatter;
+    }
+    energy+=shafts*depthFade*.65;
+    energy+=vec3(.15,.42,.035)*halo*depthFade*.5;
+   }
  }
  through=through*exp(-smoke*1.9)+energy;
  float fresnel=.04+.96*pow(1.-max(0.,dot(-incoming,n)),5.);
