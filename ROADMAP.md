@@ -2,17 +2,13 @@
 
 ## Character roll-strength art - October 2026
 
-- [x] Varis light crosses actual die faces: brighter interior paths meet illuminated exit points on the resin, with external beams originating at those same shell points and bending outward. The art review can open directly on a character close-up.
+- [x] Varis maximum mote now softly illuminates the resin from within using distance, absorption and face angle. Removed outward beams, spotlight cones and face apertures.
 
-- [x] Varis maximum rays use rounded 3D tapered volumes, soft optical cross-sections, foreshortening, and distinct near/far illumination, continuing through the resin to the centered mote.
-
-- [x] Reworked Druk's release into a dominant draining mass with asymmetric tapered lobes and varied small drops, sharing the pool's molten surface and cooling crust. Varis rays continue inside the resin to the mote instead of being clipped into a background halo.
+- [x] Reworked Druk's release into a dominant draining mass with asymmetric tapered lobes and varied small drops, sharing the pool's molten surface and cooling crust.
 
 - [x] DM resin clouds curl more actively with stronger internal contrast; confirmed maximum faces turn the cloud blood red, preserving separate opaque gold numerals. DM is included in the roll-strength art reviewer.
 
-- [x] Varis maximum-roll rays rotate smoothly in three dimensions around the centered mote, with independent starting orientations and the existing bounded instanced geometry.
-
-- [x] Druk lava fissures and heat, Vanec discharge frequency, and Varis mote illumination scale with each confirmed natural face on d20 and all damage dice. Maximum rolls fracture Druk into textured pieces of the original die with shared contact physics; solid shards settle before fading in place, fire randomly oriented crimson lightning bursts for Vanec, or center Varis's mote before releasing a sphere of soft light streams. Live/playback/standalone dice share the treatment, including percentile pairs and gold critical dice; repeated frames cannot retrigger bursts and reduced motion omits maximum geometry. `/dice-power.html` compares labeled sample values. See `docs/DICE_ROLL_POWER.md`.
+- [x] Druk lava fissures and heat, Vanec discharge frequency, and Varis mote illumination scale with each confirmed natural face on d20 and all damage dice. Maximum rolls fracture Druk into textured pieces of the original die with shared contact physics; solid shards settle before fading in place, fire randomly oriented crimson lightning bursts for Vanec, or center Varis's mote to softly illuminate the resin from within. Live/playback/standalone dice share the treatment, including percentile pairs and gold critical dice; repeated frames cannot retrigger bursts and reduced motion omits maximum geometry. `/dice-power.html` compares labeled sample values. See `docs/DICE_ROLL_POWER.md`.
 
 Phase 1 (MVP) is built. This file is the authoritative backlog for later phases.
 Items tagged **[req]** come directly from the product owner's notes and must be

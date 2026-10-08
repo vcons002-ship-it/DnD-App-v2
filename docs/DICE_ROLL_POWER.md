@@ -40,20 +40,10 @@ dice. A maximum damage die is still damage, not a critical hit.
   rotating the whole coherent branching field randomly in three dimensions
   each burst. Geometry and timing remain independent for each die.
 - **Varis:** his enclosed wandering mote grows more luminous with strength. A
-  maximum draws it smoothly into the center, where it stays while 22 soft light
-  streams radiate above, below and around the resin. The rays grow as it arrives,
-  then rotate smoothly through three axes around the centered mote. Each die
-  starts at its own orientation; the mote stays fixed and the rays remain 3D.
-  The resin shader continues those same rays inside the die, from the enclosed
-  mote to the shell, where they join the external light streams.
-  Rounded tapered light volumes replace crossed flat ribbons. Foreground rays
-  brighten toward ivory-green, background rays recede, and optical thickness
-  strengthens rays pointing toward the camera. Internal attenuation matches the
-  near/far treatment while surface depth still hides rays behind the die.
-  Each beam intersects the actual die face planes. An illuminated aperture at
-  that point joins its visible internal path to the external beam, which starts
-  at the shell and bends slightly outward. This keeps the effect connected to
-  the enclosed light rather than a background halo.
+  maximum draws it smoothly into the center, where it stays and softly lights
+  the surrounding resin. Distance falloff, absorption and face angle shape the
+  green-gold illumination. A very gentle fluctuation keeps the source alive.
+  There are no outward beams, spotlight cones or bright face apertures.
 - **DM:** more active curling ink is silhouetted against soft internal purple
   light within the refracting resin. A confirmed maximum transitions the cloud
   to blood red. Gold numerals stay on the opaque front inlay, outside the cloud
@@ -64,8 +54,8 @@ Unknown/moving dice keep their ordinary material. Power changes ease in, and
 repeated frames or the result-reading hold cannot retrigger an eruption. A
 genuine reroll resets it. The same renderer supports playback and the ordinary
 character dice roller; standalone result dice retain the power treatment.
-Gold critical dice carry the same class maximum effects; Druk's gold dice also
-shatter. Reduced motion keeps Druk intact and omits eruptions/rays and rapid
+Gold critical dice keep their metallic finish; Druk's gold dice also
+shatter. Reduced motion keeps Druk intact and omits eruptions and rapid
 maximum discharges.
 
 A single bounded client-side cosmetic physics world serves the whole tray after
