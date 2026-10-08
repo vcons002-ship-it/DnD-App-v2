@@ -13,6 +13,8 @@ import {createDiceSound,rollingSpeeds} from '../lib/diceSfx';
 import {metresPerUnitFor} from '../../../shared/diceImpacts';
 import {liveNaturalCritical} from '../lib/diceFinaleTiming';
 import {playCritical} from '../lib/sfx';
+import {DICE_TABLE_PAN_MS} from '../lib/diceTableCamera';
+import {saveRollHeading} from '../lib/saveRollHeading';
 
 /** Render authoritative poses with a short interpolation buffer. No local physics,
  * face reassignment, trajectory retry, or client-generated result. */
@@ -39,13 +41,16 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const canvas=useRef<HTMLCanvasElement>(null),root=useRef<HTMLDivElement>(null),card=useRef<HTMLDivElement>(null);
  const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),previousTheme=useRef(diceThemeForRoll(frame.className,frame.dmDice).id),handoffDuration=useRef(180),swappingTray=useRef(false);
+ const dmPan=useRef(0);
  useLayoutEffect(()=>{
   const node=card.current;if(!node)return;
   const changed=previousId.current!==frame.id;
   const nextTheme=diceThemeForRoll(frame.className,frame.dmDice).id;
   if(changed){
    swappingTray.current=nextTheme!==previousTheme.current;
-   handoffDuration.current=nextTheme!==previousTheme.current?360:180;
+   const wasDm=previousTheme.current.startsWith('dm-'),nextDm=nextTheme.startsWith('dm-');
+   dmPan.current=wasDm===nextDm?0:nextDm?1:-1;
+   handoffDuration.current=dmPan.current?DICE_TABLE_PAN_MS:swappingTray.current?360:180;
    previousTheme.current=nextTheme;
   }
   if(changed&&canvas.current){canvas.current.dataset.physicsElapsed='0';canvas.current.dataset.rollPower='[]';canvas.current.dataset.explosionAt='';canvas.current.dataset.tossAnticipationAt='';}
@@ -118,7 +123,11 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    // Reuse the selected material warmup without holding this throw behind
    // another character's unrelated background preparation.
    await module.waitForDiceGraphics(theme.id);
+   await module.prepareDiceTableTexture();
    if(stopped)return;
+   const surface=root.current!.querySelector<HTMLElement>('.dice-tray-stage')!;
+   surface.style.backgroundImage=`url("${module.diceTableBackground()}")`;
+   surface.dataset.surface='plain-wood';
    root.current!.dataset.dicePreloaded=String(module.diceGraphicsPreloaded(theme.id));
    const art=await module.loadTrayTexture(theme.id);
    if(stopped){art?.dispose();return;}
@@ -193,9 +202,20 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
       const cover=outgoing.current;
       if(!reduced&&cover?.dataset.phase==='waiting'){
        cover.dataset.phase='crossfading';cover.dataset.startedAt=String(now);
-       cover.dataset.kind='tray-swap';
-       const fade=cover.animate([{opacity:1,transform:'translateX(0)'},{opacity:0,transform:'translateX(-14px)'}],{duration:handoffDuration.current,easing:'ease-in-out',fill:'forwards'});animations.push(fade);
-       animations.push(node.animate([{opacity:0,transform:'translateX(14px)'},{opacity:1,transform:'none'}],{duration:handoffDuration.current,easing:'ease-in-out'}));
+       cover.dataset.kind=dmPan.current?'dm-pan':'tray-swap';
+       cover.dataset.direction=dmPan.current>0?'to-dm':'from-dm';
+       // Move two prepared images across the plain wood, keeping the window,
+       // physical camera, face projection and result clocks unchanged. No
+       // second scene or per-frame snapshot is needed during the pan.
+       const distance=dmPan.current*118;
+       const fade=cover.animate(dmPan.current?
+        [{opacity:1,transform:'translateY(0)'},{opacity:1,transform:`translateY(${distance}%)`}]:
+        [{opacity:1,transform:'translateX(0)'},{opacity:0,transform:'translateX(-14px)'}],
+        {duration:handoffDuration.current,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'});animations.push(fade);
+       animations.push(node.animate(dmPan.current?
+        [{opacity:1,transform:`translateY(${-distance}%)`},{opacity:1,transform:'none'}]:
+        [{opacity:0,transform:'translateX(14px)'},{opacity:1,transform:'none'}],
+        {duration:handoffDuration.current,easing:'cubic-bezier(.4,0,.2,1)'}));
        fade.finished.then(()=>{if(!stopped){cover.style.opacity='0';cover.dataset.phase='idle';handoffReady=true;}}).catch(()=>{});
       }else if(cover){cover.style.opacity='0';cover.dataset.kind='same-tray';cover.dataset.phase='preparing';}
      }
@@ -262,9 +282,10 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   return {'--roll-strength':strength,'--arrival-scale':1.12+strength*.5,'--arrival-glow':`${5+Math.pow(strength,3)*28}px`} as CSSProperties;
  };
  const target=resultHeader?resultHeader.target:frame.target;
+ const heading=saveRollHeading(frame,title??frame.label,resultHeader?.attacker);
  return <div className={`roll-reveal-backdrop${compact?' is-impact':''}`} data-live-dice={result||compact?undefined:'true'} data-live-calculation={frame.calculation?'true':undefined} data-result-hold-ms={frame.resultHoldMs} data-dice-presentation={result?'result':'live'} data-roll-id={frame.id}><div ref={card} className={`roll-reveal${naturalCritical?' roll-reveal-crit':''}`} data-roll-id={rollId??frame.id} data-reveal-kind={revealKind} data-dice-theme={theme.id} data-impact-ready={impactReady} role="status" aria-label="Live dice roll" onClick={skip} title="Click or tap to skip animation">
-  <div className="roll-reveal-title" role="heading" aria-level={2} title={title??frame.label}>{title??frame.label}</div>
-  <div className="roll-reveal-who">{resultHeader?.attacker??frame.roller}{target&&<span className="rr-arrow"> &rarr; {target}</span>}</div>
+  <div className="roll-reveal-title" role="heading" aria-level={2} title={heading}>{heading}</div>
+  <div className="roll-reveal-who">{frame.saveDice&&frame.saveDice[0]?.rollKind!=='initiative'?'Triggered by ':''}{resultHeader?.attacker??frame.roller}{target&&<span className="rr-arrow"> &rarr; {target}</span>}</div>
   {naturalCritical&&!compact&&<div className="roll-reveal-outcome tray-natural-critical" role="status" aria-label="Roll result">CRITICAL HIT!</div>}
   <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id.startsWith('dm-')?'purple-resin':theme.id} role="group" aria-label="Live dice tray">
    <div className="dice-tray-viewport"><div className="dice-tray-stage">

@@ -424,7 +424,18 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                       targetLabels.set(key,token?(token.kind==='monster'&&token.revealTag&&token.revealTag!=='U'?token.revealTag:liveRollTarget(view!,[target])):undefined);
                     }
                     return targetLabels.get(key);
-                  },{hideModifiersFor:target=>getConn(id)?.role!=='dm'&&(target.kind==='monster'||isDm()),hideDc:getConn(id)?.role!=='dm'});
+                  },{hideModifiersFor:target=>getConn(id)?.role!=='dm'&&(target.kind==='monster'||isDm()),
+                    // A player's own spell/maneuver DC is public to that player;
+                    // creature and encounter DCs remain private regardless of faces.
+                    hideDc:getConn(id)?.role!=='dm'&&(isDm()||dmDice||!actor||!!sourceEntry&&sourceEntry.roller!==roller),
+                    nameFor:target=>{
+                      const conn=getConn(id)!,key=`save-name:${id}:${target.kind}:${target.refId}`;
+                      if(!targetLabels.has(key)){
+                        const view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
+                        targetLabels.set(key,view?liveRollTarget(view,[target]):undefined);
+                      }
+                      return targetLabels.get(key);
+                    }});
                   if(shaped){io.to(id).emit('dice:frame',shaped);lastDelivered.set(id,frame.id);}
                   continue;
                 }

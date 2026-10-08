@@ -125,7 +125,9 @@ const manual=true;test('unmodified superiority dice retain reading time before t
       const card=document.querySelector('.roll-reveal');if(card&&!cards.has(card))cards.set(card,++nextCard);
       const bounds=card?.getBoundingClientRect(),canvasBounds=document.querySelector('.dice-tray-canvas')?.getBoundingClientRect();
       const hp=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('.hp-floater-number')).filter((n:any)=>n.getAbsoluteOpacity()>.01).map((n:any)=>({text:n.text(),total:n.hasName('hp-floater-total'),opacity:n.getAbsoluteOpacity()}));
-      samples.push({hp,canvasBounds:canvasBounds?{width:canvasBounds.width,height:canvasBounds.height}:null,bounds:bounds?{x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height,transform:getComputedStyle(card!).transform}:null,compact:!!document.querySelector('.is-impact'),time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),handoffKind:document.querySelector('.dice-tray-transition')?.getAttribute('data-kind'),handoffStartedAt:Number(document.querySelector('.dice-tray-transition')?.getAttribute('data-started-at')||0),trayScale:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-tray-scale')||1),diceRadius:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-dice-radius')||0),footprint:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-tray-footprint')||'[]'),calculation:!!document.querySelector('[data-live-calculation="true"]'),modifiers:document.querySelectorAll('.rr-adjustment').length,explosionAt:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-explosion-at')||0),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
+      const panCanvas=document.querySelector('.dice-tray-canvas'),panCover=document.querySelector('.dice-tray-transition');
+      const panY=(el:Element|null)=>el?new DOMMatrix(getComputedStyle(el).transform).m42:0;
+      samples.push({surface:document.querySelector<HTMLElement>('.dice-tray-stage')?.dataset.surface,panY:panY(panCanvas),coverY:panY(panCover),hp,canvasBounds:canvasBounds?{width:canvasBounds.width,height:canvasBounds.height}:null,bounds:bounds?{x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height,transform:getComputedStyle(card!).transform}:null,compact:!!document.querySelector('.is-impact'),time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),handoffKind:document.querySelector('.dice-tray-transition')?.getAttribute('data-kind'),handoffStartedAt:Number(document.querySelector('.dice-tray-transition')?.getAttribute('data-started-at')||0),trayScale:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-tray-scale')||1),diceRadius:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-dice-radius')||0),footprint:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-tray-footprint')||'[]'),calculation:!!document.querySelector('[data-live-calculation="true"]'),modifiers:document.querySelectorAll('.rr-adjustment').length,explosionAt:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-explosion-at')||0),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
       if((window as any).__riderSampling)requestAnimationFrame(sample);
     };sample();
   });
@@ -135,6 +137,9 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   await page.screenshot({path:test.info().outputPath('superiority-reading-and-effects.png')});
   const verdict=page.locator('.tray-save-verdict[data-outcome="PASS"],.tray-save-verdict[data-outcome="FAIL"]').first();
   await expect(verdict).toBeVisible({timeout:30000});
+  await expect(page.locator('.roll-reveal-title')).toContainText(/Ownership target.*Trip Attack.*STR Saving Throw.*DC 14/);
+  await expect(page.locator('.roll-reveal-title')).not.toContainText('Druk');
+  await expectUnclipped(page.locator('.roll-reveal-title'));
   await expectUnclipped(verdict);
   await expectUnclipped(page.locator('.tray-save-outcome b').first());
   await page.screenshot({path:test.info().outputPath('strength-save-result.png')});
@@ -179,9 +184,12 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   expect(weaponFrame.trayScale).toBeGreaterThan(riderFrame.trayScale);
   expect(weaponFrame.diceRadius).toBe(riderFrame.diceRadius);
   expect(weaponFrame.diceRadius/weaponFrame.trayScale,'Larger pools have smaller dice inside the same visible tray').toBeLessThan(riderFrame.diceRadius/riderFrame.trayScale);
-  const changedTray=samples.filter((s:any)=>s.handoffKind==='tray-swap'&&s.handoff==='crossfading');
+  const changedTray=samples.filter((s:any)=>s.handoffKind==='dm-pan'&&s.handoff==='crossfading');
   expect(changedTray.length).toBeGreaterThan(0);
-  const swapFinished=samples.find((s:any)=>s.time>changedTray[0].time&&s.handoff==='idle'&&s.handoffKind==='tray-swap');
+  expect(changedTray.every((s:any)=>s.surface==='plain-wood')).toBe(true);
+  expect(changedTray.some((s:any)=>s.panY < -20 && s.coverY > 20),'The player tray leaves downward as the DM tray enters from across the wooden table').toBe(true);
+  expect(await page.evaluate(()=>performance.getEntriesByName('dice-table-texture-preparation').length),'Wood texture is prepared once per session, never during each pan').toBe(1);
+  const swapFinished=samples.find((s:any)=>s.time>changedTray[0].time&&s.handoff==='idle'&&s.handoffKind==='dm-pan');
   expect(swapFinished.time-changedTray[0].handoffStartedAt).toBeGreaterThanOrEqual(350);
   expect(changedTray.every((s:any)=>s.physics===0),'DM tray swaps cannot hide the incoming throw').toBe(true);
   expect(next.time-held.time).toBeGreaterThanOrEqual(2300);
