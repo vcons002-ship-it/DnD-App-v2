@@ -6,7 +6,7 @@ import type {StateSnapshot} from '../shared/types';
 import {expectUnclipped} from './helpers/rollVisibility';
 import {startAv1Capture} from './directAv1Recorder';
 test.use({deviceScaleFactor:1});
-test('DM approves private attack and damage; players cannot approve or detect pending rolls',async({page,browser,request})=>{
+test('hidden attacks resolve against AC; saves and checks await private DM approval',async({page,browser,request})=>{
  test.setTimeout(180000);
  const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Private DM approval'}})).json();
  const sockets:Socket[]=[];
@@ -23,7 +23,7 @@ test('DM approves private attack and damage; players cannot approve or detect pe
  dm.emit('map:setActive',{mapId:map.id});dm.emit('map:setGrid',{mapId:map.id,gridSizePx:64,feetPerSquare:5,widthFt:100,locked:false});
  dm.emit('fog:setLayer',{mapId:map.id,layer:'map',enabled:false});dm.emit('fog:setLayer',{mapId:map.id,layer:'tokens',enabled:false});
  dm.emit('token:spawn',{mapId:map.id,kind:'pc',refId:druk.id,x:600,y:540});
- dm.emit('monster:create',{name:'Goblin',modelType:'goblin',disposition:'enemy',maxHp:40,armorClass:12,weapons:[{name:'Scimitar',kind:'melee',damage:'1d6+2',damageType:'slashing',attackBonus:5}]});
+ dm.emit('monster:create',{name:'Goblin',modelType:'goblin',disposition:'enemy',maxHp:40,armorClass:12,stats:{STR:12,DEX:14,CON:10,INT:8,WIS:10,CHA:8},weapons:[{name:'Scimitar',kind:'melee',damage:'1d6+2',damageType:'slashing',attackBonus:5}]});
  const template=(await snapshot()).monsterTemplates.find(m=>m.name==='Goblin')!;
  dm.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:635,y:480});
  const setup=await snapshot(),pc=setup.tokens.find(t=>t.kind==='pc')!,enemy=setup.tokens.find(t=>t.kind==='monster')!;
@@ -47,21 +47,15 @@ test('DM approves private attack and damage; players cannot approve or detect pe
  const review=page.getByRole('dialog',{name:'Approve hidden result'});
  let attack:any;
  for(let attempt=0;attempt<6;attempt++){
-  const b=await point(enemy.id),p=await point(pc.id),beforeFacing=(await snapshot()).tokens.find(t=>t.id===enemy.id)!.facing;
+  const b=await point(enemy.id),p=await point(pc.id);
   await page.mouse.move(b.x,b.y,{steps:16});await page.mouse.click(b.x,b.y);
   await page.mouse.move(p.x,p.y,{steps:16});await page.mouse.click(p.x,p.y,{button:'right'});
   await page.getByRole('dialog',{name:'Token actions'}).getByRole('button',{name:/Scimitar/}).click();
-  await expect(review).toBeVisible({timeout:30000});
-  await expect(review).toContainText('Scimitar');await expect(review).toContainText('vs AC 12');
-  await expectUnclipped(review.getByRole('button',{name:'Apply result'}));
-  expect((await snapshot()).rollLog).toHaveLength(attempt);
+  await expect.poll(async()=>(await snapshot()).rollLog.length,{timeout:30000}).toBe(attempt+1);
+  await expect(review).toHaveCount(0);
   expect((await snapshot()).characters.find(c=>c.id===druk.id)!.curHp).toBe(40);
-  expect((await snapshot()).tokens.find(t=>t.id===enemy.id)!.facing).toBe(beforeFacing);
   expect(playerFrames).toHaveLength(0);expect(playerReviews).toHaveLength(0);expect(playerHp).toHaveLength(0);
   await expect(player.locator('.roll-reveal-backdrop')).toHaveCount(0);
-  await page.screenshot({path:test.info().outputPath('dm-private-attack-approval.png')});
-  await page.waitForTimeout(1500);await review.getByRole('button',{name:'Apply result'}).click();
-  await expect(review).toHaveCount(0);await expect.poll(async()=>(await snapshot()).rollLog.length).toBe(attempt+1);
   attack=(await snapshot()).rollLog.at(-1);
   if(attack.pending&&!attack.pending.done)break;
  }
@@ -73,25 +67,47 @@ test('DM approves private attack and damage; players cannot approve or detect pe
  expect(damageButton).toBeTruthy();
  await page.mouse.move(damageButton!.x+damageButton!.width/2,damageButton!.y+damageButton!.height/2,{steps:16});
  await page.mouse.click(damageButton!.x+damageButton!.width/2,damageButton!.y+damageButton!.height/2);
- await expect(review).toBeVisible({timeout:30000});
- await expect(review).toContainText(/damage/i);
- expect((await snapshot()).characters.find(c=>c.id===druk.id)!.curHp).toBe(40);
- expect((await snapshot()).rollLog.find(r=>r.id===attack.id)!.pending!.done).not.toBe(true);
- expect(playerHp).toHaveLength(0);expect(playerFrames).toHaveLength(0);
+ await expect.poll(async()=>(await snapshot()).characters.find(c=>c.id===druk.id)!.curHp,{timeout:30000}).toBeLessThan(40);
+ await expect(review).toHaveCount(0);
+ const resolved=(await snapshot()).rollLog.find(r=>r.id===attack.id)!;
+ expect(40-(await snapshot()).characters.find(c=>c.id===druk.id)!.curHp).toBe(resolved.pending!.amount);
+ await expect.poll(()=>playerHp.length).toBeGreaterThan(0);
+ expect(playerFrames).toHaveLength(0);expect(playerReviews).toHaveLength(0);
+ await expect(player.locator('.roll-reveal-backdrop')).toHaveCount(0);
+ await player.screenshot({path:test.info().outputPath('player-hidden-attack-damage.png')});
+ // The DM rolls a save separately, through the selected creature's stat block.
+ const info=page.locator('.reorder-section').filter({has:page.getByRole('heading',{name:'Token info',exact:true})});
+ const expand=info.getByTitle('Expand section', {exact:true});if(await expand.isVisible())await expand.click();
+ await info.locator('.sb-ability-roll').filter({hasText:'STR'}).click();
+ const oldCount=(await snapshot()).rollLog.length;
+ await info.getByTitle('STR saving throw (adds proficiency if proficient)',{exact:true}).click();
+ await expect(review).toBeVisible({timeout:30000});await expect(review).toContainText(/STR/i);
+ await expectUnclipped(review.getByRole('button',{name:'Apply result'}));
+ expect((await snapshot()).rollLog).toHaveLength(oldCount);
+ const hpEvents=playerHp.length;
  const id=await page.evaluate(()=>new Promise<string>(resolve=>{
   // The ID is read from the native confirmation UI's server-driven attribute.
   resolve(document.querySelector('dialog.hidden-roll-review')!.getAttribute('data-review-id')!);
  }));
  observer.emit('dice:confirmHidden',{id,apply:true});dm.emit('dice:confirmHidden',{id,apply:true});
  await page.waitForTimeout(500);await expect(review).toBeVisible();
- expect((await snapshot()).characters.find(c=>c.id===druk.id)!.curHp).toBe(40);
- await page.screenshot({path:test.info().outputPath('dm-private-damage-approval.png')});
+ expect((await snapshot()).rollLog).toHaveLength(oldCount);
+ expect(playerHp).toHaveLength(hpEvents);expect(playerFrames).toHaveLength(0);
+ // Rejecting rerolls the same pending save; entering a total recalculates it,
+ // and neither action resolves the step or publishes anything to players.
+ await review.getByRole('button',{name:'Reject & reroll',exact:true}).click();
+ await expect(review).not.toHaveAttribute('data-review-id',id,{timeout:30000});
+ await expect(review.getByRole('button',{name:'Apply result'})).toBeEnabled();
+ expect((await snapshot()).rollLog).toHaveLength(oldCount);
+ await review.getByRole('button',{name:'Enter result',exact:true}).click();
+ await review.getByLabel('Final total (includes modifiers)',{exact:true}).fill('18');
+ await review.getByRole('button',{name:'Review entered result',exact:true}).click();
+ await expect(review).toContainText('DM-entered result');await expect(review).toContainText('Total 18');
+ expect((await snapshot()).rollLog).toHaveLength(oldCount);
+ await page.screenshot({path:test.info().outputPath('dm-private-save-approval.png')});
  await player.screenshot({path:test.info().outputPath('player-before-approval.png')});
  await page.waitForTimeout(1500);await review.getByRole('button',{name:'Apply result'}).click();await expect(review).toHaveCount(0);
- await expect.poll(async()=>(await snapshot()).characters.find(c=>c.id===druk.id)!.curHp).toBeLessThan(40);
- const resolved=(await snapshot()).rollLog.find(r=>r.id===attack.id)!;
- expect(40-(await snapshot()).characters.find(c=>c.id===druk.id)!.curHp).toBe(resolved.pending!.amount);
- await expect.poll(()=>playerHp.length).toBeGreaterThan(0);
+ await expect.poll(async()=>(await snapshot()).rollLog.length).toBe(oldCount+1);
  expect(playerFrames).toHaveLength(0);expect(playerReviews).toHaveLength(0);
  await expect(player.locator('.roll-reveal-backdrop')).toHaveCount(0);
  await page.waitForTimeout(1500);await player.screenshot({path:test.info().outputPath('player-approved-damage.png')});
@@ -100,12 +116,12 @@ test('DM approves private attack and damage; players cannot approve or detect pe
  // Check the native discard control independently of attack/damage follow-ups.
  await page.getByRole('button',{name:'Chat & dice',exact:true}).click();
  if(!await page.locator('.dice-row input[placeholder="2d6+3"]').isVisible())await page.locator('.chat-dice-options > summary').click();
- const oldCount=(await snapshot()).rollLog.length;
+ const beforeDiscard=(await snapshot()).rollLog.length;
  await page.locator('.dice-row input[placeholder="2d6+3"]').fill('1d20+7');
  await page.locator('.dice-row').getByRole('button',{name:'Roll',exact:true}).click();
  await expect(review).toBeVisible({timeout:30000});await expect(review).toContainText('7');
  await review.getByRole('button',{name:'Discard result'}).click();await expect(review).toHaveCount(0);
- expect((await snapshot()).rollLog).toHaveLength(oldCount);
+ expect((await snapshot()).rollLog).toHaveLength(beforeDiscard);
  const visible=(await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot;
  expect(visible.rollLog).toHaveLength(0);
  await test.info().attach('approved-hidden-damage',{body:JSON.stringify({attack:resolved,hp:40-resolved.pending!.amount,playerDiceFrames:playerFrames.length,playerReviewMessages:playerReviews.length}),contentType:'application/json'});

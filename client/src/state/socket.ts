@@ -90,7 +90,7 @@ const heldHpFx = new Map<string, HpFloater[]>();
 type Store = {
   hiddenRollReview:import('../../../shared/types').HiddenRollReview|null;
   hiddenRollSubmitting:boolean;
-  confirmHiddenRoll:(apply:boolean)=>void;
+  confirmHiddenRoll:(decision:boolean|import('../../../shared/types').HiddenRollDecision)=>void;
   liveDice: LiveDiceFrame | null;
   skippedLiveDiceId: string | null;
   skipLiveDice: () => void;
@@ -511,11 +511,11 @@ export function isRollImpactPending(rollId:string|undefined){
 export const useStore = create<Store>((set, get) => ({
   hiddenRollReview:null,
   hiddenRollSubmitting:false,
-  confirmHiddenRoll:(apply)=>{
+  confirmHiddenRoll:(decision)=>{
     const state=get();
     if(state.snapshot?.role!=='dm'||!state.hiddenRollReview||state.hiddenRollSubmitting||!state.socket?.connected)return;
     set({hiddenRollSubmitting:true});
-    state.socket.emit('dice:confirmHidden',{id:state.hiddenRollReview.id,apply});
+    state.socket.emit('dice:confirmHidden',{id:state.hiddenRollReview.id,decision:typeof decision==='boolean'?{action:decision?'apply':'discard'}:decision});
   },
   liveDice: null,
   skippedLiveDiceId: null,

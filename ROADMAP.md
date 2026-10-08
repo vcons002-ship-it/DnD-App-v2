@@ -1,8 +1,13 @@
 # Roadmap & Feature Backlog
 
-- [x] Hidden DM rolls require a private result approval. The server rolls the
-  configured dice, applies modifiers, and presents the full result to the
+- [x] Hidden DM saves, checks and other non-attack rolls require private result
+  approval; attacks resolve against AC and their normal damage needs no extra
+  confirmation. An attack with a saving-throw rider still waits for approval.
+  The server rolls the configured dice, applies modifiers, and presents the full result to the
   initiating DM before committing HP, resources, conditions or roll history.
+  Reject & reroll reuses the pending step's dice and preserves completed damage.
+  Enter result recalculates modifiers and dependent effects, then waits for
+  approval again. DM-entered results are labeled in private history.
   Apply commits that same result once; Discard, disconnect or a five-minute
   approval timeout leaves it unapplied. Players receive no dice, review prompt,
   private roll entry or early facing cue. Approved visible HP feedback remains.

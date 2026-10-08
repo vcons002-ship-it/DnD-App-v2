@@ -6,7 +6,7 @@ import {db} from './db.js';
 import {checkpointHpFx,faceTokenToward} from './sessions.js';
 import {checkpointReactions} from './reactions.js';
 import {stageRollEffects,stagedRollFacing,stagedRollResults,withLiveCalculationPresenter,resetLiveRollReveal,hasLiveRollReveal,type RollFacing} from './liveRollContext.js';
-import type {RollReveal,HiddenRollResult} from '../../shared/types.js';
+import type {RollReveal,HiddenRollResult,HiddenRollDice,HiddenRollDecision} from '../../shared/types.js';
 import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../shared/liveDiceTypes.js';
 import {matchingDiceTrigger,sorcerousDiceTrigger} from '../../shared/diceTriggers.js';
@@ -15,6 +15,11 @@ class NeedDice extends Error {constructor(public sides:number[],public info:Phys
 class NeedCalculation extends Error {constructor(public key:string,public reveal:RollReveal){super('Waiting for roll calculation');}}
 class NeedReading extends Error {}
 class NeedApproval extends Error {constructor(public results:HiddenRollResult[]){super('Waiting for DM approval');}}
+/** AC already decides attacks. Saves/checks and unclassified rolls still need
+ * the DM to allow their result before the command changes combat state. */
+export function hiddenRollNeedsApproval(results:HiddenRollResult[]){
+ return results.some(result=>result.reveal?.kind!=='attack'&&result.reveal?.kind!=='damage');
+}
 const queues=new Map<string,Promise<void>>();
 export const rollInProgress=(sid:string)=>queues.has(sid);
 export function enqueueRoll(sid:string,run:()=>Promise<void>|void,onError:(e:unknown)=>void){
@@ -33,7 +38,7 @@ export function keptPhysicalSet(values:number[],info:PhysicalDiceInfo):number|un
 }
 
 type BurstTray={world:ReturnType<typeof createLiveWorld>;id:string;seq:number;sides:number[];critical:boolean[];capacity:number;parents:number[];links:{from:number;to:number}[]};
-type LiveRollMeta={burstTray?:{current?:BurstTray};label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void;deferFacing?:boolean;review?:(results:HiddenRollResult[])=>Promise<boolean>};
+type LiveRollMeta={burstTray?:{current?:BurstTray};label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void;deferFacing?:boolean;review?:(results:HiddenRollResult[],dice:HiddenRollDice[],manual:boolean)=>Promise<boolean|HiddenRollDecision>};
 
 export async function physicalFaces(
   sides:number[], publish:(frame:LiveDiceFrame)=>void,
@@ -161,7 +166,8 @@ async function burstFaces(sides:number[],publish:(frame:LiveDiceFrame)=>void,met
  * No transaction or database lock is held while the physics runs. */
 export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?:PhysicalDiceInfo)=>void,meta:LiveRollMeta,roll=physicalFaces){
  meta={...meta,burstTray:{}};
- const tape:{sides:number[];faces:number[]}[]=[];
+ const tape:{sides:number[];faces:number[];info:PhysicalDiceInfo}[]=[];
+ let manual=false;
  const calculated=new Set<string>();let lastFrame:LiveDiceFrame|undefined,lastInfo:PhysicalDiceInfo|undefined,approved=false,approvedResults:string|undefined;
  const needsReading=()=>!!lastFrame?.done&&!lastFrame.calculation&&lastFrame.resultHoldMs===undefined&&!lastInfo?.saveDice&&!lastFrame.burstProgress;
  const holdResult=async()=>{
@@ -190,16 +196,41 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
     // Roll back before waiting, just as for explicit calculation stages.
     if(needsReading()&&!hasLiveRollReveal())throw new NeedReading();
     const results=stagedRollResults();
-    if(meta.review&&!approved&&results.length)throw new NeedApproval(results);
+    if(meta.review&&!approved&&hiddenRollNeedsApproval(results))throw new NeedApproval(results);
     if(approved&&JSON.stringify(results)!==approvedResults)throw new Error('The hidden roll context changed. Nothing was applied; roll again to review the new result.');
-   }))))();
+   })),manual))();
    for(const effect of pass.effects)effect();return;
   }catch(e){
    undoHp();undoReactions();
    if(e instanceof NeedApproval){
     // The transaction has already rolled back: no HP, resources, conditions,
     // roll history or network effects exist until the DM confirms this result.
-    if(!await meta.review!(e.results))return;
+    const mixed=e.results.some(r=>r.reveal?.kind==='attack'||r.reveal?.kind==='damage');
+    let dice:HiddenRollDice[]=tape.flatMap((entry,index)=>!mixed||/sav(?:e|ing)|check/i.test(entry.info.label??'')||entry.info.saveDice?.some(d=>d.rollKind!=='initiative')?[{index,expr:entry.info.expr,sides:entry.sides,faces:entry.faces}]:[]);
+    const checks=e.results.filter(r=>r.reveal?.kind==='check'&&typeof r.reveal.d20==='number');
+    if(dice.length===1&&checks.length===1&&dice[0].sides.every(s=>s===20)&&dice[0].sides.length<=2)
+      dice=[{...dice[0],bonus:checks[0].total-checks[0].reveal!.d20!,total:checks[0].total}];
+    const answer=await meta.review!(e.results,dice,manual);
+    const decision=typeof answer==='boolean'?{action:answer?'apply' as const:'discard' as const}:answer;
+    if(decision.action==='discard')return;
+    if(decision.action==='reroll'||decision.action==='manual'){
+      if(!dice.length)continue;
+      if(decision.action==='manual'){
+        if(!Array.isArray(decision.faces)||decision.faces.length!==dice.length||new Set(decision.faces.map(f=>f.index)).size!==dice.length)throw new Error('Invalid manual roll results');
+        for(const input of decision.faces){
+          const plan=dice.find(d=>d.index===input.index);
+          if(!plan||!Array.isArray(input.values)||input.values.length!==plan.sides.length||input.values.some((v,i)=>!Number.isInteger(v)||v<1||v>plan.sides[i]))throw new Error('Invalid manual die result');
+        }
+        for(const input of decision.faces)tape[input.index].faces=input.values.slice();
+        tape.splice(dice.at(-1)!.index+1);
+        manual=true;
+      }else{
+        // Preserve completed attack/damage throws before this pending step.
+        tape.splice(dice[0].index);manual=false;
+      }
+      calculated.clear();lastFrame=undefined;lastInfo=undefined;meta.burstTray={};
+      continue;
+    }
     approvedResults=JSON.stringify(e.results);approved=true;continue;
    }
    if(e instanceof NeedReading){await holdResult();continue;}
@@ -222,7 +253,7 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
    let turned=false;
    if(!meta.deferFacing)for(const facing of e.facing)turned=faceTokenToward(facing.sessionId,facing.attackerTokenId,facing.targetTokenId)||turned;
    if(turned)meta.onFacing?.();
-   tape.push({sides:e.sides,faces:await roll(e.sides,frame=>{lastFrame=frame;lastInfo=e.info;publish(frame,e.info);},{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
+   tape.push({sides:e.sides,info:e.info,faces:await roll(e.sides,frame=>{lastFrame=frame;lastInfo=e.info;publish(frame,e.info);},{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
   }
  }
 }

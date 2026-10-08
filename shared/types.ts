@@ -1735,10 +1735,12 @@ export type ServerError = { code: string; message: string };
 
 // Client -> Server event names.
 export type HiddenRollResult = {label:string;detail:string;total:number;reveal?:RollReveal};
-export type HiddenRollReview = {id:string;label:string;results:HiddenRollResult[]};
+export type HiddenRollDice = {index:number;expr:string;sides:number[];faces:number[];bonus?:number;total?:number};
+export type HiddenRollDecision = {action:'apply'|'discard'|'reroll'}|{action:'manual';faces:{index:number;values:number[]}[]};
+export type HiddenRollReview = {id:string;label:string;results:HiddenRollResult[];dice:HiddenRollDice[];manual?:boolean};
 
 export interface ClientToServerEvents {
-  'dice:confirmHidden': (payload:{id:string;apply:boolean}) => void;
+  'dice:confirmHidden': (payload:{id:string;apply?:boolean;decision?:HiddenRollDecision}) => void;
   'dice:ready': (payload:{id:string}) => void;
   'dice:skip': (payload:{id:string}) => void;
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;

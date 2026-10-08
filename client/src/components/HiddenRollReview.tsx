@@ -1,4 +1,4 @@
-import {useEffect,useRef} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {useStore} from '../state/socket';
 import './HiddenRollReview.css';
 
@@ -7,15 +7,31 @@ export function HiddenRollReview(){
  const review=useStore(s=>s.hiddenRollReview),submitting=useStore(s=>s.hiddenRollSubmitting);
  const connected=useStore(s=>s.status==='connected'),confirm=useStore(s=>s.confirmHiddenRoll);
  const role=useStore(s=>s.snapshot?.role),dialog=useRef<HTMLDialogElement>(null);
+ const [editing,setEditing]=useState(false),[values,setValues]=useState<Record<string,string>>({});
+ const [working,setWorking]=useState('');
+ useEffect(()=>{setEditing(false);setValues({});setWorking('');},[review?.id]);
  useEffect(()=>{
   const node=dialog.current;if(!node||!review||role!=='dm')return;
   node.showModal();return()=>node.close();
  },[review?.id,role]);
  if(!review||role!=='dm')return null;
+ const inputs=review.dice.flatMap(d=>d.bonus!==undefined
+  ?[{key:String(d.index),label:'Final total (includes modifiers)',min:1+d.bonus,max:20+d.bonus,initial:d.total!}]
+  :d.sides.map((s,i)=>({key:`${d.index}:${i}`,label:`${d.expr} · die ${i+1} (d${s})`,min:1,max:s,initial:d.faces[i]})));
+ const valid=inputs.every(input=>{const n=Number(values[input.key]??input.initial);return Number.isInteger(n)&&n>=input.min&&n<=input.max;});
+ const enter=()=>{
+  if(!valid)return;
+  setWorking('Recalculating the entered result…');
+  confirm({action:'manual',faces:review.dice.map(d=>({index:d.index,values:d.bonus!==undefined
+   ?d.faces.map(()=>Number(values[String(d.index)]??d.total!)-d.bonus!)
+   :d.faces.map((f,i)=>Number(values[`${d.index}:${i}`]??f))}))});
+ };
  const outcomes={hit:'Hit',miss:'Miss',crit:'Critical hit',fumble:'Fumble',pass:'Pass',fail:'Fail',none:''};
  return <dialog ref={dialog} className="hidden-roll-review" data-review-id={review.id} aria-labelledby="hidden-roll-title" onCancel={event=>{event.preventDefault();if(!submitting)confirm(false);}}>
   <header><span className="hidden-roll-private">DM ONLY · PRIVATE RESULT</span><h2 id="hidden-roll-title">Approve hidden result</h2>
-   <p>The correct dice and modifiers have been calculated. Players have received no roll notification. Nothing is applied until you approve.</p></header>
+   <p>The correct dice and modifiers have been calculated. Players have received no roll notification. Nothing is applied until you approve.</p>
+   {review.manual&&<p className="hidden-roll-manual-note">DM-entered result. Modifiers and any save-dependent effects have been recalculated.</p>}
+   {submitting&&<p role="status">{working||'Applying the approved result…'}</p>}</header>
   <div className="hidden-roll-results">{review.results.map((result,i)=><section key={i}>
    <h3>{result.reveal?.title??result.label}</h3>
    {result.reveal&&<p className="hidden-roll-who">{result.reveal.attacker}{result.reveal.target?` → ${result.reveal.target}`:''}</p>}
@@ -23,8 +39,15 @@ export function HiddenRollReview(){
    <p className="hidden-roll-equation">{result.detail}</p>
    {result.reveal?.effectOutcome&&<p>{result.reveal.effectOutcome}</p>}
   </section>)}</div>
+  {editing&&<form className="hidden-roll-entry" onSubmit={e=>{e.preventDefault();enter();}}>
+   <p>Enter the final total for a single save or check. For other rolls, enter each die face; the app applies the modifiers.</p>
+   {inputs.map(input=><label key={input.key}>{input.label}<input type="number" min={input.min} max={input.max} step="1" required disabled={submitting} value={values[input.key]??input.initial} onChange={e=>setValues({...values,[input.key]:e.target.value})}/></label>)}
+   <button className="btn" disabled={!valid||submitting||!connected}>Review entered result</button>
+  </form>}
   <footer><span>Apply publishes the outcome, not the private dice.</span><div>
    <button className="btn" disabled={submitting||!connected} onClick={()=>confirm(false)}>Discard result</button>
+   {!!review.dice.length&&<><button className="btn" disabled={submitting||!connected} onClick={()=>{setWorking('Rerolling the correct dice for this step…');confirm({action:'reroll'});}}>Reject &amp; reroll</button>
+    <button className="btn" disabled={submitting||!connected} onClick={()=>setEditing(!editing)}>Enter result</button></>}
    <button className="btn primary" disabled={submitting||!connected} onClick={()=>confirm(true)}>{submitting?'Finishing…':'Apply result'}</button>
   </div></footer>
  </dialog>;

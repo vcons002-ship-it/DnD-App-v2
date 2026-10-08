@@ -11,7 +11,11 @@
 .hidden-roll-verdict strong[data-outcome=miss],.hidden-roll-verdict strong[data-outcome=fail],.hidden-roll-verdict strong[data-outcome=fumble]{color:#f2a0a0}
 .hidden-roll-verdict strong[data-outcome=crit]{color:#ffe083}
 .hidden-roll-equation{overflow-wrap:anywhere}
-.hidden-roll-review footer{border-top:1px solid #bca16a44;padding-top:16px;display:flex;gap:14px;align-items:center;justify-content:space-between}
+.hidden-roll-review footer{border-top:1px solid #bca16a44;padding-top:16px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .hidden-roll-review footer span{font-size:13px;color:#b9c3d3}
-.hidden-roll-review footer div{display:flex;gap:10px;flex-shrink:0}
+.hidden-roll-review footer div{display:flex;gap:10px;flex-wrap:wrap}
+.hidden-roll-entry{padding:12px;margin:12px 0;border:1px solid #bca16a55;border-radius:8px}
+.hidden-roll-entry label{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0}
+.hidden-roll-entry input{width:100px;min-height:38px}
+.hidden-roll-manual-note{color:#f2d99d!important}
 @media(max-width:600px){.hidden-roll-review{padding:16px}.hidden-roll-review footer{align-items:stretch;flex-direction:column}.hidden-roll-review footer div{justify-content:flex-end}}
