@@ -87,7 +87,9 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
   update(now:number,maximum:boolean,age:number,reduced:boolean,camera:THREE.Camera){
    broken=maximum&&!reduced&&age>=DRUK_EXPLOSION_DELAY;for(const object of original)object.visible=!broken;
    const tension=maximum&&!reduced&&!broken?THREE.MathUtils.smoothstep(age,.18,DRUK_EXPLOSION_DELAY):0;
-   const phase=age===Infinity?0:Math.PI*2*(age*7+age*age*6)+root.id*.71;
+   // Charge age can hold just below rupture while bonuses are calculated.
+   // Keep its vibration on wall time so that held shell never freezes.
+   const clock=now/1000,phase=Math.PI*2*(clock*14+Math.sin(clock*.7)*2)+root.id*.71;
    charge.position.set(Math.sin(phase)*.035*tension,Math.sin(phase*1.37+1.7)*.025*tension,Math.abs(Math.sin(phase*.87))*.016*tension);
    charge.rotation.set(Math.sin(phase*1.13)*.055*tension,Math.sin(phase*.93+2.)*.045*tension,Math.sin(phase*1.27)*.04*tension);
    if(!broken&&erupted)clear();

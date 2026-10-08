@@ -130,7 +130,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
        // Settled poses stay fixed, but resin, lightning, motes and lava remain
        // live while numbers fly and during the final reading hold.
         renderer!.draw(ctx,width,height,dpr,alpha,now);
-        node.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles})));
+        node.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,shudder:p.shudder,pools:p.pools})));
        node.dataset.physicsElapsed=String(a.frame.elapsed+(b.frame.elapsed-a.frame.elapsed)*alpha);
        node.dataset.renderTime=String(now);
        finalTrayDrawn=b.frame.done&&alpha===1;
