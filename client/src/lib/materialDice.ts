@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {createLightningTiming} from './diceLightningTiming';
-import {createRollPowerState,DRUK_EXPLOSION_DELAY} from './diceRollPower';
+import {createRollPowerState,DRUK_EXPLOSION_DELAY,drukFinaleAge} from './diceRollPower';
 import {createDiceShatterArt} from './diceShatterArt';
 import {createDiceMoteRays} from './diceMoteRays';
 import type {ShatterWorld} from './diceShatterPhysics';
@@ -615,16 +615,17 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const power=createRollPowerState(sides);
-  let powerView=power.advance(0),powerReduced=false;
+  let powerView=power.advance(0),powerReduced=false,explosionAt:number|null|undefined;
+  const shatterAge=(now:number)=>drukFinaleAge(powerView.age,now,explosionAt);
   const resinMaximum={value:0};
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
     // A color transition stays available with reduced motion, without flashes.
     resinMaximum.value=powerView.maximum?THREE.MathUtils.smoothstep(powerView.age,0,.35):0;
     uniforms.rollPower.value=powerView.strength;
-    uniforms.moltenWarning.value=style===1&&powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(powerView.age,.1,DRUK_EXPLOSION_DELAY-.03):0;
+    uniforms.moltenWarning.value=style===1&&powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(shatterAge(now),.1,DRUK_EXPLOSION_DELAY-.03):0;
     uniforms.rollMaximum.value=powerView.maximum&&!powerReduced?1:0;
-    uniforms.eruptionPulse.value=powerView.maximum&&!powerReduced?Math.exp(-Math.pow((powerView.age-(style===1?DRUK_EXPLOSION_DELAY-.05:.22))/(style===1?.43:.25),2.)):0;
+    uniforms.eruptionPulse.value=powerView.maximum&&!powerReduced?Math.exp(-Math.pow(((style===1?shatterAge(now):powerView.age)-(style===1?DRUK_EXPLOSION_DELAY-.05:.22))/(style===1?.43:.25),2.)):0;
   };
   const motePhase=style===2?rangerMoteSequence++*2.399963:0;
   const moteStart=new THREE.Vector3();let moteRevision=-1;
@@ -755,6 +756,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     object: root,
     setRollResult(value:number|null|undefined,percentileValue?:number){power.setResult(value,percentileValue);},
     setReducedMotion(reduced:boolean){powerReduced=reduced;},
+    setExplosionAt(at:number|null|undefined){explosionAt=at;},
     setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
     prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
     powerState(){return {...powerView,particles:moteRays?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
@@ -805,7 +807,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.rotation.value.setFromMatrix4(poseRotation.makeRotationFromQuaternion(root.quaternion));
       uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
-      shatter?.update(now,powerView.maximum,powerView.age,powerReduced,camera);
+      shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,camera);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean,percentileValue?:number){
       power.setResult(rolling||((tens||ones)&&percentileValue===undefined)?null:value,percentileValue);
@@ -828,7 +830,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.eye.value.copy(s.camera.position).applyMatrix4(inverseWorld.copy(root.matrixWorld).invert());
       uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
-      shatter?.update(now,powerView.maximum,powerView.age,powerReduced,s.camera);
+      shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,s.camera);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);

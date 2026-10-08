@@ -1,4 +1,9 @@
-export const DRUK_EXPLOSION_DELAY=.85;
+export const DRUK_EXPLOSION_DELAY=2.8;
+/** null holds the shell intact during live result flights; a deadline releases
+ * it once, even when the same tray hands off from live to calculated results. */
+export function drukFinaleAge(age:number,now:number,explosionAt:number|null|undefined){
+ return explosionAt===undefined?age:explosionAt===null?Math.min(age,DRUK_EXPLOSION_DELAY-.15):Math.max(Math.min(age,DRUK_EXPLOSION_DELAY-.15),DRUK_EXPLOSION_DELAY+(now-explosionAt)/1000);
+}
 
 /** Cosmetic strength uses the natural face, including d20s, never modifiers or
  * the sum of a pool. Unknown/moving dice retain their ordinary material. */

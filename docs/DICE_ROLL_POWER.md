@@ -6,7 +6,7 @@ and d20 results all reach full power. Both halves of percentile dice use the
 complete d100 result. Modifiers and the sum of a pool do not charge individual
 dice. A maximum damage die is still damage, not a critical hit.
 
-- **Druk:** during a 0.85-second buildup, a maximum heats to mostly molten lava
+- **Druk:** throughout number flights and modifier calculation, a maximum heats to mostly molten lava
   and shudders with increasing frequency and force. Only the visible shell
   shakes; the settled physical pose and result stay unchanged. It then tears the actual die
   into eleven irregular solid shards. Exterior triangles retain their original
@@ -15,17 +15,17 @@ dice. A maximum damage die is still damage, not a critical hit.
   faces use the same polished obsidian shader as the exterior, without gold
   markings or the molten warning layer. Cannon rigid bodies handle
   the forceful launch and collisions with the tray and other shards. They stop
-  tumbling before fading in place, without melting or liquid splashes. A bright
-  irregular molten interior drains through short viscous strands that thin and
-  break into uneven falling drops as the shell opens, then spreads into a bright
-  lava pool at its explosion position until the roll is
+  tumbling before fading in place, without melting. A brief radial spray of
+  fourteen small molten flecks lands in irregular flattened splats around a
+  smaller die-sized lava pool. Four low flickering flame tongues animate above
+  the pool. The explosion starts one second before the calculated tray collapses
+  for the map impact; the shell stays intact and shudders until that finale.
+  Standalone art previews use a 2.8-second charge. The pool persists until the roll is
   cleared. Its irregular cooled rim, drifting molten channels and dark floating
   crust retain texture around the hot center. A soft amber spill stays on the
-  felt. The release is bounded to eight drops and four connecting strands;
+  felt. The release is bounded to fourteen flecks and four flame planes;
   it adds no fluid solver, rigid bodies or dynamic lights.
-  One dominant draining mass breaks into differently sized, bent, tapered lobes
-  and a few small drops. Smooth deformed normals and wet highlights replace
-  uniform round particles. Release and pool share the same molten channels,
+  Small outward streaks replace the heavy falling mass. Release and pool share the same molten channels,
   cooling plates, palette and animation function.
   High natural rolls expose more branching fissures and hotter lava glow,
   while retaining predominantly black obsidian behind the readable gold numbers.
@@ -56,6 +56,8 @@ dice. A maximum damage die is still damage, not a critical hit.
   shader. Reduced motion retains the color change without flashing.
 
 The live tray receives confirmed faces directly from `LiveDiceFrame.values`.
+Kept natural attack 20s announce CRITICAL HIT on settlement, before any modifier
+calculation. Saves, ordinary d20 rolls and discarded 20s do not announce a critical hit.
 Unknown/moving dice keep their ordinary material. Power changes ease in, and
 repeated frames or the result-reading hold cannot retrigger an eruption. A
 genuine reroll resets it. The same renderer supports playback and the ordinary

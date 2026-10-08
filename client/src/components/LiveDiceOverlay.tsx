@@ -1,5 +1,5 @@
 import type {RollReveal} from '../../../shared/types';
-import {DIE_REVEAL_STAGGER_MS} from '../../../shared/dicePresentationTiming';
+import {DIE_REVEAL_STAGGER_MS,liveDiceResultWaitMs} from '../../../shared/dicePresentationTiming';
 import {diceFlightPoint,diceFlightKeyframes,DIE_FLASH_MS,DIE_REVEAL_MS} from '../lib/diceFlightPosition';
 import {useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import {useStore} from '../state/socket';
@@ -11,13 +11,21 @@ import {liveDieResult} from '../../../shared/liveDieResult';
 import './PhysicsDiceTray.css';
 import {createDiceSound,rollingSpeeds} from '../lib/diceSfx';
 import {metresPerUnitFor} from '../../../shared/diceImpacts';
+import {liveNaturalCritical} from '../lib/diceFinaleTiming';
+import {playCritical} from '../lib/sfx';
 
 /** Render authoritative poses with a short interpolation buffer. No local physics,
  * face reassignment, trajectory retry, or client-generated result. */
-export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=false,title,rollId,revealKind,resultHeader,diceTrigger}: {
- frame:LiveDiceFrame;result?:ReactNode;onSkip:()=>void;impactReady?:boolean;compact?:boolean;title?:string;rollId?:string;revealKind?:string;resultHeader?:{attacker:string;target?:string};diceTrigger?:RollReveal['diceTrigger'];
+export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=false,title,rollId,revealKind,resultHeader,diceTrigger,finaleMs}: {
+ frame:LiveDiceFrame;result?:ReactNode;onSkip:()=>void;impactReady?:boolean;compact?:boolean;title?:string;rollId?:string;revealKind?:string;resultHeader?:{attacker:string;target?:string};diceTrigger?:RollReveal['diceTrigger'];finaleMs?:number;
 }){
  const skip=onSkip;
+ const naturalCritical=liveNaturalCritical(frame),criticalPlayed=useRef<string>();
+ useEffect(()=>{if(naturalCritical&&criticalPlayed.current!==frame.id){criticalPlayed.current=frame.id;playCritical();}},[naturalCritical,frame.id]);
+ const finale=useRef<{id:string;deadline:number|null}>({id:frame.id,deadline:null});
+ if(finale.current.id!==frame.id)finale.current={id:frame.id,deadline:null};
+ if(finaleMs!==undefined&&finale.current.deadline===null)finale.current.deadline=performance.now()+finaleMs;
+ if(frame.saveDice&&frame.done&&finale.current.deadline===null)finale.current.deadline=performance.now()+liveDiceResultWaitMs(frame.sides.length,true)-80;
  const links=useRef<SVGSVGElement>(null),triggerRef=useRef(diceTrigger);
  triggerRef.current=diceTrigger;
  const triggerColors=diceTrigger?.kind?['#e3b0ff']:['#89f3ff','#e3b0ff','#ffe296','#b0ffcf'];
@@ -111,6 +119,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
      toss.frames.set(viewPose(b.frame.poses),capacity*7);
       renderer!.setActiveCount(b.frame.sides.length);
       renderer!.setResults(b.frame.values);
+      renderer!.setFinaleDeadline(finale.current.deadline);
      if(!b.frame.done){resultsStartedAt=undefined;finalTrayDrawn=false;}
      const alpha=reset||a===b?1:Math.max(0,Math.min(1,(target-a.at)/(b.at-a.at)));
      const width=node.clientWidth||600,height=width*10.2/15.2,dpr=Math.min(2,devicePixelRatio||1);
@@ -198,9 +207,10 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   return {'--roll-strength':strength,'--arrival-scale':1.12+strength*.5,'--arrival-glow':`${5+Math.pow(strength,3)*28}px`} as CSSProperties;
  };
  const target=resultHeader?resultHeader.target:frame.target;
- return <div className={`roll-reveal-backdrop${compact?' is-impact':''}`} data-live-dice={result?undefined:'true'} data-live-calculation={frame.calculation?'true':undefined} data-dice-presentation={result?'result':'live'} data-roll-id={frame.id}><div className="roll-reveal" data-roll-id={rollId??frame.id} data-reveal-kind={revealKind} data-dice-theme={theme.id} data-impact-ready={impactReady} role="status" aria-label="Live dice roll" onClick={skip} title="Click or tap to skip animation">
+ return <div className={`roll-reveal-backdrop${compact?' is-impact':''}`} data-live-dice={result?undefined:'true'} data-live-calculation={frame.calculation?'true':undefined} data-dice-presentation={result?'result':'live'} data-roll-id={frame.id}><div className={`roll-reveal${naturalCritical?' roll-reveal-crit':''}`} data-roll-id={rollId??frame.id} data-reveal-kind={revealKind} data-dice-theme={theme.id} data-impact-ready={impactReady} role="status" aria-label="Live dice roll" onClick={skip} title="Click or tap to skip animation">
   <div className="roll-reveal-title">{title??frame.label}</div>
   <div className="roll-reveal-who">{resultHeader?.attacker??frame.roller}{target&&<span className="rr-arrow"> &rarr; {target}</span>}</div>
+  {naturalCritical&&!compact&&<div className="roll-reveal-outcome tray-natural-critical" role="status" aria-label="Roll result">CRITICAL HIT!</div>}
   <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id.startsWith('dm-')?'purple-resin':theme.id} role="group" aria-label="Live dice tray">
    <canvas className="dice-tray-canvas" ref={canvas} aria-label={result?'Settled dice':'Server dice rolling live'}/>
    {frame.burstProgress&&!result&&!compact&&<div className="tray-burst-progress" data-burst-used={frame.burstProgress.used} data-burst-limit={frame.burstProgress.limit}>Bonus dice: <strong>{frame.burstProgress.used} of {frame.burstProgress.limit}</strong></div>}

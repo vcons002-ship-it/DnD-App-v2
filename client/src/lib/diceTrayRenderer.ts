@@ -141,6 +141,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   return {
     setReviewZoom(zoom:number){camera.zoom=zoom;camera.updateProjectionMatrix();},
     setResults(values:readonly (number|null)[]){liveResults=values;},
+    setFinaleDeadline(at:number|null|undefined){handles.forEach(h=>h.setExplosionAt(at==null?at:at-1000));},
     powerStates(){return handles.slice(0,activeCount).map(h=>h.powerState());},
     setActiveCount(count:number){activeCount=count;},
     trailPointCount(){return trails?.pointCount()??0;},
