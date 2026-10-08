@@ -5,6 +5,7 @@ import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
 import { completedDice, LIVE_COMBAT_TIMEOUT, observeCombatDice, waitForCombatRoll } from './helpers/combatLive';
+import {expectUnclipped} from './helpers/rollVisibility';
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
@@ -72,9 +73,11 @@ const manual=true;test('unmodified superiority dice retain reading time before t
     for(let i=0;i<8;i++) {
       const previous=new Set((await snapshot()).rollLog.map(r=>r.id));
       await page.evaluate(()=>{
-        const timing={clickedAt:performance.now(),startedAt:0,outcomeAt:0,impactAt:0};(window as any).__attackRead=timing;
+        const timing={clickedAt:performance.now(),startedAt:0,outcomeAt:0,impactAt:0,frames:[] as any[]};(window as any).__attackRead=timing;
         const sample=()=>{
           const now=performance.now();
+          const canvas=document.querySelector('.dice-tray-canvas');
+          if(canvas)timing.frames.push({at:now,physics:Number(canvas.getAttribute('data-physics-elapsed')??0),render:Number(canvas.getAttribute('data-render-time')??0)});
           if(!timing.startedAt&&Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')??0)>0)timing.startedAt=now;
           if(!timing.outcomeAt&&document.querySelector('.tray-roll-result [data-phase="outcome"]'))timing.outcomeAt=now;
           if(timing.outcomeAt&&document.querySelector('.roll-reveal[data-impact-ready="true"]')){timing.impactAt=now;return;}
@@ -88,6 +91,10 @@ const manual=true;test('unmodified superiority dice retain reading time before t
       await expect(page.locator('.roll-reveal[data-impact-ready="true"]')).toBeVisible({timeout:10000});
       const timing=await page.evaluate(()=>(window as any).__attackRead);
       console.log(`Druk maneuver example: first toss starts in ${Math.round(timing.startedAt-timing.clickedAt)} ms`);
+      const entry=timing.frames.filter((f:any)=>f.physics>0&&f.physics<.8);
+      console.log(`D20 entry: ${JSON.stringify({firstElapsed:entry[0]?.physics,maxFrameGap:Math.max(...entry.slice(1).map((f:any,i:number)=>f.at-entry[i].at)),maxPhysicsJump:Math.max(...entry.slice(1).map((f:any,i:number)=>f.physics-entry[i].physics))})}`);
+      expect(entry[0]?.physics,'The first visible d20 update starts near release, not midway through the toss').toBeLessThan(.1);
+      expect(new Set(entry.map((f:any)=>f.render)).size,'The entrance contains multiple rendered frames').toBeGreaterThan(5);
       expect(timing.startedAt-timing.clickedAt).toBeLessThan(2000);
       expect(timing.impactAt-timing.outcomeAt).toBeGreaterThanOrEqual(1000);
       await test.info().attach('attack-reading-timing',{body:JSON.stringify(timing),contentType:'application/json'});
@@ -121,6 +128,11 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   await expect(page.locator('[data-result-hold-ms="2500"]')).toBeVisible({timeout:45000});
   await page.waitForTimeout(1900);
   await page.screenshot({path:test.info().outputPath('superiority-reading-and-effects.png')});
+  const verdict=page.locator('.tray-save-verdict[data-outcome="PASS"],.tray-save-verdict[data-outcome="FAIL"]').first();
+  await expect(verdict).toBeVisible({timeout:30000});
+  await expectUnclipped(verdict);
+  await expectUnclipped(page.locator('.tray-save-outcome b').first());
+  await page.screenshot({path:test.info().outputPath('strength-save-result.png')});
   await expect.poll(async()=> (await snapshot()).rollLog.find(r=>r.id===hit.id)!.pending!.done,
     {timeout:LIVE_COMBAT_TIMEOUT}).toBe(true);
   await page.waitForTimeout(1000);

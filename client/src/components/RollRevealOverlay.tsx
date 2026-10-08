@@ -279,6 +279,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
   const releaseImpact = useStore((s) => s.releaseRollImpact);
   const rollTheme = useContext(DiceThemeContext);
   const landings = useRef<{ d20?: (set: number) => void; damage?: (index: number, set: number) => void }>({});
+  const inlineResult=useRef<HTMLDivElement>(null);
   const reveal = rollFx?.reveal;
   const awaitingDamage=useStore(s=>!!s.snapshot?.rollLog.some(e=>e.id===rollFx.rollId&&e.pending&&!e.pending.done));
   const resultHoldMs=reveal?.kind==='check' && ['pass','fail'].includes(reveal.outcome)?8000:awaitingDamage?1200:HOLD_MS;
@@ -301,6 +302,14 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
     diceStopping: 0,
     modsShown: 0,
   });
+  useLayoutEffect(()=>{
+    if(!inlineTray)return;
+    // Follow each arriving bonus inside its own row. Never scroll the fixed
+    // roll window or the battlefield to reveal an off-screen modifier.
+    inlineResult.current?.querySelectorAll<HTMLElement>('.rr-equation').forEach(row=>{
+      if(row.scrollWidth>row.clientWidth)row.scrollTo({left:row.scrollWidth-row.clientWidth,behavior:staticReveal?'instant':'smooth'});
+    });
+  },[inlineTray,staticReveal,stage.toHitShown,stage.modsShown,stage.phase]);
 
   const dice = reveal?.damageDice ?? [];
   const mods = reveal?.damageMods ?? [];
@@ -460,8 +469,12 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
   const colourClass = showOutcome ? `roll-reveal-${reveal.outcome}` : 'roll-reveal-pending';
   // A 'dice' roll always shows its total (even 0/negative); a damage burst only
   // when it dealt damage.
+  // Automatic attacks can retain both calculations in one saved reveal. They
+  // share one fixed result row, progressing from attack to damage arithmetic.
+  const inlineDamage=inlineTray&&!isBurst&&!isCheck&&(reveal.damage??0)>0&&
+    (stage.modsShown>0||stage.phase==='outcome'||stage.phase==='damage');
   const showDamage =
-    (isBurst || stage.phase === 'damage' || inlineTray) && (isDice || (reveal.damage ?? 0) > 0);
+    (isBurst || (inlineTray?inlineDamage:stage.phase==='damage')) && (isDice || (reveal.damage ?? 0) > 0);
 
   const attackTray:TrayDie[]=comparison?.kind==='d20'
     ? comparison.sets.flatMap((set,group)=>set.dice.map((d,index)=>({...d,index,set:group})))
@@ -481,7 +494,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         </div>}
         {showNaturalTwenty && <div className="natural-twenty" role="status" aria-label="Natural 20 celebration">Nat 20!</div>}
         {/* The live tray owns the dice. This child only adds arithmetic/outcomes. */}
-        {!isBurst && (staticReveal || stage.phase !== 'damage') && (
+        {!isBurst && !inlineDamage && (staticReveal || stage.phase !== 'damage') && (
           <div className={`roll-reveal-tohit${comparison?.kind === 'd20' ? ' rr-tohit-compared' : ''}`}>
             {!inlineTray && (!staticReveal ? <PhysicsDiceTray entrySide={entrySide} key="attack-tray" rollKey={rollFx.rollId+':attack'} comparison={comparison?.kind==='d20'?comparison:undefined} dice={attackTray} onSettled={(_,set)=>landings.current.d20?.(set)} /> : comparison?.kind === 'd20'
               ? <ComparedDice comparison={comparison} stopping={stage.phase === 'rolling' ? 0 : 1}
@@ -536,7 +549,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
           </div>
         )}
       </>;
-  if(inlineTray)return <div className={colourClass} data-roll-id={rollFx.rollId} data-reveal-kind={reveal.kind} data-phase={stage.phase} data-dice-theme={rollTheme.id}>{contents}</div>;
+  if(inlineTray)return <div ref={inlineResult} className={colourClass} data-roll-id={rollFx.rollId} data-reveal-kind={reveal.kind} data-phase={stage.phase} data-dice-theme={rollTheme.id}>{contents}</div>;
   return (
     // Click-through backdrop (pointer-events:none) so play isn't blocked.
     <div className={`roll-reveal-backdrop${mapImpact ? ' is-impact' : ''}`}>

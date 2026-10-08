@@ -49,6 +49,7 @@ The relevant regression list includes:
 | Background shader preload for each character and DM, cold-load readiness | `dice-preload`, `live-dice-contract`, `spell-impact-timing` |
 | Animated settled dice, skippable reading hold, spell effects after compacting | `spell-impact-timing`, `roll-reveal-timing` |
 | Results, impacts, bonuses, initiative, reactions | `roll-reveal-timing`, `combat-moments`, `compact-checks`, `player-initiative` |
+| Roll text inside overflow bounds, grouped verdicts and first d20 entrance | `roll-layout`, `dice-rider-reading`, `save-privacy` |
 | Pending ownership, damage history, on-hit choices | `damage-prompt-ownership`, `damage-roll-log`, `smite-damage`, `hunters-mark`, `maneuver-damage`, `spell-execution`, `weapon-quick-menu` |
 | Combat controls and kill credit | `player-combat-layout`, `orb-kill-count` |
 | DM-granted leveling, ASIs, Wizard spells, mobile live HP dice | `level-up` |
@@ -110,6 +111,14 @@ The `diceRendererCache` unit suite checks bounded retention, in-flight leases,
 large-pool disposal, session invalidation and maximum-roll state reset. The
 network contract checks that hidden DM rolls never reach either player while
 public player rolls still reach the DM and the rest of the party.
+
+`roll-layout` feeds presentation-boundary fixtures through the app's WebSocket
+listener (not fabricated combat evidence). It checks attack, check, spell outcome,
+damage, healing, 40 dice, grouped/private/advantage saves and initiative at four
+viewport sizes. `expectUnclipped` measures all overflow ancestors; ordinary
+Playwright visibility alone misses text hidden below a scroll container. The
+real `dice-rider-reading` and `save-privacy` sequences verify saving throw verdicts
+with authoritative physics, reading holds and hidden NPC modifiers intact.
 
 Measured-area contracts live in `areaSpells`, `spell-execution` and
 `live-dice-workflow`: place/confirm before casting, grouped saves and automatic

@@ -2768,6 +2768,7 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Refreshed standalone interactive dice roller for all three characters and the DM with current power materials, every supported die and custom quantities. Linked roll-strength comparison and repeatable static packaging include all four tray artworks.
 
 - [x] Consecutive live rolls retain a fixed window and a tray that fills its viewport at a constant apparent size. Existing pool ratios make dice appear smaller for larger rolls. Different character/DM artworks crossfade within that viewport; physics waits for the handoff, final dismissal fades and reduced motion remains immediate. Full reading holds and Druk finale timing remain intact.
+- [x] Roll result layout audit: saving throws retain a compact PASS/FAIL beneath each labeled die, with bonus equations and effect descriptions in the reserved result area. Initiative, grouped saves and large pools use horizontal result strips; long modifier equations keep the total visible without vertically clipped rows. Browser checks include desktop, tablet, portrait and landscape phone sizes and detect overflow clipping, alongside real maneuver and grouped-save privacy tests. D20 entrance sampling checks that the first rendered update begins near release.
 
 
 - [x] Druk explosion returned to solid textured shards: no melting, splashes, lava pools or spill lighting. Shards stop tumbling before fading in place; longer warning and stronger intact-die high-roll glow retained. Interactive roller refreshed.
