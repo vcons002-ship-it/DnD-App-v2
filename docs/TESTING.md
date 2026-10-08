@@ -70,8 +70,14 @@ a rest. Combined spell slots must not raise a class's spell-learning allowance.
 `dice-rider-reading.spec.ts` exercises real attack, weapon damage, superiority
 dice and a target save. Consecutive rolls retain one card, crossfade for 180 ms,
 and acknowledge readiness only after that fade so the toss remains visible.
-Different character/DM trays use a 360 ms sliding crossfade. Changes in tray
-size use a 460 ms camera zoom; never stretch X and Y independently. Card resizing is observed even when modifier chips change the layout within a roll. Incoming dice
+The outer roll window keeps fixed bounds throughout an automatic roll sequence,
+including new dice pools, modifier chips and DM saves. Its result areas reserve
+space and scroll within that space. Same-theme pools continuously resize the 3D
+tray geometry inside a fixed viewport over 460 ms; no card transform, same-tray
+bitmap swap, or canvas remount. Different character/DM artwork retains its
+360 ms crossfade within that viewport. Browser assertions measure the card's
+position, size and transform every frame as well as intermediate tray scales.
+Incoming dice
 bypass only their entry rim; the other three walls always collide. A small
 throw has an upward release velocity as well as horizontal travel and spin.
 The Orb leap menu becomes available at impact readiness, while the compact

@@ -188,6 +188,13 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     startTableCamera(){tableScene?.run();},
     setTableMap(snapshot:StateSnapshot,viewerId?:string){tableScene?.map(snapshot,viewerId);},
     tableCameraState(){return tableScene?.state();},
+    // Grow the physical tray inside a fixed viewport, with enough camera
+    // clearance for its new size. Live dice start after this geometry settles.
+    setLiveTraySize(scale:number,viewScale:number){
+      tray.scale.set(scale,scale,1);
+      camera.position.set(0,-8,25).multiplyScalar(viewScale);camera.lookAt(0,0,.25);
+      camera.zoom=1;camera.updateMatrixWorld();camera.updateProjectionMatrix();
+    },
     setReviewZoom(zoom:number){camera.zoom=zoom;camera.updateProjectionMatrix();},
     setResults(values:readonly (number|null)[]){liveResults=values;},
     setExplosionTime(at:number|null|undefined){handles.forEach(h=>h.setExplosionAt(at));},

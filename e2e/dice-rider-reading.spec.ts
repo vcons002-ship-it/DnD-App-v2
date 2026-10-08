@@ -109,7 +109,8 @@ const manual=true;test('unmodified superiority dice retain reading time before t
     const sample=()=>{
       const tray=document.querySelector('.roll-reveal-backdrop'),boxes=[...document.querySelectorAll('.tray-die-result')];
       const card=document.querySelector('.roll-reveal');if(card&&!cards.has(card))cards.set(card,++nextCard);
-      samples.push({time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),handoffKind:document.querySelector('.dice-tray-transition')?.getAttribute('data-kind'),zoom:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-camera-zoom')||1),zoomProgress:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-zoom-progress')||0),calculation:!!document.querySelector('[data-live-calculation="true"]'),modifiers:document.querySelectorAll('.rr-adjustment').length,explosionAt:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-explosion-at')||0),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
+      const bounds=card?.getBoundingClientRect(),canvasBounds=document.querySelector('.dice-tray-canvas')?.getBoundingClientRect();
+      samples.push({canvasBounds:canvasBounds?{width:canvasBounds.width,height:canvasBounds.height}:null,bounds:bounds?{x:bounds.x,y:bounds.y,width:bounds.width,height:bounds.height,transform:getComputedStyle(card!).transform}:null,compact:!!document.querySelector('.is-impact'),time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),handoffKind:document.querySelector('.dice-tray-transition')?.getAttribute('data-kind'),handoffStartedAt:Number(document.querySelector('.dice-tray-transition')?.getAttribute('data-started-at')||0),trayScale:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-tray-scale')||1),zoomProgress:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-zoom-progress')||0),calculation:!!document.querySelector('[data-live-calculation="true"]'),modifiers:document.querySelectorAll('.rr-adjustment').length,explosionAt:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-explosion-at')||0),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
       if((window as any).__riderSampling)requestAnimationFrame(sample);
     };sample();
   });
@@ -133,19 +134,24 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   expect(weapon,'The weapon arithmetic is shown before the superiority die').toBeTruthy();
   const weaponNext=samples.find((s:any)=>s.time>weapon.time&&s.id&&s.id!==weapon.id);
   expect(weaponNext.time-weapon.time,'Read the finished weapon total before replacing it').toBeGreaterThanOrEqual(2500);
-  const zoomFrames=samples.filter((s:any)=>s.handoffKind==='tray-zoom'&&s.handoff==='crossfading');
-  expect(zoomFrames.length,'Different pool sizes zoom rather than just swapping artwork').toBeGreaterThan(5);
-  expect(zoomFrames.some((s:any)=>Math.abs(s.zoom-1)>.01)).toBe(true);
+  const zoomFrames=samples.filter((s:any)=>s.handoffKind==='tray-resize'&&s.handoff==='resizing');
+  expect(zoomFrames.length,'The physical tray grows/shrinks inside the static window').toBeGreaterThan(5);
+  expect(Math.max(...zoomFrames.map((s:any)=>s.trayScale))-Math.min(...zoomFrames.map((s:any)=>s.trayScale))).toBeGreaterThan(.05);
+  const fixed=samples.filter((s:any)=>s.bounds&&!s.compact);
+  for(const key of ['x','y','width','height'])expect(Math.max(...fixed.map((s:any)=>s.bounds[key]))-Math.min(...fixed.map((s:any)=>s.bounds[key])),`Roll window ${key} stays fixed through damage, modifiers and saves`).toBeLessThan(1);
+  expect(fixed.every((s:any)=>s.canvasBounds?.width>300&&s.canvasBounds?.height>150),'The tray stays visibly rendered inside the fixed frame').toBe(true);
+  expect(fixed.every((s:any)=>s.bounds.transform==='none'),'The window itself never zooms or translates').toBe(true);
   expect(zoomFrames.some((s:any)=>s.zoomProgress>.2&&s.zoomProgress<.8)).toBe(true);
   expect(zoomFrames.every((s:any)=>s.physics===0)).toBe(true);
   const changedTray=samples.filter((s:any)=>s.handoffKind==='tray-swap'&&s.handoff==='crossfading');
   expect(changedTray.length).toBeGreaterThan(0);
-  expect(changedTray.at(-1).time-changedTray[0].time).toBeGreaterThanOrEqual(300);
+  const swapFinished=samples.find((s:any)=>s.time>changedTray[0].time&&s.handoff==='idle'&&s.handoffKind==='tray-swap');
+  expect(swapFinished.time-changedTray[0].handoffStartedAt).toBeGreaterThanOrEqual(350);
   expect(changedTray.every((s:any)=>s.physics===0),'DM tray swaps cannot hide the incoming throw').toBe(true);
   expect(next.time-held.time).toBeGreaterThanOrEqual(2300);
   expect(held.filled).toBe(true);
   if(held.power.some((p:any)=>p.maximum)){
-    const exploded=samples.find((s:any)=>s.id===held.id&&s.power.some((p:any)=>p.maximum&&p.broken));
+    const exploded=samples.find((s:any)=>s.id===held.id&&s.hold==='2500'&&s.handoff==='idle'&&s.power.some((p:any)=>p.maximum&&p.broken));
     expect(exploded).toBeTruthy();expect(exploded.time).toBeLessThan(next.time-500);
     expect(exploded.time-exploded.explosionAt).toBeGreaterThanOrEqual(0);
     expect(exploded.time-exploded.explosionAt).toBeLessThan(150);
