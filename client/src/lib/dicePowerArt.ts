@@ -14,12 +14,14 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
  const geometry=kind==='fighter'?new THREE.IcosahedronGeometry(1,1):new THREE.BufferGeometry();
  if(kind==='ranger'){
   const positions:number[]=[],uv:number[]=[],faces:number[]=[];
-  // Crossed tapered light volumes stay substantial when one ribbon is edge-on.
-  for(let plane=0;plane<2;plane++)for(let j=0;j<=12;j++)for(const side of [-1,1]){
-   const t=j/12,width=.12+Math.sin(t*Math.PI)*.48;
-   positions.push(plane===0?side*width:0,t-.5,plane===1?side*width:0);uv.push((side+1)/2,t);
+  // Round tapered volumes have real thickness from every angle. Their soft
+  // optical cross-section below replaces the two intersecting flat ribbons.
+  const rings=16,segments=12;
+  for(let j=0;j<=rings;j++)for(let k=0;k<=segments;k++){
+   const t=j/rings,angle=k/segments*Math.PI*2,width=.025+t*.65;
+   positions.push(Math.cos(angle)*width,t-.5,Math.sin(angle)*width);uv.push(k/segments,t);
   }
-  for(let plane=0;plane<2;plane++)for(let j=0;j<12;j++){const a=plane*26+j*2;faces.push(a,a+1,a+2,a+1,a+3,a+2);}
+  for(let j=0;j<rings;j++)for(let k=0;k<segments;k++){const a=j*(segments+1)+k,b=a+segments+1;faces.push(a,a+1,b,a+1,b+1,b);}
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geometry.setIndex(faces);geometry.computeVertexNormals();
  }
  const fade=new THREE.InstancedBufferAttribute(new Float32Array(count),1).setUsage(THREE.DynamicDrawUsage);
@@ -27,17 +29,31 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
  const material=new THREE.ShaderMaterial({
   uniforms:{clock:{value:0}},transparent:true,depthWrite:false,depthTest:true,
   blending:kind==='ranger'?THREE.AdditiveBlending:THREE.NormalBlending,side:THREE.DoubleSide,
-  vertexShader:`attribute float powerFade;varying float life;varying vec2 tex;varying vec3 glow;varying vec3 facet;void main(){life=powerFade;tex=uv;glow=instanceColor;facet=normal;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.);}`,
+  vertexShader:`attribute float powerFade;varying float life;varying vec2 tex;varying vec3 glow;varying vec3 facet;varying vec3 viewPoint;varying float toward;
+  void main(){life=powerFade;tex=uv;glow=instanceColor;
+   mat3 m=mat3(instanceMatrix);
+   vec3 n=m*vec3(normal.x/dot(m[0],m[0]),normal.y/dot(m[1],m[1]),normal.z/dot(m[2],m[2]));
+   facet=normalize(normalMatrix*n);
+   toward=normalize((modelViewMatrix*instanceMatrix*vec4(0.,1.,0.,0.)).xyz).z;
+   vec4 point=modelViewMatrix*instanceMatrix*vec4(position,1.);viewPoint=point.xyz;gl_Position=projectionMatrix*point;}`,
   fragmentShader:kind==='fighter'?`varying float life;varying vec3 glow;varying vec3 facet;void main(){
    float crust=.50+.50*pow(max(0.,dot(normalize(facet),normalize(vec3(-.3,.4,1.)))),1.6);
    gl_FragColor=vec4(glow*crust,life);
    #include <tonemapping_fragment>
    #include <colorspace_fragment>
-  }`:`uniform float clock;varying float life;varying vec2 tex;varying vec3 glow;void main(){
-   float edge=pow(max(0.,1.-abs(tex.x-.5)*2.),2.);
+  }`:`uniform float clock;varying float life;varying vec2 tex;varying vec3 glow;varying vec3 facet;varying vec3 viewPoint;varying float toward;void main(){
+   float crossSection=abs(dot(normalize(facet),normalize(-viewPoint)));
+   float edge=smoothstep(.04,.65,crossSection);
+   float core=pow(crossSection,8.);
    float end=1.-smoothstep(.38,1.,tex.y);
-   float streams=.55+.45*pow(sin(tex.y*15.-clock*2.5+tex.x*3.),2.);
-   gl_FragColor=vec4(glow,edge*end*streams*life);
+   // A foreshortened beam has a longer optical path. Near rays are brighter
+   // ivory-green; far rays recede into muted green behind the resin.
+   float front=smoothstep(-.65,.85,toward);
+   float density=min(1.8,1./max(.4,sqrt(max(0.,1.-toward*toward))));
+   vec3 light=mix(glow*vec3(.38,.53,.50),vec3(.90,1.15,.52),front);
+   float streams=.74+.26*sin(tex.y*20.-clock*3.2);
+   float distanceFade=exp(-tex.y*(1.15-front*.5));
+   gl_FragColor=vec4(light*(.65+core*.65),edge*end*streams*life*density*distanceFade*(.45+front*.75));
    #include <tonemapping_fragment>
    #include <colorspace_fragment>
   }`,
@@ -93,9 +109,9 @@ export function createDicePowerArt(root:THREE.Group,kind:'fighter'|'ranger'){
       const length=2.5+random(i+5)*1.25;
       transform.position.copy(mote).applyQuaternion(root.quaternion).addScaledVector(direction,length*.5);
       transform.quaternion.setFromUnitVectors(rayAxis,direction);
-      // A crossed, tapered ribbon reads as a stream from overhead or any angle.
+      // Rounded cone volumes foreshorten and overlap naturally as they rotate.
       transform.rotateY(i*.8);
-      transform.scale.set(.34+random(i+6)*.22,length,.34+random(i+6)*.22);
+      transform.scale.set(.42+random(i+6)*.24,length,.42+random(i+6)*.24);
       color.setRGB(.65,1.1,.28);
       fade.setX(visible,THREE.MathUtils.smoothstep(age,.45,.85)*(.20+.065*Math.sin(now*.0015+i)));
      }

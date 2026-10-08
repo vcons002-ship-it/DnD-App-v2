@@ -46,6 +46,10 @@ dice. A maximum damage die is still damage, not a critical hit.
   starts at its own orientation; the mote stays fixed and the rays remain 3D.
   The resin shader continues those same rays inside the die, from the enclosed
   mote to the shell, where they join the external light streams.
+  Rounded tapered light volumes replace crossed flat ribbons. Foreground rays
+  brighten toward ivory-green, background rays recede, and optical thickness
+  strengthens rays pointing toward the camera. Internal attenuation matches the
+  near/far treatment while surface depth still hides rays behind the die.
 - **DM:** more active curling ink is silhouetted against soft internal purple
   light within the refracting resin. A confirmed maximum transitions the cloud
   to blood red. Gold numerals stay on the opaque front inlay, outside the cloud

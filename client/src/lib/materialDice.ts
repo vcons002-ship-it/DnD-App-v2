@@ -327,7 +327,7 @@ void main(){
    // Continue the external rays inside the resin, from the actual enclosed
    // mote. The opaque surface otherwise clips them into a halo behind the die.
    if(rangerRayGlow>0.){
-    vec3 offset=pos-motePosition;float beams=0.;
+    vec3 offset=pos-motePosition,beams=vec3(0.);
     for(int k=0;k<22;k++){
      vec3 d=rangerRays[k];float b=dot(incoming,d),v=dot(incoming,offset),r=dot(d,offset);
      float along=max(0.,(r-b*v)/max(.001,1.-b*b));
@@ -335,9 +335,11 @@ void main(){
      along=max(0.,dot(pos+incoming*viewTravel-motePosition,d));
      float separation=length(pos+incoming*viewTravel-motePosition-d*along);
      float width=.012+along*.032;
-     beams+=exp(-pow(separation/width,2.))*exp(-along*.35);
+     float front=smoothstep(-.65,.85,dot(d,-incoming));
+     vec3 light=mix(vec3(.16,.40,.08),vec3(.65,1.,.32),front);
+     beams+=light*exp(-pow(separation/width,2.))*exp(-along*.35-viewTravel*.45)*(.45+front*.75);
     }
-    energy+=vec3(.42,1.,.19)*min(beams,2.5)*rangerRayGlow*depthFade;
+    energy+=min(beams,vec3(2.5))*rangerRayGlow*depthFade;
    }
    // The same source illuminates the nearby resin and embedded inclusions.
    float proximity=dot(pos-motePosition,pos-motePosition)/(moteRoom*moteRoom);
