@@ -138,21 +138,6 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const shatterWorld=dice.some((_,i)=>(dieThemes?.[i]??theme).id==='fighter')?createShatterWorld(toss.radius,trayScale):undefined;
   const shatterProxies=shatterWorld?handles.map((h,i)=>{h.setShatterWorld(shatterWorld);return shatterWorld.addDieProxy(dice[i].sides,toss.radius*diePhysicalScale(dice[i].sides));}):[];
-  const lavaLights=Array.from({length:12},()=>new THREE.Vector4());
-  if(shatterWorld){
-    const previous=feltMaterial.onBeforeCompile;
-    feltMaterial.onBeforeCompile=(shader,renderer)=>{
-      previous.call(feltMaterial,shader,renderer);shader.uniforms.lavaLights={value:lavaLights};shader.uniforms.lavaRadius={value:toss.radius};
-      shader.vertexShader='varying vec3 lavaFloorPoint;\n'+shader.vertexShader;
-      shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nlavaFloorPoint=(modelMatrix*vec4(transformed,1.)).xyz;');
-      shader.fragmentShader='varying vec3 lavaFloorPoint;uniform vec4 lavaLights[12];uniform float lavaRadius;\n'+shader.fragmentShader;
-      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`vec3 moltenSpill=vec3(0.);
-        for(int k=0;k<12;k++){if(lavaLights[k].w>0.){vec3 d=(lavaFloorPoint-lavaLights[k].xyz)/lavaRadius;float falloff=.85*lavaLights[k].w/pow(1.+dot(d,d)*3.,2.);moltenSpill+=vec3(1.,.16,.008)*falloff;}}
-        outgoingLight+=diffuseColor.rgb*moltenSpill;
-        #include <opaque_fragment>`);
-    };
-    feltMaterial.customProgramCacheKey=()=>`ranger-${moteLights.length}-molten-spill-v1`;
-  }
   return {
     setReviewZoom(zoom:number){camera.zoom=zoom;camera.updateProjectionMatrix();},
     setResults(values:readonly (number|null)[]){liveResults=values;},
@@ -202,7 +187,6 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         shadow.scale.setScalar(dieRadius*(1.0+clearance*.18));(shadow.material as THREE.MeshBasicMaterial).opacity=Math.max(.15,.9-clearance*.18);
       });
       rangerIndices.forEach((index,k)=>handles[index].innerLightPosition(moteLights[k]));
-      if(shatterWorld){const sources=handles.flatMap(h=>h.shatterLights()).filter(p=>p.w>0);lavaLights.forEach((p,i)=>{const source=sources.length<=12?sources[i]:sources[Math.floor(i*sources.length/12)];if(source)p.copy(source);else p.set(0,0,0,0);});}
       trails?.update(handles.map(h=>h.object),now);
       const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
       if(stage.renderer.domElement.width!==rw||stage.renderer.domElement.height!==rh)stage.renderer.setSize(rw,rh,false);

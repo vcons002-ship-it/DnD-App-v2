@@ -569,7 +569,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
   const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const power=createRollPowerState(sides);
-  const powerArt=theme.id==='fighter'||theme.id==='ranger'?createDicePowerArt(root,theme.id):undefined;
+  const powerArt=theme.id==='ranger'?createDicePowerArt(root,theme.id):undefined;
   let powerView=power.advance(0),powerReduced=false;
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
@@ -706,7 +706,6 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     setReducedMotion(reduced:boolean){powerReduced=reduced;},
     setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
     prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
-    shatterLights(){return shatter?.lights()??[];},
     powerState(){return {...powerView,particles:powerArt?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},

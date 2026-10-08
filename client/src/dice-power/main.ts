@@ -5,7 +5,7 @@ import {physicalDice,type Toss,type TrayDie} from '../../../shared/diceTrayTypes
 const tray=document.querySelector<HTMLDivElement>('#tray')!,canvas=tray.querySelector('canvas')!,ctx=canvas.getContext('2d')!;
 const sides=document.querySelector<HTMLSelectElement>('#sides')!,critical=document.querySelector<HTMLInputElement>('#critical')!;
 const focus=document.querySelector<HTMLInputElement>('#focus')!;
-const descriptions:Record<string,string>={fighter:'Obsidian fissures widen and heat up with the roll. A maximum tears the actual numbered die into irregular chunks. A longer warning glow, contact physics, melting fragments and lasting lava pools with hot light on the felt.',sorcerer:'A higher value charges more frequent internal lightning. A maximum fires crimson lightning bursts from changing directions throughout the red glass.',ranger:'The enclosed mote grows brighter with the value. On a maximum, the mote swings into the center and releases green-gold light streams in all directions.'};
+const descriptions:Record<string,string>={fighter:'Obsidian fissures widen and heat up with the roll. A maximum tears the actual numbered die into irregular chunks. A longer warning glow and contact physics. Solid textured shards settle and fade in place.',sorcerer:'A higher value charges more frequent internal lightning. A maximum fires crimson lightning bursts from changing directions throughout the red glass.',ranger:'The enclosed mote grows brighter with the value. On a maximum, the mote swings into the center and releases green-gold light streams in all directions.'};
 let theme='fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
 async function show(){
  const controls=[...document.querySelectorAll<HTMLButtonElement|HTMLSelectElement|HTMLInputElement>('nav button,nav select,nav input')];
@@ -32,7 +32,7 @@ async function show(){
   const r=tray.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,1.5);
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
   renderer!.draw(ctx,r.width,r.height,dpr,0,now);
-  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,age:p.age,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,fragments:p.fragments,lava:p.lava,pools:p.pools,melting:p.melting,preservedSurfaces:p.preservedSurfaces,physics:p.physics,mote:p.mote})));
+  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,age:p.age,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,fragments:p.fragments,frozenFragments:p.frozenFragments,lava:p.lava,pools:p.pools,melting:p.melting,preservedSurfaces:p.preservedSurfaces,physics:p.physics,mote:p.mote})));
   requestAnimationFrame(draw);
  }
  requestAnimationFrame(draw);
