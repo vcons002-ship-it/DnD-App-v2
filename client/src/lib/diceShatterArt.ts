@@ -49,7 +49,7 @@ export function createDiceShatterArt(root:THREE.Group,faces:THREE.Vector3[][],_c
   // Use the exterior's actual obsidian shader for the exposed core as well.
   // Fresh fracture faces have no gold trim, numerals or molten warning layer.
   const fractureMaterial=(original[0].material as THREE.ShaderMaterial).clone();
-  fractureMaterial.uniforms={...(original[0].material as THREE.ShaderMaterial).uniforms,eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},shardOrigin:{value:cell.center},shatterFade:{value:0},engraved:{value:false},metalEdge:{value:false},critical:{value:0},moltenCracks:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0}};
+  fractureMaterial.uniforms={...(original[0].material as THREE.ShaderMaterial).uniforms,eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},shardOrigin:{value:cell.center},shatterFade:{value:0},engraved:{value:false},metalEdge:{value:false},critical:{value:0},rollPower:{value:0},moltenCracks:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0}};
   fractureMaterial.vertexShader='uniform vec3 shardOrigin;\n'+fractureMaterial.vertexShader.replace('pos=position;','pos=position+shardOrigin;');
   fractureMaterial.fragmentShader='uniform float shatterFade;\n'+fractureMaterial.fragmentShader.replace('#include <tonemapping_fragment>','gl_FragColor.a*=shatterFade;\n#include <tonemapping_fragment>');
   fractureMaterial.transparent=true;materials.push(fractureMaterial);outerMaterials.push(fractureMaterial);

@@ -17,6 +17,8 @@ dice. A maximum damage die is still damage, not a critical hit.
   High natural rolls expose more branching fissures and hotter lava glow,
   while retaining predominantly black obsidian behind the readable gold numbers.
   Crack width and heat are capped below the maximum's warning intensity.
+  Shard interiors own their heat uniforms so fading fragments cannot dim the
+  intact die's high-roll glow.
   In the final warning before a maximum bursts, most of the shell becomes
   incandescent lava with a few dark obsidian islands; numbers and gold trim
   remain distinct. This molten appearance stays on the intact die only. Its result still fills the normal result box.

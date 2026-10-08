@@ -87,6 +87,19 @@ test('Druk warns before exploding then freezes solid shards before fading withou
  expect(replay.broken).toBe(false);expect(replay.pools).toBe(0);
 });
 
+test('Druk ordinary high rolls keep visibly hotter cracks than low rolls',async({page})=>{
+ await page.goto('/dice-power.html');await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+ await page.waitForTimeout(1000);
+ const glow=await page.evaluate(()=>{
+  const canvas=document.querySelector<HTMLCanvasElement>('#tray canvas')!,ctx=canvas.getContext('2d')!;
+  const heat=(x:number)=>{const {data}=ctx.getImageData(canvas.width*x,canvas.height*.35,canvas.width*.18,canvas.height*.3);let count=0;
+   for(let i=0;i<data.length;i+=4)if(data[i]>110&&data[i]>data[i+1]*1.9&&data[i+1]>data[i+2]*1.5)count++;
+   return count;};
+  return {low:heat(.18),high:heat(.41)};
+ });
+ expect(glow.high).toBeGreaterThan(glow.low*1.5+10);
+});
+
 test('Druk warning visibly grows from cracks to a mostly incandescent shell before the shard burst',async({page},info)=>{
  await page.goto('/dice-power.html');await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
  const samples=await page.evaluate(()=>new Promise<{early:number;late:number;highDark:number;highHot:number}>((resolve,reject)=>{
