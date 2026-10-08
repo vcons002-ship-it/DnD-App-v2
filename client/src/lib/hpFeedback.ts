@@ -2,8 +2,11 @@ import type {HpFxEvent} from '../../../shared/types.js';
 
 export const HP_NUMBER_HOLD_MS = 2400;
 export const HP_NUMBER_FADE_MS = 1600;
-export const HP_COMPONENT_HOLD_MS = 400;
-export const HP_COMPONENT_FADE_MS = 200;
+// Read each damage component on the map, then leave the accumulated total up.
+// These are cosmetic lifetimes; they do not delay HP or lock the next action.
+export const HP_TOTAL_HOLD_MS = 3200;
+export const HP_COMPONENT_HOLD_MS = 1000;
+export const HP_COMPONENT_FADE_MS = 400;
 export const HP_NUMBER_GAP_MS = 40;
 const colors:Record<string,string>={
   piercing:'#ff9987',slashing:'#ff7185',bludgeoning:'#ffc18b',fire:'#ffad55',cold:'#8fe4ff',
@@ -77,7 +80,7 @@ export function hpTotalTimeline(numbers:HpNumber[]){
 }
 export function hpFeedbackDuration(numbers:HpNumber[]){
   const total=hpTotalTimeline(numbers).at(-1);
-  if(total)return total.delayMs+HP_NUMBER_HOLD_MS+HP_NUMBER_FADE_MS;
+  if(total)return total.delayMs+HP_TOTAL_HOLD_MS+HP_NUMBER_FADE_MS;
   const last=hpNumberSequence(numbers).at(-1);
   return last?last.delayMs+last.holdMs+last.fadeMs:0;
 }

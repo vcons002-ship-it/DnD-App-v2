@@ -38,8 +38,8 @@ describe('typed floating damage feedback',()=>{
     damageParts:[{amount:9,damageType:'piercing'},{amount:4,damageType:'force'}]};
   const numbers=hpNumberStacks([event])[0].numbers,sequence=hpNumberSequence(numbers);
   expect(sequence.map(s=>s.number.delta)).toEqual([-9,-4]);
-  expect(sequence.map(s=>s.delayMs)).toEqual([0,640]);
-  expect(hpTotalTimeline(numbers)).toEqual([{delta:-9,delayMs:220},{delta:-13,delayMs:860}]);
+  expect(sequence.map(s=>s.delayMs)).toEqual([0,1440]);
+  expect(hpTotalTimeline(numbers)).toEqual([{delta:-9,delayMs:220},{delta:-13,delayMs:1660}]);
   sequence.slice(1).forEach((s,i)=>expect(s.delayMs).toBeGreaterThan(sequence[i].delayMs+sequence[i].holdMs+sequence[i].fadeMs));
   const first=scheduleHpFeedback([event],100);
   expect(first.expiryMs).toBeGreaterThan(hpFeedbackDuration(numbers));
@@ -63,10 +63,10 @@ describe('typed floating damage feedback',()=>{
     damageParts:[{amount:9,damageType:'piercing'},{amount:4,damageType:'force',spell:"Hunter's Mark"}]},
     ...['main','neighbor','third'].map((refId,i)=>({id:i+2,kind:'monster' as const,refId,rollId:'burst',delta:-7,damageType:'piercing',spell:'Hail of Thorns'}))];
   const scheduled=scheduleHpFeedback(events,100).events;
-  expect(scheduled[0].componentStarts).toEqual([100,740]);
-  expect(scheduled.slice(1).map(e=>e.numberStartAt)).toEqual([1380,1380,1380]);
+  expect(scheduled[0].componentStarts).toEqual([100,1540]);
+  expect(scheduled.slice(1).map(e=>e.numberStartAt)).toEqual([2980,2980,2980]);
   const groups=hpNumberStacks(scheduled);
-  expect(groups.map(g=>hpStackStart(g.numbers,0)+hpTotalTimeline(g.numbers).at(-1)!.delayMs)).toEqual([1600,1600,1600]);
+  expect(groups.map(g=>hpStackStart(g.numbers,0)+hpTotalTimeline(g.numbers).at(-1)!.delayMs)).toEqual([3200,3200,3200]);
  });
  it('synchronizes a shared spell even with separate target save reveals and a busy victim',()=>{
   const old=scheduleHpFeedback([{id:1,kind:'monster' as const,refId:'a',delta:-5}],100).events;
@@ -83,13 +83,13 @@ describe('typed floating damage feedback',()=>{
  it('keeps separately clicked projectiles in global order and accumulates repeat targets',()=>{
   const darts=['a','a','b','c','a'].map((refId,i)=>({id:i+1,kind:'monster' as const,refId,delta:-(i+2),damageType:'force',rollId:`dart-${i}`,impact:{id:'missile',order:i}}));
   const scheduled=scheduleHpFeedback(darts,100).events;
-  expect(scheduled.map(e=>e.numberStartAt)).toEqual([100,740,1380,2020,2660]);
+  expect(scheduled.map(e=>e.numberStartAt)).toEqual([100,1540,2980,4420,5860]);
   const a=hpNumberStacks(scheduled).find(g=>g.event.refId==='a')!;
-  expect(hpTotalTimeline(a.numbers)).toEqual([{delta:-2,delayMs:220},{delta:-5,delayMs:860},{delta:-11,delayMs:2780}]);
+  expect(hpTotalTimeline(a.numbers)).toEqual([{delta:-2,delayMs:220},{delta:-5,delayMs:1660},{delta:-11,delayMs:5980}]);
   const later=scheduleHpFeedback([{...darts[0],id:7,delta:-4,impact:{id:'missile',order:5}}],9000,scheduled);
   const merged=hpNumberStacks([...scheduled,...later.events]).find(g=>g.event.refId==='a')!;
   expect(merged.numbers.at(-1)?.delta).toBe(-15);
   expect(later.events[0].numberStartAt).toBe(9000);
-  expect(hpStackEnd(merged)).toBe(13220);
+  expect(hpStackEnd(merged)).toBe(14020);
  });
 });

@@ -1,4 +1,4 @@
-import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs} from '../../shared/dicePresentationTiming.js';
+import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs,drukFinaleTimeline,liveCalculationWaitMs,LIVE_PRESENTATION_SYNC_MS,rollResultTimeline} from '../../shared/dicePresentationTiming.js';
 import {createSession,createCharacter,createMap,setActiveMap,createToken,createMonsterTemplate,instantiateMonster,setManualDamage,listRollLog,getMonster,getRollEntry,getCharacter,addRollLog} from './sessions.js';
 import {resolveAttack,resolveAttackDamage,resolveSmite} from './combat.js';
 import {buildSnapshot} from './visibility.js';
@@ -8,7 +8,7 @@ import {rollDice,rollDicePool,withDiceSource} from '../../shared/dice.js';
 import {rollD20Detail} from '../../shared/combatMath.js';
 import {db} from './db.js';
 import {runLiveCommand,keptPhysicalSet,physicalFaces} from './liveRolls.js';
-import {afterRollCommit} from './liveRollContext.js';
+import {afterRollCommit,presentLiveCalculation} from './liveRollContext.js';
 import {LIVE_DICE_PRESENTATION_RATE,LIVE_DICE_REROLL_WAIT_SECONDS} from '../../shared/liveDiceTypes.js';
 import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
 
@@ -25,7 +25,7 @@ it('holds a final rider without a new result card, but does not delay a final at
  },frame=>frames.push(frame),{label:'Rider damage',roller:'Druk',className:'Fighter',waitForPresentation:async(_id,ms)=>{
   holds.push(ms);expect(listRollLog(session.id)).toHaveLength(0);expect(commits).toBe(0);
  }},dice);
- expect(holds).toEqual([LIVE_DICE_RESULT_HOLD_MS]);expect(commits).toBe(1);
+ expect(holds).toEqual([LIVE_DICE_RESULT_HOLD_MS+LIVE_PRESENTATION_SYNC_MS]);expect(commits).toBe(1);
  expect(frames.at(-1)?.resultHoldMs).toBe(LIVE_DICE_RESULT_HOLD_MS);
  holds.length=0;
  await runLiveCommand(()=>{
@@ -93,6 +93,7 @@ describe('incremental authoritative physics',()=>{
  it('releases jumbled dice with visible end-over-end and sideways tumble from every seat',()=>{
   for(const side of ['bottom','top','left','right'] as const)for(let seed=1;seed<=12;seed++){
    const w=createLiveWorld([{sides:6,value:1,index:0,set:0}],seed,side),b=w.bodies[0];
+   expect(b.velocity.z).toBeGreaterThan(0);
    const heading=b.velocity.clone();heading.z=0;heading.normalize();
    const crossSpin=b.angularVelocity.cross(heading).length();
    expect(crossSpin).toBeGreaterThan(20);
@@ -231,4 +232,46 @@ it('lands enlarged d10/d20 beside an unchanged d6 with floor contacts matching t
   expect(frame.values[index]).toBeGreaterThanOrEqual(1);
   expect(frame.values[index]).toBeLessThanOrEqual([6,10,20][index]);
  });
+});
+
+
+it.each([0,1,3].flatMap(count=>[false,true].map(maximum=>({count,maximum}))))('finishes a weapon result before the next damage throw ($count modifiers, maximum=$maximum)',async({count,maximum})=>{
+ const holds:number[]=[];const order:string[]=[];
+ const dice:typeof physicalFaces=async(sides,publish,meta)=>{
+  order.push(meta.label);
+  const values=sides.map(side=>maximum?side:side-1);
+  publish({id:String(order.length),seq:0,done:true,sides,values,label:meta.label,roller:'Druk',className:'Fighter',sets:sides.map(()=>0),critical:sides.map(()=>false),percentile:sides.map(()=>null),poses:[],rerolls:sides.map(()=>0),radius:1,elapsed:1});
+  return values;
+ };
+ await runLiveCommand(()=>{
+  const weapon=rollDice('1d6')!;
+  presentLiveCalculation('weapon',{kind:'damage',attacker:'Druk',outcome:'hit',damage:weapon.total,damageMods:Array.from({length:count},()=>({label:'STR',value:1}))});
+  rollDice('1d8');
+ },()=>{},{label:'Damage',roller:'Druk',className:'Fighter',waitForPresentation:async(_id,ms)=>{
+  holds.push(ms);if(holds.length===1)expect(order).toHaveLength(1);
+ }},dice);
+ expect(holds[0]).toBe(rollResultTimeline(count,maximum).impact+LIVE_PRESENTATION_SYNC_MS);
+ expect(order).toHaveLength(2);
+ expect(holds[0]).toBe(liveCalculationWaitMs(count,maximum));
+});
+
+
+it.each(['bottom','top','left','right'] as const)('keeps side walls solid during a %s entry and closes the entry rim afterward',side=>{
+ const w=createLiveWorld([{sides:6,value:1,index:0,set:0}],42,side),b=w.bodies[0];
+ expect(b.collisionFilterMask).toBe(3);
+ const walls=b.world!.bodies.filter(body=>body.mass===0&&body.position.z>0);
+ expect(walls.filter(wall=>wall.collisionFilterGroup===4)).toHaveLength(1);
+ expect(walls.filter(wall=>wall.collisionFilterGroup===2)).toHaveLength(3);
+ for(let i=0;i<120&&b.collisionFilterMask!==7;i++)w.advance(1/120);
+ expect(b.collisionFilterMask).toBe(7);
+ w.reroll(0);expect(b.collisionFilterMask).toBe(3);
+});
+
+
+it('rebounds from a side wall even before the incoming die has cleared the entry rim',()=>{
+ const w=createLiveWorld([{sides:6,value:1,index:0,set:0}],4),b=w.bodies[0];
+ b.position.set(5.4,-4.2,1.15);b.quaternion.set(0,0,0,1);b.velocity.set(35,0,0);b.angularVelocity.setZero();
+ let furthest=b.position.x;
+ for(let i=0;i<36;i++){w.advance(1/480);furthest=Math.max(furthest,b.position.x);}
+ expect(furthest).toBeLessThan(7);expect(b.velocity.x).toBeLessThan(0);
 });

@@ -50,8 +50,9 @@ export function createLiveWorld(initialDice:TrayDie[],seed:number,entrySide:Dice
   box(0,0,-.2,layout.halfWidth,layout.halfHeight,.2);
   const edgeWalls={left:box(-layout.halfWidth,0,3,.2*trayScale,layout.halfHeight,3),right:box(layout.halfWidth,0,3,.2*trayScale,layout.halfHeight,3),
     bottom:box(0,-layout.halfHeight,3,7.4*trayScale,.2*trayScale,3),top:box(0,layout.halfHeight,3,7.4*trayScale,.2*trayScale,3)};
-  // Incoming dice bypass the exterior walls until they cross into the bed.
-  for(const wall of Object.values(edgeWalls))wall.collisionFilterGroup=2;
+  // Only the entry rim is bypassed while a die enters. Side and far walls
+  // remain solid, including when incoming dice collide near a corner.
+  for(const [side,wall] of Object.entries(edgeWalls))wall.collisionFilterGroup=side===entrySide?4:2;
   const direction=new Vec3(entrySide==='left'?1:entrySide==='right'?-1:0,entrySide==='bottom'?1:entrySide==='top'?-1:0,0);
   const cross=new Vec3(-direction.y,direction.x,0);
   const extent=direction.x?layout.innerHalfWidth:layout.innerHalfHeight;
@@ -67,6 +68,7 @@ export function createLiveWorld(initialDice:TrayDie[],seed:number,entrySide:Dice
     const {vertices,faces}=shape;
     const body=new Body({mass:diceMassKg(vertices.map(v=>v.scale(metresPerUnit)),faces)*1000,material:dieMaterial,shape,linearDamping:.01,angularDamping:.01,allowSleep:true,sleepSpeedLimit:.3,sleepTimeLimit:.5});
     releaseHandfulDie(body,i,count,launchRadius,trayScale,extent,crossExtent,metresPerUnit,TRAY_GRAVITY/metresPerUnit,direction,cross,random);
+    body.collisionFilterMask=3;
     body.addEventListener('collide',(event:{body:Body})=>{if(walls.has(event.body))wallHits++;});
     return body;
   };
@@ -103,14 +105,14 @@ export function createLiveWorld(initialDice:TrayDie[],seed:number,entrySide:Dice
     b.previousPosition.copy(b.position);b.interpolatedPosition.copy(b.position);
     b.quaternion.setFromEuler(random()*6.28,random()*6.28,random()*6.28);
     b.velocity.copy(initial.velocity.scale(.9+random()*.2));b.angularVelocity.copy(initial.spin.scale(.8+random()*.4));
-    b.force.setZero();b.torque.setZero();b.collisionFilterMask=1;b.aabbNeedsUpdate=true;b.wakeUp();
+    b.force.setZero();b.torque.setZero();b.collisionFilterMask=3;b.aabbNeedsUpdate=true;b.wakeUp();
     age[i]=0;values[i]=null;rerolls[i]++;
     stable[i].face=null;stable[i].since=0;
   }
   function advance(seconds:number) {
     const steps=Math.max(1,Math.round(seconds/step));
     for(let n=0;n<steps;n++){
-      for(const [i,b] of bodies.entries())if(b.position.dot(direction)>-extent+radius*diePhysicalScale(dice[i].sides))b.collisionFilterMask=3;
+      for(const [i,b] of bodies.entries())if(b.position.dot(direction)>-extent+radius*diePhysicalScale(dice[i].sides))b.collisionFilterMask=7;
       elapsedForImpacts=elapsed+step;world.step(step);elapsed+=step;
       bodies.forEach((b,i)=>{
         if(b.type===Body.STATIC)return;

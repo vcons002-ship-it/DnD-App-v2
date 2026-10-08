@@ -1,5 +1,15 @@
 # Roadmap & Feature Backlog
 
+- [x] Floating damage components hold for one second and fade for 400 ms, then
+  the final red total stays fully visible for 3.2 seconds before its gentle fade.
+  Timing begins after the roll sequence exposes the map; shared AoE and
+  individual projectile ordering use the same readable component beats.
+
+- [x] Small dice rolls launch on a higher hand-toss arc. Each prepared live tray
+  pauses for 220 ms after its artwork handoff before acknowledging release;
+  initial dice stay hidden until physics starts. Reading holds, contacts, large
+  handfuls and result effects retain their existing settings.
+
 ## Character roll-strength art - October 2026
 
 - [x] Production live dice use the approved 180 ms crossfade, retain consecutive throws in one card, wait for the fade before launching the toss and automatically dismiss completed sequences. Prepared-scene reuse remains enabled. The wooden table and camera-panning experiment is preserved on `prototype/dice-table-camera-20261008` at `97e730c` for later work.
@@ -84,8 +94,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Cure Wounds, Hail of Thorns and other map impacts wait for the live tray
   and modifier/result sequences, then paint the compact card before playing
   healing/damage effects. Healing audio and effect lifetimes start on display.
-  Dice materials, critical variants and tray textures preload in the background
-  for the claimed character and DM, with a bounded resident shader cache.
+  Dice geometry, number variants, critical materials and tray textures preload
+  from session entry, before character selection, with a bounded party/DM cache.
+  Compact reserved result areas and viewport sizing independent of HUD zoom
+  keep the enlarged roll headings from shrinking the tray.
+  An actual first-d20 scene is prepared and reused, and resizing a prepared
+  scene no longer repeats shader compilation. Roll headings are prominent,
+  high-contrast text with room for two lines and a separate actor/target line.
   Cold dice loading now has a visible loading state and a 15-second readiness
   grace rather than launching after 2.5 seconds; disconnects release the wait.
   Settled dice continue material animations during number flights and remain
@@ -2762,7 +2777,8 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] Refreshed standalone interactive dice roller for all three characters and the DM with current power materials, every supported die and custom quantities. Linked roll-strength comparison and repeatable static packaging include all four tray artworks.
 
-- [x] Consecutive live rolls keep the same window, crossfade the old painted tray into the prepared next tray, and smoothly resize/collapse instead of popping shut and open. Physics waits until the short crossfade finishes; final dismissal fades and reduced motion remains immediate. Combat timing recordings now preserve the full d20 arithmetic/outcome instead of automatically skipping the result.
+- [x] Consecutive live rolls retain a fixed window and a tray that fills its viewport at a constant apparent size. Existing pool ratios make dice appear smaller for larger rolls. Different character/DM artworks crossfade within that viewport; physics waits for the handoff, final dismissal fades and reduced motion remains immediate. Full reading holds and Druk finale timing remain intact.
+- [x] Roll result layout audit: saving throws retain a compact PASS/FAIL beneath each labeled die, with bonus equations and effect descriptions in the reserved result area. Initiative, grouped saves and large pools use horizontal result strips; long modifier equations keep the total visible without vertically clipped rows. Browser checks include desktop, tablet, portrait and landscape phone sizes and detect overflow clipping, alongside real maneuver and grouped-save privacy tests. D20 entrance sampling checks that the first rendered update begins near release.
 
 
 - [x] Druk explosion returned to solid textured shards: no melting, splashes, lava pools or spill lighting. Shards stop tumbling before fading in place; longer warning and stronger intact-die high-roll glow retained. Interactive roller refreshed.

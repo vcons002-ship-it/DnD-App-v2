@@ -4,7 +4,7 @@ import { rollD20Detail, rollWeaponAttack } from '../../shared/combatMath.js';
 import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { withRollComparison } from '../../shared/dicePresentation.js';
 import type { RollReveal, Weapon } from '../../shared/types.js';
-import {DIE_REVEAL_MS,DIE_REVEAL_STAGGER_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs,liveCalculationWaitMs} from '../../shared/dicePresentationTiming.js';
+import {DIE_REVEAL_MS,DIE_REVEAL_STAGGER_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs,liveCalculationWaitMs,drukFinaleTimeline,hasDrukMaximum,DRUK_EXPLOSION_AFTER_TOTAL_MS,ROLL_MODIFIER_STEP_MS,ROLL_TOTAL_TWEEN_MS,LIVE_PRESENTATION_SYNC_MS,rollResultTimeline} from '../../shared/dicePresentationTiming.js';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -98,4 +98,33 @@ describe('both server-recorded advantage/disadvantage candidates', () => {
       '1d6[2]+1 (=3) / 1d6[5]+1 (=6) → adv 6',
     ]) expect(withRollComparison(dice, detail)).toBe(dice);
   });
+});
+
+
+describe('Druk maximum finale clock',()=>{
+ it.each([0,1,3])('explodes a fixed delay after %i modifier totals and retains the same reading time',count=>{
+  const timing=drukFinaleTimeline(count);
+  expect(timing.complete).toBe(count?count*ROLL_MODIFIER_STEP_MS+ROLL_TOTAL_TWEEN_MS:0);
+  expect(timing.explosion-timing.complete).toBe(DRUK_EXPLOSION_AFTER_TOTAL_MS);
+  expect(timing.impact-timing.explosion).toBe(1750);
+  expect(liveCalculationWaitMs(count,true)).toBe(timing.impact+LIVE_PRESENTATION_SYNC_MS);
+ });
+ it('ignores DM dice and discarded maxima, including disadvantage',()=>{
+  const frame={className:'Fighter',sides:[20,20],values:[20,4],sets:[0,1]} as import('../../shared/liveDiceTypes.js').LiveDiceFrame;
+  expect(hasDrukMaximum(frame)).toBe(true);
+  expect(hasDrukMaximum({...frame,dmDice:true})).toBe(false);
+  expect(hasDrukMaximum({...frame,mode:'dis',kept:1})).toBe(false);
+  expect(hasDrukMaximum({...frame,mode:'adv',kept:0})).toBe(true);
+  expect(hasDrukMaximum({...frame,values:[null,null]})).toBe(false);
+  const percentile={...frame,done:true,critical:[false,false],sides:[10,10],values:[1,1],percentile:['tens','ones']} as import('../../shared/liveDiceTypes.js').LiveDiceFrame;
+  expect(hasDrukMaximum(percentile)).toBe(true);
+  expect(hasDrukMaximum({...percentile,values:[10,10]})).toBe(false);
+ });
+});
+
+// A non-maximum weapon also needs its full reading hold before a DM save.
+it.each([0,1,3])('keeps ordinary damage readable with %i modifiers before the next tray',count=>{
+ const timing=rollResultTimeline(count);
+ expect(timing.impact-timing.complete).toBe(LIVE_DICE_RESULT_HOLD_MS);
+ expect(liveCalculationWaitMs(count)).toBe(timing.impact+LIVE_PRESENTATION_SYNC_MS);
 });

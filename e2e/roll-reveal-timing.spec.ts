@@ -2,6 +2,7 @@ import { test, expect, type APIRequestContext, type Page } from '@playwright/tes
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
+import {expectUnclipped} from './helpers/rollVisibility';
 
 const connections: Socket[] = [];
 test.afterEach(() => connections.splice(0).forEach((socket) => socket.disconnect()));
@@ -120,6 +121,8 @@ test('skill and attack modifiers count into the total inside the original live t
     await expect(equation).toContainText(kind==='skill'?'STR':'hit');
     const row=(await f.snapshot()).rollLog.findLast(r=>r.reveal?.kind===(kind==='skill'?'check':'attack'))!;
     await expect(equation.locator('.rr-total')).toHaveText(String(row.total));
+    await expectUnclipped(equation.locator('.rr-equation-total'));
+    for(const modifier of await equation.locator('.rr-adjustment').all())await expectUnclipped(modifier);
     expect(await equation.evaluate(el=>{
       const equation=el.getBoundingClientRect(),card=el.closest('.roll-reveal')!.getBoundingClientRect();
       return equation.top>=card.top&&equation.bottom<=card.bottom&&equation.bottom<=innerHeight;

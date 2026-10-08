@@ -49,6 +49,7 @@ The relevant regression list includes:
 | Background shader preload for each character and DM, cold-load readiness | `dice-preload`, `live-dice-contract`, `spell-impact-timing` |
 | Animated settled dice, skippable reading hold, spell effects after compacting | `spell-impact-timing`, `roll-reveal-timing` |
 | Results, impacts, bonuses, initiative, reactions | `roll-reveal-timing`, `combat-moments`, `compact-checks`, `player-initiative` |
+| Roll text inside overflow bounds, grouped verdicts and first d20 entrance | `roll-layout`, `dice-rider-reading`, `save-privacy` |
 | Pending ownership, damage history, on-hit choices | `damage-prompt-ownership`, `damage-roll-log`, `smite-damage`, `hunters-mark`, `maneuver-damage`, `spell-execution`, `weapon-quick-menu` |
 | Combat controls and kill credit | `player-combat-layout`, `orb-kill-count` |
 | DM-granted leveling, ASIs, Wizard spells, mobile live HP dice | `level-up` |
@@ -68,18 +69,56 @@ a rest. Combined spell slots must not raise a class's spell-learning allowance.
 ## Optional captures and AI demonstrations
 
 `dice-rider-reading.spec.ts` exercises real attack, weapon damage, superiority
-dice and a target save. Consecutive rolls retain one card, crossfade for 180 ms,
-and acknowledge readiness only after that fade so the toss remains visible.
+dice and a target save. Consecutive rolls retain one card and acknowledge
+readiness after the artwork handoff so the toss remains visible.
+The outer roll window keeps fixed bounds throughout an automatic roll sequence,
+including new dice pools, modifier chips and DM saves. Its result areas reserve
+space and scroll within that space. Reserved result rows are compact, and the
+roll window uses viewport sizing independently of player HUD zoom. The browser
+checks that the canvas fills at least 80 percent of the window width on the
+desktop combat fixture. The tray fills its fixed viewport at the
+same apparent size for every pool. Existing physical dice-to-tray ratios are
+preserved: larger pools make dice appear smaller, without growing the visible
+tray, remounting its canvas or scaling the card. Different character/DM artwork
+retains its 360 ms crossfade within that viewport. Browser assertions measure
+card bounds, canvas visibility and actual projected deck corners across weapon,
+rider and save rolls, alongside the pool's unchanged physical die radius.
+Incoming dice
+bypass only their entry rim; the other three walls always collide. A small
+throw has an upward release velocity as well as horizontal travel and spin.
+The Orb leap menu becomes available at impact readiness, while the compact
+result remains readable; choosing a target clears that compact result.
+Druk maxima use one shared finale clock: 750 ms after the last modifier
+total finishes its 260 ms count-up, or 750 ms after the unmodified result is
+ready. Ordinary intermediate calculations include the same full 2.5-second reading hold as final results; the server adds 250 ms for packet/interpolation latency. The tray retains 1.75 seconds after the explosion before its handoff.
+The server uses the same schedule for intermediate weapon damage, so a
+superiority die/save cannot cut off the weapon finale. Discarded advantage
+dice and DM dice do not activate this clock.
 Results without modifiers retain their 2.5-second reading/effects hold. Set
 `DICE_RIDER_VIDEO` to capture this sequence with NVIDIA AV1.
 
 Camera panning is parked on `prototype/dice-table-camera-20261008` (commit
 `97e730c`). Its `dice-table-camera.spec.ts` and recordings are prototype evidence,
 not requirements for the production crossfade UI.
+The `dice-preload` browser suite waits for background preparation while the
+character chooser is still open, then verifies that the first d20 borrows a
+prepared scene and begins live physics within two seconds of clicking. It checks
+all three character themes and DM dice, shader errors and large heading size.
+Preloading includes every geometry/percentile variant plus critical materials,
+with at most three prospective player styles and the DM style resident. The
+selected character takes priority; queued themes yield when a roll begins.
 The `diceRendererCache` unit suite checks bounded retention, in-flight leases,
 large-pool disposal, session invalidation and maximum-roll state reset. The
 network contract checks that hidden DM rolls never reach either player while
 public player rolls still reach the DM and the rest of the party.
+
+`roll-layout` feeds presentation-boundary fixtures through the app's WebSocket
+listener (not fabricated combat evidence). It checks attack, check, spell outcome,
+damage, healing, 40 dice, grouped/private/advantage saves and initiative at four
+viewport sizes. `expectUnclipped` measures all overflow ancestors; ordinary
+Playwright visibility alone misses text hidden below a scroll container. The
+real `dice-rider-reading` and `save-privacy` sequences verify saving throw verdicts
+with authoritative physics, reading holds and hidden NPC modifiers intact.
 
 Measured-area contracts live in `areaSpells`, `spell-execution` and
 `live-dice-workflow`: place/confirm before casting, grouped saves and automatic

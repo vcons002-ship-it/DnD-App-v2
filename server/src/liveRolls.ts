@@ -1,4 +1,4 @@
-import {liveDiceResultWaitMs,liveCalculationWaitMs,LIVE_DICE_RESULT_HOLD_MS} from '../../shared/dicePresentationTiming.js';
+import {liveDiceResultWaitMs,liveCalculationWaitMs,LIVE_DICE_RESULT_HOLD_MS,LIVE_PRESENTATION_SYNC_MS,hasDrukMaximum} from '../../shared/dicePresentationTiming.js';
 import {randomInt,randomUUID} from 'node:crypto';
 import {createLiveWorld} from '../../shared/liveDicePhysics.js';
 import {withDiceSource,rollDice,type PhysicalDiceInfo} from '../../shared/dice.js';
@@ -167,8 +167,8 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
   if(!needsReading())return;
   lastFrame={...lastFrame!,seq:lastFrame!.seq+1,resultHoldMs:LIVE_DICE_RESULT_HOLD_MS};
   publish(lastFrame,lastInfo);
-  if(meta.waitForPresentation)await meta.waitForPresentation(lastFrame.id,LIVE_DICE_RESULT_HOLD_MS);
-  else if(roll===physicalFaces)await new Promise(resolve=>setTimeout(resolve,LIVE_DICE_RESULT_HOLD_MS));
+  if(meta.waitForPresentation)await meta.waitForPresentation(lastFrame.id,LIVE_DICE_RESULT_HOLD_MS+LIVE_PRESENTATION_SYNC_MS);
+  else if(roll===physicalFaces)await new Promise(resolve=>setTimeout(resolve,LIVE_DICE_RESULT_HOLD_MS+LIVE_PRESENTATION_SYNC_MS));
  };
  for(;;){
   let cursor=0;const undoHp=checkpointHpFx(),undoReactions=checkpointReactions();
@@ -198,7 +198,7 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
      lastFrame={...lastFrame,seq:lastFrame.seq+1,calculation:{...e.reveal,physical:true}};
      if(meta.burstTray?.current?.id===lastFrame.id)meta.burstTray.current.seq=Math.max(meta.burstTray.current.seq,lastFrame.seq+1);
      publish(lastFrame,lastInfo);
-     const ms=liveCalculationWaitMs(e.reveal.damageMods?.length??0);
+     const ms=liveCalculationWaitMs(e.reveal.damageMods?.length??0,hasDrukMaximum(lastFrame));
      if(meta.waitForPresentation)await meta.waitForPresentation(lastFrame.id,ms);
      else if(roll===physicalFaces)await new Promise(resolve=>setTimeout(resolve,ms));
     }

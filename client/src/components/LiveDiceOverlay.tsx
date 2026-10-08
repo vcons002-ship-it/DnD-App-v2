@@ -1,5 +1,5 @@
 import type {RollReveal} from '../../../shared/types';
-import {DIE_REVEAL_STAGGER_MS,liveDiceResultWaitMs} from '../../../shared/dicePresentationTiming';
+import {DIE_REVEAL_STAGGER_MS,DRUK_EXPLOSION_AFTER_TOTAL_MS,DICE_TOSS_ANTICIPATION_MS} from '../../../shared/dicePresentationTiming';
 import {diceFlightPoint,diceFlightKeyframes,DIE_FLASH_MS,DIE_REVEAL_MS} from '../lib/diceFlightPosition';
 import {useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import {useStore} from '../state/socket';
@@ -16,17 +16,16 @@ import {playCritical} from '../lib/sfx';
 
 /** Render authoritative poses with a short interpolation buffer. No local physics,
  * face reassignment, trajectory retry, or client-generated result. */
-export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=false,title,rollId,revealKind,resultHeader,diceTrigger,finaleMs}: {
- frame:LiveDiceFrame;result?:ReactNode;onSkip:()=>void;impactReady?:boolean;compact?:boolean;title?:string;rollId?:string;revealKind?:string;resultHeader?:{attacker:string;target?:string};diceTrigger?:RollReveal['diceTrigger'];finaleMs?:number;
+export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=false,title,rollId,revealKind,resultHeader,diceTrigger,explosionMs}: {
+ frame:LiveDiceFrame;result?:ReactNode;onSkip:()=>void;impactReady?:boolean;compact?:boolean;title?:string;rollId?:string;revealKind?:string;resultHeader?:{attacker:string;target?:string};diceTrigger?:RollReveal['diceTrigger'];explosionMs?:number;
 }){
  const skip=onSkip;
  const naturalCritical=liveNaturalCritical(frame),criticalPlayed=useRef<string>();
  useEffect(()=>{if(naturalCritical&&criticalPlayed.current!==frame.id){criticalPlayed.current=frame.id;playCritical();}},[naturalCritical,frame.id]);
  const finale=useRef<{id:string;deadline:number|null}>({id:frame.id,deadline:null});
  if(finale.current.id!==frame.id)finale.current={id:frame.id,deadline:null};
- if(frame.resultHoldMs!==undefined&&finale.current.deadline===null)finale.current.deadline=performance.now()+frame.resultHoldMs;
- if(finaleMs!==undefined&&finale.current.deadline===null)finale.current.deadline=performance.now()+finaleMs;
- if(frame.saveDice&&frame.done&&finale.current.deadline===null)finale.current.deadline=performance.now()+liveDiceResultWaitMs(frame.sides.length,true)-80;
+ if(frame.resultHoldMs!==undefined&&finale.current.deadline===null)finale.current.deadline=performance.now()+DRUK_EXPLOSION_AFTER_TOTAL_MS;
+ if(explosionMs!==undefined&&finale.current.deadline===null)finale.current.deadline=performance.now()+explosionMs;
  const links=useRef<SVGSVGElement>(null),triggerRef=useRef(diceTrigger);
  triggerRef.current=diceTrigger;
  const triggerColors=diceTrigger?.kind?['#e3b0ff']:['#89f3ff','#e3b0ff','#ffe296','#b0ffcf'];
@@ -39,13 +38,18 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  },[skip]);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const canvas=useRef<HTMLCanvasElement>(null),root=useRef<HTMLDivElement>(null),card=useRef<HTMLDivElement>(null);
- const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),bounds=useRef<DOMRect>();
- const layoutAnimation=useRef<Animation>();
+ const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),previousTheme=useRef(diceThemeForRoll(frame.className,frame.dmDice).id),handoffDuration=useRef(180),swappingTray=useRef(false);
  useLayoutEffect(()=>{
   const node=card.current;if(!node)return;
   const changed=previousId.current!==frame.id;
-  if(changed&&canvas.current)canvas.current.dataset.physicsElapsed='0';
-  if(changed&&canvas.current&&outgoing.current&&!reduced){
+  const nextTheme=diceThemeForRoll(frame.className,frame.dmDice).id;
+  if(changed){
+   swappingTray.current=nextTheme!==previousTheme.current;
+   handoffDuration.current=nextTheme!==previousTheme.current?360:180;
+   previousTheme.current=nextTheme;
+  }
+  if(changed&&canvas.current){canvas.current.dataset.physicsElapsed='0';canvas.current.dataset.rollPower='[]';canvas.current.dataset.explosionAt='';canvas.current.dataset.tossAnticipationAt='';}
+  if(changed&&swappingTray.current&&canvas.current&&outgoing.current&&!reduced){
    // Copy once per throw, never per frame. Keep the old rendered artwork while
    // the next material prepares, then crossfade into the actual incoming tray.
    const from=canvas.current,to=outgoing.current;
@@ -55,22 +59,13 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    to.style.opacity='1';to.dataset.phase='waiting';
   }
   previousId.current=frame.id;
-  layoutAnimation.current?.cancel();
-  const next=node.getBoundingClientRect(),old=bounds.current;bounds.current=next;
-  if(!reduced&&!compact&&old&&next.width&&next.height&&
-    (Math.abs(old.width-next.width)>1||Math.abs(old.height-next.height)>1||Math.abs(old.top-next.top)>1)){
-   layoutAnimation.current=node.animate([
-    {transform:`translate(${old.left+old.width/2-next.left-next.width/2}px,${old.top+old.height/2-next.top-next.height/2}px) scale(${old.width/next.width},${old.height/next.height})`},
-    {transform:'none'},
-   ],{duration:240,easing:'cubic-bezier(.2,.75,.25,1)'});
-  }
-  if(changed&&!reduced)node.querySelectorAll('.roll-reveal-title,.roll-reveal-who,.dice-tray-results').forEach(el=>el.animate([{opacity:0},{opacity:1}],{duration:180}));
+
  },[frame.id,compact,!!result,reduced]);
- useEffect(()=>()=>layoutAnimation.current?.cancel(),[]);
  const boxes=useRef<(HTMLSpanElement|null)[]>([]),flights=useRef<(HTMLSpanElement|null)[]>([]);
  const saveLabels=useRef<(HTMLSpanElement|null)[]>([]);
  const [arrived,setArrived]=useState<number[]>([]),[failed,setFailed]=useState(false),[prepared,setPrepared]=useState(false);
  const [bonusesShown,setBonusesShown]=useState(false);
+ if(frame.saveDice&&frame.done&&bonusesShown&&finale.current.deadline===null)finale.current.deadline=performance.now()+DRUK_EXPLOSION_AFTER_TOTAL_MS;
  useEffect(()=>{
    setBonusesShown(false);
    if(!frame.saveDice||!frame.done||(!failed&&arrived.length<frame.sides.length))return;
@@ -110,7 +105,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   // Revisiting an earlier completed throw for its arithmetic does not replay
   // number flights that the viewer already watched during the live roll.
   setArrived(result?frame.sides.map((_,i)=>i):[]);setFailed(false);setPrepared(false);
-  const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,handoffPainted=false,handoffReady=false,resultsStartedAt:number|undefined,firstRevealIndex=0;
+  const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,handoffPainted=false,handoffReady=false,zoomStartedAt:number|undefined,anticipationStartedAt:number|undefined,resultsStartedAt:number|undefined,firstRevealIndex=0;
   const viewPose=(poses:number[])=>own?poses:poses.map((v,i)=>{
     // Same physical world viewed from the other side of the table.
     const offset=i-i%7;
@@ -131,6 +126,9 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    lease=module.acquireLiveTrayRenderer(context,Array.from({length:capacity},(_,index)=>({sides:frame.sides[index]??8,value:1,index,set:frame.sets[index],crit:frame.critical[index],tens:frame.percentile[index]==='tens',ones:frame.percentile[index]==='ones'})),toss,theme,art);
    renderer=lease.value;root.current!.dataset.rendererReused=String(lease.reused);
    const node=canvas.current!,ctx=node.getContext('2d')!;
+   node.dataset.trayFootprint=JSON.stringify(renderer.trayFootprint());
+   node.dataset.trayScale=String(frame.trayScale??1);
+   node.dataset.diceRadius=String(frame.radius);
    const width=node.clientWidth||600;
    await Promise.all([
     reduced?Promise.resolve():renderer.prepare(width,width*10.2/15.2,Math.min(2,devicePixelRatio||1),()=>!stopped),
@@ -149,9 +147,12 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
      const oldPose=reset?b.frame.poses:a.frame.poses;
      toss.frames.set(viewPose(b.frame.poses),0);toss.frames.set(viewPose(oldPose),0);
      toss.frames.set(viewPose(b.frame.poses),capacity*7);
-      renderer!.setActiveCount(b.frame.sides.length);
+      // Initial poses belong outside the tray; do not show a motionless die
+      // hanging over the rim while the new tray is being introduced.
+      renderer!.setActiveCount(b.frame.elapsed>0?b.frame.sides.length:0);
       renderer!.setResults(b.frame.values);
-      renderer!.setFinaleDeadline(finale.current.deadline);
+      renderer!.setExplosionTime(finale.current.deadline);
+     if(zoomStartedAt===undefined)zoomStartedAt=now;
      if(!b.frame.done){resultsStartedAt=undefined;finalTrayDrawn=false;}
      const alpha=reset||a===b?1:Math.max(0,Math.min(1,(target-a.at)/(b.at-a.at)));
      const width=node.clientWidth||600,height=width*10.2/15.2,dpr=Math.min(2,devicePixelRatio||1);
@@ -165,6 +166,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
         node.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,shudder:p.shudder,pools:p.pools})));
        node.dataset.physicsElapsed=String(a.frame.elapsed+(b.frame.elapsed-a.frame.elapsed)*alpha);
        node.dataset.renderTime=String(now);
+       node.dataset.explosionAt=String(finale.current.deadline??'');
        finalTrayDrawn=b.frame.done&&alpha===1;
        const svg=links.current,trigger=triggerRef.current;
        if(svg){
@@ -190,13 +192,20 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
       handoffPainted=true;
       const cover=outgoing.current;
       if(!reduced&&cover?.dataset.phase==='waiting'){
-       cover.dataset.phase='crossfading';
-       const fade=cover.animate([{opacity:1},{opacity:0}],{duration:180,fill:'forwards'});animations.push(fade);
+       cover.dataset.phase='crossfading';cover.dataset.startedAt=String(now);
+       cover.dataset.kind='tray-swap';
+       const fade=cover.animate([{opacity:1,transform:'translateX(0)'},{opacity:0,transform:'translateX(-14px)'}],{duration:handoffDuration.current,easing:'ease-in-out',fill:'forwards'});animations.push(fade);
+       animations.push(node.animate([{opacity:0,transform:'translateX(14px)'},{opacity:1,transform:'none'}],{duration:handoffDuration.current,easing:'ease-in-out'}));
        fade.finished.then(()=>{if(!stopped){cover.style.opacity='0';cover.dataset.phase='idle';handoffReady=true;}}).catch(()=>{});
-      }else handoffReady=true;
+      }else if(cover){cover.style.opacity='0';cover.dataset.kind='same-tray';cover.dataset.phase='preparing';}
      }
-     // Begin physics after the crossfade, so none of the actual toss is hidden.
-     if(!readySent&&handoffReady){readySent=true;useStore.getState().socket?.emit('dice:ready',{id:frame.id});}
+     if(!swappingTray.current||reduced){handoffReady=now-zoomStartedAt>=handoffDuration.current||reduced;if(handoffReady&&outgoing.current)outgoing.current.dataset.phase='idle';}
+     // Finish the handoff, then leave a short visible beat before release.
+     // The server waits for this acknowledgement, so no live motion is skipped.
+     if(handoffReady&&anticipationStartedAt===undefined){anticipationStartedAt=now;node.dataset.tossAnticipationAt=String(now);}
+     if(!readySent&&anticipationStartedAt!==undefined&&(reduced||now-anticipationStartedAt>=DICE_TOSS_ANTICIPATION_MS)){
+       readySent=true;useStore.getState().socket?.emit('dice:ready',{id:frame.id});
+     }
      if(!result&&b.frame.done&&(finalWasDrawn||reduced)){
        // Start on the frame AFTER the final WebGL draw has painted. Otherwise
        // GPU work can consume the flash and make every stagger launch at once.
@@ -238,11 +247,15 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  const saveBonus=(i:number)=>{
    const result=saveResult(i),save=frame.saveDice![i],visible=!!result;
    return <span className="tray-save-outcome" data-outcome={result?.outcome} data-bonus-phase={visible?(bonusesShown?'complete':'adding'):'waiting'}>
+     <span className="tray-save-summary"><span className="tray-save-name" title={save.label}>{save.label}</span><b>{result?.outcome||'\u00a0'}</b></span>
      {!save.hideModifiers&&<><small>{save.rollKind==='initiative'?'Initiative bonus':'Save bonus'} <em>{visible?`${(save.modifier??0)>=0?'+':'−'}${Math.abs(save.modifier??0)}`:'\u00a0'}</em></small>
      <span className="tray-save-equation">{bonusesShown?result?.calculation:'\u00a0'}</span></>}
-     <b>{result?.outcome||'\u00a0'}</b>
      {bonusesShown&&result?.outcome!=='Discarded'&&(save.passEffect||save.failEffect)&&<small>{result?.outcome==='PASS'?save.passEffect:save.failEffect}</small>}
    </span>;
+ };
+ const saveVerdict=(i:number)=>{
+   const outcome=saveResult(i)?.outcome;
+   return outcome==='Adding bonuses…'?'Adding…':outcome??'Rolling…';
  };
  const resultStyle=(i:number)=>{
   const strength=dieResultEmphasis(liveDieResult(frame,i));
@@ -250,10 +263,11 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  };
  const target=resultHeader?resultHeader.target:frame.target;
  return <div className={`roll-reveal-backdrop${compact?' is-impact':''}`} data-live-dice={result||compact?undefined:'true'} data-live-calculation={frame.calculation?'true':undefined} data-result-hold-ms={frame.resultHoldMs} data-dice-presentation={result?'result':'live'} data-roll-id={frame.id}><div ref={card} className={`roll-reveal${naturalCritical?' roll-reveal-crit':''}`} data-roll-id={rollId??frame.id} data-reveal-kind={revealKind} data-dice-theme={theme.id} data-impact-ready={impactReady} role="status" aria-label="Live dice roll" onClick={skip} title="Click or tap to skip animation">
-  <div className="roll-reveal-title">{title??frame.label}</div>
+  <div className="roll-reveal-title" role="heading" aria-level={2} title={title??frame.label}>{title??frame.label}</div>
   <div className="roll-reveal-who">{resultHeader?.attacker??frame.roller}{target&&<span className="rr-arrow"> &rarr; {target}</span>}</div>
   {naturalCritical&&!compact&&<div className="roll-reveal-outcome tray-natural-critical" role="status" aria-label="Roll result">CRITICAL HIT!</div>}
   <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id.startsWith('dm-')?'purple-resin':theme.id} role="group" aria-label="Live dice tray">
+   <div className="dice-tray-viewport"><div className="dice-tray-stage">
    <canvas className="dice-tray-canvas" ref={canvas} aria-label={result?'Settled dice':'Server dice rolling live'}/>
    <canvas className="dice-tray-transition" ref={outgoing} data-phase="idle" aria-hidden="true"/>
    {frame.burstProgress&&!result&&!compact&&<div className="tray-burst-progress" data-burst-used={frame.burstProgress.used} data-burst-limit={frame.burstProgress.limit}>Bonus dice: <strong>{frame.burstProgress.used} of {frame.burstProgress.limit}</strong></div>}
@@ -269,13 +283,17 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
     </g>)}
     {frame.burstLinks?.map(link=><g key={link.to} style={{color:'#e3b0ff'}} data-burst-parent={link.from} data-burst-child={link.to}>{['aura','core','spark'].map(part=><path key={part} className={`tray-trigger-${part}`} data-from={link.from} data-to={link.to} markerEnd={part==='core'?`url(#burst-arrow-${frame.id})`:undefined}/>)}</g>)}
    </svg>}
+   </div></div>
    {frame.saveDice&&<div className="tray-save-labels" aria-hidden="true">{frame.saveDice.map((save,i)=><span key={i} ref={el=>{saveLabels.current[i]=el;}} className="tray-save-label">{save.label}{save.mode?` ${save.mode.toUpperCase()}`:''}</span>)}</div>}
    {(failed||reduced)&&<div className="dice-tray-status">{failed?'Live roll - graphics unavailable':frame.done?'Dice settled':'Live roll in progress'}</div>}
    <div className="tray-number-flights" aria-hidden="true">{frame.sides.map((_,i)=><span key={i} ref={el=>{flights.current[i]=el;}} style={resultStyle(i)} data-die-id={i} data-set={frame.sets[i]} data-strength={tier(i)} data-tone={frame.critical[i]?'critical':frame.done&&frame.mode?(frame.sets[i]===frame.kept?'kept':'discarded'):'normal'} className={`tray-flying-number${frame.critical[i]?' critical':''}`}><span className="tray-number-flash"/>{value(i)}</span>)}</div>
-   <div className="dice-tray-results">{frame.sides.map((side,i)=><span ref={el=>{boxes.current[i]=el;}} className={`tray-die-result${frame.critical[i]?' critical':''}`} data-die-id={i} data-trigger={triggerGroup(i)>=0?'matched':undefined} data-trigger-group={triggerGroup(i)>=0?triggerGroup(i):undefined} data-sides={side} data-value={frame.values[i]??undefined} data-set={frame.sets[i]} data-result={frame.done&&frame.mode?(frame.sets[i]===frame.kept?'kept':'discarded'):'rolling'} data-critical={!!frame.critical[i]} data-theme={theme.id} data-orientation={arrived.includes(i)||failed?'settled':'rolling'} aria-label={`d${side}: ${arrived.includes(i)||failed?value(i):'rolling'}`} data-filled={arrived.includes(i)||failed} data-strength={tier(i)} style={{...resultStyle(i),...(triggerGroup(i)>=0?{'--trigger-color':triggerColors[triggerGroup(i)%triggerColors.length]}:{}),...(frame.done&&frame.mode?{borderColor:frame.sets[i]===frame.kept?'#39ef87':'#ff5365',boxShadow:`0 0 6px ${frame.sets[i]===frame.kept?'#39ef87':'#ff5365'}`} : {})}} key={i}>{frame.saveDice?.[i]&&<small className="tray-save-name">{frame.saveDice[i].label}</small>}{frame.percentile[i]?`d100 ${frame.percentile[i]}`:`d${side}`}<strong>{arrived.includes(i)||failed?value(i):'?'}</strong><small className="tray-max-label" style={{visibility:(arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i))?'visible':'hidden'}} aria-hidden={!((arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i)))}>{dieResultLabel(liveDieResult(frame,i))}</small>{frame.saveDice?.[i]&&saveBonus(i)}{frame.rerolls[i]>0&&<small>Rerolled {frame.rerolls[i]} times</small>}</span>)}</div>
+   <div className="dice-tray-results">{frame.sides.map((side,i)=><span ref={el=>{boxes.current[i]=el;}} className={`tray-die-result${frame.critical[i]?' critical':''}`} data-die-id={i} data-trigger={triggerGroup(i)>=0?'matched':undefined} data-trigger-group={triggerGroup(i)>=0?triggerGroup(i):undefined} data-sides={side} data-value={frame.values[i]??undefined} data-set={frame.sets[i]} data-result={frame.done&&frame.mode?(frame.sets[i]===frame.kept?'kept':'discarded'):'rolling'} data-critical={!!frame.critical[i]} data-theme={theme.id} data-orientation={arrived.includes(i)||failed?'settled':'rolling'} aria-label={`d${side}: ${arrived.includes(i)||failed?value(i):'rolling'}`} data-filled={arrived.includes(i)||failed} data-strength={tier(i)} style={{...resultStyle(i),...(triggerGroup(i)>=0?{'--trigger-color':triggerColors[triggerGroup(i)%triggerColors.length]}:{}),...(frame.done&&frame.mode?{borderColor:frame.sets[i]===frame.kept?'#39ef87':'#ff5365',boxShadow:`0 0 6px ${frame.sets[i]===frame.kept?'#39ef87':'#ff5365'}`} : {})}} key={i}>{frame.saveDice?.[i]&&<small className="tray-save-name" title={frame.saveDice[i].label}>{frame.saveDice[i].label}</small>}{frame.percentile[i]?`d100 ${frame.percentile[i]}`:`d${side}`}<strong>{arrived.includes(i)||failed?value(i):'?'}</strong>{!frame.saveDice?.[i]&&<small className="tray-max-label" style={{visibility:(arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i))?'visible':'hidden'}} aria-hidden={!((arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i)))}>{dieResultLabel(liveDieResult(frame,i))}</small>}{frame.saveDice?.[i]&&<span className="tray-save-verdict" data-outcome={saveResult(i)?.outcome}>{saveVerdict(i)}</span>}{frame.rerolls[i]>0&&<small className="tray-reroll-count" title={`Rerolled ${frame.rerolls[i]} times`}>{"\u21bb"}{frame.rerolls[i]}</small>}</span>)}</div>
   </div>
+  <div className="tray-result-panel">
+  {frame.saveDice&&<div className="tray-save-details" aria-label={frame.saveDice[0]?.rollKind==='initiative'?'Initiative results':'Saving throw results'}>{frame.saveDice.map((_,i)=><span key={i}>{saveBonus(i)}</span>)}</div>}
   {diceTrigger&&!compact&&<div className="tray-trigger-result" role="status" data-dice-trigger={diceTrigger.kind??'matched'}><strong>{diceTrigger.title}</strong><span>{diceTrigger.detail}: {diceTrigger.groups.map((group,g)=><em key={g} style={{color:triggerColors[g%triggerColors.length]}}>{group.indices.length} {group.indices.length===1?'die':'dice'} showing {group.value}</em>)}</span></div>}
   {result&&<div className="tray-roll-result">{result}</div>}
+  </div>
   <div className="live-dice-footer"><span className="muted">{result?'':!prepared&&!failed?'Loading dice…':frame.done?'Dice settled':frame.rerolls.some(n=>n>0)?'Rerolling unreadable dice...':'Rolling...'}</span><button type="button" onClick={event=>{event.stopPropagation();skip();}} aria-label="Skip roll animation">Skip</button></div>
  </div></div>;
 }

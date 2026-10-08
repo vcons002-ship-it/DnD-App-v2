@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {io} from 'socket.io-client';
 import {DM_SECRET,PORT} from './playwright.config';
+import {expectUnclipped} from './helpers/rollVisibility';
 
 test('Ice Knife saves precede damage, stay private to the DM, and never replay afterward',async({page,request})=>{
  test.setTimeout(120000);
@@ -41,6 +42,8 @@ test('Ice Knife saves precede damage, stay private to the DM, and never replay a
   const dmSave=dmFrames.find(f=>f.done&&f.saveDice?.length===2);
   expect(dmSave.saveDice.every((d:any)=>Number.isFinite(d.modifier)&&Number.isFinite(d.dc))).toBe(true);
   await expect(page.locator('.tray-save-outcome').first()).toContainText(/PASS|FAIL/,{timeout:5000});
+  for(const verdict of await page.locator('.tray-save-verdict,.tray-save-outcome b').all())await expectUnclipped(verdict);
+  await page.screenshot({path:test.info().outputPath('grouped-save-outcomes.png')});
   await expect(page.locator('.tray-save-equation')).toHaveCount(0);
   await expect.poll(()=>playerFrames.some(f=>f.done&&f.sides.length===2&&f.sides.every((s:number)=>s===6)),{timeout:30000}).toBe(true);
   const completed=playerFrames.filter(f=>f.done).filter((f,i,a)=>a.findIndex(x=>x.id===f.id)===i);

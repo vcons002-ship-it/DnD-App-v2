@@ -3,7 +3,7 @@ import { Circle, Group, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { Token } from '../../../shared/types';
 import type { HpFloater } from '../state/socket';
-import {hpNumberStacks,hpNumberSequence,hpTotalTimeline,hpStackStart,HP_NUMBER_HOLD_MS,HP_NUMBER_FADE_MS,type HpNumber} from '../lib/hpFeedback';
+import {hpNumberStacks,hpNumberSequence,hpTotalTimeline,hpStackStart,HP_NUMBER_FADE_MS,HP_TOTAL_HOLD_MS,type HpNumber} from '../lib/hpFeedback';
 import {spellImpactStyle} from '../../../shared/spellImpact';
 import {mapToScreen,projectGround,type BattlefieldView} from './miniatureProjection';
 
@@ -423,8 +423,8 @@ function RunningTotal({numbers,position,fontSize,startAt,targetX,tokenId,headPos
       }
       const shown=Math.ceil(-amount),value=`\u2212${shown}`;
       if(value!==previousText){label.text(value);previousText=value;}
-      node.opacity(elapsed<milestones[0].delayMs-220?0:elapsed<=last.delayMs+HP_NUMBER_HOLD_MS?1:Math.max(0,1-(elapsed-last.delayMs-HP_NUMBER_HOLD_MS)/HP_NUMBER_FADE_MS));
-      if(elapsed>last.delayMs+HP_NUMBER_HOLD_MS+HP_NUMBER_FADE_MS)animation.stop();
+      node.opacity(elapsed<milestones[0].delayMs-220?0:elapsed<=last.delayMs+HP_TOTAL_HOLD_MS?1:Math.max(0,1-(elapsed-last.delayMs-HP_TOTAL_HOLD_MS)/HP_NUMBER_FADE_MS));
+      if(elapsed>last.delayMs+HP_TOTAL_HOLD_MS+HP_NUMBER_FADE_MS)animation.stop();
     },node.getLayer());
     animation.start();return()=>{animation.stop();};
   },[startAt,tokenId,headPosition,timingKey]);

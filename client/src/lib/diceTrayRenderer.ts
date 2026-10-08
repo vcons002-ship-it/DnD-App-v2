@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {createMaterialDie,getDiceStage} from './materialDice';
 import {trayFaceValues,type Toss,type TrayDie} from './diceTrayTypes';
 import {diePhysicalScale} from '../../../shared/diceTrayLayout';
+import {FIXED_DICE_RADIUS} from '../../../shared/diceTrayLayout';
 import type {DiceTheme} from '../../../shared/diceThemes';
 import {createDiceTrails} from './diceTrail';
 import {createWoodlandWake} from './diceWoodlandWake';
@@ -52,29 +53,40 @@ export function acquireLiveTrayRenderer(context:string,dice:TrayDie[],toss:Toss,
   if(lease.reused){art?.dispose();lease.value.resetForRoll(toss);}
   return lease;
 }
-export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean) {
+export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean,context?:string) {
   const pending=graphicsPending.get(theme.id);if(pending)return pending;
   graphicsPreload = graphicsPreload.then(async () => {
-    if (!canStart() || warmedDice.has(theme.id)) return;
-    const art = await loadTrayTexture(theme.id);
-    if (!canStart()) { art?.dispose(); return; }
-    const toss: Toss = {settleTimes: [], wallHits: 0, frames: new Float32Array(28),
-      frameCount: 2, step: 1, radius: .65, trayScale: 1, topFaces: [0, 0], duration: 1};
-    // One normal and one critical model cover the material variants without
-    // keeping an entire party's full dice sets in mobile GPU memory.
-    const renderer = createTrayRenderer([
-      {sides: 20, value: 1, index: 0, set: 0},
-      {sides: 6, value: 1, index: 1, set: 0, crit: true},
-    ], toss, theme, undefined, art, true);
-    try {
-      await renderer.prepare(320, 320 * 10.2 / 15.2, 1,canStart);
-      warmedDice.set(theme.id, renderer);
-      // Bound browser-session cache when a viewer switches among characters.
-      if (warmedDice.size > 4) {
-        const oldest = warmedDice.keys().next().value!;
-        warmedDice.get(oldest)!.dispose(); warmedDice.delete(oldest);
-      }
-    } catch (error) { renderer.dispose(); throw error; }
+    if (!canStart()) return;
+    if(!warmedDice.has(theme.id)){
+      const art = await loadTrayTexture(theme.id);
+      if (!canStart()) { art?.dispose(); return; }
+      // Prepare every geometry/number variant, including percentile and critical
+      // materials, before the player needs it. Keep at most four theme samples.
+      const dice:TrayDie[]=[4,6,8,10,12,20,10,10,6].map((sides,index)=>({
+        sides,value:1,index,set:0,tens:index===6,ones:index===7,crit:index===8,
+      }));
+      const toss: Toss = {settleTimes: [], wallHits: 0, frames: new Float32Array(dice.length*14),
+        frameCount: 2, step: 1, radius: .65, trayScale: 1, topFaces: dice.map(()=>0), duration: 1};
+      const renderer = createTrayRenderer(dice, toss, theme, undefined, art, true);
+      try {
+        await renderer.prepare(320, 320 * 10.2 / 15.2, 1,canStart);
+        warmedDice.set(theme.id, renderer);
+        // Bound browser-session cache when a viewer switches among characters.
+        if (warmedDice.size > 4) {
+          const oldest = warmedDice.keys().next().value!;
+          warmedDice.get(oldest)!.dispose(); warmedDice.delete(oldest);
+        }
+      } catch (error) { renderer.dispose(); throw error; }
+    }
+    if(context&&canStart()){
+      const art=await loadTrayTexture(theme.id);
+      if(!canStart()){art?.dispose();return;}
+      const toss:Toss={settleTimes:[],wallHits:0,frames:new Float32Array(14),frameCount:2,
+        step:1,radius:FIXED_DICE_RADIUS,trayScale:1,topFaces:[0],duration:1};
+      const lease=acquireLiveTrayRenderer(context,[{sides:20,value:1,index:0,set:0}],toss,theme,art);
+      try {await lease.value.prepare(320,320*10.2/15.2,1,canStart);}
+      finally {lease.release();}
+    }
   }).catch(() => {}); // Disabled WebGL retains the normal roll fallback.
   const task=graphicsPreload.finally(()=>graphicsPending.delete(theme.id));
   graphicsPending.set(theme.id,task);return task;
@@ -84,9 +96,11 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
   const trayScale=toss.trayScale??1;
   const tray=new THREE.Group();tray.scale.set(trayScale,trayScale,1);scene.add(tray);
-  const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60*trayScale);camera.position.set(0,-8,25).multiplyScalar(trayScale);camera.lookAt(0,0,.25);
+  // Frame every physical pool at the same apparent tray size. Larger pools
+  // retain their established dice-to-tray ratio and therefore look smaller.
+  const camera=new THREE.PerspectiveCamera(25,15.2/10.2,.1,60*trayScale);camera.position.set(0,-8,25).multiplyScalar(trayScale);camera.lookAt(0,0,.25*trayScale);camera.updateMatrixWorld();
   let tableScene:ReturnType<typeof createDiceTableScene>|undefined;
-  let tableKey='',sceneRevision=0,preparedSize='';
+  let tableKey='',sceneRevision=0,preparedSize='',compiledRevision=-1;
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.45));
   const light=new THREE.DirectionalLight(0xfff3dd,1.5);light.position.set(-9,3,6).multiplyScalar(trayScale);light.castShadow=true;light.shadow.mapSize.set(1024,1024);
   Object.assign(light.shadow.camera,{left:-10*trayScale,right:10*trayScale,top:8*trayScale,bottom:-8*trayScale,near:.1,far:35*trayScale});light.shadow.bias=-.0003;light.shadow.normalBias=.025;scene.add(light);
@@ -188,9 +202,16 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     startTableCamera(){tableScene?.run();},
     setTableMap(snapshot:StateSnapshot,viewerId?:string){tableScene?.map(snapshot,viewerId);},
     tableCameraState(){return tableScene?.state();},
+    trayFootprint(){
+      // Project the actual deck corners for browser framing checks.
+      return [[-7.4,-4.9],[7.4,-4.9],[7.4,4.9],[-7.4,4.9]].map(([x,y])=>{
+        const p=new THREE.Vector3(x*trayScale,y*trayScale,0).project(camera);
+        return {x:(p.x+1)/2,y:(1-p.y)/2};
+      });
+    },
     setReviewZoom(zoom:number){camera.zoom=zoom;camera.updateProjectionMatrix();},
     setResults(values:readonly (number|null)[]){liveResults=values;},
-    setFinaleDeadline(at:number|null|undefined){handles.forEach(h=>h.setExplosionAt(at==null?at:at-1000));},
+    setExplosionTime(at:number|null|undefined){handles.forEach(h=>h.setExplosionAt(at));},
     powerStates(){return handles.slice(0,activeCount).map(h=>h.powerState());},
     setActiveCount(count:number){activeCount=count;},
     trailPointCount(){return trails?.pointCount()??0;},
@@ -212,8 +233,10 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
         // Resin's transmission pass uses linear output without tone mapping.
         // compileAsync on the screen alone misses this variant, forcing the
         // driver to compile it synchronously inside the first actual render.
-        await compile(stage.linearCompileTarget);
-        await compile(null);
+        if(compiledRevision!==sceneRevision){
+          await compile(stage.linearCompileTarget);
+          await compile(null);compiledRevision=sceneRevision;
+        }
         // A live throw may begin while another theme compiles in the background.
         // Never resize/draw its shared canvas for a cancelled background warmup.
         if(canRender()){

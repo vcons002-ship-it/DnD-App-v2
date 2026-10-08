@@ -8,7 +8,7 @@ import { isOnHitManeuver } from '../../shared/maneuvers.js';
 import {runLiveCommand} from './liveRolls.js';
 import type {PhysicalDiceInfo} from '../../shared/dice.js';
 import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
-import {LIVE_DICE_RESULT_HOLD_MS} from '../../shared/dicePresentationTiming.js';
+import {LIVE_DICE_RESULT_HOLD_MS,LIVE_PRESENTATION_SYNC_MS} from '../../shared/dicePresentationTiming.js';
 
 afterEach(() => vi.restoreAllMocks());
 function arena(manual: boolean) {
@@ -109,7 +109,7 @@ it('holds maximum unmodified superiority d8s before requesting the save, without
  };
  const live=(run:()=>void)=>runLiveCommand(run,f=>{frame=f;},{label:'Attack',roller:'Fighter',className:'Fighter',waitForPresentation:async(_id,ms)=>{
   if(frame.resultHoldMs===undefined)return;
-  holds.push(frame);expect(ms).toBe(LIVE_DICE_RESULT_HOLD_MS);notify();
+  holds.push(frame);expect(ms).toBe(LIVE_DICE_RESULT_HOLD_MS+LIVE_PRESENTATION_SYNC_MS);notify();
   await new Promise<void>(resolve=>release=resolve);
  }},dice);
  await live(()=>{resolveAttack(f.s.id,'Fighter',f.a.id,f.b.id,0);});
