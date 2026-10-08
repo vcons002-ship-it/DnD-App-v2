@@ -71,14 +71,14 @@ a rest. Combined spell slots must not raise a class's spell-learning allowance.
 dice and a target save. Consecutive rolls retain one card, crossfade for 180 ms,
 and acknowledge readiness only after that fade so the toss remains visible.
 Different character/DM trays use a 360 ms sliding crossfade. Changes in tray
-size use a 320 ms uniform zoom; never stretch X and Y independently. Incoming dice
+size use a 460 ms camera zoom; never stretch X and Y independently. Card resizing is observed even when modifier chips change the layout within a roll. Incoming dice
 bypass only their entry rim; the other three walls always collide. A small
 throw has an upward release velocity as well as horizontal travel and spin.
 The Orb leap menu becomes available at impact readiness, while the compact
 result remains readable; choosing a target clears that compact result.
 Druk maxima use one shared finale clock: 750 ms after the last modifier
 total finishes its 260 ms count-up, or 750 ms after the unmodified result is
-ready. The tray retains 1.75 seconds after the explosion before its handoff.
+ready. Ordinary intermediate calculations include the same full 2.5-second reading hold as final results; the server adds 250 ms for packet/interpolation latency. The tray retains 1.75 seconds after the explosion before its handoff.
 The server uses the same schedule for intermediate weapon damage, so a
 superiority die/save cannot cut off the weapon finale. Discarded advantage
 dice and DM dice do not activate this clock.

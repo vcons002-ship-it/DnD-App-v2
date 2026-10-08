@@ -1,3 +1,4 @@
+import {writeFileSync} from 'node:fs';
 import {startAv1Capture} from './av1Recorder';
 import { test, expect } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
@@ -28,7 +29,7 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   const character = (await snapshot()).characters.find((c) => c.name === 'Druk')!;
   socket.emit('character:update', { characterId: character.id, className: 'Fighter', level: 3, armorClass: 1, maxHp: 200, curHp: 200,
     stats: { STR: 18, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
-    weapons: [{ name: 'Owner greatsword', kind: 'melee', damage: '2d6', damageType: 'slashing', attackBonus: 100 }] });
+    weapons: [{ name: 'Owner greatsword', kind: 'melee', damage: '8d6', damageType: 'slashing', attackBonus: 100 }] });
   socket.emit('session:setManualDamage', { manual });
   const png = await page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = 1000; canvas.height = 600;
@@ -108,7 +109,7 @@ const manual=true;test('unmodified superiority dice retain reading time before t
     const sample=()=>{
       const tray=document.querySelector('.roll-reveal-backdrop'),boxes=[...document.querySelectorAll('.tray-die-result')];
       const card=document.querySelector('.roll-reveal');if(card&&!cards.has(card))cards.set(card,++nextCard);
-      samples.push({time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),handoffKind:document.querySelector('.dice-tray-transition')?.getAttribute('data-kind'),explosionAt:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-explosion-at')||0),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
+      samples.push({time:performance.now(),card:card?cards.get(card):null,handoff:document.querySelector('.dice-tray-transition')?.getAttribute('data-phase'),handoffKind:document.querySelector('.dice-tray-transition')?.getAttribute('data-kind'),zoom:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-camera-zoom')||1),zoomProgress:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-zoom-progress')||0),calculation:!!document.querySelector('[data-live-calculation="true"]'),modifiers:document.querySelectorAll('.rr-adjustment').length,explosionAt:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-explosion-at')||0),physics:Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-physics-elapsed')||0),id:tray?.getAttribute('data-roll-id'),hold:tray?.getAttribute('data-result-hold-ms'),title:document.querySelector('.roll-reveal-title')?.textContent,filled:boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),power:JSON.parse(document.querySelector('.dice-tray-canvas')?.getAttribute('data-roll-power')||'[]')});
       if((window as any).__riderSampling)requestAnimationFrame(sample);
     };sample();
   });
@@ -128,6 +129,15 @@ const manual=true;test('unmodified superiority dice retain reading time before t
   expect(sequence.some((s:any)=>s.handoff==='crossfading')).toBe(true);
   expect(sequence.filter((s:any)=>s.handoff==='crossfading').every((s:any)=>s.physics===0),'The toss waits until the old tray has faded').toBe(true);
   expect(sequence.some((s:any)=>s.handoff==='idle'&&s.physics>0),'The new toss is visible after the fade').toBe(true);
+  const weapon=samples.find((s:any)=>s.calculation&&s.modifiers>0);
+  expect(weapon,'The weapon arithmetic is shown before the superiority die').toBeTruthy();
+  const weaponNext=samples.find((s:any)=>s.time>weapon.time&&s.id&&s.id!==weapon.id);
+  expect(weaponNext.time-weapon.time,'Read the finished weapon total before replacing it').toBeGreaterThanOrEqual(2500);
+  const zoomFrames=samples.filter((s:any)=>s.handoffKind==='tray-zoom'&&s.handoff==='crossfading');
+  expect(zoomFrames.length,'Different pool sizes zoom rather than just swapping artwork').toBeGreaterThan(5);
+  expect(zoomFrames.some((s:any)=>Math.abs(s.zoom-1)>.01)).toBe(true);
+  expect(zoomFrames.some((s:any)=>s.zoomProgress>.2&&s.zoomProgress<.8)).toBe(true);
+  expect(zoomFrames.every((s:any)=>s.physics===0)).toBe(true);
   const changedTray=samples.filter((s:any)=>s.handoffKind==='tray-swap'&&s.handoff==='crossfading');
   expect(changedTray.length).toBeGreaterThan(0);
   expect(changedTray.at(-1).time-changedTray[0].time).toBeGreaterThanOrEqual(300);
@@ -144,10 +154,13 @@ const manual=true;test('unmodified superiority dice retain reading time before t
     expect(samples.some((s:any)=>s.id===held.id&&s.power.some((p:any)=>p.maximum&&p.pools>0))).toBe(true);
   }
   await test.info().attach('rider-reading-timing',{body:JSON.stringify({heldMs:next.time-held.time,maximum:held.power.some((p:any)=>p.maximum),samples}),contentType:'application/json'});
-  if(capture)await capture.stop();
+  if(capture){
+    writeFileSync(process.env.DICE_RIDER_VIDEO!.replace(/\.mp4$/,'.json'),JSON.stringify({heldMs:next.time-held.time,samples},null,2));
+    await page.waitForTimeout(6000);await capture.stop();
+  }
   const after=await snapshot();
   const stages=completedDice(frames.slice(start));
-  expect(stages[0].sides).toEqual(Array(hit.pending!.crit?4:2).fill(6));
+  expect(stages[0].sides).toEqual(Array(hit.pending!.crit?16:8).fill(6));
   expect(stages[0].label).toMatch(/Weapon.*Damage/);
   expect(stages[1].sides).toEqual(Array(hit.pending!.crit?2:1).fill(8));
   expect(stages[1].label).toMatch(/Trip Attack/);

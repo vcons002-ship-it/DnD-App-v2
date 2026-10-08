@@ -1,4 +1,4 @@
-import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs,drukFinaleTimeline,liveCalculationWaitMs} from '../../shared/dicePresentationTiming.js';
+import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs,drukFinaleTimeline,liveCalculationWaitMs,LIVE_PRESENTATION_SYNC_MS,rollResultTimeline} from '../../shared/dicePresentationTiming.js';
 import {createSession,createCharacter,createMap,setActiveMap,createToken,createMonsterTemplate,instantiateMonster,setManualDamage,listRollLog,getMonster,getRollEntry,getCharacter,addRollLog} from './sessions.js';
 import {resolveAttack,resolveAttackDamage,resolveSmite} from './combat.js';
 import {buildSnapshot} from './visibility.js';
@@ -25,7 +25,7 @@ it('holds a final rider without a new result card, but does not delay a final at
  },frame=>frames.push(frame),{label:'Rider damage',roller:'Druk',className:'Fighter',waitForPresentation:async(_id,ms)=>{
   holds.push(ms);expect(listRollLog(session.id)).toHaveLength(0);expect(commits).toBe(0);
  }},dice);
- expect(holds).toEqual([LIVE_DICE_RESULT_HOLD_MS]);expect(commits).toBe(1);
+ expect(holds).toEqual([LIVE_DICE_RESULT_HOLD_MS+LIVE_PRESENTATION_SYNC_MS]);expect(commits).toBe(1);
  expect(frames.at(-1)?.resultHoldMs).toBe(LIVE_DICE_RESULT_HOLD_MS);
  holds.length=0;
  await runLiveCommand(()=>{
@@ -235,11 +235,11 @@ it('lands enlarged d10/d20 beside an unchanged d6 with floor contacts matching t
 });
 
 
-it.each([0,1,3])('keeps a maximum weapon roll through its finale before the next damage throw (%i modifiers)',async(count)=>{
+it.each([0,1,3].flatMap(count=>[false,true].map(maximum=>({count,maximum}))))('finishes a weapon result before the next damage throw ($count modifiers, maximum=$maximum)',async({count,maximum})=>{
  const holds:number[]=[];const order:string[]=[];
  const dice:typeof physicalFaces=async(sides,publish,meta)=>{
   order.push(meta.label);
-  const values=sides.map(side=>side);
+  const values=sides.map(side=>maximum?side:side-1);
   publish({id:String(order.length),seq:0,done:true,sides,values,label:meta.label,roller:'Druk',className:'Fighter',sets:sides.map(()=>0),critical:sides.map(()=>false),percentile:sides.map(()=>null),poses:[],rerolls:sides.map(()=>0),radius:1,elapsed:1});
   return values;
  };
@@ -250,9 +250,9 @@ it.each([0,1,3])('keeps a maximum weapon roll through its finale before the next
  },()=>{},{label:'Damage',roller:'Druk',className:'Fighter',waitForPresentation:async(_id,ms)=>{
   holds.push(ms);if(holds.length===1)expect(order).toHaveLength(1);
  }},dice);
- expect(holds[0]).toBe(drukFinaleTimeline(count).impact);
+ expect(holds[0]).toBe(rollResultTimeline(count,maximum).impact+LIVE_PRESENTATION_SYNC_MS);
  expect(order).toHaveLength(2);
- expect(holds[0]).toBe(liveCalculationWaitMs(count,true));
+ expect(holds[0]).toBe(liveCalculationWaitMs(count,maximum));
 });
 
 

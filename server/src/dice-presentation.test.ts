@@ -4,7 +4,7 @@ import { rollD20Detail, rollWeaponAttack } from '../../shared/combatMath.js';
 import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
 import { withRollComparison } from '../../shared/dicePresentation.js';
 import type { RollReveal, Weapon } from '../../shared/types.js';
-import {DIE_REVEAL_MS,DIE_REVEAL_STAGGER_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs,liveCalculationWaitMs,drukFinaleTimeline,hasDrukMaximum,DRUK_EXPLOSION_AFTER_TOTAL_MS,ROLL_MODIFIER_STEP_MS,ROLL_TOTAL_TWEEN_MS} from '../../shared/dicePresentationTiming.js';
+import {DIE_REVEAL_MS,DIE_REVEAL_STAGGER_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs,liveCalculationWaitMs,drukFinaleTimeline,hasDrukMaximum,DRUK_EXPLOSION_AFTER_TOTAL_MS,ROLL_MODIFIER_STEP_MS,ROLL_TOTAL_TWEEN_MS,LIVE_PRESENTATION_SYNC_MS,rollResultTimeline} from '../../shared/dicePresentationTiming.js';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -107,7 +107,7 @@ describe('Druk maximum finale clock',()=>{
   expect(timing.complete).toBe(count?count*ROLL_MODIFIER_STEP_MS+ROLL_TOTAL_TWEEN_MS:0);
   expect(timing.explosion-timing.complete).toBe(DRUK_EXPLOSION_AFTER_TOTAL_MS);
   expect(timing.impact-timing.explosion).toBe(1750);
-  expect(liveCalculationWaitMs(count,true)).toBe(timing.impact);
+  expect(liveCalculationWaitMs(count,true)).toBe(timing.impact+LIVE_PRESENTATION_SYNC_MS);
  });
  it('ignores DM dice and discarded maxima, including disadvantage',()=>{
   const frame={className:'Fighter',sides:[20,20],values:[20,4],sets:[0,1]} as import('../../shared/liveDiceTypes.js').LiveDiceFrame;
@@ -120,4 +120,11 @@ describe('Druk maximum finale clock',()=>{
   expect(hasDrukMaximum(percentile)).toBe(true);
   expect(hasDrukMaximum({...percentile,values:[10,10]})).toBe(false);
  });
+});
+
+// A non-maximum weapon also needs its full reading hold before a DM save.
+it.each([0,1,3])('keeps ordinary damage readable with %i modifiers before the next tray',count=>{
+ const timing=rollResultTimeline(count);
+ expect(timing.impact-timing.complete).toBe(LIVE_DICE_RESULT_HOLD_MS);
+ expect(liveCalculationWaitMs(count)).toBe(timing.impact+LIVE_PRESENTATION_SYNC_MS);
 });

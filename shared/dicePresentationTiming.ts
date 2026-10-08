@@ -23,8 +23,16 @@ export function hasDrukMaximum(frame:LiveDiceFrame){
     return maximum && (!frame.mode || frame.kept!==undefined && frame.sets[i]===frame.kept);
   });
 }
+/** One arithmetic + reading schedule for intermediate and final cards. */
+export function rollResultTimeline(modifiers:number,drukMaximum=false){
+  if(drukMaximum)return drukFinaleTimeline(modifiers);
+  const complete=modifiers ? modifiers*ROLL_MODIFIER_STEP_MS+ROLL_MODIFIER_COMPLETE_MS : 0;
+  return {complete,explosion:undefined,impact:complete+LIVE_DICE_RESULT_HOLD_MS};
+}
+/** Network/interpolation slack is not part of the visible reading clock. */
+export const LIVE_PRESENTATION_SYNC_MS=250;
 export const liveCalculationWaitMs=(modifiers:number,drukMaximum=false)=>
-  drukMaximum ? drukFinaleTimeline(modifiers).impact : (modifiers ? modifiers*ROLL_MODIFIER_STEP_MS+ROLL_MODIFIER_COMPLETE_MS : LIVE_DICE_RESULT_HOLD_MS)+500;
+  rollResultTimeline(modifiers,drukMaximum).impact+LIVE_PRESENTATION_SYNC_MS;
 export function liveDiceResultWaitMs(diceCount: number, groupedSave = false, readingHold = groupedSave) {
   // Cover interpolation/first-painted-frame latency as well as number flights.
   return 250 + DIE_REVEAL_MS + Math.max(0, diceCount - 1) * DIE_REVEAL_STAGGER_MS

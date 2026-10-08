@@ -1,6 +1,6 @@
 import type {RollReveal} from '../../../shared/types';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
-import {ROLL_MODIFIER_STEP_MS,ROLL_MODIFIER_COMPLETE_MS,LIVE_DICE_RESULT_HOLD_MS,drukFinaleTimeline} from '../../../shared/dicePresentationTiming';
+import {rollResultTimeline} from '../../../shared/dicePresentationTiming';
 import {DICE_TRIGGER_HOLD_MS} from '../../../shared/diceTriggers';
 
 /** A kept, confirmed attack face, never a save, modifier total or discarded 20. */
@@ -12,11 +12,7 @@ export function physicalRollTimeline(reveal:RollReveal,inlineTray:boolean,drukMa
  const burst=reveal.kind==='damage'||reveal.kind==='dice';
  const attackDamage=inlineTray&&!burst&&!!reveal.damageDice?.length;
  const adjustments=burst?reveal.damageMods??[]:attackDamage?[...(reveal.toHit??[]),...(reveal.damageMods??[])]:reveal.toHit??[];
- if(drukMaximum)return drukFinaleTimeline(adjustments.length);
- const complete=Math.max(reveal.diceTrigger?DICE_TRIGGER_HOLD_MS:0,burst&&!adjustments.length?LIVE_DICE_RESULT_HOLD_MS:adjustments.length*ROLL_MODIFIER_STEP_MS+ROLL_MODIFIER_COMPLETE_MS);
- // Unmodified damage already includes its reading phase in `complete`.
- // Every other roll gets one reading phase after arithmetic, never the legacy
- // 6.5/8-second hold on top. The finale finishes before the map impact begins.
- const readingIncluded=burst&&!adjustments.length?LIVE_DICE_RESULT_HOLD_MS:0;
- return {complete,explosion:undefined,impact:complete+LIVE_DICE_RESULT_HOLD_MS-readingIncluded};
+ const timing=rollResultTimeline(adjustments.length,drukMaximum);
+ const complete=Math.max(timing.complete,reveal.diceTrigger?DICE_TRIGGER_HOLD_MS:0);
+ return {...timing,complete,impact:timing.impact+(complete-timing.complete)};
 }

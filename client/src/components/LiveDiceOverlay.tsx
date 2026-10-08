@@ -38,15 +38,15 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  },[skip]);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const canvas=useRef<HTMLCanvasElement>(null),root=useRef<HTMLDivElement>(null),card=useRef<HTMLDivElement>(null);
- const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),previousTheme=useRef(diceThemeForRoll(frame.className,frame.dmDice).id),handoffDuration=useRef(180),previousTrayScale=useRef(frame.trayScale??1),handoffZoom=useRef(1),bounds=useRef<DOMRect>();
+ const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),previousTheme=useRef(diceThemeForRoll(frame.className,frame.dmDice).id),handoffDuration=useRef(180),previousTrayScale=useRef(frame.trayScale??1),handoffZoom=useRef(1),bounds=useRef<{left:number;top:number;width:number;height:number}>();
  const layoutAnimation=useRef<Animation>();
  useLayoutEffect(()=>{
   const node=card.current;if(!node)return;
   const changed=previousId.current!==frame.id;
   const nextTheme=diceThemeForRoll(frame.className,frame.dmDice).id;
   if(changed){
-   const scale=frame.trayScale??1;handoffZoom.current=Math.max(.5,Math.min(2,previousTrayScale.current/scale));
-   handoffDuration.current=nextTheme!==previousTheme.current?360:Math.abs(handoffZoom.current-1)>.01?320:180;
+   const scale=frame.trayScale??1;handoffZoom.current=previousTrayScale.current/scale;
+   handoffDuration.current=nextTheme!==previousTheme.current?360:Math.abs(handoffZoom.current-1)>.01?460:180;
    previousTheme.current=nextTheme;previousTrayScale.current=scale;
   }
   if(changed&&canvas.current)canvas.current.dataset.physicsElapsed='0';
@@ -60,18 +60,26 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    to.style.opacity='1';to.dataset.phase='waiting';
   }
   previousId.current=frame.id;
-  layoutAnimation.current?.cancel();
-  const next=node.getBoundingClientRect(),old=bounds.current;bounds.current=next;
-  const zoom=compact?1.1:old&&next.width&&next.height?Math.max(.5,Math.min(2,Math.sqrt(old.width*old.height/(next.width*next.height)))):1;
-  if(!reduced&&old&&next.width&&next.height&&
-    (Math.abs(old.width-next.width)>1||Math.abs(old.height-next.height)>1||Math.abs(old.top-next.top)>1)){
+  if(changed&&!reduced)node.querySelectorAll('.roll-reveal-title,.roll-reveal-who,.dice-tray-results').forEach(el=>el.animate([{opacity:0},{opacity:1}],{duration:180}));
+ },[frame.id,compact,!!result,reduced]);
+ // Result chips and wrapped dice boxes can resize a card without changing its
+ // frame ID. Observe layout sizes, not transformed rectangles from an animation.
+ useLayoutEffect(()=>{
+  const node=card.current;if(!node)return;
+  const resize=()=>{
+   const next={left:node.offsetLeft,top:node.offsetTop,width:node.offsetWidth,height:node.offsetHeight};
+   const old=bounds.current;bounds.current=next;
+   if(reduced||!old||!next.width||!next.height||Math.abs(old.width-next.width)<1&&Math.abs(old.height-next.height)<1)return;
+   layoutAnimation.current?.cancel();
+   const zoom=compact?1.1:Math.max(.5,Math.min(2,Math.abs(old.height-next.height)>Math.abs(old.width-next.width)?old.height/next.height:old.width/next.width));
    layoutAnimation.current=node.animate([
     {transform:`translate(${old.left+old.width/2-next.left-next.width/2}px,${old.top+old.height/2-next.top-next.height/2}px) scale(${zoom})`},
     {transform:'none'},
-   ],{duration:320,easing:'cubic-bezier(.2,.75,.25,1)'});
-  }
-  if(changed&&!reduced)node.querySelectorAll('.roll-reveal-title,.roll-reveal-who,.dice-tray-results').forEach(el=>el.animate([{opacity:0},{opacity:1}],{duration:180}));
- },[frame.id,compact,!!result,reduced]);
+   ],{duration:460,easing:'cubic-bezier(.2,.75,.25,1)'});
+  };
+  resize();const observer=new ResizeObserver(resize);observer.observe(node);
+  return()=>observer.disconnect();
+ },[compact,reduced]);
  useEffect(()=>()=>layoutAnimation.current?.cancel(),[]);
  const boxes=useRef<(HTMLSpanElement|null)[]>([]),flights=useRef<(HTMLSpanElement|null)[]>([]);
  const saveLabels=useRef<(HTMLSpanElement|null)[]>([]);
@@ -117,7 +125,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   // Revisiting an earlier completed throw for its arithmetic does not replay
   // number flights that the viewer already watched during the live roll.
   setArrived(result?frame.sides.map((_,i)=>i):[]);setFailed(false);setPrepared(false);
-  const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,handoffPainted=false,handoffReady=false,resultsStartedAt:number|undefined,firstRevealIndex=0;
+  const animations:Animation[]=[];const launched=new Map<number,number>();let finalTrayDrawn=false,readySent=false,handoffPainted=false,handoffReady=false,zoomStartedAt:number|undefined,resultsStartedAt:number|undefined,firstRevealIndex=0;
   const viewPose=(poses:number[])=>own?poses:poses.map((v,i)=>{
     // Same physical world viewed from the other side of the table.
     const offset=i-i%7;
@@ -159,6 +167,12 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
       renderer!.setActiveCount(b.frame.sides.length);
       renderer!.setResults(b.frame.values);
       renderer!.setExplosionTime(finale.current.deadline);
+     if(zoomStartedAt===undefined)zoomStartedAt=now;
+     const zoomProgress=reduced?1:Math.min(1,(now-zoomStartedAt)/handoffDuration.current);
+     const zoomEase=zoomProgress*zoomProgress*(3-2*zoomProgress);
+     const cameraZoom=1+(1/handoffZoom.current-1)*(1-zoomEase);
+     renderer!.setReviewZoom(cameraZoom);
+     node.dataset.cameraZoom=String(cameraZoom);node.dataset.zoomProgress=String(zoomProgress);
      if(!b.frame.done){resultsStartedAt=undefined;finalTrayDrawn=false;}
      const alpha=reset||a===b?1:Math.max(0,Math.min(1,(target-a.at)/(b.at-a.at)));
      const width=node.clientWidth||600,height=width*10.2/15.2,dpr=Math.min(2,devicePixelRatio||1);
@@ -199,10 +213,10 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
       const cover=outgoing.current;
       if(!reduced&&cover?.dataset.phase==='waiting'){
        cover.dataset.phase='crossfading';
-       cover.dataset.kind=handoffDuration.current===360?'tray-swap':handoffDuration.current===320?'tray-zoom':'same-tray';
+       cover.dataset.kind=handoffDuration.current===360?'tray-swap':handoffDuration.current===460?'tray-zoom':'same-tray';
        const swapping=handoffDuration.current===360,zoom=handoffZoom.current;
        const fade=cover.animate([{opacity:1,transform:'translateX(0)'},{opacity:0,transform:`translateX(${swapping?-14:0}px) scale(${zoom})`}],{duration:handoffDuration.current,easing:'ease-in-out',fill:'forwards'});animations.push(fade);
-       if(swapping||Math.abs(zoom-1)>.01)animations.push(node.animate([{opacity:0,transform:`translateX(${swapping?14:0}px) scale(${1/zoom})`},{opacity:1,transform:'none'}],{duration:handoffDuration.current,easing:'ease-in-out'}));
+       if(swapping)animations.push(node.animate([{opacity:0,transform:'translateX(14px)'},{opacity:1,transform:'none'}],{duration:handoffDuration.current,easing:'ease-in-out'}));
        fade.finished.then(()=>{if(!stopped){cover.style.opacity='0';cover.dataset.phase='idle';handoffReady=true;}}).catch(()=>{});
       }else handoffReady=true;
      }
