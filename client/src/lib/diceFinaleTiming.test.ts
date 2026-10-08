@@ -25,7 +25,7 @@ describe('natural critical and molten finale timing',()=>{
  });
  it('keeps unmodified damage readable after its number flights',()=>{
   const reveal={kind:'damage',outcome:'hit',attacker:'Druk'} as const;
-  expect(physicalRollTimeline(reveal,true,true).impact).toBe(2000);
-  expect(physicalRollTimeline(reveal,true,false).impact).toBe(2000);
+  expect(physicalRollTimeline(reveal,true,true).impact).toBe(2500);
+  expect(physicalRollTimeline(reveal,true,false).impact).toBe(2500);
  });
 });

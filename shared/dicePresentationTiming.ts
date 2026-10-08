@@ -4,7 +4,7 @@ export const DIE_FLIGHT_MS = 650;
 export const DIE_REVEAL_MS = DIE_FLASH_MS + DIE_FLIGHT_MS;
 export const DIE_REVEAL_STAGGER_MS = 80;
 /** Reading time belongs after arithmetic, not between faces and modifiers. */
-export const LIVE_DICE_RESULT_HOLD_MS = 2000;
+export const LIVE_DICE_RESULT_HOLD_MS = 2500;
 export const ROLL_MODIFIER_STEP_MS = 550;
 export const ROLL_MODIFIER_COMPLETE_MS = 900;
 export const liveCalculationWaitMs=(modifiers:number)=>

@@ -7,6 +7,8 @@ import { getManeuver } from './maneuvers/srd.js';
 import { isOnHitManeuver } from '../../shared/maneuvers.js';
 import {runLiveCommand} from './liveRolls.js';
 import type {PhysicalDiceInfo} from '../../shared/dice.js';
+import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
+import {LIVE_DICE_RESULT_HOLD_MS} from '../../shared/dicePresentationTiming.js';
 
 afterEach(() => vi.restoreAllMocks());
 function arena(manual: boolean) {
@@ -93,4 +95,35 @@ it('rolls Pushing Attack only after the hit, then saves its already chosen targe
  expect(requests[3].info?.target?.refId).toBe(f.target.id);
  expect(listRollLog(f.s.id).some(e=>e.apply)).toBe(false);
  expect(getCharacter(f.ch.id)!.resources['Superiority Dice'].used).toBe(1);
+});
+
+it('holds maximum unmodified superiority d8s before requesting the save, without committing the hit early',async()=>{
+ const f=arena(true);updateCharacter(f.ch.id,{weapons:[{name:'Sword',kind:'melee',damage:'1d6',attackBonus:100}]});
+ setSheetAbility('pc',f.ch.id,{...getManeuver('Pushing Attack')!,id:'push'});
+ const requests:number[][]=[],holds:LiveDiceFrame[]=[];let frame:LiveDiceFrame,release:()=>void=()=>{};
+ let notify:()=>void=()=>{};const reachedHold=new Promise<void>(resolve=>notify=resolve);
+ const dice=async(sides:number[],publish:(f:LiveDiceFrame)=>void,meta:any)=>{
+  requests.push(sides);
+  const values=sides.map(s=>s===20?20:s===8?8:4);
+  publish({id:`throw-${requests.length}`,seq:0,done:true,sides,values,label:meta.label,roller:'Fighter',className:'Fighter',sets:sides.map(()=>0),critical:sides.map(()=>false),percentile:sides.map(()=>null),poses:[],rerolls:sides.map(()=>0),radius:1,elapsed:1});return values;
+ };
+ const live=(run:()=>void)=>runLiveCommand(run,f=>{frame=f;},{label:'Attack',roller:'Fighter',className:'Fighter',waitForPresentation:async(_id,ms)=>{
+  if(frame.resultHoldMs===undefined)return;
+  holds.push(frame);expect(ms).toBe(LIVE_DICE_RESULT_HOLD_MS);notify();
+  await new Promise<void>(resolve=>release=resolve);
+ }},dice);
+ await live(()=>{resolveAttack(f.s.id,'Fighter',f.a.id,f.b.id,0);});
+ expect(holds).toHaveLength(0); // Natural 20 still goes straight to attack modifiers.
+ const hit=listRollLog(f.s.id).find(e=>e.pending)!;
+ const pending=live(()=>{expect(resolveManeuver(f.s.id,'Fighter',hit.id,'push').ok).toBe(true);});
+ await reachedHold;
+ expect(requests).toEqual([[20],[6,6],[8,8]]);
+ expect(holds[0].values).toEqual([8,8]);expect(holds[0].calculation).toBeUndefined();
+ expect(getCharacter(f.target.id)!.curHp).toBe(200);
+ expect(getCharacter(f.ch.id)!.resources['Superiority Dice'].used).toBe(0);
+ expect(getRollEntry(hit.id)!.pending!.done).not.toBe(true);
+ release();await pending;
+ expect(requests.at(-1)).toEqual([20]);expect(holds).toHaveLength(1);
+ expect(getCharacter(f.ch.id)!.resources['Superiority Dice'].used).toBe(1);
+ expect(getCharacter(f.target.id)!.curHp).toBeLessThan(200);
 });

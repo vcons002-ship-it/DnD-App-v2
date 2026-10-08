@@ -84,7 +84,7 @@ describe('Hail of Thorns on a ranged hit',()=>{
   expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(1);
  });
  it.each([false,true])('presents bow modifiers on the weapon throw before mark/burst/saves (mark=%s), atomically',async(mark)=>{
-  const f=fixture(),order:string[]=[],calculations:any[]=[];
+  const f=fixture(),order:string[]=[],calculations:any[]=[];let reading=false;
   if(mark){
     const ab={id:'mark',name:"Hunter's Mark",type:'spell' as const,level:1,description:'',tags:['concentration']};setSheetAbility('pc',f.ch.id,ab);
     expect(castMark(f.s.id,'pc',f.ch.id,ab,f.main.t.id,1)).toBe(true);
@@ -103,13 +103,19 @@ describe('Hail of Thorns on a ranged hit',()=>{
   await runLiveCommand(()=>{resolveAttack(f.s.id,'Varis',f.at.id,f.main.t.id,0);},()=>{},meta,dice);
   const hit=listRollLog(f.s.id).find(r=>r.pending)!;order.length=0;
   await runLiveCommand(()=>{expect(resolveHitFeature(f.s.id,'Varis',hit.id,f.ab.id,2).ok).toBe(true);},frame=>{
+    reading=frame.resultHoldMs!==undefined;
+    if(reading){
+      order.push('reading hold');expect(frame.resultHoldMs).toBe(2500);
+      expect(getMonster(f.main.m.id)!.curHp).toBe(100);
+      expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(0);
+    }
     if(frame.calculation){order.push('bow calculation');calculations.push(frame.calculation);
       expect(frame.sides,'DEX is calculated over the weapon die, not the mark d6').toEqual([8]);
       expect(getMonster(f.main.m.id)!.curHp).toBe(100);
       expect(getCharacter(f.ch.id)!.spellSlots.L2.used).toBe(0);
     }
-  },{...meta,waitForPresentation:async()=>{order.push('calculation hold');}},dice);
-  expect(order).toEqual(['dice:8','bow calculation','calculation hold',...(mark?['dice:6']:[]),'dice:10,10','dice:20,20']);
+  },{...meta,waitForPresentation:async()=>{if(!reading)order.push('calculation hold');}},dice);
+  expect(order).toEqual(['dice:8','bow calculation','calculation hold',...(mark?['dice:6','reading hold']:[]),'dice:10,10','reading hold','dice:20,20']);
   expect(calculations).toHaveLength(1);
   expect(calculations[0]).toMatchObject({title:'Bow — Damage Roll',damage:9,damageMods:[{label:'DEX',value:5}]});
   expect(listRollLog(f.s.id).find(r=>r.label==='Damage')?.reveal?.presentedLive).toBe(true);
