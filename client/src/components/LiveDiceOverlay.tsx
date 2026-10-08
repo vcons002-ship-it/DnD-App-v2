@@ -112,15 +112,18 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   const capacity=frame.burstCapacity??frame.sides.length;
   const toss:Toss={settleTimes:[],wallHits:0,frames:new Float32Array(capacity*14),frameCount:2,step:1,radius:frame.radius,trayScale:frame.trayScale,topFaces:Array(capacity).fill(0),duration:1};
   void (async()=>{
+   const preparation={started:performance.now(),graphics:0,models:0,table:0,compiled:0};
    const module=await import('../lib/diceTrayRenderer');
-   // A background compile already in progress shares this WebGL renderer. Finish
-   // it before preparing/drawing the live tray, while server physics is paused.
-   await module.waitForDiceGraphics();
+   // Wait for this material, without holding a player's throw behind a different
+   // theme's background shader compile. Preparation restores shared GPU state.
+   await Promise.all([module.waitForDiceGraphics(theme.id),reduced?Promise.resolve():module.prepareDiceTableTexture()]);
    if(stopped)return;
+   preparation.graphics=performance.now();
    root.current!.dataset.dicePreloaded=String(module.diceGraphicsPreloaded(theme.id));
    const art=await module.loadTrayTexture(theme.id);
    if(stopped){art?.dispose();return;}
    renderer=module.createTrayRenderer(Array.from({length:capacity},(_,index)=>({sides:frame.sides[index]??8,value:1,index,set:frame.sets[index],crit:frame.critical[index],tens:frame.percentile[index]==='tens',ones:frame.percentile[index]==='ones'})),toss,theme,undefined,art,true);
+   preparation.models=performance.now();
    tableRenderer.current=renderer;
    const ownId=viewer.snapshot?.characters.find(c=>c.claimedBy===viewer.socket?.id)?.id;
    const seats=diceTableSeats(viewer.snapshot?.characters??[],ownId,c=>diceThemeForClass(c).id);
@@ -134,11 +137,13 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    }
    const node=canvas.current!,ctx=node.getContext('2d')!;
    const width=node.clientWidth||600;
+   preparation.table=performance.now();
    await Promise.all([
     reduced?Promise.resolve():renderer.prepare(width,width*10.2/15.2,Math.min(2,devicePixelRatio||1)),
     ...Array.from(root.current!.parentElement!.getAnimations()).map(a=>a.finished.catch(()=>{})),
    ]);
    if(stopped)return;
+   preparation.compiled=performance.now();root.current!.dataset.preparation=JSON.stringify(preparation);
    setPrepared(true);
    const draw=(now:number)=>{
     if(stopped)return;

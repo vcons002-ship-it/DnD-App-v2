@@ -3,6 +3,27 @@ import {DICE_TABLE_PAN_MS,diceTableCameraPose,type DiceTableSeat} from './diceTa
 import {createDiceTableMap} from './diceTableMap';
 import type {StateSnapshot} from '../../../shared/types';
 
+// The lacquer grain is identical for every seat and throw. Keep one browser-
+// session texture instead of rasterizing and uploading 263,000 points per roll.
+let tableGrain:THREE.CanvasTexture|undefined;
+let tableWarmup:Promise<void>|undefined;
+export function preloadDiceTableTexture(){
+ return tableWarmup??= (async()=>{
+  const started=performance.now();
+  const wood=document.createElement('canvas');wood.width=2048;wood.height=1024;
+  const ctx=wood.getContext('2d')!;ctx.fillStyle='#382217';ctx.fillRect(0,0,2048,1024);
+  for(let y=0;y<1024;y++){
+   const tone=30+Math.sin(y*.71)*5+Math.sin(y*.033)*7;ctx.strokeStyle=`rgb(${tone+28},${tone+5},${tone*.65})`;
+   ctx.beginPath();for(let x=0;x<=2048;x+=8){const knot=Math.exp(-(((x-1270)/330)**2)-((y-610)/220)**2)*Math.sin((x-1270)*.005)*48;const yy=y+Math.sin(x*.003+y*.008)*5+knot;x?ctx.lineTo(x,yy):ctx.moveTo(x,yy);}ctx.stroke();
+   // Yield while preparing the first texture so map input remains responsive.
+   if(y%64===63)await new Promise<void>(resolve=>setTimeout(resolve,0));
+  }
+  for(let y=0;y<1024;y+=256){ctx.fillStyle='#080402';ctx.fillRect(0,y,2048,2);}
+  tableGrain=new THREE.CanvasTexture(wood);tableGrain.colorSpace=THREE.SRGBColorSpace;
+  performance.measure('dice-table-texture-preparation',{start:started,end:performance.now()});
+ })();
+}
+
 /** Decorative trays share the active tray's geometry; only their materials and
  * nameplates are additional. No inactive dice or physics worlds are created. */
 export function createDiceTableScene(scene:THREE.Scene,tray:THREE.Group,camera:THREE.PerspectiveCamera,scale:number,seats:readonly DiceTableSeat[],activeId:string,fromId:string|undefined,art:ReadonlyMap<string,THREE.Texture>){
@@ -12,14 +33,8 @@ export function createDiceTableScene(scene:THREE.Scene,tray:THREE.Group,camera:T
  const bed=tray.children.find(c=>c.name==='tray-bed') as THREE.Mesh;
  const minX=Math.min(...seats.map(s=>s.x))-10,maxX=Math.max(...seats.map(s=>s.x))+10;
  const minY=Math.min(...seats.map(s=>s.y))-8,maxY=Math.max(...seats.map(s=>s.y))+8;
- const wood=document.createElement('canvas');wood.width=2048;wood.height=1024;
- const ctx=wood.getContext('2d')!;ctx.fillStyle='#382217';ctx.fillRect(0,0,2048,1024);
- for(let y=0;y<1024;y++){
-  const tone=30+Math.sin(y*.71)*5+Math.sin(y*.033)*7;ctx.strokeStyle=`rgb(${tone+28},${tone+5},${tone*.65})`;
-  ctx.beginPath();for(let x=0;x<=2048;x+=8){const knot=Math.exp(-(((x-1270)/330)**2)-((y-610)/220)**2)*Math.sin((x-1270)*.005)*48;const yy=y+Math.sin(x*.003+y*.008)*5+knot;x?ctx.lineTo(x,yy):ctx.moveTo(x,yy);}ctx.stroke();
- }
- for(let y=0;y<1024;y+=256){ctx.fillStyle='#080402';ctx.fillRect(0,y,2048,2);}
- const grain=new THREE.CanvasTexture(wood);grain.colorSpace=THREE.SRGBColorSpace;textures.push(grain);
+ if(!tableGrain)throw new Error('Dice table texture has not been prepared');
+ const grain=tableGrain;
  // An explicit map keeps the lacquer reflection independent of the brighter
  // scene environment used to make the dice inlays readable.
  const tableGeometry=new THREE.BoxGeometry((maxX-minX)*scale,(maxY-minY)*scale,.5),tableMaterial=new THREE.MeshPhysicalMaterial({map:grain,color:0xffffff,roughness:.28,metalness:0,envMap:scene.environment,envMapIntensity:.06,clearcoat:.3,clearcoatRoughness:.24});

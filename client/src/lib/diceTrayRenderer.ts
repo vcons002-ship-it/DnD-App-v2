@@ -6,7 +6,7 @@ import type {DiceTheme} from '../../../shared/diceThemes';
 import {createDiceTrails} from './diceTrail';
 import {createWoodlandWake} from './diceWoodlandWake';
 import {createShatterWorld} from './diceShatterPhysics';
-import {createDiceTableScene} from './diceTableScene';
+import {createDiceTableScene,preloadDiceTableTexture} from './diceTableScene';
 import type {DiceTableSeat} from './diceTableCamera';
 import type {StateSnapshot} from '../../../shared/types';
 
@@ -17,7 +17,20 @@ export const warmTrayGraphics=()=>{getDiceStage();};
 export async function loadTrayTexture(themeId:string){
   if(themeId.startsWith('dm-'))themeId='dm';
   if(!['fighter','ranger','sorcerer','dm'].includes(themeId))return undefined;
-  try{let promise=trayTextures.get(themeId);if(!promise){promise=new THREE.TextureLoader().loadAsync(`/art/dice-trays/${themeId}-v1.webp`);trayTextures.set(themeId,promise);}const t=(await promise).clone();t.colorSpace=THREE.SRGBColorSpace;return t;}catch{trayTextures.delete(themeId);return undefined;}
+  try{
+    let promise=trayTextures.get(themeId);
+    if(!promise){
+      promise=new THREE.TextureLoader().loadAsync(`/art/dice-trays/${themeId}-v1.webp`).then(texture=>{
+        texture.colorSpace=THREE.SRGBColorSpace;
+        const stage=getDiceStage();texture.anisotropy=stage.renderer.capabilities.getMaxAnisotropy();
+        // Retain a resident source, so disposing a throw's clones does not
+        // delete/re-upload the same full-resolution artwork on the next roll.
+        stage.renderer.initTexture(texture);return texture;
+      });
+      trayTextures.set(themeId,promise);
+    }
+    return (await promise).clone();
+  }catch{trayTextures.delete(themeId);return undefined;}
 }
 // Retain a small representative scene so Three.js keeps the compiled material
 // programs resident. Disposing it immediately would undo the shader preload.
@@ -25,12 +38,15 @@ export async function loadTrayTexture(themeId:string){
 // labels; actual live dice still receive their authoritative faces and poses.
 const warmedDice = new Map<string, ReturnType<typeof createTrayRenderer>>();
 let graphicsPreload: Promise<void> = Promise.resolve();
-export const waitForDiceGraphics = () => graphicsPreload;
+const graphicsPending=new Map<string,Promise<void>>();
+export const waitForDiceGraphics = (themeId?:string) => themeId===undefined?graphicsPreload:graphicsPending.get(themeId)??Promise.resolve();
 export const diceGraphicsPreloaded = (themeId: string) => warmedDice.has(themeId);
+export const prepareDiceTableTexture = preloadDiceTableTexture;
 export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean) {
+  const pending=graphicsPending.get(theme.id);if(pending)return pending;
   graphicsPreload = graphicsPreload.then(async () => {
     if (!canStart() || warmedDice.has(theme.id)) return;
-    const art = await loadTrayTexture(theme.id);
+    const [art] = await Promise.all([loadTrayTexture(theme.id),preloadDiceTableTexture()]);
     if (!canStart()) { art?.dispose(); return; }
     const toss: Toss = {settleTimes: [], wallHits: 0, frames: new Float32Array(28),
       frameCount: 2, step: 1, radius: .65, trayScale: 1, topFaces: [0, 0], duration: 1};
@@ -40,8 +56,11 @@ export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean) {
       {sides: 20, value: 1, index: 0, set: 0},
       {sides: 6, value: 1, index: 1, set: 0, crit: true},
     ], toss, theme, undefined, art, true);
+    // Keep the table's physical lacquer and nameplate programs resident too;
+    // otherwise each incoming throw recompiles them during its first paint.
+    renderer.setTableView([{id:'warm',name:'',themeId:theme.id,x:0,y:-18,side:'bottom'}],'warm',undefined,new Map());
     try {
-      await renderer.prepare(320, 320 * 10.2 / 15.2, 1);
+      await renderer.prepare(320, 320 * 10.2 / 15.2, 1,canStart);
       warmedDice.set(theme.id, renderer);
       // Bound browser-session cache when a viewer switches among characters.
       if (warmedDice.size > 4) {
@@ -50,7 +69,8 @@ export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean) {
       }
     } catch (error) { renderer.dispose(); throw error; }
   }).catch(() => {}); // Disabled WebGL retains the normal roll fallback.
-  return graphicsPreload;
+  const task=graphicsPreload.finally(()=>graphicsPending.delete(theme.id));
+  graphicsPending.set(theme.id,task);return task;
 }
 export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture,fixedFaces=false,dieThemes?:readonly DiceTheme[],appearance?:DiceAppearanceTest){
   appearance ??= {molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true,mossAgate:false,woodlandWake:true};
@@ -159,17 +179,33 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     setActiveCount(count:number){activeCount=count;},
     trailPointCount(){return trails?.pointCount()??0;},
     trailBranchCount(){return trails?.branchCount()??0;},
-    async prepare(width:number,height:number,dpr:number){
+    async prepare(width:number,height:number,dpr:number,canRender:()=>boolean=()=>true){
       // Launch poses start outside the camera. Warm visible dice, transmission,
       // textures and shadow passes before acknowledging readiness to the server.
       // This detached WebGL canvas is never shown during preparation.
       handles.forEach(h=>{h.object.position.set(0,0,toss.radius);h.updatePose(camera,performance.now());});
       handles.forEach(h=>h.prewarmShatter(true));
       const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
-      stage.renderer.setSize(rw,rh,false);
-      const previousShadows=stage.renderer.shadowMap.enabled;stage.renderer.shadowMap.enabled=true;
-      try {await stage.renderer.compileAsync(scene,camera);stage.renderer.render(scene,camera);}
-      finally {stage.renderer.shadowMap.enabled=previousShadows;handles.forEach(h=>h.prewarmShatter(false));}
+      const compile=(target:THREE.WebGLRenderTarget|null)=>{
+        const previousTarget=stage.renderer.getRenderTarget(),shadows=stage.renderer.shadowMap.enabled;
+        try {stage.renderer.shadowMap.enabled=true;stage.renderer.setRenderTarget(target);return stage.renderer.compileAsync(scene,camera);}
+        finally {stage.renderer.setRenderTarget(previousTarget);stage.renderer.shadowMap.enabled=shadows;}
+      };
+      try {
+        // Resin's transmission pass uses linear output without tone mapping.
+        // compileAsync on the screen alone misses this variant, forcing the
+        // driver to compile it synchronously inside the first actual render.
+        await compile(stage.linearCompileTarget);
+        await compile(null);
+        // A live throw may begin while another theme compiles in the background.
+        // Never resize/draw its shared canvas for a cancelled background warmup.
+        if(canRender()){
+          const shadows=stage.renderer.shadowMap.enabled;
+          try {stage.renderer.setSize(rw,rh,false);stage.renderer.shadowMap.enabled=true;stage.renderer.render(scene,camera);}
+          finally {stage.renderer.shadowMap.enabled=shadows;}
+        }
+      }
+      finally {handles.forEach(h=>h.prewarmShatter(false));}
     },
     setKeptSet(set:number|undefined){keptSet=set;rings.forEach((ring,i)=>(ring.material as THREE.MeshBasicMaterial).color.set(dice[i].set===set?0x39ef87:0xff5365));},
     numberPosition(index:number){

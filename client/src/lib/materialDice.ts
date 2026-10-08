@@ -44,7 +44,10 @@ function makeStage() {
   for (const [x,y,z,power] of [[-3,4,5,12],[4,1,2,8],[-2,-3,1,4]]) {
     const light=new THREE.PointLight(0xffffff,power);light.position.set(x,y,z);scene.add(light);
   }
-  return {renderer,scene,camera};
+  // Transmission renders the tray into linear color before the visible pass.
+  // A compile-only target lets callers warm that shader variant asynchronously.
+  const linearCompileTarget=new THREE.WebGLRenderTarget(1,1,{colorSpace:THREE.LinearSRGBColorSpace});
+  return {renderer,scene,camera,linearCompileTarget};
 }
 const vertex = `varying vec3 pos; varying vec3 nor; varying vec2 tex;
 void main(){pos=position;nor=normal;tex=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;

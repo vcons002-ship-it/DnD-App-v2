@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect,type CDPSession} from '@playwright/test';
 import {io,type Socket} from 'socket.io-client';
 import {DM_SECRET,PORT} from './playwright.config';
 import {startAv1Capture} from './av1Recorder';
@@ -24,6 +24,7 @@ test('fixed-zoom camera keeps the table mounted between rolls without an additio
   });return s;
  };
  let capture:Awaited<ReturnType<typeof startAv1Capture>>|undefined;
+ let profiler:CDPSession|undefined;
  try{
   const dm=await connect('dm');
   const snapshot=async()=>(await dm.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET})).snapshot;
@@ -42,9 +43,13 @@ test('fixed-zoom camera keeps the table mounted between rolls without an additio
   await expect(page.getByTestId('player-hud')).toBeVisible();await page.waitForTimeout(3500);
   await page.getByRole('button',{name:'Open chat and roll log',exact:true}).click();
   await page.locator('.chat-dice-options summary').click();
+  if(process.env.DICE_TABLE_PROFILE){
+   profiler=await page.context().newCDPSession(page);
+   await profiler.send('Profiler.enable');await profiler.send('Profiler.start');
+  }
   await page.evaluate(()=>{
    const samples:any[]=[];(window as any).__tableSamples=samples;(window as any).__tableSampling=true;
-   const sample=()=>{const canvas=document.querySelector('.dice-tray-canvas'),card=document.querySelector('.live-dice-card'),backdrop=document.querySelector('.roll-reveal-backdrop');if(canvas&&card){(window as any).__firstTableCanvas??=canvas;const camera=JSON.parse(canvas.getAttribute('data-table-camera')||'{}'),bounds=card.getBoundingClientRect(),view=canvas.getBoundingClientRect(),boxes=[...document.querySelectorAll('.tray-die-result')];samples.push({time:performance.now(),id:backdrop?.getAttribute('data-roll-id'),idle:backdrop?.getAttribute('data-table-idle')==='true',filled:document.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled'&&boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),bounds:{x:bounds.x,y:bounds.y,w:bounds.width,h:bounds.height,canvasY:view.y,canvasH:view.height},camera,physics:Number(canvas.getAttribute('data-physics-elapsed')||0),sameCanvas:canvas===(window as any).__firstTableCanvas});}else if((window as any).__firstTableCanvas)samples.push({missing:true});if((window as any).__tableSampling)requestAnimationFrame(sample);};sample();
+   const sample=()=>{const canvas=document.querySelector('.dice-tray-canvas'),card=document.querySelector('.live-dice-card'),backdrop=document.querySelector('.roll-reveal-backdrop');if(canvas&&card){(window as any).__firstTableCanvas??=canvas;const camera=JSON.parse(canvas.getAttribute('data-table-camera')||'{}'),bounds=card.getBoundingClientRect(),view=canvas.getBoundingClientRect(),boxes=[...document.querySelectorAll('.tray-die-result')];samples.push({time:performance.now(),id:backdrop?.getAttribute('data-roll-id'),idle:backdrop?.getAttribute('data-table-idle')==='true',filled:document.querySelector('.physics-dice-tray')?.getAttribute('data-status')==='settled'&&boxes.length>0&&boxes.every(b=>b.getAttribute('data-filled')==='true'),bounds:{x:bounds.x,y:bounds.y,w:bounds.width,h:bounds.height,canvasY:view.y,canvasH:view.height},camera,preloaded:document.querySelector('.physics-dice-tray')?.getAttribute('data-dice-preloaded'),preparation:JSON.parse(document.querySelector('.physics-dice-tray')?.getAttribute('data-preparation')||'null'),physics:Number(canvas.getAttribute('data-physics-elapsed')||0),sameCanvas:canvas===(window as any).__firstTableCanvas});}else if((window as any).__firstTableCanvas)samples.push({missing:true});if((window as any).__tableSampling)requestAnimationFrame(sample);};sample();
   });
   if(process.env.DICE_TABLE_VIDEO)capture=await startAv1Capture(page,process.env.DICE_TABLE_VIDEO);
   const turns=[{name:'Druk',expr:'2d6+4',side:'bottom'},{name:'Druk',expr:'1d20+6',side:'bottom'},{name:'Varis',expr:'1d8+3',side:'left'},{name:'Vanec',expr:'2d8',side:'right'},{name:'DM',expr:'1d20+2',side:'top'}];
@@ -65,6 +70,8 @@ test('fixed-zoom camera keeps the table mounted between rolls without an additio
    await page.waitForTimeout(300);
   }
   const samples=await page.evaluate(()=>{(window as any).__tableSampling=false;return (window as any).__tableSamples;});
+  expect(await page.evaluate(()=>performance.getEntriesByName('dice-table-texture-preparation').length),'All five rolls reuse one table texture').toBe(1);
+  if(profiler){const {profile}=await profiler.send('Profiler.stop');await test.info().attach('table-cpu-profile',{body:JSON.stringify(profile),contentType:'application/json'});}
   for(const turn of turns){
    const id=turn.name==='DM'?'dm':party.find((c:any)=>c.name===turn.name).id;
    const journey=samples.filter((s:any)=>s.camera.to===id);

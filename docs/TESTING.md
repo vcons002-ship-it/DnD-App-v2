@@ -67,6 +67,16 @@ a rest. Combined spell slots must not raise a class's spell-learning allowance.
 
 ## Optional captures and AI demonstrations
 
+`dice-table-camera.spec.ts` checks five real server rolls across all four seats:
+one mounted canvas, stable window size, camera completion before physics starts,
+one result-reading phase, and one shared wood-texture preparation. Its
+`table-camera-timing` attachment includes animation-frame timestamps and the
+graphics/model/table/compile preparation stages. Set `DICE_TABLE_PROFILE=1` to
+also attach a Chrome CPU profile; compare ordinary runs separately because the
+profiler itself adds overhead. `DICE_TABLE_VIDEO` selects an optional NVIDIA AV1
+output file, and `DICE_TABLE_MAP` supplies an optional preview map image. Video
+frame repeats measure capture cadence, not the app's animation-frame cadence.
+
 Measured-area contracts live in `areaSpells`, `spell-execution` and
 `live-dice-workflow`: place/confirm before casting, grouped saves and automatic
 occupants, no repeated apply clicks, and cancellation without spending a slot.
