@@ -1,6 +1,17 @@
 import {hasLineOfSight,type MapWall} from './mapWalls.js';
 import {lightIrradiance} from './lightFalloff.js';
 export const LOCAL_SHADOW_SOURCES=4;
+/** Bias in map space, scaled to the lamp height. A constant depth-buffer bias
+ * grows quadratically with distance and detaches ground shadows from bases. */
+export function localShadowContactBias(lightHeight:number){return Math.max(0,lightHeight)*.002;}
+/** Cube-face perspective depth. Subtract bias before projecting, so contact
+ * stays equally close at every distance and on every map scale. */
+export const localShadowDepthGlsl=`
+ float localShadowDepth(float z,vec4 params){
+   float biasedZ=max(params.x,z-params.w);
+   return params.y*(biasedZ-params.x)/(biasedZ*(params.y-params.x));
+ }
+`;
 export type ShadowCaster={id?:string;x:number;y:number;visible:boolean};
 type Source={id:string;x:number;y:number;height:number;radius:number;strength:number;carried?:boolean};
 /** A hip lantern passes through its carrier, but other lights still cast their shadow. */

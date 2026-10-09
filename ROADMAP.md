@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Keep local-light creature shadows attached to their bases. Apply the
+  contact offset in map space before perspective depth projection, avoiding
+  gaps that grow farther from a torch or lantern. GPU regression coverage
+  checks near/far contact, lit floor, two light heights and four map scales.
+
 - [x] Initiative follows live party sight, automatic wall fog, painted cover and
   heavy-darkness range/light rules. Remembered creatures do not enter on Auto;
   known party PCs remain eligible, explicit DM choices still win, and existing
