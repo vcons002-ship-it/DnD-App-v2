@@ -1,7 +1,7 @@
 import {LightDraft} from './LightDraft';
 import {useEffect, useState} from 'react';
 import type {MapState} from '../../../shared/types';
-import {DEFAULT_MAP_ENVIRONMENT, type MapEnvironment, type EnvironmentQuality} from '../../../shared/mapEnvironment';
+import {DEFAULT_MAP_ENVIRONMENT, mapShadowsEnabled, type MapEnvironment, type EnvironmentQuality} from '../../../shared/mapEnvironment';
 import {useStore} from '../state/socket';
 import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
 import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../../shared/mapEnvironmentPresets';
@@ -96,11 +96,18 @@ export function MapEnvironmentControls({map}:{map:MapState}){
       </fieldset>
       <fieldset><legend>Shadows</legend>
         {toggle('shadows','Token shadows')}
-        {settings.shadows&&settings.lighting==='dungeon'&&<small>Torches and lanterns set each creature’s shadow direction and length. Move a light or change its height to adjust the shadows.</small>}
-        {settings.shadows&&settings.lighting!=='dungeon'&&<>
+        {settings.shadows&&<>
+          <label className="environment-toggle"><input type="checkbox" checked={mapShadowsEnabled(settings)} onChange={e=>update({mapShadows:e.target.checked})}/>Map directional shadows</label>
+          <small>Night, Dungeon and heavy darkness default to shadows from torches and lanterns only. Enable map directional shadows to add the map’s fixed light direction.</small>
+        </>}
+        {settings.shadows&&mapShadowsEnabled(settings)&&<>
           <SettingSlider label="Shadow direction" value={settings.shadowDirectionDegrees} min={0} max={359} suffix="°" onCommit={v=>update({shadowDirectionDegrees:v})}/>
           <small>Outdoor light direction: 0° right, 90° down. Match the map art. Torches and lanterns also cast shadows from their own positions.</small>
           <SettingSlider label="Shadow length" value={settings.shadowLength} min={.1} max={4} step={.05} suffix="×" onCommit={v=>update({shadowLength:v})}/>
+          <SettingSlider label="Shadow darkness" value={settings.shadowOpacity*100} min={0} max={100} suffix="%" onCommit={v=>update({shadowOpacity:v/100})}/>
+        </>}
+        {settings.shadows&&!mapShadowsEnabled(settings)&&<>
+          <small>Torches and lanterns set each creature’s shadow direction and length. Move a light or change its height to adjust the shadows.</small>
           <SettingSlider label="Shadow darkness" value={settings.shadowOpacity*100} min={0} max={100} suffix="%" onCommit={v=>update({shadowOpacity:v/100})}/>
         </>}
       </fieldset>

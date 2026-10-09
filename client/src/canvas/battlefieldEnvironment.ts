@@ -7,7 +7,7 @@ import {
   type DirectionalLight, type Scene, type WebGLRenderer,
   type HemisphereLight,
 } from 'three';
-import type {MapEnvironment} from '../../../shared/mapEnvironment';
+import {mapShadowsEnabled,type MapEnvironment} from '../../../shared/mapEnvironment';
 import {createBattlefieldParticles} from './battlefieldParticles';
 import {createBattlefieldWeather} from './battlefieldWeather';
 import {createBattlefieldLighting} from './battlefieldLighting';
@@ -36,7 +36,7 @@ export type EnvironmentMistPatch = {
 };
 
 /** Renderer settings shared by the isolated study and the app. Lengths are map pixels. */
-export type EnvironmentPreviewSettings = Partial<Pick<MapEnvironment,'lighting'|'lightLevel'|'sceneTint'|'sceneTintStrength'|'heavyDarkness'|'weather'|'weatherIntensity'|'particles'|'particleIntensity'|'mistColor'|'lightning'|'groundWetness'|'windDirectionDegrees'|'windStrength'|'lights'>> & {
+export type EnvironmentPreviewSettings = Partial<Pick<MapEnvironment,'lighting'|'lightLevel'|'sceneTint'|'sceneTintStrength'|'heavyDarkness'|'mapShadows'|'weather'|'weatherIntensity'|'particles'|'particleIntensity'|'mistColor'|'lightning'|'groundWetness'|'windDirectionDegrees'|'windStrength'|'lights'>> & {
   /** Local DM working-view fill; never changes saved map lighting or player visibility. */
   dmVisibility?: boolean;
   walls?: import('../../../shared/mapWalls').MapWall[];
@@ -366,7 +366,7 @@ export function createBattlefieldEnvironment(
 
   function updateLighting() {
     renderer.getDrawingBufferSize(drawingSize);
-    const nextKey = JSON.stringify([settings.enabled, settings.shadows, settings.scenery,settings.lighting,
+    const nextKey = JSON.stringify([settings.enabled, settings.shadows, mapShadowsEnabled(settings), settings.scenery,settings.lighting,
       settings.shadowDirectionDegrees, settings.shadowLength, settings.mapWidth, settings.mapHeight, settings.mapX, settings.mapY,
       settings.props, drawingSize.x, drawingSize.y]);
     if (nextKey === lightingKey) return;
@@ -387,8 +387,9 @@ export function createBattlefieldEnvironment(
     keyLight.position.set(cx - Math.cos(direction) * reach * length,
       reach, cy - Math.sin(direction) * reach * length);
     keyLight.target.updateMatrixWorld();
-    // Dungeon fill keeps surfaces readable; it is not a sun casting fixed shadows.
-    keyLight.castShadow = settings.shadows && settings.lighting!=='dungeon';
+    // Darkness fill illuminates surfaces but casts no fixed shadow by default.
+    // Local source shadows retain their independent master switch.
+    keyLight.castShadow = settings.shadows && mapShadowsEnabled(settings);
     renderer.shadowMap.enabled = settings.shadows;
     renderer.shadowMap.type = PCFShadowMap;
     // Mist animation never refreshes this map. The parent marks moving/animated casters dirty.
@@ -428,7 +429,7 @@ export function createBattlefieldEnvironment(
     visibility.update(settings);
     mist.update(settings);
     weather.update(settings);particles.update(settings);lighting.update(settings);darkvisionTerrain.update(settings);
-    contacts.visible = settings.enabled && settings.shadows;
+    contacts.visible = settings.enabled && settings.shadows && mapShadowsEnabled(settings);
     ground.material = settings.overlay ? overlayGroundMaterial : settings.enabled && (settings.shadows || (settings.mist && settings.mistShadows !== false)) ? shadowedGroundMaterial : groundMaterial;
     floorUniforms.shadowStrength.value = settings.shadows ? clamp(settings.shadowOpacity, 0, 1) : 0;
     contactMaterial.opacity = clamp(settings.shadowOpacity * 0.85, 0, 0.75);
