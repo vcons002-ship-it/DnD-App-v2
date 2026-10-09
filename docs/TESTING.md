@@ -1,16 +1,18 @@
 # Automated verification
 
 `hidden-roll-approval.spec.ts` exercises the real hidden DM attack confirmation,
-reject/reroll and entered attack totals, then the normal damage follow-up without
-another confirmation. It also checks private save approval, manual total entry,
+reject/reroll and entered attack totals, then separate damage approval in the tray,
+including damage rerolls and entered die faces. It also checks private save
+approval, manual total entry,
 discard, and readable compact review layouts at desktop and phone sizes.
 A second player window and socket
 verify that pending secret rolls send no dice, review or history; another player/DM
 connection cannot approve the owner's result. Save-dependent effects wait for
-approval; ordinary attack damage applies normally. `hiddenRollApproval.test.ts` checks
+approval; hidden attack damage also waits before changing HP or publishing
+effects. `hiddenRollApproval.test.ts` checks
 transaction rollback, unchanged resources/history/effects on cancellation, and
-one commit using the same faces after approval, no repeated attack approval on
-the damage click, unchanged damage when saves are
+one commit using the same faces after approval, separate damage approval without
+reapproving the original hit, unchanged damage when saves are
 rerolled, recalculated manual outcomes, and invalid manual input rejection.
 A changed result is rejected.
 The live-dice contract checks that a disconnected DM's unapproved hidden roll
@@ -206,10 +208,13 @@ The ordinary miniature, movement, combat, and visibility regressions still run w
 ### Private roll tray controls
 
 `e2e/hidden-roll-approval.spec.ts` verifies the same canvas and window bounds
-survive physical attack/save settlement and reroll. The private save remains at
+survive physical attack, damage and save settlement and reroll. Hidden damage
+keeps HP and effects unchanged through rerolls and manual entry until Apply result.
+The private save remains at
 elapsed zero beyond the graphics-ready fallback; neither a player nor a different
-DM connection can start or approve it. The initiating DM clicks **Roll saving
-throw** inside the tray, then uses its integrated result controls. Reject & reroll immediately tosses
+DM connection can start or approve it. A compact **Saving throw needed** prompt
+names the creature and save before opening the tray. The initiating DM clicks
+**Roll saving throw**, then uses the tray's integrated result controls. Reject & reroll immediately tosses
 the same pending save, without a second start click. Desktop and
 phone checks cover the verdict and Apply/reroll buttons without clipping.
 Player observers receive no private frames or reviews, and only accepted outcome

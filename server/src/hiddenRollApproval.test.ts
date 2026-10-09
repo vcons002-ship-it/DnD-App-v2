@@ -6,6 +6,7 @@ import {createSession,createCharacter,getCharacter,applyDamage,setResource,addRo
 import {createMap,setActiveMap,createToken,setManualDamage,createMonsterTemplate,instantiateMonster,getMonster} from './sessions.js';
 import {resolveAbilityRoll,resolveAttack,resolveAttackDamage} from './combat.js';
 import {getSpell} from './spells/srd.js';
+import type {HiddenRollResult} from '../../shared/types.js';
 
 for(const apply of [false,true])it(`hidden result ${apply?'approval':'cancellation'} is atomic and uses the same rolled faces`,async()=>{
  const session=createSession('Secret approval'),hero=createCharacter(session.id,{name:'Hero',maxHp:40});
@@ -31,21 +32,44 @@ for(const apply of [false,true])it(`hidden result ${apply?'approval':'cancellati
  expect(listRollLog(session.id)).toHaveLength(apply?2:0);expect(drainHpFx(session.id)).toHaveLength(apply?1:0);
 });
 
-it('standalone hidden damage resolves without a redundant DM confirmation',async()=>{
- const session=createSession('Automatic hidden attack'),hero=createCharacter(session.id,{name:'Hero',maxHp:40});
+for(const apply of [false,true])it(`standalone hidden damage waits for ${apply?'acceptance':'discard'} before changing HP or publishing effects`,async()=>{
+ const session=createSession('Private damage'),hero=createCharacter(session.id,{name:'Hero',maxHp:40});
  let reviews=0;
  const dice:typeof physicalFaces=async()=>[4];
  await runLiveCommand(()=>{
   const roll=rollDice('1d6+2')!;applyDamage('pc',hero.id,roll.total);
   addRollLog(session.id,{roller:'DM',label:'Attack damage',expr:roll.expr,total:roll.total,detail:roll.detail,reveal:{kind:'damage',attacker:'Goblin',target:'Hero',outcome:'none',damage:roll.total}});
- },()=>{},{label:'Attack damage',roller:'DM',className:'',review:async()=>{reviews++;return false;}},dice);
- expect(reviews).toBe(0);expect(getCharacter(hero.id)!.curHp).toBe(34);expect(listRollLog(session.id)).toHaveLength(1);
+ },()=>{},{label:'Attack damage',roller:'DM',className:'',review:async(results,plans)=>{
+  reviews++;expect(getCharacter(hero.id)!.curHp).toBe(40);
+  expect(listRollLog(session.id)).toEqual([]);expect(drainHpFx(session.id)).toEqual([]);
+  expect(results).toMatchObject([{total:6,reveal:{kind:'damage',damage:6}}]);
+  expect(plans).toMatchObject([{sides:[6],faces:[4]}]);return apply;
+ }},dice);
+ expect(reviews).toBe(1);expect(getCharacter(hero.id)!.curHp).toBe(apply?34:40);
+ expect(listRollLog(session.id)).toHaveLength(apply?1:0);expect(drainHpFx(session.id)).toHaveLength(apply?1:0);
 });
 
-it('requires approval for hidden attacks, checks, plain rolls and saving-throw riders',()=>{
+it('rerolls and replaces private damage without applying any rejected amounts',async()=>{
+ const session=createSession('Reroll damage'),hero=createCharacter(session.id,{name:'Hero',maxHp:40});
+ let reviews=0,rolls=0;
+ await runLiveCommand(()=>{
+  const roll=rollDice('2d6+3')!;applyDamage('pc',hero.id,roll.total);
+  addRollLog(session.id,{roller:'DM',label:'Damage',expr:roll.expr,total:roll.total,detail:roll.detail,reveal:{kind:'damage',attacker:'Goblin',target:'Hero',outcome:'none',damage:roll.total}});
+ },()=>{},{label:'Damage',roller:'DM',className:'',review:async(results,plans,manual)=>{
+  expect(getCharacter(hero.id)!.curHp).toBe(40);expect(listRollLog(session.id)).toEqual([]);expect(drainHpFx(session.id)).toEqual([]);
+  expect(plans).toMatchObject([{sides:[6,6]}]);reviews++;
+  if(reviews===1){expect(results[0].total).toBe(5);return {action:'reroll'};}
+  if(reviews===2){expect(results[0].total).toBe(15);return {action:'manual',faces:[{index:plans[0].index,values:[2,4]}]};}
+  expect(manual).toBe(true);expect(results[0]).toMatchObject({total:9,reveal:{damage:9}});return {action:'apply'};
+ }},async sides=>{rolls++;return sides.map(()=>rolls===1?1:6);});
+ expect(rolls).toBe(2);expect(reviews).toBe(3);expect(getCharacter(hero.id)!.curHp).toBe(31);
+ expect(listRollLog(session.id)).toMatchObject([{total:9}]);expect(drainHpFx(session.id)).toHaveLength(1);
+});
+
+it('requires approval for all hidden rolled results, including standalone damage',()=>{
  const result=(kind?:'attack'|'damage'|'check'|'dice')=>({label:'Private result',total:10,detail:'Result',...(kind?{reveal:{kind,attacker:'DM',outcome:'none' as const}}:{})});
- expect(hiddenRollNeedsApproval([result('damage')])).toBe(false);
- for(const kind of ['attack','check','dice',undefined] as const)expect(hiddenRollNeedsApproval([result(kind)])).toBe(true);
+ expect(hiddenRollNeedsApproval([])).toBe(false);
+ for(const kind of ['attack','damage','check','dice',undefined] as const)expect(hiddenRollNeedsApproval([result(kind)])).toBe(true);
  expect(hiddenRollNeedsApproval([result('attack'),result('damage'),result('check')])).toBe(true);
 });
 
@@ -69,7 +93,7 @@ for(const apply of [false,true])it(`a private attack can reroll and enter a resu
  expect(getCharacter(hero.id)!.curHp).toBe(apply?33:40);expect(listRollLog(session.id)).toHaveLength(apply?1:0);
 });
 
-it('reviews a real two-step attack once and does not review its refreshed row on the damage click',async()=>{
+it('reviews a real two-step attack and its damage separately without reapproving the refreshed attack row',async()=>{
  const session=createSession('Private two-step attack'),map=createMap(session.id,{name:'Arena'});
  setActiveMap(session.id,map.id);setManualDamage(session.id,true);
  const hero=createCharacter(session.id,{name:'Hero',className:'Fighter',stats:{STR:16},weapons:[{name:'Sword',kind:'melee',damage:'1d8',attackBonus:100}]});
@@ -77,12 +101,15 @@ it('reviews a real two-step attack once and does not review its refreshed row on
  const attacker=createToken({mapId:map.id,kind:'pc',refId:hero.id,x:50,y:50});
  const target=createToken({mapId:map.id,kind:'monster',refId:monster.id,x:100,y:50});
  let reviews=0;const requests:number[][]=[];
- const meta={label:'Attack',roller:'DM',className:'',review:async()=>{reviews++;expect(getMonster(monster.id)!.curHp).toBe(100);return true;}};
+ const meta={label:'Attack',roller:'DM',className:'',review:async(results:HiddenRollResult[])=>{
+  reviews++;expect(getMonster(monster.id)!.curHp).toBe(100);
+  expect(results).toHaveLength(1);expect(results[0].reveal?.kind).toBe(reviews===1?'attack':'damage');return true;
+ }};
  const dice:typeof physicalFaces=async sides=>{requests.push(sides);return sides.map(s=>s===20?12:4);};
  await runLiveCommand(()=>resolveAttack(session.id,'DM',attacker.id,target.id,0),()=>{},meta,dice);
  const hit=listRollLog(session.id).at(-1)!;expect(reviews).toBe(1);expect(hit.pending?.live).toBeTruthy();expect(hit.pending?.done).not.toBe(true);
  await runLiveCommand(()=>resolveAttackDamage(session.id,'DM',hit.id),()=>{},meta,dice);
- expect(reviews).toBe(1);expect(requests).toEqual([[20],[8]]);
+ expect(reviews).toBe(2);expect(requests).toEqual([[20],[8]]);
  expect(getMonster(monster.id)!.curHp).toBe(93);expect(listRollLog(session.id).at(-1)!.label).toBe('Damage');
 });
 

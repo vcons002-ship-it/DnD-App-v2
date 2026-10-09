@@ -36,7 +36,7 @@ export function HiddenRollReview(){
    <h3>{result.reveal?.title??result.label}</h3>
    {result.reveal&&<p className="hidden-roll-who">{result.reveal.attacker}{result.reveal.target?` → ${result.reveal.target}`:''}</p>}
    <div className="hidden-roll-verdict"><strong data-outcome={result.reveal?.outcome}>{result.reveal
-    ?result.reveal.kind==='check'&&!/save|saving throw/i.test(result.reveal.title??'')
+    ?result.reveal.kind==='damage'?'Damage':result.reveal.kind==='check'&&!/save|saving throw/i.test(result.reveal.title??'')
      ?result.reveal.outcome==='pass'?'Success':result.reveal.outcome==='fail'?'Failed':outcomes[result.reveal.outcome]
      :outcomes[result.reveal.outcome]:''}</strong><b>Total {result.total}</b></div>
    {result.reveal?.effectOutcome&&<p className="hidden-roll-effect">{result.reveal.effectOutcome}</p>}

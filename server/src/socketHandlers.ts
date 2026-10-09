@@ -415,7 +415,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             else if(ability?.roll&&['save','damage'].includes(ability.roll.kind))meta.label=`${ability.name} — Damage Roll`;
             const riposte=event==='combat:riposte'?listRipostes(sid).find(o=>o.id===payload?.opportunityId):undefined;
             const targetId=payload?.targetTokenId??(event==='save:resolve'?payload?.tokenId:undefined)??pending?.hitOptions?.targetTokenId??riposte?.attackerTokenId;
-            const targetRefs:LiveTargetRef[]=typeof targetId==='string'?[{id:targetId}]:pending?[pending.target]:Array.isArray(payload?.tokenIds)?payload.tokenIds.map((id:string)=>({id})):[];
+            const targetRefs:LiveTargetRef[]=typeof targetId==='string'?[{id:targetId}]:pending?[pending.target]:Array.isArray(payload?.tokenIds)?payload.tokenIds.map((id:string)=>({id}))
+              :event==='save:roll'&&abilityOwner?[{kind:payload.kind,refId:abilityOwner.id}]:[];
             const targetLabels=new Map<string,string|undefined>();
             const privateRoll=isDm()&&!!getSessionById(sid)?.hideDmRolls;
             const sourceToken=payload?.attackerTokenId?getToken(payload.attackerTokenId):undefined;

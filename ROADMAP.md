@@ -2828,5 +2828,16 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 - [x] Hidden DM rolls keep their dice tray open while Apply result, Reject & reroll,
   Enter result and Discard result appear inside its reserved result area. Private
-  saves wait for the initiating DM's Roll saving throw button in that same tray;
+  saves wait for the initiating DM's Roll saving throw button;
   graphics readiness and its timeout cannot start the save on the DM's behalf.
+- [x] Hidden DM damage rolls also wait for the in-tray approval controls. Reject
+  and reroll or enter die faces before applying; HP, effects and player history
+  remain unchanged until acceptance. Deferred weapon damage reviews its new
+  damage result without asking the DM to approve the original hit again.
+- [x] Enlarged the fixed roll window and reduced unused approval-panel space so
+  the tray stays prominent with private controls; desktop and phone layout checks
+  cover tray size alongside unclipped results and buttons.
+- [x] Pending private saves present a compact automatic Saving throw needed
+  prompt with creature/save names and a Roll saving throw button. The prepared
+  tray stays mounted behind it, becomes visible when rolling begins, and retains
+  its integrated result approval and reroll controls.

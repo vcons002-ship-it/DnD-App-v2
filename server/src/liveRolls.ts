@@ -15,10 +15,9 @@ class NeedDice extends Error {constructor(public sides:number[],public info:Phys
 class NeedCalculation extends Error {constructor(public key:string,public reveal:RollReveal){super('Waiting for roll calculation');}}
 class NeedReading extends Error {}
 class NeedApproval extends Error {constructor(public results:HiddenRollResult[]){super('Waiting for DM approval');}}
-/** Hidden attacks need the DM's approval before their hit/miss is published.
- * Standalone damage uses the normal damage click; saves and checks also wait. */
+/** Every hidden rolled result waits for approval before its effects are committed. */
 export function hiddenRollNeedsApproval(results:HiddenRollResult[]){
- return results.some(result=>result.reveal?.kind!=='damage');
+ return results.length>0;
 }
 const queues=new Map<string,Promise<void>>();
 export const rollInProgress=(sid:string)=>queues.has(sid);

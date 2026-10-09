@@ -317,13 +317,14 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   <div className="tray-result-panel">
   {!hiddenReview&&!pendingStart&&frame.saveDice&&<div className="tray-save-details" aria-label={frame.saveDice[0]?.rollKind==='initiative'?'Initiative results':'Saving throw results'}>{frame.saveDice.map((_,i)=><span key={i}>{saveBonus(i)}</span>)}</div>}
   {!hiddenReview&&!pendingStart&&diceTrigger&&!compact&&<div className="tray-trigger-result" role="status" data-dice-trigger={diceTrigger.kind??'matched'}><strong>{diceTrigger.title}</strong><span>{diceTrigger.detail}: {diceTrigger.groups.map((group,g)=><em key={g} style={{color:triggerColors[g%triggerColors.length]}}>{group.indices.length} {group.indices.length===1?'die':'dice'} showing {group.value}</em>)}</span></div>}
-  {hiddenReview??(pendingStart?<div className="tray-save-start" onClick={e=>e.stopPropagation()}>
-   <strong>Saving throw ready - DM only</strong>
-   <span>{heading}</span>
-   <button className="btn primary" disabled={started===frame.id} onClick={()=>{setStarted(frame.id);useStore.getState().socket?.emit('dice:begin',{id:frame.id});}}>{started===frame.id?'Starting saving throw...':'Roll saving throw'}</button>
-   <small>The result stays private until you apply it.</small>
-  </div>:result&&<div className="tray-roll-result">{result}</div>)}
+  {hiddenReview??(!pendingStart&&result&&<div className="tray-roll-result">{result}</div>)}
   </div>
   <div className="live-dice-footer"><span className="muted">{result?'':!prepared&&!failed?'Loading dice…':frame.done?'Dice settled':frame.rerolls.some(n=>n>0)?'Rerolling unreadable dice...':'Rolling...'}</span>{!hiddenReview&&!pendingStart&&<button type="button" onClick={event=>{event.stopPropagation();skip();}} aria-label="Skip roll animation">Skip</button>}</div>
- </div></div>;
+ </div>{pendingStart&&<section className="private-save-prompt" role="region" aria-label="Saving throw needed" onClick={e=>e.stopPropagation()}>
+  <span className="hidden-roll-private">DM ONLY</span>
+  <h2>Saving throw needed</h2>
+  <p>{heading}</p>
+  <button className="btn primary" disabled={started===frame.id} onClick={()=>{setStarted(frame.id);useStore.getState().socket?.emit('dice:begin',{id:frame.id});}}>{started===frame.id?'Starting saving throw...':'Roll saving throw'}</button>
+  <small>Roll privately, then accept or reroll the result.</small>
+ </section>}</div>;
 }
