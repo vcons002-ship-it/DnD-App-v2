@@ -290,6 +290,8 @@
    review, manual edit and reroll. Controls occupy the reserved result region. */
 [data-dice-presentation][data-private-roll=true]:not(.is-impact)>.roll-reveal{grid-template-rows:64px 26px minmax(0,1fr) 180px 24px}
 [data-private-roll=true] .tray-result-panel{overflow:hidden;position:relative}
+/* Manual entry may extend above the reserved footer without hiding its fields. */
+[data-private-roll=true] .tray-result-panel:has(.hidden-roll-entry){overflow:visible}
 [data-reviewing=true] .tray-save-verdict{visibility:hidden}
 /* Prepare the mounted canvas behind a compact request; reveal it on the toss. */
 [data-awaiting-start=true]>.roll-reveal{visibility:hidden;pointer-events:none}

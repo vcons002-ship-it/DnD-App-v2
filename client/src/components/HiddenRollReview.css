@@ -27,8 +27,9 @@
 .hidden-roll-review .btn{font:600 15px/1.2 system-ui,sans-serif;min-height:44px;padding:8px 10px;white-space:normal}
 .hidden-roll-secondary .btn{flex:1 1 auto}
 .hidden-roll-review .hidden-roll-accept{font-size:20px;min-height:48px;min-width:160px}
-.hidden-roll-entry{position:absolute;left:0;right:0;bottom:72px;z-index:11;padding:14px;background:#111927;border:1px solid #bca16a;border-radius:8px;max-height:260px;overflow:auto;box-shadow:0 -8px 32px #0008}
-.hidden-roll-entry label{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0;font-size:18px}
+.hidden-roll-entry{position:absolute;left:0;right:0;bottom:72px;z-index:11;padding:14px;background:#111927;border:1px solid #bca16a;border-radius:8px;max-height:min(360px,calc(100dvh - 150px));overflow:auto;box-shadow:0 -8px 32px #0008;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.hidden-roll-entry>p,.hidden-roll-entry>button{grid-column:1/-1}
+.hidden-roll-entry label{display:flex;flex-direction:column;align-items:start;gap:6px;margin:0;font-size:18px;overflow-wrap:anywhere}
 .hidden-roll-entry input{width:100px;min-height:44px;font-size:20px}
 .hidden-roll-manual-note{color:#f2d99d!important;font-size:14px!important}
 .private-review-fallback{width:min(740px,94vw);height:340px}
@@ -40,6 +41,6 @@
  .hidden-roll-verdict{font-size:21px}
  .hidden-roll-review h3{font-size:15px}
  .hidden-roll-review .hidden-roll-effect{font-size:14px}
- .hidden-roll-entry{bottom:105px}
+ .hidden-roll-entry{bottom:105px;grid-template-columns:1fr;padding:12px;max-height:calc(100dvh - 180px)}
  .hidden-roll-entry label{flex-wrap:wrap}
 }

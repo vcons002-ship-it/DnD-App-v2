@@ -215,6 +215,16 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
     const hasAttacks=e.results.some(result=>result.reveal?.kind==='attack');
     let dice:HiddenRollDice[]=tape.flatMap((entry,index)=>!mixed||!hasChecks||hasAttacks||/sav(?:e|ing)|check/i.test(entry.info.label??'')||entry.info.saveDice?.some(d=>d.rollKind!=='initiative')?[{index,expr:entry.info.expr,sides:entry.sides,faces:entry.faces}]:[]);
     const checks=e.results.filter(r=>(r.reveal?.kind==='check'||r.reveal?.kind==='attack')&&typeof r.reveal.d20==='number');
+    dice=dice.map(plan=>{
+      const saves=tape[plan.index].info.saveDice;
+      if(!saves)return plan;
+      return {...plan,labels:saves.map((save,i)=>{
+        const result=checks.find(r=>r.reveal?.visibilityTarget?.kind===save.target.kind&&r.reveal.visibilityTarget.refId===save.target.refId);
+        const name=result?.reveal?.attacker??`Saving throw ${i+1}`;
+        const die=saves.slice(0,i+1).filter(s=>s.group===save.group).length;
+        return `${name}${save.mode?` · ${save.mode==='adv'?'advantage':'disadvantage'} die ${die}`:''}`;
+      })};
+    });
     if(dice.length===1&&checks.length===1&&dice[0].sides.every(s=>s===20)&&dice[0].sides.length<=2)
       dice=[{...dice[0],bonus:checks[0].total-checks[0].reveal!.d20!,total:checks[0].total}];
     const answer=await meta.review!(e.results,dice,manual);

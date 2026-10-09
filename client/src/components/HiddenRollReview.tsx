@@ -17,7 +17,7 @@ export function HiddenRollReview(){
  const results=review.results.filter(result=>result.reveal||result.total!==0||!hasReveals);
  const inputs=review.dice.flatMap(d=>d.bonus!==undefined
   ?[{key:String(d.index),label:'Final total (includes modifiers)',min:1+d.bonus,max:20+d.bonus,initial:d.total!}]
-  :d.sides.map((s,i)=>({key:`${d.index}:${i}`,label:`${d.expr} · die ${i+1} (d${s})`,min:1,max:s,initial:d.faces[i]})));
+  :d.sides.map((s,i)=>({key:`${d.index}:${i}`,label:d.labels?.[i]?`${d.labels[i]} · d${s}`:`${d.expr} · die ${i+1} (d${s})`,min:1,max:s,initial:d.faces[i]})));
  const valid=inputs.every(input=>{const n=Number(values[input.key]??input.initial);return Number.isInteger(n)&&n>=input.min&&n<=input.max;});
  const enter=()=>{
   if(!valid)return;
@@ -44,7 +44,7 @@ export function HiddenRollReview(){
    <details className="hidden-roll-details"><summary>Roll details</summary><p className="hidden-roll-equation">{result.detail}</p></details>
   </section>)}</div>
   {editing&&<form className="hidden-roll-entry" onSubmit={e=>{e.preventDefault();enter();}}>
-   <p>{review.dice.every(d=>d.bonus!==undefined)?'Enter the total, including modifiers.':'Enter each die face; modifiers are added automatically.'}</p>
+   <p>{review.dice.every(d=>d.bonus!==undefined)?'Enter the total, including modifiers.':'Change any die face below; leave the others unchanged. Modifiers are added automatically.'}</p>
    {inputs.map(input=><label key={input.key}>{input.label}<input type="number" min={input.min} max={input.max} step="1" required disabled={submitting} value={values[input.key]??input.initial} onChange={e=>setValues({...values,[input.key]:e.target.value})}/></label>)}
    <button className="btn" disabled={!valid||submitting||!connected}>Review entered result</button>
   </form>}

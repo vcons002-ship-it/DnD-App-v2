@@ -1740,7 +1740,7 @@ export type ServerError = { code: string; message: string };
 
 // Client -> Server event names.
 export type HiddenRollResult = {label:string;detail:string;total:number;reveal?:RollReveal};
-export type HiddenRollDice = {index:number;expr:string;sides:number[];faces:number[];bonus?:number;total?:number};
+export type HiddenRollDice = {index:number;expr:string;sides:number[];faces:number[];labels?:string[];bonus?:number;total?:number};
 export type HiddenRollDecision = {action:'apply'|'discard'|'reroll'}|{action:'manual';faces:{index:number;values:number[]}[]};
 export type HiddenRollReview = {id:string;label:string;results:HiddenRollResult[];dice:HiddenRollDice[];manual?:boolean};
 

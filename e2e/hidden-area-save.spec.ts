@@ -4,6 +4,7 @@ import {io,type Socket} from 'socket.io-client';
 import type {SheetAbility,StateSnapshot} from '../shared/types';
 import {DM_SECRET,PORT} from './playwright.config';
 import {startAv1Capture} from './directAv1Recorder';
+import {expectUnclipped} from './helpers/rollVisibility';
 
 test('a player area spell hands hidden grouped creature saves to the DM before resolving damage',async({page:dm,browser,request})=>{
  test.setTimeout(240000);
@@ -84,9 +85,32 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  const reviewId=await review.getAttribute('data-review-id');await click(dm,review.getByRole('button',{name:'Reject & reroll',exact:true}));
  await expect(review).not.toHaveAttribute('data-review-id',reviewId!,{timeout:45000});
  await chapter('DM: reroll the grouped saves without rerolling Fireball damage');
- // Enter contrasting outcomes explicitly so the video explains both full and half damage.
+ // All grouped fields must be visible, rather than merely present in the DOM.
  await click(dm,review.getByRole('button',{name:'Enter result',exact:true}));
  const values=review.locator('input[type=number]');expect(await values.count()).toBe(3);
+ for(let i=0;i<3;i++){
+  await expectUnclipped(values.nth(i));
+  await expect(review.getByLabel(`Goblin ${i+1} · d20`,{exact:true})).toHaveCount(1);
+ }
+ const originals=await values.evaluateAll(inputs=>inputs.map(el=>Number((el as HTMLInputElement).value)));
+ // Edit only G1 and prove G2/G3 keep their original faces and calculated totals.
+ const changed=originals[0]===4?5:4;
+ await values.first().fill(String(changed));
+ await chapter('DM: change only G1; G2 and G3 retain their original rolls');
+ await click(dm,review.getByRole('button',{name:'Review entered result',exact:true}));
+ const totals=review.locator('.hidden-roll-verdict b');
+ await expect(totals.nth(0)).toHaveText(`Total ${changed+2}`);
+ await expect(totals.nth(1)).toHaveText(`Total ${originals[1]+2}`);
+ await expect(totals.nth(2)).toHaveText(`Total ${originals[2]+2}`);
+ await click(dm,review.getByRole('button',{name:'Enter result',exact:true}));
+ await expect(values.nth(1)).toHaveValue(String(originals[1]));await expect(values.nth(2)).toHaveValue(String(originals[2]));
+ if(!output){
+  await dm.setViewportSize({width:412,height:915});
+  for(const field of await values.all())await expectUnclipped(field);
+  await expectUnclipped(review.getByRole('button',{name:'Review entered result',exact:true}));
+  await dm.setViewportSize({width:1600,height:1000});
+ }else await dm.waitForTimeout(2800);
+ // Enter contrasting outcomes explicitly so the video explains full/half damage.
  for(let i=0;i<3;i++)await values.nth(i).fill(String([4,12,18][i]));
  if(output)await dm.waitForTimeout(2000);await click(dm,review.getByRole('button',{name:'Review entered result',exact:true}));
  await expect(review).toContainText('DM-entered result');await expect(review).toContainText('Save failed');await expect(review).toContainText('Save passed');

@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Grouped private-save manual entry exposes every die field, labeled by
+  creature name. The editor extends over the tray without being
+  clipped by the result footer; responsive columns keep small groups visible.
+  Editing one save preserves the other creatures' faces and calculated results.
+
 - [x] Player area spells hand hidden creature saves to the newest connected DM
   window. The caster rolls damage normally, then the DM receives a compact
   saving-throw prompt and rolls the labeled creature saves together. Reject &
