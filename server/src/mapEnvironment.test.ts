@@ -22,6 +22,19 @@ function client(sessionId:string,mapId:string,role:'dm'|'player'){
   return Object.assign((p:unknown)=>handlers.get('map:setEnvironment')!(p),{id,send:(event:string,p:unknown)=>handlers.get(event)!(p)});
 }
 describe('saved map environment',()=>{
+  it('persists the next-light color per map, across atmosphere changes and save import',()=>{
+    const session=createSession('Light placement colors'),map=createMap(session.id,{name:'Blue room'}),other=createMap(session.id,{name:'Other room'});
+    expect(getMap(map.id)!.environment!.newLightColor).toBe('warm');
+    updateMapEnvironment(session.id,map.id,{newLightColor:'#2266FF'});
+    updateMapEnvironment(session.id,map.id,{weather:'rain',newLightColor:'invalid'});
+    updateMapEnvironment(session.id,map.id,environmentPresetPatch('deep-dungeon'));
+    expect(getMap(map.id)!.environment!.newLightColor).toBe('#2266ff');
+    expect(getMap(other.id)!.environment!.newLightColor).toBe('warm');
+    const restored=importSession(exportSession(session.code)!);
+    const imported=listMaps(getSessionByCode(restored.code)!.id);
+    expect(imported.find(m=>m.name==='Blue room')!.environment!.newLightColor).toBe('#2266ff');
+    expect(imported.find(m=>m.name==='Other room')!.environment!.newLightColor).toBe('warm');
+  });
   it('keeps legacy light presets and normalizes custom RGB colors while rejecting invalid values',()=>{
     const light={id:'color',x:25,y:25,radiusFt:20,heightFt:9,intensity:1,flicker:true};
     for(const [color,hex]of [['warm','#ffb258'],['cool','#89bbff'],['green','#85eab5'],['#A92CFF','#a92cff'],['#000000','#000000'],['#ffffff','#ffffff']]){

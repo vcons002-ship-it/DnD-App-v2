@@ -3,6 +3,8 @@
 - [x] Per-light color picker in Maps > Environment. Keep Warm, Cool and Eerie
   green shortcuts; custom RGB colors persist per map and illuminate terrain,
   figures and visible light fixtures with the existing flicker and shadows.
+  New light color is saved per map and reused for subsequent placements;
+  editing an existing light's color selects it for the next placement too.
 
 - [x] Keep local-light creature shadows attached to their bases. Apply the
   contact offset in map space before perspective depth projection, avoiding

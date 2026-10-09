@@ -13,6 +13,19 @@ test('DM picks custom light colors that render for players and persist after rel
   const playerContext=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:1000}}),errors:string[]=[];
   page.on('pageerror',e=>errors.push(e.message));
   const picker=()=>page.getByLabel('Light 1 color picker',{exact:true});
+  const place=async(x:number,y:number)=>{
+    const before=(await snap()).map.environment.lights.length;
+    await page.getByRole('button',{name:'Place light on map',exact:true}).click();
+    const point=await page.evaluate(({x,y})=>{
+      const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),token=stage.find('.token')[0];
+      const q=token.getParent().getAbsoluteTransform().point({x,y}),rect=stage.container().getBoundingClientRect();
+      const v=new DOMPoint(q.x-stage.width()/2,q.y-stage.height()/2).matrixTransform(new DOMMatrix(getComputedStyle(token.getLayer().getNativeCanvasElement()).transform));
+      return {x:rect.left+stage.width()/2+v.x/v.w,y:rect.top+stage.height()/2+v.y/v.w};
+    },{x,y});
+    await page.mouse.click(point.x,point.y);
+    await expect.poll(async()=>(await snap()).map.environment.lights.length).toBe(before+1);
+    return (await snap()).map.environment.lights.at(-1);
+  };
   const choose=async(color:string)=>{
     // Drive the native color input's input event through React's real handler.
     await picker().evaluate((input:HTMLInputElement,color)=>{
@@ -42,13 +55,24 @@ test('DM picks custom light colors that render for players and persist after rel
     await choose('#bb22ff');await choose('#ee3030');
     await page.getByLabel('Light 1 color',{exact:true}).selectOption('green');await expect(picker()).toHaveValue('#85eab5');
     await choose('#bb22ff');
+    await expect(page.getByLabel('New light color picker',{exact:true})).toHaveValue('#bb22ff');
+    expect((await place(520,100)).color).toBe('#bb22ff');
+    await page.getByLabel('New light color',{exact:true}).selectOption('cool');
+    expect((await place(600,150)).color).toBe('cool');
+    expect((await place(660,240)).color).toBe('cool');
+    // Picking a placement color does not recolor previously placed lights.
+    expect((await snap()).map.environment.lights[0].color).toBe('#bb22ff');
     await page.screenshot({path:info.outputPath('custom-light-picker.png')});
     for(const p of [page,player]){
-      await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-light-count','2');
+      await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-light-count','5');
       await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-local-shadow-lights','2');
       await p.reload();await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1',{timeout:60000});
     }
     await expect.poll(async()=>(await snap()).map.environment.lights[0].color).toBe('#bb22ff');
+    if(!await page.locator('.map-environment-controls').isVisible())await page.getByRole('button',{name:'Maps',exact:true}).click();
+    if(!await page.getByLabel('New light color',{exact:true}).isVisible())await page.locator('.map-environment-controls > summary').click();
+    await expect(page.getByLabel('New light color',{exact:true})).toHaveValue('cool');
+    expect((await place(560,420)).color).toBe('cool');
     await player.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await player.getByRole('button',{name:'Fit',exact:true}).click();
     await player.screenshot({path:info.outputPath('custom-lights-player.png')});
     expect(errors).toEqual([]);
