@@ -7,6 +7,7 @@ import type { FogLayer } from '../../../shared/types';
  * popover pattern. Presentational — all state lives in MapStage.
  */
 export function FogMenu({
+  onResetExploration,
   explorationMode,
   onExplorationMode,
   mapVisionEnabled,
@@ -24,6 +25,7 @@ export function FogMenu({
   onCoverAll,
   onRevealAll,
 }: {
+  onResetExploration:()=>void;
   explorationMode:'remembered'|'revealed';
   onExplorationMode:(mode:'remembered'|'revealed')=>void;
   mapVisionEnabled:boolean;
@@ -42,6 +44,7 @@ export function FogMenu({
   onRevealAll: () => void;
 }) {
   const btn = useRef<HTMLButtonElement>(null);
+  const [confirmReset,setConfirmReset]=useState(false);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
 
@@ -58,6 +61,7 @@ export function FogMenu({
       const W = 230;
       setPos({ x: Math.max(8, Math.min(r.left, window.innerWidth - W - 8)), y: r.bottom + 4 });
     }
+    setConfirmReset(false);
     setOpen((o) => !o);
   };
 
@@ -95,6 +99,12 @@ export function FogMenu({
               <span>Token fog of war</span><span className="muted">{tokenVisionEnabled?'on':'off'}</span>
             </button>
             <div className="measure-label">Controls wall concealment. Heavy-darkness sight range still applies. Walls and closed doors always block movement and targeting.</div>
+            <button className="measure-row" onClick={()=>{
+              if(!confirmReset){setConfirmReset(true);return;}
+              onResetExploration();setConfirmReset(false);setOpen(false);
+            }}>{confirmReset?'Confirm reset explored fog':'Reset explored fog'}</button>
+            {confirmReset&&<div className="measure-label">Forgets the party's explored map and last-seen figures on this map. Current sight stays visible. Click again to reset.</div>}
+
             <div className="measure-sep" />
             <div className="measure-label">Manual cover</div>
             <button

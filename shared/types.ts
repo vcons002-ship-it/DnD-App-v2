@@ -188,7 +188,8 @@ export type Token = {
   isHidden: boolean;
   /**
    * Whether this token joins combat when the DM rolls initiative.
-   * `undefined` = **auto**: join if visible (so a hidden ambusher waits in the
+   * `undefined` = **auto**: party PCs join; other creatures join if currently
+   * visible to any party member (so a hidden ambusher waits in the
    * wings and joins later via "Add rolls"); `true` = always (an invisible
    * stalker is still a combatant); `false` = never (a bystander NPC standing in
    * the open). Objects never roll regardless.
@@ -203,7 +204,7 @@ export type Token = {
   /** Whether this token WOULD roll on "Roll all" — server-computed in
    *  buildSnapshot, since it depends on fog the client shouldn't re-derive.
    *  Drives the initiative panel's tick box: 'auto' pre-marks it from
-   *  concealment (hidden by hand or under fog), an explicit `inCombat` wins. */
+   *  current party sight (including walls, fog and darkness); explicit `inCombat` wins. */
   inCombatEffective: boolean;
   /** Token silhouette. 'image' draws the (unclipped) icon as-is for pasted art. */
   shape: TokenShape;
@@ -1785,6 +1786,7 @@ export interface ClientToServerEvents {
   ) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:setVision': (payload: FogSetVisionPayload) => void;
+  'fog:resetExploration': (payload: {mapId:string}) => void;
   'fog:setExploration': (payload: {mapId:string;mode:'remembered'|'revealed'}) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;

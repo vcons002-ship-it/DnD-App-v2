@@ -24,6 +24,7 @@ import {
   listChat,
   listTokens,
   rollsInitiative,
+  createInitiativeVisibility,
 } from './sessions.js';
 import type {
   Annotation,
@@ -311,6 +312,7 @@ export function createSnapshotBuilder(
     let d = mapData.get(mapId);
     if (!d) {
       const rawTokens = listTokens(mapId);
+      const initiativeVisible = createInitiativeVisibility(mapById.get(mapId) ?? null, rawTokens, monsters, characters);
       const tagMap = encounterTags(mapById.get(mapId)!, rawTokens, monById, mapId === activeMapId);
       if (mapId === activeMapId) for (const token of rawTokens) {
         const monster=token.kind==='monster'?monById.get(token.refId):undefined;
@@ -326,7 +328,7 @@ export function createSnapshotBuilder(
           ...(targetMarks.has(`${t.kind}:${t.refId}`)?{markLabels:[...targetMarks.get(`${t.kind}:${t.refId}`)!]}:{}),
           combatRole: tokenCombatRole(t),
           // Who "Roll all" would pull in, decided server-side (it depends on fog).
-          inCombatEffective: rollsInitiative(t, mapById.get(mapId) ?? null),
+          inCombatEffective: rollsInitiative(t, mapById.get(mapId) ?? null, initiativeVisible),
         })),
         measurements: listMeasurements(mapId),
         annotations: listAnnotations(mapId),
@@ -398,7 +400,7 @@ export function createSnapshotBuilder(
         const retain=()=>{
           if(!retained||map?.explorationMode!=='revealed'||!manualVisible(retained.token)||!fogVisionContains(playerVision,retained.token.x,retained.token.y,false))return [];
           if(retained.monster)retainedDisplays.set(t.refId,retained.monster);
-          return [{...retained.token,sharedSightOnly:true,revealedOnly:true}];
+          return [{...retained.token,initiative:partySees(t)?t.initiative:null,sharedSightOnly:true,revealedOnly:true}];
         };
         if(isInvisible(t.kind==='pc'?charById.get(t.refId):monById.get(t.refId))&&t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly'){
           const sees=data.tokens.some(o=>o.kind==='pc'&&owned.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map)));

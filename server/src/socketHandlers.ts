@@ -1,3 +1,4 @@
+import {resetExploration} from './exploration.js';
 import {SpellAreaPreviewController} from './spellAreaPreview.js';
 import {setRollPending,setRollSmite} from './sessions.js';
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
@@ -980,6 +981,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     on('fog:setExploration', ({mapId,mode})=>{
       const sid=sessionId();
       if(!sid||!isDm()||!setExplorationMode(sid,mapId,mode))return;
+      afterChange();
+    });
+
+    on('fog:resetExploration', ({mapId})=>{
+      const sid=sessionId();
+      if(!sid||!isDm()||!resetExploration(sid,mapId))return;
+      socket.emit('notice',{message:'Explored fog reset for this map. Areas currently in party sight remain visible.'});
       afterChange();
     });
 
