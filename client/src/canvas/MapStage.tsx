@@ -17,7 +17,7 @@ import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
 import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance';
 import { productionFamily } from '../../../shared/assetProduction';
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Stage, Layer, Group, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag, Path } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
@@ -40,6 +40,7 @@ import type {SpellImpact} from './spellImpactEffects';
 import { DragGhostLayer } from './DragGhostLayer';
 import { SpeechBubbles } from './SpeechBubbles';
 import { CursorPointers } from './CursorPointers';
+import { useContentStable } from '../lib/useContentStable';
 import { FootprintLayer, type FootprintMark } from './FootprintTrails';
 import { resolveToken } from '../lib/entities';
 import { safeSetItem } from '../lib/storage';
@@ -646,7 +647,6 @@ export function MapStage({
   useEffect(()=>{if(!teleportCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearTeleportCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[teleportCast]);
   useEffect(()=>{if(teleportCast&&(!teleportActor||teleportActor.mapId!==map?.id))clearTeleportCast();},[teleportCast,teleportActor?.id,map?.id]);
   const teleportError=teleportPoint&&teleportActor&&map?(tokenDistanceFt({...teleportActor,widthFt:0},{...teleportPoint,widthFt:0},map)>30?'Choose a destination within 30 ft.':!hasLineOfSight(teleportActor,teleportPoint,map.walls)?'Choose a destination you can see.':null):null;
-  const sharedSpellAreas=useStore(s=>s.spellAreaPreviews);
   const areaSocketId=useStore(s=>s.socket?.id);
   const areaCast=useStore(s=>s.areaCast),clearAreaCast=useStore(s=>s.clearAreaCast);
   const [areaPoints,setAreaPoints]=useState<Pt[]>([]),[areaPointer,setAreaPointer]=useState<Pt|null>(null),[areaAngle,setAreaAngle]=useState(0),[areaDirectionLocked,setAreaDirectionLocked]=useState(false),[areaExcluded,setAreaExcluded]=useState<string[]>([]);
@@ -692,10 +692,12 @@ export function MapStage({
   const areaRangeError=areaCast&&areaActor&&map&&!areaCast.spec.self&&areaPoints.some(p=>tokenDistanceFt({...areaActor,widthFt:0},{...p,widthFt:0},map)>areaCast.spec.rangeFt+1e-6||!hasLineOfSight(areaActor,p,map.walls));
   const hpFx = useStore((s) => s.hpFx);
   const spellRollFx = useStore(s=>s.rollFx);
-  const dragGhosts = useStore((s) => s.dragGhosts);
-  const typingChars = useStore((s) => s.typingChars);
-  const sayBubbles = useStore((s) => s.sayBubbles);
-  const cursors = useStore((s) => s.cursors);
+  // Remote cursors, drag tethers and chat bubbles arrive many times a second.
+  // Their layers subscribe to the store themselves; the map only needs to know
+  // WHICH tokens a remote drag hides, as a string so unrelated packets don't
+  // re-render the whole stage.
+  const hiddenGhostKey = useStore((s) => Object.keys(s.dragGhosts).filter((id) => s.dragGhosts[id].hidden).sort().join('|'));
+  const hiddenGhosts = useMemo(() => new Set(hiddenGhostKey ? hiddenGhostKey.split('|') : []), [hiddenGhostKey]);
   const moveCursor = useStore((s) => s.moveCursor);
   const hideCursor = useStore((s) => s.hideCursor);
   const showCursors = useStore((s) => s.showCursors);
@@ -1226,12 +1228,14 @@ export function MapStage({
     return definition ? [definition] : [];
   }) : [])], [snapshot.characters, use3dTokens, use3dMonsters]);
 
-  const terrainZones=useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]);
+  // Content-stable so TokenShape's memo isn't defeated by each snapshot's fresh arrays.
+  const terrainZones=useContentStable(useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]));
+  const movementWalls=useContentStable(map?.walls);
   const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
     if(map?.walls?.some(w=>w.tokenId===token.id))return [];
     if (!(token.kind === 'pc' ? use3dTokens : use3dMonsters)) return [];
     // Only role-filtered tokens can create instances; background assets have no positions.
-    if ((token.isHidden && !isDm) || dragGhosts[token.id]?.hidden) return [];
+    if ((token.isHidden && !isDm) || hiddenGhosts.has(token.id)) return [];
     const monster = token.kind === 'monster' ? snapshot.monsters.find(m => m.id === token.refId) : undefined;
     const display = resolveToken(snapshot, token), dead = display.dead === true;
     const definition = dead ? DEATH_SKULL : resolveMiniature(display.name, token.kind, monster, token.refId);
@@ -1250,7 +1254,9 @@ export function MapStage({
       activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
       selected: !token.sharedSightOnly && (orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id)),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, dragGhosts, miniatureCatalogRevision]);
+  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, hiddenGhosts, miniatureCatalogRevision]);
+  const miniatureIds=useMemo(()=>new Set(miniatureTokens.map(m=>m.id)),[miniatureTokens]);
+  const doorTokenIds=new Set(doors.flatMap(d=>d.tokenId?[d.tokenId]:[]));
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
   }, [miniatureTokens.length, handleMiniatureReady]);
@@ -1974,8 +1980,8 @@ export function MapStage({
     if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);return true;
   };
 
-  const renderTokens = (miniatures: boolean, shared = false) => snapshot.tokens.filter(t=>!!t.sharedSightOnly===shared).filter(t=>!doors.some(d=>d.tokenId===t.id)).filter((token) =>
-    !dragGhosts[token.id]?.hidden && (readyMiniatures.has(token.id) && miniatureTokens.some((miniature) => miniature.id === token.id)) === miniatures,
+  const renderTokens = (miniatures: boolean, shared = false) => snapshot.tokens.filter(t=>!!t.sharedSightOnly===shared).filter(t=>!doorTokenIds.has(t.id)).filter((token) =>
+    !hiddenGhosts.has(token.id) && (readyMiniatures.has(token.id) && miniatureIds.has(token.id)) === miniatures,
   ).map((t) => {
     const d = resolveToken(snapshot, t);
     const creature = t.kind === 'pc' ? snapshot.characters.find(c => c.id === t.refId) : snapshot.monsters.find(m => m.id === t.refId);
@@ -1999,11 +2005,11 @@ export function MapStage({
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
-        miniaturePending={!miniatures && !miniaturesUnavailable && !failedMiniatures.has(t.id) && miniatureTokens.some(m => m.id === t.id)}
+        miniaturePending={!miniatures && !miniaturesUnavailable && !failedMiniatures.has(t.id) && miniatureIds.has(t.id)}
         hideAffinity={!!t.sharedSightOnly || !visionShowsAffinity(snapshot.playerVision,t.x,t.y)}
         viewRotation={rotationDegrees}
         miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
-        movementWalls={isDm?undefined:map?.walls}
+        movementWalls={isDm?undefined:movementWalls}
         terrainZones={terrainZones}
         movementAllowanceFt={movementSpeed === undefined ? undefined : movementSpeed * (hasteDash ? 2 : 1)}
         draggable={
@@ -2512,7 +2518,7 @@ export function MapStage({
               {renderTokens(true)}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
               {teleportCast&&teleportActor&&map&&<Group listening={false}><Circle x={teleportActor.x} y={teleportActor.y} radius={30*map.gridSizePx/map.feetPerSquare} stroke="#b39bff" strokeWidth={2/view.scale} dash={[8/view.scale,6/view.scale]}/>{teleportPoint&&<Circle x={teleportPoint.x} y={teleportPoint.y} radius={teleportActor.widthFt*map.gridSizePx/map.feetPerSquare/2} fill="#ae8fff55" stroke={teleportError?'#ef6464':'#d1c0ff'} strokeWidth={2/view.scale}/>}</Group>}
-              {map&&Object.values(sharedSpellAreas).filter(p=>p.area.mapId===map.id&&(!areaCast||p.id!==areaSocketId)).map(p=><SpellAreaShapes key={p.id} previewState={p.resolving?'resolving':'aiming'} scale={view.scale} spec={p.spec} placement={p.area} caster={p.caster} pxPerFoot={map.gridSizePx/map.feetPerSquare} targets={[]}/>)}
+              {map&&<SharedSpellAreas mapId={map.id} hideId={areaCast?areaSocketId:undefined} scale={view.scale} pxPerFoot={map.gridSizePx/map.feetPerSquare}/>}
               {areaCast&&areaActor&&map&&<SpellAreaShapes scale={view.scale} spec={areaCast.spec} placement={areaPreview} caster={areaActor} pxPerFoot={map.gridSizePx/map.feetPerSquare} targets={areaTargets.filter(t=>!areaExcluded.includes(t.id))}/>}
               {snapshot.measurements.map((m) => {
                 // An emanation re-centres on its token's live position each frame.
@@ -2671,15 +2677,12 @@ export function MapStage({
               })}
               {/* Live ghost tethers for tokens OTHERS are dragging. */}
               <DragGhostLayer
-                ghosts={dragGhosts}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
                 gridSizePx={grid}
               />
               {/* Chat bubbles over PC tokens (typing "•••" + spoken words). */}
               <SpeechBubbles
-                typingChars={typingChars}
-                sayBubbles={sayBubbles}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
                 gridSizePx={grid}
@@ -2693,7 +2696,7 @@ export function MapStage({
               />
               {/* Live "laser pointers" for everyone else on this map. */}
               {showCursors && (
-                <CursorPointers cursors={cursors} currentMapId={map?.id} scale={view.scale} />
+                <CursorPointers currentMapId={map?.id} scale={view.scale} />
               )}
             </Layer>
             <Layer ref={sharedTokenLayerRef} name="shared-sight-layer" listening={false}
@@ -2987,3 +2990,10 @@ export function MapStage({
     </div>
   );
 }
+
+/** Other casters' live spell-area aims (~14 updates/s each while aiming).
+ *  Subscribed here so those packets re-render only this layer, not the map. */
+const SharedSpellAreas = memo(function SharedSpellAreas({mapId,hideId,scale,pxPerFoot}:{mapId:string;hideId:string|undefined;scale:number;pxPerFoot:number}) {
+  const previews=useStore(s=>s.spellAreaPreviews);
+  return <>{Object.values(previews).filter(p=>p.area.mapId===mapId&&p.id!==hideId).map(p=><SpellAreaShapes key={p.id} previewState={p.resolving?'resolving':'aiming'} scale={scale} spec={p.spec} placement={p.area} caster={p.caster} pxPerFoot={pxPerFoot} targets={[]}/>)}</>;
+});

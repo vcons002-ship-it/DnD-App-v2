@@ -53,6 +53,7 @@ import type {
 } from '../../../shared/types';
 import { playHit, playMiss, playHeal, playSkill } from '../lib/sfx';
 import { safeSetItem } from '../lib/storage';
+import { refreshMiniatureCatalog } from '../lib/miniatures';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -1036,6 +1037,7 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('error', (err) =>
       set({ error: err.message, toast: { id: Date.now(), message: err.message } }),
     );
+    socket.on('assets:catalog', () => { void refreshMiniatureCatalog(); });
     socket.on('notice', ({ message, aiDone, durationMs, presentation }) =>
       // An AI-completion notice (aiDone) clears the spinner; an unrelated notice
       // fired mid-request (slot warning, undo) must NOT drop the banner early.

@@ -701,13 +701,14 @@ const DEFAULT_STATS = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
 
 export function rowToMap(r: MapRow): MapState {
   return {
-    walls: (()=>{try{return sanitizeWalls(JSON.parse(r.walls??'[]')).map(w=>{
-      if(!w.door||!w.tokenId)return w;
-      const row=db.prepare('SELECT m.conditions FROM tokens t JOIN monsters m ON m.id=t.ref_id WHERE t.id=? AND t.map_id=? AND m.object_kind=?').get(w.tokenId,r.id,'door') as {conditions:string}|undefined;
-      if(!row)return {...w,open:false};
-      const conditions=JSON.parse(row.conditions) as {label:string}[];
-      return {...w,open:conditions.some(c=>c.label.toLowerCase()==='open')};
-    });}catch{return [];}})(),
+    walls: (()=>{try{
+      const walls=sanitizeWalls(JSON.parse(r.walls??'[]'));
+      // One query for every door on the map (not one per door): rowToMap runs on
+      // every snapshot and drag packet.
+      const doorOpen=walls.some(w=>w.door&&w.tokenId)?new Map((db.prepare('SELECT t.id, m.conditions FROM tokens t JOIN monsters m ON m.id=t.ref_id WHERE t.map_id=? AND m.object_kind=?').all(r.id,'door') as {id:string;conditions:string}[])
+        .map(row=>[row.id,parseJsonColumn<{label:string}[]>(row.conditions,[],'monsters.conditions (door)').some(c=>c.label.toLowerCase()==='open')])):null;
+      return walls.map(w=>!w.door||!w.tokenId?w:{...w,open:doorOpen?.get(w.tokenId)??false});
+    }catch{return [];}})(),
     environment: readMapEnvironment(r.environment),
     id: r.id,
     sessionId: r.session_id,

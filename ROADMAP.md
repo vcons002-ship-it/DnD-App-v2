@@ -2884,3 +2884,18 @@ Smaller refinements on top of the shipped Phase 2 work.
   prompt with creature/save names and a Roll saving throw button. The prepared
   tray stays mounted behind it, becomes visible when rolling begins, and retains
   its integrated result approval and reroll controls.
+
+## Live-play performance - October 2026
+
+- [x] Remote cursors, drag tethers, chat bubbles and other players' spell aims
+  re-render only their own map layers; the map stage no longer re-renders on
+  every packet. Token props for walls and Spike Growth zones keep their identity
+  across snapshots, so unchanged tokens skip re-rendering.
+- [x] Server: live drag previews reuse each viewer's last-sent snapshot instead
+  of rebuilding every snapshot per packet; door states load in one query per map;
+  player roll-log name rewriting runs once per change instead of once per player.
+- [x] Player pen strokes/notes keep each author's newest 200 per map (DM decals
+  are never pruned). The rate-limiter map is swept.
+- [x] The 3D asset catalog is pushed (`assets:catalog`) when a model publishes;
+  clients poll every 30 s as a fallback instead of every 5 s. Spell and attack
+  searches are debounced and cancel stale requests.

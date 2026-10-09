@@ -279,6 +279,22 @@ export function createSnapshotBuilder(
     if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k,v]) => [k,playerLogNames(v)])) as T;
     return value;
   };
+  // Most player log entries are the SAME objects for every player (the shared
+  // playerRollLog cache), so rename each one once per change, not per viewer.
+  const renamedEntries = new WeakMap<object, unknown>();
+  const playerLogEntry = <T extends object>(e: T): T => {
+    let renamed = renamedEntries.get(e) as T | undefined;
+    if (!renamed) renamedEntries.set(e, (renamed = playerLogNames(e)));
+    return renamed;
+  };
+  // Viewers with no private overlay share one log array; keep sharing its result.
+  const renamedLogs = new WeakMap<object, unknown>();
+  const playerLog = <T extends object>(log: T[]): T[] => {
+    if (!namePattern) return log;
+    let renamed = renamedLogs.get(log) as T[] | undefined;
+    if (!renamed) renamedLogs.set(log, (renamed = log.map(playerLogEntry)));
+    return renamed;
+  };
 
 
   // Lazy, shared across the connections that need them.
@@ -566,7 +582,7 @@ export function createSnapshotBuilder(
       // Spawn templates are a DM-only tool.
       monsterTemplates:
         role === 'dm' ? (templates ??= listMonsterTemplates(sessionId)) : [],
-      rollLog: role === 'dm' ? shapedRollLog : playerLogNames(shapedRollLog),
+      rollLog: role === 'dm' ? shapedRollLog : playerLog(shapedRollLog),
       chat: shapedChat,
       measurements: [...data.measurements,...spikeMeasurements],
       annotations: data.annotations,

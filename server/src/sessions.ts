@@ -2086,6 +2086,17 @@ export function addAnnotation(
   );
 }
 
+/** Keep only `keep` of one author's newest annotations on a map (oldest go
+ *  first). Every annotation rides in every snapshot, so unbounded player
+ *  drawing would grow each broadcast for the whole table. */
+export function pruneAnnotations(mapId: string, createdBy: string, keep: number): void {
+  db.prepare(
+    `DELETE FROM annotations WHERE map_id = ? AND created_by = ? AND id NOT IN (
+       SELECT id FROM annotations WHERE map_id = ? AND created_by = ?
+       ORDER BY created_at DESC, rowid DESC LIMIT ?)`,
+  ).run(mapId, createdBy, mapId, createdBy, keep);
+}
+
 export function listAnnotations(mapId: string): Annotation[] {
   return (
     db

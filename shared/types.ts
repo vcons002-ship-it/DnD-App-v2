@@ -1992,6 +1992,8 @@ export interface ServerToClientEvents {
   /** The party just finished a rest — a banner for everyone. */
   'fx:rest': (payload: { kind: 'short' | 'long' }) => void;
   'state:snapshot': (snapshot: StateSnapshot) => void;
+  /** A produced 3D model was published; clients re-fetch /api/assets/catalog. */
+  'assets:catalog': () => void;
   error: (err: ServerError) => void;
   notice: (payload: NoticePayload) => void;
   'fx:hp': (payload: { events: HpFxEvent[] }) => void;
