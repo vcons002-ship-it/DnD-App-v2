@@ -87,6 +87,8 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  const review=dm.getByRole('region',{name:'Approve hidden result'});
  await expect(dm.locator('[data-live-dice=true] .tray-die-result')).toHaveCount(3,{timeout:30000});
  await expect(review).toBeVisible({timeout:45000});
+ await expect(review.getByRole('button',{name:'Cancel cast',exact:true})).toBeVisible();
+ await expect(review).toContainText('Cancels the whole cast. Nothing is applied.');
  expect(await review.locator('.hidden-roll-results>section').count()).toBe(3);
  const resultBounds=await review.locator('.hidden-roll-results').boundingBox();
  for(const verdict of await review.locator('.hidden-roll-verdict').all()){
