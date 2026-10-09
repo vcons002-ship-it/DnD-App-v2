@@ -1528,6 +1528,21 @@ dialog.level-up-roll-layer::backdrop { background: transparent; pointer-events: 
 .measure-sep { height: 1px; background: var(--line); margin: 4px 0; }
 .measure-clear { display: flex; gap: 6px; padding: 4px 8px 2px; }
 .measure-label { font-size: 11px; color: var(--muted); padding: 4px 8px 0; text-transform: uppercase; letter-spacing: 0.04em; }
+.wall-menu { width: 288px; max-width: calc(100vw - 16px); }
+.wall-menu-adjust { min-height: 48px; border: 1px solid var(--accent); background: var(--panel-2); font-weight: 600; }
+.wall-menu-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; padding: 6px 0; }
+.wall-menu-sections .btn { min-height: 36px; white-space: normal; }
+.wall-menu-sections .btn.on { background: var(--accent); color: #fff; }
+.wall-menu-section { padding: 4px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.wall-menu-list, .wall-menu-help { padding: 6px 8px; font-size: 13px; }
+.wall-menu-list summary, .wall-menu-help summary { cursor: pointer; }
+.wall-menu-list[open] { max-height: 180px; overflow-y: auto; }
+.wall-menu-help { color: var(--muted); }
+.wall-menu-help p { font-size: 12px; margin: 8px 0 2px; }
+.map-light-controls { display: flex; flex-direction: column; gap: 8px; padding: 4px 8px; }
+.map-light-controls label { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.map-light-controls .environment-slider { display: block; }
+.map-light-controls small { color: var(--muted); }
 .scale-menu .scale-field { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: 13px; }
 .scale-menu .scale-field > span:first-child { flex: 1; }
 .scale-menu .scale-field .grid-input { width: 70px; }

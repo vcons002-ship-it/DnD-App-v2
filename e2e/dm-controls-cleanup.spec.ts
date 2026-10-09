@@ -40,7 +40,7 @@ test('character controls, tiled analysis, corner inspector and DM UI scale work 
   await page.getByRole('button',{name:'Close token inspector',exact:true}).click();await expect(inspector).toBeHidden();
   p=await point();await page.mouse.move(p.x,p.y);await page.mouse.down();await page.mouse.move(p.x-45,p.y+25,{steps:10});await page.mouse.up();await expect(inspector).toBeVisible();
   const canvas=(await page.locator('.konvajs-content').first().boundingBox())!;await page.mouse.click(canvas.x+canvas.width*.35,canvas.y+canvas.height*.2);await expect(inspector).toBeHidden();
-  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Suggest walls, doors, windows & lights',exact:true}).click();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();if(!await page.getByRole('button',{name:'Suggest walls, doors, windows & lights',exact:true}).isVisible())await page.getByRole('button',{name:'AI analysis',exact:true}).click();await page.getByRole('button',{name:'Suggest walls, doors, windows & lights',exact:true}).click();
   const options=page.getByRole('dialog',{name:'Map analysis options'});await expect(options.getByText('1 image tiles included',{exact:true})).toBeVisible();
   const preview=options.getByRole('img',{name:'Map to analyze'});await expect(preview).toHaveAttribute('src',/map-analysis-/);
   expect(await preview.evaluate((el:HTMLImageElement)=>el.naturalWidth)).toBe(1800);await options.getByRole('button',{name:'Close',exact:true}).click();

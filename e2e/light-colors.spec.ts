@@ -12,6 +12,10 @@ test('DM picks custom light colors that render for players and persist after rel
   const snap=async()=>{const r=await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.ok).toBe(true);return r.snapshot;};
   const playerContext=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:1000}}),errors:string[]=[];
   page.on('pageerror',e=>errors.push(e.message));
+  const openLights=async()=>{
+    if(!await page.locator('.wall-menu').isVisible())await page.getByRole('button',{name:'Walls',exact:true}).click();
+    if(!await page.getByLabel('New light color',{exact:true}).isVisible())await page.getByRole('button',{name:'Lights',exact:true}).click();
+  };
   const picker=()=>page.getByLabel('Light 1 color picker',{exact:true});
   const place=async(x:number,y:number)=>{
     const before=(await snap()).map.environment.lights.length;
@@ -24,6 +28,7 @@ test('DM picks custom light colors that render for players and persist after rel
     },{x,y});
     await page.mouse.click(point.x,point.y);
     await expect.poll(async()=>(await snap()).map.environment.lights.length).toBe(before+1);
+    await openLights();
     return (await snap()).map.environment.lights.at(-1);
   };
   const choose=async(color:string)=>{
@@ -49,7 +54,7 @@ test('DM picks custom light colors that render for players and persist after rel
     const player=await playerContext.newPage();player.on('pageerror',e=>errors.push(e.message));await player.goto(`/join?code=${code}`);
     await player.getByRole('button',{name:'Join',exact:true}).click();await player.locator('.claim-row').filter({hasText:'Druk'}).click();
     for(const p of [page,player])await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1',{timeout:60000});
-    await page.getByRole('button',{name:'Maps',exact:true}).click();await page.locator('.map-environment-controls > summary').click();
+    await openLights();
     await page.locator('.environment-light-list > details').first().locator('summary').click();
     await expect(picker()).toHaveValue('#ffb258');
     await choose('#bb22ff');await choose('#ee3030');
@@ -69,8 +74,7 @@ test('DM picks custom light colors that render for players and persist after rel
       await p.reload();await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1',{timeout:60000});
     }
     await expect.poll(async()=>(await snap()).map.environment.lights[0].color).toBe('#bb22ff');
-    if(!await page.locator('.map-environment-controls').isVisible())await page.getByRole('button',{name:'Maps',exact:true}).click();
-    if(!await page.getByLabel('New light color',{exact:true}).isVisible())await page.locator('.map-environment-controls > summary').click();
+    await openLights();
     await expect(page.getByLabel('New light color',{exact:true})).toHaveValue('cool');
     expect((await place(560,420)).color).toBe('cool');
     await player.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await player.getByRole('button',{name:'Fit',exact:true}).click();

@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Walls toolbar puts Adjust existing features first, with compact Add,
+  Edit, Lights and AI analysis menus. Place, recolor and configure lights here;
+  Environment keeps scene lighting, weather, mist and shadows. Door/window
+  lists and editing help expand only when needed.
+
 - [x] Large dice pools keep every result box on screen in a responsive grid.
   Save-based spell/action damage resolves its total in the original tray before
   the saving throw, then closes for map feedback without replaying damage.
@@ -30,7 +35,7 @@
   Explicit multi-target and defined-area spells keep their area workflow; an
   untargeted DM cast exposes the choose-target recovery dock.
 
-- [x] Per-light color picker in Maps > Environment. Keep Warm, Cool and Eerie
+- [x] Per-light color picker in Walls > Lights. Keep Warm, Cool and Eerie
   green shortcuts; custom RGB colors persist per map and illuminate terrain,
   figures and visible light fixtures with the existing flicker and shadows.
   New light color is saved per map and reused for subsequent placements;

@@ -43,6 +43,7 @@ async function fixture(page:Page,request:APIRequestContext,failLights=false,star
   await page.setViewportSize({width:1440,height:1000});await page.goto(`/dm?code=${code}`);
   await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await page.getByRole('button',{name:'Walls',exact:true}).click();
+  await page.getByRole('button',{name:'AI analysis',exact:true}).click();
   await page.getByRole('button',{name:scope==='regions'?'Analyze selected regions':'Suggest walls, doors, windows & lights',exact:true}).click();
   if(start)await page.getByRole('button',{name:'Analyze selected features',exact:true}).click();
   return {map,snapshot,calls,bodies,drafts};
