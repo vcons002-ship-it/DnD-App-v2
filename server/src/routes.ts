@@ -3,7 +3,7 @@ import {createChatImageRouter} from './chatImages.js';
 import {suggestMapDoors,applyDoorDraft} from './mapDoorDraft.js';
 import {applyMapSetupDraft} from './mapSetupDraft.js';
 import {suggestMapWindows} from './mapWindowDraft.js';
-import {suggestMapGeometry,applyGeometryDraft} from './mapGeometryDraft.js';
+import {suggestMapGeometry,applyGeometryDraft,geometrySource} from './mapGeometryDraft.js';
 import {getMap} from './sessions.js';
 import { Router } from 'express';
 import { assetQueue } from './assets/production.js';
@@ -185,6 +185,11 @@ export function createApiRouter(io: IOServer): Router {
   const router = Router();
   router.use('/chat-images',createChatImageRouter());
   const analyzingMaps=new Set<string>();
+  router.get('/maps/:mapId/analysis-source',async(req,res)=>{
+    if(!requireDm(req,res))return;
+    try{const {map,source}=await geometrySource(String(req.params.mapId));res.json({source,imagePath:source.previewImagePath??map.imagePath});}
+    catch(error){res.status(422).json({error:error instanceof Error?error.message:'Could not read map images.'});}
+  });
   router.post('/maps/:mapId/wall-draft',async(req,res)=>{
     if(!requireDm(req,res))return;
     const mapId=String(req.params.mapId);

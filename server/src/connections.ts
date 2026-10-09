@@ -21,6 +21,8 @@ export type Conn = {
   role: Role;
   /** DM's currently-selected map for prep (players ignore this). */
   viewMapId: string | null;
+  /** Only this DM connection requests the extra combined-player display. */
+  partyView?: boolean;
   /** Durable per-browser id from the join handshake (character ownership). */
   playerId: string | null;
 };
@@ -119,6 +121,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
       conn.role === 'dm' ? conn.viewMapId : null,
       socketId,
       conn.playerId,
+      conn.role === 'dm' && conn.partyView === true,
     );
     io.to(socketId).emit('state:snapshot', snapshot);
     lastSent.set(socketId, snapshot);
@@ -257,6 +260,7 @@ export function sendSnapshot(io: IOServer, socketId: string): void {
     conn.role === 'dm' ? conn.viewMapId : null,
     socketId,
     conn.playerId,
+    conn.role === 'dm' && conn.partyView === true,
   );
   if (snapshot) {
     io.to(socketId).emit('state:snapshot', snapshot);

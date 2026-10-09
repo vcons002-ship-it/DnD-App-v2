@@ -7,12 +7,14 @@ import { SettingsModal } from './SettingsModal';
 import { GuideModal } from './GuideModal';
 import { RulebookViewer } from './RulebookViewer';
 import { EditableName } from './EditableName';
+import {useDmUiScale} from '../lib/useDmUiScale';
 
 /**
  * Shared top app bar: global actions (load session, settings, copy link) plus
  * the session info readout. Role-aware — players get info + leave only.
  */
 export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSnapshot; compactDm?: boolean }) {
+  useDmUiScale();
   const disconnect = useStore((s) => s.disconnect);
   const renameSession = useStore((s) => s.renameSession);
   const navigate = useNavigate();

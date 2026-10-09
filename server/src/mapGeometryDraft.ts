@@ -15,19 +15,16 @@ import {parseMapAnalysisRegions} from '../../shared/mapAnalysisRegions.js';
 import {generateMapRegionMask} from './mapRegionMask.js';
 import {parseGeometrySuggestions,draftWallShape,type MapGeometryDraft} from '../../shared/mapGeometryDraft.js';
 import {wallEdgeCount,sanitizeWalls} from '../../shared/mapWalls.js';
+import {mapAnalysisImage} from './mapAnalysisImage.js';
 
 export const YELLOW_WALL_PROMPT='Paint the entire TOP CAPS of the structural stone walls solid opaque bright yellow (#FFFF00), edge to edge at their exact existing width and location. Cover the stone texture and mortar seams with continuous filled yellow bands. Do not draw outlines, border strokes or centerlines. Leave doors and open passages unpainted. Do not include vertical wall faces, wall shadows, furniture or stairs. Preserve all other map pixels, the full composition and exact framing. Do not broaden the walls, black out the map or make a standalone segmentation diagram. No labels.';
 
 const hash=(data:string|Buffer)=>createHash('sha256').update(data).digest('hex');
 export async function geometrySource(mapId:string) {
   const map=getMap(mapId);
-  if(!map?.imagePath?.startsWith('/uploads/'))throw new Error('Upload a map image before suggesting walls.');
-  const root=path.resolve(config.uploadsDir),file=path.resolve(root,map.imagePath.slice('/uploads/'.length));
-  if(!file.startsWith(root+path.sep))throw new Error('Invalid map image path.');
-  if((await fs.stat(file)).size>40_000_000)throw new Error('Use a map image smaller than 40 MB for analysis.');
-  const image=await fs.readFile(file),metadata=await sharp(image,{limitInputPixels:80_000_000}).metadata();
-  if(!metadata.width||!metadata.height)throw new Error('Cannot read map dimensions.');
-  return {map,image,source:{mapId,imageHash:hash(image),width:(metadata.orientation??0)>=5?metadata.height:metadata.width,height:(metadata.orientation??0)>=5?metadata.width:metadata.height,
+  if(!map)throw Error('Map not found.');
+  const {image,...imageSource}=await mapAnalysisImage(map);
+  return {map,image,source:{mapId,...imageSource,
     gridSizePx:map.gridSizePx,feetPerSquare:map.feetPerSquare,gridOffsetX:map.gridOffsetX,gridOffsetY:map.gridOffsetY,
     wallsHash:hash(JSON.stringify(map.walls??[]))}};
 }

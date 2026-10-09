@@ -6,6 +6,7 @@ import { revisedSpellAbility2024 } from './spellRevisions.js';
 import { linkedSpellProfile, linkedSpellRoll } from './linkedSpells.js';
 import {partySpell} from './partySpells.js';
 import {advancedSpell} from './advancedSpells.js';
+import {spellAreaFor} from './spellAreas.js';
 
 /** Small, reviewed execution profiles, not a replacement spell catalogue.
  * Source: 2024 Basic Rules spell descriptions, checked 2026-09-16:
@@ -125,16 +126,15 @@ export function spellDamageTypeChoices(ability: SheetAbility, castLevel?: number
     .map((type) => type.trim().toLowerCase());
 }
 
-/** Unknown/legacy save and damage rolls retain the existing roll-then-apply
- * workflow. A reviewed or explicitly authored single-target save may cast at
- * the selected target. This classification does not impose target count caps. */
+/** Explicit multi-target rolls and defined areas keep their targeting workflow.
+ * Default targeting without an area honors the selected creature. */
 export function isMultiTargetSpell(ability: SheetAbility, castLevel?: number): boolean {
   const roll = effectiveSheetAbility(ability, castLevel).roll;
   if (roll?.kind === 'attack' && roll.instances) return true;
   if (roll?.kind === 'heal') return roll.targetMode === 'multiple';
   if (!roll || (roll.kind !== 'save' && roll.kind !== 'damage')) return false;
   if (ability.type !== 'spell') return !!roll.instances || roll.targetMode === 'multiple';
-  return !!roll.instances || roll.targetMode !== 'single';
+  return !!roll.instances || roll.targetMode === 'multiple' || roll.targetMode !== 'single' && !!spellAreaFor(ability, castLevel);
 }
 
 /** Number of separate darts/rays. Counts are server-owned after casting. */

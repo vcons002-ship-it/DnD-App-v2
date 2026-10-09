@@ -5,6 +5,7 @@ import { StatBlock, ActionsTraitsView } from './StatBlock';
 import { CharacterSkills } from './CharacterSkills';
 import { CharacterModifiers } from './CharacterModifiers';
 import { CharacterResources } from './CharacterResources';
+import { CarriedLanternControl } from './CarriedLanternControl';
 import { CharacterSpells } from './CharacterSpells';
 import { CharacterItems } from './CharacterItems';
 import { DeathSaves } from './DeathSaves';
@@ -45,6 +46,7 @@ export function CharacterSheet({
   const consumeAdvantage = useStore((s) => s.consumeAdvantage);
   const aiBusy = useStore((s) => s.aiBusy);
   const role = useStore((s) => s.snapshot?.role);
+  const placedToken = useStore((s) => s.snapshot?.tokens.find(t => t.kind === 'pc' && t.refId === character.id));
   const [saving, setSaving] = useState(false);
   const classSummary = multiclassClassSummary(character) ?? `${character.className}${character.subclass ? ` (${character.subclass})` : ''}`;
   const multiclass = (character.leveling?.classes?.length ?? 0) > 1;
@@ -137,6 +139,12 @@ export function CharacterSheet({
         </details>
       )}
       <DeathSaves character={character} editable={editable} />
+      {editable && role === 'player' && (miniatureToken ?? placedToken) && (
+        <details className="sheet-exploration">
+          <summary>Exploration</summary>
+          <CarriedLanternControl token={miniatureToken ?? placedToken} />
+        </details>
+      )}
       <CharacterResources character={character} editable={editable} managementControl={resourceManagementControl} displayControl={resourceDisplayControl} />
       {!abilitiesElsewhere && (
         <>

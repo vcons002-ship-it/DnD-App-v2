@@ -1,3 +1,4 @@
+import {useMapAnalysisSource} from '../lib/useMapAnalysisSource';
 import {useMemo,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {MapState} from '../../../shared/types';
@@ -19,6 +20,7 @@ const emptySelection=():MapSetupSelection=>({walls:[],doors:[],windows:[],lights
 
 /** One launch, four independent workflows, and one reviewed map update. */
 export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:()=>void;scope?:'full'|'regions'}){
+  const analysis=useMapAnalysisSource(map);
   const [drafts,setDrafts]=useState<MapSetupDrafts>({});
   const [selected,setSelected]=useState<MapSetupSelection>(emptySelection);
   const [progress,setProgress]=useState<Record<MapSetupStep,Progress>>({walls:{state:'waiting'},doors:{state:'waiting'},windows:{state:'waiting'},lights:{state:'waiting'}});
@@ -67,7 +69,7 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
   const total=steps.reduce((n,s)=>n+(effective[s]?.length??0),0);
   const source=drafts.walls?.source??drafts.doors?.source??drafts.windows?.source??drafts.lights?.source;
   const wallMaskPath=wallMaskStage==='walls'?drafts.walls?.wallMaskImagePath:wallMaskStage==='natural'?drafts.walls?.naturalMaskImagePath:drafts.walls?.maskImagePath;
-  const imagePath=mask?(tab==='walls'?wallMaskPath??drafts.walls?.maskImagePath:drafts[tab]?.maskImagePath)??map.imagePath:map.imagePath;
+  const imagePath=mask?(tab==='walls'?wallMaskPath??drafts.walls?.maskImagePath:drafts[tab]?.maskImagePath)??analysis.imagePath:source?.previewImagePath??analysis.imagePath;
   const toggle=(step:MapSetupStep,id:string)=>setSelected(old=>({...old,[step]:(old[step]??[]).includes(id)?old[step]!.filter(i=>i!==id):[...(old[step]??[]),id]}));
   const apply=async()=>{
     setApplying(true);setError('');
@@ -78,13 +80,13 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
   };
   if(!started)return createPortal(<div role="dialog" aria-modal="true" aria-label="Map analysis options" style={{position:'fixed',inset:16,zIndex:1100,background:'#131820',border:'1px solid #aa8550',borderRadius:8,padding:16,display:'flex',flexDirection:'column',gap:10,boxShadow:'0 0 0 100vmax #000b'}}>
     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><strong>{scope==='regions'?'Analyze selected regions':'Analyze full map'} - {map.name}</strong><button className="btn" onClick={onClose}>Close</button></div>
-    <p style={{margin:0}}>Choose what to generate before starting. Unchecked features make no API requests. Automatic analysis uses local Qwen to skip absent features; individual retries bypass Qwen. Review all suggestions before applying.</p>
+    {analysis.loading&&<small role="status">Preparing the assembled map and image tiles...</small>}{analysis.error&&<p role="alert">{analysis.error}</p>}{!analysis.loading&&!analysis.error&&<small>{analysis.source?.tileCount??0} image tiles included</small>}<p style={{margin:0}}>Choose what to generate before starting. Unchecked features make no API requests. Automatic analysis uses local Qwen to skip absent features; individual retries bypass Qwen. Review all suggestions before applying.</p>
     <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>{steps.map(s=><label key={s}><input type="checkbox" checked={enabled[s]} onChange={e=>setEnabled(old=>({...old,[s]:e.target.checked}))}/>{names[s]}</label>)}
       <label><input type="checkbox" checked={naturalBoundaries} disabled={!enabled.walls} onChange={e=>setNaturalBoundaries(e.target.checked)}/>Cave boundaries (second wall pass)</label>
     </div>
     {!enabled.walls&&(enabled.doors||enabled.windows)&&<p style={{margin:0,color:'#ffd39a'}}>Doors and windows will fit to existing walls. Add walls first if this map has none.</p>}
-    <div style={{flex:1,minHeight:0,overflow:'auto'}}>{scope==='regions'?<MapAnalysisRegionPicker image={map.imagePath!} regions={regions} onChange={setRegions}/>:<img src={map.imagePath!} alt="Map to analyze" style={{display:'block',maxWidth:'100%',maxHeight:'100%',margin:'auto'}}/>}</div>
-    <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}><button className="btn" disabled={!steps.some(s=>enabled[s])||scope==='regions'&&!regions.length} onClick={()=>void runAll()}>Analyze selected features</button><span>{scope==='regions'?`${regions.length} regions selected`:'Full map selected'}</span></div>
+    <div style={{flex:1,minHeight:0,overflow:'auto'}}>{!analysis.loading&&!analysis.error&&(scope==='regions'?<MapAnalysisRegionPicker image={analysis.imagePath!} regions={regions} onChange={setRegions}/>:<img src={analysis.imagePath!} alt="Map to analyze" style={{display:'block',maxWidth:'100%',maxHeight:'100%',margin:'auto'}}/>)}</div>
+    <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}><button className="btn" disabled={analysis.loading||!!analysis.error||!steps.some(s=>enabled[s])||scope==='regions'&&!regions.length} onClick={()=>void runAll()}>Analyze selected features</button><span>{scope==='regions'?`${regions.length} regions selected`:'Full map selected'}</span></div>
   </div>,document.body);
   return createPortal(<div role="dialog" aria-modal="true" aria-label="Map setup draft" style={{position:'fixed',inset:16,zIndex:1100,background:'#131820',border:'1px solid #aa8550',borderRadius:8,padding:16,display:'flex',flexDirection:'column',gap:10,boxShadow:'0 0 0 100vmax #000b'}}>
     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><strong>Walls, doors, windows & lights - {map.name}</strong><button className="btn" disabled={busy} onClick={onClose}>Close</button></div>
@@ -109,8 +111,8 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
     <p className="muted" style={{margin:0}}>{tab==='walls'?'Check wall alignment and keep real passages open. Deselecting a wall updates opening fitting.':tab==='doors'?'Check that each suggestion is a real door. Doors without both adjoining walls are skipped. Applied doors start closed and unlocked.':tab==='windows'?'Check each blue opening. Remove false positives individually; removing a window restores the opaque wall.':'Check emitter positions. Lights start warm, with a 20 ft radius, gentle flicker and no added 3D fixture.'}</p>
     <div style={{display:'flex',gap:16,flex:1,minHeight:0,overflow:'auto',flexWrap:'wrap'}}>
       <div style={{flex:'1 1 500px',minWidth:0,minHeight:300,position:'relative'}}>
-        {source?<svg aria-label="Combined map draft overlay" viewBox={`0 0 ${source.width} ${source.height}`} style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
-          <image href={imagePath!} width={source.width} height={source.height} preserveAspectRatio="none"/>
+        {source?<svg aria-label="Combined map draft overlay" viewBox={`${source.originX??0} ${source.originY??0} ${source.width} ${source.height}`} style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
+          <image href={imagePath!} x={source.originX??0} y={source.originY??0} width={source.width} height={source.height} preserveAspectRatio="none"/>
           {!mask&&<>
             {(map.walls??[]).map(w=><path key={w.id} d={wallSvgPath(w)} fill="none" stroke="#aaa" strokeWidth={2} fillRule="evenodd"/>)}
             {wallShapes.map(({item,wall})=>{const active=selected.walls.includes(item.id);return <path key={item.id} d={wallSvgPath(wall)} fillRule="evenodd" fill={active?'#ffe068':'#ff974d'} fillOpacity={active?.25:.08} stroke={active?'#ffe068':'#ff974d'} strokeWidth={2} strokeDasharray={active?undefined:'6 3'} style={{cursor:tab==='walls'&&!busy?'pointer':'default'}} onClick={()=>tab==='walls'&&!busy&&toggle('walls',item.id)}/>;})}
@@ -123,7 +125,7 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
             {drafts.lights?.lights.map((l,i)=><g key={l.id} onClick={()=>tab==='lights'&&!busy&&toggle('lights',l.id)} style={{cursor:tab==='lights'&&!busy?'pointer':'default'}}><circle cx={l.x} cy={l.y} r={source.width*.009} fill={selected.lights.includes(l.id)?'#ff78ee':'#777'} fillOpacity={.8} stroke="white" strokeWidth={2}/>{tab==='lights'&&<text x={l.x} y={l.y} textAnchor="middle" dominantBaseline="central" fill="#000" fontSize={source.width*.012}>{i+1}</text>}</g>)}
             {fittedWindows.map(({marker,wall,issue},i)=><g key={marker.id} onClick={()=>tab==='windows'&&!busy&&!issue&&toggle('windows',marker.id)} style={{cursor:tab==='windows'&&!busy&&!issue?'pointer':'default'}}><path d={wallSvgPath(wall??marker)} fill={issue?'#ff974d':effective.windows?.includes(marker.id)?'#398cff':'#999'} fillOpacity={.5} stroke="#73bbff" strokeWidth={2}/>{tab==='windows'&&<text x={(marker.ax+marker.bx)/2} y={marker.ay-8} fill="white" stroke="black" strokeWidth={3} paintOrder="stroke" fontSize={source.width*.016}>W{i+1}</text>}</g>)}
           </>}
-        </svg>:<img src={map.imagePath!} alt="Map to analyze" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain'}}/>}
+        </svg>:<img src={analysis.imagePath!} alt="Map to analyze" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain'}}/>}
       </div>
       <div style={{flex:'0 1 260px',overflow:'auto'}}>
         {progress[tab].state==='ready'&&counts[tab]===0&&<p>No new {tab} found.</p>}

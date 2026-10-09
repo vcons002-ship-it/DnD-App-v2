@@ -247,6 +247,7 @@ export function createSnapshotBuilder(
       dmViewMapId?: string | null,
       socketId?: string,
       playerId?: string | null,
+      includePartyView?: boolean,
     ) => StateSnapshot)
   | null {
   const session = getSessionById(sessionId);
@@ -365,11 +366,11 @@ export function createSnapshotBuilder(
   const hpNoteVisible = (n: NonNullable<RollEntry['hpNote']>): boolean =>
     n.kind === 'pc';
 
-  return (role, dmViewMapId, socketId, playerId) => {
+  const forViewer=(role:Role, dmViewMapId?:string|null, socketId?:string, playerId?:string|null, includePartyView=false, partyPreview=false):StateSnapshot => {
     // Players are locked to the active map; the DM may view any map for prep.
     // Fall back to the active map if the requested one is gone (e.g. the DM
     // was viewing a map that just got deleted).
-    const wantId = role === 'dm' ? dmViewMapId ?? activeMapId : activeMapId;
+    const wantId = role === 'dm' || partyPreview ? dmViewMapId ?? activeMapId : activeMapId;
     let map: MapState | null =
       (wantId ? mapById.get(wantId) : null) ??
       (role === 'dm' && activeMapId ? mapById.get(activeMapId) : null) ??
@@ -378,15 +379,19 @@ export function createSnapshotBuilder(
       ? loadMapData(map.id)
       : { tokens: [], measurements: [], annotations: [], mapImages: [] };
 
-    const owned=new Set(characters.filter(c=>c.claimedBy===socketId||(!!playerId&&!c.claimedBy&&c.ownerId===playerId)).map(c=>c.id));
+    const owned=partyPreview?new Set(data.tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId)):new Set(characters.filter(c=>c.claimedBy===socketId||(!!playerId&&!c.claimedBy&&c.ownerId===playerId)).map(c=>c.id));
     const lightMapFog=map?.mapFogEnabled?new Set(map.mapFogRevealed):null;
     const lightTokenFog=map?.tokenFogEnabled?new Set(map.tokenFogRevealed):null;
     const playerVision=role==='dm'?undefined:createPlayerVision(map,data.tokens,owned,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc'&&owned.has(t.refId),foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
       mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}));
-    if(role==='player'&&map)exploredTerrain??=rememberTerrain(map,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,
+    let viewerTerrain=exploredTerrain;
+    if(role==='player'&&map){
+      const terrain=()=>rememberTerrain(map!,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
-      mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}));
+      mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}),partyPreview);
+      viewerTerrain=partyPreview?terrain():(exploredTerrain??=terrain());
+    }
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
     let shapedCharacters: Character[] = characters;
@@ -407,7 +412,7 @@ export function createSnapshotBuilder(
         lights:map.environment.lights.filter(light=>mapFog.has(`${Math.floor(light.x/grid)},${Math.floor(light.y/grid)}`))}};
       const manualVisible=(t:Token)=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y});
       const partySees=(t:Token)=>manualVisible(t)&&fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&party.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
-      const remembered=map?rememberFigures(map,data.mapImages,data.tokens,partySees,(x,y)=>fogVisionContains(partyVision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?toPlayerMonster(m):undefined;}):[];
+      const remembered=map?rememberFigures(map,data.mapImages,data.tokens,partySees,(x,y)=>fogVisionContains(partyVision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?toPlayerMonster(m):undefined;},partyPreview):[];
       const rememberedById=new Map(remembered.map(r=>[r.token.id,r]));
       const retainedDisplays=new Map<string,MonsterPublic>();
       tokens = tokens.flatMap(t => {
@@ -539,10 +544,10 @@ export function createSnapshotBuilder(
       const px=map.gridSizePx/map.feetPerSquare;
       return [{id:c.id,mapId:zone.mapId,kind:'circle' as const,origin:{x:zone.x,y:zone.y},target:{x:zone.x+zone.radiusFt*px,y:zone.y},createdBy:'Spike Growth',spellArea:{spec:{kind:'sphere' as const,sizeFt:20,rangeFt:150,ongoing:true},angle:0},spellName:'Spike Growth'}];
     }));
-    return {
+    const snapshot:StateSnapshot = {
       role,
       ...(playerVision?{playerVision}:{}),
-      ...(role==='player'?{exploredTerrain:exploredTerrain??[]}:{}),
+      ...(role==='player'?{exploredTerrain:viewerTerrain??[]}:{}),
       initiativePending: session.initiativePending,
       counterspellCasts:heldCasts(sessionId).flatMap(c=>{
         const caster=data.tokens.find(t=>t.id===c.casterTokenId),mine=!!caster&&caster.kind==='pc'&&owned.has(caster.refId);
@@ -588,7 +593,13 @@ export function createSnapshotBuilder(
       annotations: data.annotations,
       mapImages: data.mapImages,
     };
+    if(role==='dm'&&includePartyView){
+      const party=forViewer('player',map?.id,undefined,undefined,false,true);
+      snapshot.partyView={map:party.map,tokens:party.tokens,monsters:party.monsters,playerVision:party.playerVision,exploredTerrain:party.exploredTerrain};
+    }
+    return snapshot;
   };
+  return forViewer;
 }
 
 /**
@@ -607,8 +618,9 @@ export function buildSnapshot(
   /** Requesting player's durable browser id — keeps THEIR own character's
    *  owner/claim ids intact while other players' are stripped. */
   playerId?: string | null,
+  includePartyView=false,
 ): StateSnapshot | null {
   return (
-    createSnapshotBuilder(sessionId)?.(role, dmViewMapId, socketId, playerId) ?? null
+    createSnapshotBuilder(sessionId)?.(role, dmViewMapId, socketId, playerId,includePartyView) ?? null
   );
 }

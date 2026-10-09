@@ -47,48 +47,6 @@ function HitDice({ character, editable }: { character: Character; editable: bool
   );
 }
 
-/** The player HUD's compact Hit Dice control (beside conditions / lantern):
- *  "Hit Dice 3/5" opens a small spender with the same server roll. */
-export function HitDiceHudControl({ character }: { character: Character }) {
-  const spend = useStore((s) => s.spendHitDice);
-  const [open, setOpen] = useState(false);
-  const [count, setCount] = useState(1);
-  const [selectedDie,setSelectedDie]=useState<number>();
-  const pools=hitDicePoolsFor(character);
-  const pool=pools.find(p=>p.die===selectedDie)??pools.find(p=>p.left>0)??pools[0];
-  const {die,left}=pool;
-  const allLeft=pools.reduce((sum,p)=>sum+p.left,0);
-  const full = character.curHp >= character.maxHp;
-  const n = Math.min(count, Math.max(1, left));
-  return (
-    <span className="hit-dice-hud">
-      <button type="button" className="btn tiny" aria-expanded={open} aria-label={pools.length>1
-        ? `Hit Dice: ${allLeft} of ${Math.max(1, character.level)} left; selected d${die} pool has ${left}`
-        : `Hit Dice: ${left} of ${Math.max(1, character.level)} d${die} left`}
-        title="Spend Hit Dice to heal (roll + CON each); a Long Rest restores them" onClick={() => setOpen((o) => !o)}>
-        Hit Dice {allLeft}/{Math.max(1, character.level)}
-      </button>
-      {open && (
-        <span className="hit-dice-hud-pop fantasy-window" role="group" aria-label="Spend Hit Dice">
-          {pools.length>1&&<select aria-label="Hit Die size" value={die} onChange={e=>{setSelectedDie(Number(e.target.value));setCount(1);}}>
-            {pools.map(p=><option key={p.key} value={p.die}>d{p.die} · {p.left}/{p.max}</option>)}
-          </select>}
-          {left > 1 && (
-            <select aria-label="Hit Dice to spend" value={n} onChange={(e) => setCount(Number(e.target.value))}>
-              {Array.from({ length: left }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
-          )}
-          <button type="button" className="btn tiny" disabled={left <= 0 || full}
-            title={left <= 0 ? 'No Hit Dice left — a Long Rest restores them' : full ? 'Already at full HP' : `Roll ${n}d${die} + CON and heal`}
-            onClick={() => { spend(character.id, n,die); setOpen(false); }}>
-            🎲 Spend {n}d{die}
-          </button>
-        </span>
-      )}
-    </span>
-  );
-}
-
 /** Which rest refills a counter, as a chip. A custom (non-class) counter's chip
  *  toggles Short ↔ Long; class features follow their own 2024 rule. */
 function RestChip({ name, counter, character, editable, onSet }: {
@@ -240,9 +198,9 @@ export function CharacterResources({
           </button>
         </div>
       )}
-      <div className="res-group">
+      {!compact && <div className="res-group">
         <HitDice character={character} editable={editable} />
-      </div>
+      </div>}
       {slots.length > 0 && (
         <div className="res-group">
           <div className="muted res-sub">Spell slots</div>

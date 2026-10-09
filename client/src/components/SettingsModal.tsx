@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { SoundSettings } from './SoundSettings';
+import {DmInterfaceControls} from './DmInterfaceControls';
 import { refreshComfyStatus } from '../lib/comfy';
 import {
   COMFY_PRESETS,
@@ -232,6 +233,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
         <h4>Sound &amp; animation</h4>
         <SoundSettings />
+        {isDm && <DmInterfaceControls />}
 
         {isDm && (
           <>

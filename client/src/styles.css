@@ -1876,9 +1876,6 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .sound-volume .sound-volume-value { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
 .player-sound-settings .settings-field { font-size: 12px; }
 .player-settings-sub { margin: 10px 0 4px; font-size: 13px; letter-spacing: .04em; }
-.hit-dice-hud { position: relative; display: inline-flex; }
-.hit-dice-hud-pop { position: absolute; bottom: calc(100% + 4px); left: 0; z-index: 30; display: flex; gap: 4px;
-  align-items: center; padding: 6px; border-radius: 6px; white-space: nowrap; }
 
 /* Class pick-list (StatBlock identity select) and the off-list prompt. */
 .sb-field-hint { display: block; font-size: 11px; margin-top: 2px; }

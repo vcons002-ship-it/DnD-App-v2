@@ -14,6 +14,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
   tool:WallTool;count:number;snap:boolean;onTool:(tool:WallTool)=>void;
   onSnap:(snap:boolean)=>void;onUndo:()=>void;onFinish:()=>void;doors?:{id:string;open?:boolean}[];onDoor?:(id:string,open:boolean)=>void;
 }){
+  const mapImagesAvailable=useStore(s=>s.snapshot?.map?.id===map?.id&&!!s.snapshot?.mapImages.length);
   const [draftOpen,setDraftOpen]=useState(false);
   const [doorsDraftOpen,setDoorsDraftOpen]=useState(false);
   const [setupDraftOpen,setSetupDraftOpen]=useState(false);
@@ -40,10 +41,10 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
     }} aria-label="Walls" title="Draw walls that block player movement, light and sight">Walls{tool!=='off'?`: ${toolNames[tool]}`:''} ▾</button>
     {position&&<><div className="popover-backdrop" onClick={()=>setPosition(null)}/>
       <div className="measure-menu" style={{...position,width:238}}>
-        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setSetupScope('full');setSetupDraftOpen(true);}}>Suggest walls, doors, windows &amp; lights</button>
-        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setSetupScope('regions');setSetupDraftOpen(true);}}>Analyze selected regions</button>
-        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDraftOpen(true);}}>Suggest walls from map art</button>
-        <button className="measure-row" disabled={!map?.imagePath} onClick={()=>{setPosition(null);setDoorsDraftOpen(true);}}>Suggest doors from map art</button>
+        <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setSetupScope('full');setSetupDraftOpen(true);}}>Suggest walls, doors, windows &amp; lights</button>
+        <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setSetupScope('regions');setSetupDraftOpen(true);}}>Analyze selected regions</button>
+        <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setDraftOpen(true);}}>Suggest walls from map art</button>
+        <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setDoorsDraftOpen(true);}}>Suggest doors from map art</button>
         <div className="measure-label">{count} saved wall pieces</div>
         {(map?.walls??[]).filter(w=>w.window).map((w,i)=><button key={w.id} className="measure-row" onClick={()=>{if(map)useStore.getState().editMapWalls(map.id,{removeId:w.id});setPosition(null);}}>Remove window {i+1}</button>)}
         <WallPerformanceNotice walls={map?.walls??[]}/>

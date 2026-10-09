@@ -1343,7 +1343,7 @@ describe('Apply damage → click-to-target saves', () => {
       roll: { kind: 'save', dice: '10d1', dc: 99, save: 'DEX', damageType: 'fire' },
     }));
     const entry = listRollLog(s.id).at(-1)!;
-    expect(entry.apply).toEqual({ amount: 10, dc: 99, save: 'DEX', damageType: 'fire' });
+    expect(entry.apply).toEqual({ amount: 10, dc: 99, save: 'DEX', damageType: 'fire', targetMode: 'single' });
 
     // The CAST animates the spell's single damage roll (Fireball-style)…
     expect(entry.reveal?.kind).toBe('damage');
@@ -1767,7 +1767,7 @@ describe('save action fired at a single target (floating menu)', () => {
           {
             name: 'Flame Jet',
             description: '',
-            roll: { kind: 'save', dice: '6d6', save: 'DEX', dc: 30, damageType: 'fire' },
+            roll: { kind: 'save', dice: '6d6', save: 'DEX', dc: 30, damageType: 'fire', targetMode: 'multiple' },
           },
         ],
       }).id,
