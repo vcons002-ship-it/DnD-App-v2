@@ -162,6 +162,19 @@ it('manual save totals recalculate pass/fail and damage before separate approval
  expect(listRollLog(session.id)[0]).toMatchObject({total:18,detail:'15 + 3 = 18',reveal:{kind:'check',d20:15,outcome:'pass'}});
 });
 
+it('hands presentation control from a player damage roll to the DM for its dependent save',async()=>{
+ const session=createSession('Save handoff');const configured:string[]=[],owners:string[]=[];
+ const playerReady=async()=>{},dmReady=async()=>{};
+ await runLiveCommand(()=>{
+  const damage=withDiceMetadata({label:'Fireball damage'},()=>rollDice('2d6'))!;
+  const save=withDiceMetadata({label:'DEX Saving Throw'},()=>rollDice('1d20'))!;
+  addRollLog(session.id,{roller:'Mage',label:'Save',expr:save.expr,total:save.total,detail:damage.detail});
+ },()=>{},{label:'Fireball',roller:'Mage',className:'Sorcerer',ready:playerReady,
+  configureDice:info=>{configured.push(info.label!);return /Saving Throw/.test(info.label??'')?{ready:dmReady,requireSaveStart:true}:{};}
+ },async(sides,_publish,meta)=>{owners.push(meta.ready===dmReady?'dm':'player');expect(meta.requireSaveStart).toBe(meta.ready===dmReady?true:undefined);return sides.map(()=>4);});
+ expect(configured).toEqual(['Fireball damage','DEX Saving Throw']);expect(owners).toEqual(['player','dm']);
+});
+
 it('rejects invalid manual faces without applying an outcome',async()=>{
  const session=createSession('Invalid manual save');
  const dice:typeof physicalFaces=async()=>[4];

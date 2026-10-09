@@ -59,6 +59,19 @@ const spawnInstance = (
 import type { Monster, MonsterPublic } from '../../shared/types.js';
 
 describe('creature roll redaction + player AOE visibility', () => {
+  it('hides creature saves initiated by a player while sharing accepted damage and outcome',()=>{
+    const s=createSession('Player Fireball private saves'),map=createMap(s.id,{name:'Arena'});setActiveMap(s.id,map.id);
+    const goblin=spawnInstance(s.id,'Goblin',40);createToken({mapId:map.id,kind:'monster',refId:goblin.id,x:75,y:75});
+    setHideDmRolls(s.id,true);
+    const save=addRollLog(s.id,{roller:'Vanec',label:'DEX save',expr:'Fireball',total:9,detail:'18 + 2 = 20 vs DC 15',
+      reveal:{kind:'check',attacker:goblin.name,outcome:'pass',d20:18,attackTotal:20,toHit:[{label:'DEX',value:2}],damage:9,damageType:'fire',visibilityTarget:{kind:'monster',refId:goblin.id}}});
+    expect(save.dmOnly).toBe(true);
+    const visible=buildSnapshot(s.id,'player')!.rollLog[0];
+    expect(visible).toMatchObject({outcomeOnly:true,hideTotal:true,expr:'',total:0});
+    expect(visible.detail).toContain('Pass');expect(visible.detail).toContain('9 fire damage');
+    expect(visible.reveal).toBeUndefined();expect(visible.detail).not.toMatch(/18|20|DC|DEX|\+/);
+    expect(buildSnapshot(s.id,'dm')!.rollLog[0].reveal?.attackTotal).toBe(20);
+  });
   it('publishes only committed hidden outcomes while keeping the full DM history',()=>{
     const s=createSession('Hidden accepted outcomes'),map=createMap(s.id,{name:'Arena'});setActiveMap(s.id,map.id);
     const goblin=spawnInstance(s.id,'Goblin',10),hero=createCharacter(s.id,{name:'Druk',maxHp:30});
@@ -233,10 +246,13 @@ describe('creature roll redaction + player AOE visibility', () => {
     const tok = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 1, y: 1 });
     resolveForcedSave(s.id, cast.id, tok.id); // the caster applies it to a target
     const res = listRollLog(s.id).at(-1)!;
-    // Attributed to the casting PC (not 'DM'), so it's NOT hidden from players.
+    // Keep caster attribution, but show only the accepted save outcome/damage.
     expect(res.roller).toBe('Wizard');
-    expect(res.dmOnly).toBeFalsy();
-    expect(buildSnapshot(s.id, 'player')!.rollLog.some((e) => e.id === res.id)).toBe(true);
+    expect(res.dmOnly).toBe(true);
+    const visible=buildSnapshot(s.id,'player')!.rollLog.find(e=>e.id===res.id)!;
+    expect(visible).toMatchObject({outcomeOnly:true,hideTotal:true,expr:''});
+    expect(visible.detail).toMatch(/Pass|Fail/);expect(visible.detail).toContain('fire damage');
+    expect(visible.reveal).toBeUndefined();
   });
 });
 

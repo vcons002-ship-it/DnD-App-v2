@@ -1653,10 +1653,10 @@ export function addRollLog(
   if(entry.reveal?.kind!=='attack'||!db.prepare('SELECT id FROM roll_log WHERE id = ?').get(id))
     noteRollResult({label:entry.label,detail:entry.detail,total:entry.total,reveal:entry.reveal});
   const createdAt = Date.now();
-  // Hide-DM-rolls: a DM-rolled entry is flagged dmOnly while the session toggle
-  // is on, so player snapshots can drop it (damage still applied separately).
+  // Creature saves remain private even when a player cast the triggering spell.
+  // Player snapshots expose only accepted outcomes and resolved damage.
   const dmOnly =
-    entry.roller === 'DM' && !!getSessionById(sessionId)?.hideDmRolls;
+    (entry.roller === 'DM'||entry.reveal?.kind==='check'&&entry.reveal.visibilityTarget?.kind==='monster') && !!getSessionById(sessionId)?.hideDmRolls;
   db.prepare(
     `INSERT OR REPLACE INTO roll_log (id, session_id, roller, label, expr, total, detail, description, apply, pending, smite, hp_note, reveal, hide_mods, dm_only, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,

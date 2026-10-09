@@ -255,6 +255,8 @@ const claimHolderPlayerId = (claimedBy: string | null): string | null =>
     : null) ?? null;
 
 export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boolean}={}): void {
+  type PrivateController={ready:(id:string,awaitStart?:boolean)=>Promise<void>;waitForPresentation:(id:string,ms:number)=>Promise<void>;review:(sid:string,label:string,results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>Promise<import('../../shared/types.js').HiddenRollDecision>;finished:()=>void};
+  const privateControllers=new Map<string,PrivateController>();
   /** Cancel every pending release for a player (they're back) so their claims
    *  aren't freed, then hand back the one character they last held if no live
    *  player holds it now. Called on (re)join. */
@@ -363,6 +365,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const finish=()=>{clearTimeout(timer);finishDicePresentation=undefined;resolve();};
       const timer=setTimeout(finish,ms);finishDicePresentation=finish;
     });
+    privateControllers.set(socket.id,{ready:prepareTray,waitForPresentation:waitForDicePresentation,review:reviewHidden,finished:()=>{socket.emit('dice:hiddenReview',null);activeDiceId=undefined;skipDicePresentation=false;}});
     const commandDispatch=new Map<string,(...args:unknown[])=>void>();
     const domainHandlers=new Map<string,(payload:any)=>unknown>();
     const scheduleCastTimeout=(held:NonNullable<ReturnType<typeof deferCast>>)=>afterRollCommit(()=>{
@@ -419,6 +422,16 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
               :event==='save:roll'&&abilityOwner?[{kind:payload.kind,refId:abilityOwner.id}]:[];
             const targetLabels=new Map<string,string|undefined>();
             const privateRoll=isDm()&&!!getSessionById(sid)?.hideDmRolls;
+            const delegateSaves=!isDm()&&!!getSessionById(sid)?.hideDmRolls;
+            let saveController:PrivateController|undefined,currentPrivateSave=false;
+            const configureDice=delegateSaves?(info:import('../../shared/dice.js').PhysicalDiceInfo)=>{
+              currentPrivateSave=!!info.saveDice?.some(d=>d.target.kind==='monster')||!!info.target&&info.target.kind==='monster'&&/sav(?:e|ing)/i.test(info.label??'');
+              if(!currentPrivateSave)return {};
+              // Prefer the DM's newest connected window over an older idle tab.
+              saveController??=[...privateControllers].reverse().find(([id])=>{const c=getConn(id);return c?.sessionId===sid&&c.role==='dm'&&io.sockets.sockets.has(id);})?.[1];
+              if(!saveController)throw new UnsupportedPhysicalDice('A connected DM is needed to roll these hidden creature saves. Nothing was applied.');
+              return {ready:saveController.ready,waitForPresentation:saveController.waitForPresentation,requireSaveStart:true};
+            }:undefined;
             const sourceToken=payload?.attackerTokenId?getToken(payload.attackerTokenId):undefined;
             const sources=[sourceToken,abilityOwner&&{kind:payload.kind,refId:abilityOwner.id},pending?.attacker,
               payload?.tokenId?getToken(payload.tokenId):undefined].filter(Boolean);
@@ -445,7 +458,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 (socket as any).emit=(...values:any[])=>{afterRollCommit(()=>emit.apply(socket,values as any));return socket;};
                 activeCommandConnection=commandConn;
                 try{runHandler();}finally{socket.emit=emit;activeCommandConnection=undefined;}
-              },(frame,info)=>{for(const id of audience()){
+              },(frame,info)=>{
+               if(currentPrivateSave)for(const [id,lastId] of lastDelivered){if(getConn(id)?.role!=='dm'){io.to(id).emit('dice:finished',{id:lastId});lastDelivered.delete(id);}}
+               for(const id of audience()){
+                if(currentPrivateSave&&getConn(id)?.role!=='dm')continue;
                 if(info?.saveDice){
                   const shaped=shapeSaveFrame(frame,info.saveDice,target=>{
                     const key=`save:${id}:${target.kind}:${target.refId}`;
@@ -486,8 +502,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 const safeCalculation=calculation&&getConn(id)?.role!=='dm'&&(frame.dmDice||isDm())
                   ?redactCreatureMods({id:frame.id,roller:frame.roller,label:frame.label,expr:'',total:0,detail:'',createdAt:0,reveal:calculation},true).reveal:calculation;
                 io.to(id).emit('dice:frame',{...frame,target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
-              }},{...meta,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual)}:{})});
-            }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);activeDiceId=undefined;skipDicePresentation=false;}
+              }},{...meta,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual)}:delegateSaves?{configureDice,review:async(results,dice,manual)=>saveController?saveController.review(sid,meta.label,results.filter(r=>r.reveal?.kind==='check'),dice,manual):true}:{})});
+            }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);saveController?.finished();activeDiceId=undefined;skipDicePresentation=false;}
           },failed);
           return;
         }
@@ -2776,6 +2792,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     on('disconnect', () => {
+      privateControllers.delete(socket.id);
       hiddenReview?.finish({action:'discard'});
       for(const finish of trayStarts.values())finish(false);
       for (const finish of trayReady.values()) finish();

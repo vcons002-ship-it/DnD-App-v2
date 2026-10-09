@@ -149,7 +149,7 @@ export function hiddenRollOutcome(e: RollEntry, visible: Token[], monsters: Mons
   const type=r?.damageType?.toLowerCase();
   const damageType=type&&['acid','bludgeoning','cold','fire','force','lightning','necrotic','piercing','poison','psychic','radiant','slashing','thunder'].includes(type)?` ${type}`:'';
   const amount=Number.isFinite(resolvedAmount)&&!e.apply&&(!e.pending||e.pending.done)&&
-    (healing||damageApplication||r?.kind==='attack'||r?.kind==='damage')
+    (healing||damageApplication||r?.kind==='attack'||r?.kind==='damage'||r?.kind==='check'&&r.damage!==undefined)
     ?`${resolvedAmount}${healing?(temporaryHp?' temporary HP':' healing'):`${damageType} damage`}`:undefined;
   // effectOutcome is authored result text, not the private roll detail. Drop any
   // clause carrying math/statistics rather than risk exposing a new stat format.

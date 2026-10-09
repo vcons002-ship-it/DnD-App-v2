@@ -28,7 +28,7 @@ export function HiddenRollReview(){
    :d.faces.map((f,i)=>Number(values[`${d.index}:${i}`]??f))}))});
  };
  const outcomes={hit:'Hit',miss:'Miss',crit:'Critical hit',fumble:'Fumble',pass:'Save passed',fail:'Save failed',none:''};
- return <section className="hidden-roll-review" role="region" data-review-id={review.id} aria-label="Approve hidden result" onClick={event=>event.stopPropagation()}>
+ return <section className="hidden-roll-review" role="region" data-review-id={review.id} data-grouped={results.length>1} aria-label="Approve hidden result" onClick={event=>event.stopPropagation()}>
   <header><span className="hidden-roll-private">DM ONLY · NOT APPLIED YET</span>
    {review.manual&&<p className="hidden-roll-manual-note">DM-entered result</p>}
    {submitting&&<p role="status">{working||'Applying the approved result…'}</p>}</header>
@@ -39,7 +39,8 @@ export function HiddenRollReview(){
     ?result.reveal.kind==='damage'?'Damage':result.reveal.kind==='check'&&!/save|saving throw/i.test(result.reveal.title??'')
      ?result.reveal.outcome==='pass'?'Success':result.reveal.outcome==='fail'?'Failed':outcomes[result.reveal.outcome]
      :outcomes[result.reveal.outcome]:''}</strong><b>Total {result.total}</b></div>
-   {result.reveal?.effectOutcome&&<p className="hidden-roll-effect">{result.reveal.effectOutcome}</p>}
+   {result.reveal?.effectOutcome&&<p className="hidden-roll-effect">{results.length>1&&result.reveal.kind==='check'&&result.reveal.damage!==undefined
+    ?`${result.reveal.damage} ${result.reveal.damageType??''} damage`:result.reveal.effectOutcome}</p>}
    <details className="hidden-roll-details"><summary>Roll details</summary><p className="hidden-roll-equation">{result.detail}</p></details>
   </section>)}</div>
   {editing&&<form className="hidden-roll-entry" onSubmit={e=>{e.preventDefault();enter();}}>

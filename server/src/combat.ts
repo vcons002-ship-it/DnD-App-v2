@@ -1767,7 +1767,10 @@ export function resolveForcedSave(
         ],
         outcome: pass ? 'pass' : 'fail',
       });
-      if(apply.amount>0)saveReveal.effectOutcome=`${pass?'Save passed':'Save failed'} - ${dmg} ${apply.damageType??''} damage${pass?(apply.saveDamage==='none'?' (avoided)':' (save for half)'):''}.`;
+      if(apply.amount>0){
+        saveReveal.damage=dmg;saveReveal.damageType=apply.damageType;
+        saveReveal.effectOutcome=`${pass?'Save passed':'Save failed'} - ${dmg} ${apply.damageType??''} damage${pass?(apply.saveDamage==='none'?' (avoided)':' (save for half)'):''}.`;
+      }
       // Zero-damage control spells need the caster-facing meaning of the save.
       // Damage spells may still deal half damage on a pass, so do not call them unsuccessful.
       if (apply.amount === 0 && src?.label) {
@@ -1797,9 +1800,8 @@ export function resolveForcedSave(
   });
   addRollLog(sessionId, {
     // Attribute the resolution to whoever cast the spell (the source roll's
-    // roller), so a PLAYER applying their own AOE still sees the result even when
-    // the DM has "hide my rolls" on (only roller 'DM' is hidden). The target's own
-    // save modifier is hidden from players when it's an enemy/neutral creature.
+    // roller). Creature saves still use hidden-roll approval when enabled;
+    // players receive their accepted outcome and damage without private math.
     roller: src?.roller ?? 'DM',
     label: apply.save ? `${apply.save.toUpperCase()} save` : 'Damage',
     expr: `DC ${apply.dc}`,

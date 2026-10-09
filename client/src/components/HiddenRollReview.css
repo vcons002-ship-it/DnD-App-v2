@@ -5,6 +5,12 @@
 .hidden-roll-review h3{font-size:17px;margin:0;color:#f2d99d}
 .hidden-roll-results{display:flex;gap:10px;overflow:auto;min-height:0}
 .hidden-roll-results section{flex:1 0 220px;position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-content:center;padding:4px 8px;border-left:2px solid #bca16a66}
+.hidden-roll-review[data-grouped=true] .hidden-roll-results section{align-content:start}
+.hidden-roll-review[data-grouped=true] .hidden-roll-results h3{display:none}
+.hidden-roll-review[data-grouped=true] .hidden-roll-who{grid-column:1/-1;font-size:18px}
+.hidden-roll-review[data-grouped=true] .hidden-roll-verdict{grid-column:1/-1;grid-row:auto;flex-direction:row;justify-content:space-between;font-size:19px}
+.hidden-roll-review[data-grouped=true] .hidden-roll-effect{font-size:14px}
+.hidden-roll-review[data-grouped=true] .hidden-roll-details summary{line-height:20px}
 .hidden-roll-review .hidden-roll-who{font-size:22px;font-weight:700;color:#fff1d3;grid-column:1}
 .hidden-roll-verdict{display:flex;flex-direction:column;justify-content:center;align-items:end;gap:3px;font-size:24px;line-height:1.15;grid-column:2;grid-row:1/4;white-space:nowrap}
 .hidden-roll-verdict strong[data-outcome=hit],.hidden-roll-verdict strong[data-outcome=pass]{color:#86dfad}

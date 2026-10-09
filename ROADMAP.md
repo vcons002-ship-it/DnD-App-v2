@@ -1,8 +1,16 @@
 # Roadmap & Feature Backlog
 
-- [x] Hidden DM attacks, saves, checks and other non-damage rolls require private
+- [x] Player area spells hand hidden creature saves to the newest connected DM
+  window. The caster rolls damage normally, then the DM receives a compact
+  saving-throw prompt and rolls the labeled creature saves together. Reject &
+  reroll preserves the completed spell damage; entered faces recalculate each
+  save. No damage, effects, slot spending or history commits before acceptance.
+  Players receive accepted pass/fail and damage only, with no creature dice,
+  bonuses or DC. A missing DM leaves the action unapplied with an explanation.
+
+- [x] Hidden DM attacks, saves, checks and damage rolls require private
   result approval. The DM can accept, reroll or enter a result before the attack
-  hit/miss reaches players; normal damage needs no extra confirmation.
+  hit/miss or damage reaches players, including deferred weapon damage.
   The server rolls the configured dice, applies modifiers, and presents the full result to the
   initiating DM before committing HP, resources, conditions or roll history.
   Reject & reroll reuses the pending step's dice and preserves completed damage.

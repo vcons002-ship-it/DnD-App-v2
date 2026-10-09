@@ -219,3 +219,11 @@ the same pending save, without a second start click. Desktop and
 phone checks cover the verdict and Apply/reroll buttons without clipping.
 Player observers receive no private frames or reviews, and only accepted outcome
 history and final damage. No native confirmation dialog opens.
+
+`e2e/hidden-area-save.spec.ts` casts Fireball from a player at three goblins and
+checks the handoff to the DM's grouped saving-throw prompt. Rerolling preserves
+the public damage throw; manually entered save faces recalculate full/half damage.
+No HP, effects, resources or history commits until acceptance. The player receives
+no creature save frames or approval messages, and sees outcome-only save history.
+Set `CAPTURE_HIDDEN_AREA` to an output directory with a headed Chrome run to
+record both windows through Windows Graphics Capture and NVIDIA NVENC AV1.
