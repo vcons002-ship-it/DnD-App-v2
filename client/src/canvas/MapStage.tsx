@@ -2012,7 +2012,7 @@ export function MapStage({
         listening={!t.sharedSightOnly && !measureActive}
         selected={!t.sharedSightOnly && (orbTarget ? orbTarget.targetId === t.id : selectedIds.includes(t.id))}
         activeTurn={!t.sharedSightOnly && t.id === activeTurnTokenId}
-        initiativeRank={t.sharedSightOnly && t.kind !== 'pc' ? null : initiativeRank.get(t.id) ?? null}
+        initiativeRank={initiativeRank.get(t.id) ?? null}
         onSelect={handleTokenSelect}
         onActivate={handleTokenActivate}
         onMove={handleTokenMove}

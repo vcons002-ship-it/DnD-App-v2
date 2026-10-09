@@ -400,7 +400,7 @@ export function createSnapshotBuilder(
         const retain=()=>{
           if(!retained||map?.explorationMode!=='revealed'||!manualVisible(retained.token)||!fogVisionContains(playerVision,retained.token.x,retained.token.y,false))return [];
           if(retained.monster)retainedDisplays.set(t.refId,retained.monster);
-          return [{...retained.token,sharedSightOnly:true,revealedOnly:true}];
+          return [{...retained.token,initiative:partySees(t)?t.initiative:null,sharedSightOnly:true,revealedOnly:true}];
         };
         if(isInvisible(t.kind==='pc'?charById.get(t.refId):monById.get(t.refId))&&t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly'){
           const sees=data.tokens.some(o=>o.kind==='pc'&&owned.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map)));

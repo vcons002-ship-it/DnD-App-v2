@@ -3,7 +3,7 @@ import {test,expect} from '@playwright/test';
 import {io} from 'socket.io-client';
 import {DM_SECRET,PORT} from './playwright.config';
 
-test('party initiative tags survive shared sight in 2D and 3D without revealing concealed enemies',async({page,request})=>{
+test('party and enemy initiative tags follow live shared sight in 2D and 3D without revealing concealed enemies',async({page,request})=>{
  test.setTimeout(120000);
  const headers={'x-dm-passphrase':DM_SECRET};
  const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Party initiative through fog'}})).json();
@@ -31,15 +31,24 @@ test('party initiative tags survive shared sight in 2D and 3D without revealing 
  await expect(page.getByTestId('player-hud')).toBeVisible();
  for(const threeD of [false,true]){
   await page.getByRole('button',{name:threeD?'3D player tokens':'2D player tokens',exact:true}).click();
+  await page.getByRole('button',{name:threeD?'3D monster tokens':'2D monster tokens',exact:true}).click();
   for(const mode of ['day','dim','heavy']){
    dm.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:mode==='day'?'day':'dungeon',heavyDarkness:mode==='heavy',lights:[]}});await snap();
-   await expect.poll(ranks).toEqual(expect.arrayContaining([{id:ally.id,text:'1'},{id:own.id,text:'3'}]));
-   const tags=await ranks();expect(tags.some((t:any)=>enemies.some((e:any)=>e.id===t.id))).toBe(false);
+   await expect.poll(ranks,{timeout:15000}).toEqual(expect.arrayContaining([{id:ally.id,text:'1'},{id:enemies[0].id,text:'2'},{id:own.id,text:'3'}])).catch(async e=>{console.log(JSON.stringify({threeD,mode,own:own.id,ally:ally.id,enemy:enemies[0].id,ranks:await ranks()}));throw e});
+   expect((await ranks()).some((t:any)=>t.id===enemies[1].id)).toBe(false);
   }
  }
  await expect.poll(()=>page.getByTestId('miniature-layer').getAttribute('data-miniature-ids'),{timeout:45000}).toContain(ally.id);
+ // Retained color keeps the tag during live party sight, then drops it when
+ // nobody currently sees that enemy. Party tags continue to display.
+ dm.emit('map:setEnvironment',{mapId:map.id,settings:{lighting:'day',heavyDarkness:false}});
+ dm.emit('fog:setExploration',{mapId:map.id,mode:'revealed'});await snap();
+ await expect.poll(ranks,{timeout:15000}).toEqual(expect.arrayContaining([{id:enemies[0].id,text:'2'}]));
+ dm.emit('token:move',{tokenId:ally.id,x:200,y:200});await snap();
+ await expect.poll(ranks,{timeout:15000}).toEqual(expect.arrayContaining([{id:ally.id,text:'1'},{id:own.id,text:'2'}]));
+ await expect.poll(async()=>(await ranks()).some((t:any)=>t.id===enemies[0].id)).toBe(false);
  // Painted cover also preserves the known party tag, and changes no hidden identity.
  dm.emit('fog:setLayer',{mapId:map.id,layer:'map',enabled:true});await snap();
- await expect.poll(ranks).toEqual(expect.arrayContaining([{id:ally.id,text:'1'},{id:own.id,text:'2'}]));
+ await expect.poll(ranks,{timeout:15000}).toEqual(expect.arrayContaining([{id:ally.id,text:'1'},{id:own.id,text:'2'}]));
  }finally{dm.disconnect()}
 });

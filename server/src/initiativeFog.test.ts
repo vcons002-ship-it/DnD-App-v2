@@ -61,6 +61,16 @@ describe('initiative respects current party sight rather than explored memory',(
   updateMapEnvironment(f.session.id,f.map.id,{heavyDarkness:false,lights:[]});
   expect(rollsInitiative(getToken(f.enemy.id)!)).toBe(true);
  });
+ it('shares an enemy initiative in live party sight but removes it from a retained-only image',()=>{
+  const f=fixture(),east=createCharacter(f.session.id,{name:'East'});
+  const ally=createToken({mapId:f.map.id,kind:'pc',refId:east.id,x:600,y:200});
+  setExplorationMode(f.session.id,f.map.id,'revealed');setTokenInitiative(f.enemy.id,13);
+  expect(buildSnapshot(f.session.id,'player',null,'west')!.tokens.find(t=>t.id===f.enemy.id)).toMatchObject({sharedSightOnly:true,initiative:13});
+  moveToken(ally.id,150,200);
+  expect(buildSnapshot(f.session.id,'player',null,'west')!.tokens.find(t=>t.id===f.enemy.id)).toMatchObject({revealedOnly:true,initiative:null});
+  expect(buildSnapshot(f.session.id,'dm',f.map.id)!.tokens.find(t=>t.id===f.enemy.id)!.initiative).toBe(13);
+  setTokenHidden(f.enemy.id,true);expect(buildSnapshot(f.session.id,'player',null,'west')!.tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+ });
  it('does not recruit a retained image of a creature after its door closes',()=>{
   const f=fixture();setExplorationMode(f.session.id,f.map.id,'revealed');
   setWallDoor(f.session.id,f.map.id,'door',true);buildSnapshot(f.session.id,'player',null,'west');

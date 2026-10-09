@@ -3,8 +3,10 @@
 - [x] Initiative follows live party sight, automatic wall fog, painted cover and
   heavy-darkness range/light rules. Remembered creatures do not enter on Auto;
   known party PCs remain eligible, explicit DM choices still win, and existing
-  combatants keep their turns after disappearing into fog. Party initiative
-  tags remain visible in shared sight for 2D and 3D figures.
+  combatants keep their turns after disappearing into fog. Initiative
+  tags remain visible in shared sight for 2D and 3D figures, including enemies
+  currently observed by another party member. Retained-only enemy images carry
+  no initiative tag.
 
 - [x] DM Fog menu: Reset explored fog with a second-click confirmation. Clears
   only the current map's shared explored terrain and last-seen figure history;
