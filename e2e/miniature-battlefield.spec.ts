@@ -187,6 +187,8 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await player.screenshot({path:info.outputPath('weather-player-dungeon-rain.png')});
     await page.getByLabel('Weather',{exact:true}).selectOption('snow');
     await expect(layer).toHaveAttribute('data-weather','snow');
+    await page.getByLabel('Heavy darkness',{exact:true}).click();
+    await expect(page.getByLabel('Heavy darkness',{exact:true})).not.toBeChecked();
     await page.getByLabel('Lighting preset',{exact:true}).selectOption('day');
     await page.getByLabel('Shadow direction',{exact:true}).focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');
     await expect.poll(async()=>(await f.snapshot()).map?.environment?.shadowDirectionDegrees).toBe(1);

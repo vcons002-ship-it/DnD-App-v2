@@ -17,6 +17,8 @@ export type MapEnvironment = {
   lights: MapEnvironmentLight[];
   enabled: boolean;
   shadows: boolean;
+  /** Fixed map-light direction, separate from shadows cast by torches/lanterns. */
+  mapShadows?: boolean;
   shadowDirectionDegrees: number;
   shadowLength: number;
   shadowOpacity: number;
@@ -30,17 +32,26 @@ export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;h
 export type EnvironmentQuality = 'auto' | 'high' | 'low' | 'off';
 export const DEFAULT_MAP_ENVIRONMENT: Readonly<MapEnvironment> = {
   lighting:'day',lightLevel:1,sceneTint:'#ffffff',sceneTintStrength:0,heavyDarkness:false,weather:'none',weatherIntensity:.5,particles:'none',particleIntensity:.5,mistColor:'natural',lightning:false,groundWetness:0,windDirectionDegrees:20,windStrength:.4,lights:[],
-  enabled: false, shadows: true, shadowDirectionDegrees: 55, shadowLength: 1.05,
+  enabled: false, shadows: true, mapShadows: true, shadowDirectionDegrees: 55, shadowLength: 1.05,
   shadowOpacity: .65, mist: true, mistOpacity: .35, mistHeightFt: 2,
   mistShadows: true, mistInteraction: true,
 };
+
+export function defaultMapShadows(settings: {lighting?: MapEnvironment['lighting'];heavyDarkness?: boolean}): boolean {
+  return !settings.heavyDarkness && settings.lighting !== 'night' && settings.lighting !== 'dungeon';
+}
+
+/** Old dark maps also default to local-light shadows without a save migration. */
+export function mapShadowsEnabled(settings: {mapShadows?: boolean;lighting?: MapEnvironment['lighting'];heavyDarkness?: boolean}): boolean {
+  return settings.mapShadows ?? defaultMapShadows(settings);
+}
 
 /** Whitelist and bound inputs; an invalid partial update preserves saved values. */
 export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnvironment> = DEFAULT_MAP_ENVIRONMENT): MapEnvironment {
   const result = {...previous};
   if (!input || typeof input !== 'object' || Array.isArray(input)) return result;
   const source = input as Record<string, unknown>;
-  for (const key of ['enabled', 'heavyDarkness', 'lightning', 'shadows', 'mist', 'mistShadows', 'mistInteraction'] as const) {
+  for (const key of ['enabled', 'heavyDarkness', 'lightning', 'shadows', 'mapShadows', 'mist', 'mistShadows', 'mistInteraction'] as const) {
     if (typeof source[key] === 'boolean') result[key] = source[key];
   }
   for (const [key, min, max] of [
@@ -55,6 +66,11 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
     if(typeof angle==='number'&&Number.isFinite(angle))result[key]=((angle%360)+360)%360;
   }
   if(['day','dusk','night','dungeon'].includes(source.lighting as string))result.lighting=source.lighting as MapEnvironment['lighting'];
+  // A lighting change applies its default once. Later shadow/weather/light edits
+  // preserve a DM override, and an explicitly supplied shadow choice always wins.
+  if(typeof source.mapShadows !== 'boolean' && (result.lighting !== previous.lighting || result.heavyDarkness !== previous.heavyDarkness || previous.mapShadows === undefined)) {
+    result.mapShadows = defaultMapShadows(result);
+  }
   if(['none','rain','snow'].includes(source.weather as string))result.weather=source.weather as MapEnvironment['weather'];
   if(['none','leaves','fireflies','embers','dust'].includes(source.particles as string))result.particles=source.particles as MapEnvironment['particles'];
   if(['natural','cool','green','ash','sand'].includes(source.mistColor as string))result.mistColor=source.mistColor as MapEnvironment['mistColor'];

@@ -1,16 +1,16 @@
-import {type MapEnvironment} from './mapEnvironment.js';
+import {defaultMapShadows,type MapEnvironment} from './mapEnvironment.js';
 
 // Presets replace atmosphere only. Map-calibrated shadow direction/length,
 // placed lights and viewer quality are deliberately outside their owned fields.
 type Atmosphere = Pick<MapEnvironment,'enabled'|'lighting'|'lightLevel'|'sceneTint'|'sceneTintStrength'|'heavyDarkness'|
-  'particles'|'particleIntensity'|'mistColor'|'weather'|'weatherIntensity'|'lightning'|'groundWetness'|'windStrength'|'shadows'|'shadowOpacity'|
+  'particles'|'particleIntensity'|'mistColor'|'weather'|'weatherIntensity'|'lightning'|'groundWetness'|'windStrength'|'shadows'|'mapShadows'|'shadowOpacity'|
   'mist'|'mistOpacity'|'mistHeightFt'|'mistShadows'|'mistInteraction'>;
 const base:Atmosphere={
   enabled:true,lighting:'day',lightLevel:1,sceneTint:'#ffffff',sceneTintStrength:0,heavyDarkness:false,
   weather:'none',weatherIntensity:.5,particles:'none',particleIntensity:.5,mistColor:'natural',lightning:false,groundWetness:0,windStrength:.15,shadows:true,shadowOpacity:.65,
   mist:false,mistOpacity:.08,mistHeightFt:1.5,mistShadows:true,mistInteraction:true,
 };
-const preset=(id:string,label:string,description:string,settings:Partial<Atmosphere>)=>({id,label,description,settings:{...base,...settings}});
+const preset=(id:string,label:string,description:string,settings:Partial<Atmosphere>)=>({id,label,description,settings:{...base,...settings,mapShadows:settings.mapShadows??defaultMapShadows({...base,...settings})}});
 export const MAP_ENVIRONMENT_PRESETS=[
   preset('clear-day','Clear day','Original map colors, balanced daylight and defined token shadows.',{}),
   preset('golden-dusk','Golden dusk','Warm fading daylight and softer shadows.',{lighting:'dusk',shadowOpacity:.5}),

@@ -1,5 +1,5 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
-import {DEFAULT_MAP_ENVIRONMENT,sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
+import {DEFAULT_MAP_ENVIRONMENT,mapShadowsEnabled,sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
 import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../shared/mapEnvironmentPresets.js';
 import {stormLightningAt} from '../../shared/stormLighting.js';
 import {createMap,createSession,getMap,listMaps,getSessionByCode,setActiveMap,updateMapEnvironment,importMaps,createCharacter,createToken,claimCharacter,getToken,listTokens,moveToken} from './sessions.js';
@@ -22,6 +22,39 @@ function client(sessionId:string,mapId:string,role:'dm'|'player'){
   return Object.assign((p:unknown)=>handlers.get('map:setEnvironment')!(p),{id,send:(event:string,p:unknown)=>handlers.get(event)!(p)});
 }
 describe('saved map environment',()=>{
+  it('defaults darkness to light-source shadows, preserves overrides and restores daylight',()=>{
+    const session=createSession('Shadow defaults'),map=createMap(session.id,{name:'Night'});
+    const dm=client(session.id,map.id,'dm');
+    const save=(settings:unknown)=>{dm({mapId:map.id,settings});return getMap(map.id)!.environment!;};
+    for(const lighting of ['night','dungeon']){
+      expect(save({lighting:'day',heavyDarkness:false})).toMatchObject({shadows:true,mapShadows:true});
+      expect(save({lighting})).toMatchObject({shadows:true,mapShadows:false});
+      expect(save({mapShadows:true})).toMatchObject({shadows:true,mapShadows:true});
+      expect(save({mistOpacity:.2})).toMatchObject({mapShadows:true});
+      expect(save({heavyDarkness:true})).toMatchObject({shadows:true,mapShadows:false});
+      expect(save({mapShadows:true})).toMatchObject({mapShadows:true});
+      const imported=importSession(exportSession(session.code)!);
+      expect(listMaps(getSessionByCode(imported.code)!.id)[0].environment).toMatchObject({shadows:true,mapShadows:true,heavyDarkness:true});
+      expect(save({heavyDarkness:false})).toMatchObject({mapShadows:false});
+    }
+    expect(save({lighting:'day',heavyDarkness:false})).toMatchObject({mapShadows:true});
+    expect(save({lighting:'night',mapShadows:true})).toMatchObject({mapShadows:true});
+    expect(save({mapShadows:'false',weather:'rain'})).toMatchObject({mapShadows:true});
+  });
+  it('normalizes old dark saves and supplies the same shadow fallback to previews',()=>{
+    for(const lighting of ['night','dungeon'] as const){
+      expect(sanitizeMapEnvironment({lighting,shadows:true})).toMatchObject({shadows:true,mapShadows:false});
+      expect(mapShadowsEnabled({lighting})).toBe(false);
+      expect(mapShadowsEnabled({lighting,mapShadows:true})).toBe(true);
+    }
+    expect(mapShadowsEnabled({lighting:'day'})).toBe(true);
+    expect(mapShadowsEnabled({lighting:'day',heavyDarkness:true})).toBe(false);
+    for(const preset of MAP_ENVIRONMENT_PRESETS){
+      const dark=preset.settings.lighting==='night'||preset.settings.lighting==='dungeon'||preset.settings.heavyDarkness;
+      expect(preset.settings.mapShadows).toBe(!dark);
+      expect(preset.settings.shadows).toBe(true);
+    }
+  });
   it('defaults old and new maps off and safely bounds partial settings',()=>{
     const session=createSession('Environment defaults'),map=createMap(session.id,{name:'Arena'});
     expect(map.environment).toEqual(DEFAULT_MAP_ENVIRONMENT);
