@@ -8,6 +8,8 @@
   Reject & reroll reuses the pending step's dice and preserves completed damage.
   Enter result recalculates modifiers and dependent effects, then waits for
   approval again. Entered results use the same log format as rolled results.
+  Saving-throw reviews use the check total rather than the damage stored in the
+  log row, so entering a result also works for zero-damage control spells.
   Apply commits that same result once; Discard, disconnect or a five-minute
   approval timeout leaves it unapplied. Players receive no dice, review prompt,
   private roll entry or early facing cue. After acceptance, players receive only

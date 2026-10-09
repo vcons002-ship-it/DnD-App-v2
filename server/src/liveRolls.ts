@@ -195,7 +195,10 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
     // A rider may have no final reveal (the combined hit was already shown).
     // Roll back before waiting, just as for explicit calculation stages.
     if(needsReading()&&!hasLiveRollReveal())throw new NeedReading();
-    const results=stagedRollResults();
+    // Save log rows store damage applied in `total`, including zero for control
+    // spells. The review edits the save, so use its actual check total instead.
+    const results=stagedRollResults().map(result=>result.reveal?.kind==='check'&&typeof result.reveal.attackTotal==='number'
+      ?{...result,total:result.reveal.attackTotal}:result);
     if(meta.review&&!approved&&hiddenRollNeedsApproval(results))throw new NeedApproval(results);
     if(approved&&JSON.stringify(results)!==approvedResults)throw new Error('The hidden roll context changed. Nothing was applied; roll again to review the new result.');
    }))))();

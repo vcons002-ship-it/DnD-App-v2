@@ -3,6 +3,9 @@ import {runLiveCommand,hiddenRollNeedsApproval,type physicalFaces} from './liveR
 import {rollDice,withDiceMetadata} from '../../shared/dice.js';
 import {afterRollCommit} from './liveRollContext.js';
 import {createSession,createCharacter,getCharacter,applyDamage,setResource,addRollLog,listRollLog,drainHpFx} from './sessions.js';
+import {createMap,setActiveMap,createToken,setManualDamage} from './sessions.js';
+import {resolveAbilityRoll} from './combat.js';
+import {getSpell} from './spells/srd.js';
 
 for(const apply of [false,true])it(`hidden result ${apply?'approval':'cancellation'} is atomic and uses the same rolled faces`,async()=>{
  const session=createSession('Secret approval'),hero=createCharacter(session.id,{name:'Hero',maxHp:40});
@@ -101,4 +104,29 @@ it('rejects invalid manual faces without applying an outcome',async()=>{
   const r=rollDice('1d20')!;addRollLog(session.id,{roller:'DM',label:'Save',expr:r.expr,total:r.total,detail:r.detail});
  },()=>{},{label:'Save',roller:'DM',className:'',review:async()=>({action:'manual',faces:[{index:0,values:[21]}]})},dice)).rejects.toThrow('Invalid manual die result');
  expect(listRollLog(session.id)).toHaveLength(0);
+});
+
+it('reviews and replaces the saving throw total for a real zero-damage control spell',async()=>{
+ const session=createSession('Private Hold Person'),map=createMap(session.id,{name:'Arena'});
+ setActiveMap(session.id,map.id);setManualDamage(session.id,false);
+ const caster=createCharacter(session.id,{name:'Mage',className:'Wizard',level:3,stats:{INT:16}});
+ const target=createCharacter(session.id,{name:'Hero',className:'Fighter',maxHp:40,stats:{WIS:10}});
+ const token=createToken({mapId:map.id,kind:'pc',refId:target.id,x:100,y:100});
+ let reviews=0;
+ await runLiveCommand(()=>{
+  resolveAbilityRoll(session.id,'DM',getCharacter(caster.id)!,{...getSpell('Hold Person')!,id:'hold'},2,undefined,token.id);
+ },()=>{},{label:'Hold Person',roller:'DM',className:'',review:async(results,plans,manual)=>{
+  expect(getCharacter(target.id)!.conditions).toEqual([]);expect(listRollLog(session.id)).toEqual([]);
+  const save=results.find(r=>r.reveal?.kind==='check')!;reviews++;
+  expect(plans[0].bonus).toBe(0);
+  if(reviews===1){
+   expect(save).toMatchObject({total:18,reveal:{outcome:'pass',attackTotal:18}});
+   return {action:'manual',faces:[{index:plans[0].index,values:[3]}]};
+  }
+  expect(manual).toBe(true);expect(save).toMatchObject({total:3,reveal:{outcome:'fail',attackTotal:3}});
+  return {action:'apply'};
+ }},async()=>[18]);
+ expect(reviews).toBe(2);expect(getCharacter(target.id)!.conditions.map(c=>c.label)).toContain('Paralyzed');
+ // The persisted log still uses its established applied-damage convention.
+ expect(listRollLog(session.id).find(r=>r.label==='WIS save')).toMatchObject({total:0,reveal:{attackTotal:3,outcome:'fail'}});
 });
