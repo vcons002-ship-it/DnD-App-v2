@@ -2,7 +2,7 @@ import {PointLight,Vector4,Box3,WebGLCubeRenderTarget,WebGLRenderTarget,CubeDept
 import {hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
 import type {TorchLight} from './miniatureTorchLighting';
-import {selectShadowLights,castsLocalShadow,compactShadowHeightScale,type ShadowCaster} from '../../../shared/localLightShadows';
+import {selectShadowLights,castsLocalShadow,compactShadowHeightScale,localShadowContactBias,localShadowDepthGlsl,type ShadowCaster} from '../../../shared/localLightShadows';
 import {creatureShadowStyle} from './creatureShadowStyle';
 import {createEnvironmentalLocalShadows,environmentalLocalShadowGlsl} from './environmentalLocalShadows';
 
@@ -13,12 +13,13 @@ import {createEnvironmentalLocalShadows,environmentalLocalShadowGlsl} from './en
 export const localShadowGlsl=`
  uniform vec4 localShadowOrigins[4];
  uniform vec4 localShadowParams[4];
+ ${localShadowDepthGlsl}
  ${creatureShadowStyle==='map'?environmentalLocalShadowGlsl:''}
  ${Array.from({length:4},(_,i)=>`uniform samplerCubeShadow localShadowMap${i};`).join('\n')}
  float sampleLocalShadow(samplerCubeShadow depthMap,vec3 delta,vec4 params,float strength){
    float z=max(max(abs(delta.x),abs(delta.y)),abs(delta.z));
    if(z<=params.x||z>=params.y)return 1.;
-   float depth=params.y*(z-params.x)/(z*(params.y-params.x))-.00025;
+   float depth=localShadowDepth(z,params);
    vec3 direction=normalize(delta);
    vec3 axis=abs(direction.y)<.9?vec3(0.,1.,0.):vec3(1.,0.,0.);
    vec3 tangent=normalize(cross(direction,axis))*params.z;
@@ -88,7 +89,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer){
     light.shadow.camera.far=far;light.shadow.camera.updateProjectionMatrix();
     light.shadow.needsUpdate=animated||entry.key!==key||(!planar&&!light.shadow.map);entry.key=key;
     source.shadowSlot=slot;
-    origins[slot].set(source.x,source.height,source.y,1);params[slot].set(.5,far,2/512,0);
+    origins[slot].set(source.x,source.height,source.y,1);params[slot].set(.5,far,2/512,localShadowContactBias(source.height));
    }
    pool.forEach((entry,i)=>{if(!entry.id)origins[i].w=0;});
    const dirty=pool.filter(e=>e.id&&e.light.shadow.needsUpdate);
