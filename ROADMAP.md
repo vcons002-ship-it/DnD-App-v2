@@ -1,5 +1,11 @@
 # Roadmap & Feature Backlog
 
+- [x] Share a player's live spell-area placement with the DM on the same map.
+  Keep the confirmed footprint visible to caster and DM through all damage,
+  grouped saves, rerolls and private approval, clearing only when the command
+  finishes or is discarded. Canonical sheet geometry, throttled cursor updates,
+  no preview targets or hidden DM plans leaked to other players.
+
 - [x] Grouped private-save manual entry exposes every die field, labeled by
   creature name. The editor extends over the tray without being
   clipped by the result footer; responsive columns keep small groups visible.

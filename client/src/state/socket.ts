@@ -96,6 +96,8 @@ type Store = {
   skipLiveDice: () => void;
   teleportCast:AbilityRollPayload|null;
   clearTeleportCast:()=>void;
+  spellAreaPreviews:Record<string,import('../../../shared/types').SpellAreaPreview>;
+  shareSpellArea:(payload:import('../../../shared/types').SpellAreaPreviewIntent|null)=>void;
   areaCast:{payload:AbilityRollPayload;spec:SpellArea;name:string;repeat?:import('../../../shared/types').SpellRepeatPayload}|null;
   clearAreaCast:()=>void;
   socket: TypedSocket | null;
@@ -531,8 +533,10 @@ export const useStore = create<Store>((set, get) => ({
   },
   teleportCast:null,
   clearTeleportCast:()=>set({teleportCast:null}),
+  spellAreaPreviews:{},
+  shareSpellArea:payload=>get().socket?.emit('spell:areaPreview',payload),
   areaCast:null,
-  clearAreaCast:()=>set({areaCast:null}),
+  clearAreaCast:()=>{get().socket?.emit('spell:areaPreview',null);set({areaCast:null});},
   socket: null,
   status: 'idle',
   error: null,
@@ -761,7 +765,7 @@ export const useStore = create<Store>((set, get) => ({
     }
     set({
       status: 'connecting',
-      areaCast:null,teleportCast:null,liveDice:null,skippedLiveDiceId:null,
+      areaCast:null,spellAreaPreviews:{},teleportCast:null,liveDice:null,skippedLiveDiceId:null,
       error: null,
       dmPassphrase: dmPassphrase ?? null,
       chatAccessToken: null,
@@ -820,6 +824,7 @@ export const useStore = create<Store>((set, get) => ({
       get().notify(explanation, { durationMs: 8000 });
     };
 
+    socket.on('fx:spellArea',({id,preview})=>set(s=>{const spellAreaPreviews={...s.spellAreaPreviews};if(preview)spellAreaPreviews[id]=preview;else delete spellAreaPreviews[id];return {spellAreaPreviews};}));
     socket.on('dice:hiddenReview',review=>{
       if(review&&get().snapshot?.role!=='dm')return;
       set({hiddenRollReview:review,hiddenRollSubmitting:false});
@@ -1071,7 +1076,7 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('disconnect', (reason) => {
       set({hiddenRollReview:null,hiddenRollSubmitting:false});
       completedLiveTrays.clear();
-      set({liveDice:null, skippedLiveDiceId:null, areaCast:null,teleportCast:null, chatAccessToken: null});
+      set({liveDice:null, skippedLiveDiceId:null, areaCast:null,spellAreaPreviews:{},teleportCast:null, chatAccessToken: null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });

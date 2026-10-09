@@ -1,3 +1,4 @@
+import {SpellAreaPreviewController} from './spellAreaPreview.js';
 import {setRollPending,setRollSmite} from './sessions.js';
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
 import {castDispelMagic,dispelTargetError} from './dispelMagic.js';
@@ -366,6 +367,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const timer=setTimeout(finish,ms);finishDicePresentation=finish;
     });
     privateControllers.set(socket.id,{ready:prepareTray,waitForPresentation:waitForDicePresentation,review:reviewHidden,finished:()=>{socket.emit('dice:hiddenReview',null);activeDiceId=undefined;skipDicePresentation=false;}});
+    const areaPreview=new SpellAreaPreviewController(io,socket.id);
+    rawOn('spell:areaPreview',payload=>areaPreview.update(payload as import('../../shared/types.js').SpellAreaPreviewIntent|null));
     const commandDispatch=new Map<string,(...args:unknown[])=>void>();
     const domainHandlers=new Map<string,(payload:any)=>unknown>();
     const scheduleCastTimeout=(held:NonNullable<ReturnType<typeof deferCast>>)=>afterRollCommit(()=>{
@@ -374,8 +377,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     const liveEvents=new Set(['spell:counterspell','spell:shield','spell:repeat','dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
     const on = ((event: string, handler: (...args: unknown[]) => void) => {
       const wrapped=(...args:unknown[]) => {
-        const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
+        const failed=(err:unknown)=>{if(areaCommand)areaPreview.clear();console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
         const sid=sessionId();
+        const areaCommand=(event==='ability:roll'||event==='spell:repeat')&&areaPreview.begin(args[0] as any);
         const runHandler=()=>{
           // Resolve elapsed durations before this action reads AC, movement or
           // spell conditions. Within a live roll these writes are staged and
@@ -388,7 +392,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const isRoll=!!(moving&&sid&&spikeConditions(sid).some(c=>c.combatEffect?.spikeArea?.mapId===moving.mapId))||liveEvents.has(event)||(event==='chat:send'&&!(args[0] as any)?.whisperTo&&!!parseRollCommand(String((args[0] as any)?.text??'')));
         if(options.livePhysics!==false && sid && (isRoll||rollInProgress(sid)) && !['join','disconnect','cursor:move','cursor:hide','chat:typing','token:drag'].includes(event)){
           enqueueRoll(sid,async()=>{
-            if(!socket.connected||commandConnection()?.sessionId!==sid)return;
+            if(!socket.connected||commandConnection()?.sessionId!==sid){if(areaCommand)areaPreview.clear();return;}
             if(!isRoll){await runHandler();return;}
             const commandConn=commandConnection();
             const roller=rollerName(sid,commandSocketId(),isDm());
@@ -503,11 +507,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                   ?redactCreatureMods({id:frame.id,roller:frame.roller,label:frame.label,expr:'',total:0,detail:'',createdAt:0,reveal:calculation},true).reveal:calculation;
                 io.to(id).emit('dice:frame',{...frame,target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
               }},{...meta,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual)}:delegateSaves?{configureDice,review:async(results,dice,manual)=>saveController?saveController.review(sid,meta.label,results.filter(r=>r.reveal?.kind==='check'),dice,manual):true}:{})});
-            }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);saveController?.finished();activeDiceId=undefined;skipDicePresentation=false;}
+            }finally{if(areaCommand)areaPreview.clear();for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);saveController?.finished();activeDiceId=undefined;skipDicePresentation=false;}
           },failed);
           return;
         }
-        invokeSafely(runHandler,failed);
+        try{invokeSafely(runHandler,failed);}finally{if(areaCommand)areaPreview.clear();}
       };
       domainHandlers.set(event,handler);commandDispatch.set(event,wrapped);rawOn(event,wrapped);
     }) as typeof socket.on;
@@ -522,6 +526,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     };
 
     on('join', (payload, ack) => {
+      areaPreview.clear();
       // TypeScript does not validate untrusted Socket.IO payloads at runtime.
       if (typeof ack !== 'function') return;
       if (!payload || (payload.role !== 'dm' && payload.role !== 'player')) {
@@ -2792,6 +2797,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     on('disconnect', () => {
+      areaPreview.clear();
       privateControllers.delete(socket.id);
       hiddenReview?.finish({action:'discard'});
       for(const finish of trayStarts.values())finish(false);

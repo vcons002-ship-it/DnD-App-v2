@@ -16,6 +16,7 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  const playerContext=await browser.newContext({viewport:{width:1600,height:1000},deviceScaleFactor:1}),player=await playerContext.newPage();
  const captures:Awaited<ReturnType<typeof startAv1Capture>>[]=[],chapters:{time:number;title:string}[]=[];let start=0;
  const chapter=async(title:string)=>{console.log(title);chapters.push({time:(Date.now()-start)/1000,title});if(output)await dm.waitForTimeout(1800);};
+ const spellShapes=(view:Page,state:'aiming'|'resolving')=>view.evaluate(state=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.spell-area-shape')).filter((g:any)=>g.id()===state).map((g:any)=>{const circle=g.findOne('Circle');return {x:circle?.x(),y:circle?.y(),radius:circle?.radius()};}),state);
  const click=async(view:Page,button:Locator)=>{const b=await button.boundingBox();expect(b).toBeTruthy();await view.mouse.move(b!.x+b!.width/2,b!.y+b!.height/2,{steps:18});await view.waitForTimeout(250);await button.click();};
  try{
  const vanec=(await snapshot()).characters.find(c=>c.name==='Vanec')!;
@@ -61,12 +62,23 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
   const v=new DOMPoint(q.x-s.width()/2,q.y-s.height()/2).matrixTransform(new DOMMatrix(getComputedStyle(n.getLayer().getNativeCanvasElement()).transform));
   return{x:r.left+s.width()/2+v.x/v.w,y:r.top+s.height()/2+v.y/v.w};
  },enemies[1].id);
- await player.mouse.move(p.x,p.y,{steps:22});await player.mouse.click(p.x,p.y);if(output)await player.waitForTimeout(2200);
+ await player.mouse.move(p.x-35,p.y-20,{steps:22});
+ await expect.poll(async()=>(await spellShapes(dm,'aiming')).length).toBe(1);
+ const firstArea=(await spellShapes(dm,'aiming'))[0];expect(firstArea.radius).toBe(256);
+ await click(player,area.getByRole('button',{name:'Cancel (Esc)',exact:true}));
+ await expect.poll(async()=>(await spellShapes(dm,'aiming')).length).toBe(0);
+ await click(player,combat.getByRole('button',{name:/Fireball/}));
+ await player.mouse.move(p.x-35,p.y-20,{steps:22});
+ await expect.poll(async()=>(await spellShapes(dm,'aiming')).length).toBe(1);
+ await player.mouse.move(p.x,p.y,{steps:22});
+ await expect.poll(async()=>(await spellShapes(dm,'aiming'))[0]?.x).not.toBe(firstArea.x);
+ await player.mouse.click(p.x,p.y);if(output)await player.waitForTimeout(2200);
  await click(player,area.getByRole('button',{name:/Confirm area/}));
  await expect(player.locator('[data-live-dice=true] .tray-die-result')).toHaveCount(8,{timeout:30000});
  await chapter('Player: roll Fireball damage once; creature saves stay private');
  const prompt=dm.getByRole('region',{name:'Saving throw needed'});
- await expect(prompt).toBeVisible({timeout:45000});await expect(prompt).toContainText('Fireball');await expect(prompt).toContainText('DEX');
+ await expect(prompt).toBeVisible({timeout:45000});
+ for(const view of [dm,player])await expect.poll(async()=>(await spellShapes(view,'resolving')).length).toBe(1);await expect(prompt).toContainText('Fireball');await expect(prompt).toContainText('DEX');
  await expect(player.locator('.roll-reveal-backdrop')).toHaveCount(0,{timeout:10000});
  expect((await snapshot()).monsters.filter(m=>enemies.some(t=>t.refId===m.id)).every(m=>m.curHp===120)).toBe(true);
  expect(hp).toHaveLength(0);expect((await playerSnapshot()).rollLog).toHaveLength(0);
@@ -82,6 +94,7 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  }
  await chapter('DM: grouped saves roll together with each goblin labeled');
  expect(hp).toHaveLength(0);expect(frames.every(f=>!f.saveDice&&f.sides.every((s:number)=>s===6))).toBe(true);expect(reviews).toEqual([]);
+ for(const view of [dm,player])expect(await spellShapes(view,'resolving')).toHaveLength(1);
  const reviewId=await review.getAttribute('data-review-id');await click(dm,review.getByRole('button',{name:'Reject & reroll',exact:true}));
  await expect(review).not.toHaveAttribute('data-review-id',reviewId!,{timeout:45000});
  await chapter('DM: reroll the grouped saves without rerolling Fireball damage');
@@ -115,8 +128,10 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  if(output)await dm.waitForTimeout(2000);await click(dm,review.getByRole('button',{name:'Review entered result',exact:true}));
  await expect(review).toContainText('DM-entered result');await expect(review).toContainText('Save failed');await expect(review).toContainText('Save passed');
  expect(hp).toHaveLength(0);expect((await playerSnapshot()).rollLog).toHaveLength(0);
+ for(const view of [dm,player])expect(await spellShapes(view,'resolving')).toHaveLength(1);
  await chapter('DM: review failed and passed saves; nothing applies until accepted');
  await click(dm,review.getByRole('button',{name:'Apply result',exact:true}));await expect(review).toHaveCount(0);
+ for(const view of [dm,player])await expect.poll(async()=>(await spellShapes(view,'resolving')).length).toBe(0);
  await expect.poll(()=>hp.length,{timeout:15000}).toBeGreaterThanOrEqual(3);
  const resolved=await snapshot(),visible=await playerSnapshot();
  const cast=resolved.rollLog.find(r=>r.label==='Fireball')!,saves=resolved.rollLog.filter(r=>r.label==='DEX save');

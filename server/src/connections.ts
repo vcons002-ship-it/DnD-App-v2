@@ -67,6 +67,15 @@ export const isConnected = (socketId: string | null | undefined): boolean =>
 
 export const roomName = (sessionId: string): string => `session:${sessionId}`;
 
+/** Private area planning belongs to the caster and DMs viewing this map. */
+export function broadcastSpellArea(io:IOServer,sessionId:string,id:string,preview:import('../../shared/types.js').SpellAreaPreview|null):void {
+  for(const [recipient,conn] of conns){
+    if(conn.sessionId!==sessionId||(recipient!==id&&conn.role!=='dm'))continue;
+    const mapId=conn.role==='dm'?conn.viewMapId??getActiveMapId(sessionId):getActiveMapId(sessionId);
+    io.to(recipient).emit('fx:spellArea',{id,preview:preview&&preview.area.mapId===mapId?preview:null});
+  }
+}
+
 /** No history replay or ability details; hidden and off-map casters stay private. */
 export function broadcastSpellCast(io: IOServer, sessionId: string, kind: Token['kind'], refId: string): void {
   if(isLiveCommand()){afterRollCommit(()=>broadcastSpellCast(io, sessionId, kind, refId));return;}

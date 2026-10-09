@@ -1739,6 +1739,8 @@ export type InitiativeSetPayload = { tokenId: string; initiative: number | null 
 export type ServerError = { code: string; message: string };
 
 // Client -> Server event names.
+export type SpellAreaPreviewIntent = Pick<AbilityRollPayload,'kind'|'refId'|'abilityId'|'castLevel'> & {area:import('./spellAreas.js').SpellAreaPlacement};
+export type SpellAreaPreview = {id:string;name:string;spec:import('./spellAreas.js').SpellArea;area:import('./spellAreas.js').SpellAreaPlacement;caster:{x:number;y:number};resolving:boolean};
 export type HiddenRollResult = {label:string;detail:string;total:number;reveal?:RollReveal};
 export type HiddenRollDice = {index:number;expr:string;sides:number[];faces:number[];labels?:string[];bonus?:number;total?:number};
 export type HiddenRollDecision = {action:'apply'|'discard'|'reroll'}|{action:'manual';faces:{index:number;values:number[]}[]};
@@ -1876,6 +1878,8 @@ export interface ClientToServerEvents {
   'cursor:move': (payload: { x: number; y: number; mapId: string }) => void;
   /** My cursor left the map → remove my pointer for everyone. */
   'cursor:hide': () => void;
+  /** Caster's live area choice, routed only to its owner and campaign DMs. */
+  'spell:areaPreview': (payload:SpellAreaPreviewIntent|null) => void;
   /** DM-only: ask the rules assistant (SRD + uploaded rulebook). The Q&A is
    *  posted as DM-only chat messages and answered by a local/remote LLM. The
    *  optional `backend` is the chat dropdown's choice ('local' + a specific
@@ -1977,6 +1981,7 @@ export type HpFxEvent = {
 };
 
 export interface ServerToClientEvents {
+  'fx:spellArea': (payload:{id:string;preview:SpellAreaPreview|null}) => void;
   'dice:hiddenReview': (review:HiddenRollReview|null)=>void;
   'dice:frame': (frame:import('./liveDiceTypes.js').LiveDiceFrame)=>void;
   'dice:finished': (payload:{id:string})=>void;
