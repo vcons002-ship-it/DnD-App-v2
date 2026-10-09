@@ -2927,3 +2927,11 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] The 3D asset catalog is pushed (`assets:catalog`) when a model publishes;
   clients poll every 30 s as a fallback instead of every 5 s. Spell and attack
   searches are debounced and cancel stale requests.
+
+## Library backup - October 2026
+
+- [x] Automatic backups also write `library.json` (saved creatures, characters
+  and items, icons inlined), checksum-verified, even when there are no sessions.
+  The DM screen can download it ("⬇ Back up library") and restore it through
+  "⬆ Restore from backup file", which merges without overwriting same-named
+  entries.

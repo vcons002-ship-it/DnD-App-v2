@@ -56,7 +56,7 @@ import { searchManeuvers, getManeuver } from './maneuvers/srd.js';
 import { searchWeapons } from './weapons/srd.js';
 import { searchNaturalAttacks } from './attacks/natural.js';
 import { publicSettings, updateSettings } from './settings.js';
-import { exportSession, importSession, type SessionBundle } from './backup.js';
+import { exportLibrary, exportSession, importLibrary, importSession, isLibraryBundle, type SessionBundle } from './backup.js';
 import { rulebookInfo, setRulebookFromPdf, clearRulebook } from './assistant/index.js';
 import { getRulebookChunks } from './assistant/rulebook.js';
 import {
@@ -390,8 +390,19 @@ export function createApiRouter(io: IOServer): Router {
     res.json(bundle);
   });
 
+  // Download the app-wide creature/character/item libraries (plus their icons).
+  // The automatic backup also writes this as library.json in each backup folder.
+  router.get('/library/export', (req, res) => {
+    if (!requireDm(req, res)) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Disposition', `attachment; filename="library-${stamp}.json"`);
+    res.json(exportLibrary());
+  });
+
   // Restore a backup as a NEW session (never overwrites an existing one). An
   // optional `code` field picks the new join code; otherwise one is generated.
+  // A library backup uploaded here is merged into the library instead: entries
+  // whose name already exists are skipped unless `replace` is "true".
   router.post('/sessions/import', backupUpload.single('file'), (req, res) => {
     if (!requireDm(req, res)) return;
     const file = (req as { file?: Express.Multer.File }).file;
@@ -401,6 +412,13 @@ export function createApiRouter(io: IOServer): Router {
       bundle = JSON.parse(file.buffer.toString('utf8')) as SessionBundle;
     } catch {
       return res.status(400).json({ error: 'That file is not valid JSON.' });
+    }
+    if (isLibraryBundle(bundle)) {
+      try {
+        return res.status(201).json({ library: importLibrary(bundle, { replace: req.body?.replace === 'true' }) });
+      } catch (err) {
+        return res.status(422).json({ error: `Could not import that library backup: ${(err as Error).message}` });
+      }
     }
     const code = typeof req.body?.code === 'string' ? req.body.code : undefined;
     try {

@@ -28,6 +28,7 @@ export function DmRoute() {
   const [editCode, setEditCode] = useState('');
   const [rowErr, setRowErr] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -135,10 +136,36 @@ export function DmRoute() {
     }
   };
 
+  // Download the app-wide creature/character/item libraries as one JSON file.
+  const exportLibraryFile = async () => {
+    setCreateErr(null);
+    setImportNote(null);
+    try {
+      const res = await fetch('/api/library/export', {
+        headers: passphrase ? { 'x-dm-passphrase': passphrase } : undefined,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setCreateErr(d.error ?? 'Could not back up the library (enter the DM secret above).');
+        return;
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `library-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setCreateErr('Could not back up the library.');
+    }
+  };
+
   // Restore a backup file as a NEW session (never overwrites an existing one).
+  // A library backup is merged into the library instead (existing names kept).
   const importSessionFile = async (file: File) => {
     setImporting(true);
     setCreateErr(null);
+    setImportNote(null);
     try {
       const fd = new FormData();
       fd.append('file', file);
@@ -150,6 +177,17 @@ export function DmRoute() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setCreateErr(data.error ?? 'Could not import that backup (enter the DM secret above).');
+        return;
+      }
+      if (data.library) {
+        type Counts = { added: number; replaced: number; skipped: number };
+        const lib = data.library as Record<'creatures' | 'characters' | 'items', Counts>;
+        const part = (label: string, c: Counts) => `${c.added} ${label}`;
+        const skipped = lib.creatures.skipped + lib.characters.skipped + lib.items.skipped;
+        setImportNote(
+          `Library restored: ${part('creatures', lib.creatures)}, ${part('characters', lib.characters)}, ${part('items', lib.items)} added` +
+            (skipped ? ` · ${skipped} kept as-is (already in your library)` : ''),
+        );
         return;
       }
       await refreshSessions();
@@ -225,11 +263,19 @@ export function DmRoute() {
         className="btn"
         disabled={importing}
         onClick={() => fileRef.current?.click()}
-        title="Restore a .json backup file as a new session (won't overwrite anything)"
+        title="Restore a session .json backup as a new session, or a library .json backup into your library (won't overwrite anything)"
       >
         {importing ? 'Restoring…' : '⬆ Restore from backup file'}
       </button>
+      <button
+        className="btn"
+        onClick={() => void exportLibraryFile()}
+        title="Download your saved creatures, characters and items (they're also included in the automatic backups)"
+      >
+        ⬇ Back up library
+      </button>
       {createErr && <p className="err">{createErr}</p>}
+      {importNote && <p className="muted">{importNote}</p>}
 
       <div className="entry-divider">or rejoin</div>
 
