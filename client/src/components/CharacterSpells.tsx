@@ -239,17 +239,22 @@ export function CharacterSpells({
 
   useEffect(() => {
     if (!adding) return;
-    let live = true;
-    fetch(`/api/spells?q=${encodeURIComponent(q)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!live) return;
-        setResults(d.results ?? []);
-        setAiAvail(!!d.aiAvailable);
-      })
-      .catch(() => live && setResults([]));
+    // Debounced and cancelled: typing sends one search after a short pause
+    // instead of one request per keystroke.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(`/api/spells?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+        .then((r) => r.json())
+        .then((d) => {
+          if (ctrl.signal.aborted) return;
+          setResults(d.results ?? []);
+          setAiAvail(!!d.aiAvailable);
+        })
+        .catch(() => !ctrl.signal.aborted && setResults([]));
+    }, q ? 200 : 0);
     return () => {
-      live = false;
+      clearTimeout(timer);
+      ctrl.abort();
     };
   }, [q, adding]);
 

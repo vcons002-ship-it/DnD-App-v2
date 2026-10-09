@@ -126,6 +126,7 @@ import {
   clearMeasurements,
   removeMeasurement,
   addAnnotation,
+  pruneAnnotations,
   clearAnnotations,
   moveAnnotation,
   removeAnnotation,
@@ -237,6 +238,8 @@ function sanitizePopup(p: MapPopup): MapPopup {
 }
 
 const CLAIM_GRACE_MS = 20_000;
+/** Newest pen strokes/notes each player keeps per map (see annotation:add). */
+const PLAYER_ANNOTATION_CAP = 200;
 /** In-flight rules-assistant requests by socket id, so the Stop button (and a
  *  disconnect) can abort the long-running LLM call. */
 const assistantInFlight = new Map<string, AbortController>();
@@ -397,7 +400,6 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             if(!isRoll){await runHandler();return;}
             const commandConn=commandConnection();
             const roller=rollerName(sid,commandSocketId(),isDm());
-            const character=listCharacters(sid).find(c=>c.name===roller);
             const payload=args[0] as any;
             const abilityOwner=payload?.refId && (payload.kind==='pc'?getCharacter(payload.refId):getMonster(payload.refId));
             const ability=abilityOwner?.sheetAbilities.find((a:import('../../shared/types.js').SheetAbility)=>a.id===payload?.abilityId);
@@ -411,7 +413,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             const actor=pending?.attacker.kind==='pc'?getCharacter(pending.attacker.refId)
               :requestedToken?.kind==='pc'?getCharacter(requestedToken.refId)
               :payload?.characterId?getCharacter(payload.characterId)
-              :payload?.kind==='pc'&&abilityOwner?getCharacter(abilityOwner.id):character;
+              :payload?.kind==='pc'&&abilityOwner?getCharacter(abilityOwner.id):listCharacters(sid).find(c=>c.name===roller);
             const rolledToken=payload?.tokenId?getToken(payload.tokenId):undefined;
             const npc=pending?.attacker.kind==='monster'?getMonster(pending.attacker.refId)
               :requestedToken?.kind==='monster'?getMonster(requestedToken.refId)
@@ -747,6 +749,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const mapId =
         conn.role === 'dm' ? conn.viewMapId ?? getActiveMapId(sid) : getActiveMapId(sid);
       if (!mapId || !getMap(mapId)) return;
+      const createdBy = rollerName(sid, commandSocketId(), conn.role === 'dm');
       addAnnotation(sid, {
         mapId,
         kind,
@@ -758,8 +761,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         url: typeof url === 'string' ? url : undefined,
         width: Number(width) || undefined,
         height: Number(height) || undefined,
-        createdBy: rollerName(sid, commandSocketId(), conn.role === 'dm'),
+        createdBy,
       });
+      // Players' strokes/notes are capped per map (oldest dropped) so one person
+      // can't grow every snapshot without bound; DM scenery is never pruned.
+      if (conn.role !== 'dm') pruneAnnotations(mapId, createdBy, PLAYER_ANNOTATION_CAP);
       afterChange();
     });
 
