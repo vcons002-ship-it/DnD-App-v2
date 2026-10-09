@@ -1,5 +1,15 @@
 # Roadmap & Feature Backlog
 
+- [x] Large dice pools keep every result box on screen in a responsive grid.
+  Save-based spell/action damage resolves its total in the original tray before
+  the saving throw, then closes for map feedback without replaying damage.
+
+- [x] Keep the DM's current-turn summary and Next turn button on the battlefield
+  during combat; hide the standalone encounter preparation window outside combat.
+
+- [x] Compact initiative order tags sit beside token names in both 2D and 3D,
+  with small gold numerals and no extra vertical gap between the base and HUD.
+
 - [x] DM workspace cleanup: hide the inspector without a selection, reopen it
   after token dragging, anchor its unpinned window in the bottom-right corner,
   and resize it vertically or horizontally. Campaign > Settings > Interface

@@ -1,6 +1,6 @@
 import {DIE_REVEAL_MS,LIVE_DICE_RESULT_HOLD_MS,liveDiceResultWaitMs,drukFinaleTimeline,liveCalculationWaitMs,LIVE_PRESENTATION_SYNC_MS,rollResultTimeline} from '../../shared/dicePresentationTiming.js';
 import {createSession,createCharacter,createMap,setActiveMap,createToken,createMonsterTemplate,instantiateMonster,setManualDamage,listRollLog,getMonster,getRollEntry,getCharacter,addRollLog} from './sessions.js';
-import {resolveAttack,resolveAttackDamage,resolveSmite} from './combat.js';
+import {resolveAttack,resolveAttackDamage,resolveSmite,resolveMonsterSheetAbility} from './combat.js';
 import {buildSnapshot} from './visibility.js';
 import {describe,it,expect} from 'vitest';
 import {createLiveWorld} from '../../shared/liveDicePhysics.js';
@@ -11,6 +11,31 @@ import {runLiveCommand,keptPhysicalSet,physicalFaces} from './liveRolls.js';
 import {afterRollCommit,presentLiveCalculation} from './liveRollContext.js';
 import {LIVE_DICE_PRESENTATION_RATE,LIVE_DICE_REROLL_WAIT_SECONDS} from '../../shared/liveDiceTypes.js';
 import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
+
+it('presents save-based action damage before the save and never replays it after the command commits',async()=>{
+ const session=createSession('Breath presentation order');
+ const map=createMap(session.id,{name:'Hall'});setActiveMap(session.id,map.id);
+ const character=createCharacter(session.id,{name:'Breath target',maxHp:100,stats:{CON:10}});
+ const target=createToken({mapId:map.id,kind:'pc',refId:character.id,x:400,y:300});
+ const template=createMonsterTemplate(session.id,{name:'Frost Drake',maxHp:50});
+ const monster=instantiateMonster(template.id)!;
+ createToken({mapId:map.id,kind:'monster',refId:monster.id,x:300,y:300});
+ const ability:import('../../shared/types.js').SheetAbility={id:'ice-breath',name:'Ice Breath',type:'spell',level:0,description:'Constitution save for half.',roll:{kind:'save',save:'CON',dc:30,dice:'3d6',damageType:'cold'}};
+ const frames:import('../../shared/liveDiceTypes.js').LiveDiceFrame[]=[];
+ let toss=0;
+ const dice:typeof physicalFaces=async(sides,publish,meta,_seed,info)=>{
+  const values=sides.map(s=>s===20?12:4);
+  publish({id:`breath-${++toss}`,seq:0,done:true,sides,values,label:meta.label,roller:'DM',className:'',sets:sides.map(()=>0),critical:sides.map(()=>false),percentile:sides.map(()=>null),poses:[],rerolls:sides.map(()=>0),radius:1,elapsed:1,saveDice:info?.saveDice?.map(s=>({...s,label:'Breath target'}))});
+  return values;
+ };
+ await runLiveCommand(()=>{resolveMonsterSheetAbility(session.id,'DM',monster,ability,undefined,undefined,target.id);},f=>frames.push(f),{label:'Ice Breath',roller:'DM',className:'',waitForPresentation:async()=>{}},dice);
+ const damage=frames.findIndex(f=>f.calculation?.kind==='damage'),save=frames.findIndex(f=>f.sides[0]===20);
+ expect(damage).toBeGreaterThanOrEqual(0);expect(save).toBeGreaterThan(damage);
+ const logs=listRollLog(session.id);
+ expect(logs.find(r=>r.label==='Ice Breath')?.reveal?.presentedLive).toBe(true);
+ expect(logs.filter(r=>r.reveal).every(r=>r.reveal?.presentedLive)).toBe(true);
+ expect(getCharacter(character.id)?.curHp).toBe(88);
+});
 
 it('announces a private save at elapsed zero while waiting for the explicit start gate',async()=>{
  for(const [label,privateSave,expected] of [['WIS Saving Throw',true,true],['Scimitar attack',true,false],['DEX save',false,false]] as const){

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { StateSnapshot, Token } from '../../../shared/types';
+import { useStore } from '../state/socket';
 import { resolveToken } from '../lib/entities';
 import { safeSetItem } from '../lib/storage';
 import { HudIcon } from './HudIcon';
@@ -29,6 +30,9 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
   chat: ReactNode;
   inspector: ReactNode;
 }) {
+  const nextTurn = useStore(s => s.nextTurn);
+  const active = snapshot.tokens.find(t => t.id === snapshot.activeTurnTokenId);
+  const activeName = active ? resolveToken(snapshot, active).name : 'Current turn';
   const pinKey = `dnd.dmPinnedPanels:${snapshot.sessionCode}`;
   const [layout, setLayout] = useState<Layout>(() => {
     try {
@@ -127,6 +131,16 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
         }} />}
       </aside>;
     })}
+    {snapshot.round > 0 && <div className="dm-turn-bar" role="region" aria-label="Turn controls">
+      <button className="dm-turn-summary" onClick={() => toggle('initiative')} aria-label="Open initiative tracker">
+        <span className="dm-round">ROUND {snapshot.round}</span>
+        <strong>{activeName}</strong>
+        <span className="muted">Current turn</span>
+      </button>
+      <button className="btn dm-next-turn" onClick={nextTurn} disabled={snapshot.initiativePending}>
+        Next turn <span aria-hidden="true">&rarr;</span>
+      </button>
+    </div>}
   </>;
 }
 

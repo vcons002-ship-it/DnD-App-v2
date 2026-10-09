@@ -373,21 +373,25 @@ function TokenShapeInner({
     };
   }, [activeTurn, turnRingR, miniatureReady]);
 
-  const frontInitiative = (miniatureReady || miniaturePending) && initiativeRank !== null;
-  const initiativeHudOffset = frontInitiative ? 24 : 0;
   const playerNameSize = Math.max(11, Math.min(18, radius * .4));
   const monsterNameSize = Math.max(10, Math.min(14, gridSizePx * .14));
+  const labelFontSize = token.kind === 'pc' ? playerNameSize : monsterNameSize;
   const monsterLabelWidth = Math.max(64, Math.min(130, radius * 2.6));
   const tagWidth = token.revealTag ? (token.revealTag.length + 2) * monsterNameSize * 0.65 : 0;
   const nameWidth = useMemo(() => {
-    const measure = new Konva.Text({ text: display.name, fontSize: monsterNameSize });
+    const measure = new Konva.Text({ text: display.name, fontSize: labelFontSize });
     const width = measure.getTextWidth();
     measure.destroy();
-    return Math.min(monsterLabelWidth, width + 2);
-  }, [display.name, monsterNameSize, monsterLabelWidth]);
+    return Math.min(token.kind === 'pc' ? radius * 4 : monsterLabelWidth, width + 2);
+  }, [display.name, labelFontSize, token.kind, radius, monsterLabelWidth]);
   const roleBadgeR = Math.max(11, radius * 0.36);
-  const labelY = initiativeHudOffset + radius + Math.max(hpFrac !== null ? 14 : 4,
+  const labelY = radius + Math.max(hpFrac !== null ? 14 : 4,
     token.combatRole ? roleBadgeR - radius * .28 + 4 : 4);
+  const nameY = token.kind === 'pc' ? radius + 4 : labelY;
+  const initiativeFontSize = Math.max(8, Math.min(11, labelFontSize * .8));
+  const initiativeHeight = initiativeFontSize + 4;
+  const initiativeWidth = String(initiativeRank ?? '').length * initiativeFontSize * .65 + 6;
+  const initiativeX = -(nameWidth + (token.kind === 'pc' ? 0 : tagWidth)) / 2 - initiativeWidth - 4;
 
 
   // Silhouette by token shape. `image` draws the icon unclipped (pasted art);
@@ -606,11 +610,11 @@ function TokenShapeInner({
         ellipsis={token.kind !== 'pc'}
         height={token.kind === 'pc' ? undefined : monsterNameSize * 1.25}
         // Monster names clear the base, health bar and combat badge; PC layout stays compact.
-        y={token.kind === 'pc' ? initiativeHudOffset + radius + 4 : labelY}
+        y={nameY}
       />}
       {/* HP bar (only when HP is visible to this viewer). */}
       {!isDead && hpFrac !== null && (
-        <Group name="token-health" y={initiativeHudOffset + radius + (token.kind === 'pc' ? playerNameSize + 8 : 4)} offsetX={radius}>
+        <Group name="token-health" y={radius + (token.kind === 'pc' ? playerNameSize + 8 : 4)} offsetX={radius}>
           <Rect width={radius * 2} height={6} fill="#0008" cornerRadius={3} />
           <Rect
             width={radius * 2 * hpFrac}
@@ -672,16 +676,17 @@ function TokenShapeInner({
         </Group>
       )}
       {!isDead && initiativeRank !== null && (
-        <Group name="token-initiative-rank" x={frontInitiative ? 0 : radius * 0.8} y={frontInitiative ? radius + 12 : -radius * 0.8}>
-          <Circle radius={11} fill="#f5c518" stroke="#000" strokeWidth={1} />
+        <Group name="token-initiative-rank" x={initiativeX} y={nameY + (labelFontSize - initiativeHeight) / 2} listening={false}>
+          <Rect width={initiativeWidth} height={initiativeHeight} cornerRadius={3} fill="#17130ee6" stroke="#c5a65a" strokeWidth={.8} />
           <Text
             text={String(initiativeRank)}
-            fontSize={13}
-            fill="#000"
-            width={22}
-            offsetX={11}
-            offsetY={6}
+            fontSize={initiativeFontSize}
+            fontStyle="bold"
+            fill="#f2d58b"
+            width={initiativeWidth}
+            height={initiativeHeight}
             align="center"
+            verticalAlign="middle"
           />
         </Group>
       )}

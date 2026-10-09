@@ -44,6 +44,24 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  },[skip]);
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const canvas=useRef<HTMLCanvasElement>(null),root=useRef<HTMLDivElement>(null),card=useRef<HTMLDivElement>(null);
+ const [resultSpace,setResultSpace]=useState({width:800,height:500});
+ useLayoutEffect(()=>{
+  const node=root.current;if(!node)return;
+  const observer=new ResizeObserver(()=>setResultSpace(previous=>{
+   const width=node.clientWidth,height=node.clientHeight;
+   return width===previous.width&&height===previous.height?previous:{width,height};
+  }));
+  observer.observe(node);return()=>observer.disconnect();
+ },[]);
+ const resultCount=Math.max(1,frame.sides.length);
+ const denseResults=resultCount>20;
+ const resultColumns=Math.min(resultCount,Math.max(1,Math.floor(resultSpace.width/(frame.saveDice?118:denseResults?44:58))));
+ const resultRows=Math.ceil(resultCount/resultColumns);
+ const resultsHeight=Math.min(Math.max(80,resultRows*72),Math.max(64,resultSpace.height*.42));
+ const resultCellHeight=(resultsHeight-8-(resultRows-1)*4)/resultRows;
+ const resultLayout={'--dice-result-columns':resultColumns,'--dice-result-rows':resultRows,
+  '--dice-results-height':`${resultsHeight}px`,'--dice-result-number-size':`${Math.max(10,Math.min(30,resultCellHeight-(denseResults?16:32)))}px`,
+  '--dice-result-label-size':`${Math.max(7,Math.min(12,resultCellHeight*.18))}px`} as CSSProperties;
  const outgoing=useRef<HTMLCanvasElement>(null),previousId=useRef(frame.id),previousTheme=useRef(diceThemeForRoll(frame.className,frame.dmDice).id),handoffDuration=useRef(180),swappingTray=useRef(false);
  const dmPan=useRef(0);
  useLayoutEffect(()=>{
@@ -291,7 +309,7 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
   <div className="roll-reveal-title" role="heading" aria-level={2} title={heading}>{heading}</div>
   <div className="roll-reveal-who">{frame.saveDice&&frame.saveDice[0]?.rollKind!=='initiative'?'Triggered by ':''}{frame.attacker??resultHeader?.attacker??frame.roller}{target&&<span className="rr-arrow"> &rarr; {target}</span>}</div>
   {naturalCritical&&!compact&&!hiddenReview&&<div className="roll-reveal-outcome tray-natural-critical" role="status" aria-label="Roll result">CRITICAL HIT!</div>}
-  <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id.startsWith('dm-')?'purple-resin':theme.id} role="group" aria-label="Live dice tray">
+  <div ref={root} className="physics-dice-tray" style={resultLayout} data-dense-results={denseResults||undefined} data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id.startsWith('dm-')?'purple-resin':theme.id} role="group" aria-label="Live dice tray">
    <div className="dice-tray-viewport"><div className="dice-tray-stage">
    <canvas className="dice-tray-canvas" ref={canvas} aria-label={result?'Settled dice':'Server dice rolling live'}/>
    <canvas className="dice-tray-transition" ref={outgoing} data-phase="idle" aria-hidden="true"/>

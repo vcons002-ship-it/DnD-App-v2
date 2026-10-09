@@ -29,6 +29,7 @@ test('character controls, tiled analysis, corner inspector and DM UI scale work 
   expect((await snapshot()).tokens.find((t:any)=>t.refId===druk.id).carriedLantern).toBe(true);await sheet.getByRole('button',{name:'Close character window'}).click();
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await page.waitForTimeout(1000);
+  await expect(page.getByRole('region',{name:'Turn controls',exact:true})).toHaveCount(0);
   const inspector=page.locator('#dm-panel-inspect');await expect(inspector).toBeHidden();await expect(page.getByRole('button',{name:'Token inspector',exact:true})).toBeDisabled();
   const token=(await snapshot()).tokens.find((t:any)=>t.refId===druk.id);
   const point=()=>page.evaluate(id=>{const s=(window as any).Konva.stages.find((s:any)=>s.find('.token').some((n:any)=>n.getAttr('tokenId')===id)),n=s.find('.token').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsolutePosition(),r=s.container().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};},token.id);
@@ -47,5 +48,14 @@ test('character controls, tiled analysis, corner inspector and DM UI scale work 
   const scale=page.getByRole('slider',{name:'UI scale'});await expect(scale).toHaveValue('100');await scale.fill('85');await expect(page.getByRole('region',{name:'DM interface settings'})).toContainText('85%');
   await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.querySelector('.dm-tool-rail')!).zoom)).toBe('0.85');
   expect(await page.evaluate(()=>localStorage.getItem('dnd:dm-ui-scale:v1'))).toBe('0.85');
+  await page.locator('.modal').getByRole('button',{name:'Close',exact:true}).click();
+  dm.emit('initiative:set',{tokenId:token.id,initiative:15});
+  dm.emit('initiative:next');dm.emit('initiative:setRound',{round:1});await snapshot();
+  const turns=page.getByRole('region',{name:'Turn controls',exact:true});
+  await expect(turns).toBeVisible();await expect(turns).toContainText('Druk');
+  const round=(await snapshot()).round;
+  await turns.getByRole('button',{name:'Next turn',exact:true}).click();
+  await expect.poll(async()=>(await snapshot()).round).toBe(round+1);
+  dm.emit('initiative:clear');await snapshot();await expect(turns).toHaveCount(0);
  }finally{dm.disconnect();await player.close();}
 });
