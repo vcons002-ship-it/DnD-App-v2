@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { apiFetch } from '../lib/api';
+import { useStore } from '../state/socket';
 import type { LibraryItem, SheetModifier } from '../../../shared/types';
 
 /** The item being saved (custom or AI-generated — they share this one path). */
@@ -28,6 +30,8 @@ export function ItemLibrarySaveDialog({
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState<LibraryItem | null>(null);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  // Overwriting a library entry is DM-only server-side; players rename instead.
+  const isDm = useStore((st) => !!st.dmPassphrase);
 
   const modCount = item.modifiers?.length ?? 0;
 
@@ -36,7 +40,7 @@ export function ItemLibrarySaveDialog({
     setBusy(true);
     setStatus('idle');
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/library/items${overwrite ? '?overwrite=true' : ''}`,
         {
           method: 'POST',
@@ -90,8 +94,8 @@ export function ItemLibrarySaveDialog({
         {conflict ? (
           <div className="lib-conflict">
             <p className="err">
-              A library item named “{conflict.name}” already exists — saving will
-              replace it.
+              A library item named “{conflict.name}” already exists
+              {isDm ? ' — saving will replace it.' : ' — pick another name.'}
             </p>
             <div className="lib-compare">
               <div>
@@ -111,9 +115,11 @@ export function ItemLibrarySaveDialog({
               </div>
             </div>
             <div className="modal-actions">
-              <button className="btn red" disabled={busy} onClick={() => save(true)}>
-                Overwrite
-              </button>
+              {isDm && (
+                <button className="btn red" disabled={busy} onClick={() => save(true)}>
+                  Overwrite
+                </button>
+              )}
               <button className="btn" onClick={() => setConflict(null)}>
                 Edit name &amp; save
               </button>

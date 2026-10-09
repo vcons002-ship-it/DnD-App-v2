@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { apiFetch } from '../lib/api';
+import { useStore } from '../state/socket';
 import type { Character } from '../../../shared/types';
 import { portableLeveling } from '../../../shared/portableLeveling';
 
@@ -20,6 +22,8 @@ export function LibraryCharacterDialog({
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState<Existing | null>(null);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  // Overwriting a library entry is DM-only server-side; players rename instead.
+  const isDm = useStore((st) => !!st.dmPassphrase);
 
   // The full sheet minus session state (id/sessionId/claimedBy/conditions).
   const body = () => ({
@@ -55,7 +59,7 @@ export function LibraryCharacterDialog({
     setBusy(true);
     setStatus('idle');
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/library/characters${overwrite ? '?overwrite=true' : ''}`,
         {
           method: 'POST',
@@ -116,9 +120,11 @@ export function LibraryCharacterDialog({
               </div>
             </div>
             <div className="modal-actions">
-              <button className="btn red" disabled={busy} onClick={() => save(true)}>
-                Overwrite
-              </button>
+              {isDm && (
+                <button className="btn red" disabled={busy} onClick={() => save(true)}>
+                  Overwrite
+                </button>
+              )}
               <button className="btn" onClick={() => setConflict(null)}>
                 Edit name &amp; save
               </button>

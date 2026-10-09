@@ -43,7 +43,7 @@ async function fixture(request: APIRequestContext, page: Page, patch: Partial<Ch
  *  arrives through the character library, which keeps saved values as they are. */
 async function legacyFixture(request: APIRequestContext, page: Page, sheet: Partial<Character> & { name: string }) {
   const f = await fixture(request, page, {});
-  const saved = await request.post('/api/library/characters?overwrite=true', { data: {
+  const saved = await request.post('/api/library/characters?overwrite=true', { headers: { 'x-dm-passphrase': DM_SECRET }, data: {
     race: 'Human', subclass: '', stats: { STR: 16, DEX: 12, CON: 14, INT: 14, WIS: 10, CHA: 10 }, ...sheet } });
   expect(saved.ok()).toBeTruthy();
   f.socket.emit('character:loadFromLibrary', { name: sheet.name });
