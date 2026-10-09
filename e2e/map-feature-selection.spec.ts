@@ -20,7 +20,7 @@ test('DM click, multi-select and box-delete features with undo without deleting 
   const pos=async(x:number,y:number)=>{const c=await page.evaluate(({x,y})=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),node=stage.find('.token')[0],p=node.getParent().getAbsoluteTransform().point({x,y}),r=stage.getContent().getBoundingClientRect();return{p,width:stage.width(),height:stage.height(),left:r.left,top:r.top};},{x,y});const p=projectGround(c.p.x,c.p.y,c.width,c.height,tilt);return{x:c.left+p.x,y:c.top+p.y};};
   const click=async(x:number,y:number,modifier?:'Shift'|'Control')=>{const p=await pos(x,y);if(modifier)await page.keyboard.down(modifier);await page.mouse.click(p.x,p.y);if(modifier)await page.keyboard.up(modifier);};
   await click(400,440); // Selected token must survive feature Delete.
-  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Select walls, windows, doors & lights',exact:true}).click();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Adjust existing walls, doors, windows & lights',exact:true}).click();
   await click(155,210);await expect(page.getByTestId('delete-map-features')).toHaveText('Delete 1 selected');
   await click(300,210,'Shift');await click(400,300,'Control');await expect(page.getByTestId('delete-map-features')).toHaveText('Delete 3 selected');
   await page.keyboard.press('Delete');await expect.poll(async()=>((await snap()).map.walls.map((w:any)=>w.id))).toEqual(['building']);

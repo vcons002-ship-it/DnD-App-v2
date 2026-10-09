@@ -131,6 +131,7 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await expect.poll(async()=>Number(await layer.getAttribute('data-weather-time'))).toBeGreaterThan(emptyTime);
     await player.getByRole('button',{name:'3D player tokens',exact:true}).click();
     await expect(layer).toHaveAttribute('data-miniature-count','3');
+    await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Lights',exact:true}).click();
     await page.getByRole('button',{name:'Place light on map',exact:true}).click();
     await expect(page.getByRole('status').filter({hasText:'Click map to place light'})).toBeVisible();
     const drukPoint=(await tokenView(page,f.ready.tokens[0].id))!;
@@ -138,6 +139,7 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await expect.poll(async()=>(await f.snapshot()).map?.environment?.lights.length).toBe(1);
     await expect(layer).toHaveAttribute('data-light-count','1');
     await expect(layer).toHaveAttribute('data-visible-torch-count','1');
+    await page.getByRole('button',{name:'Walls',exact:true}).click();
     await page.locator('.environment-light-list summary').click();
     await page.getByLabel('Light 1 model',{exact:true}).selectOption('lantern');
     await expect(layer).toHaveAttribute('data-placed-lantern-count','1');
@@ -600,7 +602,7 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
     const view=(await personalTokenView(page,druk.id))!,a=offsetPoint(view,ax-druk.x,ay-druk.y),b=offsetPoint(view,bx-druk.x,by-druk.y);
     await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:18});await page.mouse.up();
   };
-  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();if(!await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).isVisible())await page.getByRole('button',{name:'Add features',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
   await rectangle(730,40,770,650);
   await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(1);
   expect((await f.snapshot()).map!.walls![0].kind).toBe('rectangle');
@@ -612,7 +614,7 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
   await page.mouse.move(ca.x,ca.y);await page.mouse.down();await page.mouse.move(cb.x,cb.y,{steps:8});await page.keyboard.press('Escape');await page.mouse.up();
   expect((await f.snapshot()).map!.walls).toHaveLength(2);
   await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Undo last wall',exact:true}).click();
-  await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+  if(!await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).isVisible())await page.getByRole('button',{name:'Add features',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
   await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(1);
   await rectangle(770,790,730,720);
   await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(2);
@@ -821,7 +823,7 @@ test('rectangle wall walkthrough on the dungeon with personal sight and lanterns
       await p.mouse.move(1060,650);await p.mouse.down();await p.mouse.move(1060+dx,650+dy,{steps:18});await p.mouse.up();await afterPaint(p);
     };
     await chapter(dm,'DM: drag rectangles over the full thickness of the room walls',async()=>{
-      await dm.getByRole('button',{name:'Walls',exact:true}).click();await dm.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+      await dm.getByRole('button',{name:'Walls',exact:true}).click();if(!await dm.getByRole('button',{name:'Draw wall rectangles',exact:true}).isVisible())await dm.getByRole('button',{name:'Add features',exact:true}).click();await dm.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
       const rectangles=[[252,78,286,435],[258,78,610,110],[578,108,610,435],[258,405,500,435],[545,405,610,435]];
       for(const [i,[ax,ay,bx,by]] of rectangles.entries()){
         const a=await point(dm,druk,ax,ay),b=await point(dm,druk,bx,by);
@@ -2518,7 +2520,7 @@ test('walls block player drags and hide DM outlines outside editing',async({page
  const outlines=()=>page.evaluate(()=>(window as any).Konva.stages.reduce((n:number,s:any)=>n+s.find('.wall-edit-outlines').length,0));
  expect(await outlines()).toBe(0);
  await page.getByRole('button',{name:'Walls',exact:true}).click();
- await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+ if(!await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).isVisible())await page.getByRole('button',{name:'Add features',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
  await expect.poll(outlines).toBe(1);
  await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();
  await expect.poll(outlines).toBe(0);
@@ -2565,7 +2567,7 @@ test('DM cuts doors into walls and players reveal daylight rooms by opening them
  await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
  await expect.poll(()=>personalTokenView(page,druk.id)).not.toBeNull();
  await page.getByRole('button',{name:'Walls',exact:true}).click();
- await page.getByRole('button',{name:'Draw door opening',exact:true}).click();
+ if(!await page.getByRole('button',{name:'Draw door opening',exact:true}).isVisible())await page.getByRole('button',{name:'Add features',exact:true}).click();await page.getByRole('button',{name:'Draw door opening',exact:true}).click();
  const view=(await personalTokenView(page,druk.id))!,a=offsetPoint(view,160,-60),b=offsetPoint(view,160,60);
  await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:12});await page.mouse.up();
  await expect.poll(async()=>(await f.snapshot()).map!.walls!.filter(w=>w.door).length).toBe(1);
@@ -2758,7 +2760,7 @@ test('DM reviews local wall drafts and applies only selected walls',async({page,
   await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);
   await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await page.getByRole('button',{name:'Walls',exact:true}).click();
-  await page.getByRole('button',{name:'Suggest walls from map art',exact:true}).click();
+  if(!await page.getByRole('button',{name:'Suggest walls from map art',exact:true}).isVisible())await page.getByRole('button',{name:'AI analysis',exact:true}).click();await page.getByRole('button',{name:'Suggest walls from map art',exact:true}).click();
   const dialog=page.getByRole('dialog',{name:'Wall draft',exact:true});
   await expect(dialog).toBeVisible();
   await page.getByRole('button',{name:'Analyze map',exact:true}).click();
@@ -2790,7 +2792,7 @@ test('capture local and recorded live AI dungeon wall drafts',async({page,reques
   });
   await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);
   await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
-  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Suggest walls from map art',exact:true}).click();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();if(!await page.getByRole('button',{name:'Suggest walls from map art',exact:true}).isVisible())await page.getByRole('button',{name:'AI analysis',exact:true}).click();await page.getByRole('button',{name:'Suggest walls from map art',exact:true}).click();
   await page.getByLabel('Wall detection threshold',{exact:true}).fill('60');
   await page.getByRole('button',{name:'Analyze map',exact:true}).click();await expect(page.getByRole('button',{name:'Download JSON',exact:true})).toBeVisible();
   await page.screenshot({path:info.outputPath('dungeon-local-draft.png')});
@@ -2813,7 +2815,7 @@ test('Gemini outline becomes solid app walls that block movement and preserve do
   await expect.poll(async()=>(await f.snapshot()).map!.walls!.length).toBe(geometry.walls.length);
   await page.goto(`/dm?code=${f.code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','3',{timeout:60000});
-  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();if(!await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).isVisible())await page.getByRole('button',{name:'Add features',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
   await page.screenshot({path:info.outputPath('dm-mask-walls.png')});
   if(movementDemo)await page.waitForTimeout(4000);
   await page.getByTestId('wall-drawing-hint').getByRole('button',{name:'Done',exact:true}).click();

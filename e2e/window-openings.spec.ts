@@ -15,7 +15,7 @@ test('DM removes one generated window without removing its solid wall',async({pa
   socket.emit('map:editWalls',{mapId:map.id,add:wall});socket.emit('map:editWalls',{mapId:map.id,add:window});await snap();
   const a={x:100,y:140},b={x:300,y:140};expect(hasLineOfSight(a,b,(await snap()).map.walls)).toBe(true);
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
-  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Remove window 1',exact:true}).click();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Edit tools',exact:true}).click();await page.locator('.wall-menu-list > summary').filter({hasText:'Remove windows'}).click();await page.getByRole('button',{name:'Remove window 1',exact:true}).click();
   await expect.poll(async()=>((await snap()).map.walls??[]).length).toBe(1);
   expect((await snap()).map.walls).toEqual([wall]);expect(hasLineOfSight(a,b,(await snap()).map.walls)).toBe(false);
   expect((await request.post(`/api/maps/${map.id}/window-draft`,{data:{}})).status()).toBe(403);
