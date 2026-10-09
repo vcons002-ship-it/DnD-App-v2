@@ -1,5 +1,46 @@
 # Roadmap & Feature Backlog
 
+- [x] Share a player's live spell-area placement with the DM on the same map.
+  Keep the confirmed footprint visible to caster and DM through all damage,
+  grouped saves, rerolls and private approval, clearing only when the command
+  finishes or is discarded. Canonical sheet geometry, throttled cursor updates,
+  no preview targets or hidden DM plans leaked to other players.
+
+- [x] Grouped private-save manual entry exposes every die field, labeled by
+  creature name. The editor extends over the tray without being
+  clipped by the result footer; responsive columns keep small groups visible.
+  Editing one save preserves the other creatures' faces and calculated results.
+
+- [x] Player area spells hand hidden creature saves to the newest connected DM
+  window. The caster rolls damage normally, then the DM receives a compact
+  saving-throw prompt and rolls the labeled creature saves together. Reject &
+  reroll preserves the completed spell damage; entered faces recalculate each
+  save. No damage, effects, slot spending or history commits before acceptance.
+  Players receive accepted pass/fail and damage only, with no creature dice,
+  bonuses or DC. A missing DM leaves the action unapplied with an explanation.
+
+- [x] Hidden DM attacks, saves, checks and damage rolls require private
+  result approval. The DM can accept, reroll or enter a result before the attack
+  hit/miss or damage reaches players, including deferred weapon damage.
+  The server rolls the configured dice, applies modifiers, and presents the full result to the
+  initiating DM before committing HP, resources, conditions or roll history.
+  Reject & reroll reuses the pending step's dice and preserves completed damage.
+  Enter result recalculates modifiers and dependent effects, then waits for
+  approval again. Entered results use the same log format as rolled results.
+  Saving-throw reviews use the check total rather than the damage stored in the
+  log row, so entering a result also works for zero-damage control spells.
+  Apply commits that same result once; Discard, disconnect or a five-minute
+  approval timeout leaves it unapplied. Players receive no dice, review prompt,
+  private roll entry or early facing cue. After acceptance, players receive only
+  an outcome-only history entry (Hit/Miss/Critical hit/Fumble, Pass/Fail, or
+  Resolved for checks without a DC). Shown rolls retain their usual flow.
+  Summaries include final damage/healing amounts and resolved spell effects,
+  but omit dice, attack/check totals, modifiers, AC/DC and action payloads; unseen
+  creatures stay hidden. Private free-dice rolls stay private. Approved visible
+  HP feedback remains.
+  The compact review uses large target/outcome text, hides redundant zero-damage
+  cast summaries, and keeps private equations in an expandable Roll details row.
+
 - [x] Saving-throw tray headings name the creatures attempting the saves,
   including their reveal tags, while keeping the spell/maneuver and saving
   ability clear. Known player ability DCs and DM-visible DCs appear in the
@@ -2803,3 +2844,19 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Druk lava now drains from the opened interior through six tapering viscous strands and twelve uneven ballistic drops. The bright pool begins forming on contact, replacing the single falling sphere.
 
 - Dice transitions: restored the approved 180 ms crossfade with visible toss entry and automatic sequence dismissal; camera-table panning is parked on `prototype/dice-table-camera-20261008`. Prepared-scene reuse remains enabled.
+
+- [x] Hidden DM rolls keep their dice tray open while Apply result, Reject & reroll,
+  Enter result and Discard result appear inside its reserved result area. Private
+  saves wait for the initiating DM's Roll saving throw button;
+  graphics readiness and its timeout cannot start the save on the DM's behalf.
+- [x] Hidden DM damage rolls also wait for the in-tray approval controls. Reject
+  and reroll or enter die faces before applying; HP, effects and player history
+  remain unchanged until acceptance. Deferred weapon damage reviews its new
+  damage result without asking the DM to approve the original hit again.
+- [x] Enlarged the fixed roll window and reduced unused approval-panel space so
+  the tray stays prominent with private controls; desktop and phone layout checks
+  cover tray size alongside unclipped results and buttons.
+- [x] Pending private saves present a compact automatic Saving throw needed
+  prompt with creature/save names and a Roll saving throw button. The prepared
+  tray stays mounted behind it, becomes visible when rolling begins, and retains
+  its integrated result approval and reroll controls.

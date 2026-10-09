@@ -1054,6 +1054,9 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  /** Resolved healing/temporary HP granted, distinct from the private dice total. */
+  healing?: number;
+  temporaryHp?: number;
   /** Confirmed rule trigger; indices identify exact flattened damage dice. */
   diceTrigger?:{kind?:'burst'|'burst-limit';title:string;detail:string;diceCount:number;groups:{value:number;indices:number[]}[]};
   /** This result (including bonuses) was already presented in the live group tray. */
@@ -1185,8 +1188,10 @@ export type RollEntry = {
    *  so `visibility.ts` can shape it per viewer: players see it for PCs;
    *  creature HP bookkeeping stays with the DM. */
   hpNote?: { kind: TokenKind; refId: string; text: string };
-  /** A DM roll captured while "hide my rolls" was on — dropped from player logs. */
+  /** A DM roll captured while "hide my rolls" was on; full details stay private. */
   dmOnly?: boolean;
+  /** Committed hidden-DM result: outcomes and applied amounts, without dice or stats. */
+  outcomeOnly?: boolean;
   /** Private creature roll statistics: players receive raw dice and outcomes,
    *  without numeric bonuses or calculated attack/save totals. */
   hideMods?: boolean;
@@ -1734,8 +1739,17 @@ export type InitiativeSetPayload = { tokenId: string; initiative: number | null 
 export type ServerError = { code: string; message: string };
 
 // Client -> Server event names.
+export type SpellAreaPreviewIntent = Pick<AbilityRollPayload,'kind'|'refId'|'abilityId'|'castLevel'> & {area:import('./spellAreas.js').SpellAreaPlacement};
+export type SpellAreaPreview = {id:string;name:string;spec:import('./spellAreas.js').SpellArea;area:import('./spellAreas.js').SpellAreaPlacement;caster:{x:number;y:number};resolving:boolean};
+export type HiddenRollResult = {label:string;detail:string;total:number;reveal?:RollReveal};
+export type HiddenRollDice = {index:number;expr:string;sides:number[];faces:number[];labels?:string[];bonus?:number;total?:number};
+export type HiddenRollDecision = {action:'apply'|'discard'|'reroll'}|{action:'manual';faces:{index:number;values:number[]}[]};
+export type HiddenRollReview = {id:string;label:string;results:HiddenRollResult[];dice:HiddenRollDice[];manual?:boolean};
+
 export interface ClientToServerEvents {
+  'dice:confirmHidden': (payload:{id:string;apply?:boolean;decision?:HiddenRollDecision}) => void;
   'dice:ready': (payload:{id:string}) => void;
+  'dice:begin': (payload:{id:string}) => void;
   'dice:skip': (payload:{id:string}) => void;
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   'map:select': (payload: MapSelectPayload) => void;
@@ -1864,6 +1878,8 @@ export interface ClientToServerEvents {
   'cursor:move': (payload: { x: number; y: number; mapId: string }) => void;
   /** My cursor left the map → remove my pointer for everyone. */
   'cursor:hide': () => void;
+  /** Caster's live area choice, routed only to its owner and campaign DMs. */
+  'spell:areaPreview': (payload:SpellAreaPreviewIntent|null) => void;
   /** DM-only: ask the rules assistant (SRD + uploaded rulebook). The Q&A is
    *  posted as DM-only chat messages and answered by a local/remote LLM. The
    *  optional `backend` is the chat dropdown's choice ('local' + a specific
@@ -1965,6 +1981,8 @@ export type HpFxEvent = {
 };
 
 export interface ServerToClientEvents {
+  'fx:spellArea': (payload:{id:string;preview:SpellAreaPreview|null}) => void;
+  'dice:hiddenReview': (review:HiddenRollReview|null)=>void;
   'dice:frame': (frame:import('./liveDiceTypes.js').LiveDiceFrame)=>void;
   'dice:finished': (payload:{id:string})=>void;
   'fx:initiative': (payload: { mapId: string }) => void;

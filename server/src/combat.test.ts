@@ -1359,7 +1359,11 @@ describe('Apply damage → click-to-target saves', () => {
     const applied = listRollLog(s.id).at(-1)!;
     expect(applied.reveal?.kind).toBe('check');
     expect(applied.reveal?.outcome).toBe('fail');
-    expect(applied.reveal?.damage).toBeUndefined();
+    // Resolved amount supports outcome-only private-save history; the check
+    // carries no damage dice and must not create another damage roll.
+    expect(applied.reveal?.damage).toBe(10);
+    expect(applied.reveal?.damageType).toBe('fire');
+    expect(applied.reveal?.damageDice).toBeUndefined();
     // The source roll keeps its payload so more targets can be clicked.
     expect(getRollEntry(entry.id)!.apply).toBeTruthy();
   });

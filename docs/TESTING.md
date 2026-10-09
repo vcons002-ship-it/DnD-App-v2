@@ -1,5 +1,26 @@
 # Automated verification
 
+`hidden-roll-approval.spec.ts` exercises the real hidden DM attack confirmation,
+reject/reroll and entered attack totals, then separate damage approval in the tray,
+including damage rerolls and entered die faces. It also checks private save
+approval, manual total entry,
+discard, and readable compact review layouts at desktop and phone sizes.
+A second player window and socket
+verify that pending secret rolls send no dice, review or history; another player/DM
+connection cannot approve the owner's result. Save-dependent effects wait for
+approval; hidden attack damage also waits before changing HP or publishing
+effects. `hiddenRollApproval.test.ts` checks
+transaction rollback, unchanged resources/history/effects on cancellation, and
+one commit using the same faces after approval, separate damage approval without
+reapproving the original hit, unchanged damage when saves are
+rerolled, recalculated manual outcomes, and invalid manual input rejection.
+A changed result is rejected.
+The live-dice contract checks that a disconnected DM's unapproved hidden roll
+is discarded and releases the queue, while public rolls still finish after a
+disconnect. For a direct Windows/RTX AV1 capture of the approval sequence, set
+`HIDDEN_REVIEW_VIDEO` to an absolute MP4 path and run the browser test headed;
+its recorder uses Windows Graphics Capture and NVIDIA AV1, not CDP screencasts.
+
 `npm test` runs server and shared-rule tests. `npm run test:e2e` builds the client and runs the normal Playwright browser suite against a disposable server and save. Neither command uses the installed campaign database. CI runs both suites, typechecking, and the production build.
 
 ```sh
@@ -183,3 +204,26 @@ Remove-Item Env:DND_ENVIRONMENT_DEMO
 ```
 
 The ordinary miniature, movement, combat, and visibility regressions still run without those switches.
+
+### Private roll tray controls
+
+`e2e/hidden-roll-approval.spec.ts` verifies the same canvas and window bounds
+survive physical attack, damage and save settlement and reroll. Hidden damage
+keeps HP and effects unchanged through rerolls and manual entry until Apply result.
+The private save remains at
+elapsed zero beyond the graphics-ready fallback; neither a player nor a different
+DM connection can start or approve it. A compact **Saving throw needed** prompt
+names the creature and save before opening the tray. The initiating DM clicks
+**Roll saving throw**, then uses the tray's integrated result controls. Reject & reroll immediately tosses
+the same pending save, without a second start click. Desktop and
+phone checks cover the verdict and Apply/reroll buttons without clipping.
+Player observers receive no private frames or reviews, and only accepted outcome
+history and final damage. No native confirmation dialog opens.
+
+`e2e/hidden-area-save.spec.ts` casts Fireball from a player at three goblins and
+checks the handoff to the DM's grouped saving-throw prompt. Rerolling preserves
+the public damage throw; manually entered save faces recalculate full/half damage.
+No HP, effects, resources or history commits until acceptance. The player receives
+no creature save frames or approval messages, and sees outcome-only save history.
+Set `CAPTURE_HIDDEN_AREA` to an output directory with a headed Chrome run to
+record both windows through Windows Graphics Capture and NVIDIA NVENC AV1.

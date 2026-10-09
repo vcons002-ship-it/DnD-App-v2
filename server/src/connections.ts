@@ -67,6 +67,15 @@ export const isConnected = (socketId: string | null | undefined): boolean =>
 
 export const roomName = (sessionId: string): string => `session:${sessionId}`;
 
+/** Private area planning belongs to the caster and DMs viewing this map. */
+export function broadcastSpellArea(io:IOServer,sessionId:string,id:string,preview:import('../../shared/types.js').SpellAreaPreview|null):void {
+  for(const [recipient,conn] of conns){
+    if(conn.sessionId!==sessionId||(recipient!==id&&conn.role!=='dm'))continue;
+    const mapId=conn.role==='dm'?conn.viewMapId??getActiveMapId(sessionId):getActiveMapId(sessionId);
+    io.to(recipient).emit('fx:spellArea',{id,preview:preview&&preview.area.mapId===mapId?preview:null});
+  }
+}
+
 /** No history replay or ability details; hidden and off-map casters stay private. */
 export function broadcastSpellCast(io: IOServer, sessionId: string, kind: Token['kind'], refId: string): void {
   if(isLiveCommand()){afterRollCommit(()=>broadcastSpellCast(io, sessionId, kind, refId));return;}
@@ -106,7 +115,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
     );
     io.to(socketId).emit('state:snapshot', snapshot);
     const visibleRolls = new Set(snapshot.rollLog.filter((roll) => roll.reveal).map((roll) => roll.id));
-    const publicRolls = new Set(snapshot.rollLog.map(roll=>roll.id));
+    const publicRolls = new Set(snapshot.rollLog.filter(roll=>!roll.outcomeOnly).map(roll=>roll.id));
     const visible = hpFx.filter((e) => e.areaPosition
       ? snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||visionContains(snapshot.playerVision,e.areaPosition.x,e.areaPosition.y)) && (conn.role==='dm'||(!snapshot.map.mapFogEnabled||snapshot.map.mapFogRevealed.includes(`${Math.floor(e.areaPosition.x/snapshot.map.gridSizePx)},${Math.floor(e.areaPosition.y/snapshot.map.gridSizePx)}`)))
       : snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),

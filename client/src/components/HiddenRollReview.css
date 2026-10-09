@@ -1,0 +1,46 @@
+.hidden-roll-review{position:relative;box-sizing:border-box;color:#eee4d1;font:16px/1.3 system-ui,sans-serif;text-align:left;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:6px;height:100%;min-height:0}
+.hidden-roll-review header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hidden-roll-private{font-size:12px;letter-spacing:.06em;color:#bea977}
+.hidden-roll-review p{margin:0;font-size:16px;line-height:1.3;color:#dce2ec}
+.hidden-roll-review h3{font-size:17px;margin:0;color:#f2d99d}
+.hidden-roll-results{display:flex;gap:10px;overflow:auto;min-height:0}
+.hidden-roll-results section{flex:1 0 220px;position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-content:center;padding:4px 8px;border-left:2px solid #bca16a66}
+.hidden-roll-review[data-grouped=true] .hidden-roll-results section{align-content:start}
+.hidden-roll-review[data-grouped=true] .hidden-roll-results h3{display:none}
+.hidden-roll-review[data-grouped=true] .hidden-roll-who{grid-column:1/-1;font-size:18px}
+.hidden-roll-review[data-grouped=true] .hidden-roll-verdict{grid-column:1/-1;grid-row:auto;flex-direction:row;justify-content:space-between;font-size:19px}
+.hidden-roll-review[data-grouped=true] .hidden-roll-effect{font-size:14px}
+.hidden-roll-review[data-grouped=true] .hidden-roll-details summary{line-height:20px}
+.hidden-roll-review .hidden-roll-who{font-size:22px;font-weight:700;color:#fff1d3;grid-column:1}
+.hidden-roll-verdict{display:flex;flex-direction:column;justify-content:center;align-items:end;gap:3px;font-size:24px;line-height:1.15;grid-column:2;grid-row:1/4;white-space:nowrap}
+.hidden-roll-verdict strong[data-outcome=hit],.hidden-roll-verdict strong[data-outcome=pass]{color:#86dfad}
+.hidden-roll-verdict strong[data-outcome=miss],.hidden-roll-verdict strong[data-outcome=fail],.hidden-roll-verdict strong[data-outcome=fumble]{color:#f2a0a0}
+.hidden-roll-verdict strong[data-outcome=crit]{color:#ffe083}
+.hidden-roll-review .hidden-roll-effect{font-size:16px;grid-column:1/-1;color:#eee4d1}
+.hidden-roll-details{grid-column:1;font-size:13px;color:#bac6d9}
+.hidden-roll-details summary{cursor:pointer;line-height:24px}
+.hidden-roll-details[open]{position:absolute;bottom:0;left:0;right:0;z-index:10;background:#111927;border:1px solid #bca16a88;border-radius:8px;padding:8px;max-height:170px;overflow:auto}
+.hidden-roll-equation{overflow-wrap:anywhere}
+.hidden-roll-review footer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;align-items:center}
+.hidden-roll-review footer>span{grid-column:1/-1;font-size:12px;text-align:center;color:#b9c3d3}
+.hidden-roll-secondary{display:flex;gap:6px;flex-wrap:wrap}
+.hidden-roll-review .btn{font:600 15px/1.2 system-ui,sans-serif;min-height:44px;padding:8px 10px;white-space:normal}
+.hidden-roll-secondary .btn{flex:1 1 auto}
+.hidden-roll-review .hidden-roll-accept{font-size:20px;min-height:48px;min-width:160px}
+.hidden-roll-entry{position:absolute;left:0;right:0;bottom:72px;z-index:11;padding:14px;background:#111927;border:1px solid #bca16a;border-radius:8px;max-height:min(360px,calc(100dvh - 150px));overflow:auto;box-shadow:0 -8px 32px #0008;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.hidden-roll-entry>p,.hidden-roll-entry>button{grid-column:1/-1}
+.hidden-roll-entry label{display:flex;flex-direction:column;align-items:start;gap:6px;margin:0;font-size:18px;overflow-wrap:anywhere}
+.hidden-roll-entry input{width:100px;min-height:44px;font-size:20px}
+.hidden-roll-manual-note{color:#f2d99d!important;font-size:14px!important}
+.private-review-fallback{width:min(740px,94vw);height:340px}
+@media(max-width:600px){
+ .hidden-roll-review footer{grid-template-columns:1fr;gap:4px}
+ .hidden-roll-review .hidden-roll-accept{width:100%;min-height:44px;grid-row:1}
+ .hidden-roll-review .btn{font-size:13px;min-height:40px;padding:6px}
+ .hidden-roll-review .hidden-roll-who{font-size:22px}
+ .hidden-roll-verdict{font-size:21px}
+ .hidden-roll-review h3{font-size:15px}
+ .hidden-roll-review .hidden-roll-effect{font-size:14px}
+ .hidden-roll-entry{bottom:105px;grid-template-columns:1fr;padding:12px;max-height:calc(100dvh - 180px)}
+ .hidden-roll-entry label{flex-wrap:wrap}
+}

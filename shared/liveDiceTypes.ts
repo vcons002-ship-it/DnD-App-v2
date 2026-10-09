@@ -10,6 +10,8 @@ export type LiveDiceFrame = {
  /** Server-held reading/effects phase for a throw with no calculation card. */
  resultHoldMs?:number;
  id:string;seq:number;label:string;roller:string;className:string;
+ /** The initiating DM starts this private save from its automatic prompt. */
+ awaitingStart?:boolean;
  target?:string;
  /** Offset is used only by the server to match a chunk to private save metadata. */
  dieOffset?:number;

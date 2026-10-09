@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSnapshot, createSnapshotBuilder, coveredByFog,redactCreatureMods } from './visibility.js';
+import { buildSnapshot, createSnapshotBuilder, coveredByFog,redactCreatureMods,hiddenRollOutcome } from './visibility.js';
 import {
   createMonsterTemplate,
   instantiateMonster,
@@ -59,6 +59,79 @@ const spawnInstance = (
 import type { Monster, MonsterPublic } from '../../shared/types.js';
 
 describe('creature roll redaction + player AOE visibility', () => {
+  it('hides creature saves initiated by a player while sharing accepted damage and outcome',()=>{
+    const s=createSession('Player Fireball private saves'),map=createMap(s.id,{name:'Arena'});setActiveMap(s.id,map.id);
+    const goblin=spawnInstance(s.id,'Goblin',40);createToken({mapId:map.id,kind:'monster',refId:goblin.id,x:75,y:75});
+    setHideDmRolls(s.id,true);
+    const save=addRollLog(s.id,{roller:'Vanec',label:'DEX save',expr:'Fireball',total:9,detail:'18 + 2 = 20 vs DC 15',
+      reveal:{kind:'check',attacker:goblin.name,outcome:'pass',d20:18,attackTotal:20,toHit:[{label:'DEX',value:2}],damage:9,damageType:'fire',visibilityTarget:{kind:'monster',refId:goblin.id}}});
+    expect(save.dmOnly).toBe(true);
+    const visible=buildSnapshot(s.id,'player')!.rollLog[0];
+    expect(visible).toMatchObject({outcomeOnly:true,hideTotal:true,expr:'',total:0});
+    expect(visible.detail).toContain('Pass');expect(visible.detail).toContain('9 fire damage');
+    expect(visible.reveal).toBeUndefined();expect(visible.detail).not.toMatch(/18|20|DC|DEX|\+/);
+    expect(buildSnapshot(s.id,'dm')!.rollLog[0].reveal?.attackTotal).toBe(20);
+  });
+  it('publishes only committed hidden outcomes while keeping the full DM history',()=>{
+    const s=createSession('Hidden accepted outcomes'),map=createMap(s.id,{name:'Arena'});setActiveMap(s.id,map.id);
+    const goblin=spawnInstance(s.id,'Goblin',10),hero=createCharacter(s.id,{name:'Druk',maxHp:30});
+    createToken({mapId:map.id,kind:'monster',refId:goblin.id,x:75,y:75});
+    createToken({mapId:map.id,kind:'pc',refId:hero.id,x:125,y:75});
+    setHideDmRolls(s.id,true);
+    const attack=addRollLog(s.id,{roller:'DM',label:'Attack',expr:'Secret Sword 1d20+7',total:19,
+      detail:'12 + 7 = 19 vs AC 16',description:'Secret weapon and stats',
+      reveal:{kind:'attack',attacker:goblin.name,target:hero.name,outcome:'hit',d20:12,attackTotal:19,toHit:[{label:'STR',value:7}],
+        damage:9,damageDice:[{label:'1d8',faces:[5],value:5}],damageMods:[{label:'STR',value:4}]}});
+    for(const outcome of ['pass','fail','none'] as const)addRollLog(s.id,{roller:'DM',label:'DEX save',expr:'vs DC 17',total:18,
+      detail:'15 + 3 = 18 vs DC 17',reveal:{kind:'check',attacker:goblin.name,outcome,d20:15,attackTotal:18,toHit:[{label:'DEX',value:3}]}});
+    addRollLog(s.id,{roller:'DM',label:'Roll',expr:'1d20+8',total:12,detail:'Private arbitrary dice',
+      reveal:{kind:'dice',attacker:'DM',outcome:'none',damage:12}});
+    const dm=buildSnapshot(s.id,'dm')!.rollLog,player=buildSnapshot(s.id,'player')!.rollLog;
+    expect(dm).toHaveLength(5);expect(dm[0]).toMatchObject({id:attack.id,dmOnly:true,total:19,expr:'Secret Sword 1d20+7'});
+    expect(player).toHaveLength(4);
+    expect(player[0].detail).toMatch(/Goblin.* → Druk — Hit/);
+    expect(player.slice(1).map(e=>e.detail.split(' — ').at(-1))).toEqual(['Pass','Fail','Resolved']);
+    for(const e of player){
+      expect(Object.keys(e).sort()).toEqual(['id','createdAt','roller','label','expr','total','hideTotal','outcomeOnly','detail'].sort());
+      expect(e).toMatchObject({outcomeOnly:true,hideTotal:true,total:0,expr:''});
+      expect(JSON.stringify({...e,id:undefined,createdAt:undefined})).not.toMatch(/Secret|d20|STR|AC 16|DC 17|faces|toHit|damageMods|description/);
+    }
+    setTokenHidden(listTokens(map.id).find(t=>t.refId===goblin.id)!.id,true);
+    const builder=createSnapshotBuilder(s.id)!;
+    expect(builder('dm').rollLog).toHaveLength(5);
+    expect(builder('player').rollLog).toHaveLength(0);
+  });
+  it.each(['hit','miss','crit','fumble','pass','fail','none'] as const)('whitelists the %s outcome without copying private payloads',outcome=>{
+    const e={id:'private',createdAt:1,roller:'DM',label:'DEX save',expr:'1d20+3 vs DC 17',total:18,detail:'15 + 3 = 18',
+      reveal:{kind:'check' as const,attacker:'DM',outcome,d20:15,attackTotal:18}};
+    const result=hiddenRollOutcome(e,[],[],[])!;
+    expect(result.detail).toBe(({hit:'Hit',miss:'Miss',crit:'Critical hit',fumble:'Fumble',pass:'Pass',fail:'Fail',none:'Resolved'})[outcome]);
+    expect(result.reveal).toBeUndefined();expect(result.expr).toBe('');expect(result.hideTotal).toBe(true);
+  });
+  it('shares resolved damage but keeps dice, math and per-viewer visibility references private',()=>{
+    const s=createSession('Hidden damage summary'),hero=createCharacter(s.id,{name:'Druk',maxHp:30});
+    const e={id:'damage',createdAt:1,roller:'DM',label:'Damage',expr:'4d8+7',total:29,detail:'Secret 29 fire damage',
+      reveal:{kind:'damage' as const,attacker:'DM',target:hero.name,outcome:'hit' as const,damage:29,damageType:'fire',
+        damageDice:[{label:'4d8',faces:[8,8,4,2],value:22}],damageMods:[{label:'secret',value:7}]}};
+    const result=hiddenRollOutcome(e,[],[],[hero])!;
+    expect(result.detail).toBe('Druk — Damage applied — 29 fire damage');expect(JSON.stringify(result)).not.toMatch(/4d8|secret|faces/);
+    expect(hiddenRollOutcome({...e,reveal:{...e.reveal,visibilityTarget:{kind:'pc',refId:hero.id}}},[],[],[hero])).toBeNull();
+  });
+  it('shares healing and control results without revealing private statistics',()=>{
+    const s=createSession('Hidden healing'),hero=createCharacter(s.id,{name:'Druk',maxHp:30});
+    const base={id:'result',createdAt:1,roller:'DM',label:'Healing',expr:'Cure Wounds → Druk',total:12,detail:'12 + 5 = 17',
+      hpNote:{kind:'pc' as const,refId:hero.id,text:'Druk HP 2→14'}};
+    expect(hiddenRollOutcome(base,[],[],[hero])?.detail).toBe('Druk — Healing applied — 12 healing');
+    expect(hiddenRollOutcome({...base,total:0,hpNote:undefined,detail:'Druk is dead; healing has no effect'},[],[],[hero])?.detail).toBe('Druk — No healing — 0 healing');
+    const r={kind:'check' as const,attacker:hero.name,outcome:'fail' as const, d20:5,attackTotal:8,
+      effectOutcome:'Hold Person successful - Paralyzed; repeat the save at the end of each turn. DC 17. AC 16. 1d20 + 3 = 8. Resistance fire.'};
+    const result=hiddenRollOutcome({...base,label:'WIS save',reveal:r},[],[],[hero])!;
+    expect(result.detail).toContain('Hold Person successful - Paralyzed; repeat the save at the end of each turn.');
+    expect(result.detail).not.toMatch(/DC|AC|1d20|Resistance|17|16|\+ 3/);
+    expect(result.detail).not.toContain('12');
+    const healingReveal={kind:'dice' as const,attacker:'DM',target:hero.name,outcome:'none' as const,damage:17,healing:0};
+    expect(hiddenRollOutcome({...base,label:'Cure Wounds',reveal:healingReveal},[],[],[hero])?.detail).toBe('Druk — No healing — 0 healing');
+  });
   it('redacts intermediate live damage calculations with the same policy as final creature rolls',()=>{
     const reveal={kind:'damage' as const,physical:true,attacker:'DM',target:'Varis',outcome:'hit' as const,
       title:'Bow — Damage Roll',damage:9,damageDice:[{label:'1d8',value:4,faces:[4]}],
@@ -173,10 +246,13 @@ describe('creature roll redaction + player AOE visibility', () => {
     const tok = createToken({ mapId: map.id, kind: 'monster', refId: instantiateMonster(tmpl.id)!.id, x: 1, y: 1 });
     resolveForcedSave(s.id, cast.id, tok.id); // the caster applies it to a target
     const res = listRollLog(s.id).at(-1)!;
-    // Attributed to the casting PC (not 'DM'), so it's NOT hidden from players.
+    // Keep caster attribution, but show only the accepted save outcome/damage.
     expect(res.roller).toBe('Wizard');
-    expect(res.dmOnly).toBeFalsy();
-    expect(buildSnapshot(s.id, 'player')!.rollLog.some((e) => e.id === res.id)).toBe(true);
+    expect(res.dmOnly).toBe(true);
+    const visible=buildSnapshot(s.id,'player')!.rollLog.find(e=>e.id===res.id)!;
+    expect(visible).toMatchObject({outcomeOnly:true,hideTotal:true,expr:''});
+    expect(visible.detail).toMatch(/Pass|Fail/);expect(visible.detail).toContain('fire damage');
+    expect(visible.reveal).toBeUndefined();
   });
 });
 

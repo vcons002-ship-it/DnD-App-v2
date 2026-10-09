@@ -18,10 +18,14 @@ import {saveRollHeading} from '../lib/saveRollHeading';
 
 /** Render authoritative poses with a short interpolation buffer. No local physics,
  * face reassignment, trajectory retry, or client-generated result. */
-export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=false,title,rollId,revealKind,resultHeader,diceTrigger,explosionMs}: {
- frame:LiveDiceFrame;result?:ReactNode;onSkip:()=>void;impactReady?:boolean;compact?:boolean;title?:string;rollId?:string;revealKind?:string;resultHeader?:{attacker:string;target?:string};diceTrigger?:RollReveal['diceTrigger'];explosionMs?:number;
+export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=false,title,rollId,revealKind,resultHeader,diceTrigger,explosionMs,hiddenReview}: {
+ frame:LiveDiceFrame;result?:ReactNode;hiddenReview?:ReactNode;onSkip:()=>void;impactReady?:boolean;compact?:boolean;title?:string;rollId?:string;revealKind?:string;resultHeader?:{attacker:string;target?:string};diceTrigger?:RollReveal['diceTrigger'];explosionMs?:number;
 }){
- const skip=onSkip;
+ const pendingStart=!!frame.awaitingStart&&frame.elapsed===0;
+ const hiddenPrivate=useStore(s=>s.snapshot?.role==='dm'&&s.snapshot.hideDmRolls);
+ const reviewRef=useRef(hiddenReview);reviewRef.current=hiddenReview;
+ const skip=()=>{if(!reviewRef.current&&!pendingStart)onSkip();};
+ const [started,setStarted]=useState('');
  const naturalCritical=liveNaturalCritical(frame),criticalPlayed=useRef<string>();
  useEffect(()=>{if(naturalCritical&&criticalPlayed.current!==frame.id){criticalPlayed.current=frame.id;playCritical();}},[naturalCritical,frame.id]);
  const finale=useRef<{id:string;deadline:number|null}>({id:frame.id,deadline:null});
@@ -283,10 +287,10 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
  };
  const target=resultHeader?resultHeader.target:frame.target;
  const heading=saveRollHeading(frame,title??frame.label,resultHeader?.attacker);
- return <div className={`roll-reveal-backdrop${compact?' is-impact':''}`} data-live-dice={result||compact?undefined:'true'} data-live-calculation={frame.calculation?'true':undefined} data-result-hold-ms={frame.resultHoldMs} data-dice-presentation={result?'result':'live'} data-roll-id={frame.id}><div ref={card} className={`roll-reveal${naturalCritical?' roll-reveal-crit':''}`} data-roll-id={rollId??frame.id} data-reveal-kind={revealKind} data-dice-theme={theme.id} data-impact-ready={impactReady} role="status" aria-label="Live dice roll" onClick={skip} title="Click or tap to skip animation">
+ return <div className={`roll-reveal-backdrop${compact?' is-impact':''}`} data-live-dice={result||compact?undefined:'true'} data-live-calculation={frame.calculation?'true':undefined} data-result-hold-ms={frame.resultHoldMs} data-private-roll={hiddenPrivate||undefined} data-reviewing={!!hiddenReview} data-awaiting-start={pendingStart||undefined} data-dice-presentation={result?'result':'live'} data-roll-id={frame.id}><div ref={card} className={`roll-reveal${naturalCritical?' roll-reveal-crit':''}`} data-roll-id={rollId??frame.id} data-reveal-kind={revealKind} data-dice-theme={theme.id} data-impact-ready={impactReady} role="status" aria-label="Live dice roll" onClick={skip} title={hiddenReview||pendingStart?undefined:"Click or tap to skip animation"}>
   <div className="roll-reveal-title" role="heading" aria-level={2} title={heading}>{heading}</div>
   <div className="roll-reveal-who">{frame.saveDice&&frame.saveDice[0]?.rollKind!=='initiative'?'Triggered by ':''}{resultHeader?.attacker??frame.roller}{target&&<span className="rr-arrow"> &rarr; {target}</span>}</div>
-  {naturalCritical&&!compact&&<div className="roll-reveal-outcome tray-natural-critical" role="status" aria-label="Roll result">CRITICAL HIT!</div>}
+  {naturalCritical&&!compact&&!hiddenReview&&<div className="roll-reveal-outcome tray-natural-critical" role="status" aria-label="Roll result">CRITICAL HIT!</div>}
   <div ref={root} className="physics-dice-tray" data-status={frame.done?'settled':'rolling'} data-theme={theme.id} data-entry-side={own?'bottom':'top'} data-mode={frame.mode} data-material={failed?'unavailable':!prepared?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id==='ranger'?'forest-resin':theme.id.startsWith('dm-')?'purple-resin':theme.id} role="group" aria-label="Live dice tray">
    <div className="dice-tray-viewport"><div className="dice-tray-stage">
    <canvas className="dice-tray-canvas" ref={canvas} aria-label={result?'Settled dice':'Server dice rolling live'}/>
@@ -311,10 +315,16 @@ export function LiveDiceOverlay({frame,result,onSkip,impactReady=false,compact=f
    <div className="dice-tray-results">{frame.sides.map((side,i)=><span ref={el=>{boxes.current[i]=el;}} className={`tray-die-result${frame.critical[i]?' critical':''}`} data-die-id={i} data-trigger={triggerGroup(i)>=0?'matched':undefined} data-trigger-group={triggerGroup(i)>=0?triggerGroup(i):undefined} data-sides={side} data-value={frame.values[i]??undefined} data-set={frame.sets[i]} data-result={frame.done&&frame.mode?(frame.sets[i]===frame.kept?'kept':'discarded'):'rolling'} data-critical={!!frame.critical[i]} data-theme={theme.id} data-orientation={arrived.includes(i)||failed?'settled':'rolling'} aria-label={`d${side}: ${arrived.includes(i)||failed?value(i):'rolling'}`} data-filled={arrived.includes(i)||failed} data-strength={tier(i)} style={{...resultStyle(i),...(triggerGroup(i)>=0?{'--trigger-color':triggerColors[triggerGroup(i)%triggerColors.length]}:{}),...(frame.done&&frame.mode?{borderColor:frame.sets[i]===frame.kept?'#39ef87':'#ff5365',boxShadow:`0 0 6px ${frame.sets[i]===frame.kept?'#39ef87':'#ff5365'}`} : {})}} key={i}>{frame.saveDice?.[i]&&<small className="tray-save-name" title={frame.saveDice[i].label}>{frame.saveDice[i].label}</small>}{frame.percentile[i]?`d100 ${frame.percentile[i]}`:`d${side}`}<strong>{arrived.includes(i)||failed?value(i):'?'}</strong>{!frame.saveDice?.[i]&&<small className="tray-max-label" style={{visibility:(arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i))?'visible':'hidden'}} aria-hidden={!((arrived.includes(i)||failed)&&!!dieResultLabel(liveDieResult(frame,i)))}>{dieResultLabel(liveDieResult(frame,i))}</small>}{frame.saveDice?.[i]&&<span className="tray-save-verdict" data-outcome={saveResult(i)?.outcome}>{saveVerdict(i)}</span>}{frame.rerolls[i]>0&&<small className="tray-reroll-count" title={`Rerolled ${frame.rerolls[i]} times`}>{"\u21bb"}{frame.rerolls[i]}</small>}</span>)}</div>
   </div>
   <div className="tray-result-panel">
-  {frame.saveDice&&<div className="tray-save-details" aria-label={frame.saveDice[0]?.rollKind==='initiative'?'Initiative results':'Saving throw results'}>{frame.saveDice.map((_,i)=><span key={i}>{saveBonus(i)}</span>)}</div>}
-  {diceTrigger&&!compact&&<div className="tray-trigger-result" role="status" data-dice-trigger={diceTrigger.kind??'matched'}><strong>{diceTrigger.title}</strong><span>{diceTrigger.detail}: {diceTrigger.groups.map((group,g)=><em key={g} style={{color:triggerColors[g%triggerColors.length]}}>{group.indices.length} {group.indices.length===1?'die':'dice'} showing {group.value}</em>)}</span></div>}
-  {result&&<div className="tray-roll-result">{result}</div>}
+  {!hiddenReview&&!pendingStart&&frame.saveDice&&<div className="tray-save-details" aria-label={frame.saveDice[0]?.rollKind==='initiative'?'Initiative results':'Saving throw results'}>{frame.saveDice.map((_,i)=><span key={i}>{saveBonus(i)}</span>)}</div>}
+  {!hiddenReview&&!pendingStart&&diceTrigger&&!compact&&<div className="tray-trigger-result" role="status" data-dice-trigger={diceTrigger.kind??'matched'}><strong>{diceTrigger.title}</strong><span>{diceTrigger.detail}: {diceTrigger.groups.map((group,g)=><em key={g} style={{color:triggerColors[g%triggerColors.length]}}>{group.indices.length} {group.indices.length===1?'die':'dice'} showing {group.value}</em>)}</span></div>}
+  {hiddenReview??(!pendingStart&&result&&<div className="tray-roll-result">{result}</div>)}
   </div>
-  <div className="live-dice-footer"><span className="muted">{result?'':!prepared&&!failed?'Loading dice…':frame.done?'Dice settled':frame.rerolls.some(n=>n>0)?'Rerolling unreadable dice...':'Rolling...'}</span><button type="button" onClick={event=>{event.stopPropagation();skip();}} aria-label="Skip roll animation">Skip</button></div>
- </div></div>;
+  <div className="live-dice-footer"><span className="muted">{result?'':!prepared&&!failed?'Loading dice…':frame.done?'Dice settled':frame.rerolls.some(n=>n>0)?'Rerolling unreadable dice...':'Rolling...'}</span>{!hiddenReview&&!pendingStart&&<button type="button" onClick={event=>{event.stopPropagation();skip();}} aria-label="Skip roll animation">Skip</button>}</div>
+ </div>{pendingStart&&<section className="private-save-prompt" role="region" aria-label="Saving throw needed" onClick={e=>e.stopPropagation()}>
+  <span className="hidden-roll-private">DM ONLY</span>
+  <h2>Saving throw needed</h2>
+  <p>{heading}</p>
+  <button className="btn primary" disabled={started===frame.id} onClick={()=>{setStarted(frame.id);useStore.getState().socket?.emit('dice:begin',{id:frame.id});}}>{started===frame.id?'Starting saving throw...':'Roll saving throw'}</button>
+  <small>Roll privately, then accept or reroll the result.</small>
+ </section>}</div>;
 }

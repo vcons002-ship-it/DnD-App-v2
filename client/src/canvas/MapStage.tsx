@@ -646,6 +646,8 @@ export function MapStage({
   useEffect(()=>{if(!teleportCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearTeleportCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[teleportCast]);
   useEffect(()=>{if(teleportCast&&(!teleportActor||teleportActor.mapId!==map?.id))clearTeleportCast();},[teleportCast,teleportActor?.id,map?.id]);
   const teleportError=teleportPoint&&teleportActor&&map?(tokenDistanceFt({...teleportActor,widthFt:0},{...teleportPoint,widthFt:0},map)>30?'Choose a destination within 30 ft.':!hasLineOfSight(teleportActor,teleportPoint,map.walls)?'Choose a destination you can see.':null):null;
+  const sharedSpellAreas=useStore(s=>s.spellAreaPreviews);
+  const areaSocketId=useStore(s=>s.socket?.id);
   const areaCast=useStore(s=>s.areaCast),clearAreaCast=useStore(s=>s.clearAreaCast);
   const [areaPoints,setAreaPoints]=useState<Pt[]>([]),[areaPointer,setAreaPointer]=useState<Pt|null>(null),[areaAngle,setAreaAngle]=useState(0),[areaDirectionLocked,setAreaDirectionLocked]=useState(false),[areaExcluded,setAreaExcluded]=useState<string[]>([]);
   const areaActor=areaCast?snapshot.tokens.find(t=>t.kind===areaCast.payload.kind&&t.refId===areaCast.payload.refId):undefined;
@@ -677,6 +679,16 @@ export function MapStage({
       !(areaCast.spec.excludeCaster&&t.id===areaActor.id)&&pointInSpellArea(areaCast.spec,areaPreview,areaActor,t,map.gridSizePx/map.feetPerSquare)&&
       areaPreview.points.some((_,i)=>hasLineOfSight(areaOrigin(areaCast.spec,areaPreview,areaActor,map.gridSizePx/map.feetPerSquare,i),t,map.walls));
   }):[];
+  // Send the latest geometry at most every 70 ms while the pointer is moving.
+  const areaShareTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const latestAreaShare=useRef<import('../../../shared/types').SpellAreaPreviewIntent|null>(null);
+  useEffect(()=>{
+    const hadPreview=!!latestAreaShare.current;
+    latestAreaShare.current=areaCast&&areaActor&&map?{...areaCast.payload,area:areaPreview}:null;
+    if(!latestAreaShare.current){if(hadPreview)useStore.getState().shareSpellArea(null);if(areaShareTimer.current)clearTimeout(areaShareTimer.current);areaShareTimer.current=null;return;}
+    if(!areaShareTimer.current)areaShareTimer.current=setTimeout(()=>{areaShareTimer.current=null;if(latestAreaShare.current)useStore.getState().shareSpellArea(latestAreaShare.current);},70);
+  },[areaCast,areaActor?.x,areaActor?.y,map?.id,areaPoints,areaPointer,areaAngle]);
+  useEffect(()=>()=>{if(areaShareTimer.current)clearTimeout(areaShareTimer.current);useStore.getState().shareSpellArea(null);},[]);
   const areaRangeError=areaCast&&areaActor&&map&&!areaCast.spec.self&&areaPoints.some(p=>tokenDistanceFt({...areaActor,widthFt:0},{...p,widthFt:0},map)>areaCast.spec.rangeFt+1e-6||!hasLineOfSight(areaActor,p,map.walls));
   const hpFx = useStore((s) => s.hpFx);
   const spellRollFx = useStore(s=>s.rollFx);
@@ -2499,6 +2511,7 @@ export function MapStage({
               {renderTokens(true)}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
               {teleportCast&&teleportActor&&map&&<Group listening={false}><Circle x={teleportActor.x} y={teleportActor.y} radius={30*map.gridSizePx/map.feetPerSquare} stroke="#b39bff" strokeWidth={2/view.scale} dash={[8/view.scale,6/view.scale]}/>{teleportPoint&&<Circle x={teleportPoint.x} y={teleportPoint.y} radius={teleportActor.widthFt*map.gridSizePx/map.feetPerSquare/2} fill="#ae8fff55" stroke={teleportError?'#ef6464':'#d1c0ff'} strokeWidth={2/view.scale}/>}</Group>}
+              {map&&Object.values(sharedSpellAreas).filter(p=>p.area.mapId===map.id&&(!areaCast||p.id!==areaSocketId)).map(p=><SpellAreaShapes key={p.id} previewState={p.resolving?'resolving':'aiming'} scale={view.scale} spec={p.spec} placement={p.area} caster={p.caster} pxPerFoot={map.gridSizePx/map.feetPerSquare} targets={[]}/>)}
               {areaCast&&areaActor&&map&&<SpellAreaShapes scale={view.scale} spec={areaCast.spec} placement={areaPreview} caster={areaActor} pxPerFoot={map.gridSizePx/map.feetPerSquare} targets={areaTargets.filter(t=>!areaExcluded.includes(t.id))}/>}
               {snapshot.measurements.map((m) => {
                 // An emanation re-centres on its token's live position each frame.

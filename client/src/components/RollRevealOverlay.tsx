@@ -1,3 +1,4 @@
+import {HiddenRollReview} from './HiddenRollReview';
 import {diceTriggerForTray} from '../lib/rollTrayPresentation';
 import {dicePreloadPlan} from '../lib/dicePreloadPlan';
 import {physicalRollTimeline,liveNaturalCritical} from '../lib/diceFinaleTiming';
@@ -207,16 +208,20 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   });
   // A new roll gets fresh stages AND fresh tween origins. Replacing an attack
   // with its damage must never briefly paint the previous roll's final total.
-  const tray = liveDice ?? rollFx?.tray;
+  const reviewingHiddenRoll=useStore(s=>s.hiddenRollReview);
+  const privateTray=useRef<typeof liveDice>(null);
+  if(liveDice)privateTray.current=liveDice;
+  if(!liveDice&&!rollFx&&!reviewingHiddenRoll)privateTray.current=null;
+  const tray = liveDice ?? rollFx?.tray ?? (reviewingHiddenRoll&&rollAnimations?privateTray.current:null);
   const showingMapImpact=useStore(s=>s.hpFx.length>0);
   const skippedLiveDice=useStore(s=>!!s.skippedLiveDiceId);
-  const compact = !!rollFx?.impactReady && ((!['check','dice'].includes(rollFx.reveal.kind??'attack')) || !!rollFx.hasMapImpact);
-  const sequence = visibleRollFx && (!liveDice||intermediate) ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={intermediate?`live:${liveDice!.id}`:visibleRollFx.id} rollFx={visibleRollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!visibleRollFx.reveal.physical} inlineTray={!!tray} intermediate={intermediate} dismiss={()=>{if(useStore.getState().rollFx?.id===visibleRollFx.id)dismiss();}} /></DiceThemeContext.Provider> : undefined;
+  const compact = !reviewingHiddenRoll && !!rollFx?.impactReady && ((!['check','dice'].includes(rollFx.reveal.kind??'attack')) || !!rollFx.hasMapImpact);
+  const sequence = !reviewingHiddenRoll && visibleRollFx && (!liveDice||intermediate) ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={intermediate?`live:${liveDice!.id}`:visibleRollFx.id} rollFx={visibleRollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!visibleRollFx.reveal.physical} inlineTray={!!tray} intermediate={intermediate} dismiss={()=>{if(useStore.getState().rollFx?.id===visibleRollFx.id)dismiss();}} /></DiceThemeContext.Provider> : undefined;
   // Keep this component (and its WebGL canvas) mounted across the live/result
   // handoff. Bonuses count into the total underneath the real resting dice.
   const completed = intermediate?visibleRollFx:liveDice ? null : rollFx;
   const content = tray ? <LiveDiceOverlay
-    frame={tray} result={sequence}
+    frame={tray} result={sequence} hiddenReview={reviewingHiddenRoll?<HiddenRollReview/>:undefined}
     onSkip={liveDice?useStore.getState().skipLiveDice:dismiss}
     impactReady={intermediate?false:!!rollFx?.impactReady} compact={!intermediate&&!!completed&&compact}
     title={completed?.reveal.title?.replace(/\bsave\b/i,'Saving Throw')}
@@ -224,10 +229,11 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     resultHeader={completed?.reveal}
     explosionMs={completed&&hasDrukMaximum(tray)?physicalRollTimeline(completed.reveal,true,true).explosion:undefined}
     diceTrigger={completed&&tray.burstProgress?undefined:tray.diceTrigger??diceTriggerForTray(tray,completed?.reveal)}
-  /> : sequence;
+  /> : reviewingHiddenRoll?<div className="roll-reveal-backdrop"><div className="roll-reveal private-review-fallback"><HiddenRollReview/></div></div>:sequence;
   // Decided per roll, not once per mount: the guide may open or close between
   // rolls. Keyed so the modal layer comes and goes with the decision.
   const lift = ownLevelUpRoll && !!document.querySelector('dialog[data-level-up][open]');
+  // Approval stays inside the mounted tray; no modal or canvas visibility swap.
   const presented=<RollOverlayPresence content={content} reduced={reducedMotion} clearImmediately={showingMapImpact||skippedLiveDice}/>;
   return lift ? <LevelUpRollLayer key="lift" player={player}>{presented}</LevelUpRollLayer> : presented;
 });

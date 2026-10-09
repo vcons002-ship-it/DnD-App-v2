@@ -88,11 +88,16 @@ let rollSfxReady = false;
 const heldHpFx = new Map<string, HpFloater[]>();
 
 type Store = {
+  hiddenRollReview:import('../../../shared/types').HiddenRollReview|null;
+  hiddenRollSubmitting:boolean;
+  confirmHiddenRoll:(decision:boolean|import('../../../shared/types').HiddenRollDecision)=>void;
   liveDice: LiveDiceFrame | null;
   skippedLiveDiceId: string | null;
   skipLiveDice: () => void;
   teleportCast:AbilityRollPayload|null;
   clearTeleportCast:()=>void;
+  spellAreaPreviews:Record<string,import('../../../shared/types').SpellAreaPreview>;
+  shareSpellArea:(payload:import('../../../shared/types').SpellAreaPreviewIntent|null)=>void;
   areaCast:{payload:AbilityRollPayload;spec:SpellArea;name:string;repeat?:import('../../../shared/types').SpellRepeatPayload}|null;
   clearAreaCast:()=>void;
   socket: TypedSocket | null;
@@ -506,11 +511,19 @@ export function isRollImpactPending(rollId:string|undefined){
   return (current?.rollId===rollId&&!current.impactReady)||queuedRollFx.some(fx=>fx.rollId===rollId);
 }
 export const useStore = create<Store>((set, get) => ({
+  hiddenRollReview:null,
+  hiddenRollSubmitting:false,
+  confirmHiddenRoll:(decision)=>{
+    const state=get();
+    if(state.snapshot?.role!=='dm'||!state.hiddenRollReview||state.hiddenRollSubmitting||!state.socket?.connected)return;
+    set({hiddenRollSubmitting:true});
+    state.socket.emit('dice:confirmHidden',{id:state.hiddenRollReview.id,decision:typeof decision==='boolean'?{action:decision?'apply':'discard'}:decision});
+  },
   liveDice: null,
   skippedLiveDiceId: null,
   skipLiveDice: () => {
     const frame = get().liveDice;
-    if (!frame) return;
+    if (!frame || get().hiddenRollReview || frame.awaitingStart&&frame.elapsed===0) return;
     set({ liveDice: null, skippedLiveDiceId: frame.id });
     // Clear cosmetic cards too. The real roll/HP still resolves on the server.
     for (const fx of queuedRollFx.splice(0)) get().releaseRollImpact(fx.rollId);
@@ -520,8 +533,10 @@ export const useStore = create<Store>((set, get) => ({
   },
   teleportCast:null,
   clearTeleportCast:()=>set({teleportCast:null}),
+  spellAreaPreviews:{},
+  shareSpellArea:payload=>get().socket?.emit('spell:areaPreview',payload),
   areaCast:null,
-  clearAreaCast:()=>set({areaCast:null}),
+  clearAreaCast:()=>{get().socket?.emit('spell:areaPreview',null);set({areaCast:null});},
   socket: null,
   status: 'idle',
   error: null,
@@ -750,7 +765,7 @@ export const useStore = create<Store>((set, get) => ({
     }
     set({
       status: 'connecting',
-      areaCast:null,teleportCast:null,liveDice:null,skippedLiveDiceId:null,
+      areaCast:null,spellAreaPreviews:{},teleportCast:null,liveDice:null,skippedLiveDiceId:null,
       error: null,
       dmPassphrase: dmPassphrase ?? null,
       chatAccessToken: null,
@@ -809,11 +824,17 @@ export const useStore = create<Store>((set, get) => ({
       get().notify(explanation, { durationMs: 8000 });
     };
 
+    socket.on('fx:spellArea',({id,preview})=>set(s=>{const spellAreaPreviews={...s.spellAreaPreviews};if(preview)spellAreaPreviews[id]=preview;else delete spellAreaPreviews[id];return {spellAreaPreviews};}));
+    socket.on('dice:hiddenReview',review=>{
+      if(review&&get().snapshot?.role!=='dm')return;
+      set({hiddenRollReview:review,hiddenRollSubmitting:false});
+    });
     socket.on('dice:frame',frame=>{
+      if(frame.awaitingStart)set({skippedLiveDiceId:null});
       if(get().skippedLiveDiceId){
         set({skippedLiveDiceId:frame.id});socket.emit('dice:ready',{id:frame.id});return;
       }
-      if(!get().showRollAnim){socket.emit('dice:ready',{id:frame.id});return;}
+      if(!get().showRollAnim&&!frame.awaitingStart){socket.emit('dice:ready',{id:frame.id});return;}
       const previous=get().liveDice;
       if(previous?.id===frame.id && previous.seq>=frame.seq)return;
       if(previous?.id!==frame.id)get().dismissRollFx();
@@ -832,7 +853,7 @@ export const useStore = create<Store>((set, get) => ({
       // log is oldest-first, so a new entry is the first one not yet seen.
       const log = snapshot.rollLog ?? [];
       if (rollSfxReady) {
-        const unseen = log.filter((e) => !seenRollIds.has(e.id)&&!e.reveal?.presentedLive);
+        const unseen = log.filter((e) => !seenRollIds.has(e.id)&&!e.outcomeOnly&&!e.reveal?.presentedLive&&!(get().hiddenRollReview&&e.dmOnly));
         // Concentration notes can precede Damage, and a targeted cast can emit
         // cast + target-save reveals together. Show the latest actual result;
         // do not let a bookkeeping note hide its animation/correlated effects.
@@ -1053,8 +1074,9 @@ export const useStore = create<Store>((set, get) => ({
     // Keep the last snapshot on screen during a blip; flag reconnecting unless we
     // intentionally left (disconnect()/leave sets status to 'idle' separately).
     socket.on('disconnect', (reason) => {
+      set({hiddenRollReview:null,hiddenRollSubmitting:false});
       completedLiveTrays.clear();
-      set({liveDice:null, skippedLiveDiceId:null, areaCast:null,teleportCast:null, chatAccessToken: null});
+      set({liveDice:null, skippedLiveDiceId:null, areaCast:null,spellAreaPreviews:{},teleportCast:null, chatAccessToken: null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });

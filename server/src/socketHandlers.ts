@@ -1,3 +1,4 @@
+import {SpellAreaPreviewController} from './spellAreaPreview.js';
 import {setRollPending,setRollSmite} from './sessions.js';
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
 import {castDispelMagic,dispelTargetError} from './dispelMagic.js';
@@ -255,6 +256,8 @@ const claimHolderPlayerId = (claimedBy: string | null): string | null =>
     : null) ?? null;
 
 export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boolean}={}): void {
+  type PrivateController={ready:(id:string,awaitStart?:boolean)=>Promise<void>;waitForPresentation:(id:string,ms:number)=>Promise<void>;review:(sid:string,label:string,results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>Promise<import('../../shared/types.js').HiddenRollDecision>;finished:()=>void};
+  const privateControllers=new Map<string,PrivateController>();
   /** Cancel every pending release for a player (they're back) so their claims
    *  aren't freed, then hand back the one character they last held if no live
    *  player holds it now. Called on (re)join. */
@@ -308,8 +311,28 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       handler: (...args: unknown[]) => void,
     ) => void;
     const trayReady=new Map<string,()=>void>();
+    const trayStarts=new Map<string,(start:boolean)=>void>();
     let activeDiceId:string|undefined,skipDicePresentation=false;
     let finishDicePresentation:(()=>void)|undefined;
+    let hiddenReview:{id:string;sessionId:string;finish:(decision:import('../../shared/types.js').HiddenRollDecision)=>void}|undefined;
+    rawOn('dice:confirmHidden',(...args)=>{
+      const payload=args[0] as {id?:unknown;apply?:unknown;decision?:import('../../shared/types.js').HiddenRollDecision}|undefined,conn=getConn(socket.id);
+      if(!hiddenReview||conn?.role!=='dm'||conn.sessionId!==hiddenReview.sessionId||payload?.id!==hiddenReview.id)return;
+      const decision=payload.decision??(typeof payload.apply==='boolean'?{action:payload.apply?'apply' as const:'discard' as const}:undefined);
+      if(!decision||!['apply','discard','reroll','manual'].includes(decision.action))return;
+      // Close the review while its new physical throw plays, then reopen it
+      // with the rerolled result. Manual edits keep the compact review visible.
+      if(decision.action==='reroll')socket.emit('dice:hiddenReview',null);
+      hiddenReview.finish(decision);
+    });
+    const reviewHidden=(sid:string,label:string,results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>new Promise<import('../../shared/types.js').HiddenRollDecision>(resolve=>{
+      if(!socket.connected||getConn(socket.id)?.role!=='dm'){resolve({action:'discard'});return;}
+      const id=newId();
+      const finish=(decision:import('../../shared/types.js').HiddenRollDecision)=>{if(hiddenReview?.id!==id)return;clearTimeout(timer);hiddenReview=undefined;resolve(decision);};
+      const timer=setTimeout(()=>{finish({action:'discard'});socket.emit('notice',{message:'Hidden roll expired without approval. Nothing was applied.'});},300000);
+      hiddenReview={id,sessionId:sid,finish};
+      socket.emit('dice:hiddenReview',{id,label,results,dice,manual});
+    });
     // Only the initiating connection may shorten its command's presentation.
     // Observers can hide a tray locally, but cannot hurry another player's roll.
     rawOn('dice:skip',(...args)=>{
@@ -318,7 +341,15 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       skipDicePresentation=true;trayReady.get(id)?.();finishDicePresentation?.();
     });
     rawOn('dice:ready',(...args)=>{const id=(args[0] as {id?:unknown})?.id;if(typeof id==='string')trayReady.get(id)?.();});
-    const prepareTray=(id:string)=>new Promise<void>(resolve=>{
+    rawOn('dice:begin',(...args)=>{const id=(args[0] as {id?:unknown})?.id;if(typeof id==='string'&&getConn(socket.id)?.role==='dm')trayStarts.get(id)?.(true);});
+    const prepareTray=(id:string,awaitStart=false)=>{
+     // Register both gates before publishing the initial frame. Graphics-ready
+     // fallback must never silently click a deliberately pending saving throw.
+     const start=awaitStart?new Promise<void>((resolve,reject)=>{
+      const finish=(accepted:boolean)=>{clearTimeout(timer);trayStarts.delete(id);accepted?resolve():reject(new Error('Private saving throw cancelled before rolling.'));};
+      const timer=setTimeout(()=>finish(false),300000);trayStarts.set(id,finish);
+     }):Promise.resolve();
+     const prepared=new Promise<void>(resolve=>{
       activeDiceId=id;
       if(skipDicePresentation||!socket.connected){resolve();return;}
       const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
@@ -328,11 +359,16 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       // release immediately so an accepted roll still completes server-side.
       const timer=setTimeout(finish,15000);trayReady.set(id,finish);
     });
+     return Promise.all([prepared,start]).then(()=>{});
+    };
     const waitForDicePresentation=(id:string,ms:number)=>new Promise<void>(resolve=>{
       if(skipDicePresentation||!socket.connected){resolve();return;}
       const finish=()=>{clearTimeout(timer);finishDicePresentation=undefined;resolve();};
       const timer=setTimeout(finish,ms);finishDicePresentation=finish;
     });
+    privateControllers.set(socket.id,{ready:prepareTray,waitForPresentation:waitForDicePresentation,review:reviewHidden,finished:()=>{socket.emit('dice:hiddenReview',null);activeDiceId=undefined;skipDicePresentation=false;}});
+    const areaPreview=new SpellAreaPreviewController(io,socket.id);
+    rawOn('spell:areaPreview',payload=>areaPreview.update(payload as import('../../shared/types.js').SpellAreaPreviewIntent|null));
     const commandDispatch=new Map<string,(...args:unknown[])=>void>();
     const domainHandlers=new Map<string,(payload:any)=>unknown>();
     const scheduleCastTimeout=(held:NonNullable<ReturnType<typeof deferCast>>)=>afterRollCommit(()=>{
@@ -341,8 +377,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     const liveEvents=new Set(['spell:counterspell','spell:shield','spell:repeat','dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
     const on = ((event: string, handler: (...args: unknown[]) => void) => {
       const wrapped=(...args:unknown[]) => {
-        const failed=(err:unknown)=>{console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
+        const failed=(err:unknown)=>{if(areaCommand)areaPreview.clear();console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
         const sid=sessionId();
+        const areaCommand=(event==='ability:roll'||event==='spell:repeat')&&areaPreview.begin(args[0] as any);
         const runHandler=()=>{
           // Resolve elapsed durations before this action reads AC, movement or
           // spell conditions. Within a live roll these writes are staged and
@@ -355,7 +392,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const isRoll=!!(moving&&sid&&spikeConditions(sid).some(c=>c.combatEffect?.spikeArea?.mapId===moving.mapId))||liveEvents.has(event)||(event==='chat:send'&&!(args[0] as any)?.whisperTo&&!!parseRollCommand(String((args[0] as any)?.text??'')));
         if(options.livePhysics!==false && sid && (isRoll||rollInProgress(sid)) && !['join','disconnect','cursor:move','cursor:hide','chat:typing','token:drag'].includes(event)){
           enqueueRoll(sid,async()=>{
-            if(!socket.connected||commandConnection()?.sessionId!==sid)return;
+            if(!socket.connected||commandConnection()?.sessionId!==sid){if(areaCommand)areaPreview.clear();return;}
             if(!isRoll){await runHandler();return;}
             const commandConn=commandConnection();
             const roller=rollerName(sid,commandSocketId(),isDm());
@@ -385,9 +422,20 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             else if(ability?.roll&&['save','damage'].includes(ability.roll.kind))meta.label=`${ability.name} — Damage Roll`;
             const riposte=event==='combat:riposte'?listRipostes(sid).find(o=>o.id===payload?.opportunityId):undefined;
             const targetId=payload?.targetTokenId??(event==='save:resolve'?payload?.tokenId:undefined)??pending?.hitOptions?.targetTokenId??riposte?.attackerTokenId;
-            const targetRefs:LiveTargetRef[]=typeof targetId==='string'?[{id:targetId}]:pending?[pending.target]:Array.isArray(payload?.tokenIds)?payload.tokenIds.map((id:string)=>({id})):[];
+            const targetRefs:LiveTargetRef[]=typeof targetId==='string'?[{id:targetId}]:pending?[pending.target]:Array.isArray(payload?.tokenIds)?payload.tokenIds.map((id:string)=>({id}))
+              :event==='save:roll'&&abilityOwner?[{kind:payload.kind,refId:abilityOwner.id}]:[];
             const targetLabels=new Map<string,string|undefined>();
             const privateRoll=isDm()&&!!getSessionById(sid)?.hideDmRolls;
+            const delegateSaves=!isDm()&&!!getSessionById(sid)?.hideDmRolls;
+            let saveController:PrivateController|undefined,currentPrivateSave=false;
+            const configureDice=delegateSaves?(info:import('../../shared/dice.js').PhysicalDiceInfo)=>{
+              currentPrivateSave=!!info.saveDice?.some(d=>d.target.kind==='monster')||!!info.target&&info.target.kind==='monster'&&/sav(?:e|ing)/i.test(info.label??'');
+              if(!currentPrivateSave)return {};
+              // Prefer the DM's newest connected window over an older idle tab.
+              saveController??=[...privateControllers].reverse().find(([id])=>{const c=getConn(id);return c?.sessionId===sid&&c.role==='dm'&&io.sockets.sockets.has(id);})?.[1];
+              if(!saveController)throw new UnsupportedPhysicalDice('A connected DM is needed to roll these hidden creature saves. Nothing was applied.');
+              return {ready:saveController.ready,waitForPresentation:saveController.waitForPresentation,requireSaveStart:true};
+            }:undefined;
             const sourceToken=payload?.attackerTokenId?getToken(payload.attackerTokenId):undefined;
             const sources=[sourceToken,abilityOwner&&{kind:payload.kind,refId:abilityOwner.id},pending?.attacker,
               payload?.tokenId?getToken(payload.tokenId):undefined].filter(Boolean);
@@ -414,7 +462,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 (socket as any).emit=(...values:any[])=>{afterRollCommit(()=>emit.apply(socket,values as any));return socket;};
                 activeCommandConnection=commandConn;
                 try{runHandler();}finally{socket.emit=emit;activeCommandConnection=undefined;}
-              },(frame,info)=>{for(const id of audience()){
+              },(frame,info)=>{
+               if(currentPrivateSave)for(const [id,lastId] of lastDelivered){if(getConn(id)?.role!=='dm'){io.to(id).emit('dice:finished',{id:lastId});lastDelivered.delete(id);}}
+               for(const id of audience()){
+                if(currentPrivateSave&&getConn(id)?.role!=='dm')continue;
                 if(info?.saveDice){
                   const shaped=shapeSaveFrame(frame,info.saveDice,target=>{
                     const key=`save:${id}:${target.kind}:${target.refId}`;
@@ -455,12 +506,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 const safeCalculation=calculation&&getConn(id)?.role!=='dm'&&(frame.dmDice||isDm())
                   ?redactCreatureMods({id:frame.id,roller:frame.roller,label:frame.label,expr:'',total:0,detail:'',createdAt:0,reveal:calculation},true).reveal:calculation;
                 io.to(id).emit('dice:frame',{...frame,target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
-              }},meta);
-            }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});activeDiceId=undefined;skipDicePresentation=false;}
+              }},{...meta,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual)}:delegateSaves?{configureDice,review:async(results,dice,manual)=>saveController?saveController.review(sid,meta.label,results.filter(r=>r.reveal?.kind==='check'),dice,manual):true}:{})});
+            }finally{if(areaCommand)areaPreview.clear();for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);saveController?.finished();activeDiceId=undefined;skipDicePresentation=false;}
           },failed);
           return;
         }
-        invokeSafely(runHandler,failed);
+        try{invokeSafely(runHandler,failed);}finally{if(areaCommand)areaPreview.clear();}
       };
       domainHandlers.set(event,handler);commandDispatch.set(event,wrapped);rawOn(event,wrapped);
     }) as typeof socket.on;
@@ -475,6 +526,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     };
 
     on('join', (payload, ack) => {
+      areaPreview.clear();
       // TypeScript does not validate untrusted Socket.IO payloads at runtime.
       if (typeof ack !== 'function') return;
       if (!payload || (payload.role !== 'dm' && payload.role !== 'player')) {
@@ -2745,6 +2797,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     on('disconnect', () => {
+      areaPreview.clear();
+      privateControllers.delete(socket.id);
+      hiddenReview?.finish({action:'discard'});
+      for(const finish of trayStarts.values())finish(false);
       for (const finish of trayReady.values()) finish();
       finishDicePresentation?.();
       const sid = sessionId();
