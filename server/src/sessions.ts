@@ -1648,7 +1648,10 @@ export function addRollLog(
     entry.reveal={...entry.reveal,title:`${['Attack','Damage'].includes(entry.label)?entry.expr:entry.label} — ${entry.reveal.kind==='attack'?'Attack Roll':'Damage Roll'}`};
   if(entry.reveal && isLiveCommand())entry.reveal={...entry.reveal,physical:true};
   noteLiveRollReveal(entry.reveal);
-  noteRollResult({label:entry.label,detail:entry.detail,total:entry.total,reveal:entry.reveal});
+  // Materializing a two-step hit refreshes its already accepted attack row.
+  // Review only new attacks; the ensuing damage has its own result below.
+  if(entry.reveal?.kind!=='attack'||!db.prepare('SELECT id FROM roll_log WHERE id = ?').get(id))
+    noteRollResult({label:entry.label,detail:entry.detail,total:entry.total,reveal:entry.reveal});
   const createdAt = Date.now();
   // Hide-DM-rolls: a DM-rolled entry is flagged dmOnly while the session toggle
   // is on, so player snapshots can drop it (damage still applied separately).

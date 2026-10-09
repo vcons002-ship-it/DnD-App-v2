@@ -6,7 +6,7 @@ import type {StateSnapshot} from '../shared/types';
 import {expectUnclipped} from './helpers/rollVisibility';
 import {startAv1Capture} from './directAv1Recorder';
 test.use({deviceScaleFactor:1});
-test('hidden attacks resolve against AC; saves and checks await private DM approval',async({page,browser,request})=>{
+test('hidden attacks, saves and checks await private DM approval; standalone damage keeps its normal click',async({page,browser,request})=>{
  test.setTimeout(180000);
  const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Private DM approval'}})).json();
  const sockets:Socket[]=[];
@@ -46,19 +46,31 @@ test('hidden attacks resolve against AC; saves and checks await private DM appro
  const point=(id:string)=>page.evaluate(id=>{const s=(window as any).Konva.stages.find((s:any)=>s.find('.token').some((n:any)=>n.getAttr('tokenId')===id)),n=s.find('.token').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsolutePosition(),r=s.container().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};},id);
  const review=page.getByRole('dialog',{name:'Approve hidden result'});
  let attack:any;
- for(let attempt=0;attempt<6;attempt++){
   const b=await point(enemy.id),p=await point(pc.id);
   await page.mouse.move(b.x,b.y,{steps:16});await page.mouse.click(b.x,b.y);
   await page.mouse.move(p.x,p.y,{steps:16});await page.mouse.click(p.x,p.y,{button:'right'});
   await page.getByRole('dialog',{name:'Token actions'}).getByRole('button',{name:/Scimitar/}).click();
-  await expect.poll(async()=>(await snapshot()).rollLog.length,{timeout:30000}).toBe(attempt+1);
-  await expect(review).toHaveCount(0);
+  await expect(review).toBeVisible({timeout:30000});
+  await expect(page.locator('.roll-reveal-backdrop')).not.toBeVisible();
+  const attackReviewId=await review.getAttribute('data-review-id');
+  expect((await snapshot()).rollLog).toHaveLength(0);
   expect((await snapshot()).characters.find(c=>c.id===druk.id)!.curHp).toBe(40);
   expect(playerFrames).toHaveLength(0);expect(playerReviews).toHaveLength(0);expect(playerHp).toHaveLength(0);
   await expect(player.locator('.roll-reveal-backdrop')).toHaveCount(0);
+  await review.getByRole('button',{name:'Reject & reroll',exact:true}).click();
+  await expect(review).not.toHaveAttribute('data-review-id',attackReviewId!,{timeout:30000});
+  expect((await snapshot()).rollLog).toHaveLength(0);
+  await review.getByRole('button',{name:'Enter result',exact:true}).click();
+  await review.getByLabel('Final total (includes modifiers)',{exact:true}).fill('17');
+  await review.getByRole('button',{name:'Review entered result',exact:true}).click();
+  await expect(review).toContainText('Total 17');
+  await expect(review.locator('[data-outcome=hit]')).toHaveText('Hit');
+  expect((await snapshot()).rollLog).toHaveLength(0);
+  expect((await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot.rollLog).toEqual([]);
+  await review.getByRole('button',{name:'Apply result',exact:true}).click();
+  await expect(review).toHaveCount(0);
+  await expect.poll(async()=>(await snapshot()).rollLog.length).toBe(1);
   attack=(await snapshot()).rollLog.at(-1);
-  if(attack.pending&&!attack.pending.done)break;
- }
  expect(attack?.pending).toBeTruthy();
  await expect(page.locator('.damage-prompt:not(.spell-prompt) .damage-prompt-btn')).toBeVisible({timeout:30000});
  // This button intentionally pulses; click its visible centre instead of
@@ -83,6 +95,9 @@ test('hidden attacks resolve against AC; saves and checks await private DM appro
  const playerLogBefore=(await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot.rollLog;
  await info.getByTitle('STR saving throw (adds proficiency if proficient)',{exact:true}).click();
  await expect(review).toBeVisible({timeout:30000});await expect(review).toContainText(/STR/i);
+ expect((await review.boundingBox())!.width).toBeLessThanOrEqual(540);
+ await expect(review.locator('.hidden-roll-details')).not.toHaveAttribute('open','');
+ expect(await review.locator('.hidden-roll-who').evaluate(n=>parseFloat(getComputedStyle(n).fontSize))).toBeGreaterThanOrEqual(22);
  await expectUnclipped(review.getByRole('button',{name:'Apply result'}));
  expect((await snapshot()).rollLog).toHaveLength(oldCount);
  const hpEvents=playerHp.length;
@@ -105,6 +120,11 @@ test('hidden attacks resolve against AC; saves and checks await private DM appro
  await review.getByLabel('Final total (includes modifiers)',{exact:true}).fill('18');
  await review.getByRole('button',{name:'Review entered result',exact:true}).click();
  await expect(review).toContainText('DM-entered result');await expect(review).toContainText('Total 18');
+ await page.setViewportSize({width:412,height:915});
+ expect((await review.boundingBox())!.width).toBeLessThan(412);
+ await expectUnclipped(review.getByRole('button',{name:'Apply result'}));
+ await page.screenshot({path:test.info().outputPath('phone-private-review.png')});
+ await page.setViewportSize({width:1600,height:1000});
  expect((await snapshot()).rollLog).toHaveLength(oldCount);
  expect((await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot.rollLog).toEqual(playerLogBefore);
  await page.screenshot({path:test.info().outputPath('dm-private-save-approval.png')});

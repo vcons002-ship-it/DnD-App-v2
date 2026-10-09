@@ -15,10 +15,10 @@ class NeedDice extends Error {constructor(public sides:number[],public info:Phys
 class NeedCalculation extends Error {constructor(public key:string,public reveal:RollReveal){super('Waiting for roll calculation');}}
 class NeedReading extends Error {}
 class NeedApproval extends Error {constructor(public results:HiddenRollResult[]){super('Waiting for DM approval');}}
-/** AC already decides attacks. Saves/checks and unclassified rolls still need
- * the DM to allow their result before the command changes combat state. */
+/** Hidden attacks need the DM's approval before their hit/miss is published.
+ * Standalone damage uses the normal damage click; saves and checks also wait. */
 export function hiddenRollNeedsApproval(results:HiddenRollResult[]){
- return results.some(result=>result.reveal?.kind!=='attack'&&result.reveal?.kind!=='damage');
+ return results.some(result=>result.reveal?.kind!=='damage');
 }
 const queues=new Map<string,Promise<void>>();
 export const rollInProgress=(sid:string)=>queues.has(sid);
@@ -209,8 +209,10 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
     // The transaction has already rolled back: no HP, resources, conditions,
     // roll history or network effects exist until the DM confirms this result.
     const mixed=e.results.some(r=>r.reveal?.kind==='attack'||r.reveal?.kind==='damage');
-    let dice:HiddenRollDice[]=tape.flatMap((entry,index)=>!mixed||/sav(?:e|ing)|check/i.test(entry.info.label??'')||entry.info.saveDice?.some(d=>d.rollKind!=='initiative')?[{index,expr:entry.info.expr,sides:entry.sides,faces:entry.faces}]:[]);
-    const checks=e.results.filter(r=>r.reveal?.kind==='check'&&typeof r.reveal.d20==='number');
+    const hasChecks=e.results.some(result=>result.reveal?.kind==='check');
+    const hasAttacks=e.results.some(result=>result.reveal?.kind==='attack');
+    let dice:HiddenRollDice[]=tape.flatMap((entry,index)=>!mixed||!hasChecks||hasAttacks||/sav(?:e|ing)|check/i.test(entry.info.label??'')||entry.info.saveDice?.some(d=>d.rollKind!=='initiative')?[{index,expr:entry.info.expr,sides:entry.sides,faces:entry.faces}]:[]);
+    const checks=e.results.filter(r=>(r.reveal?.kind==='check'||r.reveal?.kind==='attack')&&typeof r.reveal.d20==='number');
     if(dice.length===1&&checks.length===1&&dice[0].sides.every(s=>s===20)&&dice[0].sides.length<=2)
       dice=[{...dice[0],bonus:checks[0].total-checks[0].reveal!.d20!,total:checks[0].total}];
     const answer=await meta.review!(e.results,dice,manual);

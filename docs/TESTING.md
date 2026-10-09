@@ -1,14 +1,16 @@
 # Automated verification
 
-`hidden-roll-approval.spec.ts` exercises the real DM attack menu and damage
-follow-up without redundant approval against known AC, then the separate private
-save approval dialog, reject/reroll, manual total entry and discard control.
+`hidden-roll-approval.spec.ts` exercises the real hidden DM attack confirmation,
+reject/reroll and entered attack totals, then the normal damage follow-up without
+another confirmation. It also checks private save approval, manual total entry,
+discard, and readable compact review layouts at desktop and phone sizes.
 A second player window and socket
-verify that secret rolls send no dice, review or history; another player/DM
+verify that pending secret rolls send no dice, review or history; another player/DM
 connection cannot approve the owner's result. Save-dependent effects wait for
 approval; ordinary attack damage applies normally. `hiddenRollApproval.test.ts` checks
 transaction rollback, unchanged resources/history/effects on cancellation, and
-one commit using the same faces after approval, unchanged damage when saves are
+one commit using the same faces after approval, no repeated attack approval on
+the damage click, unchanged damage when saves are
 rerolled, recalculated manual outcomes, and invalid manual input rejection.
 A changed result is rejected.
 The live-dice contract checks that a disconnected DM's unapproved hidden roll

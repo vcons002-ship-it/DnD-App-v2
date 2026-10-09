@@ -316,6 +316,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if(!hiddenReview||conn?.role!=='dm'||conn.sessionId!==hiddenReview.sessionId||payload?.id!==hiddenReview.id)return;
       const decision=payload.decision??(typeof payload.apply==='boolean'?{action:payload.apply?'apply' as const:'discard' as const}:undefined);
       if(!decision||!['apply','discard','reroll','manual'].includes(decision.action))return;
+      // Close the review while its new physical throw plays, then reopen it
+      // with the rerolled result. Manual edits keep the compact review visible.
+      if(decision.action==='reroll')socket.emit('dice:hiddenReview',null);
       hiddenReview.finish(decision);
     });
     const reviewHidden=(sid:string,label:string,results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>new Promise<import('../../shared/types.js').HiddenRollDecision>(resolve=>{

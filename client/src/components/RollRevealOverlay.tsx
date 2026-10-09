@@ -210,6 +210,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const tray = liveDice ?? rollFx?.tray;
   const showingMapImpact=useStore(s=>s.hpFx.length>0);
   const skippedLiveDice=useStore(s=>!!s.skippedLiveDiceId);
+  const reviewingHiddenRoll=useStore(s=>!!s.hiddenRollReview);
   const compact = !!rollFx?.impactReady && ((!['check','dice'].includes(rollFx.reveal.kind??'attack')) || !!rollFx.hasMapImpact);
   const sequence = visibleRollFx && (!liveDice||intermediate) ? <DiceThemeContext.Provider value={rollTheme}><RollSequence key={intermediate?`live:${liveDice!.id}`:visibleRollFx.id} rollFx={visibleRollFx} entrySide={entrySide} player={player} staticReveal={staticReveal} animatePhysical={!reducedMotion && !!visibleRollFx.reveal.physical} inlineTray={!!tray} intermediate={intermediate} dismiss={()=>{if(useStore.getState().rollFx?.id===visibleRollFx.id)dismiss();}} /></DiceThemeContext.Provider> : undefined;
   // Keep this component (and its WebGL canvas) mounted across the live/result
@@ -228,7 +229,9 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   // Decided per roll, not once per mount: the guide may open or close between
   // rolls. Keyed so the modal layer comes and goes with the decision.
   const lift = ownLevelUpRoll && !!document.querySelector('dialog[data-level-up][open]');
-  const presented=<RollOverlayPresence content={content} reduced={reducedMotion} clearImmediately={showingMapImpact||skippedLiveDice}/>;
+  // An entered result can differ from the old tray. Keep the renderer warm,
+  // but show only the current review so old PASS/HIT text cannot contradict it.
+  const presented=<div aria-hidden={reviewingHiddenRoll||undefined} style={reviewingHiddenRoll?{visibility:'hidden',pointerEvents:'none'}:undefined}><RollOverlayPresence content={content} reduced={reducedMotion} clearImmediately={showingMapImpact||skippedLiveDice}/></div>;
   return lift ? <LevelUpRollLayer key="lift" player={player}>{presented}</LevelUpRollLayer> : presented;
 });
 

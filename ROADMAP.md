@@ -1,8 +1,8 @@
 # Roadmap & Feature Backlog
 
-- [x] Hidden DM saves, checks and other non-attack rolls require private result
-  approval; attacks resolve against AC and their normal damage needs no extra
-  confirmation. An attack with a saving-throw rider still waits for approval.
+- [x] Hidden DM attacks, saves, checks and other non-damage rolls require private
+  result approval. The DM can accept, reroll or enter a result before the attack
+  hit/miss reaches players; normal damage needs no extra confirmation.
   The server rolls the configured dice, applies modifiers, and presents the full result to the
   initiating DM before committing HP, resources, conditions or roll history.
   Reject & reroll reuses the pending step's dice and preserves completed damage.
@@ -14,11 +14,13 @@
   approval timeout leaves it unapplied. Players receive no dice, review prompt,
   private roll entry or early facing cue. After acceptance, players receive only
   an outcome-only history entry (Hit/Miss/Critical hit/Fumble, Pass/Fail, or
-  Resolved for checks without a DC). Automatic attacks retain their usual flow.
+  Resolved for checks without a DC). Shown rolls retain their usual flow.
   Summaries include final damage/healing amounts and resolved spell effects,
   but omit dice, attack/check totals, modifiers, AC/DC and action payloads; unseen
   creatures stay hidden. Private free-dice rolls stay private. Approved visible
   HP feedback remains.
+  The compact review uses large target/outcome text, hides redundant zero-damage
+  cast summaries, and keeps private equations in an expandable Roll details row.
 
 - [x] Saving-throw tray headings name the creatures attempting the saves,
   including their reveal tags, while keeping the spell/maneuver and saving
