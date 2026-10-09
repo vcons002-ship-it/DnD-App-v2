@@ -552,6 +552,12 @@ ensureColumn('characters', 'hit_dice_used_by_die', "hit_dice_used_by_die TEXT NO
 ensureColumn('characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
 // Character templates retain completed progression, never a session's pending grant.
 ensureColumn('library_characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
+// Durable per-browser id of whoever first saved a library entry. Lets a player
+// overwrite their OWN saved sheet/item; never sent to clients (it is the same
+// secret-ish id that reclaims a character). NULL (older entries, seeded SRD
+// items) means only the DM may overwrite.
+ensureColumn('library_characters', 'owner_player_id', 'owner_player_id TEXT');
+ensureColumn('library_items', 'owner_player_id', 'owner_player_id TEXT');
 
 // Merge legacy free-text monster `actions` into the SINGLE rollable system
 // (sheet_abilities): weapon-like actions ("+4 to hit, 1d6+2 slashing") become

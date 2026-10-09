@@ -65,6 +65,7 @@ import {
   deleteLibraryItem,
   getLibraryCreature,
   getLibraryItemByName,
+  libraryOwner,
   listLibraryItems,
   saveLibraryCharacter,
   saveLibraryCreature,
@@ -111,15 +112,35 @@ const upload = multer({
 /** Verify the DM secret on a REST request (header OR body field). Returns true
  *  when authorized; otherwise writes a 403 and returns false. The secret is
  *  mandatory (config.dmPassphrase is always set), so this always enforces. */
-function requireDm(req: Request, res: Response): boolean {
+function isDmRequest(req: Request): boolean {
   const supplied =
     (typeof req.headers['x-dm-passphrase'] === 'string'
       ? (req.headers['x-dm-passphrase'] as string)
       : undefined) ??
     (typeof req.body?.dmPassphrase === 'string' ? req.body.dmPassphrase : undefined);
-  if (supplied === config.dmPassphrase) return true;
+  return supplied === config.dmPassphrase;
+}
+
+function requireDm(req: Request, res: Response): boolean {
+  if (isDmRequest(req)) return true;
   res.status(403).json({ error: 'DM secret required.' });
   return false;
+}
+
+/** The caller's durable per-browser id (`x-player-id`), the same id a player
+ *  joins with. It is never sent to other clients, so presenting it proves the
+ *  request comes from the browser that saved a library entry. */
+function playerIdOf(req: Request): string | null {
+  const id = req.headers['x-player-id'];
+  return typeof id === 'string' && id.length >= 8 && id.length <= 100 ? id : null;
+}
+
+/** May this request replace/delete the named library entry? The DM always may;
+ *  a player only for an entry their own browser first saved. */
+function canReplaceLibraryEntry(req: Request, kind: 'character' | 'item', name: string): boolean {
+  if (isDmRequest(req)) return true;
+  const me = playerIdOf(req);
+  return !!me && libraryOwner(kind, name) === me;
 }
 
 /** Tiny in-memory fixed-window rate limiter (per client IP + key). Guards the
@@ -693,13 +714,16 @@ export function createApiRouter(io: IOServer): Router {
     if (!name) return res.status(400).json({ error: 'name required' });
     const overwrite = req.query.overwrite === 'true';
     // Adding a new entry is open to players; replacing an existing one clobbers a
-    // cross-campaign resource, so only the DM may overwrite.
-    if (overwrite && !requireDm(req, res)) return;
+    // cross-campaign resource, so only the DM or the entry's own saver may.
+    const canReplace = canReplaceLibraryEntry(req, 'item', name);
+    if (overwrite && !canReplace) {
+      return res.status(403).json({ error: 'Only the DM or whoever saved it can replace this item.' });
+    }
     if (!overwrite) {
       const existing = getLibraryItemByName(name);
-      if (existing) return res.status(409).json({ existing });
+      if (existing) return res.status(409).json({ existing, canOverwrite: canReplace });
     }
-    res.status(201).json(saveLibraryItem({ ...req.body, name }));
+    res.status(201).json(saveLibraryItem({ ...req.body, name }, playerIdOf(req)));
   });
 
   router.delete('/library/items/:id', (req, res) => {
@@ -741,16 +765,22 @@ export function createApiRouter(io: IOServer): Router {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
     const overwrite = req.query.overwrite === 'true';
-    if (overwrite && !requireDm(req, res)) return; // same rule as library items
-    const result = saveLibraryCharacter({ ...req.body, name }, overwrite);
+    const canReplace = canReplaceLibraryEntry(req, 'character', name); // same rule as items
+    if (overwrite && !canReplace) {
+      return res.status(403).json({ error: 'Only the DM or whoever saved it can replace this character.' });
+    }
+    const result = saveLibraryCharacter({ ...req.body, name }, overwrite, playerIdOf(req));
     if ('conflict' in result) {
-      return res.status(409).json({ existing: result.conflict });
+      return res.status(409).json({ existing: result.conflict, canOverwrite: canReplace });
     }
     res.status(201).json(result.saved);
   });
 
   router.delete('/library/characters/:name', (req, res) => {
-    if (!requireDm(req, res)) return; // deletes wipe a cross-campaign resource
+    // Deletes wipe a cross-campaign resource: the DM, or the entry's own saver.
+    if (!canReplaceLibraryEntry(req, 'character', req.params.name)) {
+      return res.status(403).json({ error: 'Only the DM or whoever saved it can delete this character.' });
+    }
     deleteLibraryCharacter(req.params.name);
     res.status(204).end();
   });

@@ -104,24 +104,48 @@ describe('library write gates', () => {
       body: JSON.stringify(body),
     });
 
-  it('lets anyone add a character but only the DM overwrite or delete one', async () => {
+  const alice = { 'x-player-id': 'player-alice-0001' };
+  const bob = { 'x-player-id': 'player-bob-00002' };
+
+  it('lets a player overwrite or delete only the character their browser saved', async () => {
     const name = `Review Fix Hero ${Date.now()}`;
-    expect((await post('/api/library/characters', { name, level: 1 })).status).toBe(201);
-    expect((await post('/api/library/characters', { name, level: 2 })).status).toBe(409);
-    expect((await post('/api/library/characters?overwrite=true', { name, level: 2 })).status).toBe(403);
-    expect((await post('/api/library/characters?overwrite=true', { name, level: 2 }, dm)).status).toBe(201);
+    expect((await post('/api/library/characters', { name, level: 1 }, alice)).status).toBe(201);
+    // The conflict response says who may replace it (never who owns it).
+    const clashMine = await post('/api/library/characters', { name, level: 2 }, alice);
+    expect(clashMine.status).toBe(409);
+    const mine = (await clashMine.json()) as { canOverwrite: boolean };
+    expect(mine.canOverwrite).toBe(true);
+    expect(JSON.stringify(mine)).not.toContain('player-alice');
+    const theirs = (await (await post('/api/library/characters', { name }, bob)).json()) as { canOverwrite: boolean };
+    expect(theirs.canOverwrite).toBe(false);
+
+    const over = (h: Record<string, string>) =>
+      post('/api/library/characters?overwrite=true', { name, level: 2 }, h);
+    expect((await over({})).status).toBe(403);
+    expect((await over(bob)).status).toBe(403);
+    expect((await over(alice)).status).toBe(201);
+    expect((await over(dm)).status).toBe(201);
+    // A DM overwrite doesn't take the entry away from its owner.
+    expect((await over(alice)).status).toBe(201);
+
     const del = (h: Record<string, string> = {}) =>
       fetch(`${base}/api/library/characters/${encodeURIComponent(name)}`, { method: 'DELETE', headers: h });
     expect((await del()).status).toBe(403);
-    expect((await del(dm)).status).toBe(204);
+    expect((await del(bob)).status).toBe(403);
+    expect((await del(alice)).status).toBe(204);
   });
 
-  it('lets anyone add an item but only the DM overwrite one', async () => {
+  it('lets a player overwrite only the item their browser saved; unowned items are DM-only', async () => {
     const name = `Review Fix Item ${Date.now()}`;
     const item = { name, description: 'x', qtyDefault: 1, modifiers: [] };
-    expect((await post('/api/library/items', item)).status).toBe(201);
-    expect((await post('/api/library/items?overwrite=true', item)).status).toBe(403);
-    expect((await post('/api/library/items?overwrite=true', item, dm)).status).toBe(201);
+    expect((await post('/api/library/items', item, alice)).status).toBe(201);
+    expect((await post('/api/library/items?overwrite=true', item, bob)).status).toBe(403);
+    expect((await post('/api/library/items?overwrite=true', item, alice)).status).toBe(201);
+
+    const unowned = { ...item, name: `${name} unowned` };
+    expect((await post('/api/library/items', unowned)).status).toBe(201);
+    expect((await post('/api/library/items?overwrite=true', unowned, alice)).status).toBe(403);
+    expect((await post('/api/library/items?overwrite=true', unowned, dm)).status).toBe(201);
   });
 });
 
