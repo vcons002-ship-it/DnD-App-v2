@@ -1,7 +1,7 @@
 import {LightDraft} from './LightDraft';
 import {useEffect, useState} from 'react';
 import type {MapState} from '../../../shared/types';
-import {DEFAULT_MAP_ENVIRONMENT, mapShadowsEnabled, type MapEnvironment, type EnvironmentQuality} from '../../../shared/mapEnvironment';
+import {DEFAULT_MAP_ENVIRONMENT, mapShadowsEnabled, mapLightColorHex, sanitizeMapLightColor, type MapLightColor, type MapEnvironment, type EnvironmentQuality} from '../../../shared/mapEnvironment';
 import {useStore} from '../state/socket';
 import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
 import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../../shared/mapEnvironmentPresets';
@@ -25,6 +25,15 @@ function SettingSlider({label,value,min,max,step=1,suffix='',onCommit}:{label:st
   return <label className="environment-slider"><span>{label}<output>{Number(draft.toFixed(2))}{suffix}</output></span>
     <input aria-label={label} type="range" min={min} max={max} step={step} value={draft} onChange={e=>setDraft(Number(e.target.value))}
       onPointerUp={commit} onKeyUp={commit} onBlur={commit}/>
+  </label>;
+}
+
+function LightColorControl({label,caption='Color',color,onChange}:{label:string;caption?:string;color:MapLightColor;onChange:(color:MapLightColor)=>void}){
+  return <label className="environment-light-color">{caption}
+    <input type="color" aria-label={`${label} picker`} value={mapLightColorHex(color)} onChange={e=>onChange(sanitizeMapLightColor(e.target.value))}/>
+    <select aria-label={label} value={color.startsWith('#')?'custom':color} onChange={e=>onChange(sanitizeMapLightColor(e.target.value))}>
+      <option value="warm">Warm</option><option value="cool">Cool</option><option value="green">Eerie green</option><option value="custom" disabled>Custom</option>
+    </select>
   </label>;
 }
 
@@ -62,10 +71,13 @@ export function MapEnvironmentControls({map}:{map:MapState}){
         <small>Heavy darkness is nonmagical: Darkvision is grayscale. Regular darkness preserves color. Lantern-lit areas keep their color.</small>
         <small>Night and Dungeon limit each player to 60 ft around their own token, even with effects off. The DM sees the full map. Fog still applies; painted walls do not block sight.</small>
         <button onClick={()=>edit(map.id)}>Edit lights on map</button>
+        <LightColorControl label="New light color" caption="New light color" color={settings.newLightColor??'warm'} onChange={color=>update({newLightColor:color})}/>
+        <small>Used for new lights on this map. Changing a light's color also selects it for your next placement.</small>
+        {placement?.mapId===map.id?<button onClick={()=>place(null)}>Cancel light placement</button>:<button onClick={()=>place({mapId:map.id})}>Place light on map</button>}
         <div className="environment-light-list">{settings.lights.map((light,index)=>{
           const edit=(patch:Partial<typeof light>)=>update({lights:settings.lights.map(l=>l.id===light.id?{...l,...patch}:l)});
           return <details key={light.id}><summary>Light {index+1} · {light.color}</summary>
-            <label>Color <select aria-label={`Light ${index+1} color`} value={light.color} onChange={e=>edit({color:e.target.value as typeof light.color})}><option value="warm">Warm</option><option value="cool">Cool</option><option value="green">Eerie green</option></select></label>
+            <LightColorControl label={`Light ${index+1} color`} color={light.color} onChange={color=>update({newLightColor:color,lights:settings.lights.map(l=>l.id===light.id?{...l,color}:l)})}/>
             <SettingSlider label={`Light ${index+1} lit radius`} value={light.radiusFt} min={3} max={60} suffix=" ft" onCommit={v=>edit({radiusFt:v})}/>
             <SettingSlider label={`Light ${index+1} height`} value={light.heightFt} min={.5} max={30} step={.5} suffix=" ft" onCommit={v=>edit({heightFt:v})}/>
             <SettingSlider label={`Light ${index+1} strength`} value={light.intensity*100} min={10} max={200} suffix="%" onCommit={v=>edit({intensity:v/100})}/>
@@ -76,7 +88,6 @@ export function MapEnvironmentControls({map}:{map:MapState}){
             <button onClick={()=>{update({lights:settings.lights.filter(l=>l.id!==light.id)});place(null);}}>Remove light {index+1}</button>
           </details>;
         })}</div>
-        {placement?.mapId===map.id?<button onClick={()=>place(null)}>Cancel light placement</button>:<button onClick={()=>place({mapId:map.id})}>Place light on map</button>}
       </fieldset>
       <fieldset><legend>Weather</legend>
         <label>Weather <select aria-label="Weather" value={settings.weather} onChange={e=>update({weather:e.target.value as MapEnvironment['weather']})}><option value="none">None</option><option value="rain">Rain</option><option value="snow">Snow</option></select></label>

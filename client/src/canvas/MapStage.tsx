@@ -1535,7 +1535,7 @@ export function MapStage({
       if(pos){
         const settings=map.environment??DEFAULT_MAP_ENVIRONMENT;
         const lights=lightPlacement.lightId?settings.lights.map(light=>light.id===lightPlacement.lightId?{...light,x:pos.x,y:pos.y}:light):
-          [...settings.lights,{id:crypto.randomUUID(),x:pos.x,y:pos.y,radiusFt:15,heightFt:6,color:'warm' as const,intensity:1,flicker:true,visibleTorch:true}];
+          [...settings.lights,{id:crypto.randomUUID(),x:pos.x,y:pos.y,radiusFt:15,heightFt:6,color:settings.newLightColor??'warm' as const,intensity:1,flicker:true,visibleTorch:true}];
         useStore.getState().setMapEnvironment(map.id,{lights});placeLight(null);
       }
       return;

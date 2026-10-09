@@ -15,6 +15,8 @@ export type MapEnvironment = {
   windDirectionDegrees: number;
   windStrength: number;
   lights: MapEnvironmentLight[];
+  /** Color used by the DM's next manually placed light, saved separately per map. */
+  newLightColor?: MapLightColor;
   enabled: boolean;
   shadows: boolean;
   /** Fixed map-light direction, separate from shadows cast by torches/lanterns. */
@@ -28,10 +30,21 @@ export type MapEnvironment = {
   mistShadows: boolean;
   mistInteraction: boolean;
 };
-export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:'warm'|'cool'|'green';intensity:number;flicker:boolean;visibleTorch?:boolean;fixture?:'torch'|'lantern'};
+export const MAP_LIGHT_COLOR_PRESETS={warm:'#ffb258',cool:'#89bbff',green:'#85eab5'} as const;
+export type MapLightColor = keyof typeof MAP_LIGHT_COLOR_PRESETS | `#${string}`;
+/** Preserve named colors in older saves; custom colors are opaque six-digit RGB. */
+export function sanitizeMapLightColor(value:unknown):MapLightColor {
+  if(value==='warm'||value==='cool'||value==='green')return value;
+  return typeof value==='string'&&/^#[0-9a-f]{6}$/i.test(value)?value.toLowerCase() as MapLightColor:'warm';
+}
+export function mapLightColorHex(value:unknown):string {
+  const color=sanitizeMapLightColor(value);
+  return color.startsWith('#')?color:MAP_LIGHT_COLOR_PRESETS[color as keyof typeof MAP_LIGHT_COLOR_PRESETS];
+}
+export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:MapLightColor;intensity:number;flicker:boolean;visibleTorch?:boolean;fixture?:'torch'|'lantern'};
 export type EnvironmentQuality = 'auto' | 'high' | 'low' | 'off';
 export const DEFAULT_MAP_ENVIRONMENT: Readonly<MapEnvironment> = {
-  lighting:'day',lightLevel:1,sceneTint:'#ffffff',sceneTintStrength:0,heavyDarkness:false,weather:'none',weatherIntensity:.5,particles:'none',particleIntensity:.5,mistColor:'natural',lightning:false,groundWetness:0,windDirectionDegrees:20,windStrength:.4,lights:[],
+  lighting:'day',lightLevel:1,sceneTint:'#ffffff',sceneTintStrength:0,heavyDarkness:false,weather:'none',weatherIntensity:.5,particles:'none',particleIntensity:.5,mistColor:'natural',lightning:false,groundWetness:0,windDirectionDegrees:20,windStrength:.4,lights:[],newLightColor:'warm',
   enabled: false, shadows: true, mapShadows: true, shadowDirectionDegrees: 55, shadowLength: 1.05,
   shadowOpacity: .65, mist: true, mistOpacity: .35, mistHeightFt: 2,
   mistShadows: true, mistInteraction: true,
@@ -51,6 +64,8 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
   const result = {...previous};
   if (!input || typeof input !== 'object' || Array.isArray(input)) return result;
   const source = input as Record<string, unknown>;
+  if(source.newLightColor==='warm'||source.newLightColor==='cool'||source.newLightColor==='green'||
+    typeof source.newLightColor==='string'&&/^#[0-9a-f]{6}$/i.test(source.newLightColor))result.newLightColor=sanitizeMapLightColor(source.newLightColor);
   for (const key of ['enabled', 'heavyDarkness', 'lightning', 'shadows', 'mapShadows', 'mist', 'mistShadows', 'mistInteraction'] as const) {
     if (typeof source[key] === 'boolean') result[key] = source[key];
   }
@@ -84,7 +99,7 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
       if(typeof v.id!=='string'||!v.id||v.id.length>80||seen.has(v.id)||typeof v.x!=='number'||!Number.isFinite(v.x)||typeof v.y!=='number'||!Number.isFinite(v.y))return [];
       seen.add(v.id);
       return [{id:v.id,x:number(v.x,-1e6,1e6,0),y:number(v.y,-1e6,1e6,0),radiusFt:number(v.radiusFt,3,60,15),heightFt:number(v.heightFt,.5,30,6),
-        color:v.color==='cool'||v.color==='green'?v.color:'warm',intensity:number(v.intensity,.1,2,1),flicker:v.flicker===true,...(v.visibleTorch===true?{visibleTorch:true}:{}),...(v.fixture==='lantern'?{fixture:'lantern' as const}:{})}];
+        color:sanitizeMapLightColor(v.color),intensity:number(v.intensity,.1,2,1),flicker:v.flicker===true,...(v.visibleTorch===true?{visibleTorch:true}:{}),...(v.fixture==='lantern'?{fixture:'lantern' as const}:{})}];
     });
   }
   return result;

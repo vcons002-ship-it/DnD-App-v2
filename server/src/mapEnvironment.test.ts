@@ -1,5 +1,5 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
-import {DEFAULT_MAP_ENVIRONMENT,mapShadowsEnabled,sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
+import {DEFAULT_MAP_ENVIRONMENT,mapShadowsEnabled,sanitizeMapEnvironment,mapLightColorHex} from '../../shared/mapEnvironment.js';
 import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../shared/mapEnvironmentPresets.js';
 import {stormLightningAt} from '../../shared/stormLighting.js';
 import {createMap,createSession,getMap,listMaps,getSessionByCode,setActiveMap,updateMapEnvironment,importMaps,createCharacter,createToken,claimCharacter,getToken,listTokens,moveToken} from './sessions.js';
@@ -22,6 +22,30 @@ function client(sessionId:string,mapId:string,role:'dm'|'player'){
   return Object.assign((p:unknown)=>handlers.get('map:setEnvironment')!(p),{id,send:(event:string,p:unknown)=>handlers.get(event)!(p)});
 }
 describe('saved map environment',()=>{
+  it('persists the next-light color per map, across atmosphere changes and save import',()=>{
+    const session=createSession('Light placement colors'),map=createMap(session.id,{name:'Blue room'}),other=createMap(session.id,{name:'Other room'});
+    expect(getMap(map.id)!.environment!.newLightColor).toBe('warm');
+    updateMapEnvironment(session.id,map.id,{newLightColor:'#2266FF'});
+    updateMapEnvironment(session.id,map.id,{weather:'rain',newLightColor:'invalid'});
+    updateMapEnvironment(session.id,map.id,environmentPresetPatch('deep-dungeon'));
+    expect(getMap(map.id)!.environment!.newLightColor).toBe('#2266ff');
+    expect(getMap(other.id)!.environment!.newLightColor).toBe('warm');
+    const restored=importSession(exportSession(session.code)!);
+    const imported=listMaps(getSessionByCode(restored.code)!.id);
+    expect(imported.find(m=>m.name==='Blue room')!.environment!.newLightColor).toBe('#2266ff');
+    expect(imported.find(m=>m.name==='Other room')!.environment!.newLightColor).toBe('warm');
+  });
+  it('keeps legacy light presets and normalizes custom RGB colors while rejecting invalid values',()=>{
+    const light={id:'color',x:25,y:25,radiusFt:20,heightFt:9,intensity:1,flicker:true};
+    for(const [color,hex]of [['warm','#ffb258'],['cool','#89bbff'],['green','#85eab5'],['#A92CFF','#a92cff'],['#000000','#000000'],['#ffffff','#ffffff']]){
+      const saved=sanitizeMapEnvironment({lights:[{...light,color}]}).lights[0];
+      expect(saved.color).toBe(color.toLowerCase());expect(mapLightColorHex(saved.color)).toBe(hex);
+    }
+    for(const color of ['#abc','#12345678','red','rgb(1,2,3)','__proto__','<script>',null,{}]){
+      expect(sanitizeMapEnvironment({lights:[{...light,color}]}).lights[0].color).toBe('warm');
+      expect(mapLightColorHex(color)).toBe('#ffb258');
+    }
+  });
   it('defaults darkness to light-source shadows, preserves overrides and restores daylight',()=>{
     const session=createSession('Shadow defaults'),map=createMap(session.id,{name:'Night'});
     const dm=client(session.id,map.id,'dm');
@@ -170,12 +194,13 @@ describe('saved map environment',()=>{
   it('shares active-map settings, keeps staged maps separate, and round-trips saves',()=>{
     const session=createSession('Environment saves'),active=createMap(session.id,{name:'Active'}),staged=createMap(session.id,{name:'Prep'});
     setActiveMap(session.id,active.id);
-    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120,lighting:'dusk',heavyDarkness:true,weather:'snow',particles:'embers',particleIntensity:.65,mistColor:'ash',windStrength:2.6,sceneTint:'#5632a4',sceneTintStrength:.4,lights:[{id:'lamp',fixture:'lantern',visibleTorch:true,x:50,y:60,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true}]});
+    updateMapEnvironment(session.id,active.id,{enabled:true,mistHeightFt:4,shadowDirectionDegrees:120,lighting:'dusk',heavyDarkness:true,weather:'snow',particles:'embers',particleIntensity:.65,mistColor:'ash',windStrength:2.6,sceneTint:'#5632a4',sceneTintStrength:.4,lights:[{id:'lamp',fixture:'lantern',visibleTorch:true,x:50,y:60,radiusFt:15,heightFt:6,color:'#aa22dd',intensity:1,flicker:true}]});
     updateMapEnvironment(session.id,staged.id,{mist:false,shadowDirectionDegrees:270});
     expect(buildSnapshot(session.id,'player',staged.id,'viewer')!.map!.environment).toEqual(getMap(active.id)!.environment);
     expect(buildSnapshot(session.id,'dm',staged.id)!.map!.environment).toEqual(getMap(staged.id)!.environment);
     const restored=importSession(exportSession(session.code)!);
     const maps=listMaps(getSessionByCode(restored.code)!.id);
+    expect(maps.find(m=>m.name==='Active')!.environment!.lights[0].color).toBe('#aa22dd');
     expect(maps.find(m=>m.name==='Active')!.environment).toEqual(getMap(active.id)!.environment);
     expect(maps.find(m=>m.name==='Prep')!.environment).toEqual(getMap(staged.id)!.environment);
     const target=createSession('Import map environment');
