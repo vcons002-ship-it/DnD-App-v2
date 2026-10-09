@@ -880,6 +880,8 @@ export type RiposteOpportunity = {
 };
 
 export type StateSnapshot = {
+  /** Requested DM-only, read-only union of party sight. Never sent to players. */
+  partyView?: Pick<StateSnapshot,'map'|'tokens'|'monsters'|'playerVision'|'exploredTerrain'>;
   /** Shared party exploration, saved per map; current sight remains personal. */
   exploredTerrain?: import('./exploration.js').ExploredTerrain;
   /** Server-authored personal dungeon visibility; independent of graphics quality. */
@@ -1755,6 +1757,7 @@ export interface ClientToServerEvents {
   'dice:skip': (payload:{id:string}) => void;
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   'map:select': (payload: MapSelectPayload) => void;
+  'dm:partyView': (enabled: boolean) => void;
   'map:setActive': (payload: MapSetActivePayload) => void;
   'map:delete': (payload: MapDeletePayload) => void;
   'map:rename': (payload: MapRenamePayload) => void;

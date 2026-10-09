@@ -420,7 +420,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
               :payload?.kind==='monster'&&abilityOwner?getMonster(abilityOwner.id)
               :rolledToken?.kind==='monster'?getMonster(rolledToken.refId):undefined;
             const dmDice=!!npc || isDm()&&!actor;
-            const meta={dmDice,affinity:npc?.disposition,ready:prepareTray,waitForPresentation:waitForDicePresentation,onFacing:()=>broadcastSnapshots(io,sid),roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??actor?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
+            const attackerRefs:LiveTargetRef[]=pending?[pending.attacker]:requestedToken?[{id:requestedToken.id}]
+              :actor?[{kind:'pc',refId:actor.id}]:npc?[{kind:'monster',refId:npc.id}]:[];
+            const meta={dmDice,affinity:npc?.disposition,ready:prepareTray,waitForPresentation:waitForDicePresentation,onFacing:()=>broadcastSnapshots(io,sid),roller,attacker:actor?.name??npc?.name??roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??(actor??npc)?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
             if(event==='combat:hitFeature')meta.label=actor?.sheetAbilities.find(a=>a.id===payload?.abilityId)?.name??meta.label;
             if(event==='death:roll')meta.label='Death Saving Throw';
             else if(event==='hitDice:spend')meta.label='Hit Dice';
@@ -432,6 +434,15 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             const targetRefs:LiveTargetRef[]=typeof targetId==='string'?[{id:targetId}]:pending?[pending.target]:Array.isArray(payload?.tokenIds)?payload.tokenIds.map((id:string)=>({id}))
               :event==='save:roll'&&abilityOwner?[{kind:payload.kind,refId:abilityOwner.id}]:[];
             const targetLabels=new Map<string,string|undefined>();
+            const attackerLabels=new Map<string,string|undefined>();
+            const attackerFor=(id:string)=>{
+              if(!attackerLabels.has(id)){
+                const conn=getConn(id)!,view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
+                const name=view&&attackerRefs.length?liveRollTarget(view,attackerRefs):meta.attacker;
+                attackerLabels.set(id,name==='Hidden target'?'Hidden attacker':name);
+              }
+              return attackerLabels.get(id);
+            };
             const privateRoll=isDm()&&!!getSessionById(sid)?.hideDmRolls;
             const delegateSaves=!isDm()&&!!getSessionById(sid)?.hideDmRolls;
             let saveController:PrivateController|undefined,currentPrivateSave=false;
@@ -494,7 +505,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                       }
                       return targetLabels.get(key);
                     }});
-                  if(shaped){io.to(id).emit('dice:frame',shaped);lastDelivered.set(id,frame.id);}
+                  if(shaped){io.to(id).emit('dice:frame',{...shaped,attacker:attackerFor(id)});lastDelivered.set(id,frame.id);}
                   continue;
                 }
                 const labelKey=`${id}:${info?.target?.refId??''}`;
@@ -512,7 +523,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 const calculation=frame.calculation?{...frame.calculation,target}:undefined;
                 const safeCalculation=calculation&&getConn(id)?.role!=='dm'&&(frame.dmDice||isDm())
                   ?redactCreatureMods({id:frame.id,roller:frame.roller,label:frame.label,expr:'',total:0,detail:'',createdAt:0,reveal:calculation},true).reveal:calculation;
-                io.to(id).emit('dice:frame',{...frame,target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
+                io.to(id).emit('dice:frame',{...frame,attacker:attackerFor(id),target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
               }},{...meta,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual,cancelKind)}:delegateSaves?{configureDice,review:async(results,dice,manual)=>saveController?saveController.review(sid,meta.label,results.filter(r=>r.reveal?.kind==='check'),dice,manual,cancelKind):true}:{})});
             }finally{if(areaCommand)areaPreview.clear();for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);saveController?.finished();activeDiceId=undefined;skipDicePresentation=false;}
           },failed);
@@ -596,6 +607,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
 
     // ---- DM-only: map prep & promotion ----
 
+    on('dm:partyView', enabled => {
+      const conn=getConn(socket.id);
+      if(!conn||conn.role!=='dm'||typeof enabled!=='boolean')return;
+      conn.partyView=enabled;
+      sendSnapshot(io,socket.id);
+    });
     on('map:select', ({ mapId }) => {
       const conn = commandConnection();
       if (!conn || conn.role !== 'dm') return;

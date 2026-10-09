@@ -37,7 +37,7 @@ export function keptPhysicalSet(values:number[],info:PhysicalDiceInfo):number|un
 }
 
 type BurstTray={world:ReturnType<typeof createLiveWorld>;id:string;seq:number;sides:number[];critical:boolean[];capacity:number;parents:number[];links:{from:number;to:number}[]};
-type LiveRollMeta={burstTray?:{current?:BurstTray};label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';requireSaveStart?:boolean;configureDice?:(info:PhysicalDiceInfo)=>Partial<LiveRollMeta>;ready?:(id:string,awaitStart?:boolean)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void;deferFacing?:boolean;review?:(results:HiddenRollResult[],dice:HiddenRollDice[],manual:boolean)=>Promise<boolean|HiddenRollDecision>};
+type LiveRollMeta={burstTray?:{current?:BurstTray};label:string;roller:string;className:string;attacker?:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';requireSaveStart?:boolean;configureDice?:(info:PhysicalDiceInfo)=>Partial<LiveRollMeta>;ready?:(id:string,awaitStart?:boolean)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void;deferFacing?:boolean;review?:(results:HiddenRollResult[],dice:HiddenRollDice[],manual:boolean)=>Promise<boolean|HiddenRollDecision>};
 
 export async function physicalFaces(
   sides:number[], publish:(frame:LiveDiceFrame)=>void,

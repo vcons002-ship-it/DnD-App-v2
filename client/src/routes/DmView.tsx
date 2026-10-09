@@ -1,3 +1,4 @@
+import {PlayerDamagePrompt} from '../components/PlayerDamagePrompt';
 import { MarkTransferPrompt } from '../components/MarkTransferPrompt';
 import { ChromaticOrbPrompt } from '../components/ChromaticOrbPrompt';
 import { CombatMoments } from '../components/CombatMoments';
@@ -158,6 +159,7 @@ export function DmView() {
       <AiStatus />
       <ConnectionStatus />
       <RollRevealOverlay />
+      <PlayerDamagePrompt />
       <CombatMoments />
       <ChromaticOrbPrompt />
       <MarkTransferPrompt />

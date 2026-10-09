@@ -3,7 +3,7 @@ import { useStore } from '../state/socket';
 import { DamagePrompt, smiteOptionsFor } from './DamagePrompt';
 import './player-damage-prompt.css';
 
-/** Player-only action dock, outside the map's stacking context. These are the
+/** Action dock, outside the map's stacking context. These are the
  * existing pending-hit and spell-apply actions, not another cast/damage system.
  * The server still controls ownership, rolled damage, saves and dart budgets. */
 export function PlayerDamagePrompt() {
@@ -12,10 +12,10 @@ export function PlayerDamagePrompt() {
   const arm = useStore((s) => s.armSaveResolve);
   const clear = useStore((s) => s.clearSaveResolve);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
-  const rolls = snapshot?.rollLog ?? [];
+  const rolls = (snapshot?.rollLog ?? []).filter(r => snapshot?.role !== 'dm' || r.roller === 'DM');
   // A hit with parked damage, or one that still offers a smite (auto-damage
   // sessions have no parked damage, so the smite alone must surface it).
-  const hit = snapshot
+  const hit = snapshot && snapshot.role !== 'dm'
     ? [...rolls].reverse().find(
         (r) => (r.pending && !r.pending.done) || smiteOptionsFor(r, snapshot).length > 0,
       )

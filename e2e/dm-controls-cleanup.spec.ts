@@ -1,0 +1,51 @@
+import {test,expect} from '@playwright/test';
+import {io} from 'socket.io-client';
+import sharp from 'sharp';
+import {DM_SECRET,PORT} from './playwright.config';
+
+test('character controls, tiled analysis, corner inspector and DM UI scale work in the app',async({page,browser,request})=>{
+ test.setTimeout(90000);await page.setViewportSize({width:1500,height:950});
+ const init=()=>{const id=localStorage.getItem('dnd.playerId')??crypto.randomUUID();localStorage.setItem('dnd.playerId',id);localStorage.setItem(`dnd.tokenView:${id}`,'2d');localStorage.setItem(`dnd.monsterTokenView:${id}`,'2d');};
+ await page.addInitScript(init);
+ const headers={'x-dm-passphrase':DM_SECRET};
+ const {code}=await(await request.post('/api/sessions',{headers,data:{name:'DM controls cleanup'}})).json();
+ const image=await sharp({create:{width:900,height:600,channels:3,background:'#635b4c'}}).png().toBuffer();
+ const map=await(await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{name:'Tile board',image:{name:'board.png',mimeType:'image/png',buffer:image}}})).json();
+ const dm=io(`http://localhost:${PORT}`,{transports:['websocket']});
+ const snapshot=async()=>{const r=await dm.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.ok).toBe(true);return r.snapshot;};
+ const player=await browser.newPage();
+ await player.addInitScript(init);
+ try{
+  const state=await snapshot(),druk=state.characters.find((c:any)=>c.name==='Druk');
+  dm.emit('map:setActive',{mapId:map.id});dm.emit('fog:setLayer',{mapId:map.id,layer:'map',enabled:false});dm.emit('fog:setLayer',{mapId:map.id,layer:'tokens',enabled:false});
+  dm.emit('token:spawn',{mapId:map.id,kind:'pc',refId:druk.id,x:420,y:340});
+  dm.emit('mapImage:add',{mapId:map.id,imagePath:map.imagePath,x:-900,y:0,w:900,h:600});await snapshot();
+  await player.goto(`/join?code=${code}`);await player.getByRole('button',{name:'Join',exact:true}).click();await player.locator('.claim-row').filter({hasText:'Druk'}).click();
+  await expect(player.getByTestId('player-hud')).toBeVisible();await expect(player.getByRole('button',{name:'Carried lantern',exact:true})).toHaveCount(0);
+  await expect(player.locator('.hit-dice-row')).toHaveCount(0);
+  await player.getByRole('button',{name:'Character',exact:true}).click();const sheet=player.locator('dialog.character-window');
+  await expect(sheet.locator('.hit-dice-row')).toBeVisible();await expect(sheet.getByRole('button',{name:/Spend 1/})).toBeVisible();
+  await sheet.locator('summary').filter({hasText:'Exploration'}).click();const lantern=sheet.getByRole('button',{name:'Carried lantern',exact:true});await expect(lantern).toHaveAttribute('aria-pressed','false');await lantern.click();await expect(lantern).toHaveAttribute('aria-pressed','true');
+  expect((await snapshot()).tokens.find((t:any)=>t.refId===druk.id).carriedLantern).toBe(true);await sheet.getByRole('button',{name:'Close character window'}).click();
+  await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  await page.waitForTimeout(1000);
+  const inspector=page.locator('#dm-panel-inspect');await expect(inspector).toBeHidden();await expect(page.getByRole('button',{name:'Token inspector',exact:true})).toBeDisabled();
+  const token=(await snapshot()).tokens.find((t:any)=>t.refId===druk.id);
+  const point=()=>page.evaluate(id=>{const s=(window as any).Konva.stages.find((s:any)=>s.find('.token').some((n:any)=>n.getAttr('tokenId')===id)),n=s.find('.token').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsolutePosition(),r=s.container().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};},token.id);
+  let p=await point();await page.mouse.click(p.x,p.y);await expect(inspector).toBeVisible();
+  const body=(await page.locator('.dm-fantasy > .body').boundingBox())!,before=(await inspector.boundingBox())!;
+  expect(Math.abs(before.x+before.width-body.x-body.width+14)).toBeLessThan(3);expect(Math.abs(before.y+before.height-body.y-body.height+14)).toBeLessThan(3);
+  await page.getByRole('button',{name:'Resize token inspector height'}).focus();await page.keyboard.press('ArrowUp');await expect.poll(async()=>Math.round((await inspector.boundingBox())!.height)).toBe(Math.round(before.height)+20);
+  await page.getByRole('button',{name:'Close token inspector',exact:true}).click();await expect(inspector).toBeHidden();
+  p=await point();await page.mouse.move(p.x,p.y);await page.mouse.down();await page.mouse.move(p.x-45,p.y+25,{steps:10});await page.mouse.up();await expect(inspector).toBeVisible();
+  const canvas=(await page.locator('.konvajs-content').first().boundingBox())!;await page.mouse.click(canvas.x+canvas.width*.35,canvas.y+canvas.height*.2);await expect(inspector).toBeHidden();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Suggest walls, doors, windows & lights',exact:true}).click();
+  const options=page.getByRole('dialog',{name:'Map analysis options'});await expect(options.getByText('1 image tiles included',{exact:true})).toBeVisible();
+  const preview=options.getByRole('img',{name:'Map to analyze'});await expect(preview).toHaveAttribute('src',/map-analysis-/);
+  expect(await preview.evaluate((el:HTMLImageElement)=>el.naturalWidth)).toBe(1800);await options.getByRole('button',{name:'Close',exact:true}).click();
+  await page.locator('.dm-campaign-menu > summary').click();await page.getByRole('button',{name:/Settings/}).click();
+  const scale=page.getByRole('slider',{name:'UI scale'});await expect(scale).toHaveValue('100');await scale.fill('85');await expect(page.getByRole('region',{name:'DM interface settings'})).toContainText('85%');
+  await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.querySelector('.dm-tool-rail')!).zoom)).toBe('0.85');
+  expect(await page.evaluate(()=>localStorage.getItem('dnd:dm-ui-scale:v1'))).toBe('0.85');
+ }finally{dm.disconnect();await player.close();}
+});

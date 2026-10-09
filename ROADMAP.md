@@ -1,5 +1,25 @@
 # Roadmap & Feature Backlog
 
+- [x] DM workspace cleanup: hide the inspector without a selection, reopen it
+  after token dragging, anchor its unpinned window in the bottom-right corner,
+  and resize it vertically or horizontally. Campaign > Settings > Interface
+  provides a locally saved DM UI scale without changing map zoom.
+
+- [x] Move player lantern controls to Character > Exploration. Hit Dice remain
+  in Character > Resources and rest controls instead of the battlefield HUD.
+
+- [x] Map feature suggestions analyze the assembled base image and all image
+  tiles in their drawn order. Full-map and region analysis support negative tile
+  positions and tile-only maps; converted features retain the map coordinates.
+  A changed tile invalidates a stale draft. Automatic Qwen gates and independent
+  mask workflows retain their existing behavior.
+
+- [x] Initial DM attack and damage trays identify the attacking token, with
+  recipient-specific names and reveal tags. Default save-based actions such as
+  Ice Breath retain the chosen target, roll its saving throw and apply damage.
+  Explicit multi-target and defined-area spells keep their area workflow; an
+  untargeted DM cast exposes the choose-target recovery dock.
+
 - [x] Per-light color picker in Maps > Environment. Keep Warm, Cool and Eerie
   green shortcuts; custom RGB colors persist per map and illuminate terrain,
   figures and visible light fixtures with the existing flicker and shadows.
@@ -539,8 +559,8 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   abilities ready on their rest. A chat summary lists what each character recovered, plus a
   "Long Rest" banner and chord for everyone (`fx:rest`).
 - [x] **Hit Dice.** Track total spending and each die-size pool for structured multiclass
-  sheets. Choose the pool from the sheet's resources or the player HUD's **Hit Dice x/y**
-  button (`hitDice:spend`): rolled on the live physical dice, heals face + CON per die
+  sheets. Choose the pool from **Character → Resources** (`hitDice:spend`); Hit Dice
+  stay off the battlefield HUD and compact combat panel. Rolled on the live physical dice, heals face + CON per die
   (minimum 1), logged with a reveal. Never more than are left, never for the dead.
 - [x] **Next turn hands the DM the creature.** When the turn moves to a DM-run combatant
   (a monster or an unclaimed PC), `DmView` selects it (so the Combat section and right-click
@@ -854,7 +874,9 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Full-width battlefield with charcoal/gold styling matching the player HUD.
 - [x] Maps, Creatures, Initiative and Chat & dice open from a compact tool rail;
   drafts stay mounted, panels resize locally, and token selection opens an inspector.
-- [x] Current combatant and Next turn stay visible in a bottom encounter bar.
+- [x] Initiative controls stay in the Initiative menu; removed the persistent bottom encounter bar (October 9).
+- [x] DM battlefield visibility menu: DM visibility, Scene lighting, and Player view. Player view combines party sight using the existing fog, wall, darkness and light rules, calculated only when requested and without writing exploration memory or taking character claims.
+- [x] Rotation reset is labeled Reset rotation and appears only after rotating; Overhead and 45-degree tilt remain separate choices.
 - [x] Campaign menu groups settings, guide, player link, library and data window.
 - [x] Narrow layouts keep tools reachable and dismiss the placement drawer to
   expose the map; existing 2D/3D and Overhead/45-degree choices remain independent.

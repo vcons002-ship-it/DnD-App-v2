@@ -385,17 +385,28 @@ function DecalImage({
 }
 
 export function MapStage({
-  snapshot,
-  draggableTokens,
+  snapshot: sourceSnapshot,
+  draggableTokens: sourceDraggableTokens,
   selectedIds,
   activeTurnTokenId,
   onSelectToken,
   onSelectTokens,
   onMoveToken,
-  onPlaceAt,
+  onPlaceAt: sourceOnPlaceAt,
   fullChatVisible = false,
   focusRequest,
 }: Props) {
+  const [dmViewMode,setDmViewMode]=useState<'dm'|'scene'|'player'>('dm');
+  const actualDm=sourceSnapshot.role==='dm';
+  const partyPreview=actualDm&&dmViewMode==='player';
+  const setDmPartyView=useStore(s=>s.setDmPartyView);
+  const previewSocketId=useStore(s=>s.socket?.id);
+  useEffect(()=>{if(actualDm)setDmPartyView(partyPreview);},[actualDm,partyPreview,previewSocketId,setDmPartyView]);
+  const snapshot=useMemo(()=>partyPreview?{...sourceSnapshot,...(sourceSnapshot.partyView??{
+    tokens:[],monsters:[],exploredTerrain:[],playerVision:{rangeFt:60 as const,radius:0,heavy:true,origins:[],lights:[],walls:sourceSnapshot.map?.walls},
+  }),role:'player' as const}:sourceSnapshot,[sourceSnapshot,partyPreview]);
+  const draggableTokens=!partyPreview&&sourceDraggableTokens;
+  const onPlaceAt=partyPreview?undefined:sourceOnPlaceAt;
   const miniatureCatalogRevision = useMiniatureCatalog();
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
@@ -846,7 +857,7 @@ export function MapStage({
   const pxPerFoot = fpp > 0 ? 1 / fpp : grid / 5;
   presentation.sync(snapshot,pxPerFoot,performance.now(),window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const {quality:environmentQuality}=useEnvironmentQuality();
-  const [dmSceneLighting,setDmSceneLighting]=useState(false);
+  const dmSceneLighting=dmViewMode!=='dm';
   const environment = useMemo<EnvironmentPreviewSettings|undefined>(()=>{
     const saved=map?.environment??DEFAULT_MAP_ENVIRONMENT;
     const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden&&!t.sharedSightOnly).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
@@ -962,9 +973,13 @@ export function MapStage({
     setDetailsExpanded(true); // open the player's read-only Details
     nudgeRightPanel(); // and pop the right drawer open (collapsed on phones)
   });
-  const handleTokenMove = useStableCallback((tok: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) =>
-    onMoveToken(tok.id, x, y, placed),
-  );
+  const handleTokenMove = useStableCallback((tok: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => {
+    onMoveToken(tok.id, x, y, placed);
+    if (isDm) {
+      if (selectedIds.length <= 1 || !selectedIds.includes(tok.id)) onSelectToken(tok, false);
+      nudgeRightPanel();
+    }
+  });
   const handleTokenDragPreview = useStableCallback((tok: Token, point: {x:number;y:number;facing:number}|null) => {
     miniatureRef.current?.previewMove(tok.id, point);
     if(!point||isDm||tok.kind!=='pc'||!snapshot.characters.some(c=>c.id===tok.refId&&c.claimedBy===mySocketId)){
@@ -1930,7 +1945,7 @@ export function MapStage({
     }
     miniatureRef.current?.setProjection(tilt,rotation,nextView);
     visionRef.current?.camera({tilt,rotation,view:nextView});
-    if(rotationLabel.current)rotationLabel.current.textContent=`${((Math.round(rotation)%360)+360)%360}\u00b0`;
+    if(rotationLabel.current)rotationLabel.current.hidden=Math.abs(rotation%360)<.01;
   };
   const commitProjection=(tilt:number,rotation:number,nextView:View)=>{
     setTiltDegrees(tilt);setRotationDegrees(rotation);setView(nextView);
@@ -2069,17 +2084,20 @@ export function MapStage({
             </button>
             <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
               <span className="muted">Your view</span>
-              {isDm&&map?.environment?.enabled&&<button className={`btn tiny ${!dmSceneLighting?'on':''}`} aria-label="Preview scene lighting" aria-pressed={dmSceneLighting}
-                title="Toggle actual scene lighting or a brighter DM working view. Only changes your view; player vision stays restricted."
-                onClick={()=>setDmSceneLighting(v=>!v)}>{dmSceneLighting?'Scene lighting':'DM visibility'}</button>}
+              {actualDm&&<select className="btn tiny" aria-label="Battlefield visibility" value={dmViewMode}
+                title="Only changes this DM window. Player view combines the party's current sight without changing fog or character claims."
+                onChange={e=>setDmViewMode(e.target.value as typeof dmViewMode)}>
+                <option value="dm">DM visibility</option><option value="scene">Scene lighting</option><option value="player">Player view</option>
+              </select>}
+              {partyPreview&&<span className="muted" role="status">{sourceSnapshot.partyView?'Combined party sight':'Loading party sight…'}</span>}
               <button className={`btn tiny ${tilted ? 'on' : ''}`} aria-pressed={tilted}
                 aria-label="Tilted battlefield view" title="45° tilt — only changes your view"
                 onClick={() => chooseTilt(true)}>45°</button>
               <button className={`btn tiny ${!tilted ? 'on' : ''}`} aria-pressed={!tilted}
                 aria-label="Flat battlefield view" title="Flat overhead view — only changes your view"
                 onClick={() => chooseTilt(false)}>Overhead</button>
-              <button ref={rotationLabel} className="btn tiny" aria-label="Reset battlefield rotation" title="Hold right mouse button and drag empty space to rotate freely. Click to reset."
-                onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,0)}>{((Math.round(rotationDegrees)%360)+360)%360}°</button>
+              <button ref={rotationLabel} className="btn tiny" hidden={Math.abs(rotationDegrees%360)<.01} aria-label="Reset battlefield rotation" title="Reset the map's rotation. Hold right mouse button and drag empty space to rotate freely."
+                onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,0)}>Reset rotation</button>
             </div>
             {([
               { label: 'Players', kind: 'player', enabled: use3dTokens, set: setUse3dTokens, key: tokenPreferenceKey },

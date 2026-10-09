@@ -2509,6 +2509,7 @@ function resolveSheetAbilityFor(
   // (visibility.ts) and get the "Apply damage" click-to-target button for their own
   // AOE spell — the dice are rolled once here, applied per target on each click.
   const apply = applyPayload(roll, val, dc);
+  if (apply && !isMultiTargetSpell(ability, castLevel)) apply.targetMode = 'single';
   if (apply && kind === 'pc') apply.owner = entity.id;
   if (apply && saveFirst) apply.saveFirstDamage=dice;
   if (apply && controlEffect) {

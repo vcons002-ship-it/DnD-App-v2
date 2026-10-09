@@ -38,6 +38,7 @@ function LightColorControl({label,caption='Color',color,onChange}:{label:string;
 }
 
 export function MapEnvironmentControls({map}:{map:MapState}){
+  const mapImagesAvailable=useStore(s=>s.snapshot?.map?.id===map.id&&!!s.snapshot?.mapImages.length);
   const [lightDraftOpen,setLightDraftOpen]=useState(false);
   const settings=map.environment??DEFAULT_MAP_ENVIRONMENT;
   const save=useStore(s=>s.setMapEnvironment);
@@ -55,7 +56,7 @@ export function MapEnvironmentControls({map}:{map:MapState}){
     </select></label>
     <small>Apply a look, then adjust it below. Keeps placed lights and your chosen shadow and wind directions.</small>
     {toggle('enabled','Enable environment')}
-    <button disabled={!map.imagePath} onClick={()=>setLightDraftOpen(true)}>Suggest lights from map art</button>
+    <button disabled={!map.imagePath&&!mapImagesAvailable} onClick={()=>setLightDraftOpen(true)}>Suggest lights from map art</button>
     {lightDraftOpen&&<LightDraft key={map.id} map={map} onClose={()=>setLightDraftOpen(false)}/>}
     {settings.enabled&&<>
       <fieldset><legend>Lighting</legend>

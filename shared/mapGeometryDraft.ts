@@ -27,6 +27,7 @@ export type MapGeometryDraft = {
   maskGeometry?:'outlines'|'rectangles';
   source: {
     mapId: string; imageHash: string; width: number; height: number;
+    originX?:number; originY?:number; previewImagePath?:string; tileCount?:number;
     gridSizePx: number; feetPerSquare: number; gridOffsetX: number; gridOffsetY: number;
     wallsHash: string;
   };
@@ -59,10 +60,21 @@ export function parseGeometrySuggestions(value: unknown): GeometrySuggestion[] {
   });
 }
 export function draftWallShape(item:GeometrySuggestion,source:MapGeometryDraft['source']):MapWall {
- const scale=(p:WallPoint)=>({x:p.x*source.width,y:p.y*source.height});
+ const scale=(p:WallPoint)=>({x:p.x*source.width+(source.originX??0),y:p.y*source.height+(source.originY??0)});
  return {id:item.id,...draftWallRect(item,source),kind:item.shape??'rectangle',...(item.points?{points:item.points.map(scale)}:{}),...(item.holes?{holes:item.holes.map(r=>r.map(scale))}:{})};
 }
 
 export function draftWallRect(item:GeometrySuggestion, source:MapGeometryDraft['source']) {
-  return {ax:item.ax*source.width, ay:item.ay*source.height, bx:item.bx*source.width, by:item.by*source.height};
+  return {ax:item.ax*source.width+(source.originX??0), ay:item.ay*source.height+(source.originY??0), bx:item.bx*source.width+(source.originX??0), by:item.by*source.height+(source.originY??0)};
+}
+
+export function analysisPoint(p:WallPoint,source:Pick<MapGeometryDraft['source'],'originX'|'originY'>):WallPoint {
+ return {x:p.x+(source.originX??0),y:p.y+(source.originY??0)};
+}
+export function analysisMarker<T extends {ax:number;ay:number;bx:number;by:number;footprint?:WallPoint[];points?:WallPoint[]}>(marker:T,source:MapGeometryDraft['source']):T {
+ return {...marker,ax:marker.ax+(source.originX??0),ay:marker.ay+(source.originY??0),bx:marker.bx+(source.originX??0),by:marker.by+(source.originY??0),
+ ...(marker.footprint?{footprint:marker.footprint.map(p=>analysisPoint(p,source))}:{}),...(marker.points?{points:marker.points.map(p=>analysisPoint(p,source))}:{})};
+}
+export function insideAnalysis(p:WallPoint,source:Pick<MapGeometryDraft['source'],'originX'|'originY'|'width'|'height'>):boolean {
+ return Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=(source.originX??0)&&p.y>=(source.originY??0)&&p.x<=(source.originX??0)+source.width&&p.y<=(source.originY??0)+source.height;
 }

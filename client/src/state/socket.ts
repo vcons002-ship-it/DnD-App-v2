@@ -223,6 +223,7 @@ type Store = {
   disconnect: () => void;
 
   selectMap: (mapId: string) => void;
+  setDmPartyView: (enabled:boolean) => void;
   /** The map the DM is currently viewing/staging (null = the session's active
    *  map). Tracked so a reconnect can re-assert it (the server resets the view to
    *  active on join). Always null for players (they're locked to the active map). */
@@ -1107,6 +1108,7 @@ export const useStore = create<Store>((set, get) => ({
     set({ viewMapId: mapId, areaCast:null,teleportCast:null });
     get().socket?.emit('map:select', { mapId });
   },
+  setDmPartyView: enabled => get().socket?.emit('dm:partyView',enabled),
   setActiveMap: (mapId) => get().socket?.emit('map:setActive', { mapId }),
   deleteMap: (mapId) => get().socket?.emit('map:delete', { mapId }),
   renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),

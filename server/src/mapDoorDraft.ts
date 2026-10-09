@@ -16,20 +16,21 @@ import {getMap,createWallDoorObject} from './sessions.js';
 import {sanitizeWalls} from '../../shared/mapWalls.js';
 import type {MapDoorDraft} from '../../shared/mapDoorDraft.js';
 import type {MapWall} from '../../shared/mapWalls.js';
+import {analysisMarker,insideAnalysis} from '../../shared/mapGeometryDraft.js';
 
 export async function suggestMapDoors(mapId:string,rawRegions?:unknown,automatic=false):Promise<MapDoorDraft> {
   const {map,image,source}=await geometrySource(mapId);
   const regions=parseMapAnalysisRegions(rawRegions);
   if(!config.geminiApiKey)throw new Error('Configure the image API in Settings before suggesting doors.');
   const qwenChecks=automatic?[await gateMapFeature(image,'doors')]:[];
-  if(qwenChecks.some(check=>!check.allowed))return {version:1,id:randomUUID(),source,qwenChecks,maskImagePath:map.imagePath!,doors:[]};
+  if(qwenChecks.some(check=>!check.allowed))return {version:1,id:randomUUID(),source,qwenChecks,maskImagePath:source.previewImagePath??map.imagePath!,doors:[]};
   reportAi('Marking visible doors with the image API. This is a separate request from walls and lights.');
   const preview=await sharp(image).rotate().png().toBuffer();
   const result=regions?await generateMapRegionMask(DOOR_MASK_PROMPT,image,source.width,source.height,regions):await generateApiImage(DOOR_MASK_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
   if('error' in result)throw new Error(result.error);
   const root=path.resolve(config.uploadsDir),file=path.resolve(root,result.path.slice('/uploads/'.length));
   if(!result.path.startsWith('/uploads/')||!file.startsWith(root+path.sep))throw new Error('Invalid door mask path.');
-  const markers=await doorsFromMask(await fs.readFile(file),image,source.width,source.height);
+  const markers=(await doorsFromMask(await fs.readFile(file),image,source.width,source.height)).map(m=>analysisMarker(m,source));
   const doors=markers.map(marker=>({...marker,...fitDoorMarker(marker,map.walls??[],source.gridSizePx)}));
   reportAi(`Door draft ready: ${doors.length} suggestions. Check that each marker represents a door, not an open passage.`);
   return {version:1,id:randomUUID(),source,qwenChecks,maskImagePath:result.path,doors};
@@ -42,8 +43,8 @@ export function prepareDoorDraft(raw:unknown,selection:unknown,source:MapDoorDra
   if(!Array.isArray(selection)||!selection.length||selection.some(id=>typeof id!=='string'||!draft.doors.some(d=>d.id===id))||new Set(selection).size!==selection.length)throw new Error('Select doors from this draft.');
   if(JSON.stringify(draft.source)!==JSON.stringify(source))throw new Error('The map image, grid or walls changed. Generate a new door draft.');
   const chosen=draft.doors.filter(d=>selection.includes(d.id));
-  if(chosen.some(d=>![d.ax,d.ay,d.bx,d.by,d.thickness].every(v=>typeof v==='number'&&Number.isFinite(v))||d.ax<0||d.bx<0||d.ay<0||d.by<0||d.ax>source.width||d.bx>source.width||d.ay>source.height||d.by>source.height||d.thickness<=0||d.thickness>source.width*.04))throw new Error('Invalid door positions.');
-  if(chosen.some(d=>d.footprint!==undefined&&(!Array.isArray(d.footprint)||d.footprint.length<3||d.footprint.length>32||d.footprint.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.y<0||p.x>source.width||p.y>source.height))))throw new Error('Invalid door footprint.');
+  if(chosen.some(d=>![d.ax,d.ay,d.bx,d.by,d.thickness].every(v=>typeof v==='number'&&Number.isFinite(v))||!insideAnalysis({x:d.ax,y:d.ay},source)||!insideAnalysis({x:d.bx,y:d.by},source)||d.thickness<=0||d.thickness>source.width*.04))throw new Error('Invalid door positions.');
+  if(chosen.some(d=>d.footprint!==undefined&&(!Array.isArray(d.footprint)||d.footprint.length<3||d.footprint.length>32||d.footprint.some(p=>!p||!insideAnalysis(p,source)))))throw new Error('Invalid door footprint.');
   const walls=[...existing],added:MapWall[]=[];
   for(const marker of chosen){
     const {wall,extensions,issue}=fitDoorMarker(marker,walls,source.gridSizePx);
