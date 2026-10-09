@@ -42,7 +42,11 @@ import {
   sanitizeModifiers,
   sanitizeWeapons,
 } from '../../shared/modifiers.js';
-import { coveredByFog } from '../../shared/fog.js';
+import { tokenVisibleAt } from '../../shared/fog.js';
+import {createPlayerVision,fogVisionContains,usesTokenVision} from '../../shared/playerVision.js';
+import {isInvisible} from '../../shared/advancedSpells.js';
+import {seesInvisible} from '../../shared/invisibleSight.js';
+import {tokenDistanceFt} from '../../shared/distance.js';
 import { weaponsFromActions, actionsToSheetAbilities, isCleanAttackDuplicate, effectiveRecharge } from '../../shared/monsterAttacks.js';
 import { isDamageType } from '../../shared/damage.js';
 import type {
@@ -1403,42 +1407,45 @@ function rollInitiativeGroup(tokens: Token[]): void {
   }
 }
 
-/** Roll initiative (d20 + DEX) for every COMBATANT on a map (resets the round).
- *  Objects are skipped — and any stray roll an object had (old saves) is cleared. */
-/**
- * Whether a token should be pulled into combat when initiative is rolled.
- * Objects never fight. Otherwise the DM's explicit per-token choice wins, and
- * the default ('auto') is "join if visible" — so creatures parked off-screen or
- * hidden for an ambush stay out until they're revealed and the DM clicks
- * "Add rolls", instead of the whole map being dragged into the fight.
- */
-export function rollsInitiative(token: Token, map?: MapState | null): boolean {
-  if (isObjectToken(token)) return false;
-  // The DM's explicit tick in the initiative panel always wins — including
-  // dragging a corpse back in, if they ever want that.
-  if (token.inCombat !== undefined) return token.inCombat;
-  // 'auto' pre-marks from concealment: hidden by hand, or sitting under fog.
-  // A corpse never joins a NEW fight either. (A PC at 0 HP is NOT dead here —
-  // they keep their turn to roll death saves; see `isDeadToken`.)
-  if (isDeadToken(token)) return false;
-  return !token.isHidden && !concealedByFog(token, map);
+/** Build current party sight once for each initiative batch or snapshot. Saved
+ * exploration never recruits a creature; party PCs remain known through fog. */
+export function createInitiativeVisibility(map: MapState | null, tokens: Token[],
+  monsters = map ? listMonsters(map.sessionId) : [],
+  characters = map ? listCharacters(map.sessionId) : []): (token: Token) => boolean {
+  if (!map) return () => true;
+  const monById = new Map(monsters.map(m => [m.id, m]));
+  const charById = new Map(characters.map(c => [c.id, c]));
+  const party = tokens.filter(t => t.kind === 'pc' && !t.isHidden);
+  const owned = new Set(party.map(t => t.refId));
+  const mapFog = map.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
+  const tokenFog = map.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
+  const manualVisible = (t: Token) => tokenVisibleAt({role:'player',hidden:t.isHidden,
+    owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
+    mapFog,tokenFog,grid:map.gridSizePx||50,x:t.x,y:t.y});
+  const vision = createPlayerVision(map, tokens, owned, manualVisible);
+  return token => {
+    if (!manualVisible(token)) return false;
+    if (token.kind === 'pc') return true;
+    if (!fogVisionContains(vision, token.x, token.y, usesTokenVision(map))) return false;
+    const monster = monById.get(token.refId);
+    return monster?.disposition==='friendly' || !isInvisible(monster) || party.some(t => {
+      const character=charById.get(t.refId);
+      return !!character && seesInvisible(character,tokenDistanceFt(t,token,map));
+    });
+  };
 }
 
-/** Whether fog currently conceals this token from players on its map. Mirrors the
- *  snapshot's own layer rules: MAP fog blacks out any token in an unrevealed
- *  cell; TOKEN fog only conceals enemy/neutral creatures (the party stays
- *  visible). Used by 'auto' so an ambusher under fog isn't dragged into a fight. */
-function concealedByFog(token: Token, map?: MapState | null): boolean {
-  const m = map ?? getMap(token.mapId);
-  if (!m) return false;
-  const grid = m.gridSizePx || 50;
-  const mapFog = m.mapFogEnabled ? new Set(m.mapFogRevealed) : null;
-  if (coveredByFog(mapFog, null, grid, token.x, token.y)) return true;
-  if (!m.tokenFogEnabled) return false;
-  // Token fog hides only foes — PCs and friendly creatures stay on the field.
-  if (token.kind === 'pc') return false;
-  if (getMonster(token.refId)?.disposition === 'friendly') return false;
-  return coveredByFog(null, new Set(m.tokenFogRevealed), grid, token.x, token.y);
+/** Auto includes known party PCs and creatures currently seen by the party.
+ * Explicit DM participation wins over concealment, but objects never fight. */
+export function rollsInitiative(token: Token, map?: MapState | null,
+  visible?: (token: Token) => boolean): boolean {
+  if (isObjectToken(token)) return false;
+  // Explicit participation still lets the DM include a concealed ambusher.
+  if (token.inCombat !== undefined) return token.inCombat;
+  if (isDeadToken(token) || token.isHidden) return false;
+  const currentMap = map === undefined ? getMap(token.mapId) : map;
+  return (visible ?? createInitiativeVisibility(currentMap,
+    currentMap ? listTokens(currentMap.id) : []))(token);
 }
 
 export function setInitiativePending(sessionId: string, pending: boolean): void {
@@ -1451,8 +1458,9 @@ export function startCombat(sessionId: string, connected: (id: string) => boolea
   if (!session?.activeMapId || session.initiativePending) return;
   clearInitiative(sessionId);
   const map = getMap(session.activeMapId);
-  rollInitiativeGroup(listTokens(session.activeMapId).filter(token=>{
-    if(!rollsInitiative(token,map))return false;
+  const tokens=listTokens(session.activeMapId), visible=createInitiativeVisibility(map,tokens);
+  rollInitiativeGroup(tokens.filter(token=>{
+    if(!rollsInitiative(token,map,visible))return false;
     const ch=token.kind==='pc'?getCharacter(token.refId):null;
     return !ch?.claimedBy || !connected(ch.claimedBy);
   }));
@@ -1464,7 +1472,8 @@ export function finishInitiative(sessionId: string): void {
   const session = getSessionById(sessionId);
   if (!session?.initiativePending || !session.activeMapId) return;
   const map = getMap(session.activeMapId);
-  if (listTokens(session.activeMapId).some(t => rollsInitiative(t, map) && t.initiative === null)) return;
+  const tokens=listTokens(session.activeMapId), visible=createInitiativeVisibility(map,tokens);
+  if (tokens.some(t => rollsInitiative(t, map, visible) && t.initiative === null)) return;
   setInitiativePending(sessionId, false);
   const first = firstInInitiative(session.activeMapId);
   setActiveTurn(sessionId, first);
@@ -1490,8 +1499,9 @@ export function rollAllInitiative(mapId: string): void {
   const map = getMap(mapId);
   db.transaction(()=>{
     const tokens=listTokens(mapId);
-    for(const token of tokens)if(!rollsInitiative(token,map))setTokenInitiative(token.id,null);
-    rollInitiativeGroup(tokens.filter(token=>rollsInitiative(token,map)));
+    const visible=createInitiativeVisibility(map,tokens);
+    for(const token of tokens)if(!rollsInitiative(token,map,visible))setTokenInitiative(token.id,null);
+    rollInitiativeGroup(tokens.filter(token=>rollsInitiative(token,map,visible)));
   })();
 }
 
@@ -1499,7 +1509,8 @@ export function rollAllInitiative(mapId: string): void {
 export function rollMissingInitiative(mapId: string): void {
   db.transaction(()=>{
     const map=getMap(mapId);
-    rollInitiativeGroup(listTokens(mapId).filter(t=>t.initiative===null&&rollsInitiative(t,map)));
+    const tokens=listTokens(mapId), visible=createInitiativeVisibility(map,tokens);
+    rollInitiativeGroup(tokens.filter(t=>t.initiative===null&&rollsInitiative(t,map,visible)));
   })();
 }
 

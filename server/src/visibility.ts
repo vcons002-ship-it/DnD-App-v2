@@ -24,6 +24,7 @@ import {
   listChat,
   listTokens,
   rollsInitiative,
+  createInitiativeVisibility,
 } from './sessions.js';
 import type {
   Annotation,
@@ -311,6 +312,7 @@ export function createSnapshotBuilder(
     let d = mapData.get(mapId);
     if (!d) {
       const rawTokens = listTokens(mapId);
+      const initiativeVisible = createInitiativeVisibility(mapById.get(mapId) ?? null, rawTokens, monsters, characters);
       const tagMap = encounterTags(mapById.get(mapId)!, rawTokens, monById, mapId === activeMapId);
       if (mapId === activeMapId) for (const token of rawTokens) {
         const monster=token.kind==='monster'?monById.get(token.refId):undefined;
@@ -326,7 +328,7 @@ export function createSnapshotBuilder(
           ...(targetMarks.has(`${t.kind}:${t.refId}`)?{markLabels:[...targetMarks.get(`${t.kind}:${t.refId}`)!]}:{}),
           combatRole: tokenCombatRole(t),
           // Who "Roll all" would pull in, decided server-side (it depends on fog).
-          inCombatEffective: rollsInitiative(t, mapById.get(mapId) ?? null),
+          inCombatEffective: rollsInitiative(t, mapById.get(mapId) ?? null, initiativeVisible),
         })),
         measurements: listMeasurements(mapId),
         annotations: listAnnotations(mapId),
