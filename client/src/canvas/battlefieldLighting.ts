@@ -14,10 +14,10 @@ import {stormLightningAt} from '../../../shared/stormLighting';
 import {localShadowGlsl,type createLocalLightShadows} from './localLightShadows';
 import {localCreatureShadowStrength} from './creatureShadowStyle';
 import {terrainDarknessOpacity} from '../../../shared/terrainLighting';
+import {mapLightColorHex} from '../../../shared/mapEnvironment';
 
 const palettes={day:{color:0x1c2230,opacity:0,...NEUTRAL_MINIATURE_LIGHTING},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
 const lightningColor=new Color(0xd7e7ff);
-const colors={warm:new Color(0xffb258),cool:new Color(0x89bbff),green:new Color(0x85eab5)};
 export type CarriedLanternLight={id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight:number;facing:number};
 export const torchFieldGlsl=`
   uniform sampler2D torchField;
@@ -33,6 +33,12 @@ export const torchFieldGlsl=`
 
 /** All sources splat into a bounded light field; there is no map-wide light-count limit. */
 export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambient:HemisphereLight|undefined,visibility:ReturnType<typeof createEnvironmentVisibility>['uniforms'],depth:{texture:Texture;resolution:Vector2},shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms']){
+  const colors=new Map<string,Color>();
+  const sourceColor=(value:unknown)=>{
+    const hex=mapLightColorHex(value);let color=colors.get(hex);
+    if(!color){if(colors.size>=64)colors.clear();color=new Color(hex);colors.set(hex,color);}
+    return color;
+  };
   const original={key:key.intensity,color:key.color.clone(),ambient:ambient?.intensity??NEUTRAL_MINIATURE_LIGHTING.ambient,sky:ambient?.color.clone()??new Color(0xffffff),ground:ambient?.groundColor.clone()??new Color(0xffffff),reflection:scene.environmentIntensity};
   const field=new WebGLRenderTarget(512,512,{type:HalfFloatType,depthBuffer:false,stencilBuffer:false});
   const fieldUniforms={torchField:{value:field.texture},torchBounds:{value:new Vector4()},stormFlash:{value:0}};
@@ -159,7 +165,8 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   const shaftGeometry=new CylinderGeometry(.055,.075,1,8),cupGeometry=new CylinderGeometry(.16,.09,.25,10),flameGeometry=new ConeGeometry(.5,1,9,3);
   const lanternGeometry=new BoxGeometry(1,1,1),handleGeometry=new TorusGeometry(.14,.03,5,12);
   const bronze=new MeshStandardMaterial({color:0x5e4929,metalness:.68,roughness:.35,emissive:0x7a360c,emissiveIntensity:.25});
-  const glow=new MeshBasicMaterial({color:0xffc768,transparent:true,opacity:.85,depthWrite:false,toneMapped:false});
+  const glow=new MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85,depthWrite:false,toneMapped:false});
+  const fixtureColor=new Color(),warmLanternColor=new Color(0xffc768);
   let capacity=0,shafts:InstancedMesh,cups:InstancedMesh,flames:InstancedMesh,frames:InstancedMesh,windows:InstancedMesh,handles:InstancedMesh;
   let sourceAttribute:InstancedBufferAttribute,radianceAttribute:InstancedBufferAttribute,shadowAttribute:InstancedBufferAttribute;
   const matrix=new Matrix4();
@@ -198,7 +205,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       ...carried.map(l=>({...l,radiusFt:20,intensity:.85,color:'warm' as const,flicker:true,visibleTorch:false,fixture:'lantern' as const,carried:true}))];
     lights=plane.visible?sources.map(source=>{
       const seed=phase(source.id),f=Math.sin(time*6.3+seed)*.10+Math.sin(time*11.1+seed*3)*.06+Math.sin(time*2.7+seed)*.08;
-      const color=colors[source.color];
+      const color=sourceColor(source.color);
       return {id:source.id,x:source.x,y:source.y,height:source.height,fixtureHeight:source.fixtureHeight,radius:source.radiusFt*ppf*(source.flicker?1+f*.28:1),
         strength:source.intensity*(source.flicker?1+f:1),color:new Vector3(color.r,color.g,color.b),visibleTorch:!!source.visibleTorch,fixture:source.fixture,carried:source.carried,facing:source.facing,fixtureX:'fixtureX' in source?source.fixtureX:source.x,fixtureY:'fixtureY' in source?source.fixtureY:source.y};
     }):[];
@@ -214,7 +221,9 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
           matrix.setPosition((light.fixtureX??light.x)+(x*c+z*s)*size,(light.fixtureHeight??light.height)+y*size,(light.fixtureY??light.y)+(-x*s+z*c)*size);mesh.setMatrixAt(index,matrix);
         };
         part(windows,lanterns,0,0,0,.48,.73,.32);
-        windows.setColorAt(lanterns,new Color().setScalar(.85+light.strength*.15));
+        fixtureColor.setRGB(light.color.x,light.color.y,light.color.z);
+        if(fixtureColor.equals(sourceColor('warm')))fixtureColor.copy(warmLanternColor);
+        windows.setColorAt(lanterns,fixtureColor.multiplyScalar(.85+light.strength*.15));
         part(frames,lanterns*6,0,.40,0,.64,.09,.47);part(frames,lanterns*6+1,0,-.40,0,.64,.09,.47);
         let corner=2;for(const x of [-.27,.27])for(const z of [-.18,.18])part(frames,lanterns*6+corner++,x,0,z,.055,.8,.055);
         part(handles,lanterns,0,.58,0,1,1,1);lanterns++;return;

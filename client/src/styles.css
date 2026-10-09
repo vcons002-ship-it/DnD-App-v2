@@ -1844,6 +1844,8 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .map-environment-controls { margin: 10px 0; padding: 9px; border: 1px solid #555043; border-radius: 6px; }
 .map-environment-controls summary { cursor: pointer; font-weight: 600; }
 .environment-light-list details { margin: 7px 0; padding: 5px; background: #ffffff06; }
+.environment-light-color { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.environment-light-color input[type="color"] { width: 38px; height: 28px; padding: 2px; border: 1px solid #70664f; border-radius: 4px; background: #171b20; cursor: pointer; }
 .map-environment-controls select { max-width: 100%; margin: 4px; }
 .environment-placement-hint { position: absolute; top: 55px; left: 50%; transform: translateX(-50%); z-index: 30; background: #181b20ed; border: 1px solid #b8a66c; border-radius: 6px; padding: 8px 14px; color: #f3e6c9; white-space: nowrap; }
 .map-environment-controls summary span { float: right; }

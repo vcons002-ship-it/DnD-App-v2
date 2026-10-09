@@ -1,7 +1,7 @@
 import {LightDraft} from './LightDraft';
 import {useEffect, useState} from 'react';
 import type {MapState} from '../../../shared/types';
-import {DEFAULT_MAP_ENVIRONMENT, mapShadowsEnabled, type MapEnvironment, type EnvironmentQuality} from '../../../shared/mapEnvironment';
+import {DEFAULT_MAP_ENVIRONMENT, mapShadowsEnabled, mapLightColorHex, sanitizeMapLightColor, type MapEnvironment, type EnvironmentQuality} from '../../../shared/mapEnvironment';
 import {useStore} from '../state/socket';
 import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
 import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../../shared/mapEnvironmentPresets';
@@ -65,7 +65,12 @@ export function MapEnvironmentControls({map}:{map:MapState}){
         <div className="environment-light-list">{settings.lights.map((light,index)=>{
           const edit=(patch:Partial<typeof light>)=>update({lights:settings.lights.map(l=>l.id===light.id?{...l,...patch}:l)});
           return <details key={light.id}><summary>Light {index+1} · {light.color}</summary>
-            <label>Color <select aria-label={`Light ${index+1} color`} value={light.color} onChange={e=>edit({color:e.target.value as typeof light.color})}><option value="warm">Warm</option><option value="cool">Cool</option><option value="green">Eerie green</option></select></label>
+            <label className="environment-light-color">Color
+              <input type="color" aria-label={`Light ${index+1} color picker`} value={mapLightColorHex(light.color)} onChange={e=>edit({color:sanitizeMapLightColor(e.target.value)})}/>
+              <select aria-label={`Light ${index+1} color`} value={light.color.startsWith('#')?'custom':light.color} onChange={e=>edit({color:sanitizeMapLightColor(e.target.value)})}>
+                <option value="warm">Warm</option><option value="cool">Cool</option><option value="green">Eerie green</option><option value="custom" disabled>Custom</option>
+              </select>
+            </label>
             <SettingSlider label={`Light ${index+1} lit radius`} value={light.radiusFt} min={3} max={60} suffix=" ft" onCommit={v=>edit({radiusFt:v})}/>
             <SettingSlider label={`Light ${index+1} height`} value={light.heightFt} min={.5} max={30} step={.5} suffix=" ft" onCommit={v=>edit({heightFt:v})}/>
             <SettingSlider label={`Light ${index+1} strength`} value={light.intensity*100} min={10} max={200} suffix="%" onCommit={v=>edit({intensity:v/100})}/>
