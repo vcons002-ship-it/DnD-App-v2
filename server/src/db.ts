@@ -9,6 +9,7 @@ import type {
   Character,
   Condition,
   CreatureAbility,
+  LootContents,
   MapState,
   Monster,
   SheetAbility,
@@ -551,6 +552,12 @@ ensureColumn('characters', 'hit_dice_used_by_die', "hit_dice_used_by_die TEXT NO
 ensureColumn('characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
 // Character templates retain completed progression, never a session's pending grant.
 ensureColumn('library_characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
+// Durable per-browser id of whoever first saved a library entry. Lets a player
+// overwrite their OWN saved sheet/item; never sent to clients (it is the same
+// secret-ish id that reclaims a character). NULL (older entries, seeded SRD
+// items) means only the DM may overwrite.
+ensureColumn('library_characters', 'owner_player_id', 'owner_player_id TEXT');
+ensureColumn('library_items', 'owner_player_id', 'owner_player_id TEXT');
 
 // Merge legacy free-text monster `actions` into the SINGLE rollable system
 // (sheet_abilities): weapon-like actions ("+4 to hit, 1d6+2 slashing") become
@@ -676,6 +683,22 @@ type MapRow = {
   token_fog_revealed: string;
 };
 
+/** Parse a JSON column, falling back (and logging) when the stored text is
+ *  missing or corrupt. One bad cell must never make a whole session unloadable:
+ *  every snapshot lists all of a session's characters/monsters/maps, so a throw
+ *  here would lock the campaign. */
+export function parseJsonColumn<T>(raw: string | null | undefined, fallback: T, where: string): T {
+  if (raw == null || raw === '') return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    console.warn(`[db] corrupt JSON in ${where}; using a default`);
+    return fallback;
+  }
+}
+
+const DEFAULT_STATS = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+
 export function rowToMap(r: MapRow): MapState {
   return {
     walls: (()=>{try{return sanitizeWalls(JSON.parse(r.walls??'[]')).map(w=>{
@@ -703,8 +726,8 @@ export function rowToMap(r: MapRow): MapState {
     explorationMode: r.exploration_mode==='revealed'?'revealed':'remembered',
     mapVisionEnabled: r.map_vision_enabled!==0,
     tokenVisionEnabled: r.token_vision_enabled!==0,
-    mapFogRevealed: JSON.parse(r.map_fog_revealed ?? '[]') as string[],
-    tokenFogRevealed: JSON.parse(r.token_fog_revealed ?? '[]') as string[],
+    mapFogRevealed: parseJsonColumn(r.map_fog_revealed, [], 'maps.map_fog_revealed ' + r.id) as string[],
+    tokenFogRevealed: parseJsonColumn(r.token_fog_revealed, [], 'maps.token_fog_revealed ' + r.id) as string[],
   };
 }
 
@@ -803,7 +826,7 @@ type CharacterRow = {
 };
 
 export function rowToCharacter(r: CharacterRow): Character {
-  const leveling = JSON.parse(r.leveling ?? '{}') as Partial<NonNullable<Character['leveling']>>;
+  const leveling = parseJsonColumn(r.leveling, {}, 'characters.leveling ' + r.id) as Partial<NonNullable<Character['leveling']>>;
   return {
     id: r.id,
     sessionId: r.session_id,
@@ -819,22 +842,22 @@ export function rowToCharacter(r: CharacterRow): Character {
     tempHp: r.temp_hp ?? 0,
     armorClass: r.armor_class ?? 0,
     speed: r.speed ?? '',
-    stats: JSON.parse(r.stats),
-    spellSlots: JSON.parse(r.spell_slots),
-    resources: JSON.parse(r.resources),
-    weapons: JSON.parse(r.weapons),
-    resistances: JSON.parse(r.resistances ?? '[]'),
-    immunities: JSON.parse(r.immunities ?? '[]'),
-    weaknesses: JSON.parse(r.weaknesses ?? '[]'),
-    actions: JSON.parse(r.actions ?? '[]'),
-    abilities: JSON.parse(r.abilities ?? '[]'),
-    proficientSkills: JSON.parse(r.proficient_skills ?? '[]'),
-    saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
-    modifiers: JSON.parse(r.modifiers ?? '[]'),
-    items: JSON.parse(r.items ?? '[]'),
+    stats: parseJsonColumn(r.stats, DEFAULT_STATS, 'characters.stats ' + r.id),
+    spellSlots: parseJsonColumn(r.spell_slots, {}, 'characters.spell_slots ' + r.id),
+    resources: parseJsonColumn(r.resources, {}, 'characters.resources ' + r.id),
+    weapons: parseJsonColumn(r.weapons, [], 'characters.weapons ' + r.id),
+    resistances: parseJsonColumn(r.resistances, [], 'characters.resistances ' + r.id),
+    immunities: parseJsonColumn(r.immunities, [], 'characters.immunities ' + r.id),
+    weaknesses: parseJsonColumn(r.weaknesses, [], 'characters.weaknesses ' + r.id),
+    actions: parseJsonColumn(r.actions, [], 'characters.actions ' + r.id),
+    abilities: parseJsonColumn(r.abilities, [], 'characters.abilities ' + r.id),
+    proficientSkills: parseJsonColumn(r.proficient_skills, [], 'characters.proficient_skills ' + r.id),
+    saveProficiencies: parseJsonColumn(r.save_proficiencies, [], 'characters.save_proficiencies ' + r.id),
+    modifiers: parseJsonColumn(r.modifiers, [], 'characters.modifiers ' + r.id),
+    items: parseJsonColumn(r.items, [], 'characters.items ' + r.id),
     gold: r.gold ?? 0,
-    sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]'),
-    conditions: JSON.parse(r.conditions) as Condition[],
+    sheetAbilities: parseJsonColumn(r.sheet_abilities, [], 'characters.sheet_abilities ' + r.id),
+    conditions: parseJsonColumn(r.conditions, [], 'characters.conditions ' + r.id) as Condition[],
     claimedBy: r.claimed_by,
     ownerId: r.owner_player_id ?? null,
     lastAttackRole: (r.last_attack_role as Character['lastAttackRole']) ?? null,
@@ -845,7 +868,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     },
     killCount: r.kill_count ?? 0,
     hitDiceUsed: r.hit_dice_used ?? 0,
-    hitDiceUsedByDie: JSON.parse(r.hit_dice_used_by_die ?? '{}'),
+    hitDiceUsedByDie: parseJsonColumn(r.hit_dice_used_by_die, {}, 'characters.hit_dice_used_by_die ' + r.id),
     icon: r.icon ?? '',
   };
 }
@@ -887,34 +910,34 @@ type MonsterRow = {
 
 export function rowToMonster(r: MonsterRow): Monster {
   return {
-    crBaseline: r.cr_baseline ? JSON.parse(r.cr_baseline) : undefined,
+    crBaseline: r.cr_baseline ? parseJsonColumn(r.cr_baseline, undefined, 'monsters.cr_baseline ' + r.id) : undefined,
     id: r.id,
     sessionId: r.session_id,
     name: r.name,
     creatureType: r.creature_type,
     modelType: r.model_type ?? '',
     modelColor: r.model_color ?? '',
-    visualTags: JSON.parse(r.visual_tags ?? '[]'),
+    visualTags: parseJsonColumn(r.visual_tags, [], 'monsters.visual_tags ' + r.id),
     level: r.level ?? 0,
     maxHp: r.max_hp,
     curHp: r.cur_hp,
     tempHp: r.temp_hp ?? 0,
     armorClass: r.armor_class ?? 0,
     speed: r.speed ?? '',
-    stats: JSON.parse(r.stats ?? '{}'),
-    resistances: JSON.parse(r.resistances),
-    immunities: JSON.parse(r.immunities ?? '[]'),
-    weaknesses: JSON.parse(r.weaknesses),
-    saveProficiencies: JSON.parse(r.save_proficiencies ?? '[]'),
-    actions: JSON.parse(r.actions ?? '[]'),
-    weapons: JSON.parse(r.weapons ?? '[]'),
-    abilities: JSON.parse(r.abilities),
-    sheetAbilities: JSON.parse(r.sheet_abilities ?? '[]'),
-    conditions: JSON.parse(r.conditions) as Condition[],
+    stats: parseJsonColumn(r.stats, DEFAULT_STATS, 'monsters.stats ' + r.id),
+    resistances: parseJsonColumn(r.resistances, [], 'monsters.resistances ' + r.id),
+    immunities: parseJsonColumn(r.immunities, [], 'monsters.immunities ' + r.id),
+    weaknesses: parseJsonColumn(r.weaknesses, [], 'monsters.weaknesses ' + r.id),
+    saveProficiencies: parseJsonColumn(r.save_proficiencies, [], 'monsters.save_proficiencies ' + r.id),
+    actions: parseJsonColumn(r.actions, [], 'monsters.actions ' + r.id),
+    weapons: parseJsonColumn(r.weapons, [], 'monsters.weapons ' + r.id),
+    abilities: parseJsonColumn(r.abilities, [], 'monsters.abilities ' + r.id),
+    sheetAbilities: parseJsonColumn(r.sheet_abilities, [], 'monsters.sheet_abilities ' + r.id),
+    conditions: parseJsonColumn(r.conditions, [], 'monsters.conditions ' + r.id) as Condition[],
     source: r.source,
     disposition: r.disposition ?? 'enemy',
     ...(r.object_kind ? { objectKind: r.object_kind as Monster['objectKind'] } : {}),
-    ...(r.loot ? { loot: JSON.parse(r.loot) as Monster['loot'] } : {}),
+    ...(r.loot ? { loot: parseJsonColumn<LootContents>(r.loot, { gold: 0, items: [] }, 'monsters.loot ' + r.id) } : {}),
     ...(r.object_dc != null ? { objectDc: r.object_dc } : {}),
     lastAttackRole: (r.last_attack_role as Monster['lastAttackRole']) ?? null,
     icon: r.icon ?? '',

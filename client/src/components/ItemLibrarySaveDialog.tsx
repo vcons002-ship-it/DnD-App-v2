@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiFetch } from '../lib/api';
 import type { LibraryItem, SheetModifier } from '../../../shared/types';
 
 /** The item being saved (custom or AI-generated — they share this one path). */
@@ -28,6 +29,9 @@ export function ItemLibrarySaveDialog({
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState<LibraryItem | null>(null);
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+  // The server says whether this caller may replace the clashing entry (the DM,
+  // or the browser that saved it); otherwise the only way on is a new name.
+  const [canOverwrite, setCanOverwrite] = useState(false);
 
   const modCount = item.modifiers?.length ?? 0;
 
@@ -36,7 +40,7 @@ export function ItemLibrarySaveDialog({
     setBusy(true);
     setStatus('idle');
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/library/items${overwrite ? '?overwrite=true' : ''}`,
         {
           method: 'POST',
@@ -51,6 +55,7 @@ export function ItemLibrarySaveDialog({
       );
       if (res.status === 409) {
         const data = await res.json();
+        setCanOverwrite(data.canOverwrite === true);
         setConflict(data.existing as LibraryItem);
         return;
       }
@@ -90,8 +95,8 @@ export function ItemLibrarySaveDialog({
         {conflict ? (
           <div className="lib-conflict">
             <p className="err">
-              A library item named “{conflict.name}” already exists — saving will
-              replace it.
+              A library item named “{conflict.name}” already exists
+              {canOverwrite ? ' — saving will replace it.' : ' — pick another name.'}
             </p>
             <div className="lib-compare">
               <div>
@@ -111,9 +116,11 @@ export function ItemLibrarySaveDialog({
               </div>
             </div>
             <div className="modal-actions">
-              <button className="btn red" disabled={busy} onClick={() => save(true)}>
-                Overwrite
-              </button>
+              {canOverwrite && (
+                <button className="btn red" disabled={busy} onClick={() => save(true)}>
+                  Overwrite
+                </button>
+              )}
               <button className="btn" onClick={() => setConflict(null)}>
                 Edit name &amp; save
               </button>

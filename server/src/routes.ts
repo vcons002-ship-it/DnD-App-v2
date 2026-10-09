@@ -14,8 +14,7 @@ import type { Request, Response } from 'express';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
-import dns from 'node:dns/promises';
-import net from 'node:net';
+import { fetchRemoteImage } from './remoteImage.js';
 import { config } from './config.js';
 import { newId } from './db.js';
 import {
@@ -66,6 +65,7 @@ import {
   deleteLibraryItem,
   getLibraryCreature,
   getLibraryItemByName,
+  libraryOwner,
   listLibraryItems,
   saveLibraryCharacter,
   saveLibraryCreature,
@@ -109,54 +109,38 @@ const upload = multer({
   },
 });
 
-/** True if `ip` is loopback / private / link-local (incl. the cloud metadata
- *  address 169.254.169.254) — anything an SSRF should never be allowed to reach. */
-function isPrivateIp(ip: string): boolean {
-  if (net.isIPv4(ip)) {
-    const [a, b] = ip.split('.').map(Number);
-    return (
-      a === 0 ||
-      a === 10 ||
-      a === 127 ||
-      (a === 169 && b === 254) || // link-local + cloud metadata
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 100 && b >= 64 && b <= 127) // CGNAT
-    );
-  }
-  const v6 = ip.toLowerCase();
-  if (v6 === '::1' || v6 === '::') return true;
-  if (v6.startsWith('fe80') || v6.startsWith('fc') || v6.startsWith('fd')) return true;
-  const mapped = v6.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/); // IPv4-mapped IPv6
-  return mapped ? isPrivateIp(mapped[1]) : false;
-}
-
-/** Resolve a hostname and reject if it (or any A/AAAA record) is private —
- *  blocks SSRF to internal services / cloud metadata via the URL fetcher. */
-async function hostIsBlocked(hostname: string): Promise<boolean> {
-  const h = hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal')) return true;
-  if (net.isIP(h)) return isPrivateIp(h);
-  try {
-    const addrs = await dns.lookup(h, { all: true });
-    return addrs.some((a) => isPrivateIp(a.address));
-  } catch {
-    return true; // unresolvable → don't fetch
-  }
-}
-
 /** Verify the DM secret on a REST request (header OR body field). Returns true
  *  when authorized; otherwise writes a 403 and returns false. The secret is
  *  mandatory (config.dmPassphrase is always set), so this always enforces. */
-function requireDm(req: Request, res: Response): boolean {
+function isDmRequest(req: Request): boolean {
   const supplied =
     (typeof req.headers['x-dm-passphrase'] === 'string'
       ? (req.headers['x-dm-passphrase'] as string)
       : undefined) ??
     (typeof req.body?.dmPassphrase === 'string' ? req.body.dmPassphrase : undefined);
-  if (supplied === config.dmPassphrase) return true;
+  return supplied === config.dmPassphrase;
+}
+
+function requireDm(req: Request, res: Response): boolean {
+  if (isDmRequest(req)) return true;
   res.status(403).json({ error: 'DM secret required.' });
   return false;
+}
+
+/** The caller's durable per-browser id (`x-player-id`), the same id a player
+ *  joins with. It is never sent to other clients, so presenting it proves the
+ *  request comes from the browser that saved a library entry. */
+function playerIdOf(req: Request): string | null {
+  const id = req.headers['x-player-id'];
+  return typeof id === 'string' && id.length >= 8 && id.length <= 100 ? id : null;
+}
+
+/** May this request replace/delete the named library entry? The DM always may;
+ *  a player only for an entry their own browser first saved. */
+function canReplaceLibraryEntry(req: Request, kind: 'character' | 'item', name: string): boolean {
+  if (isDmRequest(req)) return true;
+  const me = playerIdOf(req);
+  return !!me && libraryOwner(kind, name) === me;
 }
 
 /** Tiny in-memory fixed-window rate limiter (per client IP + key). Guards the
@@ -729,11 +713,17 @@ export function createApiRouter(io: IOServer): Router {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
     const overwrite = req.query.overwrite === 'true';
+    // Adding a new entry is open to players; replacing an existing one clobbers a
+    // cross-campaign resource, so only the DM or the entry's own saver may.
+    const canReplace = canReplaceLibraryEntry(req, 'item', name);
+    if (overwrite && !canReplace) {
+      return res.status(403).json({ error: 'Only the DM or whoever saved it can replace this item.' });
+    }
     if (!overwrite) {
       const existing = getLibraryItemByName(name);
-      if (existing) return res.status(409).json({ existing });
+      if (existing) return res.status(409).json({ existing, canOverwrite: canReplace });
     }
-    res.status(201).json(saveLibraryItem({ ...req.body, name }));
+    res.status(201).json(saveLibraryItem({ ...req.body, name }, playerIdOf(req)));
   });
 
   router.delete('/library/items/:id', (req, res) => {
@@ -775,14 +765,22 @@ export function createApiRouter(io: IOServer): Router {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
     if (!name) return res.status(400).json({ error: 'name required' });
     const overwrite = req.query.overwrite === 'true';
-    const result = saveLibraryCharacter({ ...req.body, name }, overwrite);
+    const canReplace = canReplaceLibraryEntry(req, 'character', name); // same rule as items
+    if (overwrite && !canReplace) {
+      return res.status(403).json({ error: 'Only the DM or whoever saved it can replace this character.' });
+    }
+    const result = saveLibraryCharacter({ ...req.body, name }, overwrite, playerIdOf(req));
     if ('conflict' in result) {
-      return res.status(409).json({ existing: result.conflict });
+      return res.status(409).json({ existing: result.conflict, canOverwrite: canReplace });
     }
     res.status(201).json(result.saved);
   });
 
   router.delete('/library/characters/:name', (req, res) => {
+    // Deletes wipe a cross-campaign resource: the DM, or the entry's own saver.
+    if (!canReplaceLibraryEntry(req, 'character', req.params.name)) {
+      return res.status(403).json({ error: 'Only the DM or whoever saved it can delete this character.' });
+    }
     deleteLibraryCharacter(req.params.name);
     res.status(204).end();
   });
@@ -808,43 +806,13 @@ export function createApiRouter(io: IOServer): Router {
       return res.status(400).json({ error: 'http(s) urls only' });
     }
     if (rateLimited(req, res, 'from-url', 30, 60_000)) return;
-    // SSRF guard: never let this fetch loopback / private / link-local hosts
-    // (e.g. 169.254.169.254 cloud metadata, or an internal service on the VM).
-    if (await hostIsBlocked(parsed.hostname)) {
-      return res.status(400).json({ error: 'that url is not allowed' });
-    }
     try {
-      const r = await fetch(parsed, {
-        signal: AbortSignal.timeout(10_000),
-        headers: {
-          // Some image CDNs (googleusercontent included) refuse requests
-          // without a browser-ish UA.
-          'user-agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
-          accept: 'image/avif,image/webp,image/png,image/*;q=0.8,*/*;q=0.5',
-        },
-      });
-      const type = (r.headers.get('content-type') ?? '').split(';')[0].trim();
-      if (!r.ok) {
-        console.warn(`[icons/from-url] ${parsed.hostname} returned ${r.status}`);
-        const why =
-          r.status === 401 || r.status === 403
-            ? `source returned ${r.status} — the image likely requires a login`
-            : `source returned ${r.status}`;
-        return res.status(422).json({ error: why });
-      }
-      if (!type.startsWith('image/')) {
-        return res
-          .status(422)
-          .json({ error: `source sent ${type || 'no content-type'}, not an image` });
-      }
-      const buf = Buffer.from(await r.arrayBuffer());
-      if (buf.byteLength > 25 * 1024 * 1024) {
-        return res.status(413).json({ error: 'image too large' });
-      }
-      const ext = `.${(type.split('/')[1] || 'png').split(/[;+]/)[0]}`;
-      const filename = `${newId()}${ext}`;
-      fs.writeFileSync(path.join(config.uploadsDir, filename), buf);
+      // SSRF guard (loopback / private / link-local, e.g. 169.254.169.254 cloud
+      // metadata) is re-applied on every redirect hop inside fetchRemoteImage.
+      const got = await fetchRemoteImage(parsed, 25 * 1024 * 1024);
+      if (!got.ok) return res.status(got.status).json({ error: got.error });
+      const filename = `${newId()}${got.ext}`;
+      fs.writeFileSync(path.join(config.uploadsDir, filename), got.buf);
       res.status(201).json({ icon: `/uploads/${filename}` });
     } catch (err) {
       console.warn(`[icons/from-url] fetch failed for ${parsed.hostname}:`, err);

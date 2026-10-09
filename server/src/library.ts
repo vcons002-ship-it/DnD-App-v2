@@ -359,23 +359,27 @@ export type SaveCharacterInput = Partial<LibraryCharacter> & { name: string };
 export function saveLibraryCharacter(
   input: SaveCharacterInput,
   overwrite: boolean,
+  /** Saver's per-browser id; recorded as the owner of a NEW entry only. */
+  ownerId: string | null = null,
 ): { saved: LibraryCharacter } | { conflict: LibraryCharacter } {
   const name = input.name.trim();
   const existing = getLibraryCharacter(name);
   if (existing && !overwrite) return { conflict: existing };
 
-  const id =
-    (db
-      .prepare('SELECT id FROM library_characters WHERE LOWER(name) = ?')
-      .get(name.toLowerCase()) as { id: string } | undefined)?.id ?? newId();
+  const prior = db
+    .prepare('SELECT id, owner_player_id FROM library_characters WHERE LOWER(name) = ?')
+    .get(name.toLowerCase()) as { id: string; owner_player_id: string | null } | undefined;
+  const id = prior?.id ?? newId();
+  // An overwrite keeps the original owner (a DM overwrite doesn't take it over).
+  const owner = prior ? prior.owner_player_id : ownerId;
 
   db.prepare(
     `INSERT OR REPLACE INTO library_characters
        (id, name, race, class_name, subclass, level, max_hp, cur_hp, armor_class, speed,
         stats, spell_slots, resources, weapons, resistances, immunities, weaknesses, actions,
         abilities, proficient_skills, save_proficiencies, modifiers, items,
-        sheet_abilities, leveling, icon, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sheet_abilities, leveling, icon, created_at, owner_player_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -406,8 +410,18 @@ export function saveLibraryCharacter(
     JSON.stringify(portableLeveling(input.leveling) ?? {}),
     input.icon ?? '',
     Date.now(),
+    owner,
   );
   return { saved: getLibraryCharacter(name)! };
+}
+
+/** Owner (per-browser id) of a library entry by name, or null if unowned/absent. */
+export function libraryOwner(kind: 'character' | 'item', name: string): string | null {
+  const table = kind === 'character' ? 'library_characters' : 'library_items';
+  const row = db
+    .prepare(`SELECT owner_player_id FROM ${table} WHERE LOWER(name) = ?`)
+    .get(name.trim().toLowerCase()) as { owner_player_id: string | null } | undefined;
+  return row?.owner_player_id ?? null;
 }
 
 export function deleteLibraryCharacter(name: string): void {
@@ -472,22 +486,23 @@ export function saveLibraryItem(input: {
   qtyDefault?: number;
   /** Magic effects (validated here — REST bodies and AI output are untrusted). */
   modifiers?: unknown;
-}): LibraryItem {
+}, ownerId: string | null = null): LibraryItem {
   // REST-reachable: clamp/normalize the untrusted fields (a NaN qty_default
   // would bind as SQL NULL; a non-string description would throw a 500).
   const name = input.name.trim().slice(0, 120);
-  const id =
-    (db
-      .prepare('SELECT id FROM library_items WHERE LOWER(name) = ?')
-      .get(name.toLowerCase()) as { id: string } | undefined)?.id ?? newId();
+  const prior = db
+    .prepare('SELECT id, owner_player_id FROM library_items WHERE LOWER(name) = ?')
+    .get(name.toLowerCase()) as { id: string; owner_player_id: string | null } | undefined;
+  const id = prior?.id ?? newId();
+  const owner = prior ? prior.owner_player_id : ownerId; // overwrite keeps the owner
   const modifiers = sanitizeModifiers(input.modifiers, newId);
   const qtyDefault = Number.isFinite(Number(input.qtyDefault))
     ? Math.max(1, Math.round(Number(input.qtyDefault)))
     : 1;
   db.prepare(
     `INSERT OR REPLACE INTO library_items
-       (id, name, description, qty_default, data, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+       (id, name, description, qty_default, data, created_at, owner_player_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     name,
@@ -495,6 +510,7 @@ export function saveLibraryItem(input: {
     qtyDefault,
     JSON.stringify(modifiers.length ? { modifiers } : {}),
     Date.now(),
+    owner,
   );
   return rowToItem(
     db.prepare('SELECT * FROM library_items WHERE id = ?').get(id) as LibItemRow,

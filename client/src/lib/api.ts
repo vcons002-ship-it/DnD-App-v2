@@ -1,4 +1,4 @@
-import { useStore } from '../state/socket';
+import { getPlayerId, useStore } from '../state/socket';
 
 /**
  * `fetch` wrapper that attaches the DM secret so DM-gated REST routes authenticate.
@@ -16,5 +16,8 @@ export function apiFetch(input: string, init: RequestInit = {}): Promise<Respons
   const pass = useStore.getState().dmPassphrase;
   const headers = new Headers(init.headers);
   if (pass) headers.set('x-dm-passphrase', pass);
+  // The browser's durable player id: proves ownership of library entries this
+  // browser saved (so a player may overwrite their own sheet). Never shown to others.
+  headers.set('x-player-id', getPlayerId());
   return fetch(input, { ...init, headers });
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CHALLENGE_RATINGS, crLabel, creatureBaseline, scaleCreature, scaledCurrentHp, validCR, type CreatureBaseline } from '../../../shared/creatureScaling';
 import type { Condition, CreatureAbility, SheetAbility, Weapon } from '../../../shared/types';
 import { signed } from '../../../shared/skills';
@@ -154,30 +154,44 @@ export function StatBlock({
     };
   }
 
+  // The creature as it was when Edit opened. Save sends only the fields the user
+  // changed against this baseline, so live changes that land while the editor is
+  // open (damage, healing, temp HP from combat) aren't reverted by stale values.
+  const baseRef = useRef<Draft | null>(null);
+
   const startEdit = () => {
-    setD(toDraft(creature, identity));
+    const draft = toDraft(creature, identity);
+    baseRef.current = draft;
+    setD(draft);
     setEditing(true);
   };
 
+  const toPatch = (d: Draft): Record<string, unknown> => ({
+    name: d.name.trim() || creature.name,
+    level: d.level,
+    maxHp: d.maxHp,
+    curHp: d.curHp,
+    tempHp: d.tempHp,
+    armorClass: d.armorClass,
+    speed: d.speed.trim(),
+    stats: d.stats,
+    resistances: splitList(d.resistances),
+    immunities: splitList(d.immunities),
+    weaknesses: splitList(d.weaknesses),
+    saveProficiencies: d.saveProficiencies,
+    weapons: d.weapons.filter((w) => w.name.trim()),
+    actions: d.actions.filter((a) => a.name.trim()),
+    abilities: d.abilities.filter((a) => a.name.trim()),
+    ...d.identity,
+  });
+
   const save = () => {
-    onSave?.({
-      name: d.name.trim() || creature.name,
-      level: d.level,
-      maxHp: d.maxHp,
-      curHp: d.curHp,
-      tempHp: d.tempHp,
-      armorClass: d.armorClass,
-      speed: d.speed.trim(),
-      stats: d.stats,
-      resistances: splitList(d.resistances),
-      immunities: splitList(d.immunities),
-      weaknesses: splitList(d.weaknesses),
-      saveProficiencies: d.saveProficiencies,
-      weapons: d.weapons.filter((w) => w.name.trim()),
-      actions: d.actions.filter((a) => a.name.trim()),
-      abilities: d.abilities.filter((a) => a.name.trim()),
-      ...d.identity,
-    });
+    const next = toPatch(d);
+    const base = baseRef.current ? toPatch(baseRef.current) : {};
+    const patch = Object.fromEntries(
+      Object.entries(next).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(base[k])),
+    );
+    if (Object.keys(patch).length > 0) onSave?.(patch);
     setEditing(false);
   };
 
