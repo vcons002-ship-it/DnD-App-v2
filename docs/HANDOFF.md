@@ -124,9 +124,17 @@ Purely additive — the local workflow is unchanged.
   every `BACKUP_INTERVAL_DAYS` (default **3.5** ≈ twice a week), keeping the newest
   `BACKUP_KEEP` (default **8** ≈ 4 weeks). Restart-safe (last-run time is in
   `app_meta`, re-checked every ~3h). Code: `server/src/backupScheduler.ts`.
+  Each folder also holds **`library.json`** — the cross-session creature,
+  character and item libraries with their icons inlined — checksum-verified like
+  the session files (a folder is only "complete" if it was written too).
 - **Manual:** a session exports as a **self-contained JSON** (rows + base64-inlined
   `/uploads` images); import remaps all ids into a **new** session.
   Code: `server/src/backup.ts` (`exportSession`/`importSession`).
+- **Library:** "⬇ Back up library" on the `/dm` screen downloads the same
+  `library.json` (`GET /api/library/export`). Uploading it through "⬆ Restore from
+  backup file" **merges** it (`importLibrary`): same-named entries already in the
+  library are kept as-is (the API's `replace=true` overwrites them instead).
+  Produced 3D model files are not included — back up `uploads/` for those.
 - **Undo:** destructive DM actions (delete token/creature, cover fog) capture the
   rows first and restore them verbatim. Code: `server/src/undo.ts`,
   `session:undo` handler.

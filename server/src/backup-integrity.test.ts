@@ -1,16 +1,18 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { config } from './config.js';
 import { getMeta, setMeta } from './db.js';
 
-const mocks = vi.hoisted(() => ({ sessions: vi.fn(), export: vi.fn() }));
+const mocks = vi.hoisted(() => ({ sessions: vi.fn(), export: vi.fn(), library: vi.fn() }));
 vi.mock('./sessions.js', () => ({ listSessions: mocks.sessions }));
-vi.mock('./backup.js', () => ({ exportSession: mocks.export }));
+vi.mock('./backup.js', () => ({ exportSession: mocks.export, exportLibrary: mocks.library }));
+const emptyLibrary = { version: 1, kind: 'library', creatures: [], characters: [], items: [], assets: {} };
 import { runBackupNow } from './backupScheduler.js';
 
 const created: string[] = [];
+beforeEach(() => { mocks.library.mockReset(); mocks.library.mockReturnValue(emptyLibrary); });
 afterEach(() => {
   for (const dir of created.splice(0)) {
     // Strict test-only boundary for cleanup.
@@ -80,5 +82,36 @@ describe('verified backup completion', () => {
     expect(manifest.complete).toBe(false);
     expect(manifest.warnings).toContain('SAFE: Unreadable upload: missing.png');
     expect(getMeta('last_auto_backup_at')).toBe('456');
+  });
+
+  it('writes a verified library.json alongside the sessions, even with no sessions', () => {
+    mocks.sessions.mockReturnValue([]);
+    mocks.library.mockReturnValue({ ...emptyLibrary, creatures: [{ id: 'c', name: 'Owlbear' }] });
+    const now = 1_800_000_030_000;
+    expect(runBackupNow(now)).toBe(0);
+    const { dir, manifest } = manifestAt(now);
+    expect(manifest.complete).toBe(true);
+    expect(manifest.library).toBe(true);
+    const entry = manifest.files.find((f: { file: string }) => f.file === 'library.json');
+    const bytes = fs.readFileSync(path.join(dir, 'library.json'));
+    expect(crypto.createHash('sha256').update(bytes).digest('hex')).toBe(entry.sha256);
+    expect(JSON.parse(bytes.toString('utf8')).creatures[0].name).toBe('Owlbear');
+  });
+  it('does not declare a backup complete when the library export fails', () => {
+    setMeta('last_auto_backup_at', '789');
+    mocks.sessions.mockReturnValue([{ code: 'SAFE' }]);
+    mocks.export.mockReturnValue({ version: 1, assets: {} });
+    mocks.library.mockReturnValue({ ...emptyLibrary, items: [{ id: 'i', name: 'Rope' }] });
+    const write = fs.writeFileSync;
+    vi.spyOn(fs, 'writeFileSync').mockImplementation((file, ...rest) => {
+      if (String(file).endsWith('library.json.partial')) throw new Error('disk full');
+      return write(file, ...(rest as [never]));
+    });
+    const now = 1_800_000_040_000;
+    expect(runBackupNow(now)).toBe(1);
+    const { manifest } = manifestAt(now);
+    expect(manifest.complete).toBe(false);
+    expect(manifest.warnings).toContain('Export failed: library');
+    expect(getMeta('last_auto_backup_at')).toBe('789');
   });
 });

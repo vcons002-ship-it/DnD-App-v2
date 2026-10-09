@@ -1,5 +1,6 @@
-// Automatic periodic backups of every session to disk, so a lost/corrupt
-// game.db isn't a lost campaign even if the DM never clicks "export".
+// Automatic periodic backups of every session — and the cross-session
+// creature/character/item libraries — to disk, so a lost/corrupt game.db isn't
+// a lost campaign even if the DM never clicks "export".
 //
 // Restart-safe: the last run time lives in app_meta (not just a timer), and we
 // re-check every few hours, backing up only once >= INTERVAL_DAYS have elapsed.
@@ -12,7 +13,7 @@ import crypto from 'node:crypto';
 import { config } from './config.js';
 import { getMeta, setMeta } from './db.js';
 import { listSessions } from './sessions.js';
-import { exportSession } from './backup.js';
+import { exportLibrary, exportSession } from './backup.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 const INTERVAL_DAYS = Number(process.env.BACKUP_INTERVAL_DAYS) || 3.5; // ~twice a week
@@ -22,11 +23,13 @@ const META_KEY = 'last_auto_backup_at';
 
 const backupsDir = (): string => path.join(config.dataDir, 'backups');
 
-/** Back up every session into a fresh timestamped folder, record the time, prune
- *  old folders. Returns how many sessions were written. */
+/** Back up every session plus the library into a fresh timestamped folder,
+ *  record the time, prune old folders. Returns how many sessions were written. */
 export function runBackupNow(now = Date.now()): number {
   const sessions = listSessions();
-  if (!sessions.length) return 0;
+  const library = exportLibrary();
+  const hasLibrary = library.creatures.length + library.characters.length + library.items.length > 0;
+  if (!sessions.length && !hasLibrary) return 0;
 
   const stamp = new Date(now).toISOString().slice(0, 19).replace(/[:T]/g, '-');
   const dir = path.join(backupsDir(), stamp);
@@ -34,20 +37,21 @@ export function runBackupNow(now = Date.now()): number {
   let written = 0;
   const files: { file: string; sha256: string }[] = [];
   const warnings: string[] = [];
+  // Verify written bytes before making each file final.
+  const digest = (bytes: string | Buffer) => crypto.createHash('sha256').update(bytes).digest('hex');
+  const writeVerified = (file: string, serialized: string) => {
+    const filePath = path.join(dir, file);
+    fs.writeFileSync(`${filePath}.partial`, serialized);
+    const sha256 = digest(serialized);
+    if (digest(fs.readFileSync(`${filePath}.partial`)) !== sha256) throw new Error('Backup verification failed');
+    fs.renameSync(`${filePath}.partial`, filePath);
+    files.push({ file, sha256 });
+  };
   for (const s of sessions) {
     try {
       const bundle = exportSession(s.code);
       if (!bundle) { warnings.push(`Missing session: ${s.code}`); continue; }
-      const file = `session-${s.code}.json`;
-      const serialized = JSON.stringify(bundle);
-      const filePath = path.join(dir, file);
-      fs.writeFileSync(`${filePath}.partial`, serialized);
-      // Verify written bytes before making this session's file final.
-      const digest = (bytes: string | Buffer) => crypto.createHash('sha256').update(bytes).digest('hex');
-      const sha256 = digest(serialized);
-      if (digest(fs.readFileSync(`${filePath}.partial`)) !== sha256) throw new Error('Backup verification failed');
-      fs.renameSync(`${filePath}.partial`, filePath);
-      files.push({ file, sha256 });
+      writeVerified(`session-${s.code}.json`, JSON.stringify(bundle));
       warnings.push(...(bundle.assetWarnings ?? []).map(w => `${s.code}: ${w}`));
       written++;
     } catch (err) {
@@ -55,15 +59,28 @@ export function runBackupNow(now = Date.now()): number {
       console.warn(`  [backup] could not export ${s.code}:`, (err as Error).message);
     }
   }
-  const complete = written === sessions.length && warnings.length === 0;
-  const manifest = { version: 1, complete, createdAt: now, expectedSessions: sessions.length, files, warnings };
+  // The app-wide libraries (saved creatures, characters, items) live outside any
+  // session, so they get their own file in the same folder.
+  let libraryWritten = !hasLibrary;
+  if (hasLibrary) {
+    try {
+      writeVerified('library.json', JSON.stringify(library));
+      warnings.push(...(library.assetWarnings ?? []).map(w => `library: ${w}`));
+      libraryWritten = true;
+    } catch (err) {
+      warnings.push('Export failed: library');
+      console.warn('  [backup] could not export the library:', (err as Error).message);
+    }
+  }
+  const complete = written === sessions.length && libraryWritten && warnings.length === 0;
+  const manifest = { version: 1, complete, createdAt: now, expectedSessions: sessions.length, library: hasLibrary, files, warnings };
   fs.writeFileSync(path.join(dir, 'manifest.json.partial'), JSON.stringify(manifest, null, 2));
   fs.renameSync(path.join(dir, 'manifest.json.partial'), path.join(dir, 'manifest.json'));
   if (complete) {
     setMeta(META_KEY, String(now));
     pruneOldBackups();
   }
-  console.log(`  [backup] ${complete ? 'verified' : 'INCOMPLETE; previous backups retained'}: ${written} session backup(s) → data/backups/${stamp}`);
+  console.log(`  [backup] ${complete ? 'verified' : 'INCOMPLETE; previous backups retained'}: ${written} session backup(s)${hasLibrary ? ' + library' : ''} → data/backups/${stamp}`);
   return written;
 }
 

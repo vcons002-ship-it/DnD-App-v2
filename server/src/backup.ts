@@ -99,27 +99,8 @@ export function exportSession(code: string): SessionBundle | null {
 
   // Inline every referenced upload (map images, icons, decals — wherever a
   // `/uploads/<file>` path appears, including inside JSON columns).
-  const refs = new Set<string>();
-  const scan = JSON.stringify({ ...bundle, assets: undefined });
-  for (const m of scan.matchAll(/\/uploads\/([A-Za-z0-9._-]+)/g)) refs.add(m[1]);
-  let total = 0;
   const warnings: string[] = [];
-  for (const file of refs) {
-    if (!safeUploadName(file)) { warnings.push(`Unsafe upload reference: ${file}`); continue; }
-    try {
-      const size = fs.statSync(path.join(config.uploadsDir, file)).size;
-      if (total + size > MAX_ASSET_BYTES) {
-        warnings.push(`Asset capacity exceeded: ${file}`);
-        continue;
-      }
-      const buf = fs.readFileSync(path.join(config.uploadsDir, file));
-      if (total + buf.length > MAX_ASSET_BYTES) { warnings.push(`Asset capacity exceeded: ${file}`); continue; }
-      total += buf.length;
-      bundle.assets[file] = buf.toString('base64');
-    } catch {
-      warnings.push(`Unreadable upload: ${file}`);
-    }
-  }
+  let total = inlineUploads(JSON.stringify({ ...bundle, assets: undefined }), bundle.assets, warnings);
   const imagesById = new Map(bundle.chatImages!.map((image) => [image.id, image]));
   for (const id of new Set(bundle.chat.map((message) => message.image_id).filter((id) => typeof id === 'string'))) {
     const image = imagesById.get(id);
@@ -145,6 +126,55 @@ export function exportSession(code: string): SessionBundle | null {
   }
   if (warnings.length) bundle.assetWarnings = warnings;
   return bundle;
+}
+
+/** Inline every `/uploads/<file>` referenced in `scan` into `assets` (base64),
+ *  within the shared byte budget. Returns the new running total. */
+function inlineUploads(scan: string, assets: Record<string, string>, warnings: string[], total = 0): number {
+  const refs = new Set<string>();
+  for (const m of scan.matchAll(/\/uploads\/([A-Za-z0-9._-]+)/g)) refs.add(m[1]);
+  for (const file of refs) {
+    if (!safeUploadName(file)) { warnings.push(`Unsafe upload reference: ${file}`); continue; }
+    try {
+      const size = fs.statSync(path.join(config.uploadsDir, file)).size;
+      if (total + size > MAX_ASSET_BYTES) {
+        warnings.push(`Asset capacity exceeded: ${file}`);
+        continue;
+      }
+      const buf = fs.readFileSync(path.join(config.uploadsDir, file));
+      if (total + buf.length > MAX_ASSET_BYTES) { warnings.push(`Asset capacity exceeded: ${file}`); continue; }
+      total += buf.length;
+      assets[file] = buf.toString('base64');
+    } catch {
+      warnings.push(`Unreadable upload: ${file}`);
+    }
+  }
+  return total;
+}
+
+/** Write inlined assets under fresh filenames; returns old path -> new path and
+ *  the bytes written (which count toward the import's capacity cap). */
+function restoreUploads(assets: Record<string, string> | undefined): { pathMap: Map<string, string>; bytes: number } {
+  const pathMap = new Map<string, string>();
+  let totalAssetBytes = 0;
+  for (const [file, b64] of Object.entries(assets ?? {})) {
+    if (!safeUploadName(file)) continue;
+    const ext = path.extname(file) || '.png';
+    const newFile = `${newId()}${ext}`;
+    const bytes = Buffer.from(b64, 'base64');
+    totalAssetBytes += bytes.length;
+    if (totalAssetBytes > MAX_ASSET_BYTES) throw new Error('Backup image capacity exceeded.');
+    fs.writeFileSync(path.join(config.uploadsDir, newFile), bytes);
+    pathMap.set(`/uploads/${file}`, `/uploads/${newFile}`);
+  }
+  return { pathMap, bytes: totalAssetBytes };
+}
+
+/** Deep-rewrite every upload path (covers nested JSON columns) on a copy. */
+function rewriteUploadPaths<T>(data: T, pathMap: Map<string, string>): T {
+  let j = JSON.stringify(data);
+  for (const [oldP, newP] of pathMap) j = j.split(oldP).join(newP);
+  return JSON.parse(j) as T;
 }
 
 const colCache = new Map<string, string[]>();
@@ -197,29 +227,16 @@ const importSessionRows = db.transaction(
       throw new Error('Unrecognized or corrupt backup file.');
 
     // 1. Write each inlined asset under a fresh filename; map old path -> new.
-    const pathMap = new Map<string, string>();
-    let totalAssetBytes = 0;
-    for (const [file, b64] of Object.entries(bundle.assets ?? {})) {
-      if (!safeUploadName(file)) continue;
-      const ext = path.extname(file) || '.png';
-      const newFile = `${newId()}${ext}`;
-      const bytes = Buffer.from(b64, 'base64');
-      totalAssetBytes += bytes.length;
-      if (totalAssetBytes > MAX_ASSET_BYTES) throw new Error('Backup image capacity exceeded.');
-      fs.writeFileSync(path.join(config.uploadsDir, newFile), bytes);
-      pathMap.set(`/uploads/${file}`, `/uploads/${newFile}`);
-    }
+    const restored = restoreUploads(bundle.assets);
+    const pathMap = restored.pathMap;
+    let totalAssetBytes = restored.bytes;
 
     // 2. Deep-rewrite every upload path in the rows (covers nested JSON columns),
     //    working on a copy so the caller's bundle is untouched.
-    let data: SessionBundle = JSON.parse(
-      JSON.stringify({ ...bundle, assets: undefined, privateChatAssets: undefined }),
+    const data: SessionBundle = rewriteUploadPaths(
+      { ...bundle, assets: undefined, privateChatAssets: undefined } as unknown as SessionBundle,
+      pathMap,
     );
-    if (pathMap.size) {
-      let j = JSON.stringify(data);
-      for (const [oldP, newP] of pathMap) j = j.split(oldP).join(newP);
-      data = JSON.parse(j);
-    }
 
     // 3. Pre-generate fresh ids for everything a foreign key points at.
     const remap = (rows: Row[]) =>
@@ -401,3 +418,93 @@ export function importSession(bundle: SessionBundle, customCode?: string): { cod
     throw error;
   }
 }
+
+// ---- Cross-session library backup ----
+// The creature / character / item libraries are app-wide (no session), so a
+// session bundle never contains them. They get their own bundle, written into
+// every automatic backup folder and restorable through the same upload.
+
+export type LibraryBundle = {
+  version: 1;
+  kind: 'library';
+  exportedAt: number;
+  creatures: Row[];
+  characters: Row[];
+  items: Row[];
+  /** uploaded filename (no path) -> base64 contents (icons the entries use) */
+  assets: Record<string, string>;
+  assetWarnings?: string[];
+};
+
+const LIBRARY_TABLES = {
+  creatures: 'library_creatures',
+  characters: 'library_characters',
+  items: 'library_items',
+} as const;
+type LibrarySection = keyof typeof LIBRARY_TABLES;
+export type LibraryImportResult = Record<LibrarySection, { added: number; replaced: number; skipped: number }>;
+
+export const isLibraryBundle = (b: unknown): b is LibraryBundle =>
+  !!b && typeof b === 'object' && (b as LibraryBundle).kind === 'library';
+
+/** Every library entry (all columns, so migrated fields ride along) plus the
+ *  uploaded images they reference. */
+export function exportLibrary(): LibraryBundle {
+  const bundle: LibraryBundle = {
+    version: 1,
+    kind: 'library',
+    exportedAt: Date.now(),
+    creatures: all('SELECT * FROM library_creatures ORDER BY name'),
+    characters: all('SELECT * FROM library_characters ORDER BY name'),
+    items: all('SELECT * FROM library_items ORDER BY name'),
+    assets: {},
+  };
+  const warnings: string[] = [];
+  inlineUploads(JSON.stringify({ ...bundle, assets: undefined }), bundle.assets, warnings);
+  if (warnings.length) bundle.assetWarnings = warnings;
+  return bundle;
+}
+
+/**
+ * Merge a library bundle into the current library, all-or-nothing. Entries are
+ * matched by name (case-insensitive, as the library itself does). By default an
+ * entry whose name already exists is SKIPPED, so restoring never clobbers what
+ * the DM has now; `replace` overwrites those instead (keeping their id).
+ */
+export const importLibrary = db.transaction(
+  (bundle: LibraryBundle, opts: { replace?: boolean } = {}): LibraryImportResult => {
+    if (!isLibraryBundle(bundle) || bundle.version !== 1)
+      throw new Error('Unrecognized or corrupt library backup file.');
+    for (const section of Object.keys(LIBRARY_TABLES) as LibrarySection[])
+      if (bundle[section] !== undefined && !Array.isArray(bundle[section]))
+        throw new Error('Unrecognized or corrupt library backup file.');
+
+    const { pathMap } = restoreUploads(bundle.assets);
+    const data = rewriteUploadPaths(
+      { creatures: bundle.creatures ?? [], characters: bundle.characters ?? [], items: bundle.items ?? [] },
+      pathMap,
+    );
+    const result = {} as LibraryImportResult;
+    for (const section of Object.keys(LIBRARY_TABLES) as LibrarySection[]) {
+      const table = LIBRARY_TABLES[section];
+      const counts = (result[section] = { added: 0, replaced: 0, skipped: 0 });
+      for (const row of data[section]) {
+        const name = typeof row?.name === 'string' ? row.name.trim() : '';
+        if (!name) { counts.skipped++; continue; }
+        const existing = db
+          .prepare(`SELECT id FROM ${table} WHERE LOWER(name) = ?`)
+          .get(name.toLowerCase()) as { id: string } | undefined;
+        if (existing && !opts.replace) { counts.skipped++; continue; }
+        if (existing) db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(existing.id);
+        insertRow(table, row, {
+          id: existing?.id ?? newId(),
+          name,
+          created_at: typeof row.created_at === 'number' ? row.created_at : Date.now(),
+        });
+        if (existing) counts.replaced++;
+        else counts.added++;
+      }
+    }
+    return result;
+  },
+);
