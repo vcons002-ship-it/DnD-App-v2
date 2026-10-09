@@ -43,9 +43,13 @@ test('server live fireball and manual weapon damage match the streamed faces',as
  await expect(dm.locator('[data-live-dice="true"] .tray-die-result')).toHaveCount(8);
  expect((await snap()).rollLog.filter((r:any)=>r.label==='Fireball')).toHaveLength(0);
  await expect(dm.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
+ // The original tray now completes its arithmetic before the atomic command
+ // commits. Leaving the raw-physics stage is not itself a committed result.
+ await expect.poll(async()=>(await snap()).rollLog.some((r:any)=>r.label==='Fireball'),{timeout:15000}).toBe(true);
  const result=(await snap()).rollLog.find((r:any)=>r.label==='Fireball');expect(result.reveal.physical).toBe(true);
  const final=liveFrames.findLast((f:any)=>f.done&&f.sides.length===8);expect(final).toBeTruthy();expect(final.values).toEqual(result.reveal.damageDice[0].faces);
  expect(liveFrames[0].done).toBe(false);expect(liveFrames[0].values).toEqual(Array(8).fill(null));
+ await expect(dm.locator('.roll-reveal-backdrop')).toBeHidden({timeout:15000});
  }
  // A real weapon hit waits for the player's damage button, then commits once.
  socket.emit('character:update',{characterId:vanec.id,weapons:[{name:'Quarterstaff',kind:'melee',damage:'1d6',damageType:'bludgeoning',attackBonus:100}]});await snap();
@@ -62,7 +66,7 @@ test('server live fireball and manual weapon damage match the streamed faces',as
          if(!started){requestAnimationFrame(sample);return;}
          const tray=document.querySelector('.roll-reveal');
          const boxes=tray?.querySelectorAll('.tray-die-result');
-         if(!timing.filled&&boxes?.length&&[...boxes].every(b=>b.getAttribute('data-filled')==='true'))timing.filled=performance.now();
+         if(!timing.filled&&tray?.querySelector('.physics-dice-tray[data-status="settled"]')&&boxes?.length&&[...boxes].every(b=>b.getAttribute('data-filled')==='true'))timing.filled=performance.now();
          if(timing.filled&&tray?.querySelector('.rr-equation')){timing.calculation=performance.now();return;}
          requestAnimationFrame(sample);
        };requestAnimationFrame(sample);

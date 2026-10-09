@@ -2523,6 +2523,18 @@ function resolveSheetAbilityFor(
   // save. Area casts keep their target selection workflow and have no one target.
   const selectedToken = targetTokenId && !isMultiTargetSpell(ability, castLevel) ? getToken(targetTokenId) : null;
   const selectedTarget = selectedToken ? resolve(selectedToken) : null;
+  const damageReveal:RollReveal|undefined = val > 0 && dmgRoll ? {
+    kind:'damage', title:`${title} — Damage Roll`, attacker:(kind==='pc'?getCharacter(entity.id):getMonster(entity.id))?.name??roller,
+    target:selectedTarget?.name, outcome:'hit',
+    damageDice:[{label:dice,value:dmgRoll.total,faces:dmgRoll.rolls}],
+    ...(damageBonus?.value ? {damageMods:[damageBonus]} : {}),
+    damage:val, damageType:roll.damageType,
+  } : undefined;
+  // Finish the damage calculation in its original tray before a save replaces
+  // it. The committed log must not queue that earlier tray a second time.
+  const damagePresented = !!damageReveal && presentLiveCalculation(
+    `ability-damage:${kind}:${entity.id}:${ability.id}:${targetTokenId??'area'}`, damageReveal,
+  );
   const entry = addRollLog(sessionId, {
     roller,
     label: ability.name,
@@ -2533,20 +2545,7 @@ function resolveSheetAbilityFor(
     description: ability.description || undefined,
     apply,
     // Animate the spell's damage roll once, at cast (e.g. Fireball's 8d6).
-    ...(val > 0 && dmgRoll
-      ? {
-          reveal: {
-            kind: 'damage' as const,
-            attacker: title,
-            target: selectedTarget?.name,
-            outcome: 'hit' as const,
-            damageDice: [{ label: dice, value: dmgRoll.total, faces: dmgRoll.rolls }],
-            ...(damageBonus?.value ? {damageMods:[damageBonus]} : {}),
-            damage: val,
-            damageType: roll.damageType,
-          },
-        }
-      : {}),
+    ...(damageReveal ? {reveal:{...damageReveal,presentedLive:damagePresented}} : {}),
     hideMods: hidesMods(kind, entity.id),
   });
   // Fired at a single target (floating menu): a no-save (auto-hit) spell applies

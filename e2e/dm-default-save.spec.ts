@@ -46,6 +46,15 @@ test('DM attack and damage use the creature name; default Ice Breath saves and a
   await expect.poll(async()=>(await snapshot()).characters.find((c:any)=>c.id===druk.id).curHp,{timeout:45000}).toBeLessThan(100);
   await expect(page.locator('.roll-reveal-backdrop')).toBeHidden({timeout:30000});
   const hp=(await snapshot()).characters.find((c:any)=>c.id===druk.id).curHp,first=frames.length;
+  await page.evaluate(()=>{
+   const seen:{id:string;kind:string|null}[]=[];(window as any).__breathScreens=seen;
+   const observer=new MutationObserver(()=>{
+    const card=document.querySelector('.roll-reveal');
+    const id=card?.getAttribute('data-roll-id');if(!id)return;
+    if(seen.at(-1)?.id!==id)seen.push({id,kind:card?.getAttribute('data-reveal-kind')??null});
+   });observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['data-roll-id','data-reveal-kind']});
+   (window as any).__breathObserver=observer;
+  });
   await aim();await page.getByRole('dialog',{name:'Token actions'}).locator('.fm-spell-attack').filter({hasText:'Ice Breath'}).click();
   await expect(page.locator('.roll-reveal-who')).toContainText('Frost Drake',{timeout:30000});
   await expect.poll(()=>frames.slice(first).some(f=>/CON.*Sav|Sav.*CON/i.test(f.label)),{timeout:45000}).toBe(true);
@@ -54,5 +63,12 @@ test('DM attack and damage use the creature name; default Ice Breath saves and a
   expect(cast.apply.consumedTargets).toContain(pc.id);
   expect(resolved.rollLog.some((r:any)=>r.reveal?.kind==='check'&&r.reveal?.attacker?.includes('Druk')&&/CON.*Sav|Sav.*CON/i.test(r.reveal?.title))).toBe(true);
   expect(frames.filter(f=>f.dmDice).every(f=>f.attacker?.includes('Frost Drake'))).toBe(true);
+  expect(cast.reveal.presentedLive).toBe(true);
+  await expect(page.locator('.roll-reveal-backdrop')).toBeHidden({timeout:30000});
+  const screens=await page.evaluate(()=>{(window as any).__breathObserver.disconnect();return (window as any).__breathScreens;});
+  // Only the streamed damage tray and then its saving throw; no third damage tray.
+  expect([...new Set(screens.map((s:any)=>s.id))]).toHaveLength(2);
+  const done=frames.slice(first).filter(f=>f.done);
+  expect(done.some(f=>f.calculation?.kind==='damage')).toBe(true);
  }finally{dm.disconnect();}
 });
