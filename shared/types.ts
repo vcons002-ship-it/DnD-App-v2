@@ -1054,6 +1054,9 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  /** Resolved healing/temporary HP granted, distinct from the private dice total. */
+  healing?: number;
+  temporaryHp?: number;
   /** Confirmed rule trigger; indices identify exact flattened damage dice. */
   diceTrigger?:{kind?:'burst'|'burst-limit';title:string;detail:string;diceCount:number;groups:{value:number;indices:number[]}[]};
   /** This result (including bonuses) was already presented in the live group tray. */
@@ -1185,8 +1188,10 @@ export type RollEntry = {
    *  so `visibility.ts` can shape it per viewer: players see it for PCs;
    *  creature HP bookkeeping stays with the DM. */
   hpNote?: { kind: TokenKind; refId: string; text: string };
-  /** A DM roll captured while "hide my rolls" was on — dropped from player logs. */
+  /** A DM roll captured while "hide my rolls" was on; full details stay private. */
   dmOnly?: boolean;
+  /** Committed hidden-DM result: outcomes and applied amounts, without dice or stats. */
+  outcomeOnly?: boolean;
   /** Private creature roll statistics: players receive raw dice and outcomes,
    *  without numeric bonuses or calculated attack/save totals. */
   hideMods?: boolean;

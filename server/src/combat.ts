@@ -2451,6 +2451,8 @@ function resolveSheetAbilityFor(
       apply: multiple ? { amount: val, dc: 0, healing: true, targetMode: 'multiple',
         maxTargets: roll.maxTargets ?? 6, owner: kind === 'pc' ? entity.id : undefined, consumedTargets: [] } : undefined,
       reveal:healRoll?{...diceReveal(roller,healRoll,`${ability.name} — ${temporary ? 'Temporary HP' : 'Healing'}`),target:target?.name,damage:val,
+        healing:target&&!temporary?(targetDead||healingBlocked?0:val):undefined,
+        temporaryHp:temporary&&targetEntity?Math.max(0,(temporaryTotal??0)-targetEntity.tempHp):undefined,
         damageMods:[...(diceReveal(roller,healRoll).damageMods??[]),...(castMod?[{label:bonusLabel,value:castMod}]:[]),
           ...(val!==healRoll.total+castMod?[{label:'Minimum healing',value:val-healRoll.total-castMod}]:[])]}:undefined,
     },healingId);

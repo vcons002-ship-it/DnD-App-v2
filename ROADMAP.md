@@ -10,7 +10,13 @@
   approval again. Entered results use the same log format as rolled results.
   Apply commits that same result once; Discard, disconnect or a five-minute
   approval timeout leaves it unapplied. Players receive no dice, review prompt,
-  private roll entry or early facing cue. Approved visible HP feedback remains.
+  private roll entry or early facing cue. After acceptance, players receive only
+  an outcome-only history entry (Hit/Miss/Critical hit/Fumble, Pass/Fail, or
+  Resolved for checks without a DC). Automatic attacks retain their usual flow.
+  Summaries include final damage/healing amounts and resolved spell effects,
+  but omit dice, attack/check totals, modifiers, AC/DC and action payloads; unseen
+  creatures stay hidden. Private free-dice rolls stay private. Approved visible
+  HP feedback remains.
 
 - [x] Saving-throw tray headings name the creatures attempting the saves,
   including their reveal tags, while keeping the spell/maneuver and saving

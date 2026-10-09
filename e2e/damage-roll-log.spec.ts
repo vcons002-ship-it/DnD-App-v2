@@ -193,8 +193,7 @@ test('enemy damage history shows players the damage total while keeping the full
     await dm.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
     await dm.getByRole('button', { name: 'Chat & dice', exact: true }).click();
     await expectRecordedDamage(dm.locator('.roll-log .roll-damage-breakdown'), attack!);
-    // Existing hidden-DM behavior remains stronger than modifier redaction:
-    // a hidden roll adds no player history entry at all.
+    // Hidden rolls expose only the committed outcome, never dice or math.
     const playerRows = await page.locator('.roll-log .roll-entry').count();
     f.socket.emit('session:setHideDmRolls', { hide: true });
     f.socket.on('dice:hiddenReview',review=>{if(review)f.socket.emit('dice:confirmHidden',{id:review.id,apply:true});});
@@ -203,7 +202,11 @@ test('enemy damage history shows players the damage total while keeping the full
     const last = await waitForCombatRoll(f.snapshot, previous, r => r.label === 'Attack' && r.roller === 'DM');
     expect(last.dmOnly).toBe(true);
     await expect(dm.locator('.roll-log .roll-entry')).toHaveCount(playerRows + 1);
-    await expect(page.locator('.roll-log .roll-entry')).toHaveCount(playerRows);
+    await expect(page.locator('.roll-log .roll-entry')).toHaveCount(playerRows + 1);
+    const summary=page.locator('.roll-log .roll-entry').last();
+    await expect(summary.locator('.roll-total')).toHaveCount(0);
+    await expect(summary.locator('.roll-damage-breakdown')).toHaveCount(0);
+    await expect(summary).toContainText(/Hit|Miss|Critical hit|Fumble/);
   } finally {
     await dmContext.close();
   }

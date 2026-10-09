@@ -349,7 +349,7 @@ export function DicePanel({
           <button
             className={`btn tiny ${snapshot.hideDmRolls ? 'on' : ''}`}
             onClick={() => setHideDmRolls(!snapshot.hideDmRolls)}
-            title="Hide YOUR rolls (attacks/saves/checks) from players' logs — damage still applies and ±HP numbers still pop"
+            title="Keep your dice and math private. Players see committed outcomes only; saves/checks wait for your acceptance. Damage still applies and ±HP numbers still pop."
           >
             {snapshot.hideDmRolls ? '🙈 DM rolls hidden' : '👁 DM rolls shown'}
           </button>

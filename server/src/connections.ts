@@ -106,7 +106,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
     );
     io.to(socketId).emit('state:snapshot', snapshot);
     const visibleRolls = new Set(snapshot.rollLog.filter((roll) => roll.reveal).map((roll) => roll.id));
-    const publicRolls = new Set(snapshot.rollLog.map(roll=>roll.id));
+    const publicRolls = new Set(snapshot.rollLog.filter(roll=>!roll.outcomeOnly).map(roll=>roll.id));
     const visible = hpFx.filter((e) => e.areaPosition
       ? snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||visionContains(snapshot.playerVision,e.areaPosition.x,e.areaPosition.y)) && (conn.role==='dm'||(!snapshot.map.mapFogEnabled||snapshot.map.mapFogRevealed.includes(`${Math.floor(e.areaPosition.x/snapshot.map.gridSizePx)},${Math.floor(e.areaPosition.y/snapshot.map.gridSizePx)}`)))
       : snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),

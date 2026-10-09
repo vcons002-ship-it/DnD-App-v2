@@ -170,13 +170,14 @@ describe('exact attack damage-to-reveal correlation', () => {
     expect(player.order).toEqual(['state:snapshot', 'fx:hp']);
   });
 
-  it('hidden DM rolls never leak their ID or leave visible damage waiting for a hidden reveal', () => {
+  it('hidden DM outcomes have no reveal and never leave damage waiting for private dice', () => {
     const f = fixture(false);
     setHideDmRolls(f.session.id, true);
     const result = attack(f, 'DM');
     applyDamage('monster',f.target.id,2,'force',false,result.id,{impact:{id:result.id,order:0}});
     const { player, dm } = views(f);
-    expect(player.snapshot.rollLog.some((roll) => roll.id === result.id)).toBe(false);
+    expect(player.snapshot.rollLog.find((roll) => roll.id === result.id)).toMatchObject({outcomeOnly:true,hideTotal:true});
+    expect(player.snapshot.rollLog.find((roll) => roll.id === result.id)?.reveal).toBeUndefined();
     expect(player.events).toHaveLength(2);
     expect(player.events.every(e=>!e.rollId&&!e.impact)).toBe(true);
     expect(dm.events[0].rollId).toBe(result.id);

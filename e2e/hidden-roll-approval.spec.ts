@@ -60,7 +60,7 @@ test('hidden attacks resolve against AC; saves and checks await private DM appro
   if(attack.pending&&!attack.pending.done)break;
  }
  expect(attack?.pending).toBeTruthy();
- await expect(page.locator('.damage-prompt:not(.spell-prompt) .damage-prompt-btn')).toBeVisible();
+ await expect(page.locator('.damage-prompt:not(.spell-prompt) .damage-prompt-btn')).toBeVisible({timeout:30000});
  // This button intentionally pulses; click its visible centre instead of
  // waiting for the animated transform to become stationary in headed capture.
  const damageButton=await page.locator('.damage-prompt:not(.spell-prompt) .damage-prompt-btn').boundingBox();
@@ -80,11 +80,13 @@ test('hidden attacks resolve against AC; saves and checks await private DM appro
  const expand=info.getByTitle('Expand section', {exact:true});if(await expand.isVisible())await expand.click();
  await info.locator('.sb-ability-roll').filter({hasText:'STR'}).click();
  const oldCount=(await snapshot()).rollLog.length;
+ const playerLogBefore=(await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot.rollLog;
  await info.getByTitle('STR saving throw (adds proficiency if proficient)',{exact:true}).click();
  await expect(review).toBeVisible({timeout:30000});await expect(review).toContainText(/STR/i);
  await expectUnclipped(review.getByRole('button',{name:'Apply result'}));
  expect((await snapshot()).rollLog).toHaveLength(oldCount);
  const hpEvents=playerHp.length;
+ expect((await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot.rollLog).toEqual(playerLogBefore);
  const id=await page.evaluate(()=>new Promise<string>(resolve=>{
   // The ID is read from the native confirmation UI's server-driven attribute.
   resolve(document.querySelector('dialog.hidden-roll-review')!.getAttribute('data-review-id')!);
@@ -104,6 +106,7 @@ test('hidden attacks resolve against AC; saves and checks await private DM appro
  await review.getByRole('button',{name:'Review entered result',exact:true}).click();
  await expect(review).toContainText('DM-entered result');await expect(review).toContainText('Total 18');
  expect((await snapshot()).rollLog).toHaveLength(oldCount);
+ expect((await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot.rollLog).toEqual(playerLogBefore);
  await page.screenshot({path:test.info().outputPath('dm-private-save-approval.png')});
  await player.screenshot({path:test.info().outputPath('player-before-approval.png')});
  await page.waitForTimeout(1500);await review.getByRole('button',{name:'Apply result'}).click();await expect(review).toHaveCount(0);
@@ -123,7 +126,13 @@ test('hidden attacks resolve against AC; saves and checks await private DM appro
  await review.getByRole('button',{name:'Discard result'}).click();await expect(review).toHaveCount(0);
  expect((await snapshot()).rollLog).toHaveLength(beforeDiscard);
  const visible=(await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot;
- expect(visible.rollLog).toHaveLength(0);
+ expect(visible.rollLog.length).toBeGreaterThan(0);
+ expect(visible.rollLog.every(r=>r.outcomeOnly&&r.hideTotal&&!r.reveal&&!r.expr&&!r.description&&!r.pending&&!r.apply)).toBe(true);
+ const saveSummary=visible.rollLog.find(r=>r.label==='STR save')!;
+ expect(saveSummary.detail).toContain('Resolved');
+ expect(saveSummary.detail).not.toMatch(/18|15|\+|prof|DC|d20/i);
+ expect(visible.rollLog.find(r=>r.label==='Damage')?.detail).toContain(`${resolved.pending!.amount} slashing damage`);
+ await expect(player.locator('.roll-reveal-backdrop')).toHaveCount(0);
  await test.info().attach('approved-hidden-damage',{body:JSON.stringify({attack:resolved,hp:40-resolved.pending!.amount,playerDiceFrames:playerFrames.length,playerReviewMessages:playerReviews.length}),contentType:'application/json'});
  if(process.env.HIDDEN_REVIEW_VIDEO)writeFileSync(process.env.HIDDEN_REVIEW_VIDEO+'.evidence.json',JSON.stringify({attack:resolved,hpBefore:40,hpAfter:40-resolved.pending!.amount,playerDiceFrames:playerFrames.length,playerReviewMessages:playerReviews.length},null,2));
  }finally{if(capture)await capture.stop();sockets.forEach(s=>s.disconnect());await playerContext.close();}

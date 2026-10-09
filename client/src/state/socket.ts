@@ -847,7 +847,7 @@ export const useStore = create<Store>((set, get) => ({
       // log is oldest-first, so a new entry is the first one not yet seen.
       const log = snapshot.rollLog ?? [];
       if (rollSfxReady) {
-        const unseen = log.filter((e) => !seenRollIds.has(e.id)&&!e.reveal?.presentedLive&&!(get().hiddenRollReview&&e.dmOnly));
+        const unseen = log.filter((e) => !seenRollIds.has(e.id)&&!e.outcomeOnly&&!e.reveal?.presentedLive&&!(get().hiddenRollReview&&e.dmOnly));
         // Concentration notes can precede Damage, and a targeted cast can emit
         // cast + target-save reveals together. Show the latest actual result;
         // do not let a bookkeeping note hide its animation/correlated effects.

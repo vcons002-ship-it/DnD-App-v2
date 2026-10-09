@@ -116,6 +116,50 @@ export function redactCreatureMods(e: RollEntry,privateStats=false): RollEntry {
     expr:title,detail:`${title}${reveal?.target?` → ${reveal.target}`:''}${outcome?` — ${outcome}`:''}${reveal?.kind==='damage'&&reveal.damage!==undefined?` — ${reveal.damage} ${reveal.damageType??''} damage`:''}.`,reveal};
 }
 
+/** Build public history from committed hidden rolls using an explicit whitelist.
+ * Pending/rejected commands have no saved row. Never copy private text or reveal
+ * payloads, even for manually entered results. No-DC checks say Resolved. */
+export function hiddenRollOutcome(e: RollEntry, visible: Token[], monsters: Monster[], characters: Character[]): RollEntry | null {
+  const r=e.reveal;
+  // Application rows without a reveal store applied amounts, not check totals.
+  // A raw free-dice roll or an unassigned spell pool still stays private.
+  const temporaryHp=r?.temporaryHp!==undefined;
+  const healing=(e.label==='Healing'||r?.healing!==undefined||temporaryHp)&&!e.apply;
+  const damageApplication=e.label==='Damage'&&!r&&!e.apply;
+  if (!healing&&!damageApplication&&(!r?.kind || !['attack','check','damage'].includes(r.kind))) return null;
+  const knownName=(name:string|undefined):string|undefined=>{
+    if(!name)return undefined;
+    const monster=monsters.find(m=>m.name===name);
+    if(monster)return visible.some(t=>t.kind==='monster'&&t.refId===monster.id)?monster.name:undefined;
+    return characters.find(c=>c.name===name)?.name;
+  };
+  const recipient=e.hpNote?(e.hpNote.kind==='pc'?characters:monsters).find(c=>c.id===e.hpNote!.refId)?.name:
+    [...monsters,...characters].find(c=>e.expr.endsWith(`→ ${c.name}`)||e.detail.startsWith(`${c.name}:`)||e.detail.startsWith(`${c.name} is dead;`))?.name;
+  const subject=knownName(r?.attacker);
+  const target=knownName(r?.target??recipient);
+  // An unseen actor/target must not be identified by a private roll. Unknown
+  // spell/tool titles are not creature names and are never copied verbatim.
+  if(monsters.some(m=>(m.name===r?.attacker&&!subject)||(m.name===(r?.target??recipient)&&!target)))return null;
+  if(r?.visibilityTarget&&!visible.some(t=>!t.sharedSightOnly&&t.kind===r.visibilityTarget!.kind&&t.refId===r.visibilityTarget!.refId))return null;
+  const labels:Record<string,string>={hit:'Hit',miss:'Miss',crit:'Critical hit',fumble:'Fumble',pass:'Pass',fail:'Fail',none:'Resolved'};
+  const ability=e.label.match(/^(STR|DEX|CON|INT|WIS|CHA) save$/i)?.[1].toUpperCase();
+  const label=healing?'Healing':r?.kind==='attack'?'Attack':r?.kind==='damage'||damageApplication?'Damage':ability?`${ability} save`:/save/i.test(e.label)?'Saving throw':'Check';
+  const resolvedAmount=healing?(r?.temporaryHp??r?.healing??e.total):damageApplication?e.total:r?.damage;
+  const outcome=healing?(temporaryHp?'Temporary HP granted':resolvedAmount===0?'No healing':'Healing applied'):label==='Damage'?'Damage applied':labels[r?.outcome??'none'];
+  const type=r?.damageType?.toLowerCase();
+  const damageType=type&&['acid','bludgeoning','cold','fire','force','lightning','necrotic','piercing','poison','psychic','radiant','slashing','thunder'].includes(type)?` ${type}`:'';
+  const amount=Number.isFinite(resolvedAmount)&&!e.apply&&(!e.pending||e.pending.done)&&
+    (healing||damageApplication||r?.kind==='attack'||r?.kind==='damage')
+    ?`${resolvedAmount}${healing?(temporaryHp?' temporary HP':' healing'):`${damageType} damage`}`:undefined;
+  // effectOutcome is authored result text, not the private roll detail. Drop any
+  // clause carrying math/statistics rather than risk exposing a new stat format.
+  const effect=r?.effectOutcome?.split(/(?<=[.!;])\s+/).filter(clause=>
+    !/\b(?:DC|AC|HP|STR|DEX|CON|INT|WIS|CHA|proficiency|modifier|bonus|total|slots?|resistan\w*|immun\w*|vulnerab\w*)\b|\b\d*d\d+\b|[+=]|[−-]\s*\d/i.test(clause)&&
+    !monsters.some(m=>!knownName(m.name)&&clause.includes(m.name))).join(' ').trim();
+  return {id:e.id,createdAt:e.createdAt,roller:'DM',label,expr:'',total:0,hideTotal:true,outcomeOnly:true,
+    detail:[subject?`${subject}${target&&target!==subject?` → ${target}`:''}`:target,outcome,amount,effect].filter(Boolean).join(' — ')};
+}
+
 // Moved to shared/ so `sessions.ts` (which visibility.ts imports) can use the
 // same rule for initiative without a circular import. Re-exported here because
 // connections.ts and the tests already import it from this module.
@@ -405,7 +449,7 @@ export function createSnapshotBuilder(
       });
       // Rules-assistant Q&A is a DM tool — never leak it to players.
       shapedRollLog = playerRollLog ??= rollLog
-        // DM rolls captured while "hide my rolls" was on never reach players.
+        // Full hidden rolls remain private; per-viewer summaries are added below.
         .filter((e) => !e.dmOnly)
         .map((e) => ({
           ...redactCreatureMods(e,e.roller==='DM'||monsters.some(m=>m.name===e.roller)||e.reveal?.kind==='check'&&e.reveal.visibilityTarget?.kind==='monster'),
@@ -416,6 +460,16 @@ export function createSnapshotBuilder(
           smite: undefined,
           hpNote: e.hpNote?.kind==='pc' && hpNoteVisible(e.hpNote) ? e.hpNote : undefined,
         }));
+      // Visibility differs by viewer. Keep summaries out of the shared cache so
+      // a first viewer cannot leak an unseen actor to another.
+      const summaries=rollLog.filter(e=>e.dmOnly).flatMap(e=>{
+        const summary=hiddenRollOutcome(e,tokens,monsters,characters);
+        return summary?[summary]:[];
+      });
+      if(summaries.length){
+        const entries=new Map([...shapedRollLog,...summaries].map(e=>[e.id,e]));
+        shapedRollLog=rollLog.flatMap(e=>entries.has(e.id)?[entries.get(e.id)!]:[]);
+      }
       // …except the OWNER keeps their own entry's payload (both are stamped with
       // an `owner` character id): the player who cast Magic Missile assigns its
       // darts, the player who cast an AOE save spell gets the "Apply damage"
@@ -443,7 +497,7 @@ export function createSnapshotBuilder(
           ] as const),
         );
         shapedRollLog = shapedRollLog.map((e) =>
-          keep.has(e.id) ? { ...e, ...keep.get(e.id) } : e,
+          !e.outcomeOnly && keep.has(e.id) ? { ...e, ...keep.get(e.id) } : e,
         );
       }
     }
