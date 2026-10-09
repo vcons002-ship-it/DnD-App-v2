@@ -4,6 +4,7 @@ import {DoorDraft} from './DoorDraft';
 import {LightDraft} from './LightDraft';
 import {MapLightControls} from './MapLightControls';
 import {useEnvironmentEditor} from '../lib/useEnvironmentEditor';
+import type {MapSetupStep} from '../../../shared/mapSetupDraft';
 import {MapSetupDraft} from './MapSetupDraft';
 import {WallPerformanceNotice} from './WallPerformanceNotice';
 import {wallPerformanceWarning} from '../../../shared/mapWalls';
@@ -22,6 +23,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
   const [doorsDraftOpen,setDoorsDraftOpen]=useState(false);
   const [lightsDraftOpen,setLightsDraftOpen]=useState(false);
   const [setupDraftOpen,setSetupDraftOpen]=useState(false);
+  const [setupOnly,setSetupOnly]=useState<MapSetupStep>();
   const [setupScope,setSetupScope]=useState<'full'|'regions'>('full');
   const [section,setSection]=useState<'add'|'edit'|'lights'|'analysis'|null>(null);
   const placeLight=useEnvironmentEditor(s=>s.place);
@@ -43,7 +45,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
     {draftOpen&&map&&<WallDraft key={map.id} map={map} onClose={()=>setDraftOpen(false)}/>}
     {doorsDraftOpen&&map&&<DoorDraft key={map.id} map={map} onClose={()=>setDoorsDraftOpen(false)}/>}
     {lightsDraftOpen&&map&&<LightDraft key={map.id} map={map} onClose={()=>setLightsDraftOpen(false)}/>}
-    {setupDraftOpen&&map&&<MapSetupDraft key={map.id+setupScope} map={map} scope={setupScope} onClose={()=>setSetupDraftOpen(false)}/>}
+    {setupDraftOpen&&map&&<MapSetupDraft key={map.id+setupScope+setupOnly} map={map} scope={setupScope} only={setupOnly} onClose={()=>setSetupDraftOpen(false)}/>}
     <button ref={button} className={`btn tiny ${tool!=='off'?'on':''}`} onClick={()=>{
       const rect=button.current!.getBoundingClientRect();setPosition(position?null:{left:Math.max(8,Math.min(rect.left,window.innerWidth-304)),top:rect.bottom+4});
     }} aria-label="Walls" aria-expanded={!!position} title="Add or adjust walls, doors, windows and lights">Walls{tool!=='off'?`: ${toolNames[tool]}`:''} ▾</button>
@@ -54,8 +56,9 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
           {([['add','Add features'],['edit','Edit tools'],['lights','Lights'],['analysis','AI analysis']] as const).map(([id,label])=><button key={id} className={`btn tiny ${section===id?'on':''}`} aria-expanded={section===id} aria-controls={`wall-menu-${id}`} onClick={()=>setSection(section===id?null:id)}>{label}</button>)}
         </div>
         {section==='analysis'&&<div id="wall-menu-analysis" className="wall-menu-section" role="region" aria-label="AI analysis">
-        <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setSetupScope('full');setSetupDraftOpen(true);}}>Suggest walls, doors, windows &amp; lights</button>
-        <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setSetupScope('regions');setSetupDraftOpen(true);}}>Analyze selected regions</button>
+        <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setSetupScope('full');setSetupOnly(undefined);setSetupDraftOpen(true);}}>Suggest walls, doors, windows &amp; lights</button>
+        <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setSetupScope('regions');setSetupOnly(undefined);setSetupDraftOpen(true);}}>Analyze selected regions</button>
+        <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setSetupScope('full');setSetupOnly('arches');setSetupDraftOpen(true);}}>Suggest arches / overpasses</button>
         <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setDraftOpen(true);}}>Suggest walls from map art</button>
         <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setDoorsDraftOpen(true);}}>Suggest doors from map art</button>
         <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setLightsDraftOpen(true);}}>Suggest lights from map art</button>
@@ -80,6 +83,9 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
         </details>}
         {!!map?.walls?.some(w=>w.window)&&<details className="wall-menu-list"><summary>Remove windows ({map.walls.filter(w=>w.window).length})</summary>
           {map.walls.filter(w=>w.window).map((w,i)=><button key={w.id} className="measure-row" onClick={()=>{useStore.getState().editMapWalls(map.id,{removeId:w.id});setPosition(null);}}>Remove window {i+1}</button>)}
+        </details>}
+        {!!map?.walls?.some(w=>w.arch)&&<details className="wall-menu-list"><summary>Remove arches ({map.walls.filter(w=>w.arch).length})</summary>
+          {map.walls.filter(w=>w.arch).map((w,i)=><button key={w.id} className="measure-row" onClick={()=>{useStore.getState().editMapWalls(map.id,{removeId:w.id});setPosition(null);}}>Remove arch {i+1}</button>)}
         </details>}
         </div>}
         <div className="measure-label">{count} saved wall pieces · {doors.length} doors</div>

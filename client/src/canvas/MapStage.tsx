@@ -767,7 +767,7 @@ export function MapStage({
   const pickFeature=(p:Pt):string|null=>{
     const light=map?.environment?.lights.filter(l=>Math.hypot(l.x-p.x,l.y-p.y)<14/view.scale).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];
     if(light)return `light:${light.id}`;
-    const wall=[...(map?.walls??[])].filter(w=>distanceToWall(p,w)<14/view.scale).sort((a,b)=>Number(!!b.window||!!b.door)-Number(!!a.window||!!a.door)||distanceToWall(p,a)-distanceToWall(p,b))[0];
+    const wall=[...(map?.walls??[])].filter(w=>distanceToWall(p,w)<14/view.scale).sort((a,b)=>Number(!!b.window||!!b.door||!!b.arch)-Number(!!a.window||!!a.door||!!a.arch)||distanceToWall(p,a)-distanceToWall(p,b))[0];
     return wall?`wall:${wall.id}`:null;
   };
   const selectFeature=(id:string|null,additive=false)=>setFeatureSelection(old=>!id?additive?old:[]:additive?old.includes(id)?old.filter(x=>x!==id):[...old,id]:[id]);
@@ -2651,7 +2651,7 @@ export function MapStage({
                     />
                   )}
               {wallActive&&<Group name="wall-edit-outlines" listening={false}>
-                {(map?.walls??[]).map(original=>{const w=wallPreview?.id===original.id?wallPreview:original,selected=featureSelection.includes(`wall:${w.id}`);return <Path key={w.id} name="wall-edit-piece" wallId={w.id} featureSelected={selected} data={wallSvgPath(w)} fillRule="evenodd" stroke={selected?'#6ee7ff':w.window?'#398cff':'#ffc76e'} fill={selected?'#6ee7ff35':w.window?'#398cff55':w.kind||w.thickness?'#ffc76e25':undefined} strokeWidth={(selected?3:2)/view.scale}/>;})}
+                {(map?.walls??[]).map(original=>{const w=wallPreview?.id===original.id?wallPreview:original,selected=featureSelection.includes(`wall:${w.id}`);return <Path key={w.id} name="wall-edit-piece" wallId={w.id} featureSelected={selected} data={wallSvgPath(w)} fillRule="evenodd" stroke={selected?'#6ee7ff':w.arch?'#f64fe0':w.window?'#398cff':'#ffc76e'} fill={selected?'#6ee7ff35':w.arch?'#f64fe040':w.window?'#398cff55':w.kind||w.thickness?'#ffc76e25':undefined} strokeWidth={(selected?3:2)/view.scale}/>;})}
                 {wallTool==='edit'&&(map?.environment?.lights??[]).map((light,i)=><Group key={light.id} name="light-edit-marker" lightId={light.id} featureSelected={featureSelection.includes(`light:${light.id}`)} x={light.x} y={light.y}>
                   <Circle radius={10/view.scale} fill={featureSelection.includes(`light:${light.id}`)?'#6ee7ff':'#ffbf65'} stroke="#152230" strokeWidth={2/view.scale}/>
                   <Text text={String(i+1)} x={-10/view.scale} y={-6/view.scale} width={20/view.scale} align="center" fontSize={12/view.scale} fill="#142331"/>

@@ -3,6 +3,7 @@ import {createChatImageRouter} from './chatImages.js';
 import {suggestMapDoors,applyDoorDraft} from './mapDoorDraft.js';
 import {applyMapSetupDraft} from './mapSetupDraft.js';
 import {suggestMapWindows} from './mapWindowDraft.js';
+import {suggestMapArches} from './mapArchDraft.js';
 import {suggestMapGeometry,applyGeometryDraft,geometrySource} from './mapGeometryDraft.js';
 import {getMap} from './sessions.js';
 import { Router } from 'express';
@@ -262,6 +263,17 @@ export function createApiRouter(io: IOServer): Router {
     try{res.json(await suggestMapWindows(mapId,req.body?.regions,req.body?.automatic===true));}
     catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not draft windows.'});}
     finally{draftingWindows.delete(mapId);}
+  });
+  const draftingArches=new Set<string>();
+  router.post('/maps/:mapId/arch-draft',async(req,res)=>{
+    if(!requireDm(req,res))return;
+    const mapId=String(req.params.mapId);
+    if(!getMap(mapId)){res.status(404).json({error:'Map not found.'});return;}
+    if(draftingArches.has(mapId)){res.status(409).json({error:'Arch analysis is already running.'});return;}
+    draftingArches.add(mapId);
+    try{res.json(await suggestMapArches(mapId,req.body?.regions,req.body?.automatic===true));}
+    catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not draft arches.'});}
+    finally{draftingArches.delete(mapId);}
   });
   router.post('/maps/:mapId/setup-draft/apply',async(req,res)=>{
     if(!requireDm(req,res))return;

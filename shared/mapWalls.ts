@@ -2,9 +2,10 @@
 import {wallBoundarySegments,insideWallGeometry,segmentDistance,pointInRing} from './wallGeometry.js';
 import {closestWallHit,visitWallCrossings} from './wallSpatialIndex.js';
 import {sightWalls} from './windowGeometry.js';
+import {passageWalls} from './archGeometry.js';
 export type MapWall = {id: string; ax: number; ay: number; bx: number; by: number;
  kind?:'rectangle'|'circle'|'path'|'polygon';points?:WallPoint[];holes?:WallPoint[][];thickness?:number;rotation?:number;
- door?:boolean;open?:boolean;tokenId?:string;window?:boolean};
+ door?:boolean;open?:boolean;tokenId?:string;window?:boolean;arch?:boolean};
 export type WallPoint = {x: number; y: number};
 /** Advisory only: geometry is never dropped or refused based on its edge count. */
 export const WALL_PERFORMANCE_WARNING_EDGES = 2000;
@@ -66,6 +67,7 @@ export function sanitizeWalls(input: unknown): MapWall[] {
       ...(['path','polygon'].includes(w.kind)?{points:w.points.filter((p:WallPoint,i:number)=>!i||Math.hypot(p.x-w.points[i-1].x,p.y-w.points[i-1].y)>.001).map((p:WallPoint)=>({x:p.x,y:p.y}))}:{}),
       ...(w.holes?{holes:w.holes.map((r:WallPoint[])=>r.map(p=>({x:p.x,y:p.y})))}:{}),
       ...(w.window===true&&w.door!==true?{window:true}:{}),
+      ...(w.arch===true&&w.door!==true&&w.window!==true?{arch:true}:{}),
       ...(w.door===true?{door:true,open:w.open===true,...(typeof w.tokenId==='string'&&/^[\w-]{1,80}$/.test(w.tokenId)?{tokenId:w.tokenId}:{})}:{})};
     if(wall.points&&wall.points.length<(wall.kind==='polygon'?3:2))continue;
     if(wall.kind==='polygon'){
@@ -95,7 +97,7 @@ function rayHit(o: WallPoint, dx: number, dy: number, wall: MapWall): number {
 }
 
 export function hasLineOfSight(a: WallPoint, b: WallPoint, walls: readonly MapWall[] = []): boolean {
-  walls=sightWalls(walls);
+  walls=sightWalls(passageWalls(walls));
   const dx=b.x-a.x,dy=b.y-a.y, distance=Math.hypot(dx,dy);
   if (distance < EPS) return true;
   if(walls.some(w=>insideWall(a,w)||insideWall(b,w)))return false;
@@ -112,7 +114,7 @@ export function distanceToWall(p: WallPoint, w: MapWall): number {
 /** Rays just either side of each corner preserve narrow doors and crisp wall shadows.
  * Cache per source in callers: camera changes and flame flicker need no new ray casts. */
 export function wallVisibilityPolygon(origin: WallPoint, walls: readonly MapWall[], radius: number): WallPoint[] {
-  walls=sightWalls(walls);
+  walls=sightWalls(passageWalls(walls));
   if(walls.some(w=>insideWall(origin,w)))return [origin,origin,origin];
   const edges=wallEdges(walls);
   const angles=Array.from({length:96},(_,i)=>i*Math.PI/48);
@@ -140,6 +142,7 @@ export function wallVisibilityPolygon(origin: WallPoint, walls: readonly MapWall
 /** Sweep the circular base along the whole drag, stopping before first contact.
  * Segment walls have rounded endpoints; rectangle interiors are solid. */
 export function stopAtWalls(start:WallPoint,end:WallPoint,radius:number,walls:readonly MapWall[]=[]):WallPoint {
+ walls=passageWalls(walls);
  const dx=end.x-start.x,dy=end.y-start.y,length=Math.hypot(dx,dy);
  if(!length||!walls.length)return end;
  const r=Math.max(0,radius),ux=dx/length,uy=dy/length;

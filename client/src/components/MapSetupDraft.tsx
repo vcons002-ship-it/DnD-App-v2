@@ -8,25 +8,26 @@ import {fitDoorMarker} from '../../../shared/doorMaskFit';
 import {wallSvgPath} from '../../../shared/wallGeometry';
 import {apiFetch} from '../lib/api';
 import {WallPerformanceNotice} from './WallPerformanceNotice';
+import {fitArch} from '../../../shared/mapArchDraft';
 import {fitWindow} from '../../../shared/windowGeometry';
 import type {MapAnalysisRegion} from '../../../shared/mapAnalysisRegions';
 import {MapAnalysisRegionPicker} from './MapAnalysisRegionPicker';
 
-const steps:MapSetupStep[]=['walls','doors','windows','lights'];
-const names={walls:'Walls',doors:'Doors',windows:'Windows',lights:'Lights'};
-const endpoints={walls:'wall-draft',doors:'door-draft',windows:'window-draft',lights:'light-draft'};
+const steps:MapSetupStep[]=['walls','doors','windows','lights','arches'];
+const names={walls:'Walls',doors:'Doors',windows:'Windows',lights:'Lights',arches:'Arches / overpasses'};
+const endpoints={walls:'wall-draft',doors:'door-draft',windows:'window-draft',lights:'light-draft',arches:'arch-draft'};
 type Progress={state:'waiting'|'running'|'ready'|'error'|'skipped';error?:string};
-const emptySelection=():MapSetupSelection=>({walls:[],doors:[],windows:[],lights:[]});
+const emptySelection=():MapSetupSelection=>({walls:[],doors:[],windows:[],lights:[],arches:[]});
 
-/** One launch, four independent workflows, and one reviewed map update. */
-export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:()=>void;scope?:'full'|'regions'}){
+/** One launch, independent feature workflows, and one reviewed map update. */
+export function MapSetupDraft({map,onClose,scope='full',only}:{map:MapState;onClose:()=>void;scope?:'full'|'regions';only?:MapSetupStep}){
   const analysis=useMapAnalysisSource(map);
   const [drafts,setDrafts]=useState<MapSetupDrafts>({});
   const [selected,setSelected]=useState<MapSetupSelection>(emptySelection);
-  const [progress,setProgress]=useState<Record<MapSetupStep,Progress>>({walls:{state:'waiting'},doors:{state:'waiting'},windows:{state:'waiting'},lights:{state:'waiting'}});
-  const [tab,setTab]=useState<MapSetupStep>('walls'),[mask,setMask]=useState(false),[applying,setApplying]=useState(false),[error,setError]=useState('');
+  const [progress,setProgress]=useState<Record<MapSetupStep,Progress>>({walls:{state:'waiting'},doors:{state:'waiting'},windows:{state:'waiting'},lights:{state:'waiting'},arches:{state:'waiting'}});
+  const [tab,setTab]=useState<MapSetupStep>(only??'walls'),[mask,setMask]=useState(false),[applying,setApplying]=useState(false),[error,setError]=useState('');
   const [wallMaskStage,setWallMaskStage]=useState('combined');
-  const [started,setStarted]=useState(false),[enabled,setEnabled]=useState<Record<MapSetupStep,boolean>>({walls:true,doors:true,windows:true,lights:true});
+  const [started,setStarted]=useState(false),[enabled,setEnabled]=useState<Record<MapSetupStep,boolean>>(()=>({walls:!only||only==='walls',doors:!only||only==='doors',windows:!only||only==='windows',lights:!only||only==='lights',arches:only==='arches'}));
   const [naturalBoundaries,setNaturalBoundaries]=useState(true),[regions,setRegions]=useState<MapAnalysisRegion[]>([]);
   const running=started&&steps.some(s=>enabled[s]&&(progress[s].state==='running'||progress[s].state==='waiting')),busy=running||applying;
   const runStep=async(step:MapSetupStep,automatic=false)=>{
@@ -37,14 +38,14 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
       const response=await apiFetch(`/api/maps/${map.id}/${endpoints[step]}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(step==='walls'?{automatic,method:'ai',options:{naturalBoundaries,...regionOptions}}:{automatic,...regionOptions})});
       const data=await response.json();if(!response.ok)throw Error(data.error||`${names[step]} analysis failed.`);
       setDrafts(old=>({...old,[step]:data}));
-      const ids=step==='walls'?data.items.filter((i:{kind:string;confidence:number})=>i.kind==='wall'&&i.confidence>=.75):step==='doors'?data.doors:step==='windows'?data.windows:data.lights;
+      const ids=step==='walls'?data.items.filter((i:{kind:string;confidence:number})=>i.kind==='wall'&&i.confidence>=.75):step==='doors'?data.doors:step==='windows'?data.windows:step==='arches'?data.arches:data.lights;
       setSelected(old=>({...old,[step]:ids.map((i:{id:string})=>i.id)}));
       setProgress(old=>({...old,[step]:{state:data.qwenChecks?.length&&data.qwenChecks.every((c:{allowed:boolean})=>!c.allowed)?'skipped':'ready'}}));
     }catch(e){setProgress(old=>({...old,[step]:{state:'error',error:e instanceof Error?e.message:'Analysis failed.'}}));}
   };
   const runAll=()=>{
     setStarted(true);setDrafts({});setSelected(emptySelection());setProgress(Object.fromEntries(steps.map(s=>[s,{state:enabled[s]?'waiting':'skipped'}])) as Record<MapSetupStep,Progress>);
-    return Promise.allSettled(steps.filter(s=>enabled[s]).map(step=>runStep(step,true)));
+    return Promise.allSettled(steps.filter(s=>enabled[s]).map(step=>runStep(step,!only)));
   };
 
   const wallShapes=useMemo(()=>drafts.walls?.items.filter(i=>i.kind==='wall').map(i=>({item:i,wall:draftWallShape(i,drafts.walls!.source)}))??[],[drafts.walls]);
@@ -56,6 +57,14 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
       return {...d,wall:fit.wall,extensions:fit.extensions,issue:fit.issue};
     })??[];
   },[map.walls,map.gridSizePx,wallShapes,selected.walls,selected.doors,drafts.doors]);
+  const fittedArches=useMemo(()=>{
+    const walls=[...(map.walls??[]),...wallShapes.filter(w=>selected.walls.includes(w.item.id)).map(w=>w.wall),...fittedDoors.filter(d=>selected.doors.includes(d.id)&&d.wall).flatMap(d=>[...(d.extensions??[]),d.wall!])];
+    return drafts.arches?.arches.map(marker=>{
+      const fit=fitArch(marker,walls);
+      if(fit.wall&&selected.arches?.includes(marker.id))walls.push(fit.wall);
+      return {marker,...fit};
+    })??[];
+  },[map.walls,wallShapes,selected.walls,selected.doors,selected.arches,fittedDoors,drafts.arches]);
   const fittedWindows=useMemo(()=>{
     const walls=[...(map.walls??[]),...wallShapes.filter(w=>selected.walls.includes(w.item.id)).map(w=>w.wall),...fittedDoors.filter(d=>selected.doors.includes(d.id)&&d.wall).flatMap(d=>[...(d.extensions??[]),d.wall!])];
     return drafts.windows?.windows.map(marker=>{
@@ -64,10 +73,10 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
       return {marker,...fit};
     })??[];
   },[map.walls,map.gridSizePx,wallShapes,selected.walls,selected.windows,selected.doors,fittedDoors,drafts.windows]);
-  const effective:MapSetupSelection={...selected,doors:fittedDoors.filter(d=>selected.doors.includes(d.id)&&d.wall&&!d.issue).map(d=>d.id),windows:fittedWindows.filter(d=>selected.windows?.includes(d.marker.id)&&d.wall&&!d.issue).map(d=>d.marker.id)};
-  const counts={walls:wallShapes.length,doors:fittedDoors.length,windows:fittedWindows.length,lights:drafts.lights?.lights.length??0};
+  const effective:MapSetupSelection={...selected,arches:enabled.arches?fittedArches.filter(d=>selected.arches?.includes(d.marker.id)&&d.wall&&!d.issue).map(d=>d.marker.id):undefined,doors:fittedDoors.filter(d=>selected.doors.includes(d.id)&&d.wall&&!d.issue).map(d=>d.id),windows:fittedWindows.filter(d=>selected.windows?.includes(d.marker.id)&&d.wall&&!d.issue).map(d=>d.marker.id)};
+  const counts={walls:wallShapes.length,doors:fittedDoors.length,windows:fittedWindows.length,lights:drafts.lights?.lights.length??0,arches:fittedArches.length};
   const total=steps.reduce((n,s)=>n+(effective[s]?.length??0),0);
-  const source=drafts.walls?.source??drafts.doors?.source??drafts.windows?.source??drafts.lights?.source;
+  const source=drafts.walls?.source??drafts.doors?.source??drafts.windows?.source??drafts.lights?.source??drafts.arches?.source;
   const wallMaskPath=wallMaskStage==='walls'?drafts.walls?.wallMaskImagePath:wallMaskStage==='natural'?drafts.walls?.naturalMaskImagePath:drafts.walls?.maskImagePath;
   const imagePath=mask?(tab==='walls'?wallMaskPath??drafts.walls?.maskImagePath:drafts[tab]?.maskImagePath)??analysis.imagePath:source?.previewImagePath??analysis.imagePath;
   const toggle=(step:MapSetupStep,id:string)=>setSelected(old=>({...old,[step]:(old[step]??[]).includes(id)?old[step]!.filter(i=>i!==id):[...(old[step]??[]),id]}));
@@ -84,15 +93,15 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
     <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>{steps.map(s=><label key={s}><input type="checkbox" checked={enabled[s]} onChange={e=>setEnabled(old=>({...old,[s]:e.target.checked}))}/>{names[s]}</label>)}
       <label><input type="checkbox" checked={naturalBoundaries} disabled={!enabled.walls} onChange={e=>setNaturalBoundaries(e.target.checked)}/>Cave boundaries (second wall pass)</label>
     </div>
-    {!enabled.walls&&(enabled.doors||enabled.windows)&&<p style={{margin:0,color:'#ffd39a'}}>Doors and windows will fit to existing walls. Add walls first if this map has none.</p>}
+    {!enabled.walls&&(enabled.doors||enabled.windows||enabled.arches)&&<p style={{margin:0,color:'#ffd39a'}}>Doors, windows and arches will fit to existing walls. Add walls first if this map has none.</p>}
     <div style={{flex:1,minHeight:0,overflow:'auto'}}>{!analysis.loading&&!analysis.error&&(scope==='regions'?<MapAnalysisRegionPicker image={analysis.imagePath!} regions={regions} onChange={setRegions}/>:<img src={analysis.imagePath!} alt="Map to analyze" style={{display:'block',maxWidth:'100%',maxHeight:'100%',margin:'auto'}}/>)}</div>
     <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}><button className="btn" disabled={analysis.loading||!!analysis.error||!steps.some(s=>enabled[s])||scope==='regions'&&!regions.length} onClick={()=>void runAll()}>Analyze selected features</button><span>{scope==='regions'?`${regions.length} regions selected`:'Full map selected'}</span></div>
   </div>,document.body);
   return createPortal(<div role="dialog" aria-modal="true" aria-label="Map setup draft" style={{position:'fixed',inset:16,zIndex:1100,background:'#131820',border:'1px solid #aa8550',borderRadius:8,padding:16,display:'flex',flexDirection:'column',gap:10,boxShadow:'0 0 0 100vmax #000b'}}>
-    <div style={{display:'flex',justifyContent:'space-between',gap:12}}><strong>Walls, doors, windows & lights - {map.name}</strong><button className="btn" disabled={busy} onClick={onClose}>Close</button></div>
-    <p style={{margin:0}}>Separate wall, door, window and light workflows. Windows let sight and light through but block movement. Deselect mistaken windows here, or remove them afterward in the Walls menu.</p>
+    <div style={{display:'flex',justifyContent:'space-between',gap:12}}><strong>Map features - {map.name}</strong><button className="btn" disabled={busy} onClick={onClose}>Close</button></div>
+    <p style={{margin:0}}>Separate wall, door, window, arch and light workflows. Arches keep their side supports blocked and allow movement and sight through the center. Their original artwork fades over figures passing underneath. Windows let sight and light through but block movement. Deselect mistaken windows here, or remove them afterward in the Walls menu.</p>
     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{steps.map(step=><button key={step} className={`btn ${tab===step?'on':''}`} aria-label={`${names[step]} draft`} aria-pressed={tab===step} onClick={()=>setTab(step)}>{names[step]}: {progress[step].state==='ready'?`${counts[step]} found`:progress[step].state==='error'?'Needs attention':progress[step].state==='skipped'?'Skipped':progress[step].state==='running'?'Analyzing...':'Starting...'}</button>)}</div>
-    <div role="status">{applying?'Saving selected walls, doors, windows and lights...':running?'Analyzing the map. Completed results appear below while the other masks finish.':'Review complete masks below. Doors and windows fit to your selected walls; lights use the existing map art.'}</div>
+    <div role="status">{applying?'Saving selected map features...':running?'Analyzing the map. Completed results appear below while the other masks finish.':'Review complete masks below. Doors and windows fit to your selected walls; lights use the existing map art.'}</div>
     {steps.filter(s=>progress[s].state==='error').map(step=><div key={step} role="alert" style={{color:'#ffd39a'}}>{names[step]}: {progress[step].error} <button className="btn tiny" disabled={busy} onClick={()=>void runStep(step)}>Retry {names[step].toLowerCase()}</button></div>)}
     {steps.flatMap(s=>(drafts[s]?.qwenChecks??[]).map(c=><div key={`${s}-${c.feature}-${c.scope}`} role="status" style={{color:c.allowed?'#bbc8d4':'#ffd39a'}}>Qwen: {c.feature} ({c.scope}): {c.decision==='no'?'Skipped: none found; no image API request.':c.decision==='yes'?'Detected; mask requested.':'Unclear or unavailable; image API fallback.'}</div>))}
     {error&&<div role="alert" style={{color:'#ffb6a1'}}>{error}</div>}
@@ -100,7 +109,7 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
     {drafts.walls?.maskWarnings?.map(warning=><div key={warning} role="alert" style={{color:'#ffd39a'}}>{warning}</div>)}
     <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
       <button className="btn" disabled={busy||!total} onClick={apply}>Apply selected setup</button>
-      <span>{effective.walls.length} walls · {effective.doors.length} doors · {effective.windows?.length??0} windows · {effective.lights.length} lights selected</span>
+      <span>{effective.walls.length} walls · {effective.doors.length} doors · {effective.windows?.length??0} windows · {effective.lights.length} lights · {effective.arches?.length??0} arches selected</span>
       <button className="btn" disabled={busy} onClick={()=>void runAll()}>Run all again</button>
       <button className="btn" disabled={busy||!enabled[tab]} onClick={()=>void runStep(tab)}>Run {tab} directly</button>
       <button className="btn" disabled={busy} onClick={()=>setStarted(false)}>Change analysis options</button>
@@ -108,7 +117,7 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
       <label><input type="checkbox" disabled={!drafts[tab]?.maskImagePath} checked={mask} onChange={e=>setMask(e.target.checked)}/>Show {tab} mask</label>
       {mask&&tab==='walls'&&drafts.walls?.wallMaskImagePath&&<label>Mask view <select aria-label="Wall mask stage" value={wallMaskStage} onChange={e=>setWallMaskStage(e.target.value)}><option value="combined">Combined mask used for walls</option><option value="walls">Pass 1: structural walls (raw API)</option>{drafts.walls.naturalMaskImagePath&&<option value="natural">Pass 2: natural boundaries (raw API)</option>}</select></label>}
     </div>
-    <p className="muted" style={{margin:0}}>{tab==='walls'?'Check wall alignment and keep real passages open. Deselecting a wall updates opening fitting.':tab==='doors'?'Check that each suggestion is a real door. Doors without both adjoining walls are skipped. Applied doors start closed and unlocked.':tab==='windows'?'Check each blue opening. Remove false positives individually; removing a window restores the opaque wall.':'Check emitter positions. Lights start warm, with a 20 ft radius, gentle flicker and no added 3D fixture.'}</p>
+    <p className="muted" style={{margin:0}}>{tab==='walls'?'Check wall alignment and keep real passages open. Deselecting a wall updates opening fitting.':tab==='doors'?'Check that each suggestion is a real door. Doors without both adjoining walls are skipped. Applied doors start closed and unlocked.':tab==='arches'?'Magenta spans can be applied. Orange spans are uncertain and remain review-only. Removing an applied arch restores the original wall blocking.':tab==='windows'?'Check each blue opening. Remove false positives individually; removing a window restores the opaque wall.':'Check emitter positions. Lights start warm, with a 20 ft radius, gentle flicker and no added 3D fixture.'}</p>
     <div style={{display:'flex',gap:16,flex:1,minHeight:0,overflow:'auto',flexWrap:'wrap'}}>
       <div style={{flex:'1 1 500px',minWidth:0,minHeight:300,position:'relative'}}>
         {source?<svg aria-label="Combined map draft overlay" viewBox={`${source.originX??0} ${source.originY??0} ${source.width} ${source.height}`} style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
@@ -123,6 +132,8 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
               {tab==='doors'&&<text x={(d.ax+d.bx)/2+source.width*.009} y={(d.ay+d.by)/2-source.width*.01} fill={color} stroke="#000" strokeWidth={4} paintOrder="stroke" fontSize={source.width*.016}>{i+1}</text>}
             </g>;})}
             {drafts.lights?.lights.map((l,i)=><g key={l.id} onClick={()=>tab==='lights'&&!busy&&toggle('lights',l.id)} style={{cursor:tab==='lights'&&!busy?'pointer':'default'}}><circle cx={l.x} cy={l.y} r={source.width*.009} fill={selected.lights.includes(l.id)?'#ff78ee':'#777'} fillOpacity={.8} stroke="white" strokeWidth={2}/>{tab==='lights'&&<text x={l.x} y={l.y} textAnchor="middle" dominantBaseline="central" fill="#000" fontSize={source.width*.012}>{i+1}</text>}</g>)}
+            {fittedArches.map(({marker,wall,issue},i)=><g key={marker.id} onClick={()=>tab==='arches'&&!busy&&!issue&&toggle('arches',marker.id)} style={{cursor:tab==='arches'&&!busy&&!issue?'pointer':'default'}}><path d={wallSvgPath(wall??marker)} fill={issue?'#ff974d':effective.arches?.includes(marker.id)?'#f64fe0':'#999'} fillOpacity={.4} stroke="#ff7ae8" strokeWidth={2}/>{tab==='arches'&&<text x={(marker.ax+marker.bx)/2} y={marker.ay-8} fill="white" stroke="black" strokeWidth={3} paintOrder="stroke" fontSize={source.width*.016}>A{i+1}</text>}</g>)}
+            {tab==='arches'&&drafts.arches?.uncertain?.map(w=><path key={w.id} d={wallSvgPath(w)} fill="#ff8800" fillOpacity={.2} stroke="#ff8800" strokeWidth={2} strokeDasharray="6 3"/>)}
             {fittedWindows.map(({marker,wall,issue},i)=><g key={marker.id} onClick={()=>tab==='windows'&&!busy&&!issue&&toggle('windows',marker.id)} style={{cursor:tab==='windows'&&!busy&&!issue?'pointer':'default'}}><path d={wallSvgPath(wall??marker)} fill={issue?'#ff974d':effective.windows?.includes(marker.id)?'#398cff':'#999'} fillOpacity={.5} stroke="#73bbff" strokeWidth={2}/>{tab==='windows'&&<text x={(marker.ax+marker.bx)/2} y={marker.ay-8} fill="white" stroke="black" strokeWidth={3} paintOrder="stroke" fontSize={source.width*.016}>W{i+1}</text>}</g>)}
           </>}
         </svg>:<img src={analysis.imagePath!} alt="Map to analyze" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'contain'}}/>}
@@ -132,6 +143,8 @@ export function MapSetupDraft({map,onClose,scope='full'}:{map:MapState;onClose:(
         {tab==='walls'&&wallShapes.map(({item})=><label key={item.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy} checked={selected.walls.includes(item.id)} onChange={()=>toggle('walls',item.id)}/>{item.label}</label>)}
         {tab==='doors'&&fittedDoors.map((d,i)=><label key={d.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy||!!d.issue} checked={effective.doors.includes(d.id)} onChange={()=>toggle('doors',d.id)}/>Door {i+1}{!!d.extensions?.length&&<small style={{display:'block',color:'#ffe068'}}>Connects {d.extensions.length} wall ends</small>}{d.issue&&<small style={{display:'block',color:'#ffd39a'}}>{d.issue}</small>}</label>)}
         {tab==='lights'&&drafts.lights?.lights.map((l,i)=><label key={l.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy} checked={selected.lights.includes(l.id)} onChange={()=>toggle('lights',l.id)}/>Light source {i+1}</label>)}
+        {tab==='arches'&&fittedArches.map(({marker,issue},i)=><label key={marker.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy||!!issue} checked={effective.arches?.includes(marker.id)??false} onChange={()=>toggle('arches',marker.id)}/>Arch / overpass {i+1}{issue&&<small style={{display:'block',color:'#ffd39a'}}>{issue}</small>}</label>)}
+        {tab==='arches'&&!!drafts.arches?.uncertain?.length&&<p style={{color:'#ffd39a'}}>{drafts.arches.uncertain.length} uncertain spans (orange): not applied.</p>}
         {tab==='windows'&&fittedWindows.map(({marker,issue},i)=><label key={marker.id} style={{display:'block',padding:8}}><input type="checkbox" disabled={busy||!!issue} checked={effective.windows?.includes(marker.id)??false} onChange={()=>toggle('windows',marker.id)}/>Window {i+1}{issue&&<small style={{display:'block',color:'#ffd39a'}}>{issue}</small>}</label>)}
       </div>
     </div>

@@ -30,7 +30,7 @@ export function fitWindow(marker:MapWall,walls:readonly MapWall[],grid:number):{
  const c={x:(marker.ax+marker.bx)/2,y:(marker.ay+marker.by)/2};
  const width=marker.bx-marker.ax,height=marker.by-marker.ay,horizontal=width>=height;
  const elongated=Math.max(width,height)>Math.min(width,height)*1.2;
- const edges=walls.filter(w=>!w.door&&!w.window).flatMap(w=>wallBoundarySegments(w).map(e=>({...e,w})));
+ const edges=walls.filter(w=>!w.door&&!w.window&&!w.arch).flatMap(w=>wallBoundarySegments(w).map(e=>({...e,w})));
  const candidates=edges.flatMap(({a,b,w})=>{
   const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);if(length<Math.max(3,grid*.06))return [];
   const tx=dx/length,ty=dy/length,alignment=Math.abs(horizontal?tx:ty);

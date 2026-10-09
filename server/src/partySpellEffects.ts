@@ -3,6 +3,7 @@ import {partySpell} from '../../shared/partySpells.js';
 import {shieldAcBonus,spellActionBlockMessage} from '../../shared/spellBuffs.js';
 import {effectiveAc} from '../../shared/modifiers.js';
 import {tokenDistanceFt} from '../../shared/distance.js';
+import {passageWalls} from '../../shared/archGeometry.js';
 import {hasLineOfSight,distanceToWall} from '../../shared/mapWalls.js';
 import {spellSlotOptions,selectSpellSlot} from '../../shared/spellSlotPools.js';
 import type {PendingDamage,TokenKind,AbilityRollPayload} from '../../shared/types.js';
@@ -82,7 +83,7 @@ export function mistyStepError(sid:string,kind:TokenKind,id:string,d:AbilityRoll
   const map=d&&getMap(d.mapId),e=entity(kind,id),source=map&&listTokens(map.id).find(t=>t.kind===kind&&t.refId===id);
   if(!d||![d.x,d.y].every(Number.isFinite)||!map||map.sessionId!==sid||getSessionById(sid)?.activeMapId!==map.id||!source||!e)return 'Place the caster and choose a destination on the active map.';
   if(tokenDistanceFt({...source,widthFt:0},{...d,widthFt:0},map)>30+1e-6)return 'Misty Step reaches up to 30 feet.';
-  if((map.walls??[]).some(w=>!(w.door&&w.open)&&distanceToWall(d,w)<.1))return 'Choose a destination outside the wall.';
+  if(passageWalls(map.walls??[]).some(w=>!(w.door&&w.open)&&distanceToWall(d,w)<.1))return 'Choose a destination outside the wall.';
   // A visible window permits teleporting through it; closed opaque walls do not.
   if(!hasLineOfSight(source,d,map.walls))return 'Choose a destination the caster can see.';
   if(listTokens(map.id).some(t=>t.id!==source.id&&Math.hypot(t.x-d.x,t.y-d.y)<(source.widthFt+t.widthFt)*map.gridSizePx/map.feetPerSquare/2))return 'Choose an unoccupied destination.';

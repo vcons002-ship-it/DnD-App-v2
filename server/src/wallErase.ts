@@ -12,7 +12,7 @@ export function eraseWallArea(walls:MapWall[],area:NonNullable<WallEdit['eraseAr
  if(x1-x0<1||y1-y0<1)throw Error('Drag a rectangle over the section of wall to erase.');
  const cutter:clipping.Polygon=[[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]];
  return walls.flatMap(w=>{
-  if(w.door)return [w];
+  if(w.door||w.arch)return [w];
   const rings=wallContours(w);
   if(rings.length){
    const source:clipping.Polygon=rings.map(r=>r.map(p=>[p.x,p.y]));
