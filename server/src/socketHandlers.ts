@@ -256,7 +256,7 @@ const claimHolderPlayerId = (claimedBy: string | null): string | null =>
     : null) ?? null;
 
 export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boolean}={}): void {
-  type PrivateController={ready:(id:string,awaitStart?:boolean)=>Promise<void>;waitForPresentation:(id:string,ms:number)=>Promise<void>;review:(sid:string,label:string,results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>Promise<import('../../shared/types.js').HiddenRollDecision>;finished:()=>void};
+  type PrivateController={ready:(id:string,awaitStart?:boolean)=>Promise<void>;waitForPresentation:(id:string,ms:number)=>Promise<void>;review:(sid:string,label:string,results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean,cancelKind?:import('../../shared/types.js').HiddenRollCancelKind)=>Promise<import('../../shared/types.js').HiddenRollDecision>;finished:()=>void};
   const privateControllers=new Map<string,PrivateController>();
   /** Cancel every pending release for a player (they're back) so their claims
    *  aren't freed, then hand back the one character they last held if no live
@@ -325,13 +325,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if(decision.action==='reroll')socket.emit('dice:hiddenReview',null);
       hiddenReview.finish(decision);
     });
-    const reviewHidden=(sid:string,label:string,results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>new Promise<import('../../shared/types.js').HiddenRollDecision>(resolve=>{
+    const reviewHidden=(sid:string,label:string,results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean,cancelKind:import('../../shared/types.js').HiddenRollCancelKind='roll')=>new Promise<import('../../shared/types.js').HiddenRollDecision>(resolve=>{
       if(!socket.connected||getConn(socket.id)?.role!=='dm'){resolve({action:'discard'});return;}
       const id=newId();
       const finish=(decision:import('../../shared/types.js').HiddenRollDecision)=>{if(hiddenReview?.id!==id)return;clearTimeout(timer);hiddenReview=undefined;resolve(decision);};
       const timer=setTimeout(()=>{finish({action:'discard'});socket.emit('notice',{message:'Hidden roll expired without approval. Nothing was applied.'});},300000);
       hiddenReview={id,sessionId:sid,finish};
-      socket.emit('dice:hiddenReview',{id,label,results,dice,manual});
+      socket.emit('dice:hiddenReview',{id,label,results,dice,manual,cancelKind});
     });
     // Only the initiating connection may shorten its command's presentation.
     // Observers can hide a tray locally, but cannot hurry another player's roll.
@@ -400,6 +400,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             const payload=args[0] as any;
             const abilityOwner=payload?.refId && (payload.kind==='pc'?getCharacter(payload.refId):getMonster(payload.refId));
             const ability=abilityOwner?.sheetAbilities.find((a:import('../../shared/types.js').SheetAbility)=>a.id===payload?.abilityId);
+            const cancelKind:import('../../shared/types.js').HiddenRollCancelKind=event==='ability:roll'&&ability?.type==='spell'?'cast'
+              :['combat:attack','combat:riposte'].includes(event)?'attack'
+              :['combat:damage','combat:smite','combat:maneuver','combat:hitFeature'].includes(event)?'damage'
+              :['spell:repeat','save:resolve','combat:orbLeap'].includes(event)?'effect':'roll';
             const sourceEntry=payload?.rollId?getRollEntry(payload.rollId,sid):undefined;
             const pending=sourceEntry?.pending;
             const requestedToken=payload?.attackerTokenId?getToken(payload.attackerTokenId):undefined;
@@ -506,7 +510,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 const safeCalculation=calculation&&getConn(id)?.role!=='dm'&&(frame.dmDice||isDm())
                   ?redactCreatureMods({id:frame.id,roller:frame.roller,label:frame.label,expr:'',total:0,detail:'',createdAt:0,reveal:calculation},true).reveal:calculation;
                 io.to(id).emit('dice:frame',{...frame,target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
-              }},{...meta,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual)}:delegateSaves?{configureDice,review:async(results,dice,manual)=>saveController?saveController.review(sid,meta.label,results.filter(r=>r.reveal?.kind==='check'),dice,manual):true}:{})});
+              }},{...meta,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual,cancelKind)}:delegateSaves?{configureDice,review:async(results,dice,manual)=>saveController?saveController.review(sid,meta.label,results.filter(r=>r.reveal?.kind==='check'),dice,manual,cancelKind):true}:{})});
             }finally{if(areaCommand)areaPreview.clear();for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);saveController?.finished();activeDiceId=undefined;skipDicePresentation=false;}
           },failed);
           return;

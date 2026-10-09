@@ -4,7 +4,7 @@
 reject/reroll and entered attack totals, then separate damage approval in the tray,
 including damage rerolls and entered die faces. It also checks private save
 approval, manual total entry,
-discard, and readable compact review layouts at desktop and phone sizes.
+context-specific cancellation labels and explanations, and readable compact review layouts at desktop and phone sizes.
 A second player window and socket
 verify that pending secret rolls send no dice, review or history; another player/DM
 connection cannot approve the owner's result. Save-dependent effects wait for

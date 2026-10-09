@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Replace ambiguous private-roll "Discard result" with context-specific
+  Cancel cast / Cancel attack / Cancel damage roll / Cancel effect / Cancel roll.
+  A visible explanation states what is canceled, including preservation of an
+  already accepted hit when canceling only its damage. Roll behavior is unchanged.
+
 - [x] Share a player's live spell-area placement with the DM on the same map.
   Keep the confirmed footprint visible to caster and DM through all damage,
   grouped saves, rerolls and private approval, clearing only when the command

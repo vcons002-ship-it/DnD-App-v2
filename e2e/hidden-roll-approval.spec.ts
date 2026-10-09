@@ -51,6 +51,8 @@ test('hidden attacks, damage, saves and checks await private DM approval in the 
   await page.mouse.move(p.x,p.y,{steps:16});await page.mouse.click(p.x,p.y,{button:'right'});
   await page.getByRole('dialog',{name:'Token actions'}).getByRole('button',{name:/Scimitar/}).click();
   await expect(review).toBeVisible({timeout:30000});
+  await expect(review.getByRole('button',{name:'Cancel attack',exact:true})).toBeVisible();
+  await expect(review).toContainText('Cancels this attack. Nothing is applied.');
   await expect(page.locator('.roll-reveal-backdrop')).toBeVisible();
   await expect(page.locator('dialog.hidden-roll-review')).toHaveCount(0);
   const trayCanvas=await page.locator('.dice-tray-canvas').elementHandle();
@@ -88,6 +90,8 @@ test('hidden attacks, damage, saves and checks await private DM approval in the 
  await page.mouse.move(damageButton!.x+damageButton!.width/2,damageButton!.y+damageButton!.height/2,{steps:16});
  await page.mouse.click(damageButton!.x+damageButton!.width/2,damageButton!.y+damageButton!.height/2);
  await expect(review).toBeVisible({timeout:30000});
+ await expect(review.getByRole('button',{name:'Cancel damage roll',exact:true})).toBeVisible();
+ await expect(review).toContainText('The accepted hit remains.');
  await expect(review).toContainText('Damage');
  const damageReviewId=await review.getAttribute('data-review-id');
  const damageCanvas=await page.locator('.dice-tray-canvas').elementHandle();
@@ -195,7 +199,7 @@ test('hidden attacks, damage, saves and checks await private DM approval in the 
  await page.locator('.dice-row input[placeholder="2d6+3"]').fill('1d20+7');
  await page.locator('.dice-row').getByRole('button',{name:'Roll',exact:true}).click();
  await expect(review).toBeVisible({timeout:30000});await expect(review).toContainText('7');
- await review.getByRole('button',{name:'Discard result'}).click();await expect(review).toHaveCount(0);
+ await review.getByRole('button',{name:'Cancel roll'}).click();await expect(review).toHaveCount(0);
  expect((await snapshot()).rollLog).toHaveLength(beforeDiscard);
  const visible=(await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot;
  expect(visible.rollLog.length).toBeGreaterThan(0);

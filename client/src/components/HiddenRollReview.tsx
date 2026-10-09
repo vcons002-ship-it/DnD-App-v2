@@ -27,6 +27,13 @@ export function HiddenRollReview(){
    ?d.faces.map(()=>Number(values[String(d.index)]??d.total!)-d.bonus!)
    :d.faces.map((f,i)=>Number(values[`${d.index}:${i}`]??f))}))});
  };
+ const cancellation={
+  cast:{label:'Cancel cast',hint:'Cancels the whole cast. Nothing is applied.'},
+  attack:{label:'Cancel attack',hint:'Cancels this attack. Nothing is applied.'},
+  damage:{label:'Cancel damage roll',hint:'Cancels this damage roll. The accepted hit remains.'},
+  effect:{label:'Cancel effect',hint:'Cancels this effect only; earlier results stay applied.'},
+  roll:{label:'Cancel roll',hint:'Cancels this roll. Nothing is applied.'},
+ }[review.cancelKind??'roll'];
  const outcomes={hit:'Hit',miss:'Miss',crit:'Critical hit',fumble:'Fumble',pass:'Save passed',fail:'Save failed',none:''};
  return <section className="hidden-roll-review" role="region" data-review-id={review.id} data-grouped={results.length>1} aria-label="Approve hidden result" onClick={event=>event.stopPropagation()}>
   <header><span className="hidden-roll-private">DM ONLY · NOT APPLIED YET</span>
@@ -51,8 +58,8 @@ export function HiddenRollReview(){
   <footer><div className="hidden-roll-secondary">
    {!!review.dice.length&&<><button className="btn" disabled={submitting||!connected} onClick={()=>{setWorking('Rerolling the correct dice for this step…');confirm({action:'reroll'});}}>Reject &amp; reroll</button>
     <button className="btn" disabled={submitting||!connected} onClick={()=>setEditing(!editing)}>Enter result</button></>}
-   <button className="btn" disabled={submitting||!connected} onClick={()=>confirm(false)}>Discard result</button>
+   <button className="btn" disabled={submitting||!connected} aria-describedby={`cancel-hint-${review.id}`} title={cancellation.hint} onClick={()=>confirm(false)}>{cancellation.label}</button>
   </div><button className="btn primary hidden-roll-accept" disabled={submitting||!connected} onClick={()=>confirm(true)}>{submitting?'Finishing…':'Apply result'}</button>
-  <span>Players see the outcome only after you apply it.</span></footer>
+  <span id={`cancel-hint-${review.id}`}>{cancellation.hint}</span></footer>
  </section>;
 }

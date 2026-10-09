@@ -1744,7 +1744,8 @@ export type SpellAreaPreview = {id:string;name:string;spec:import('./spellAreas.
 export type HiddenRollResult = {label:string;detail:string;total:number;reveal?:RollReveal};
 export type HiddenRollDice = {index:number;expr:string;sides:number[];faces:number[];labels?:string[];bonus?:number;total?:number};
 export type HiddenRollDecision = {action:'apply'|'discard'|'reroll'}|{action:'manual';faces:{index:number;values:number[]}[]};
-export type HiddenRollReview = {id:string;label:string;results:HiddenRollResult[];dice:HiddenRollDice[];manual?:boolean};
+export type HiddenRollCancelKind = 'cast'|'attack'|'damage'|'effect'|'roll';
+export type HiddenRollReview = {id:string;label:string;cancelKind?:HiddenRollCancelKind;results:HiddenRollResult[];dice:HiddenRollDice[];manual?:boolean};
 
 export interface ClientToServerEvents {
   'dice:confirmHidden': (payload:{id:string;apply?:boolean;decision?:HiddenRollDecision}) => void;
