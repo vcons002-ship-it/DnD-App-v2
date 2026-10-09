@@ -2,6 +2,7 @@ import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { Group, Rect, Line, Text } from 'react-konva';
 import Konva from 'konva';
 import type { Token } from '../../../shared/types';
+import { useStore } from '../state/socket';
 
 /**
  * Chat bubbles floating over a PC token: a "•••" indicator while that player is
@@ -89,18 +90,17 @@ const Bubble = memo(function Bubble({
 });
 
 export const SpeechBubbles = memo(function SpeechBubbles({
-  typingChars,
-  sayBubbles,
   tokens,
   pxPerFoot,
   gridSizePx,
 }: {
-  typingChars: Record<string, true>;
-  sayBubbles: Record<string, { text: string; id: number }>;
   tokens: Token[];
   pxPerFoot: number;
   gridSizePx: number;
 }) {
+  // Subscribed here so typing/say updates re-render only this layer, not the map.
+  const typingChars = useStore((s) => s.typingChars);
+  const sayBubbles = useStore((s) => s.sayBubbles);
   const fontSize = Math.max(12, gridSizePx * 0.26);
   // Say bubbles win over typing for the same character (the store already
   // clears typing on say, but guard against an out-of-order render).

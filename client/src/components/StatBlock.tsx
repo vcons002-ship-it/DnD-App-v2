@@ -913,18 +913,24 @@ function WeaponEditor({
   const [hits, setHits] = useState<PickRow[]>([]);
   useEffect(() => {
     if (!picking) return;
-    let live = true;
-    const qs = encodeURIComponent(q);
-    // Creatures pick from BOTH libraries (natural attacks first, then weapons);
-    // PCs pick from the weapon book only.
-    const sources = monster
-      ? [fetch(`/api/attacks?q=${qs}`), fetch(`/api/weapons?q=${qs}`)]
-      : [fetch(`/api/weapons?q=${qs}`)];
-    Promise.all(sources.map((p) => p.then((r) => r.json()).catch(() => ({ results: [] }))))
-      .then((ds) => live && setHits(ds.flatMap((d) => d.results ?? [])))
-      .catch(() => live && setHits([]));
+    // Debounced and cancelled, like the spell search: one lookup per pause in
+    // typing rather than one (or two) per keystroke.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      const qs = encodeURIComponent(q);
+      const get = (url: string) => fetch(url, { signal: ctrl.signal });
+      // Creatures pick from BOTH libraries (natural attacks first, then weapons);
+      // PCs pick from the weapon book only.
+      const sources = monster
+        ? [get(`/api/attacks?q=${qs}`), get(`/api/weapons?q=${qs}`)]
+        : [get(`/api/weapons?q=${qs}`)];
+      Promise.all(sources.map((p) => p.then((r) => r.json()).catch(() => ({ results: [] }))))
+        .then((ds) => !ctrl.signal.aborted && setHits(ds.flatMap((d) => d.results ?? [])))
+        .catch(() => !ctrl.signal.aborted && setHits([]));
+    }, q ? 200 : 0);
     return () => {
-      live = false;
+      clearTimeout(timer);
+      ctrl.abort();
     };
   }, [q, picking, monster]);
 

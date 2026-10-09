@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Group, Line, Rect, Text } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
+import { useStore } from '../state/socket';
 
 /**
  * Live "laser pointers": a small labeled arrow at each other participant's cursor
@@ -9,14 +10,15 @@ import { rollerColor } from '../lib/rollStyle';
  * ~constant on screen regardless of zoom. Click-through (listening=false).
  */
 export const CursorPointers = memo(function CursorPointers({
-  cursors,
   currentMapId,
   scale,
 }: {
-  cursors: Record<string, { name: string; x: number; y: number; mapId: string }>;
   currentMapId: string | undefined;
   scale: number;
 }) {
+  // Subscribed here, not in MapStage: cursor packets arrive ~20×/s per person
+  // and must only re-render this small layer.
+  const cursors = useStore((s) => s.cursors);
   const entries = Object.entries(cursors).filter(([, c]) => c.mapId === currentMapId);
   if (entries.length === 0) return null;
   const s = 1 / Math.max(scale, 0.05); // keep a roughly constant on-screen size

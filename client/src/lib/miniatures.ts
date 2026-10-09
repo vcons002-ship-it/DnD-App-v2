@@ -42,13 +42,21 @@ export async function refreshMiniatureCatalog() {
   finally { pending = false; }
 }
 let users = 0, timer: ReturnType<typeof setInterval> | undefined;
+const refreshWhenVisible = () => { if (document.visibilityState === 'visible') void refreshMiniatureCatalog(); };
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 export function useMiniatureCatalog() {
   const current = useSyncExternalStore(subscribe, () => revision);
   useEffect(() => {
     users++;
-    if (users === 1) { void refreshMiniatureCatalog(); timer = setInterval(() => { void refreshMiniatureCatalog(); }, 5000); }
-    return () => { users--; if (!users) clearInterval(timer); };
+    // The server pushes `assets:catalog` when a model is published; this slow
+    // poll is only a fallback for a missed push (it used to run every 5 s on
+    // every client), plus a refresh when the tab comes back into view.
+    if (users === 1) {
+      void refreshMiniatureCatalog();
+      timer = setInterval(() => { void refreshMiniatureCatalog(); }, 30_000);
+      document.addEventListener('visibilitychange', refreshWhenVisible);
+    }
+    return () => { users--; if (!users) { clearInterval(timer); document.removeEventListener('visibilitychange', refreshWhenVisible); } };
   }, []);
   return current;
 }

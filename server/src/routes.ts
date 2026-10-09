@@ -151,6 +151,8 @@ const rlBuckets = new Map<string, { count: number; resetAt: number }>();
 function rateLimited(req: Request, res: Response, key: string, max: number, windowMs: number): boolean {
   const id = `${key}:${req.ip ?? 'unknown'}`;
   const now = Date.now();
+  // Sweep expired windows now and then so the map can't grow without bound.
+  if (rlBuckets.size > 1000) for (const [k, v] of rlBuckets) if (now >= v.resetAt) rlBuckets.delete(k);
   const b = rlBuckets.get(id);
   if (!b || now >= b.resetAt) {
     rlBuckets.set(id, { count: 1, resetAt: now + windowMs });

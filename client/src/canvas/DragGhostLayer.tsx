@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Circle, Group, Line, Text } from 'react-konva';
 import type { Token } from '../../../shared/types';
+import { useStore } from '../state/socket';
 
 /**
  * Renders a ghost "drag tether" for every token ANOTHER user is currently
@@ -11,16 +12,16 @@ import type { Token } from '../../../shared/types';
  * aren't dragging, so re-rendering this small layer per update costs nothing.
  */
 export const DragGhostLayer = memo(function DragGhostLayer({
-  ghosts,
   tokens,
   pxPerFoot,
   gridSizePx,
 }: {
-  ghosts: Record<string, { x: number; y: number; hidden?: boolean }>;
   tokens: Token[];
   pxPerFoot: number;
   gridSizePx: number;
 }) {
+  // Subscribed here so each drag packet re-renders only this layer, not the map.
+  const ghosts = useStore((s) => s.dragGhosts);
   const ids = Object.keys(ghosts);
   if (ids.length === 0) return null;
   const feetPerPixel = pxPerFoot > 0 ? 1 / pxPerFoot : 0;

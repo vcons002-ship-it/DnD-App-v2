@@ -12,6 +12,8 @@ export class AssetQueue {
   private state: State;
   private active = false;
   private started = false;
+  /** Called after a model is published (the public catalog changed). */
+  onCatalogChange: () => void = () => {};
   constructor(private file: string, private produce: Producer, private notice: (message: string) => void = () => {}) {
     this.state = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { paused: false, jobs: [], models: [] };
     for (const job of this.state.jobs) if (job.state === 'running') {
@@ -69,6 +71,7 @@ export class AssetQueue {
           if (model.id !== job.family || !model.url.startsWith('/uploads/miniatures/') || !(model.bytes > 0) || !(model.triangles > 0)) throw Error('Model publication validation failed.');
           this.state.models = [...this.state.models.filter(m => m.id !== model.id), model];
           job.state = 'ready'; job.stage = 'Ready'; delete job.error;
+          try { this.onCatalogChange(); } catch { /* a listener cannot break the queue */ }
           this.announce(`3D ${job.family}: ready. Matching tokens will load the model automatically.`);
         } catch (error) {
           job.state = 'failed'; job.stage = 'Needs attention';

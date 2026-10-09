@@ -11,7 +11,7 @@ import type {
 } from '../../shared/types.js';
 import { buildSnapshot, createSnapshotBuilder } from './visibility.js';
 import { addChatMessage, drainHpFx, getActiveMapId, getMap, getCharacter, getMonster } from './sessions.js';
-import type { Token } from '../../shared/types.js';
+import type { StateSnapshot, Token } from '../../shared/types.js';
 
 export type IOServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
@@ -26,6 +26,11 @@ export type Conn = {
 };
 
 const conns = new Map<string, Conn>();
+// The last role-shaped snapshot sent to each connection: exactly what that
+// viewer can currently see. High-rate ephemeral fan-outs (live drag previews)
+// gate on it instead of rebuilding every snapshot for every packet. Cleared
+// whenever the connection's role/session/view changes.
+const lastSent = new Map<string, StateSnapshot>();
 // Connection-scoped credentials never enter shared snapshots or image URLs.
 const mediaTokens=new Map<string,string>();
 export const chatAccessToken=(socketId:string):string|undefined=>mediaTokens.get(socketId);
@@ -51,6 +56,7 @@ export function broadcastAiStatus(io: IOServer, message: string): void {
 export const setConn = (socketId: string, conn: Conn): void => {
   const previous=conns.get(socketId);
   conns.set(socketId, conn);
+  lastSent.delete(socketId);
   if(!mediaTokens.has(socketId)||previous?.sessionId!==conn.sessionId||previous?.role!==conn.role||previous?.playerId!==conn.playerId)
     mediaTokens.set(socketId,randomBytes(32).toString('hex'));
 };
@@ -58,6 +64,7 @@ export const getConn = (socketId: string): Conn | undefined => conns.get(socketI
 export const dropConn = (socketId: string): void => {
   conns.delete(socketId);
   mediaTokens.delete(socketId);
+  lastSent.delete(socketId);
 };
 
 /** Is this socket id currently connected (i.e. an active player/DM)? Used to
@@ -114,6 +121,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
       conn.playerId,
     );
     io.to(socketId).emit('state:snapshot', snapshot);
+    lastSent.set(socketId, snapshot);
     const visibleRolls = new Set(snapshot.rollLog.filter((roll) => roll.reveal).map((roll) => roll.id));
     const publicRolls = new Set(snapshot.rollLog.filter(roll=>!roll.outcomeOnly).map(roll=>roll.id));
     const visible = hpFx.filter((e) => e.areaPosition
@@ -156,14 +164,16 @@ export function broadcastTokenDrag(
   const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
   const owner = token.kind === 'pc' ? getCharacter(token.refId)?.claimedBy : null;
   const foe = token.kind === 'monster' && getMonster(token.refId)?.disposition !== 'friendly';
-  const build=createSnapshotBuilder(sessionId);
+  // Built only if some viewer has no cached snapshot (drag packets arrive many
+  // times a second; the session doesn't change between them).
+  let build: ReturnType<typeof createSnapshotBuilder> | undefined;
   for (const [socketId, conn] of conns) {
     if (socketId === fromSocketId || conn.sessionId !== sessionId) continue;
     if (sender.role === 'dm' && conn.role !== 'dm') continue;
     // Players are locked to the active map; a DM may be staging another.
     const viewMapId = conn.role === 'dm' ? conn.viewMapId ?? activeMapId : activeMapId;
     if (token.mapId !== viewMapId) continue;
-    const personal=conn.role==='dm'?undefined:build?.(conn.role,null,socketId,conn.playerId);
+    const personal=conn.role==='dm'?undefined:lastSent.get(socketId)??(build===undefined?(build=createSnapshotBuilder(sessionId)):build)?.(conn.role,null,socketId,conn.playerId);
     if(personal&&!personal.tokens.some(t=>t.id===token.id))continue;
     const visible = (px: number, py: number) => fogVisionContains(personal?.playerVision,px,py,usesTokenVision(map)) && tokenVisibleAt({ role: conn.role,
       hidden: token.isHidden, owned: owner === socketId, foe, mapFog, tokenFog, grid, x: px, y: py });
@@ -248,5 +258,8 @@ export function sendSnapshot(io: IOServer, socketId: string): void {
     socketId,
     conn.playerId,
   );
-  if (snapshot) io.to(socketId).emit('state:snapshot', snapshot);
+  if (snapshot) {
+    io.to(socketId).emit('state:snapshot', snapshot);
+    lastSent.set(socketId, snapshot);
+  }
 }
