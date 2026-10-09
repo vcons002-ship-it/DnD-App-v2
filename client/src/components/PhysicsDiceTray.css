@@ -285,3 +285,16 @@
  .tray-result-panel .rr-equation .rr-adjustment{padding:3px 6px;}
  .tray-result-panel .rr-equation .rr-equation-total strong{font-size:34px;}
 }
+
+/* Private rolls keep the exact same window/canvas bounds through start, roll,
+   review, manual edit and reroll. Controls occupy the reserved result region. */
+[data-dice-presentation][data-private-roll=true]:not(.is-impact)>.roll-reveal{grid-template-rows:64px 26px minmax(0,1fr) 210px 24px}
+[data-private-roll=true] .tray-result-panel{overflow:hidden;position:relative}
+[data-reviewing=true] .tray-save-verdict{visibility:hidden}
+.tray-save-start{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:4px;box-sizing:border-box}
+.tray-save-start>strong{font-size:22px;color:#ffe9b5}
+.tray-save-start>span{font-size:18px;color:#eee4d1}
+.tray-save-start .btn{font-size:22px;min-height:50px;padding:10px 30px}
+.tray-save-start small{color:#bac6d9;font-size:14px}
+@media(max-width:600px){[data-dice-presentation][data-private-roll=true]:not(.is-impact)>.roll-reveal{grid-template-rows:58px 24px minmax(0,1fr) 240px 20px;padding:10px;gap:4px}}
+@media(max-height:650px){[data-dice-presentation][data-private-roll=true]:not(.is-impact)>.roll-reveal{grid-template-rows:48px 20px minmax(0,1fr) 190px 18px}.tray-save-start>strong{font-size:18px}.tray-save-start>span{font-size:16px}}

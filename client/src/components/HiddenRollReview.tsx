@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useState} from 'react';
 import {useStore} from '../state/socket';
 import './HiddenRollReview.css';
 
@@ -6,14 +6,10 @@ import './HiddenRollReview.css';
 export function HiddenRollReview(){
  const review=useStore(s=>s.hiddenRollReview),submitting=useStore(s=>s.hiddenRollSubmitting);
  const connected=useStore(s=>s.status==='connected'),confirm=useStore(s=>s.confirmHiddenRoll);
- const role=useStore(s=>s.snapshot?.role),dialog=useRef<HTMLDialogElement>(null);
+ const role=useStore(s=>s.snapshot?.role);
  const [editing,setEditing]=useState(false),[values,setValues]=useState<Record<string,string>>({});
  const [working,setWorking]=useState('');
  useEffect(()=>{setEditing(false);setValues({});setWorking('');},[review?.id]);
- useEffect(()=>{
-  const node=dialog.current;if(!node||!review||role!=='dm')return;
-  node.showModal();return()=>node.close();
- },[review?.id,role]);
  if(!review||role!=='dm')return null;
  // A zero-damage cast summary is context, not a second result to accept.
  // The server still approves the complete atomic command and its effects.
@@ -25,14 +21,15 @@ export function HiddenRollReview(){
  const valid=inputs.every(input=>{const n=Number(values[input.key]??input.initial);return Number.isInteger(n)&&n>=input.min&&n<=input.max;});
  const enter=()=>{
   if(!valid)return;
+  setEditing(false);
   setWorking('Recalculating the entered result…');
   confirm({action:'manual',faces:review.dice.map(d=>({index:d.index,values:d.bonus!==undefined
    ?d.faces.map(()=>Number(values[String(d.index)]??d.total!)-d.bonus!)
    :d.faces.map((f,i)=>Number(values[`${d.index}:${i}`]??f))}))});
  };
  const outcomes={hit:'Hit',miss:'Miss',crit:'Critical hit',fumble:'Fumble',pass:'Save passed',fail:'Save failed',none:''};
- return <dialog ref={dialog} className="hidden-roll-review" data-review-id={review.id} aria-labelledby="hidden-roll-title" onCancel={event=>{event.preventDefault();if(!submitting)confirm(false);}}>
-  <header><span className="hidden-roll-private">DM ONLY · NOT APPLIED YET</span><h2 id="hidden-roll-title">Approve hidden result</h2>
+ return <section className="hidden-roll-review" role="region" data-review-id={review.id} aria-label="Approve hidden result" onClick={event=>event.stopPropagation()}>
+  <header><span className="hidden-roll-private">DM ONLY · NOT APPLIED YET</span>
    {review.manual&&<p className="hidden-roll-manual-note">DM-entered result</p>}
    {submitting&&<p role="status">{working||'Applying the approved result…'}</p>}</header>
   <div className="hidden-roll-results">{results.map((result,i)=><section key={i}>
@@ -56,5 +53,5 @@ export function HiddenRollReview(){
    <button className="btn" disabled={submitting||!connected} onClick={()=>confirm(false)}>Discard result</button>
   </div><button className="btn primary hidden-roll-accept" disabled={submitting||!connected} onClick={()=>confirm(true)}>{submitting?'Finishing…':'Apply result'}</button>
   <span>Players see the outcome only after you apply it.</span></footer>
- </dialog>;
+ </section>;
 }

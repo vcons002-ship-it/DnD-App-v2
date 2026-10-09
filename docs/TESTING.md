@@ -202,3 +202,15 @@ Remove-Item Env:DND_ENVIRONMENT_DEMO
 ```
 
 The ordinary miniature, movement, combat, and visibility regressions still run without those switches.
+
+### Private roll tray controls
+
+`e2e/hidden-roll-approval.spec.ts` verifies the same canvas and window bounds
+survive physical attack/save settlement and reroll. The private save remains at
+elapsed zero beyond the graphics-ready fallback; neither a player nor a different
+DM connection can start or approve it. The initiating DM clicks **Roll saving
+throw** inside the tray, then uses its integrated result controls. Reject & reroll immediately tosses
+the same pending save, without a second start click. Desktop and
+phone checks cover the verdict and Apply/reroll buttons without clipping.
+Player observers receive no private frames or reviews, and only accepted outcome
+history and final damage. No native confirmation dialog opens.

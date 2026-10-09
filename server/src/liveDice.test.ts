@@ -12,6 +12,20 @@ import {afterRollCommit,presentLiveCalculation} from './liveRollContext.js';
 import {LIVE_DICE_PRESENTATION_RATE,LIVE_DICE_REROLL_WAIT_SECONDS} from '../../shared/liveDiceTypes.js';
 import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
 
+it('announces a private save at elapsed zero while waiting for the explicit start gate',async()=>{
+ for(const [label,privateSave,expected] of [['WIS Saving Throw',true,true],['Scimitar attack',true,false],['DEX save',false,false]] as const){
+  const frames:import('../../shared/liveDiceTypes.js').LiveDiceFrame[]=[];
+  let gated:boolean|undefined;
+  await expect(physicalFaces([20],frame=>frames.push(frame),{
+   label,roller:'DM',className:'',requireSaveStart:privateSave,
+   ready:async(_id,awaitStart)=>{gated=awaitStart;throw new Error('Test gate held');},
+  },42)).rejects.toThrow('Test gate held');
+  expect(gated).toBe(expected);expect(frames).toHaveLength(1);
+  expect(frames[0]).toMatchObject({elapsed:0,done:false,values:[null]});
+  expect(!!frames[0].awaitingStart).toBe(expected);
+ }
+});
+
 it('holds a final rider without a new result card, but does not delay a final attack calculation',async()=>{
  const session=createSession('Final rider hold');const holds:number[]=[];let commits=0;
  const frames:import('../../shared/liveDiceTypes.js').LiveDiceFrame[]=[];

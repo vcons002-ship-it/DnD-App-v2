@@ -521,7 +521,7 @@ export const useStore = create<Store>((set, get) => ({
   skippedLiveDiceId: null,
   skipLiveDice: () => {
     const frame = get().liveDice;
-    if (!frame) return;
+    if (!frame || get().hiddenRollReview || frame.awaitingStart&&frame.elapsed===0) return;
     set({ liveDice: null, skippedLiveDiceId: frame.id });
     // Clear cosmetic cards too. The real roll/HP still resolves on the server.
     for (const fx of queuedRollFx.splice(0)) get().releaseRollImpact(fx.rollId);
@@ -825,10 +825,11 @@ export const useStore = create<Store>((set, get) => ({
       set({hiddenRollReview:review,hiddenRollSubmitting:false});
     });
     socket.on('dice:frame',frame=>{
+      if(frame.awaitingStart)set({skippedLiveDiceId:null});
       if(get().skippedLiveDiceId){
         set({skippedLiveDiceId:frame.id});socket.emit('dice:ready',{id:frame.id});return;
       }
-      if(!get().showRollAnim){socket.emit('dice:ready',{id:frame.id});return;}
+      if(!get().showRollAnim&&!frame.awaitingStart){socket.emit('dice:ready',{id:frame.id});return;}
       const previous=get().liveDice;
       if(previous?.id===frame.id && previous.seq>=frame.seq)return;
       if(previous?.id!==frame.id)get().dismissRollFx();

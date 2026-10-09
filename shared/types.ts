@@ -1747,6 +1747,7 @@ export type HiddenRollReview = {id:string;label:string;results:HiddenRollResult[
 export interface ClientToServerEvents {
   'dice:confirmHidden': (payload:{id:string;apply?:boolean;decision?:HiddenRollDecision}) => void;
   'dice:ready': (payload:{id:string}) => void;
+  'dice:begin': (payload:{id:string}) => void;
   'dice:skip': (payload:{id:string}) => void;
   join: (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   'map:select': (payload: MapSelectPayload) => void;

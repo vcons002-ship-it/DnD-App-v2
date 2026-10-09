@@ -7,7 +7,7 @@ import {expectUnclipped} from './helpers/rollVisibility';
 import {startAv1Capture} from './directAv1Recorder';
 test.use({deviceScaleFactor:1});
 test('hidden attacks, saves and checks await private DM approval; standalone damage keeps its normal click',async({page,browser,request})=>{
- test.setTimeout(180000);
+ test.setTimeout(240000);
  const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Private DM approval'}})).json();
  const sockets:Socket[]=[];
  const dm=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(dm);
@@ -44,14 +44,17 @@ test('hidden attacks, saves and checks await private DM approval; standalone dam
   capture=await startAv1Capture(page,process.env.HIDDEN_REVIEW_VIDEO);
  }
  const point=(id:string)=>page.evaluate(id=>{const s=(window as any).Konva.stages.find((s:any)=>s.find('.token').some((n:any)=>n.getAttr('tokenId')===id)),n=s.find('.token').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsolutePosition(),r=s.container().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};},id);
- const review=page.getByRole('dialog',{name:'Approve hidden result'});
+ const review=page.getByRole('region',{name:'Approve hidden result'});
  let attack:any;
   const b=await point(enemy.id),p=await point(pc.id);
   await page.mouse.move(b.x,b.y,{steps:16});await page.mouse.click(b.x,b.y);
   await page.mouse.move(p.x,p.y,{steps:16});await page.mouse.click(p.x,p.y,{button:'right'});
   await page.getByRole('dialog',{name:'Token actions'}).getByRole('button',{name:/Scimitar/}).click();
   await expect(review).toBeVisible({timeout:30000});
-  await expect(page.locator('.roll-reveal-backdrop')).not.toBeVisible();
+  await expect(page.locator('.roll-reveal-backdrop')).toBeVisible();
+  await expect(page.locator('dialog.hidden-roll-review')).toHaveCount(0);
+  const trayCanvas=await page.locator('.dice-tray-canvas').elementHandle();
+  const rollBounds=await page.locator('.roll-reveal-backdrop > .roll-reveal').boundingBox();
   const attackReviewId=await review.getAttribute('data-review-id');
   expect((await snapshot()).rollLog).toHaveLength(0);
   expect((await snapshot()).characters.find(c=>c.id===druk.id)!.curHp).toBe(40);
@@ -59,6 +62,8 @@ test('hidden attacks, saves and checks await private DM approval; standalone dam
   await expect(player.locator('.roll-reveal-backdrop')).toHaveCount(0);
   await review.getByRole('button',{name:'Reject & reroll',exact:true}).click();
   await expect(review).not.toHaveAttribute('data-review-id',attackReviewId!,{timeout:30000});
+  expect(await trayCanvas!.evaluate(node=>node===document.querySelector('.dice-tray-canvas'))).toBe(true);
+  expect(await page.locator('.roll-reveal-backdrop > .roll-reveal').boundingBox()).toEqual(rollBounds);
   expect((await snapshot()).rollLog).toHaveLength(0);
   await review.getByRole('button',{name:'Enter result',exact:true}).click();
   await review.getByLabel('Final total (includes modifiers)',{exact:true}).fill('17');
@@ -94,17 +99,33 @@ test('hidden attacks, saves and checks await private DM approval; standalone dam
  const oldCount=(await snapshot()).rollLog.length;
  const playerLogBefore=(await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot.rollLog;
  await info.getByTitle('STR saving throw (adds proficiency if proficient)',{exact:true}).click();
+ const startSave=page.getByRole('button',{name:'Roll saving throw',exact:true});
+ await expect(startSave).toBeVisible({timeout:30000});
+ const waitingTray=page.locator('[data-awaiting-start=true]');
+ const saveTrayId=await waitingTray.getAttribute('data-roll-id');
+ observer.emit('dice:begin',{id:saveTrayId});dm.emit('dice:begin',{id:saveTrayId});
+ // A graphics-ready fallback or a different DM connection must not start it.
+ await page.waitForTimeout(16000);await expect(startSave).toBeVisible();
+ await expect(waitingTray).toHaveAttribute('data-awaiting-start','true');
+ expect((await snapshot()).rollLog).toHaveLength(oldCount);
+ const saveCanvas=await page.locator('.dice-tray-canvas').elementHandle();
+ const saveBounds=await page.locator('.roll-reveal-backdrop > .roll-reveal').boundingBox();
+ await startSave.click();
  await expect(review).toBeVisible({timeout:30000});await expect(review).toContainText(/STR/i);
- expect((await review.boundingBox())!.width).toBeLessThanOrEqual(540);
+ expect(await saveCanvas!.evaluate(node=>node===document.querySelector('.dice-tray-canvas'))).toBe(true);
+ expect(await page.locator('.roll-reveal-backdrop > .roll-reveal').boundingBox()).toEqual(saveBounds);
+ await expect(page.locator('.dice-tray-canvas')).toBeVisible();
  await expect(review.locator('.hidden-roll-details')).not.toHaveAttribute('open','');
  expect(await review.locator('.hidden-roll-who').evaluate(n=>parseFloat(getComputedStyle(n).fontSize))).toBeGreaterThanOrEqual(22);
  await expectUnclipped(review.getByRole('button',{name:'Apply result'}));
+ await expectUnclipped(review.getByRole('button',{name:'Reject & reroll'}));
+ await expectUnclipped(review.locator('.hidden-roll-verdict'));
  expect((await snapshot()).rollLog).toHaveLength(oldCount);
  const hpEvents=playerHp.length;
  expect((await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot.rollLog).toEqual(playerLogBefore);
  const id=await page.evaluate(()=>new Promise<string>(resolve=>{
   // The ID is read from the native confirmation UI's server-driven attribute.
-  resolve(document.querySelector('dialog.hidden-roll-review')!.getAttribute('data-review-id')!);
+  resolve(document.querySelector('.hidden-roll-review')!.getAttribute('data-review-id')!);
  }));
  observer.emit('dice:confirmHidden',{id,apply:true});dm.emit('dice:confirmHidden',{id,apply:true});
  await page.waitForTimeout(500);await expect(review).toBeVisible();
@@ -123,6 +144,8 @@ test('hidden attacks, saves and checks await private DM approval; standalone dam
  await page.setViewportSize({width:412,height:915});
  expect((await review.boundingBox())!.width).toBeLessThan(412);
  await expectUnclipped(review.getByRole('button',{name:'Apply result'}));
+ await expectUnclipped(review.getByRole('button',{name:'Reject & reroll'}));
+ await expectUnclipped(review.locator('.hidden-roll-verdict'));
  await page.screenshot({path:test.info().outputPath('phone-private-review.png')});
  await page.setViewportSize({width:1600,height:1000});
  expect((await snapshot()).rollLog).toHaveLength(oldCount);

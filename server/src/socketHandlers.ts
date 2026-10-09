@@ -308,6 +308,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       handler: (...args: unknown[]) => void,
     ) => void;
     const trayReady=new Map<string,()=>void>();
+    const trayStarts=new Map<string,(start:boolean)=>void>();
     let activeDiceId:string|undefined,skipDicePresentation=false;
     let finishDicePresentation:(()=>void)|undefined;
     let hiddenReview:{id:string;sessionId:string;finish:(decision:import('../../shared/types.js').HiddenRollDecision)=>void}|undefined;
@@ -337,7 +338,15 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       skipDicePresentation=true;trayReady.get(id)?.();finishDicePresentation?.();
     });
     rawOn('dice:ready',(...args)=>{const id=(args[0] as {id?:unknown})?.id;if(typeof id==='string')trayReady.get(id)?.();});
-    const prepareTray=(id:string)=>new Promise<void>(resolve=>{
+    rawOn('dice:begin',(...args)=>{const id=(args[0] as {id?:unknown})?.id;if(typeof id==='string'&&getConn(socket.id)?.role==='dm')trayStarts.get(id)?.(true);});
+    const prepareTray=(id:string,awaitStart=false)=>{
+     // Register both gates before publishing the initial frame. Graphics-ready
+     // fallback must never silently click a deliberately pending saving throw.
+     const start=awaitStart?new Promise<void>((resolve,reject)=>{
+      const finish=(accepted:boolean)=>{clearTimeout(timer);trayStarts.delete(id);accepted?resolve():reject(new Error('Private saving throw cancelled before rolling.'));};
+      const timer=setTimeout(()=>finish(false),300000);trayStarts.set(id,finish);
+     }):Promise.resolve();
+     const prepared=new Promise<void>(resolve=>{
       activeDiceId=id;
       if(skipDicePresentation||!socket.connected){resolve();return;}
       const finish=()=>{clearTimeout(timer);trayReady.delete(id);resolve();};
@@ -347,6 +356,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       // release immediately so an accepted roll still completes server-side.
       const timer=setTimeout(finish,15000);trayReady.set(id,finish);
     });
+     return Promise.all([prepared,start]).then(()=>{});
+    };
     const waitForDicePresentation=(id:string,ms:number)=>new Promise<void>(resolve=>{
       if(skipDicePresentation||!socket.connected){resolve();return;}
       const finish=()=>{clearTimeout(timer);finishDicePresentation=undefined;resolve();};
@@ -474,7 +485,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 const safeCalculation=calculation&&getConn(id)?.role!=='dm'&&(frame.dmDice||isDm())
                   ?redactCreatureMods({id:frame.id,roller:frame.roller,label:frame.label,expr:'',total:0,detail:'',createdAt:0,reveal:calculation},true).reveal:calculation;
                 io.to(id).emit('dice:frame',{...frame,target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
-              }},{...meta,...(privateRoll?{deferFacing:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual)}:{})});
+              }},{...meta,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual)}:{})});
             }finally{for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);activeDiceId=undefined;skipDicePresentation=false;}
           },failed);
           return;
@@ -2765,6 +2776,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
 
     on('disconnect', () => {
       hiddenReview?.finish({action:'discard'});
+      for(const finish of trayStarts.values())finish(false);
       for (const finish of trayReady.values()) finish();
       finishDicePresentation?.();
       const sid = sessionId();

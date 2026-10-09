@@ -15,7 +15,6 @@ import { PlacementBanner } from '../components/PlacementBanner';
 import { ConnectionStatus } from '../components/ConnectionStatus';
 import { Toast } from '../components/Toast';
 import { RollRevealOverlay } from '../components/RollRevealOverlay';
-import {HiddenRollReview} from '../components/HiddenRollReview';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
 import { useSelection } from '../lib/useSelection';
@@ -159,7 +158,6 @@ export function DmView() {
       <AiStatus />
       <ConnectionStatus />
       <RollRevealOverlay />
-      <HiddenRollReview />
       <CombatMoments />
       <ChromaticOrbPrompt />
       <MarkTransferPrompt />

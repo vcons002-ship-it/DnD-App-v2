@@ -38,7 +38,7 @@ export function keptPhysicalSet(values:number[],info:PhysicalDiceInfo):number|un
 }
 
 type BurstTray={world:ReturnType<typeof createLiveWorld>;id:string;seq:number;sides:number[];critical:boolean[];capacity:number;parents:number[];links:{from:number;to:number}[]};
-type LiveRollMeta={burstTray?:{current?:BurstTray};label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';ready?:(id:string)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void;deferFacing?:boolean;review?:(results:HiddenRollResult[],dice:HiddenRollDice[],manual:boolean)=>Promise<boolean|HiddenRollDecision>};
+type LiveRollMeta={burstTray?:{current?:BurstTray};label:string;roller:string;className:string;dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';requireSaveStart?:boolean;ready?:(id:string,awaitStart?:boolean)=>Promise<void>;waitForPresentation?:(id:string,ms:number)=>Promise<void>;onFacing?:()=>void;deferFacing?:boolean;review?:(results:HiddenRollResult[],dice:HiddenRollDice[],manual:boolean)=>Promise<boolean|HiddenRollDecision>};
 
 export async function physicalFaces(
   sides:number[], publish:(frame:LiveDiceFrame)=>void,
@@ -46,7 +46,8 @@ export async function physicalFaces(
 ) {
   if(sides.some(s=>![4,6,8,10,12,20,100].includes(s)))
     throw new UnsupportedPhysicalDice('Live rolls support d4, d6, d8, d10, d12, d20 and d100. Choose one of these dice.');
-  const {ready,onFacing,waitForPresentation,burstTray,review,deferFacing,...displayMeta}=meta;
+  const {ready,onFacing,waitForPresentation,burstTray,review,deferFacing,requireSaveStart,...displayMeta}=meta;
+  const awaitStart=!!requireSaveStart&&(!!info?.saveDice?.some(d=>d.rollKind!=='initiative')||/\bsav(?:e|ing throw)\b/i.test(info?.label??meta.label));
   if(typeof info?.triggerRule==='object'&&burstTray)return burstFaces(sides,publish,meta,seed,info);
   // A caster initiates these commands, but the saved creatures own the dice.
   // Batches containing NPC saves use the shared DM tray rather than the caster.
@@ -91,10 +92,10 @@ export async function physicalFaces(
       const burst=typeof info?.triggerRule==='object'?info.triggerRule:undefined;
       const diceTrigger=state.done&&offset===0&&logical.length===sides.length
         ?info?.triggerRule==='orb-matches'?matchingDiceTrigger(state.values as number[]):burst?sorcerousDiceTrigger(state.values as number[],burst.used,burst.limit,burst.queued):undefined:undefined;
-      publish({...state,...(burst?{burstProgress:{used:burst.used,limit:burst.limit}}:{}),...(diceTrigger?{diceTrigger}:{}),poses:state.poses.map(v=>Math.round(v*10000)/10000),...(impacts.length?{impacts}:{}),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta});
+      publish({...state,...(awaitStart&&state.elapsed===0?{awaitingStart:true}:{}),...(burst?{burstProgress:{used:burst.used,limit:burst.limit}}:{}),...(diceTrigger?{diceTrigger}:{}),poses:state.poses.map(v=>Math.round(v*10000)/10000),...(impacts.length?{impacts}:{}),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta});
       return state;
     };
-    const prepared=ready?.(id);
+    const prepared=ready?.(id,awaitStart);
     emit();
     await prepared;
     const values=await new Promise<number[]>((resolve,reject)=>{
@@ -122,7 +123,7 @@ export async function physicalFaces(
 /** Sorcerous Burst continues in one authoritative world and one rendered tray. */
 async function burstFaces(sides:number[],publish:(frame:LiveDiceFrame)=>void,meta:LiveRollMeta,seed:number,info:PhysicalDiceInfo){
  const burst=info.triggerRule;if(typeof burst!=='object')throw new Error('Missing burst rule');
- const {ready,onFacing,waitForPresentation,burstTray,review,deferFacing,...display}=meta;
+ const {ready,onFacing,waitForPresentation,burstTray,review,deferFacing,requireSaveStart,...display}=meta;
  let tray=burstTray!.current;
  if(burst.used===0){
   const capacity=Math.min(40,sides.length+burst.limit);
@@ -167,6 +168,7 @@ async function burstFaces(sides:number[],publish:(frame:LiveDiceFrame)=>void,met
 export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?:PhysicalDiceInfo)=>void,meta:LiveRollMeta,roll=physicalFaces){
  meta={...meta,burstTray:{}};
  const tape:{sides:number[];faces:number[];info:PhysicalDiceInfo}[]=[];
+ const startedSaveSteps=new Set<number>();
  let manual=false;
  const calculated=new Set<string>();let lastFrame:LiveDiceFrame|undefined,lastInfo:PhysicalDiceInfo|undefined,approved=false,approvedResults:string|undefined;
  const needsReading=()=>!!lastFrame?.done&&!lastFrame.calculation&&lastFrame.resultHoldMs===undefined&&!lastInfo?.saveDice&&!lastFrame.burstProgress;
@@ -258,7 +260,10 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
    let turned=false;
    if(!meta.deferFacing)for(const facing of e.facing)turned=faceTokenToward(facing.sessionId,facing.attackerTokenId,facing.targetTokenId)||turned;
    if(turned)meta.onFacing?.();
-   tape.push({sides:e.sides,info:e.info,faces:await roll(e.sides,frame=>{lastFrame=frame;lastInfo=e.info;publish(frame,e.info);},{...meta,...(e.info.label?{label:e.info.label}:{})},undefined,e.info)});
+   const step=tape.length;
+   const faces=await roll(e.sides,frame=>{lastFrame=frame;lastInfo=e.info;publish(frame,e.info);},{...meta,requireSaveStart:meta.requireSaveStart&&!startedSaveSteps.has(step),...(e.info.label?{label:e.info.label}:{})},undefined,e.info);
+   startedSaveSteps.add(step); // Reject & reroll starts the same step directly.
+   tape.push({sides:e.sides,info:e.info,faces});
   }
  }
 }

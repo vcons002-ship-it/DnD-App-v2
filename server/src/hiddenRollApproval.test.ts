@@ -98,21 +98,22 @@ it('refuses to apply a different result after approval without rerolling',async(
 
 it('rejecting rerolls the pending save with the same dice and keeps earlier damage',async()=>{
  const session=createSession('Reroll save'),hero=createCharacter(session.id,{name:'Hero',maxHp:40});
- let reviews=0;const calls:number[][]=[];
- const dice:typeof physicalFaces=async sides=>{calls.push(sides);return sides.map(()=>sides[0]===6?5:calls.length===2?2:18);};
+ let reviews=0;const calls:number[][]=[],startGates:(boolean|undefined)[]=[];
+ const dice:typeof physicalFaces=async(sides,_publish,meta)=>{calls.push(sides);startGates.push(meta.requireSaveStart);return sides.map(()=>sides[0]===6?5:calls.length===2?2:18);};
  await runLiveCommand(()=>{
   const damage=rollDice('1d6')!;
   const save=withDiceMetadata({label:'DEX Saving Throw'},()=>rollDice('1d20'))!;
   applyDamage('pc',hero.id,save.total>=12?2:damage.total);
   addRollLog(session.id,{roller:'DM',label:'Damage',expr:'1d6',total:damage.total,detail:damage.detail,reveal:{kind:'damage',attacker:'DM',outcome:'none',damage:damage.total}});
   addRollLog(session.id,{roller:'DM',label:'DEX save',expr:'1d20',total:save.total,detail:save.detail,reveal:{kind:'check',attacker:'Hero',d20:save.total,outcome:save.total>=12?'pass':'fail'}});
- },()=>{},{label:'Save-dependent damage',roller:'DM',className:'',review:async(results,plans)=>{
+ },()=>{},{label:'Save-dependent damage',roller:'DM',className:'',requireSaveStart:true,review:async(results,plans)=>{
   expect(getCharacter(hero.id)!.curHp).toBe(40);expect(listRollLog(session.id)).toHaveLength(0);
   expect(plans).toHaveLength(1);expect(plans[0].sides).toEqual([20]);
   expect(results[0].total).toBe(5);reviews++;
   return {action:reviews===1?'reroll':'apply'};
  }},dice);
  expect(calls).toEqual([[6],[20],[20]]);expect(reviews).toBe(2);expect(getCharacter(hero.id)!.curHp).toBe(38);
+ expect(startGates.slice(1)).toEqual([true,false]);
 });
 
 it('manual save totals recalculate pass/fail and damage before separate approval',async()=>{

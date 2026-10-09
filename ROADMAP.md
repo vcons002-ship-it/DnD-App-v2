@@ -2825,3 +2825,8 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Druk lava now drains from the opened interior through six tapering viscous strands and twelve uneven ballistic drops. The bright pool begins forming on contact, replacing the single falling sphere.
 
 - Dice transitions: restored the approved 180 ms crossfade with visible toss entry and automatic sequence dismissal; camera-table panning is parked on `prototype/dice-table-camera-20261008`. Prepared-scene reuse remains enabled.
+
+- [x] Hidden DM rolls keep their dice tray open while Apply result, Reject & reroll,
+  Enter result and Discard result appear inside its reserved result area. Private
+  saves wait for the initiating DM's Roll saving throw button in that same tray;
+  graphics readiness and its timeout cannot start the save on the DM's behalf.
