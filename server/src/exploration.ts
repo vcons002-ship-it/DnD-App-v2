@@ -45,6 +45,15 @@ function fogArea(map:MapState):ExploredTerrain {
 // sight does; the bounded cache avoids repeated clipping on unrelated snapshots.
 const cache=new Map<string,{key:string;terrain:ExploredTerrain}>();
 export function clearExplorationCache(){cache.clear();}
+
+/** Forget this map's party history. Current sight is relearned on the next snapshot. */
+export function resetExploration(sessionId:string,mapId:string):boolean {
+ if(!db.prepare('SELECT id FROM maps WHERE id=? AND session_id=?').get(mapId,sessionId))return false;
+ db.prepare('DELETE FROM explored_terrain WHERE map_id=?').run(mapId);
+ cache.delete(mapId);
+ return true;
+}
+
 export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lightAllowed:(t:Token)=>boolean):ExploredTerrain {
  const terrainKey=explorationKey(map,tiles);
  const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId));

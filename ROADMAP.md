@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] DM Fog menu: Reset explored fog with a second-click confirmation. Clears
+  only the current map's shared explored terrain and last-seen figure history;
+  current party sight is immediately retained. Manual cover, doors, map settings
+  and creature reveal tags remain unchanged. Players cannot reset history.
+
 - [x] Replace ambiguous private-roll "Discard result" with context-specific
   Cancel cast / Cancel attack / Cancel damage roll / Cancel effect / Cancel roll.
   A visible explanation states what is canceled, including preservation of an

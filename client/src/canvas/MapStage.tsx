@@ -2281,6 +2281,7 @@ export function MapStage({
                       onFinish={cancelWallStroke}
                       onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>
                     <FogMenu
+                      onResetExploration={()=>map&&useStore.getState().resetExploration(map.id)}
                       explorationMode={map?.explorationMode??'remembered'}
                       onExplorationMode={mode=>map&&useStore.getState().setExplorationMode(map.id,mode)}
                       mapVisionEnabled={usesMapVision(map)}

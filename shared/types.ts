@@ -1785,6 +1785,7 @@ export interface ClientToServerEvents {
   ) => void;
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:setVision': (payload: FogSetVisionPayload) => void;
+  'fog:resetExploration': (payload: {mapId:string}) => void;
   'fog:setExploration': (payload: {mapId:string;mode:'remembered'|'revealed'}) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;

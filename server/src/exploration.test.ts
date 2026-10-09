@@ -1,7 +1,7 @@
 import {describe,it,expect,vi} from 'vitest';
 import {db} from './db.js';
 import {buildSnapshot} from './visibility.js';
-import {clearExplorationCache,visibleTerrain} from './exploration.js';
+import {clearExplorationCache,visibleTerrain,resetExploration} from './exploration.js';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,moveToken,setFogLayer,setFogRevealed,updateMapEnvironment,getSessionByCode,listMaps,listCharacters} from './sessions.js';
 import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {exportSession,importSession} from './backup.js';
@@ -27,6 +27,20 @@ function fixture(){
  return {s,map,a,b,ta,enemy,snap};
 }
 describe('persistent shared party terrain memory',()=>{
+ it('reset clears cached and persisted history only on the authorized map, retaining current sight',()=>{
+  const f=fixture();moveToken(f.ta.id,800,100);f.snap();moveToken(f.ta.id,100,100);
+  const other=fixture();moveToken(other.ta.id,800,100);other.snap();moveToken(other.ta.id,100,100);
+  expect(contains(f.snap().exploredTerrain,900,100)).toBe(true);
+  expect(resetExploration(other.s.id,f.map.id)).toBe(false);
+  expect(contains(f.snap().exploredTerrain,900,100)).toBe(true);
+  db.prepare('UPDATE explored_terrain SET token_memory=? WHERE map_id=?').run('[{"sentinel":true}]',f.map.id);
+  expect(resetExploration(f.s.id,f.map.id)).toBe(true);
+  expect(db.prepare('SELECT * FROM explored_terrain WHERE map_id=?').get(f.map.id)).toBeUndefined();
+  const fresh=f.snap();expect(contains(fresh.exploredTerrain,900,100)).toBe(false);
+  expect(contains(fresh.exploredTerrain,100,100)).toBe(true);
+  expect(contains(other.snap().exploredTerrain,900,100)).toBe(true);
+ });
+
  it('merges fractional thick-door openings across repeated movement and closure',()=>{
   const warnings=vi.spyOn(console,'warn').mockImplementation(()=>{});
   try {
