@@ -1,7 +1,7 @@
 import {useMemo,useSyncExternalStore} from 'react';
 import {createAdaptiveGraphics} from '../../../shared/adaptiveGraphics';
 import type {EnvironmentQuality} from '../../../shared/mapEnvironment';
-import {graphicsBudget,parseGraphicsQuality} from '../../../shared/graphicsQuality';
+import {DEFAULT_GRAPHICS_QUALITY,graphicsBudget,parseGraphicsQuality} from '../../../shared/graphicsQuality';
 const key='dnd-environment-quality';
 const event='dnd-environment-quality-change';
 const adaptive=createAdaptiveGraphics(typeof window!=='undefined'&&window.innerWidth<900?'balanced':'high');
@@ -14,14 +14,14 @@ export function recordGraphicsFrame(now:number,continuous:boolean,loading:boolea
 }
 export const readGraphicsQuality=():EnvironmentQuality=>{
   try {return parseGraphicsQuality(localStorage.getItem(key));}
-  catch {return 'auto';}
+  catch {return DEFAULT_GRAPHICS_QUALITY;}
 };
 function subscribe(listener:()=>void){
   window.addEventListener(event,listener);window.addEventListener('storage',listener);
   return()=>{window.removeEventListener(event,listener);window.removeEventListener('storage',listener);};
 }
 export function useEnvironmentQuality(){
-  const quality=useSyncExternalStore(subscribe,readGraphicsQuality,()=> 'auto' as const);
+  const quality=useSyncExternalStore(subscribe,readGraphicsQuality,()=> DEFAULT_GRAPHICS_QUALITY);
   const viewportWidth=useSyncExternalStore(listener=>{window.addEventListener('resize',listener);return()=>window.removeEventListener('resize',listener);},()=>window.innerWidth,()=>1440);
   const autoTier=useSyncExternalStore(subscribe,()=>adaptive.tier,()=> 'high' as const);
   const setQuality=(value:EnvironmentQuality)=>{

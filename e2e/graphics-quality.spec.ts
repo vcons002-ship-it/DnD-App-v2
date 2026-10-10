@@ -49,7 +49,8 @@ test('graphics presets change real crowded-board budgets locally, persist and pr
    await dm.screenshot({path:info.outputPath(`${quality}.png`)});
   }
   const player=await playerContext.newPage();await player.goto(`/join?code=${code}`);await player.getByRole('button',{name:'Join',exact:true}).click();await player.locator('.claim-row').filter({hasText:'Druk'}).click();
-  const playerLayer=player.getByTestId('miniature-layer');await expect(playerLayer).toHaveAttribute('data-graphics-quality','high',{timeout:60000});
+  const playerLayer=player.getByTestId('miniature-layer');await expect(playerLayer).toHaveAttribute('data-graphics-quality','balanced',{timeout:60000});
+  await expect(playerLayer).toHaveAttribute('data-model-quality','balanced');
   await player.getByRole('button',{name:'Interface settings',exact:true}).click();await player.getByLabel('Graphics quality',{exact:true}).selectOption('balanced');
   await expect(playerLayer).toHaveAttribute('data-render-pixel-ratio','1.5');await expect(layer).toHaveAttribute('data-graphics-quality','low');
   await player.getByLabel('Graphics quality',{exact:true}).selectOption('low');

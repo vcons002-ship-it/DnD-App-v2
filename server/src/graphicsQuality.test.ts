@@ -4,7 +4,7 @@ import {graphicsBudget,parseGraphicsQuality} from '../../shared/graphicsQuality.
 describe('local graphics presets',()=>{
   it('retains old preferences and accepts Balanced without accepting unknown values',()=>{
     for(const quality of ['auto','high','balanced','low','off'] as const)expect(parseGraphicsQuality(quality)).toBe(quality);
-    expect(parseGraphicsQuality('ultra')).toBe('auto');expect(parseGraphicsQuality(null)).toBe('auto');
+    expect(parseGraphicsQuality('ultra')).toBe('balanced');expect(parseGraphicsQuality(null)).toBe('balanced');expect(parseGraphicsQuality(undefined)).toBe('balanced');
   });
   it('reduces render pixels, shadow maps and particle work in successive presets',()=>{
     const [high,balanced,low]=['high','balanced','low'].map(q=>graphicsBudget(parseGraphicsQuality(q)));
@@ -19,8 +19,9 @@ describe('local graphics presets',()=>{
     expect(graphicsBudget('auto',1440).resolved).toBe('high');
     expect(graphicsBudget('high',390).resolved).toBe('high');
   });
-  it('uses the approved light character models by default independently of the lighting budget',()=>{
-    for(const tier of ['high','balanced','low'] as const)expect(graphicsBudget('auto',1440,tier).modelQuality).toBe('low');
+  it('lets Auto choose matching model quality and uses Balanced for an unsaved preference',()=>{
+    for(const tier of ['high','balanced','low'] as const)expect(graphicsBudget('auto',1440,tier).modelQuality).toBe(tier);
+    expect(graphicsBudget(parseGraphicsQuality(null)).modelQuality).toBe('balanced');
     expect(graphicsBudget('high').modelQuality).toBe('high');
     expect(graphicsBudget('balanced').modelQuality).toBe('balanced');
     expect(graphicsBudget('off').modelQuality).toBe('low');

@@ -1,14 +1,14 @@
 import type {EnvironmentQuality} from './mapEnvironment.js';
 
 /** Browser-only rendering budgets. Never used for visibility, movement or dice outcomes. */
+export const DEFAULT_GRAPHICS_QUALITY='balanced' as const;
 export type AutoGraphicsTier='high'|'balanced'|'low';
 export function graphicsBudget(quality:EnvironmentQuality, viewportWidth=1440,autoTier?:AutoGraphicsTier){
   const resolved=quality==='auto'?(autoTier??(viewportWidth<900?'balanced':'high')):quality;
   const low=resolved==='low'||resolved==='off';
   return {
     resolved,
-    // Auto keeps high lighting on capable devices, using the approved lighter figures.
-    modelQuality:quality==='auto'||resolved==='off'?'low' as const:resolved,
+    modelQuality:resolved==='off'?'low' as const:resolved,
     pixelRatioCap:low?1:resolved==='balanced'?1.5:2,
     localShadowSize:low?256:resolved==='balanced'?384:512,
     localShadowLights:resolved==='off'?0:low?2:4,
@@ -21,5 +21,5 @@ export function graphicsBudget(quality:EnvironmentQuality, viewportWidth=1440,au
 }
 
 export function parseGraphicsQuality(value:unknown):EnvironmentQuality{
-  return value==='high'||value==='balanced'||value==='low'||value==='off'?value:'auto';
+  return value==='auto'||value==='high'||value==='balanced'||value==='low'||value==='off'?value:DEFAULT_GRAPHICS_QUALITY;
 }
