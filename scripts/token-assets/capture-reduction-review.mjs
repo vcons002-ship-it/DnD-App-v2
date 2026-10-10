@@ -18,14 +18,14 @@ try{
  const page=await browser.newPage({viewport:{width:1250,height:900},deviceScaleFactor:1});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(`http://127.0.0.1:${server.address().port}/index.html`);
- for(const id of ['druk','varis','vanec']){
+ for(const id of (process.argv[3]?.split(',')??['druk','varis','vanec'])){
   await page.locator('#character').selectOption(id);
   await page.waitForFunction(()=>document.body.dataset.ready==='true');
-  for(const angle of ['front','tilt','overhead','back','face']){
+  for(const angle of (process.argv[4]?.split(',')??['front','tilt','overhead','back','face'])){
    await page.locator(`[data-angle=${angle}]`).click();await page.waitForTimeout(250);
    await page.screenshot({path:path.join(root,`${id}-${angle}.png`)});
   }
  }
  if(errors.length)throw Error(errors.join('\n'));
- console.log('All six preview models loaded; captured 15 matched-angle comparisons.');
+ console.log('Preview models loaded without page errors; captured matched-angle comparisons.');
 }finally{await browser.close();await new Promise(r=>server.close(r));}

@@ -1,0 +1,18 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {build} from 'esbuild';
+const source=path.resolve(process.argv[2]),refined=path.resolve(process.argv[3]),out=path.join(refined,'review');
+await fs.mkdir(out,{recursive:true});
+const baseline=JSON.parse(await fs.readFile(path.join(source,'varis-light.json'),'utf8'));
+const receipt=JSON.parse(await fs.readFile(path.join(refined,'weapon-refinement.json'),'utf8'));
+const candidate={...baseline,...receipt,id:'varis',profile:'sharp'};
+await fs.copyFile(path.join(source,baseline.filename),path.join(out,baseline.filename));
+await fs.copyFile(path.join(refined,receipt.filename),path.join(out,receipt.filename));
+await fs.writeFile(path.join(out,'viewer-data.json'),JSON.stringify({originals:[baseline],candidates:[candidate],leftLabel:'Approved lighter model',rightLabel:'Sharpened blades',status:'Drag either model to rotate both. Pinch or scroll to zoom. Handles and grip positions are unchanged.'},null,2));
+await build({entryPoints:['scripts/token-assets/character-reduction-viewer.js'],outfile:path.join(out,'viewer.js'),bundle:true,minify:true,format:'esm',target:'es2022'});
+let html=await fs.readFile(path.join(source,'review/index.html'),'utf8');
+html=html.replaceAll('Lighter character model comparison','Varis weapon refinement').replace('<h1>Lighter character models</h1>','<h1>Varis — sharper weapons</h1>').replace('Compare the original and a lighter copy under identical lighting. The copies preserve all original texture files, materials, placement and animation channels.','Compare the approved lighter model with thinner cutting edges, sharper tips and a stronger steel finish. The generated weapons retain their original textures and grip placement.');
+html=html.replace(/<select id="character">.*?<\/select>/,'<select id="character"><option value="varis">Varis</option></select>').replace(/<label>Reduction.*?<\/label>/,'<select id="profile" hidden><option value="sharp">Sharpened blades</option></select>');
+html=html.replace('<button data-angle="face">Face close-up</button>','<button data-angle="sword">Shortsword close-up</button><button data-angle="knife">Knife close-up</button><button data-angle="map">Map scale</button>');
+html=html.replace('Review copies only; the live game still uses the originals. Geometry reduction is lossy even though the textures are unchanged. This viewer uses simple studio lighting and no battlefield effects. Both full and lighter models are downloaded for comparison.','Review copies only. The live game is unchanged. Both models have 203,252 triangles; this refinement adds no geometry. The viewer uses identical studio lighting on both sides.');
+await fs.writeFile(path.join(out,'index.html'),html);console.log(out);

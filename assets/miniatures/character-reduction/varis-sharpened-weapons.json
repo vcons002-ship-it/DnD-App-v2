@@ -1,0 +1,34 @@
+{
+  "source": "D:\\dnd-approved-release\\character-reduction-20261010\\varis-light-ce7d0501c260.glb",
+  "sourceSha256": "ce7d0501c26076334036f1ff28a93bef47f65a3b5aaa872c8a399ba4b3c4b639",
+  "filename": "varis-sharpened-weapons-ffc2a5072344.glb",
+  "sha256": "ffc2a507234437c4954f4ea61cd5e88fd249da27596d6b1b9a0937da6fa2a112",
+  "bytes": 16227716,
+  "triangles": 203252,
+  "changes": [
+    {
+      "node": "VarisV5_Right_Generated_Weapon",
+      "bladeStart": -0.34,
+      "changedVertices": 5513,
+      "unchangedGripVertices": 4919,
+      "steelFaces": 7046
+    },
+    {
+      "node": "VarisV5_Left_Generated_Weapon",
+      "bladeStart": 0.035,
+      "changedVertices": 4934,
+      "unchangedGripVertices": 11437,
+      "steelFaces": 6647
+    }
+  ],
+  "verified": {
+    "texturesByteExact": true,
+    "unrelatedGeometryExact": true,
+    "gripVerticesExact": true,
+    "triangleCountUnchanged": true,
+    "nodeTransformsExact": true,
+    "sourceUnchanged": true,
+    "validGeometry": true
+  },
+  "method": "Refined existing multi-view-generated blades; handles unchanged; blade-only steel materials."
+}

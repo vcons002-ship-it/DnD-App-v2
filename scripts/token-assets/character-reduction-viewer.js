@@ -40,13 +40,20 @@ async function show(){
  for(const old of oldModels)release(old,live);
  const keep=new Set([source.filename,candidate.filename]);
  for(const [url,promise] of cache)if(!keep.has(url)){cache.delete(url);promise.then(g=>release(g.scene,live));}
- document.querySelector('#left-info').textContent=`Original · ${source.triangles.toLocaleString()} triangles · ${(source.bytes/1e6).toFixed(2)} MB`;
- document.querySelector('#right-info').textContent=`${profile==='light'?'Lighter':'Conservative'} copy · ${candidate.triangles.toLocaleString()} triangles · ${(candidate.bytes/1e6).toFixed(2)} MB`;
- document.querySelector('#status').textContent='Drag either model to rotate both. Pinch or scroll to zoom. Textures are unchanged.';
+ document.querySelector('#left-info').textContent=`${data.leftLabel??'Original'} · ${source.triangles.toLocaleString()} triangles · ${(source.bytes/1e6).toFixed(2)} MB`;
+ document.querySelector('#right-info').textContent=`${data.rightLabel??(profile==='light'?'Lighter':'Conservative')+' copy'} · ${candidate.triangles.toLocaleString()} triangles · ${(candidate.bytes/1e6).toFixed(2)} MB`;
+ document.querySelector('#status').textContent=data.status??'Drag either model to rotate both. Pinch or scroll to zoom. Textures are unchanged.';
  render();document.body.dataset.ready='true';
 }
 document.querySelector('#character').onchange=show;document.querySelector('#profile').onchange=show;
 for(const button of document.querySelectorAll('[data-angle]'))button.onclick=()=>{
+ if(['sword','knife','map'].includes(button.dataset.angle)){
+  const weapon=button.dataset.angle!=='map';let node;
+  panes[0].model?.traverse(n=>{if(!node&&n.name===`VarisV5_${button.dataset.angle==='sword'?'Right':'Left'}_Generated_Weapon`)node=n;});
+  const box=node?new THREE.Box3().setFromObject(node):new THREE.Box3(),center=weapon?box.getCenter(new THREE.Vector3()):new THREE.Vector3(0,1,0);
+  const distance=weapon?(button.dataset.angle==='sword'?1.3:.7):9;
+  syncing=true;for(const p of panes){p.control.minDistance=.25;p.camera.position.set(center.x,center.y+(weapon?.25:6),center.z+distance);p.control.target.copy(center);p.control.update();}syncing=false;render();return;
+ }
  const face=button.dataset.angle==='face';let head;
  panes[0].model?.traverse(n=>{if(!head&&/head|face/i.test(n.name))head=n;});
  const center=head?new THREE.Box3().setFromObject(head).getCenter(new THREE.Vector3()):new THREE.Vector3(0,1.8,0);

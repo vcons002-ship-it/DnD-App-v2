@@ -102,3 +102,31 @@ loaded without page errors. Earlier cached benchmark data is excluded.
 Review: https://dnd.nic024i.app/uploads/previews/lighter-characters-20261010/index.html
 Originals, candidates and receipts are also retained under
 `D:/dnd-approved-release/character-reduction-20261010`.
+
+## Varis weapon refinement review
+
+The approved lighter Varis copy has a separate blade refinement candidate.
+`sharpen-varis-weapons.mjs` modifies only the existing multiview-generated
+shortsword and knife: thinner cutting edges and pointed tips, with a blade-only
+steel material. It retains the original texture bytes, grip vertices, node
+transforms, and all unrelated geometry. Normals follow the deformation through
+its inverse-transpose derivative. No new weapon generation or hand fitting is
+performed. The handles and guards retain their existing finish.
+
+The candidate remains at 203,252 triangles and is 16.23 MB (16.12 MB baseline).
+Splitting blade and handle materials adds primitives and about 112 KB, so this
+is an appearance refinement, not a further performance optimization. The
+live catalog continues using the original models.
+
+```powershell
+node scripts/token-assets/sharpen-varis-weapons.mjs D:/dnd-approved-release/character-reduction-20261010/varis-light-ce7d0501c260.glb D:/dnd-approved-release/varis-weapons-20261010
+node scripts/token-assets/build-varis-weapon-review.mjs D:/dnd-approved-release/character-reduction-20261010 D:/dnd-approved-release/varis-weapons-20261010
+node scripts/token-assets/capture-reduction-review.mjs D:/dnd-approved-release/varis-weapons-20261010 varis front,tilt,overhead,sword,knife,map
+```
+
+The export validates exact preserved geometry/textures/transforms, finite
+positions/normals, valid indices, and an unchanged triangle count. Six
+matched-angle comparisons loaded without browser errors. This is studio
+review lighting, not a gameplay performance measurement.
+
+Review: https://dnd.nic024i.app/uploads/previews/varis-sharper-weapons-20261010/index.html
