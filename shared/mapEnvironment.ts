@@ -42,7 +42,7 @@ export function mapLightColorHex(value:unknown):string {
   return color.startsWith('#')?color:MAP_LIGHT_COLOR_PRESETS[color as keyof typeof MAP_LIGHT_COLOR_PRESETS];
 }
 export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:MapLightColor;intensity:number;flicker:boolean;visibleTorch?:boolean;fixture?:'torch'|'lantern'};
-export type EnvironmentQuality = 'auto' | 'high' | 'low' | 'off';
+export type EnvironmentQuality = 'auto' | 'high' | 'balanced' | 'low' | 'off';
 export const DEFAULT_MAP_ENVIRONMENT: Readonly<MapEnvironment> = {
   lighting:'day',lightLevel:1,sceneTint:'#ffffff',sceneTintStrength:0,heavyDarkness:false,weather:'none',weatherIntensity:.5,particles:'none',particleIntensity:.5,mistColor:'natural',lightning:false,groundWetness:0,windDirectionDegrees:20,windStrength:.4,lights:[],newLightColor:'warm',
   enabled: false, shadows: true, mapShadows: true, shadowDirectionDegrees: 55, shadowLength: 1.05,

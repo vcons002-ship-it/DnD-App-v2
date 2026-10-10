@@ -31,6 +31,7 @@ test.afterEach(() => sockets.splice(0).forEach(socket => socket.disconnect()));
 
 test('saved map environment works for DM and player, preserves tools, and clips fog', async ({page,request,browser},info)=>{
   test.setTimeout(150000);
+  page.setDefaultTimeout(12000);
   await page.setViewportSize({width:1440,height:960});
   const errors:string[]=[];
   const watch=(p:Page)=>{p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});};
@@ -44,16 +45,23 @@ test('saved map environment works for DM and player, preserves tools, and clips 
   await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
   const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:960}});
   const player=await context.newPage();watch(player);
+  player.setDefaultTimeout(12000);
+  const toggleLantern=async()=>{
+    await player.locator('.hud-actions').getByRole('button',{name:'Character',exact:true}).click();
+    await player.locator('.sheet-exploration > summary').click();
+    await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
+    await player.getByRole('button',{name:'Close character window',exact:true}).click();
+  };
   try {
     await enter(player,f.code);
     const layer=player.getByTestId('miniature-layer');
     await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
     // A carried lantern works without enabling a map environment, and is shared.
-    await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
+    await toggleLantern();
     await expect(layer).toHaveAttribute('data-carried-lantern-count','1');
     await expect(dmLayer).toHaveAttribute('data-carried-lantern-count','1');
     await expect(layer).toHaveAttribute('data-visible-torch-count','0');
-    await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
+    await toggleLantern();
     await page.getByRole('button',{name:'Maps',exact:true}).click();
     await page.locator('.map-environment-controls > summary').click();
     await page.getByLabel('Enable environment',{exact:true}).click();
@@ -170,7 +178,7 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await expect(layer).toHaveAttribute('data-light-count','12');
     await expect(layer).toHaveAttribute('data-visible-torch-count','12');
     f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lights:[originalLight],lighting:'night',mistHeightFt:10,mistOpacity:.7}});
-    await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
+    await toggleLantern();
     await expect(layer).toHaveAttribute('data-carried-lantern-count','1');
     const beforeTorch=JSON.parse((await layer.getAttribute('data-carried-lantern-positions'))!)[0];
     const bearer=f.ready.tokens[0];
@@ -183,7 +191,7 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await expect(layer).toHaveAttribute('data-light-count','2');
     await player.getByRole('button',{name:'3D player tokens',exact:true}).click();
     await expect(layer).toHaveAttribute('data-miniature-count','3');
-    await player.getByRole('button',{name:'Carried lantern',exact:true}).click();
+    await toggleLantern();
     await expect(layer).toHaveAttribute('data-carried-lantern-count','0');
     f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{lighting:'dungeon',mistHeightFt:2,mistOpacity:.35}});
     await player.screenshot({path:info.outputPath('weather-player-dungeon-rain.png')});
@@ -209,26 +217,29 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     await player.screenshot({path:info.outputPath('weather-player-snow-phone.png')});
     await player.screenshot({path:info.outputPath('environment-player-phone.png')});
     await player.getByRole('button',{name:'Interface settings',exact:true}).click();
-    await expect(player.getByLabel('Environment quality',{exact:true})).toBeVisible();
+    await expect(player.getByLabel('Graphics quality',{exact:true})).toBeVisible();
     await player.screenshot({path:info.outputPath('environment-player-quality-phone.png')});
     await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
     await player.setViewportSize({width:1440,height:960});
     await player.getByRole('button',{name:'Interface settings',exact:true}).click();
-    await expect(player.getByLabel('Environment quality',{exact:true})).toBeVisible();
+    await expect(player.getByLabel('Graphics quality',{exact:true})).toBeVisible();
     await player.screenshot({path:info.outputPath('environment-player-quality.png')});
     await player.locator('#player-layout-options').screenshot({path:info.outputPath('environment-player-quality-panel.png')});
-    await player.getByLabel('Environment quality',{exact:true}).selectOption('off');
-    await expect(layer).toHaveAttribute('data-environment','off');
+    await player.getByLabel('Graphics quality',{exact:true}).selectOption('off');
+    await expect(layer).toHaveAttribute('data-environment','on');
+    await expect(layer).toHaveAttribute('data-mist-visible','false');
+    await expect(layer).toHaveAttribute('data-light-count','1');
     await expect(dmLayer).toHaveAttribute('data-mist-visible','true');
-    await player.getByLabel('Environment quality',{exact:true}).selectOption('low');
+    await player.getByLabel('Graphics quality',{exact:true}).selectOption('low');
     await expect(layer).toHaveAttribute('data-mist-quality','low');
     await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
     await player.reload();await expect(layer).toHaveAttribute('data-mist-quality','low',{timeout:60000});
     await expect(layer).toHaveAttribute('data-weather','snow');
-    await expect(layer).toHaveAttribute('data-darkness','heavy');
+    // The preceding UI steps selected Day and cleared Heavy darkness.
+    await expect(layer).toHaveAttribute('data-darkness','normal');
     await expect(layer).toHaveAttribute('data-light-count','1');
     await page.reload();await expect(dmLayer).toHaveAttribute('data-mist-visible','true',{timeout:60000});
-    await expect(dmLayer).toHaveAttribute('data-darkness','heavy');
+    await expect(dmLayer).toHaveAttribute('data-darkness','normal');
     f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:false}});
     await expect(layer).toHaveAttribute('data-darkness','normal');
     f.socket.emit('mapImage:add',{mapId:f.mapId,imagePath:f.ready.map!.imagePath!,x:-300,y:-150,w:300,h:300});
@@ -247,7 +258,8 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     f.socket.emit('fog:cover',{mapId:f.mapId,layer:'map'});
     const cells=Array.from({length:8},(_,r)=>Array.from({length:5},(_,c)=>`${c},${r}`)).flat();
     f.socket.emit('fog:paint',{mapId:f.mapId,layer:'map',cells,reveal:true});
-    await expect(layer).toHaveAttribute('data-miniature-count','1');
+    // Party awareness keeps the other two PCs visible in grayscale outside personal sight.
+    await expect(layer).toHaveAttribute('data-miniature-count','3');
     await player.screenshot({path:info.outputPath('environment-player-fog-45.png')});
     await player.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
     await expect(layer).toHaveAttribute('data-tilt-degrees','0');
@@ -280,7 +292,7 @@ test('saved map environment works for DM and player, preserves tools, and clips 
     const clip=(await layer.boundingBox())!;
     const on=await player.screenshot({clip,path:info.outputPath('fully-covered-effects-on.png')});
     await player.getByRole('button',{name:'Interface settings',exact:true}).click();
-    await player.getByLabel('Environment quality',{exact:true}).selectOption('off');
+    await player.getByLabel('Graphics quality',{exact:true}).selectOption('off');
     await player.getByRole('button',{name:'Close interface settings',exact:true}).click();
     const off=await player.screenshot({clip,path:info.outputPath('fully-covered-effects-off.png')});
     const diff=await player.evaluate(async(images)=>{
@@ -2487,7 +2499,7 @@ test('personal darkvision dungeon demo with and without lanterns',async({page,re
   }
   // Quality off cannot reveal distant terrain or monsters.
   await page.getByRole('button',{name:'Interface settings',exact:true}).click();
-  await page.getByLabel('Environment quality',{exact:true}).selectOption('off');
+  await page.getByLabel('Graphics quality',{exact:true}).selectOption('off');
   await page.getByRole('button',{name:'Close interface settings',exact:true}).click();
   await expect(vision).toBeVisible();await expect(vision).toHaveAttribute('data-heavy','true');
   await caption('Effects off: personal 60 ft visibility still enforced');

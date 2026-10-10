@@ -6,12 +6,12 @@ import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset
 import {SettingSlider} from './MapSettingSlider';
 
 export function EnvironmentQualityControl(){
-  const {quality,setQuality}=useEnvironmentQuality();
-  return <label className="environment-quality">Environment quality
-    <select aria-label="Environment quality" value={quality} onChange={e=>setQuality(e.target.value as EnvironmentQuality)}>
-      <option value="auto">Auto</option><option value="high">High</option><option value="low">Low</option><option value="off">Off</option>
+  const {quality,setQuality,budget}=useEnvironmentQuality();
+  return <label className="environment-quality">Graphics quality
+    <select aria-label="Graphics quality" value={quality} onChange={e=>setQuality(e.target.value as EnvironmentQuality)}>
+      <option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="low">Low</option><option value="off">Effects off</option>
     </select>
-    <small>Only changes this browser. Low reduces mist detail and particle counts; Off hides environmental effects.</small>
+    <small>Only changes this browser. Balanced and Low reduce resolution, shadows and particles. Effects off keeps lighting and fog. {quality==='auto'?`Auto: ${budget.resolved}.`:''}</small>
   </label>;
 }
 

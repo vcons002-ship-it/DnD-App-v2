@@ -70,6 +70,8 @@ export type EnvironmentPreviewSettings = Partial<Pick<MapEnvironment,'lighting'|
   mistShadows?: boolean;
   mistInteraction?: boolean;
   mistQuality?: 'auto' | 'high' | 'low' | 'off';
+  particleScale?: number;
+  mapShadowSize?: number;
   props?: EnvironmentSceneryProp[];
   mistPatches?: EnvironmentMistPatch[];
 };
@@ -400,8 +402,8 @@ export function createBattlefieldEnvironment(
     keyLight.shadow.normalBias = Math.max(width, height) * 0.00032;
     keyLight.shadow.radius = 2.2;
     renderer.getDrawingBufferSize(drawingSize);
-    const resolution = Math.max(drawingSize.x, drawingSize.y) > 1500
-      && renderer.capabilities.maxTextureSize >= 2048 ? 2048 : 1024;
+    const resolution = Math.min(settings.mapShadowSize??2048, Math.max(drawingSize.x, drawingSize.y) > 1500
+      && renderer.capabilities.maxTextureSize >= 2048 ? 2048 : 1024);
     if (keyLight.shadow.mapSize.x !== resolution) {
       keyLight.shadow.map?.dispose(); keyLight.shadow.map = null;
       keyLight.shadow.mapSize.set(resolution, resolution);

@@ -63,7 +63,7 @@ export function createBattlefieldParticles(scene:Scene,depth:{texture:Texture;re
   const budgets={none:0,leaves:350,fireflies:140,embers:900,dust:1400};
   function updateBudget(){
     const low=settings.mistQuality==='low'||settings.mistQuality==='auto'&&(innerWidth<600||depth.resolution.x*depth.resolution.y>2e6);
-    quality=low?'low':'high';geometry.instanceCount=Math.round(budgets[settings.particles??'none']*(low?.35:1)*(settings.particleIntensity??.5));
+    quality=low?'low':'high';geometry.instanceCount=Math.round(budgets[settings.particles??'none']*(settings.particleScale??(low?.35:1))*(settings.particleIntensity??.5));
   }
   return {update(next:EnvironmentPreviewSettings){settings=next;
     mesh.visible=next.enabled&&next.mistQuality!=='off'&&!!next.particles&&next.particles!=='none'&&(next.particleIntensity??.5)>0;

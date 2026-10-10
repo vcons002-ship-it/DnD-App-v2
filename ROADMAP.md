@@ -1,5 +1,20 @@
 # Roadmap & Feature Backlog
 
+- [x] Per-browser graphics presets: High, Balanced, Low and Effects off, with
+  Auto selecting Balanced on narrow screens. Resolution, map/local/dice shadow
+  budgets and atmosphere particle counts scale independently of gameplay rules.
+  Effects off preserves basic lighting, darkness and fog. Dice retain their
+  materials, powers, authoritative physics, timings and result labels. Reduced
+  player mesh integration and adaptive frame-time selection remain future work.
+
+- [x] Generate conservative and lighter review copies of Druk, Varis and Vanec
+  with exact original textures, preserved materials/transforms/animations and
+  locked mesh borders. Lighter copies reduce player triangles by 81% and decoded
+  geometry buffers by 72%. Side-by-side rotation/face review is available.
+  Verified desktop comparisons did not establish a frame-time improvement;
+  mobile performance and runtime/preset integration remain pending. See
+  [character model reduction](docs/CHARACTER_MODEL_REDUCTION.md).
+
 - [x] Walls toolbar puts Adjust existing features first, with compact Add,
   Edit, Lights and AI analysis menus. Place, recolor and configure lights here;
   Environment keeps scene lighting, weather, mist and shadows. Door/window

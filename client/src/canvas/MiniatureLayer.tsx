@@ -29,6 +29,8 @@ import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorc
 import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
 import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
 import {createLocalLightShadows} from './localLightShadows';
+import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
+import {graphicsBudget} from '../../../shared/graphicsQuality';
 import { useStore } from '../state/socket';
 import {createRaisedMapStudy} from './raisedMapStudy';
 import {createArchArtLayer} from './archArtLayer';
@@ -58,6 +60,7 @@ export type MiniatureToken = {
   definition: MiniatureDefinition;
 };
 type Props = {
+  graphics?: ReturnType<typeof graphicsBudget>;
   footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
   memoryTerrainCanvas?: ()=>HTMLCanvasElement|null;
@@ -333,7 +336,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     frame = 0;
     if (disposed || failed || document.hidden) return;
     const environment=props.environmentPreview;
-    const atmosphereAnimated = !!environment?.enabled && environment.mistQuality!=='off' && !reducedMotion.matches &&
+    const atmosphereAnimated = !!environment?.enabled && !reducedMotion.matches &&
       ((environment.particles&&environment.particles!=='none'&&(environment.particleIntensity??.5)>0) || (environment.groundWetness??0)>0 || environment.lightning || environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
@@ -410,7 +413,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
       try {
         timing?.begin();
-        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!props.tokens.find(t=>t.id===id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3);
+        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!props.tokens.find(t=>t.id===id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3,props.graphics);
         for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??impactLights,instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
         battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
@@ -676,7 +679,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     // Unrelated snapshots during an imperative Konva pan must not restore the
     // last committed camera position before dragend commits the new view.
     if (next.view !== committedView) { view = next.view; committedView = next.view; }
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2);
+    host.dataset.graphicsQuality=next.graphics?.resolved??'high';
+    host.dataset.renderPixelRatio=String(pixelRatio);
     if (next.width !== renderedWidth || next.height !== renderedHeight || pixelRatio !== renderedPixelRatio) {
       renderedWidth = next.width; renderedHeight = next.height; renderedPixelRatio = pixelRatio;
       renderer.setPixelRatio(pixelRatio);
@@ -996,7 +1001,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
 }
 
-export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function MiniatureLayer(props, ref) {
+export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function MiniatureLayer(incoming, ref) {
+  const {budget}=useEnvironmentQuality();
+  const props={...incoming,graphics:incoming.graphics??budget};
   const host = useRef<HTMLDivElement>(null);
   const engine = useRef<Engine | null>(null);
   const latest = useRef(props);

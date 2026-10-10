@@ -246,11 +246,11 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     flame.uniforms.flameTime.value=time;
   };
   return {fieldUniforms,terrainGrade:{gradeColor:uniforms.gradeColor,gradeOpacity:uniforms.gradeOpacity,sceneTint:uniforms.sceneTint,sceneTintStrength:uniforms.sceneTintStrength},update(next:EnvironmentPreviewSettings){
-    settings=next;wallGeometryKey='';const enabled=next.enabled&&next.mistQuality!=='off',preset=palettes[next.lighting??'day'];
+    settings=next;wallGeometryKey='';const enabled=next.enabled,preset=palettes[next.lighting??'day'];
     const level=(next.lightLevel??1)*(next.heavyDarkness?.10:1);
     plane.visible=enabled;plane.position.set((next.mapX??0)+next.mapWidth/2,.004,(next.mapY??0)+next.mapHeight/2);plane.scale.set(next.mapWidth,next.mapHeight,1);
     fieldUniforms.torchBounds.value.set(next.mapX??0,next.mapY??0,next.mapWidth,next.mapHeight);
-    const maxSize=next.mistQuality==='low'?512:1024,ratio=next.mapWidth/next.mapHeight;
+    const maxSize=next.mistQuality==='low'||next.mistQuality==='off'?512:1024,ratio=next.mapWidth/next.mapHeight;
     field.setSize(Math.max(1,Math.round(maxSize*Math.min(1,ratio))),Math.max(1,Math.round(maxSize*Math.min(1,1/ratio))));
     uniforms.gradeColor.value.set(next.heavyDarkness?0x010205:preset.color);
     uniforms.gradeOpacity.value=terrainDarknessOpacity(next,!!next.dmVisibility);

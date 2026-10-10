@@ -1,0 +1,551 @@
+{
+  "id": "druk",
+  "profile": "balanced",
+  "policy": {
+    "id": "balanced",
+    "bodyRatio": 0.22,
+    "detailRatio": 0.45,
+    "error": 0.001
+  },
+  "sourceUrl": "/miniatures/druk-c98df869b913.glb",
+  "sourceSha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
+  "sourceBytes": 24966816,
+  "sourceTriangles": 880404,
+  "sourceGeometryBytes": 27762066,
+  "geometryBytes": 10862836,
+  "filename": "druk-balanced-c9d669208f41.glb",
+  "sha256": "c9d669208f41cdedf420373c877973c58f15b22cb3765090c220955ad174068e",
+  "bytes": 17212072,
+  "triangles": 277100,
+  "baseCenter": [
+    0.03537392616271973,
+    -1.1119999885559082,
+    0.0656827986240387
+  ],
+  "baseDiameter": 1.3600000143051147,
+  "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
+  "textureBytes": 11354381,
+  "textures": [
+    {
+      "name": "",
+      "mime": "image/webp",
+      "sha256": "d54db9b6ed6ed388dd4576a9aa72cd686c417d7c621296f6666e5555d5b719ac",
+      "bytes": 2135296
+    },
+    {
+      "name": "Image_0",
+      "mime": "image/webp",
+      "sha256": "6400e423b0348e799771546891d72caca1337120dc66eeacb80ccab25998917d",
+      "bytes": 1928274
+    },
+    {
+      "name": "Image_0",
+      "mime": "image/jpeg",
+      "sha256": "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
+      "bytes": 1003217
+    },
+    {
+      "name": "Image_1",
+      "mime": "image/webp",
+      "sha256": "6a9e31d057247a1bb8cbba82d9d761e3f0faf1c1b35d10fdd8d799770e4823e3",
+      "bytes": 2169794
+    },
+    {
+      "name": "",
+      "mime": "image/webp",
+      "sha256": "e85d82105645088b528f5d3953da6018515f5172ccb6dd2e0c010fead4ecd0c1",
+      "bytes": 1978226
+    },
+    {
+      "name": "",
+      "mime": "image/webp",
+      "sha256": "29d47ab5823d056a27484ff653aa5981f8f8e5c023b1b7898a2f2ef09443d088",
+      "bytes": 2139574
+    }
+  ],
+  "primitives": [
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "",
+      "before": 215979,
+      "after": 47515,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00033964263275265694
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "DrukV9_Dark_Olive_Textured_Arms",
+      "before": 15931,
+      "after": 3503,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.0007713685045018792
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "DrukV9_Dark_Olive_Textured_Hands",
+      "before": 2,
+      "after": 2,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "DrukV9_Dark_Olive_Clean_Patch_02",
+      "before": 228,
+      "after": 228,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "DrukV9_Dark_Olive_Clean_Patch_03",
+      "before": 420,
+      "after": 420,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "DrukV9_Dark_Olive_Clean_Patch_04",
+      "before": 1362,
+      "after": 1362,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Right_Hand"
+      ],
+      "material": "DrukV7_Gauntlet_Leather",
+      "before": 14662,
+      "after": 6860,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.000991098815575242
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Right_Hand"
+      ],
+      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
+      "before": 2194,
+      "after": 1032,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0009746594005264342
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Right_Hand"
+      ],
+      "material": "DrukV7_Glove_Grip_Interior",
+      "before": 734,
+      "after": 734,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Right_Hand"
+      ],
+      "material": "DrukV7_Gauntlet_Leather",
+      "before": 309,
+      "after": 309,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Right_Hand"
+      ],
+      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
+      "before": 1217,
+      "after": 1217,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Left_Hand"
+      ],
+      "material": "DrukV7_Gauntlet_Leather",
+      "before": 11139,
+      "after": 5299,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0009990670951083302
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Left_Hand"
+      ],
+      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
+      "before": 3960,
+      "after": 2194,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.000995210837572813
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Left_Hand"
+      ],
+      "material": "DrukV7_Glove_Grip_Interior",
+      "before": 502,
+      "after": 502,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Left_Hand"
+      ],
+      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
+      "before": 251,
+      "after": 251,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV7_Approved_BoneSword"
+      ],
+      "material": "PBR_Material",
+      "before": 40000,
+      "after": 8800,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.0004648114263545722
+    },
+    {
+      "nodes": [
+        "DrukV9_Pinned_Rear_Neck_Repair"
+      ],
+      "material": "Original_Atlas_Darkened_Rear_Hair",
+      "before": 7302,
+      "after": 7302,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Right_Short_Wrist_Transition"
+      ],
+      "material": "Short_Boundary_Leather_Transition",
+      "before": 2342,
+      "after": 2342,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Left_Short_Wrist_Transition"
+      ],
+      "material": "Short_Boundary_Leather_Transition",
+      "before": 2352,
+      "after": 2352,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Rim_0"
+      ],
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Brass_1"
+      ],
+      "material": "Restrained_Aged_Brass_Trim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Rim_2"
+      ],
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Rim_3"
+      ],
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Brass_4"
+      ],
+      "material": "Restrained_Aged_Brass_Trim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Rim_5"
+      ],
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Underside"
+      ],
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 192,
+      "after": 192,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Earthy_Stone_Moss_Top"
+      ],
+      "material": "Earth_Stone_Moss_Vertex_Color",
+      "before": 12096,
+      "after": 2660,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.0003342315030749887
+    },
+    {
+      "nodes": [
+        "Druk_Base_Low_Stone_1"
+      ],
+      "material": "Weathered_Stone_Vertex_Color",
+      "before": 45,
+      "after": 45,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Low_Stone_2"
+      ],
+      "material": "Weathered_Stone_Vertex_Color",
+      "before": 45,
+      "after": 45,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Low_Stone_3"
+      ],
+      "material": "Weathered_Stone_Vertex_Color",
+      "before": 45,
+      "after": 45,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Low_Stone_4"
+      ],
+      "material": "Weathered_Stone_Vertex_Color",
+      "before": 45,
+      "after": 45,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Subtle_Brass_Orb_And_Angular_Accents"
+      ],
+      "material": "Restrained_Aged_Brass_Trim",
+      "before": 1808,
+      "after": 1808,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Matte_Olive_Orb_Inset"
+      ],
+      "material": "Matte_Olive_Orb_Inset",
+      "before": 96,
+      "after": 96,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Left_Hip_Handaxe"
+      ],
+      "material": "Weathered_Steel",
+      "before": 46692,
+      "after": 10272,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00024412799393758178
+    },
+    {
+      "nodes": [
+        "DrukV9_Left_Hip_Handaxe"
+      ],
+      "material": "Wood_and_Dark_Leather",
+      "before": 103308,
+      "after": 22726,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00009404229786014184
+    },
+    {
+      "nodes": [
+        "DrukV9_Right_Hip_Handaxe"
+      ],
+      "material": "Weathered_Steel",
+      "before": 46692,
+      "after": 10272,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00024412799393758178
+    },
+    {
+      "nodes": [
+        "DrukV9_Right_Hip_Handaxe"
+      ],
+      "material": "Wood_and_Dark_Leather",
+      "before": 103308,
+      "after": 22726,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00009404229786014184
+    },
+    {
+      "nodes": [
+        "DrukV9_Left_Axe_Carry_Loop"
+      ],
+      "material": "DrukV9_Snug_Hip_Axe_Leather",
+      "before": 512,
+      "after": 512,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Left_Axe_Belt_Hanger"
+      ],
+      "material": "DrukV9_Snug_Hip_Axe_Leather",
+      "before": 12,
+      "after": 12,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Right_Axe_Carry_Loop"
+      ],
+      "material": "DrukV9_Snug_Hip_Axe_Leather",
+      "before": 512,
+      "after": 512,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Right_Axe_Belt_Hanger"
+      ],
+      "material": "DrukV9_Snug_Hip_Axe_Leather",
+      "before": 12,
+      "after": 12,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Recessed_Front_Neck_Closure"
+      ],
+      "material": "Druk_Recessed_Collar_Dark_Lining",
+      "before": 3246,
+      "after": 3246,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Natural_Multiview_Head"
+      ],
+      "material": "Druk_Natural_Face_Organic_Material",
+      "before": 238548,
+      "after": 107346,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0007720313151367009
+    }
+  ],
+  "elapsedMs": 1167.2133,
+  "verified": {
+    "texturesByteExact": true,
+    "materialsPreserved": true,
+    "nodeTransformsPreserved": true,
+    "animationChannelsExact": true,
+    "validIndicesAndFinitePositions": true,
+    "sourceUnchanged": true
+  },
+  "geometryLossless": false
+}
