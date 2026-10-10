@@ -38,7 +38,15 @@ function depthCube(size:number){
 }
 type Caster=ShadowCaster&{id:string;root:Group;diameter:number;animated?:boolean};
 type Prepared={caster:Caster;meshes:Mesh[];key:string;structural:string;dynamic:boolean};
-const transformKey=(values:readonly number[])=>values.map(v=>Math.round(v*500)).join(',');
+const transformKeys=new WeakMap<readonly number[],{values:Float64Array;key:string}>();
+const transformKey=(values:readonly number[])=>{
+ const previous=transformKeys.get(values);
+ if(previous&&values.every((v,i)=>v===previous.values[i]))return previous.key;
+ const key=values.map(v=>Math.round(v*500)).join(',');
+ if(previous){previous.values.set(values);previous.key=key;}
+ else transformKeys.set(values,{values:new Float64Array(values),key});
+ return key;
+};
 
 export function createLocalLightShadows(renderer:WebGLRenderer,invalidate:()=>void=()=>{}){
  const planar=createEnvironmentalLocalShadows(),proxies=createShadowProxies(invalidate),empty=depthCube(1);
@@ -93,13 +101,18 @@ export function createLocalLightShadows(renderer:WebGLRenderer,invalidate:()=>vo
      prepared.push({caster,meshes,structural,key:structural+':'+rootKey+':'+keys.join(';')+':'+pose+':'+dynamic,dynamic});
      if(movingUntil>now)pending=true;
    }
-   for(const source of selected){
+   // Oldest masks go first so no source starves. Structural changes bypass the
+   // per-frame budget; ordinary movement keeps each source's last valid mask.
+   const ordered=selected.slice().sort((a,b)=>(pool.find(e=>e.id===a.id)?.last??-Infinity)-(pool.find(e=>e.id===b.id)?.last??-Infinity));
+   let routineUpdates=0;
+   for(const source of ordered){
      const entry=pool.find(e=>e.id===source.id)??pool.find(e=>!e.id)!;entry.id=source.id;
      const slot=pool.indexOf(entry),far=Math.max(entry.key?entry.light.distance:0,Math.ceil(source.radius*LIGHT_SPILL_MULTIPLIER/100+1)*100);
      const allowed=prepared.filter(p=>castsLocalShadow(source,p.caster)&&Math.hypot(p.caster.x-source.x,p.caster.y-source.y)<far&&sight.visible(`${source.id}:${p.caster.id}`,source,p.caster,walls));
      const structural=[method,wallVersion,budget.localShadowFloorSize,source.carried,source.height,far,...allowed.map(p=>p.structural)].join('|');
      const sourceKey=[source.x,source.y,source.height,far].join(','),key=structural+':'+sourceKey+':'+allowed.map(p=>p.key).join('|');
-     const force=entry.structural!==structural,due=shadowRefreshDue(now,entry.last,key,entry.key,force,budget.localShadowFps);
+     const force=entry.structural!==structural,requested=shadowRefreshDue(now,entry.last,key,entry.key,force,budget.localShadowFps);
+     const due=requested&&(force||routineUpdates<2);
      if(!due&&key!==entry.key)pending=true;
      source.shadowSlot=slot;
      if(!due&&entry.key){origins[slot].w=method==='floor'?2:1;continue;}
@@ -118,7 +131,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer,invalidate:()=>vo
        finally{renderer.setRenderTarget(target);renderer.shadowMap.needsUpdate=shadowPending;}
        maps[slot].value=entry.light.shadow.map?.depthTexture??empty.depthTexture!;
      }
-     entry.key=key;entry.structural=structural;entry.last=now;updates++;
+     entry.key=key;entry.structural=structural;entry.last=now;updates++;if(!force)routineUpdates++;
    }
   },
   get pending(){return pending;},

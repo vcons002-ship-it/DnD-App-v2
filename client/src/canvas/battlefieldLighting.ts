@@ -3,7 +3,7 @@ import {wallVisibilityPolygon} from '../../../shared/mapWalls';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {
   AdditiveBlending, CustomBlending, OneFactor, BoxGeometry, BufferGeometry, Float32BufferAttribute, Color, ConeGeometry, CylinderGeometry, DynamicDrawUsage, HalfFloatType, InstancedBufferAttribute,
-  InstancedBufferGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, TorusGeometry,
+  Group, InstancedBufferGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, TorusGeometry,
   PlaneGeometry, Scene, ShaderMaterial, Vector3, Vector4, WebGLRenderTarget,
   type DirectionalLight, type HemisphereLight, type Texture, type Vector2, type WebGLRenderer,
 } from 'three';
@@ -90,9 +90,10 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   const quad=new PlaneGeometry(2,2),fieldGeometry=new InstancedBufferGeometry();
   fieldGeometry.index=quad.index;fieldGeometry.attributes=quad.attributes;
   const wallGeometryMode={value:0};
-  const fieldMaterial=new ShaderMaterial({uniforms:{...fieldUniforms,...shadowUniforms,wallGeometryMode},transparent:true,blending:CustomBlending,blendSrc:OneFactor,blendDst:OneFactor,depthTest:false,depthWrite:false,toneMapped:false,
-    vertexShader:`attribute vec4 source;attribute vec4 radiance;attribute float shadowSlot;uniform float wallGeometryMode;uniform vec4 torchBounds;varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
-      void main(){sourceShadow=shadowSlot;lightSource=source;lightRadiance=radiance;world=wallGeometryMode>.5?position.xy:source.xz+position.xy*source.w*${LIGHT_SPILL_MULTIPLIER.toFixed(1)};
+  const wallSource={value:new Vector4()},wallRadiance={value:new Vector4()},wallShadowSlot={value:-1};
+  const fieldMaterial=new ShaderMaterial({uniforms:{...fieldUniforms,...shadowUniforms,wallGeometryMode,wallSource,wallRadiance,wallShadowSlot},transparent:true,blending:CustomBlending,blendSrc:OneFactor,blendDst:OneFactor,depthTest:false,depthWrite:false,toneMapped:false,
+    vertexShader:`attribute vec4 source;attribute vec4 radiance;attribute float shadowSlot;uniform float wallGeometryMode;uniform vec4 wallSource,wallRadiance;uniform float wallShadowSlot;uniform vec4 torchBounds;varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
+      void main(){sourceShadow=wallGeometryMode>.5?wallShadowSlot:shadowSlot;lightSource=wallGeometryMode>.5?wallSource:source;lightRadiance=wallGeometryMode>.5?wallRadiance:radiance;world=wallGeometryMode>.5?position.xy:source.xz+position.xy*source.w*${LIGHT_SPILL_MULTIPLIER.toFixed(1)};
         gl_Position=vec4((world-torchBounds.xy)/torchBounds.zw*2.-1.,0.,1.);}`,
     fragmentShader:`${lightFalloffGlsl}${localShadowGlsl}
  varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
@@ -102,50 +103,50 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
         float blocked=(1.-visible)*irradiance*max(lightRadiance.r,max(lightRadiance.g,lightRadiance.b));
         gl_FragColor=vec4(lightRadiance.rgb*irradiance*visible,blocked);}`});
   const splats=new Mesh(fieldGeometry,fieldMaterial);splats.frustumCulled=false;fieldScene.add(splats);
-  const wallSplats=new Mesh(new BufferGeometry(),fieldMaterial);wallSplats.frustumCulled=false;wallSplats.visible=false;fieldScene.add(wallSplats);
-  let wallGeometryKey='',vertexSources:number[]=[];
+  const wallSplats=new Group();wallSplats.visible=false;fieldScene.add(wallSplats);
+  const wallLights=new Map<string,{mesh:Mesh<BufferGeometry,ShaderMaterial>;key:string;light:TorchLight;vertices:number}>();
+  let wallLightGeometryUpdates=0,wallLightPositionUploads=0;
   let lastWalls:EnvironmentPreviewSettings['walls'],wallKey='';
   let nominalRadii=new Map<string,number>();
-  const lightPolygons=new Map<string,{key:string;points:{x:number;y:number}[]}>();
   function updateWallField(){
     const walls=settings.walls??[];
     wallGeometryMode.value=walls.length?1:0;splats.visible=!walls.length;wallSplats.visible=!!walls.length;
-    if(!walls.length)return;
+    if(!walls.length){for(const entry of wallLights.values())entry.mesh.geometry.dispose();wallLights.clear();wallSplats.clear();return;}
     if(lastWalls!==settings.walls){lastWalls=settings.walls;wallKey=JSON.stringify(walls);}
     const radiusFor=(l:TorchLight)=>(l.transient?l.radius:(l.carried?20:nominalRadii.get(l.id)??20)*(settings.pixelsPerFoot??12.8))*LIGHT_SPILL_MULTIPLIER*1.2;
-    const positions:number[]=[],indices:number[]=[];
-    const next=JSON.stringify([wallKey,lights.map(l=>[l.id,l.x,l.y,radiusFor(l)])]);
-    if(next!==wallGeometryKey){
-      wallGeometryKey=next;
-      const ids=new Set(lights.map(l=>l.id));for(const id of lightPolygons.keys())if(!ids.has(id))lightPolygons.delete(id);
-      lights.forEach((l,index)=>{
-        const radius=radiusFor(l);
-        const cacheKey=`${wallKey}:${l.x},${l.y},${radius}`;
-        let cached=lightPolygons.get(l.id);
-        if(cached?.key!==cacheKey){cached={key:cacheKey,points:wallVisibilityPolygon(l,walls,radius)};lightPolygons.set(l.id,cached);}
-        cached.points.forEach((p,i)=>{
-          const q=cached.points[(i+1)%cached.points.length];
-          positions.push(l.x,l.y,0,p.x,p.y,0,q.x,q.y,0);indices.push(index,index,index);
-        });
-      });
-      // Reuse GPU buffers while a carried light moves; only grow their capacity.
-      if((wallSplats.geometry.getAttribute('position')?.count??0)<indices.length){
-        const capacity=2**Math.ceil(Math.log2(Math.max(1,indices.length)));
-        const geometry=new BufferGeometry();
-        geometry.setAttribute('position',new Float32BufferAttribute(new Float32Array(capacity*3),3).setUsage(DynamicDrawUsage));
-        geometry.setAttribute('source',new Float32BufferAttribute(new Float32Array(capacity*4),4).setUsage(DynamicDrawUsage));
-        geometry.setAttribute('radiance',new Float32BufferAttribute(new Float32Array(capacity*4),4).setUsage(DynamicDrawUsage));
-        geometry.setAttribute('shadowSlot',new Float32BufferAttribute(new Float32Array(capacity),1).setUsage(DynamicDrawUsage));
-        wallSplats.geometry.dispose();wallSplats.geometry=geometry;
+    const ids=new Set(lights.map(l=>l.id));
+    for(const [id,entry] of wallLights)if(!ids.has(id)){wallSplats.remove(entry.mesh);entry.mesh.geometry.dispose();wallLights.delete(id);}
+    for(const l of lights){
+      const radius=radiusFor(l),cacheKey=`${wallKey}:${l.x},${l.y},${radius}`;
+      let entry=wallLights.get(l.id);
+      if(!entry){
+        const mesh=new Mesh(new BufferGeometry(),fieldMaterial);mesh.frustumCulled=false;
+        entry={mesh,key:'',light:l,vertices:0};wallLights.set(l.id,entry);wallSplats.add(mesh);
+        const current=entry;
+        mesh.onBeforeRender=()=>{
+          const source=current.light;
+          wallSource.value.set(source.x,source.height,source.y,source.radius);
+          wallRadiance.value.set(source.color.x,source.color.y,source.color.z,source.strength);
+          wallShadowSlot.value=source.transient?-2:source.shadowSlot??-1;
+          // The meshes share one program. Upload source uniforms on every draw,
+          // including consecutive sources with the same material.
+          fieldMaterial.uniformsNeedUpdate=true;
+        };
       }
-      const points=wallSplats.geometry.getAttribute('position');
-      if(points){(points.array as Float32Array).set(positions);points.needsUpdate=true;}
-      wallSplats.geometry.setDrawRange(0,indices.length);vertexSources=indices;
+      entry.light=l;
+      if(entry.key===cacheKey)continue;
+      const polygon=wallVisibilityPolygon(l,walls,radius),count=polygon.length*3;
+      let points=entry.mesh.geometry.getAttribute('position');
+      if(!points||points.count<count){
+        const capacity=2**Math.ceil(Math.log2(Math.max(1,count)));
+        entry.mesh.geometry.dispose();entry.mesh.geometry=new BufferGeometry();
+        points=new Float32BufferAttribute(new Float32Array(capacity*3),3).setUsage(DynamicDrawUsage);
+        entry.mesh.geometry.setAttribute('position',points);
+      }
+      polygon.forEach((p,i)=>{const q=polygon[(i+1)%polygon.length],v=i*3;points.setXYZ(v,l.x,l.y,0);points.setXYZ(v+1,p.x,p.y,0);points.setXYZ(v+2,q.x,q.y,0);});
+      points.needsUpdate=true;entry.mesh.geometry.setDrawRange(0,count);
+      entry.key=cacheKey;entry.vertices=count;wallLightGeometryUpdates++;wallLightPositionUploads+=count*3;
     }
-    const sources=wallSplats.geometry.getAttribute('source'),radiances=wallSplats.geometry.getAttribute('radiance');
-    if(!sources||!radiances)return;
-    vertexSources.forEach((index,i)=>{const l=lights[index];sources.setXYZW(i,l.x,l.height,l.y,l.radius);radiances.setXYZW(i,l.color.x,l.color.y,l.color.z,l.strength);});
-    sources.needsUpdate=true;radiances.needsUpdate=true;
   }
   const wood=new MeshStandardMaterial({color:0x51331d,roughness:.83,emissive:0x331609,emissiveIntensity:.13});
   const iron=new MeshStandardMaterial({color:0x282321,metalness:.72,roughness:.48,emissive:0x5e2209,emissiveIntensity:.25});
@@ -278,7 +279,6 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   },tick,setCarried(next:CarriedLanternLight[]){carried=next;},setTransient(next:TorchLight[]){transient=next;},get lights(){return lights;},
     renderField(renderer:WebGLRenderer){
       lights.forEach((l,i)=>shadowAttribute.setX(i,l.transient?-2:l.shadowSlot??-1));shadowAttribute.needsUpdate=true;
-      const slots=wallSplats.geometry.getAttribute('shadowSlot');if(slots){vertexSources.forEach((index,i)=>slots.setX(i,lights[index].transient?-2:lights[index].shadowSlot??-1));slots.needsUpdate=true;}
       const previous=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate,clearAlpha=renderer.getClearAlpha();renderer.getClearColor(fieldClearColor);renderer.shadowMap.needsUpdate=false;
       // Alpha stores blocked irradiance, so start at zero even in opaque previews.
       try{renderer.setClearColor(0,0);renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);}
@@ -286,10 +286,11 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     },
     get animated(){return plane.visible&&(carried.length>0||(settings?.lights??[]).some(l=>l.flicker)||(settings?.groundWetness??0)>0||!!settings?.lightning);},
     get state(){return {lighting:plane.visible?settings.lighting??'day':'off',darkness:settings.heavyDarkness?'heavy':'normal',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch&&l.fixture!=='lantern').length,placedLanternCount:lights.filter(l=>l.visibleTorch&&l.fixture==='lantern'&&!l.carried).length,carriedLanternCount:carried.length,
+      wallLightGeometryUpdates,wallLightPositionUploads,wallLightMeshes:wallLights.size,
       sceneTint:settings.sceneTint??'#ffffff',sceneTintStrength:plane.visible?settings.sceneTintStrength??0:0,sceneGradeOpacity:plane.visible?uniforms.gradeOpacity.value:0,
       wetGround:plane.visible?settings.groundWetness??0:0,lightningEnabled:plane.visible&&!!settings.lightning&&settings.weather==='rain',lightningFlash:fieldUniforms.stormFlash.value,
       carriedLanternPositions:JSON.stringify(lights.filter(l=>l.carried).map(l=>({id:l.id,x:l.x,y:l.y,height:l.height,fixtureHeight:l.fixtureHeight})))};},
     dispose(){scene.remove(plane);plane.geometry.dispose();material.dispose();for(const mesh of [shafts,cups,flames,frames,windows,handles])if(mesh){scene.remove(mesh);mesh.dispose();}
-      shaftGeometry.dispose();cupGeometry.dispose();flameGeometry.dispose();lanternGeometry.dispose();handleGeometry.dispose();bronze.dispose();glow.dispose();wood.dispose();iron.dispose();flame.dispose();field.dispose();fieldGeometry.dispose();wallSplats.geometry.dispose();fieldMaterial.dispose();restore();},
+      shaftGeometry.dispose();cupGeometry.dispose();flameGeometry.dispose();lanternGeometry.dispose();handleGeometry.dispose();bronze.dispose();glow.dispose();wood.dispose();iron.dispose();flame.dispose();field.dispose();fieldGeometry.dispose();for(const entry of wallLights.values())entry.mesh.geometry.dispose();wallLights.clear();fieldMaterial.dispose();restore();},
   };
 }

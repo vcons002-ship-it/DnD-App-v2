@@ -1896,7 +1896,7 @@ export function MapStage({
     if (e.target.getClassName() !== 'Layer') return;
     const position = { x: e.target.x(), y: e.target.y() };
     for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current]) {
-      if (layer) { layer.position(position); layer.batchDraw(); }
+      if (layer) { layer.position(position); layer.draw(); }
     }
     miniatureRef.current?.setView({ ...view, ...position });
     visionRef.current?.camera({view:{...view,...position}});

@@ -82,6 +82,27 @@ separate stationary masks, so moving a figure does not repeatedly redraw every
 stationary monster. A carried lantern must update its entire mask as it moves.
 These clocks affect rendering only, never movement, targeting or fog rules.
 
+Ordinary movement refreshes at most two shadow sources per rendered frame,
+oldest first. Deferred sources keep their last valid mask and matching projection;
+door, visibility and model changes bypass that budget. Wall-clipped light geometry
+uses separate reusable buffers per source, so moving a lantern uploads only its
+polygon and torch flicker changes uniforms without uploading geometry. Equivalent
+wall snapshots retain light-to-token sight caches. Camera gestures update the map,
+3D camera and player masks in the same paint and preserve live angles when an
+unrelated server snapshot arrives before the gesture commits.
+
+A follow-up movement comparison against the corrected shadow renderer
+(`a1dc882`, 2026-10-10) used 27 figures, 20 walls, two flickering torches and a
+moving lantern in heavy darkness with player vision, Balanced quality,
+1440 x 900 / DPR 1, AMD integrated graphics, and no mist or weather. In matching
+20-second samples, rendered FPS increased from 16.5 to 18.6; median GPU time
+decreased from 22.8 to 18.5 ms. The 95th-percentile movement frame interval
+decreased from 71.1 to 65.7 ms. This is a modest improvement in a demanding scene,
+not a guarantee of smooth frame rates on all boards. A rapid-rotation run with
+concurrent token movement found no map/camera/mask angular mismatch in 314 sampled
+frames. Native Windows capture was encoded in AV1 by the RTX 5090 while the app
+rendered on AMD. See the [movement comparison video](https://dnd.nic024i.app/uploads/previews/movement-performance-20261010/index.html).
+
 The integrated-GPU shadow comparison (2026-10-10, Ryzen 7 7800X3D Radeon
 graphics, 1440 x 900 / DPR 1) used matching 20-second before/after samples:
 

@@ -1,5 +1,14 @@
 # Roadmap & Feature Backlog
 
+- [x] Smooth movement rendering and synchronize fast camera gestures: separate
+  wall-clipped light buffers preserve stationary torches while a lantern moves;
+  flicker updates uniforms rather than geometry. Spread ordinary shadow refreshes
+  across frames, retaining valid masks; structural and door changes remain immediate.
+  Equal wall snapshots reuse sight caches and stationary transforms reuse keys.
+  Map, miniatures and player masks apply live camera changes together and retain
+  them through unrelated session updates. Browser tests cover light colors,
+  door invalidation, the refresh budget and interleaved camera/vision updates.
+
 - [x] Reduce local-light shadow work: background shadow-only mesh simplification,
   30 Hz movement and 10 Hz idle-pose refresh, cached stationary floor silhouettes
   for Balanced/Low, and full point-light cube shadows at High. Visible assets

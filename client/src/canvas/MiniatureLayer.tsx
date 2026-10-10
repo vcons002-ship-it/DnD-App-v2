@@ -269,6 +269,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   }
   let view = initial.view;
   let committedView = initial.view;
+  let committedTilt = initial.tiltDegrees,committedRotation=initial.rotationDegrees??0;
   let disposed = false;
   let failed = false;
   let frame = 0;
@@ -317,6 +318,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     camera.lookAt(center.x, 0, center.z);
     camera.updateProjectionMatrix();
     outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
+    host.dataset.cameraRotation=String(props.rotationDegrees??0);host.dataset.cameraTilt=String(props.tiltDegrees);
   };
   const publish = () => {
     host.dataset.activeModelUrls=JSON.stringify([...instances.values()].map(i=>i.url));
@@ -698,7 +700,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const sync = (next: Props) => {
     if (disposed || failed) return;
     batches.restore();
-    props = next;
+    const liveTilt=props.tiltDegrees,liveRotation=props.rotationDegrees;
+    props = {...next,tiltDegrees:next.tiltDegrees===committedTilt?liveTilt:next.tiltDegrees,
+      rotationDegrees:(next.rotationDegrees??0)===committedRotation?liveRotation:next.rotationDegrees};
+    committedTilt=next.tiltDegrees;committedRotation=next.rotationDegrees??0;
     tokenById=new Map(next.tokens.map(t=>[t.id,t]));
     const archSnapshot=useStore.getState().snapshot;archArtLayer.sync(archSnapshot?.map,archSnapshot?.mapImages);
     const marks=next.footprints?.()??[];footprints.sync(marks);host.dataset.footprintCount=String(marks.length);
@@ -1009,7 +1014,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now());
       host.dataset.tiltDegrees=String(tilt);
     },
-    setView(next) { if (disposed) return; view = next; updateCamera(); invalidate(); },
+    setView(next) { if (disposed||failed) return; view = next; updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now()); },
     previewMove(id, point) {
       if(disposed)return;
       if(!point){if(preview?.id===id)clearPreview();invalidate();return;}

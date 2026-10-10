@@ -1,12 +1,12 @@
 import {hasLineOfSight,type MapWall,type WallPoint} from './mapWalls.js';
 /** One entry per source/receiver, invalidated by motion or immutable wall/door edits. */
 export function createLightSightCache(){
-  let walls:readonly MapWall[]|undefined;
+  let walls:readonly MapWall[]|undefined,wallKey='';
   const entries=new Map<string,{ax:number;ay:number;bx:number;by:number;visible:boolean}>();
   let hits=0,misses=0;
   return {
     visible(id:string,a:WallPoint,b:WallPoint,next:readonly MapWall[]){
-      if(walls!==next){walls=next;entries.clear();}
+      if(walls!==next){walls=next;const key=JSON.stringify(next);if(key!==wallKey){wallKey=key;entries.clear();}}
       const previous=entries.get(id);
       if(previous&&previous.ax===a.x&&previous.ay===a.y&&previous.bx===b.x&&previous.by===b.y){hits++;return previous.visible;}
       const visible=hasLineOfSight(a,b,next);misses++;
