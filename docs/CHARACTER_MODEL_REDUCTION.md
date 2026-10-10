@@ -3,7 +3,7 @@
 Review candidates generated on 10 October 2026 from the exact runtime models in
 `client/public/miniatures/manifest.json`. The original catalog and GLBs remain
 unchanged. Reviewed copies now ship as local graphics tiers: High uses originals,
-Balanced uses conservative copies, and Low/Effects off use lighter copies. Campaign
+Balanced uses conservative copies, and Auto/Low/Effects off use lighter copies. Campaign
 token data and base sizes do not change.
 
 | Character | Original triangles | Conservative triangles | Lighter triangles | Original MB | Lighter MB |

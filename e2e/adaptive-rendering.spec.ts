@@ -52,8 +52,9 @@ test('crowded real board batches monsters, changes model tiers without a 2D flas
    (window as any).qualityObserver=new MutationObserver(()=>{(window as any).qualityFrames.push(document.querySelector('[data-testid="miniature-layer"]')?.getAttribute('data-miniature-count'));});
    (window as any).qualityObserver.observe(document.querySelector('[data-testid="miniature-layer"]'),{attributes:true,attributeFilter:['data-miniature-count']});
   });
-  for(const quality of ['balanced','low','high']){
-   await select.selectOption(quality);await expect(layer).toHaveAttribute('data-graphics-quality',quality);
+  for(const quality of ['auto','high','auto','balanced','low','high']){
+   await select.selectOption(quality);await expect(layer).toHaveAttribute('data-graphics-quality',quality==='auto'?'high':quality);
+   if(quality==='auto')await expect(layer).toHaveAttribute('data-model-quality','light');
    await expect.poll(async()=>layer.evaluate(e=>JSON.parse((e as HTMLElement).dataset.modelUrls??'[]').filter((u:string)=>u.includes('balanced')||u.includes('light')||u.includes('sharpened-weapons')).length)).toBe(quality==='high'?0:3);
    await expect.poll(async()=>layer.evaluate(e=>JSON.parse((e as HTMLElement).dataset.activeModelUrls??'[]').filter((u:string)=>u.includes('balanced')||u.includes('light')||u.includes('sharpened-weapons')).length),{timeout:60000}).toBe(quality==='high'?0:3);
    await expect(layer).toHaveAttribute('data-miniature-count','27');

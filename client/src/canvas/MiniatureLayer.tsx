@@ -710,7 +710,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (next.view !== committedView) { view = next.view; committedView = next.view; }
     const pixelRatio = Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2);
     host.dataset.graphicsQuality=next.graphics?.resolved??'high';
-    host.dataset.modelQuality=next.graphics?.resolved==='high'?'original':next.graphics?.resolved==='balanced'?'balanced':'light';
+    host.dataset.modelQuality=next.graphics?.modelQuality==='high'?'original':next.graphics?.modelQuality==='balanced'?'balanced':'light';
     host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
     host.dataset.renderPixelRatio=String(pixelRatio);
     if (next.width !== renderedWidth || next.height !== renderedHeight || pixelRatio !== renderedPixelRatio) {

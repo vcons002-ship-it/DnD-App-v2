@@ -7,6 +7,8 @@ export function graphicsBudget(quality:EnvironmentQuality, viewportWidth=1440,au
   const low=resolved==='low'||resolved==='off';
   return {
     resolved,
+    // Auto keeps high lighting on capable devices, using the approved lighter figures.
+    modelQuality:quality==='auto'||resolved==='off'?'low' as const:resolved,
     pixelRatioCap:low?1:resolved==='balanced'?1.5:2,
     localShadowSize:low?256:resolved==='balanced'?384:512,
     localShadowLights:resolved==='off'?0:low?2:4,

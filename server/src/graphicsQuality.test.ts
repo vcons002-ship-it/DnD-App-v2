@@ -19,6 +19,12 @@ describe('local graphics presets',()=>{
     expect(graphicsBudget('auto',1440).resolved).toBe('high');
     expect(graphicsBudget('high',390).resolved).toBe('high');
   });
+  it('uses the approved light character models by default independently of the lighting budget',()=>{
+    for(const tier of ['high','balanced','low'] as const)expect(graphicsBudget('auto',1440,tier).modelQuality).toBe('low');
+    expect(graphicsBudget('high').modelQuality).toBe('high');
+    expect(graphicsBudget('balanced').modelQuality).toBe('balanced');
+    expect(graphicsBudget('off').modelQuality).toBe('low');
+  });
   it('Effects off removes decorative budgets without changing any rules fields',()=>{
     const budget=graphicsBudget('off');expect(budget.particleScale).toBe(0);expect(budget.mistQuality).toBe('off');
     expect(budget.localShadowLights).toBe(0);expect(budget).not.toHaveProperty('visionDistance');

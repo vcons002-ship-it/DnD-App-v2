@@ -22,11 +22,13 @@ test('unavailable lighter assets fall back to original figures and Auto responds
    const url=route.request().url();requested.push(url);
    return /-(light|balanced|sharpened-weapons)-/.test(url)?route.abort():route.continue();
   });
-  await context.addInitScript(()=>localStorage.setItem('dnd-environment-quality','low'));
+  await context.addInitScript(()=>localStorage.setItem('dnd-environment-quality','auto'));
   const page=await context.newPage();const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
   await expect(layer).toHaveAttribute('data-miniature-status','ready');
+  await expect(layer).toHaveAttribute('data-graphics-quality','high');
+  await expect(layer).toHaveAttribute('data-model-quality','light');
   for(const id of ['druk','varis','vanec']){
    expect(requested.some(url=>url.includes(`/miniatures/${id}-`)&&/-(light|sharpened-weapons)-/.test(url))).toBe(true);
    expect(requested.some(url=>new RegExp(`/miniatures/${id}-[a-f0-9]{12}\\.glb`).test(url))).toBe(true);

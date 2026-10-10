@@ -35,6 +35,11 @@ idle frame caps are excluded. Narrow screens stay at most Balanced in Auto.
 Explicit presets always override Auto. The resolved setting appears next to the
 quality control. This is a browser rendering preference, never a visibility rule.
 
+Auto uses the approved lighter character copies by default at every rendering tier,
+including High lighting on capable devices. Combined downloads are about 51.10 MB
+instead of 83.64 MB, with 81.1% fewer triangles and identical texture images.
+Explicit High retains originals and explicit Balanced uses conservative copies.
+
 Original player assets stay intact. Reduced variants retain exact embedded texture
 bytes and base measurements, and Varis' reduced variants include the approved
 weapon refinement. Only the chosen variant is requested; if unavailable the
