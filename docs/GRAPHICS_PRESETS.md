@@ -4,7 +4,8 @@ Players choose **Interface settings > Graphics quality**. The DM chooses
 **Campaign > Settings > Interface > Graphics quality**, also available under
 **Maps > Environment > Graphics quality**. Settings are saved in this browser,
 using the existing `dnd-environment-quality` preference; they do not change the
-campaign or another viewer's settings. Old High/Low/Off values still load.
+campaign or another viewer's settings. Balanced is the default when no valid
+saved choice exists. Existing choices, including Auto, remain unchanged.
 
 | Budget | High | Balanced | Low |
 |---|---:|---:|---:|
@@ -35,10 +36,11 @@ idle frame caps are excluded. Narrow screens stay at most Balanced in Auto.
 Explicit presets always override Auto. The resolved setting appears next to the
 quality control. This is a browser rendering preference, never a visibility rule.
 
-Auto uses the approved lighter character copies by default at every rendering tier,
-including High lighting on capable devices. Combined downloads are about 51.10 MB
-instead of 83.64 MB, with 81.1% fewer triangles and identical texture images.
-Explicit High retains originals and explicit Balanced uses conservative copies.
+Auto selects model quality along with its resolved lighting/effect tier: originals
+at High, conservative reduced copies at Balanced, and lighter copies at Low.
+Balanced defaults to about 58.67 MB combined versus 83.64 MB for originals,
+with 66.5% fewer triangles and identical texture images. Low is about 51.10 MB
+combined with 81.1% fewer triangles.
 
 Original player assets stay intact. Reduced variants retain exact embedded texture
 bytes and base measurements, and Varis' reduced variants include the approved
