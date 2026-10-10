@@ -1,0 +1,481 @@
+{
+  "id": "vanec",
+  "profile": "balanced",
+  "policy": {
+    "id": "balanced",
+    "bodyRatio": 0.22,
+    "detailRatio": 0.45,
+    "error": 0.001
+  },
+  "sourceUrl": "/miniatures/vanec-7f57d87ce42f.glb",
+  "sourceSha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
+  "sourceBytes": 33210108,
+  "sourceTriangles": 1138771,
+  "sourceGeometryBytes": 41631074,
+  "geometryBytes": 18387026,
+  "filename": "vanec-balanced-c5c3961b54b7.glb",
+  "sha256": "c5c3961b54b75338dc86fce0c2bd74353d379457a71112ce8f054540a41767c7",
+  "bytes": 22758880,
+  "triangles": 355589,
+  "baseCenter": [
+    -0.00920414924621582,
+    -0.9993069767951965,
+    0.019209861755371094
+  ],
+  "baseDiameter": 1.1495295763015747,
+  "fxUrl": "/miniatures/vanec-fx-2e60effcfd99.json",
+  "textureBytes": 12302778,
+  "textures": [
+    {
+      "name": "",
+      "mime": "image/webp",
+      "sha256": "86a62f99c788573873a9fb6280d65b8accba386ba95877392f6d3e773c88e88b",
+      "bytes": 2492220
+    },
+    {
+      "name": "Image_0",
+      "mime": "image/jpeg",
+      "sha256": "307c937d5af4179e422626d89a5d5c381a69ca5a1dc96271a5d42af04dc75e51",
+      "bytes": 997919
+    },
+    {
+      "name": "Image_1",
+      "mime": "image/webp",
+      "sha256": "15305a76867a779b0a2b741b3ef18c81ea695e83a4d7a2bb9794d03a84867e36",
+      "bytes": 2277844
+    },
+    {
+      "name": "Image_0",
+      "mime": "image/webp",
+      "sha256": "1be3790da59c94b5f3a336d2c5fb6512524dc61b221ee61a9e3a08c4b84770ec",
+      "bytes": 2157980
+    },
+    {
+      "name": "VanecV4_Original_front",
+      "mime": "image/png",
+      "sha256": "d644b1ac4109741b514472eea7adb94e8ebfae83c50bef87b7960fc3215ca53a",
+      "bytes": 205107
+    },
+    {
+      "name": "VanecV4_Original_back",
+      "mime": "image/png",
+      "sha256": "4d44f124bfebe0dae5221819b1c40f6d5641e6f367630d33e1a0dd46eb891256",
+      "bytes": 209469
+    },
+    {
+      "name": "VanecV4_Original_left",
+      "mime": "image/png",
+      "sha256": "e0544b8260f840fc0f73293d049242984a6c3ceadeb4376ab2d4417ead181c01",
+      "bytes": 173021
+    },
+    {
+      "name": "VanecV4_Original_right",
+      "mime": "image/png",
+      "sha256": "46604c7131a83bd4b1a54c68bfd3ec3745ac5b47360aa1399647515417b31f07",
+      "bytes": 189304
+    },
+    {
+      "name": "",
+      "mime": "image/webp",
+      "sha256": "7581a45d5676c80700db208b6534e4796e0086fb5f78f53f46b4f867f082db69",
+      "bytes": 3599914
+    }
+  ],
+  "primitives": [
+    {
+      "nodes": [
+        "Vanec_Preserved_Body"
+      ],
+      "material": "",
+      "before": 267117,
+      "after": 66481,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.000988735700957477
+    },
+    {
+      "nodes": [
+        "Vanec_Robe_Local_Repair_rear_hem_slit"
+      ],
+      "material": "Vanec_Local_Robe_Infill_From_Existing_Cloth_Color",
+      "before": 1472,
+      "after": 1472,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Vanec_Robe_Local_Repair_side_pinhole"
+      ],
+      "material": "Vanec_Local_Robe_Infill_From_Existing_Cloth_Color",
+      "before": 1472,
+      "after": 1472,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Vanec_Robe_Local_Repair_rear_lower_slit"
+      ],
+      "material": "Vanec_Local_Robe_Infill_From_Existing_Cloth_Color",
+      "before": 1472,
+      "after": 1472,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Vanec_Refined_Head"
+      ],
+      "material": "PBR_Material",
+      "before": 15931,
+      "after": 7969,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0009762577246874571
+    },
+    {
+      "nodes": [
+        "Vanec_Refined_Head"
+      ],
+      "material": "Vanec_Charcoal_Hair_And_Plum_Horns",
+      "before": 204033,
+      "after": 118255,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0009819933911785483
+    },
+    {
+      "nodes": [
+        "Vanec_Multiview_Left_Hand"
+      ],
+      "material": "Material_0",
+      "before": 14802,
+      "after": 6660,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0005590899381786585
+    },
+    {
+      "nodes": [
+        "Vanec_Multiview_Left_Hand"
+      ],
+      "material": "Vanec_Left_Hand_Local_Fingertip_Color_Refinement",
+      "before": 18560,
+      "after": 8352,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0007109971484169364
+    },
+    {
+      "nodes": [
+        "Vanec_Multiview_Left_Hand"
+      ],
+      "material": "Vanec_Smooth_Wrist_Transition",
+      "before": 8512,
+      "after": 8512,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Main_Crimson"
+      ],
+      "material": "VanecFX_Palm_Crimson",
+      "before": 124,
+      "after": 124,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Main_Core"
+      ],
+      "material": "VanecFX_Palm_Core",
+      "before": 124,
+      "after": 124,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Fork_A_Crimson"
+      ],
+      "material": "VanecFX_Palm_Crimson",
+      "before": 60,
+      "after": 60,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Fork_A_Core"
+      ],
+      "material": "VanecFX_Palm_Core",
+      "before": 60,
+      "after": 60,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Fork_B_Crimson"
+      ],
+      "material": "VanecFX_Palm_Crimson",
+      "before": 60,
+      "after": 60,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Fork_B_Core"
+      ],
+      "material": "VanecFX_Palm_Core",
+      "before": 60,
+      "after": 60,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Fork_C_Crimson"
+      ],
+      "material": "VanecFX_Palm_Crimson",
+      "before": 60,
+      "after": 60,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Fork_C_Core"
+      ],
+      "material": "VanecFX_Palm_Core",
+      "before": 60,
+      "after": 60,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Fork_D_Crimson"
+      ],
+      "material": "VanecFX_Palm_Crimson",
+      "before": 44,
+      "after": 44,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Fork_D_Core"
+      ],
+      "material": "VanecFX_Palm_Core",
+      "before": 44,
+      "after": 44,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Staff_Lightning_Arc_1_Crimson"
+      ],
+      "material": "VanecFX_Staff_Crimson",
+      "before": 92,
+      "after": 92,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Staff_Lightning_Arc_1_Core"
+      ],
+      "material": "VanecFX_Staff_Core",
+      "before": 92,
+      "after": 92,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Staff_Lightning_Arc_2_Crimson"
+      ],
+      "material": "VanecFX_Staff_Crimson",
+      "before": 92,
+      "after": 92,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Staff_Lightning_Arc_2_Core"
+      ],
+      "material": "VanecFX_Staff_Core",
+      "before": 92,
+      "after": 92,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Staff_Lightning_Arc_3_Crimson"
+      ],
+      "material": "VanecFX_Staff_Crimson",
+      "before": 92,
+      "after": 92,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Staff_Lightning_Arc_3_Core"
+      ],
+      "material": "VanecFX_Staff_Core",
+      "before": 92,
+      "after": 92,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Ruby_Droplet_1"
+      ],
+      "material": "VanecFX_Dark_Ruby_Droplet",
+      "before": 80,
+      "after": 80,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Ruby_Droplet_2"
+      ],
+      "material": "VanecFX_Dark_Ruby_Droplet",
+      "before": 80,
+      "after": 80,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Palm_Lightning_Ruby_Droplet_3"
+      ],
+      "material": "VanecFX_Dark_Ruby_Droplet",
+      "before": 80,
+      "after": 80,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Staff_Ruby_Glow_Face_1"
+      ],
+      "material": "VanecFX_Ruby_Glow",
+      "before": 384,
+      "after": 384,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Staff_Ruby_Glow_Face_2"
+      ],
+      "material": "VanecFX_Ruby_Glow",
+      "before": 384,
+      "after": 384,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VanecV4_Multiview_Staff_Dense"
+      ],
+      "material": "VanecV4_Reference_front",
+      "before": 15566,
+      "after": 3424,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00017260295862797648
+    },
+    {
+      "nodes": [
+        "VanecV4_Multiview_Staff_Dense"
+      ],
+      "material": "VanecV4_Reference_back",
+      "before": 15309,
+      "after": 3367,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00016947390395216644
+    },
+    {
+      "nodes": [
+        "VanecV4_Multiview_Staff_Dense"
+      ],
+      "material": "VanecV4_Reference_left",
+      "before": 14406,
+      "after": 3168,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00015219162742141634
+    },
+    {
+      "nodes": [
+        "VanecV4_Multiview_Staff_Dense"
+      ],
+      "material": "VanecV4_Reference_right",
+      "before": 14397,
+      "after": 3167,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00015481706941500306
+    },
+    {
+      "nodes": [
+        "VanecV4_Multiview_Crown_Dense"
+      ],
+      "material": "",
+      "before": 543466,
+      "after": 119562,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00017263012705370784
+    }
+  ],
+  "elapsedMs": 1380.4767999999995,
+  "verified": {
+    "texturesByteExact": true,
+    "materialsPreserved": true,
+    "nodeTransformsPreserved": true,
+    "animationChannelsExact": true,
+    "validIndicesAndFinitePositions": true,
+    "sourceUnchanged": true
+  },
+  "geometryLossless": false
+}
