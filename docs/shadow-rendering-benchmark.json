@@ -1,0 +1,138 @@
+{
+  "date": "2026-10-10",
+  "baselineRevision": "ed775d4",
+  "baselineShadowCaveat": "The old renderer omits batched creature shadows because it tests the view camera's layers against source meshes suppressed on layer 7. Snapshot restoration briefly returns them. The new renderer preserves them with separate shadow proxies, so the FPS comparison also includes this correctness improvement.",
+  "hardware": {
+    "cpu": "AMD Ryzen 7 7800X3D",
+    "renderer": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "recorder": "Native Windows Graphics Capture; RTX 5090 NVENC AV1 encoding only"
+  },
+  "viewport": {
+    "width": 1440,
+    "height": 900,
+    "dpr": 1
+  },
+  "sampleSeconds": 20,
+  "conditions": {
+    "player": "27 figures, 20 walls, two fixed torches plus a moving carried lantern, player wall visibility, heavy darkness, 6ft mist, rain and embers",
+    "dmReference": "27 figures, two fixed torches, no walls, no carried lantern, no player vision mask; same environmental effects",
+    "motion": "Fixed 45-degree camera; player alternates 55px movement every 2.2 seconds",
+    "caveat": "Short sequential measurements; recording overhead and device load introduce variance. DM reference matches the earlier lighter setup, not an identical full input replay."
+  },
+  "results": [
+    {
+      "label": "Before · Balanced full shadows",
+      "fps": 20.734449163127653,
+      "meanFrameMs": 48.20024154554819,
+      "frameMs": {
+        "median": 51.59999990463257,
+        "p95": 73.10000014305115
+      },
+      "gpuMs": {
+        "median": 27.94532,
+        "p95": 28.08109
+      },
+      "shadowUpdatesPerSecond": 62.25,
+      "originalShadowTriangles": null,
+      "proxyShadowTriangles": null
+    },
+    {
+      "label": "Before · High full shadows",
+      "fps": 12.091535924852604,
+      "meanFrameMs": 82.55809128630706,
+      "frameMs": {
+        "median": 80.89999985694885,
+        "p95": 98.70000004768372
+      },
+      "gpuMs": {
+        "median": 54.57616,
+        "p95": 54.71416
+      },
+      "shadowUpdatesPerSecond": 36.3,
+      "originalShadowTriangles": null,
+      "proxyShadowTriangles": null
+    },
+    {
+      "label": "After · Balanced floor shadows",
+      "fps": 23.375455771439988,
+      "meanFrameMs": 42.78329764494804,
+      "frameMs": {
+        "median": 44.5,
+        "p95": 68.10000014305115
+      },
+      "gpuMs": {
+        "median": 23.07476,
+        "p95": 25.62668
+      },
+      "shadowUpdatesPerSecond": 33.6,
+      "originalShadowTriangles": 1486087,
+      "proxyShadowTriangles": 766765
+    },
+    {
+      "label": "After · High full shadows",
+      "fps": 14.771196167473427,
+      "meanFrameMs": 67.78576271170277,
+      "frameMs": {
+        "median": 68.59999990463257,
+        "p95": 89.59999990463257
+      },
+      "gpuMs": {
+        "median": 46.55704,
+        "p95": 46.64632
+      },
+      "shadowUpdatesPerSecond": 32.05,
+      "originalShadowTriangles": 3429805,
+      "proxyShadowTriangles": 844581
+    },
+    {
+      "label": "After · Low floor shadows",
+      "fps": 25.45164188042719,
+      "meanFrameMs": 39.33267716535433,
+      "frameMs": {
+        "median": 42.799999952316284,
+        "p95": 64.10000014305115
+      },
+      "gpuMs": {
+        "median": 20.9942,
+        "p95": 21.06613
+      },
+      "shadowUpdatesPerSecond": 22.3,
+      "originalShadowTriangles": 1058805,
+      "proxyShadowTriangles": 664191
+    },
+    {
+      "label": "DM reference before · no walls or lantern",
+      "fps": 40.89683411564965,
+      "meanFrameMs": 24.454400978053403,
+      "frameMs": {
+        "median": 23.299999952316284,
+        "p95": 38.5
+      },
+      "gpuMs": {
+        "median": 21.34459,
+        "p95": 21.48426
+      },
+      "shadowUpdatesPerSecond": 81.9,
+      "originalShadowTriangles": null,
+      "proxyShadowTriangles": null
+    },
+    {
+      "label": "DM reference after · no walls or lantern",
+      "fps": 46.64402716739912,
+      "meanFrameMs": 21.420922746729953,
+      "frameMs": {
+        "median": 20,
+        "p95": 35.59999990463257
+      },
+      "gpuMs": {
+        "median": 18.45886,
+        "p95": 18.56394
+      },
+      "shadowUpdatesPerSecond": 23.8,
+      "originalShadowTriangles": 1486087,
+      "proxyShadowTriangles": 766765
+    }
+  ],
+  "errors": [],
+  "preview": "https://dnd.nic024i.app/uploads/previews/shadow-performance-20261010/index.html"
+}

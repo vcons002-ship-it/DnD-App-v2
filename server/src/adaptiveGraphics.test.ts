@@ -43,6 +43,8 @@ describe('cached light visibility and doors',()=>{
     expect(cache.visible('lamp:figure',lamp,figure,walls)).toBe(false);
     for(let i=0;i<60;i++)expect(cache.visible('lamp:figure',lamp,figure,walls)).toBe(false);
     expect(cache.state).toEqual({hits:60,misses:1});
+    expect(cache.visible('lamp:figure',lamp,figure,[{...door}])).toBe(false);
+    expect(cache.state).toEqual({hits:61,misses:1});
     expect(cache.visible('lamp:figure',lamp,{x:50,y:0},walls)).toBe(true);
     expect(cache.visible('lamp:figure',lamp,figure,[{...door,open:true}])).toBe(true);
     expect(cache.visible('lamp:figure',lamp,figure,[door])).toBe(false);

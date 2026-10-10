@@ -19,6 +19,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
 import { facingAfterMove } from '../../../shared/tokenFacing';
 import { createMiniatureNameLayer } from './miniatureNameLayer';
+import {createMiniatureMaskCache} from './miniatureMaskCache';
 import { createMiniatureVisibilityMaterial, createMiniatureVisionLift } from './miniatureVisionLift';
 import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
@@ -182,10 +183,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const scene = new Scene();
   const footprints=createMiniatureFootprints(scene);
   const spellImpacts=createSpellImpactEffects(scene);
-  const localShadows=createLocalLightShadows(renderer);
+  const localShadows=createLocalLightShadows(renderer,()=>invalidate());
   // Shared screen mask measures local silhouette thickness for every model,
   // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
   const outlineMask = new WebGLRenderTarget(1, 1);
+  const bodyMaskCache=createMiniatureMaskCache();
   outlineMask.depthTexture = new DepthTexture(1, 1);
   const outlineProjectionInverse = {value: new Matrix4()};
   const maskMaterial = createMiniatureVisibilityMaterial();
@@ -255,7 +257,6 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let props = initial;
   let tokenById=new Map(initial.tokens.map(t=>[t.id,t]));
   const batches=createMiniatureBatches(scene);
-  key.shadow.camera.layers.enable(7);
   const batchingEnabled=new URLSearchParams(location.search).get('batching')!=='off';
   const measurements=new Map<string,{anchor:Vector3;body?:MistBody}>();
   const playerAssetUrls=new Set<string>();
@@ -270,6 +271,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   }
   let view = initial.view;
   let committedView = initial.view;
+  let committedTilt = initial.tiltDegrees,committedRotation=initial.rotationDegrees??0;
   let disposed = false;
   let failed = false;
   let frame = 0;
@@ -318,6 +320,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     camera.lookAt(center.x, 0, center.z);
     camera.updateProjectionMatrix();
     outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
+    host.dataset.cameraRotation=String(props.rotationDegrees??0);host.dataset.cameraTilt=String(props.tiltDegrees);
   };
   const publish = () => {
     host.dataset.activeModelUrls=JSON.stringify([...instances.values()].map(i=>i.url));
@@ -442,7 +445,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
         const labels=props.nameLabels?.()??[];
         const renderedNames=names.sync(labels,visible,sharedIds);
-        if (archArtStudy || archArtLayer.hasArt || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
+        if ((archArtStudy || archArtLayer.hasArt || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) &&
+          bodyMaskCache.needsRender(outlineMask,scene,camera)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
           const shadowUpdate = renderer.shadowMap.needsUpdate;
@@ -463,6 +467,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           scene.overrideMaterial = null; camera.layers.mask = originalLayers;
           renderer.setRenderTarget(null);
         }
+        host.dataset.bodyMaskUpdates=String(bodyMaskCache.updates);
         // Shared figures cannot cast shadows or light the viewer's actual map.
         // A depth-only pass of personal figures preserves overlap ordering.
         const sw=renderer.domElement.width,sh=renderer.domElement.height;
@@ -554,7 +559,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
-    if (!failed && (archArtStudy?.animating || archArtLayer.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
+    if (!failed && (localShadows.pending || archArtStudy?.animating || archArtLayer.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
   };
   const queueDraw = () => {
     if (frame || frameQueued || disposed || failed) return;
@@ -699,7 +704,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const sync = (next: Props) => {
     if (disposed || failed) return;
     batches.restore();
-    props = next;
+    const liveTilt=props.tiltDegrees,liveRotation=props.rotationDegrees;
+    props = {...next,tiltDegrees:next.tiltDegrees===committedTilt?liveTilt:next.tiltDegrees,
+      rotationDegrees:(next.rotationDegrees??0)===committedRotation?liveRotation:next.rotationDegrees};
+    committedTilt=next.tiltDegrees;committedRotation=next.rotationDegrees??0;
     tokenById=new Map(next.tokens.map(t=>[t.id,t]));
     const archSnapshot=useStore.getState().snapshot;archArtLayer.sync(archSnapshot?.map,archSnapshot?.mapImages);
     const marks=next.footprints?.()??[];footprints.sync(marks);host.dataset.footprintCount=String(marks.length);
@@ -1010,7 +1018,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now());
       host.dataset.tiltDegrees=String(tilt);
     },
-    setView(next) { if (disposed) return; view = next; updateCamera(); invalidate(); },
+    setView(next) { if (disposed||failed) return; view = next; updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now()); },
     previewMove(id, point) {
       if(disposed)return;
       if(!point){if(preview?.id===id)clearPreview();invalidate();return;}

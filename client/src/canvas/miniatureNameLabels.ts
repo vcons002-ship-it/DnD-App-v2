@@ -9,6 +9,20 @@ export type MiniatureNameLabel = {
   emphasized: boolean;
 };
 
+/** GPU names replace only the scene paint; their Konva nodes retain typography
+ * and transforms for texture generation. Opacity zero still makes Konva paint
+ * stroked text through a full-layer perfect-draw buffer on every movement. */
+export function setMiniatureNamesRendered(layer:Konva.Layer,ids:ReadonlySet<string>) {
+  let changed=false;
+  for(const node of layer.find<Konva.Group>('.token')) {
+    const visible=!ids.has(node.getAttr('tokenId'));
+    for(const label of node.find('.token-label, .token-tracking-tag')) {
+      if(label.visible()!==visible){label.visible(visible);changed=true;}
+    }
+  }
+  if(changed)layer.batchDraw();
+}
+
 /** Rasterize the existing name/tag typography only when its content changes.
  * Positions follow the live Konva transforms, including drag and camera rotation. */
 export function createMiniatureNameReader() {
@@ -28,14 +42,16 @@ export function createMiniatureNameReader() {
       if(!labels.length)continue;
       present.add(id);
       // The original Konva labels become invisible after their GPU copy renders.
-      // Normalize that presentation opacity out of the texture cache key.
+      // Normalize scene-paint suppression out of the texture cache key.
       const key=JSON.stringify([density,...labels.map(label=>{
-        const obj=label.toObject();obj.attrs={...obj.attrs,opacity:1};return obj;
+        const obj=label.toObject();
+        const {opacity:_opacity,visible:_visible,...attrs}=obj.attrs;
+        obj.attrs={...attrs,opacity:1,visible:true};return obj;
       })]);
       let entry=cache.get(id);
       if(!entry||entry.key!==key){
         const group=new Konva.Group({listening:false});
-        for(const label of labels)group.add(label.clone({opacity:1,listening:false}));
+        for(const label of labels)group.add(label.clone({opacity:1,visible:true,listening:false}));
         const b=group.getClientRect();
         const bounds={x:Math.floor(b.x)-1,y:Math.floor(b.y)-1,width:Math.ceil(b.width)+3,height:Math.ceil(b.height)+3};
         const canvas=group.toCanvas({...bounds,pixelRatio:density});

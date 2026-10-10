@@ -4,7 +4,8 @@ export type BatchFigure={root:Group;lighting:Lighting;eligible:boolean};
 type Member={mesh:Mesh;material:MeshBasicMaterial|MeshStandardMaterial;lighting:Lighting;layers:number};
 type Bucket={mesh:InstancedMesh;capacity:number;uniforms:Lighting['uniforms'];members:Mesh[];layers:number};
 
-/** Only color/depth silhouettes are instanced. Individual shadow casters remain intact on layer 7. */
+/** Color and directional shadows use the visible instances. Local point-light
+ * shadows use independent proxies; source meshes on layer 7 are never relied on. */
 export function createMiniatureBatches(scene:Scene){
   const buckets=new Map<string,Bucket>(),suppressed=new Map<Mesh,number>();
   const meshes=new WeakMap<Group,Mesh[]>();
@@ -31,7 +32,7 @@ export function createMiniatureBatches(scene:Scene){
         for(const mesh of source){
           const material=mesh.material as Member['material'];if(!mesh.visible||!material.visible)continue;
           const outline=mesh.name==='disposition-outline';
-          const key=JSON.stringify([mesh.geometry.uuid,outline?'outline':material.userData.batchSource,mesh.layers.mask,mesh.renderOrder,mesh.receiveShadow,material.opacity,outline?'':figure.lighting.signature]);
+          const key=JSON.stringify([mesh.geometry.uuid,outline?'outline':material.userData.batchSource,mesh.layers.mask,mesh.renderOrder,mesh.receiveShadow,mesh.castShadow,material.opacity,outline?'':figure.lighting.signature]);
           const members=groups.get(key)??[];members.push({mesh,material,lighting:figure.lighting,layers:mesh.layers.mask});groups.set(key,members);
         }
       }
@@ -49,7 +50,7 @@ export function createMiniatureBatches(scene:Scene){
           material.onBeforeCompile=function(shader,renderer){hook.call(this,shader,renderer);Object.assign(shader.uniforms,uniforms);};
           material.customProgramCacheKey=()=>cache+'-batched';
           const mesh=new InstancedMesh(first.mesh.geometry,material,capacity);mesh.name='batched-miniatures';
-          mesh.instanceMatrix.setUsage(DynamicDrawUsage);mesh.layers.mask=first.layers;mesh.receiveShadow=first.mesh.receiveShadow;mesh.castShadow=false;mesh.renderOrder=first.mesh.renderOrder;
+          mesh.instanceMatrix.setUsage(DynamicDrawUsage);mesh.layers.mask=first.layers;mesh.receiveShadow=first.mesh.receiveShadow;mesh.castShadow=first.mesh.castShadow;mesh.renderOrder=first.mesh.renderOrder;
           bucket={mesh,capacity,uniforms,members:[],layers:first.layers};buckets.set(key,bucket);scene.add(mesh);
         }
         copyLights(bucket.uniforms,first.lighting.uniforms);
@@ -58,7 +59,10 @@ export function createMiniatureBatches(scene:Scene){
         const data=bucket.mesh.instanceMatrix.array;
         for(let i=0;i<members.length;i++){
           const member=members[i],elements=member.mesh.matrixWorld.elements;
-          if(bucket.members[i]!==member.mesh||elements.some((v,j)=>Math.abs(v-data[i*16+j])>1e-6)){
+          // Compare in the GPU buffer's Float32 precision. A fixed absolute
+          // epsilon treated stationary fractional map positions as movement,
+          // uploading identical matrices and invalidating depth every frame.
+          if(bucket.members[i]!==member.mesh||elements.some((v,j)=>Math.fround(v)!==data[i*16+j])){
             bucket.mesh.setMatrixAt(i,member.mesh.matrixWorld);matrixChanged=true;
           }
           const colors=bucket.mesh.instanceColor?.array,color=member.material.color;

@@ -13,7 +13,7 @@ export const localShadowDepthGlsl=`
  }
 `;
 export type ShadowCaster={id?:string;x:number;y:number;visible:boolean};
-type Source={id:string;x:number;y:number;height:number;radius:number;strength:number;carried?:boolean};
+type Source={id:string;x:number;y:number;height:number;radius:number;strength:number;nominalRadius?:number;nominalStrength?:number;carried?:boolean};
 /** A hip lantern passes through its carrier, but other lights still cast their shadow. */
 export function castsLocalShadow(source:Pick<Source,'id'|'carried'>,caster:ShadowCaster){
  return caster.visible&&!(source.carried&&source.id===caster.id);
@@ -31,10 +31,11 @@ export function environmentalShadowSlope(source:{x:number;y:number},caster:{x:nu
  const scale=Math.max(.1,Math.min(4,length));
  return d>.001?{x:dx/d*scale,y:dy/d*scale}:{x:0,y:0};
 }
-/** Spend the shadow-map budget on sources that actually reach visible figures. */
+/** Spend the budget on sources that reach visible figures, using their nominal
+ * output. Torch flicker changes illumination, never which shadows exist. */
 export function selectShadowLights<T extends Source>(lights:readonly T[],casters:readonly ShadowCaster[],walls:readonly MapWall[],sight=hasLineOfSight):T[]{
  return lights.map(light=>({light,score:casters.reduce((sum,c)=>{
   if(!castsLocalShadow(light,c)||!sight(light,c,walls))return sum;
-  return sum+lightIrradiance(Math.hypot(light.x-c.x,light.y-c.y,light.height),light.radius,light.strength);
+  return sum+lightIrradiance(Math.hypot(light.x-c.x,light.y-c.y,light.height),light.nominalRadius??light.radius,light.nominalStrength??light.strength);
  },0)})).filter(entry=>entry.score>0).sort((a,b)=>b.score-a.score||a.light.id.localeCompare(b.light.id)).slice(0,LOCAL_SHADOW_SOURCES).map(entry=>entry.light);
 }

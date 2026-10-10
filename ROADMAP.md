@@ -1,5 +1,43 @@
 # Roadmap & Feature Backlog
 
+- [x] Profile integrated-GPU movement and remove duplicate paint: GPU-rendered
+  names no longer paint invisibly through Konva's full-layer buffers. Their
+  source typography, reveal tags and 2D fallback stay intact. Compare batched
+  transforms in Float32 precision to avoid uploading unchanged matrices. Reuse
+  the exact screen-space body/depth mask until camera, visible geometry, pose,
+  sharing, mirror capture or viewport changes. Browser tests cover these
+  invalidations and keep existing fog, shadows and base input contracts.
+  The same no-mist crowded board improved from 33.7 to 38.3 FPS stationary and
+  18.7 to 25.7 FPS under continuous lantern movement, without reducing settings.
+  See [profiling evidence](docs/movement-profile-benchmark.json).
+
+- [x] Smooth movement rendering and synchronize fast camera gestures: separate
+  wall-clipped light buffers preserve stationary torches while a lantern moves;
+  flicker updates uniforms rather than geometry. Spread ordinary shadow refreshes
+  across frames, retaining valid masks; structural and door changes remain immediate.
+  Equal wall snapshots reuse sight caches and stationary transforms reuse keys.
+  Map, miniatures and player masks apply live camera changes together and retain
+  them through unrelated session updates. Browser tests cover light colors,
+  door invalidation, the refresh budget and interleaved camera/vision updates.
+
+- [x] Reduce local-light shadow work: background shadow-only mesh simplification,
+  30 Hz movement and 10 Hz idle-pose refresh, cached stationary floor silhouettes
+  for Balanced/Low, and full point-light cube shadows at High. Visible assets
+  remain unchanged. Doors, visibility and model replacement invalidate immediately;
+  camera motion, flicker and equivalent wall snapshots reuse cached masks.
+  Browser regressions cover contact at different scales/heights, all presets,
+  stationary reuse, final movement, door invalidation and real asset reduction.
+  See [graphics presets](docs/GRAPHICS_PRESETS.md).
+
+- [x] Stabilize all shadow paths: daylight shadows are cast by the visible
+  instanced creatures, and torch shadow budgets use nominal light output so
+  flicker cannot swap sources. Whole-frame browser coverage checks repeated
+  batching/restoration alongside local-light movement and stationary caching.
+
+- [x] Verify batched creature shadows stay present through movement and stops:
+  dedicated shadow proxies avoid the old layer-7 camera mismatch; GPU pixel
+  regression covers High/Balanced/Low and repeated snapshot layer restoration.
+
 - [x] Per-browser graphics presets: High, Balanced, Low and Effects off, with
   Auto selecting Balanced on narrow screens. Resolution, map/local/dice shadow
   budgets and atmosphere particle counts scale independently of gameplay rules.

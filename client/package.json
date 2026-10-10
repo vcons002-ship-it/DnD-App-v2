@@ -16,6 +16,7 @@
   "dependencies": {
     "cannon-es": "^0.20.0",
     "konva": "^9.3.18",
+    "meshoptimizer": "^1.2.0",
     "polygon-clipping": "0.15.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -27,7 +27,7 @@ import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../share
 import { useImage } from './useImage';
 import { TokenShape, DISPOSITION_HEX } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
-import { createMiniatureNameReader } from './miniatureNameLabels';
+import { createMiniatureNameReader, setMiniatureNamesRendered } from './miniatureNameLabels';
 import { MiniatureFallback } from './MiniatureFallback';
 import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, unprojectGround, mapToScreen, projectGround } from './miniatureProjection';
 import { useBoxSelection } from './useBoxSelection';
@@ -1303,14 +1303,7 @@ export function MapStage({
   const handleRenderedNames = useCallback((ids: ReadonlySet<string>) => {
     for(const layer of [tokenLayerRef.current, sharedTokenLayerRef.current]) {
       if(!layer)continue;
-      let changed=false;
-      for(const node of layer.find<Konva.Group>('.token')) {
-        const opacity=ids.has(node.getAttr('tokenId'))?0:1;
-        for(const label of node.find('.token-label, .token-tracking-tag')) {
-          if(label.opacity()!==opacity){label.opacity(opacity);changed=true;}
-        }
-      }
-      if(changed)layer.batchDraw();
+      setMiniatureNamesRendered(layer,ids);
     }
   },[]);
 
@@ -1896,7 +1889,7 @@ export function MapStage({
     if (e.target.getClassName() !== 'Layer') return;
     const position = { x: e.target.x(), y: e.target.y() };
     for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current]) {
-      if (layer) { layer.position(position); layer.batchDraw(); }
+      if (layer) { layer.position(position); layer.draw(); }
     }
     miniatureRef.current?.setView({ ...view, ...position });
     visionRef.current?.camera({view:{...view,...position}});
