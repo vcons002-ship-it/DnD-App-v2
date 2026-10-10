@@ -19,6 +19,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
 import { facingAfterMove } from '../../../shared/tokenFacing';
 import { createMiniatureNameLayer } from './miniatureNameLayer';
+import {createMiniatureMaskCache} from './miniatureMaskCache';
 import { createMiniatureVisibilityMaterial, createMiniatureVisionLift } from './miniatureVisionLift';
 import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
@@ -186,6 +187,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   // Shared screen mask measures local silhouette thickness for every model,
   // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
   const outlineMask = new WebGLRenderTarget(1, 1);
+  const bodyMaskCache=createMiniatureMaskCache();
   outlineMask.depthTexture = new DepthTexture(1, 1);
   const outlineProjectionInverse = {value: new Matrix4()};
   const maskMaterial = createMiniatureVisibilityMaterial();
@@ -443,7 +445,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
         const labels=props.nameLabels?.()??[];
         const renderedNames=names.sync(labels,visible,sharedIds);
-        if (archArtStudy || archArtLayer.hasArt || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
+        if ((archArtStudy || archArtLayer.hasArt || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) &&
+          bodyMaskCache.needsRender(outlineMask,scene,camera)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
           const shadowUpdate = renderer.shadowMap.needsUpdate;
@@ -464,6 +467,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           scene.overrideMaterial = null; camera.layers.mask = originalLayers;
           renderer.setRenderTarget(null);
         }
+        host.dataset.bodyMaskUpdates=String(bodyMaskCache.updates);
         // Shared figures cannot cast shadows or light the viewer's actual map.
         // A depth-only pass of personal figures preserves overlap ordering.
         const sw=renderer.domElement.width,sh=renderer.domElement.height;

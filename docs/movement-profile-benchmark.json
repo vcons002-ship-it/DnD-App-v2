@@ -1,0 +1,189 @@
+{
+  "date": "2026-10-10",
+  "baselineRevision": "9dc0e20",
+  "afterRevision": "Commit containing this receipt",
+  "renderer": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "configuration": {
+    "viewport": [
+      1440,
+      900
+    ],
+    "dpr": 1,
+    "quality": "balanced",
+    "tilt": 45,
+    "figures": 27,
+    "walls": 20,
+    "flickeringTorches": 2,
+    "carriedLanterns": 1,
+    "heavyDarkness": true,
+    "playerVision": true,
+    "mist": false,
+    "weather": "none",
+    "movementIntervalMs": 450,
+    "movementPixels": 80,
+    "sampleSeconds": 20,
+    "recording": false,
+    "tracing": false,
+    "loadedModelsAndProxyJobs": "waited before sampling"
+  },
+  "before": [
+    {
+      "scene": "Stationary with flickering torches",
+      "fps": 33.6811385623248,
+      "frameIntervalMs": {
+        "median": 23.700000047683716,
+        "p95": 45.10000014305115
+      },
+      "webglGpuMs": {
+        "median": 16.95856,
+        "p95": 17.01832
+      },
+      "drawCalls": "396",
+      "renderedTriangles": "2976880"
+    },
+    {
+      "scene": "Lantern movement every 450 ms",
+      "fps": 18.69504581290415,
+      "frameIntervalMs": {
+        "median": 58.299999952316284,
+        "p95": 65.39999985694885
+      },
+      "webglGpuMs": {
+        "median": 18.6073,
+        "p95": 19.21754
+      },
+      "drawCalls": "414",
+      "renderedTriangles": "2976912"
+    }
+  ],
+  "after": [
+    {
+      "scene": "Stationary with flickering torches",
+      "fps": 38.32662076170087,
+      "frameIntervalMs": {
+        "median": 20.199999809265137,
+        "p95": 42.40000009536743
+      },
+      "webglGpuMs": {
+        "median": 12.95688,
+        "p95": 13.13948
+      },
+      "drawCalls": "396",
+      "renderedTriangles": "2976880",
+      "bodyMaskUpdates": "177"
+    },
+    {
+      "scene": "Lantern movement every 450 ms",
+      "fps": 25.685359345050845,
+      "frameIntervalMs": {
+        "median": 41.39999985694885,
+        "p95": 48.5
+      },
+      "webglGpuMs": {
+        "median": 19.07756,
+        "p95": 19.26152
+      },
+      "drawCalls": "410",
+      "renderedTriangles": "2976912",
+      "bodyMaskUpdates": "594"
+    }
+  ],
+  "errors": [],
+  "trace": {
+    "secondsPerPhase": 7,
+    "cpuSamplingMicroseconds": 1000,
+    "note": "Separate diagnostic runs. Nested durations are not additive; these traces were not used for FPS totals.",
+    "baselineMainThreadIdleSamplePercent": {
+      "stationary": 73,
+      "moving": 68
+    },
+    "finding": "GPU command and raster work dominate. Movement copied invisible stroked Konva labels through oversized perfect-draw buffers. Label-layer scene draw calls consumed 636 ms over 10 seconds before, 20 ms after in short instrumented runs."
+  },
+  "limitations": [
+    "One AMD integrated GPU and disposable crowded board. Mist and weather disabled.",
+    "GPU timer encloses WebGL rendering only; Canvas2D, SVG rasterization and compositing are additional work.",
+    "Short sequential samples vary; these are rendered frame counts, not display scan-out measurements."
+  ],
+  "artifacts": {
+    "localDirectory": "D:/dnd-approved-release/frame-profile-20261010",
+    "baselineCpuProfiles": [
+      "before-stationary.cpuprofile",
+      "before-moving.cpuprofile"
+    ],
+    "baselineTraces": [
+      "before-stationary-trace.json",
+      "before-moving-trace.json"
+    ],
+    "afterLabelFixProfiles": [
+      "after-stationary.cpuprofile",
+      "after-moving.cpuprofile"
+    ]
+  },
+  "sourceSha256": {
+    "MapStage.tsx": "69bcebd059914d2951af6ee9a75c76d7783742a57764347c688293432ba78508",
+    "MiniatureLayer.tsx": "c090db4290ba46cd059063a2127b96616b919d78f551df533cc078493fe57895",
+    "miniatureBatches.ts": "cac88547a092635c6a0a26b5c4edab29ad96f163b161f67adda883b1f8ad61bb",
+    "miniatureMaskCache.ts": "a9129415ca0e96d8b9d2b4f2922da0fc2ae6b14226c952d2ece38a9d402b0594",
+    "miniatureNameLabels.ts": "8041095500bffd100ead9adef0c4ca1949202218e68c955c1cb7f38df26d1f65"
+  },
+  "repeatAfter": [
+    {
+      "scene": "Stationary with flickering torches",
+      "fps": 37.33413299347777,
+      "frameIntervalMs": {
+        "median": 20.700000047683716,
+        "p95": 43.700000047683716
+      },
+      "webglGpuMs": {
+        "median": 13.35612,
+        "p95": 13.67148
+      }
+    },
+    {
+      "scene": "Lantern movement every 450 ms",
+      "fps": 26.54707982147281,
+      "frameIntervalMs": {
+        "median": 40,
+        "p95": 46.90000009536743
+      },
+      "webglGpuMs": {
+        "median": 18.3998,
+        "p95": 18.45116
+      }
+    }
+  ],
+  "validation": {
+    "unitTests": 1977,
+    "browserRegressionTests": 26,
+    "typecheck": "passed",
+    "build": "passed",
+    "rotationAudit": {
+      "samples": 261,
+      "mismatches": [],
+      "active": false
+    }
+  },
+  "video": {
+    "url": "https://dnd.nic024i.app/uploads/previews/frame-profile-20261010/index.html",
+    "nativeCodec": "AV1",
+    "encoder": "RTX 5090 NVENC",
+    "appRenderer": "AMD integrated graphics",
+    "note": "Illustrative recorded run; measurement table excludes recording overhead.",
+    "verification": {
+      "pageStatus": 200,
+      "range": {
+        "status": 206,
+        "contentRange": "bytes 0-1023/12086549",
+        "bytes": 1024
+      },
+      "video": {
+        "duration": 31.433008,
+        "time": 20.104792,
+        "width": 1440,
+        "height": 990,
+        "readyState": 4
+      },
+      "errors": []
+    }
+  }
+}

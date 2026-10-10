@@ -91,6 +91,53 @@ wall snapshots retain light-to-token sight caches. Camera gestures update the ma
 3D camera and player masks in the same paint and preserve live angles when an
 unrelated server snapshot arrives before the gesture commits.
 
+GPU-rendered names now suppress their original Konva scene paint with visibility,
+rather than zero opacity. Konva otherwise still paints transparent stroked text
+through a full-layer buffer: at the tested perspective viewport that buffer
+contains roughly six million pixels. The source text nodes remain available for
+name textures, live transforms and the 2D fallback; health and initiative HUDs
+retain their existing input and layering. Name textures normalize this paint-only
+visibility out of their cache keys and render visible clones.
+
+Repeated creature transforms are compared in their actual GPU Float32 precision,
+so stationary fractional map coordinates do not repeatedly upload identical
+matrices or recompute batch bounds. The body/depth mask retains its exact pixels
+until visible geometry, transforms, skin/morph poses, personal/shared layers,
+mirror textures, viewport or camera changes. Upload counters alone do not force
+redraws when the instance data is unchanged. This screen mask is refreshed in
+the same movement/camera frame; it has no throttling interval or resolution loss.
+
+A detailed follow-up profile (2026-10-10, baseline `9dc0e20`) compared the same
+27-figure board, 20 walls, two flickering torches and Druk's moving lantern,
+heavy darkness and player vision, Balanced, 1440 x 900 / DPR 1 on AMD integrated
+graphics. Mist and weather were off. Model loading and shadow preparation
+completed before measurements; FPS samples had neither tracing nor recording.
+
+| Scene | Before FPS | After FPS | Before / after p95 frame interval |
+| --- | ---: | ---: | ---: |
+| Stationary with flickering lights | 33.7 | 38.3 | 45.1 / 42.4 ms |
+| Movement every 450 ms | 18.7 | 25.7 | 65.4 / 48.5 ms |
+
+Stationary median WebGL GPU time fell from 17.0 to 13.0 ms. During movement it
+remained around 19 ms; much of the improvement came from eliminating duplicate
+Canvas2D paint. In separate ten-second layer-instrumentation samples, the token
+HUD's scene drawing time fell from 636 to 20 ms. Its frame count increased, so
+this is reduced work rather than fewer movement frames. Separate seven-second
+CPU/graphics traces found the renderer main thread idle in approximately 68%
+of movement samples and substantial GPU-process command/raster work. That does
+not measure whole-machine CPU utilization or exclusive GPU hardware busy time.
+The WebGL timer excludes Canvas2D, SVG and compositor work, so its duration must
+not be treated as the complete frame interval. Short sequential runs vary.
+
+The small receipt is `docs/movement-profile-benchmark.json`; full local traces
+and profiles are retained at the paths it lists. Browser regression coverage in
+`e2e/miniature-paint-budget.spec.ts` checks name texture preservation, fallback,
+fractional batch transforms and immediate body-mask invalidation. Existing
+shadow, quality, camera/vision and token-input tests also pass.
+An [AV1 verification video with a mobile copy](https://dnd.nic024i.app/uploads/previews/frame-profile-20261010/index.html)
+shows stationary lights, continuous lantern movement and free rotation with an
+on-screen counter. Recording overhead is excluded from the table above.
+
 A follow-up movement comparison against the corrected shadow renderer
 (`a1dc882`, 2026-10-10) used 27 figures, 20 walls, two flickering torches and a
 moving lantern in heavy darkness with player vision, Balanced quality,

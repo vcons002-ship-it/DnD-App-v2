@@ -59,7 +59,10 @@ export function createMiniatureBatches(scene:Scene){
         const data=bucket.mesh.instanceMatrix.array;
         for(let i=0;i<members.length;i++){
           const member=members[i],elements=member.mesh.matrixWorld.elements;
-          if(bucket.members[i]!==member.mesh||elements.some((v,j)=>Math.abs(v-data[i*16+j])>1e-6)){
+          // Compare in the GPU buffer's Float32 precision. A fixed absolute
+          // epsilon treated stationary fractional map positions as movement,
+          // uploading identical matrices and invalidating depth every frame.
+          if(bucket.members[i]!==member.mesh||elements.some((v,j)=>Math.fround(v)!==data[i*16+j])){
             bucket.mesh.setMatrixAt(i,member.mesh.matrixWorld);matrixChanged=true;
           }
           const colors=bucket.mesh.instanceColor?.array,color=member.material.color;
