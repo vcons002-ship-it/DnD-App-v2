@@ -47,7 +47,7 @@ export function createBattlefieldWeather(scene:Scene,depth:{texture:Texture;reso
   const mesh=new Mesh(geometry,material);mesh.frustumCulled=false;mesh.renderOrder=4;
   mesh.onBeforeRender=(_r,_s,camera)=>{uniforms.cameraInverse.value.copy(camera.projectionMatrixInverse);uniforms.cameraWorld.value.copy(camera.matrixWorld);};scene.add(mesh);
   let settings:EnvironmentPreviewSettings,quality='high';
-  function updateBudget(){const low=settings.mistQuality==='low'||settings.mistQuality==='auto'&&(innerWidth<600||depth.resolution.x*depth.resolution.y>2e6);quality=low?'low':'high';geometry.instanceCount=Math.round((settings.weather==='snow'?1100:2200)*(low?.35:1)*(settings.weatherIntensity??.5));}
+  function updateBudget(){const low=settings.mistQuality==='low'||settings.mistQuality==='auto'&&(innerWidth<600||depth.resolution.x*depth.resolution.y>2e6);quality=low?'low':'high';geometry.instanceCount=Math.round((settings.weather==='snow'?1100:2200)*(settings.particleScale??(low?.35:1))*(settings.weatherIntensity??.5));}
   return {update(next:EnvironmentPreviewSettings){settings=next;mesh.visible=next.enabled&&next.mistQuality!=='off'&&!!next.weather&&next.weather!=='none'&&(next.weatherIntensity??.5)>0;
     uniforms.snow.value=next.weather==='snow'?1:0;uniforms.scaleFt.value=next.pixelsPerFoot??12.8;
     uniforms.bounds.value.set(next.mapX??0,next.mapY??0,next.mapWidth,next.mapHeight);

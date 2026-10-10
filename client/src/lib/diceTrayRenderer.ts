@@ -11,6 +11,7 @@ import {createDiceTableScene,createPlainDiceTableSurface,preloadDiceTableTexture
 import type {DiceTableSeat} from './diceTableCamera';
 import type {StateSnapshot} from '../../../shared/types';
 import {createDiceRendererCache} from './diceRendererCache';
+import {currentGraphicsBudget} from './useEnvironmentQuality';
 
 export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean;mossAgate?:boolean;enchantedAmber?:boolean;woodlandWake?:boolean};
 
@@ -49,7 +50,7 @@ const liveRenderers=createDiceRendererCache<ReturnType<typeof createTrayRenderer
 let liveRendererContext='';
 export function acquireLiveTrayRenderer(context:string,dice:TrayDie[],toss:Toss,theme:DiceTheme,art?:THREE.Texture){
   if(context!==liveRendererContext){liveRenderers.clear();liveRendererContext=context;}
-  const key=JSON.stringify([theme,toss.radius,toss.trayScale,dice.map(d=>[d.sides,d.set,!!d.crit,!!d.tens,!!d.ones])]);
+  const key=JSON.stringify([currentGraphicsBudget().resolved,theme,toss.radius,toss.trayScale,dice.map(d=>[d.sides,d.set,!!d.crit,!!d.tens,!!d.ones])]);
   const lease=liveRenderers.acquire(key,dice.length,()=>createTrayRenderer(dice,toss,theme,undefined,art,true));
   if(lease.reused){art?.dispose();lease.value.resetForRoll(toss);}
   return lease;
@@ -95,6 +96,7 @@ export function preloadDiceGraphics(theme: DiceTheme, canStart: () => boolean,co
   graphicsPending.set(theme.id,task);return task;
 }
 export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,keptSet?:number,trayArt?:THREE.Texture,fixedFaces=false,dieThemes?:readonly DiceTheme[],appearance?:DiceAppearanceTest){
+  const budget=currentGraphicsBudget();
   appearance ??= {molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true,mossAgate:false,woodlandWake:true};
   const stage=getDiceStage(),scene=new THREE.Scene();scene.environment=stage.scene.environment;
   const trayScale=toss.trayScale??1;
@@ -106,7 +108,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
   const plainTable=createPlainDiceTableSurface(scene,trayScale);
   let tableKey='',sceneRevision=0,preparedSize='',compiledRevision=-1;
   scene.add(new THREE.HemisphereLight(0xf4ead9,0x172324,.45));
-  const light=new THREE.DirectionalLight(0xfff3dd,1.5);light.position.set(-9,3,6).multiplyScalar(trayScale);light.castShadow=true;light.shadow.mapSize.set(1024,1024);
+  const light=new THREE.DirectionalLight(0xfff3dd,1.5);light.position.set(-9,3,6).multiplyScalar(trayScale);light.castShadow=true;light.shadow.mapSize.set(budget.diceShadowSize,budget.diceShadowSize);
   Object.assign(light.shadow.camera,{left:-10*trayScale,right:10*trayScale,top:8*trayScale,bottom:-8*trayScale,near:.1,far:35*trayScale});light.shadow.bias=-.0003;light.shadow.normalBias=.025;scene.add(light);
   const geometry:THREE.BufferGeometry[]=[],materials:THREE.Material[]=[],textures:THREE.Texture[]=[];
   const box=(x:number,y:number,z:number,w:number,h:number,d:number,color:number):THREE.Mesh<THREE.BufferGeometry,THREE.Material>=>{
@@ -218,13 +220,14 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
     setResults(values:readonly (number|null)[]){liveResults=values;},
     setExplosionTime(at:number|null|undefined){handles.forEach(h=>h.setExplosionAt(at));},
     powerStates(){return handles.slice(0,activeCount).map(h=>h.powerState());},
+    graphicsState(){return {quality:budget.resolved,shadowSize:budget.diceShadowSize,pixelRatioCap:budget.pixelRatioCap,maxRenderWidth:budget.diceRenderWidth};},
     setActiveCount(count:number){activeCount=count;},
     trailPointCount(){return trails?.pointCount()??0;},
     trailBranchCount(){return trails?.branchCount()??0;},
     async prepare(width:number,height:number,dpr:number,canRender:()=>boolean=()=>true){
       await preloadDiceTableTexture();
       if(plainTable.prepare())sceneRevision++;
-      const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width),signature=`${rw}:${rh}:${sceneRevision}`;
+      const rw=Math.min(budget.diceRenderWidth,Math.round(width*Math.min(dpr,budget.pixelRatioCap))),rh=Math.round(rw*height/width),signature=`${rw}:${rh}:${sceneRevision}`;
       if(preparedSize===signature)return;
       // Launch poses start outside the camera. Warm visible dice, transmission,
       // textures and shadow passes before acknowledging readiness to the server.
@@ -287,7 +290,7 @@ export function createTrayRenderer(dice:TrayDie[],toss:Toss,theme:DiceTheme,kept
       });
       rangerIndices.forEach((index,k)=>waitingForCamera?moteLights[k].set(0,0,-10000):handles[index].innerLightPosition(moteLights[k]));
       trails?.update(handles.map(h=>h.object),now);
-      const rw=Math.min(1440,Math.round(width*dpr)),rh=Math.round(rw*height/width);
+      const rw=Math.min(budget.diceRenderWidth,Math.round(width*Math.min(dpr,budget.pixelRatioCap))),rh=Math.round(rw*height/width);
       if(stage.renderer.domElement.width!==rw||stage.renderer.domElement.height!==rh)stage.renderer.setSize(rw,rh,false);
       const previousShadows=stage.renderer.shadowMap.enabled;stage.renderer.shadowMap.enabled=true;
       stage.renderer.render(scene,camera);stage.renderer.shadowMap.enabled=previousShadows;

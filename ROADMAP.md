@@ -1,5 +1,12 @@
 # Roadmap & Feature Backlog
 
+- [x] Per-browser graphics presets: High, Balanced, Low and Effects off, with
+  Auto selecting Balanced on narrow screens. Resolution, map/local/dice shadow
+  budgets and atmosphere particle counts scale independently of gameplay rules.
+  Effects off preserves basic lighting, darkness and fog. Dice retain their
+  materials, powers, authoritative physics, timings and result labels. Reduced
+  player meshes and adaptive frame-time selection remain future work.
+
 - [x] Walls toolbar puts Adjust existing features first, with compact Add,
   Edit, Lights and AI analysis menus. Place, recolor and configure lights here;
   Environment keeps scene lighting, weather, mist and shadows. Door/window

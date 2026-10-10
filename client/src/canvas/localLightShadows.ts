@@ -5,6 +5,7 @@ import type {TorchLight} from './miniatureTorchLighting';
 import {selectShadowLights,castsLocalShadow,compactShadowHeightScale,localShadowContactBias,localShadowDepthGlsl,type ShadowCaster} from '../../../shared/localLightShadows';
 import {creatureShadowStyle} from './creatureShadowStyle';
 import {createEnvironmentalLocalShadows,environmentalLocalShadowGlsl} from './environmentalLocalShadows';
+import {graphicsBudget} from '../../../shared/graphicsQuality';
 
 // A bounded set of cached cube maps keeps moving lanterns affordable. Sources
 // are chosen by their contribution at visible figures, never by array order.
@@ -60,12 +61,17 @@ export function createLocalLightShadows(renderer:WebGLRenderer){
   light.shadow.mapSize.set(512,512);light.shadow.camera.near=.5;
   return {light,id:'',key:'',carried:false,casterIds:[] as string[]};
  });
- let updates=0;
+ let updates=0,shadowSize=512;
  const dimensions=new WeakMap<Group,{height:number;radius:number}>(),bounds=new Box3();
  return {uniforms,
-  render(renderer:WebGLRenderer,scene:Scene,camera:Camera,lights:TorchLight[],casters:readonly (ShadowCaster&{id:string;root:Group;diameter:number;animated?:boolean})[],walls:readonly MapWall[],enabled:boolean,environmentalLength:number){
+  render(renderer:WebGLRenderer,scene:Scene,camera:Camera,lights:TorchLight[],casters:readonly (ShadowCaster&{id:string;root:Group;diameter:number;animated?:boolean})[],walls:readonly MapWall[],enabled:boolean,environmentalLength:number,budget=graphicsBudget('high')){
+   if(shadowSize!==budget.localShadowSize){
+    shadowSize=budget.localShadowSize;
+    for(const entry of pool){entry.light.shadow.map?.dispose();entry.light.shadow.map=null;entry.light.shadow.mapSize.set(shadowSize,shadowSize);entry.key='';}
+    maps.forEach(map=>map.value=empty.depthTexture!);
+   }
    for(const light of lights)light.shadowSlot=-1;
-   const selected=enabled?selectShadowLights(lights,casters,walls):[];
+   const selected=enabled?selectShadowLights(lights,casters,walls).slice(0,budget.localShadowLights):[];
    // Keep slots stable as flicker changes the relative strength of two torches.
    for(const entry of pool)if(!selected.some(l=>l.id===entry.id)){entry.id='';entry.key='';}
    if(!selected.length){origins.forEach(o=>o.w=0);return;}
@@ -89,7 +95,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer){
     light.shadow.camera.far=far;light.shadow.camera.updateProjectionMatrix();
     light.shadow.needsUpdate=animated||entry.key!==key||(!planar&&!light.shadow.map);entry.key=key;
     source.shadowSlot=slot;
-    origins[slot].set(source.x,source.height,source.y,1);params[slot].set(.5,far,2/512,localShadowContactBias(source.height));
+    origins[slot].set(source.x,source.height,source.y,1);params[slot].set(.5,far,2/shadowSize,localShadowContactBias(source.height));
    }
    pool.forEach((entry,i)=>{if(!entry.id)origins[i].w=0;});
    const dirty=pool.filter(e=>e.id&&e.light.shadow.needsUpdate);
@@ -113,7 +119,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer){
         c.root.updateMatrixWorld(true);
        }
        entry.casterIds=[...new Set(transforms.filter(t=>t.node.castShadow).map(t=>t.id))];
-       entry.light.shadow.map??=depthCube(512);
+       entry.light.shadow.map??=depthCube(shadowSize);
        renderer.shadowMap.needsUpdate=true;renderer.shadowMap.render([entry.light],scene,camera);
       }finally{
        for(const {caster,y} of scaled){caster.root.scale.y=y;caster.root.updateMatrixWorld(true);}
@@ -126,7 +132,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer){
     updates+=dirty.length;
    }
    pool.forEach((entry,i)=>{maps[i].value=entry.light.shadow.map?.depthTexture??empty.depthTexture!;});
-  },get state(){return {localShadowLights:pool.filter(e=>e.id).length,localShadowUpdates:updates,localShadowSourceIds:pool.filter(e=>e.id).map(e=>e.id).join(','),localShadowCasters:JSON.stringify(Object.fromEntries(pool.filter(e=>e.id).map(e=>[e.id,e.casterIds])))};},
+  },get state(){return {localShadowSize:shadowSize,localShadowLights:pool.filter(e=>e.id).length,localShadowUpdates:updates,localShadowSourceIds:pool.filter(e=>e.id).map(e=>e.id).join(','),localShadowCasters:JSON.stringify(Object.fromEntries(pool.filter(e=>e.id).map(e=>[e.id,e.casterIds])))};},
   dispose(){planar?.dispose();empty.dispose();passTarget.dispose();marker.geometry.dispose();marker.material.dispose();for(const entry of pool){entry.light.shadow.map?.dispose();entry.light.shadow.mapPass?.dispose();}}
  };
 }
