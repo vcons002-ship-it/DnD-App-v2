@@ -114,6 +114,16 @@ Validate the tier package with `node scripts/token-assets/validate-quality-model
 The client prebuild runs both original and reduced asset validation. Real-board
 coverage and an A/B comparison live in `e2e/adaptive-rendering.spec.ts`.
 
+The earlier renderer had a batching/shadow-layer conflict: Three's shadow pass
+checks the supplied view camera's layers, not `light.shadow.camera.layers`.
+Source meshes suppressed on layer 7 were omitted from local cube shadows until
+a snapshot briefly restored their layers. Shadow-only proxies use their own
+scene and layer 0, so color batching cannot remove their shadows. Browser pixel
+coverage now checks three batched creatures through repeated movement, stops,
+and source-layer restoration at all three shadow quality levels.
+The original before/after benchmark's early "Before" chapters contain this bug;
+their FPS baseline therefore also omitted many creature shadows.
+
 The 2026-10-10 RTX 5090 browser comparison used 27 real figures, original High
 party models, two flickering lights, dense mist and weather at 1440 x 900 / DPR 2.
 Batching reduced scene draws from 450 to 366 (18.7%) with the same 6,870,310

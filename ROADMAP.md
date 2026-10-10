@@ -9,6 +9,10 @@
   stationary reuse, final movement, door invalidation and real asset reduction.
   See [graphics presets](docs/GRAPHICS_PRESETS.md).
 
+- [x] Verify batched creature shadows stay present through movement and stops:
+  dedicated shadow proxies avoid the old layer-7 camera mismatch; GPU pixel
+  regression covers High/Balanced/Low and repeated snapshot layer restoration.
+
 - [x] Per-browser graphics presets: High, Balanced, Low and Effects off, with
   Auto selecting Balanced on narrow screens. Resolution, map/local/dice shadow
   budgets and atmosphere particle counts scale independently of gameplay rules.
