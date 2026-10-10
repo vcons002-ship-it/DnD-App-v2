@@ -36,6 +36,15 @@ describe('local shadow light selection',()=>{
   expect(selectShadowLights(lights,[{x:120,y:100,visible:true}],walls).map(l=>l.id)).toEqual(['near']);
   expect(selectShadowLights(lights,[{x:120,y:100,visible:false}],walls)).toEqual([]);
  });
+ it('keeps the same shadow sources when similarly strong torches flicker',()=>{
+  const lights=Array.from({length:6},(_,i)=>({...light(String(i),100),nominalRadius:200,nominalStrength:1}));
+  const casters=[{x:120,y:100,visible:true}];
+  const expected=selectShadowLights(lights,casters,[]).map(l=>l.id);
+  for(let phase=0;phase<30;phase++){
+   const flickering=lights.map((l,i)=>({...l,strength:1+Math.sin(phase+i)*.24,radius:200*(1+Math.sin(phase+i)*.0672)}));
+   expect(selectShadowLights(flickering,casters,[]).map(l=>l.id)).toEqual(expected);
+  }
+ });
  it('budgets by contribution at creatures rather than source creation order',()=>{
   const lights=Array.from({length:9},(_,i)=>light(String(i),20+i*20));
   const chosen=selectShadowLights(lights,[{x:180,y:100,visible:true}],[]);

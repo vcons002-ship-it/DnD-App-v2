@@ -9,6 +9,11 @@
   stationary reuse, final movement, door invalidation and real asset reduction.
   See [graphics presets](docs/GRAPHICS_PRESETS.md).
 
+- [x] Stabilize all shadow paths: daylight shadows are cast by the visible
+  instanced creatures, and torch shadow budgets use nominal light output so
+  flicker cannot swap sources. Whole-frame browser coverage checks repeated
+  batching/restoration alongside local-light movement and stationary caching.
+
 - [x] Verify batched creature shadows stay present through movement and stops:
   dedicated shadow proxies avoid the old layer-7 camera mismatch; GPU pixel
   regression covers High/Balanced/Low and repeated snapshot layer restoration.

@@ -122,3 +122,31 @@ test('floor masks reuse stationary geometry during movement and invalidate immed
  expect(data.door.localShadowUpdates).toBe(data.idle.localShadowUpdates+1);
  expect(JSON.parse(data.door.localShadowCasters)).toEqual({torch:['0']});
 });
+
+
+test('directional shadows survive batching and repeated snapshot restores over the whole frame',async({page})=>{
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import * as T from 'three';
+ import {createMiniatureBatches} from './client/src/canvas/miniatureBatches';
+ const renderer=new T.WebGLRenderer();renderer.setSize(200,200);renderer.shadowMap.enabled=true;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.type=T.PCFShadowMap;
+ const scene=new T.Scene();scene.background=new T.Color(0xffffff);
+ const camera=new T.OrthographicCamera(-260,260,260,-260,1,2000);camera.position.set(0,650,350);camera.lookAt(0,0,0);
+ const sun=new T.DirectionalLight(0xffffff,3);sun.position.set(-300,350,-300);sun.castShadow=true;sun.shadow.mapSize.set(512,512);
+ Object.assign(sun.shadow.camera,{left:-500,right:500,top:500,bottom:-500,near:1,far:1500});sun.shadow.camera.updateProjectionMatrix();scene.add(sun,new T.AmbientLight(0xffffff,.25));
+ const floor=new T.Mesh(new T.PlaneGeometry(1000,1000),new T.MeshStandardMaterial({color:0xffffff}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+ const geometry=new T.BoxGeometry(30,60,30),material=new T.MeshStandardMaterial({color:0xffffff});material.userData.batchSource='shared';
+ const lighting={signature:'same',uniforms:{torchCount:{value:0},darkvisionDetail:{value:0},torchShadowSlots:{value:Array(8).fill(-1)},torchPositions:{value:Array.from({length:8},()=>new T.Vector4())},torchColors:{value:Array.from({length:8},()=>new T.Vector3())}}};
+ const figures=[-120,0,120].map(x=>{const root=new T.Group(),body=new T.Group(),mesh=new T.Mesh(geometry,material);mesh.castShadow=true;mesh.position.y=30;body.add(mesh);root.add(body);root.position.x=x;scene.add(root);return {root,lighting,eligible:true};});
+ const target=new T.WebGLRenderTarget(200,200),pixels=new Uint8Array(200*200*4);
+ const frame=()=>{renderer.shadowMap.needsUpdate=true;renderer.setRenderTarget(target);renderer.render(scene,camera);renderer.readRenderTargetPixels(target,0,0,200,200,pixels);return pixels.slice();};
+ const reference=frame(),batches=createMiniatureBatches(scene),failures=[];
+ for(let i=0;i<45;i++){
+  if(i%5===0)batches.restore();batches.update(figures);const actual=frame();let changed=0;
+  for(let p=0;p<pixels.length;p+=4)if(Math.abs(actual[p]-reference[p])>6)changed++;
+  if(changed>40)failures.push({i,changed});
+ }
+ window.directionalContinuity={failures};batches.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
+ expect(await page.evaluate(()=>(window as any).directionalContinuity.failures)).toEqual([]);
+});

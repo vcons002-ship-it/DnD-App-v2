@@ -211,7 +211,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       const seed=phase(source.id),f=Math.sin(time*6.3+seed)*.10+Math.sin(time*11.1+seed*3)*.06+Math.sin(time*2.7+seed)*.08;
       const color=sourceColor(source.color);
       return {id:source.id,x:source.x,y:source.y,height:source.height,fixtureHeight:source.fixtureHeight,radius:source.radiusFt*ppf*(source.flicker?1+f*.28:1),
-        strength:source.intensity*(source.flicker?1+f:1),color:new Vector3(color.r,color.g,color.b),visibleTorch:!!source.visibleTorch,fixture:source.fixture,carried:source.carried,facing:source.facing,fixtureX:'fixtureX' in source?source.fixtureX:source.x,fixtureY:'fixtureY' in source?source.fixtureY:source.y};
+        strength:source.intensity*(source.flicker?1+f:1),nominalRadius:source.radiusFt*ppf,nominalStrength:source.intensity,color:new Vector3(color.r,color.g,color.b),visibleTorch:!!source.visibleTorch,fixture:source.fixture,carried:source.carried,facing:source.facing,fixtureX:'fixtureX' in source?source.fixtureX:source.x,fixtureY:'fixtureY' in source?source.fixtureY:source.y};
     }):[];
     if(plane.visible)lights.push(...transient);
     ensureCapacity(lights.length);let visible=0,lanterns=0;

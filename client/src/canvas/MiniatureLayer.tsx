@@ -255,7 +255,6 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let props = initial;
   let tokenById=new Map(initial.tokens.map(t=>[t.id,t]));
   const batches=createMiniatureBatches(scene);
-  key.shadow.camera.layers.enable(7);
   const batchingEnabled=new URLSearchParams(location.search).get('batching')!=='off';
   const measurements=new Map<string,{anchor:Vector3;body?:MistBody}>();
   const playerAssetUrls=new Set<string>();

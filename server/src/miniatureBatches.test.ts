@@ -13,11 +13,11 @@ describe('static miniature batching',()=>{
       return {root,eligible:true,lighting:{signature:'same lamps',uniforms:{torchCount:{value:0},darkvisionDetail:{value:0},torchShadowSlots:{value:Array(8).fill(-1)},torchPositions:{value:Array.from({length:8},()=>new Vector4())},torchColors:{value:Array.from({length:8},()=>new Vector3())}}} as any};
     });
   };
-  it('retains independent colors, transforms and original per-token shadow casters',()=>{
+  it('retains independent colors and transforms and casts directional shadows from instances',()=>{
     const scene=new Scene(),items=figures(scene),batches=createMiniatureBatches(scene);
     expect(batches.update(items)).toEqual({batches:1,instances:4});
     const batch=scene.children.find(n=>n.name==='batched-miniatures') as any;
-    expect(batch.castShadow).toBe(false);expect(batch.layers.isEnabled(5)).toBe(true);
+    expect(batch.castShadow).toBe(true);expect(batch.layers.isEnabled(5)).toBe(true);
     for(let i=0;i<4;i++){
       const mesh=items[i].root.children[0].children[0] as Mesh;
       expect(mesh.castShadow).toBe(true);expect(mesh.layers.mask).toBe(1<<7);
