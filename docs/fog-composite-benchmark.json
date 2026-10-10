@@ -1,0 +1,149 @@
+{
+  "date": "2026-10-10",
+  "baseRevision": "6c557e68c3216ef5192a56de24b4e8a2f25cbefa",
+  "afterRevision": "Commit containing this receipt",
+  "comparison": "Legacy and GPU fog paths selected in the same build; sequential measurements after model/proxy warmup.",
+  "renderer": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "configuration": {
+    "viewport": [
+      1440,
+      900
+    ],
+    "dpr": 1,
+    "quality": "balanced",
+    "tilt": 45,
+    "figures": 27,
+    "walls": 20,
+    "flickeringTorches": 2,
+    "carriedLanterns": 1,
+    "heavyDarkness": true,
+    "playerVision": true,
+    "mist": false,
+    "weather": "none",
+    "movementIntervalMs": 450,
+    "movementPixels": 80,
+    "sampleSeconds": 20,
+    "recording": false,
+    "tracing": false
+  },
+  "before": [
+    {
+      "scene": "Stationary with flickering torches",
+      "fps": 37.6289278003421,
+      "frameIntervalMs": {
+        "median": 26.09999990463257,
+        "p95": 33.200000047683716
+      },
+      "webglGpuMs": {
+        "median": 13.88988,
+        "p95": 14.35352
+      },
+      "visionComposite": "legacy"
+    },
+    {
+      "scene": "Lantern movement every 450 ms",
+      "fps": 25.035354317664478,
+      "frameIntervalMs": {
+        "median": 42.200000047683716,
+        "p95": 50.60000014305115
+      },
+      "webglGpuMs": {
+        "median": 19.25168,
+        "p95": 19.37864
+      },
+      "visionComposite": "legacy"
+    }
+  ],
+  "after": [
+    {
+      "scene": "Stationary with flickering torches",
+      "fps": 43.271224635720415,
+      "frameIntervalMs": {
+        "median": 21.59999990463257,
+        "p95": 31.699999809265137
+      },
+      "webglGpuMs": {
+        "median": 13.5318,
+        "p95": 15.03444
+      },
+      "visionComposite": "gpu"
+    },
+    {
+      "scene": "Lantern movement every 450 ms",
+      "fps": 29.494543509380446,
+      "frameIntervalMs": {
+        "median": 35.700000047683716,
+        "p95": 42.40000009536743
+      },
+      "webglGpuMs": {
+        "median": 18.77268,
+        "p95": 19.0142
+      },
+      "visionComposite": "gpu"
+    }
+  ],
+  "gains": [
+    {
+      "scene": "Stationary with flickering torches",
+      "fpsPercent": 14.994572434580554,
+      "p95FrameIntervalReductionPercent": 4.518073000795764
+    },
+    {
+      "scene": "Lantern movement every 450 ms",
+      "fpsPercent": 17.81156813334832,
+      "p95FrameIntervalReductionPercent": 16.205533645259905
+    }
+  ],
+  "sourceSha256": {
+    "MapStage.tsx": "16fcbd595294a2d079028fe2c3ceef8b6a2981292651397204db2416bf09909f",
+    "MiniatureLayer.tsx": "5ea4b6ee9ace39304c1091a7dc92634b45fd8f77ba582ddec619d3d04d655ba1",
+    "PlayerVisionOverlay.tsx": "7fe54c82053b67f96ffa31c073e29dd2290d9b9dd078b40a28e075e6b356e18f",
+    "darkvisionTerrain.ts": "64eead92c1be76089eca74c0da5f003f1f9d9b22690fbd1da96bf2f87ae902ee",
+    "miniatureVisionComposite.ts": "a6c3d29d59604c6ac805100670f730b9df04c464187a85e3b8bcac5e826c335b"
+  },
+  "validation": {
+    "unitTests": 1977,
+    "browserRegressionTests": 22,
+    "typecheck": "passed",
+    "build": "passed",
+    "rotationAudit": {
+      "samples": 267,
+      "mismatches": [],
+      "active": false
+    },
+    "browserErrors": [],
+    "browserRuntimeSeconds": 117.441844
+  },
+  "limitations": [
+    "Rendered-frame counters are not a guaranteed phone performance result.",
+    "No mist or weather in the benchmark.",
+    "Shared-party-awareness rendering remains a cached separate pass.",
+    "A GPU framebuffer copy and final composite remain.",
+    "Legacy fallback is retained while memory artwork is unavailable, including daylight boards without an environment renderer."
+  ],
+  "video": {
+    "url": "https://dnd.nic024i.app/uploads/previews/fog-composite-20261010/index.html",
+    "nativeCodec": "AV1",
+    "encoder": "RTX 5090 NVENC",
+    "capture": "Windows Graphics Capture",
+    "appRenderer": "AMD integrated graphics",
+    "note": "Recorded example is separate from the unrecorded benchmark.",
+    "verification": {
+      "pageStatus": 200,
+      "range": {
+        "status": 206,
+        "contentRange": "bytes 0-1023/12184491",
+        "bytes": 1024
+      },
+      "video": {
+        "duration": 30.966992,
+        "time": 20.101693,
+        "width": 1440,
+        "height": 990,
+        "readyState": 4
+      },
+      "errors": []
+    },
+    "sha256": "f8339f0aa087a0e01f8786a348f99e445ecdb66e1e7ddd6d0aaa55f768e332a9"
+  }
+}

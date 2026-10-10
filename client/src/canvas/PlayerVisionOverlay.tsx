@@ -6,10 +6,11 @@ import type {ExploredTerrain} from '../../../shared/exploration';
 import {wallVisibilityPolygon,SIGHT_EXTENT,type WallPoint} from '../../../shared/mapWalls';
 import type {TokenPresentation} from './tokenPresentation';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
+import type {VisionCoverFrame} from './miniatureVisionComposite';
 import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
-export type PlayerVisionHandle={memoryCanvas:()=>HTMLCanvasElement|null;frame:()=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
+export type PlayerVisionHandle={cover:()=>VisionCoverFrame|undefined;memoryCanvas:()=>HTMLCanvasElement|null;frame:()=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
 /** Terrain visibility stays below lifted miniature pixels; darkvision
  * desaturation remains above both. Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
@@ -40,6 +41,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const propCamera=useRef({view:props.view,tilt:props.tilt,rotation:props.rotation});
  const renderedLights=useRef<VisionLight[]|null>(null);
  const pendingDraw=useRef(0);
+ const coverFrame=useRef<VisionCoverFrame>();
  const draw=()=>{
   if(!shade.current||!lightPaths.current||!originPaths.current||!sightPaths.current||!lightClips.current)return;
   const {vision,view,tilt,rotation,width,height}=state.current;
@@ -103,12 +105,26 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    return result;
   }).join('');
   lightClips.current.innerHTML=clips.join('');
-  for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);
   // Keep the SVG mask in the DOM and share light geometry between both masks.
   // Encoding/decoding two large SVG image URLs per frame caused mobile stalls.
   originPaths.current.innerHTML=circles;
   if(retainedRange.current)retainedRange.current.innerHTML=vision.heavy?vision.origins.map(o=>`<path fill="white" d="${path(o,vision.radius)}"/>`).join(''):`<rect width="${width}" height="${height}" fill="white"/>`;
   lightPaths.current.innerHTML=lights;
+  const livePoint=(p:{id:string;x:number;y:number})=>state.current.presentation?.position(p.id)??live.current.get(p.id)??p;
+  const originPolygon=(o:{id:string;x:number;y:number},radius:number)=>{
+   const p=livePoint(o);
+   return wallFog?polygon({...p,id:o.id},radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius}));
+  };
+  coverFrame.current={enabled:wallFog||vision.heavy,
+   explored:geometry??[],memory:memoryCanvas.current,keepRevealed:!!state.current.keepRevealed,
+   memoryRange:state.current.keepRevealed&&vision.heavy?vision.origins.map(o=>{const p=livePoint(o);return circleVertices.map(v=>({x:p.x+v.x*vision.radius,y:p.y+v.y*vision.radius}));}):undefined,
+   origins:vision.origins.map(o=>originPolygon(o,vision.heavy?vision.radius:SIGHT_EXTENT)),
+   sight:vision.origins.map(o=>originPolygon(o,SIGHT_EXTENT)),
+   lights:(renderedLights.current??vision.lights).filter(l=>!l.transient).map(l=>{
+    const source=renderedLights.current?l:{...l,...livePoint(l)};
+    return {source,polygon:polygon(source,SIGHT_EXTENT)};
+   })};
+  for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);
   // Cosmetic flashes restore color only inside already-visible terrain. They
   // never enter the sight-cover mask or authorize/persist exploration.
   if(spellPaths.current)spellPaths.current.innerHTML=spellBands.join('');
@@ -122,7 +138,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  // frame. Rebuild the SVG masks once using the final state, not for every event.
  const schedule=()=>{if(!pendingDraw.current)pendingDraw.current=requestAnimationFrame(()=>{pendingDraw.current=0;draw();});};
  useEffect(()=>()=>cancelAnimationFrame(pendingDraw.current),[]);
- useImperativeHandle(ref,()=>({memoryCanvas:()=>memoryCanvas.current,frame(){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},lights(next){renderedLights.current=next;schedule();},camera(next){state.current={...state.current,...next};cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});schedule();}}),[]);
+ useImperativeHandle(ref,()=>({cover(){if(pendingDraw.current){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();}return coverFrame.current;},memoryCanvas:()=>memoryCanvas.current,frame(){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},lights(next){renderedLights.current=next;schedule();},camera(next){state.current={...state.current,...next};cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},move(id,x,y){if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;live.current.set(id,{x,y});schedule();}}),[]);
  useLayoutEffect(()=>{
   const previous=propCamera.current,current=state.current;
   // Server snapshots can arrive during a camera drag, before React receives its
@@ -160,7 +176,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
       {g&&g.size>0&&<div style={{position:'absolute',left:b.x,top:b.y,width:b.w,height:b.h,backgroundImage:'linear-gradient(to right,#ffffff50 1px,transparent 1px),linear-gradient(to bottom,#ffffff50 1px,transparent 1px)',backgroundSize:`${g.size}px ${g.size}px`,backgroundPosition:`${g.x-b.x}px ${g.y-b.y}px`}}/>}
      </div>
     </div>
-    {props.vision.heavy&&!props.keepRevealed&&<canvas ref={memoryCanvas} data-testid="darkvision-memory-terrain" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%'}}/>}
+    <canvas ref={memoryCanvas} data-testid="darkvision-memory-terrain" data-mode={props.keepRevealed?'retained':props.vision.heavy?'heavy':'regular'} aria-hidden="true" style={{display:props.vision.heavy&&!props.keepRevealed?undefined:'none',position:'absolute',inset:0,width:'100%',height:'100%'}}/>
    </div>}
   </div>
  </div>

@@ -21,6 +21,7 @@ import { facingAfterMove } from '../../../shared/tokenFacing';
 import { createMiniatureNameLayer } from './miniatureNameLayer';
 import {createMiniatureMaskCache} from './miniatureMaskCache';
 import { createMiniatureVisibilityMaterial, createMiniatureVisionLift } from './miniatureVisionLift';
+import {createMiniatureVisionComposite,type VisionCoverFrame} from './miniatureVisionComposite';
 import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
 import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from './battlefieldEnvironment';
@@ -67,6 +68,7 @@ type Props = {
   footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
   memoryTerrainCanvas?: ()=>HTMLCanvasElement|null;
+  visionCoverFrame?: ()=>VisionCoverFrame|undefined;
   personalVision?: boolean;
   onVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   tokens: MiniatureToken[];
@@ -194,7 +196,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const outlineResolution = {value: new Vector2(1, 1)};
 
   const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
-  const visionLift=createMiniatureVisionLift(renderer,host,outlineMask.texture);
+  const legacyVision=new URLSearchParams(location.search).get('legacyVisionLift')==='1'||!initial.visionCoverFrame;
+  let visionLift=legacyVision?createMiniatureVisionLift(renderer,host,outlineMask.texture):null;
+  const visionComposite=legacyVision?null:createMiniatureVisionComposite(renderer,host,outlineMask.texture);
   // Copy only the party-awareness pass above the personal vision cover. Reuse
   // this renderer and its loaded assets; never copy terrain, lights or effects.
   const sharedCanvas=document.createElement('canvas');
@@ -224,7 +228,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     scene.environmentIntensity = NEUTRAL_MINIATURE_LIGHTING.reflection;
   } catch (error) {
     spellImpacts.dispose();localShadows.dispose();
-    sharedCanvas.remove();sharedDepth.dispose();names.dispose();visionLift.dispose();
+    sharedCanvas.remove();sharedDepth.dispose();names.dispose();visionLift?.dispose();visionComposite?.dispose();
     outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     renderer.dispose();
@@ -518,7 +522,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
         archArtStudy?.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
-        visionLift.render(!!props.personalVision);
+        const sightFrame=props.visionCoverFrame?.();
+        // Keep the existing path until the remembered-art texture is ready;
+        // this also covers daylight boards without an environment renderer.
+        const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
+        if(props.personalVision&&!useComposite)visionLift??=createMiniatureVisionLift(renderer,host,outlineMask.texture);
+        visionLift?.render(!!props.personalVision&&!useComposite);
+        visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
         timing?.end();
         if (battlefield) {
@@ -979,7 +989,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     footprints.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
-    sharedCanvas.remove();sharedDepth.dispose();visionLift.dispose();
+    sharedCanvas.remove();sharedDepth.dispose();visionLift?.dispose();visionComposite?.dispose();
     battlefield?.dispose();battlefield=null;
     localShadows.dispose();
     timing?.dispose();

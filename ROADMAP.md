@@ -1,5 +1,16 @@
 # Roadmap & Feature Backlog
 
+- [x] Consolidate personal miniature/fog composition in the existing WebGL
+  canvas. Reuse wall visibility polygons and cache the GPU cover until sight,
+  lighting or camera changes; remove the recurring Canvas2D body copy and
+  full-scene restore pass. Preserve the old soft-boundary alpha composition,
+  raised heads, exploration grading, shared-sight interaction rules and heavy
+  darkness's retained-map range. Fall back while memory art is unavailable.
+  On the same AMD integrated-GPU board, rendered FPS increased from 37.6 to
+  43.3 stationary and 25.0 to 29.5 during lantern movement, at unchanged Balanced
+  settings. See [measurement receipt](docs/fog-composite-benchmark.json) and
+  [recorded preview](https://dnd.nic024i.app/uploads/previews/fog-composite-20261010/index.html).
+
 - [x] Profile integrated-GPU movement and remove duplicate paint: GPU-rendered
   names no longer paint invisibly through Konva's full-layer buffers. Their
   source typography, reveal tags and 2D fallback stay intact. Compare batched
