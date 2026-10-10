@@ -1,3 +1,4 @@
+import {createMiniatureBatches} from './miniatureBatches';
 import {createMirrorImages} from './mirrorImages';
 import {createMiniatureFootprints} from './miniatureFootprints';
 import type {FootprintMark} from './FootprintTrails';
@@ -29,7 +30,7 @@ import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorc
 import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
 import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
 import {createLocalLightShadows} from './localLightShadows';
-import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
+import {useEnvironmentQuality,recordGraphicsFrame} from '../lib/useEnvironmentQuality';
 import {graphicsBudget} from '../../../shared/graphicsQuality';
 import { useStore } from '../state/socket';
 import {createRaisedMapStudy} from './raisedMapStudy';
@@ -59,6 +60,7 @@ export type MiniatureToken = {
   combatRole?: CombatRole | null;
   definition: MiniatureDefinition;
 };
+const EMPTY_WALLS:import('../../../shared/mapWalls').MapWall[]=[];
 type Props = {
   graphics?: ReturnType<typeof graphicsBudget>;
   footprints?: ()=>FootprintMark[];
@@ -98,6 +100,7 @@ type FxManifest = {
   keyframes: Array<Record<string, number> & { time: number }>;
 };
 type Instance = {
+  modelId:string;
   mirrors:ReturnType<typeof createMirrorImages>;
   baseDiameter:number;
   lanternAnchor:Vector3;
@@ -250,6 +253,21 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   const abort = new AbortController();
   let props = initial;
+  let tokenById=new Map(initial.tokens.map(t=>[t.id,t]));
+  const batches=createMiniatureBatches(scene);
+  key.shadow.camera.layers.enable(7);
+  const batchingEnabled=new URLSearchParams(location.search).get('batching')!=='off';
+  const measurements=new Map<string,{anchor:Vector3;body?:MistBody}>();
+  const playerAssetUrls=new Set<string>();
+  function evictRetiredPlayerAssets(){
+    const keep=new Set([...(props.preloadDefinitions??[]).map(d=>d.url),...props.tokens.map(t=>t.definition.url),...[...instances.values()].map(i=>i.url),...loading.values()]);
+    for(const url of playerAssetUrls){
+      if(keep.has(url)||!assets.has(url))continue;
+      const promise=assets.get(url)!;assets.delete(url);measurements.delete(url);
+      void promise.then(asset=>{if(asset)disposeAsset(asset);});
+    }
+    host.dataset.cachedModelAssets=String(assets.size);
+  }
   let view = initial.view;
   let committedView = initial.view;
   let disposed = false;
@@ -302,13 +320,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
   };
   const publish = () => {
+    host.dataset.activeModelUrls=JSON.stringify([...instances.values()].map(i=>i.url));
     host.dataset.deathSkullCount=String(props.tokens.filter(t=>t.definition.id===DEATH_SKULL.id&&instances.get(t.id)?.url===DEATH_SKULL.url).length);
-    const failedIds = props.tokens.filter(t => failedAssets.has(t.definition.url)).map(t => t.id).sort();
+    const failedIds = props.tokens.filter(t => failedAssets.has(t.definition.url)&&!instances.has(t.id)).map(t => t.id).sort();
     if (failedIds.join("|") !== lastFailedIds) {
       lastFailedIds = failedIds.join("|");
       props.onFailed?.(new Set(failedIds));
     }
-    const ids = failed ? [] : props.tokens.filter((token) => instances.get(token.id)?.url === token.definition.url).map((token) => token.id).sort();
+    const ids = failed ? [] : props.tokens.filter((token) => instances.has(token.id)).map((token) => token.id).sort();
     const key = ids.join('|');
     const status = failed ? 'unavailable' : ids.length || (!props.tokens.length && battlefield?.ready) ? 'ready' : 'loading';
     if (key !== lastIds || status !== lastStatus || !hasRendered) {
@@ -413,8 +432,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
       try {
         timing?.begin();
-        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!props.tokens.find(t=>t.id===id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??[],!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3,props.graphics);
+        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!tokenById.get(id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??EMPTY_WALLS,!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3,props.graphics);
         for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??impactLights,instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
+        const batching=batches.update([...instances].map(([id,i])=>({root:i.root,lighting:i.torchLighting,
+          eligible:!['druk','varis','vanec',DEATH_SKULL.id,SPIRITUAL_WEAPON.id].includes(tokenById.get(id)?.definition.id??'')&&!i.mixer&&!i.fx&&!i.lightning&&!tokenById.get(id)?.sharedSightOnly&&!tokenById.get(id)?.hidden&&!tokenById.get(id)?.invisible&&!tokenById.get(id)?.mirrorImages})),batchingEnabled);
+        host.dataset.miniatureBatches=String(batching.batches);host.dataset.batchedMeshInstances=String(batching.instances);
         battlefield?.lighting.renderField(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
@@ -451,10 +473,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         sharedCanvas.style.display=sharedCanvas.dataset.tokenIds?'block':'none';
         // Static awareness need not redraw for weather or torch flicker. Camera,
         // pose, name, appearance and foreground occlusion changes invalidate it.
-        const sharedKey=JSON.stringify([sw,sh,camera.projectionMatrix.elements,camera.matrixWorld.elements,
+        const sharedKey=sharedIds.size?JSON.stringify([sw,sh,camera.projectionMatrix.elements,camera.matrixWorld.elements,
           useStore.getState().snapshot?.map?.explorationMode,environment?.heavyDarkness,ambient.intensity,key.intensity,scene.environmentIntensity,ambient.color.toArray(),key.color.toArray(),
           props.tokens.map(t=>{const i=instances.get(t.id);return [t.id,t.sharedSightOnly,t.tint,t.shade,t.mirrorImages,i?.root.visible,i?.root.position.toArray(),i?.root.rotation.y,i?.root.scale.x];}),
-          labels.map(l=>{if(!labelVersions.has(l.canvas))labelVersions.set(l.canvas,++nextLabelVersion);return [l.id,labelVersions.get(l.canvas),l.points,l.opacity];})]);
+          labels.map(l=>{if(!labelVersions.has(l.canvas))labelVersions.set(l.canvas,++nextLabelVersion);return [l.id,labelVersions.get(l.canvas),l.points,l.opacity];})]):'';
         if(sharedKey!==sharedFrameKey||[...instances.values()].some(i=>i.mixer)){
           sharedFrameKey=sharedKey;sharedContext.clearRect(0,0,sw,sh);
           if(sharedIds.size){
@@ -483,6 +505,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         renderer.render(scene, camera);
+        host.dataset.colorDrawCalls=String(renderer.info.render.calls);
+        host.dataset.colorTriangles=String(renderer.info.render.triangles);
+        recordGraphicsFrame(now,!!(animated||atmosphereAnimated||settling||casting.length||spellImpacts.active),loading.size>0);
         battlefield?.renderMist(renderer,camera);
         archArtLayer.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
@@ -550,6 +575,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     queueDraw();
   };
   const disposeInstance = (instance:Instance) => {
+    batches.restore();
     instance.mirrors.dispose();
     instance.mixer?.stopAllAction();
     if (instance.mixer) instance.mixer.uncacheRoot(instance.mixer.getRoot());
@@ -647,6 +673,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   // Warm parsed models and their textures without creating hidden token instances.
   const loadDefinition = (definition: MiniatureDefinition) => {
+      if(['druk','varis','vanec'].includes(definition.id))playerAssetUrls.add(definition.url);
       if(definition.url===SPIRITUAL_WEAPON.url){
         if(!assets.has(definition.url)){
           const model=createSpiritualWeapon();
@@ -654,7 +681,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         }
         return;
       }
-      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url)
+      if (!assets.has(definition.url)) assets.set(definition.url, loader.loadAsync(definition.url).catch(error=>{if(!definition.fallbackUrl)throw error;console.warn('Lighter miniature unavailable; loading original',definition.id);return loader.loadAsync(definition.fallbackUrl);})
         .then(async gltf => {
           try { return await prepareMiniatureBase(gltf, definition, Math.min(8, renderer.capabilities.getMaxAnisotropy())); }
           catch (error) { console.warn('Miniature base texture unavailable', error); return gltf; }
@@ -671,7 +698,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     ?createArchArtStudy(renderer,outlineMask.texture,host,invalidate):null;
   const sync = (next: Props) => {
     if (disposed || failed) return;
+    batches.restore();
     props = next;
+    tokenById=new Map(next.tokens.map(t=>[t.id,t]));
     const archSnapshot=useStore.getState().snapshot;archArtLayer.sync(archSnapshot?.map,archSnapshot?.mapImages);
     const marks=next.footprints?.()??[];footprints.sync(marks);host.dataset.footprintCount=String(marks.length);
     raisedStudy?.sync(useStore.getState().snapshot?.map?.id);
@@ -681,6 +710,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (next.view !== committedView) { view = next.view; committedView = next.view; }
     const pixelRatio = Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2);
     host.dataset.graphicsQuality=next.graphics?.resolved??'high';
+    host.dataset.modelQuality=next.graphics?.modelQuality==='high'?'original':next.graphics?.modelQuality==='balanced'?'balanced':'light';
+    host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
     host.dataset.renderPixelRatio=String(pixelRatio);
     if (next.width !== renderedWidth || next.height !== renderedHeight || pixelRatio !== renderedPixelRatio) {
       renderedWidth = next.width; renderedHeight = next.height; renderedPixelRatio = pixelRatio;
@@ -707,8 +738,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (!next.tokens.some((token) => token.id === id) && !next.environmentPreview?.carriedLanterns?.some(t=>t.id===id)) moves.delete(id);
     }
     for (const [id, instance] of instances) {
-      const token = next.tokens.find((item) => item.id === id);
-      if (!token || token.definition.url !== instance.url) removeInstance(id);
+      const token = tokenById.get(id);
+      if (!token || token.definition.id!==instance.modelId) removeInstance(id);
     }
     for (const token of next.tokens) {
       const move = moves.get(token.id);
@@ -716,20 +747,23 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       // or corrects it. A rejected move returns to its source after a short grace.
       if (move && Number.isFinite(move.until) && (token.x !== move.fromX || token.y !== move.fromY)) moves.delete(token.id);
       const existing = instances.get(token.id);
-      if (existing) { place(token, existing); continue; }
-      if (failed || loading.get(token.id) === token.definition.url) continue;
+      if (existing) { place(token, existing); if(existing.url===token.definition.url)continue; }
+      if (failed || failedAssets.has(token.definition.url) || loading.get(token.id) === token.definition.url) continue;
       loading.set(token.id, token.definition.url);
       const definition = token.definition;
       loadDefinition(definition);
       void assets.get(definition.url)!.then(async (gltf) => {
-        if (disposed || failed || !gltf) return;
-        const current = props.tokens.find((item) => item.id === token.id && item.definition.url === definition.url);
-        if (!current || instances.has(token.id)) return;
+        if (disposed || failed || !gltf) {if(loading.get(token.id)===definition.url)loading.delete(token.id);return;}
+        const current=tokenById.get(token.id);
+        if (!current || current.definition.url!==definition.url || instances.get(token.id)?.url===definition.url) return;
         const root = new Group();
         // Animated source transforms remain intact below this base-centering group.
         const centered = new Group();
         const model = gltf.scene.clone(true);
-        const lanternAnchor=measureLanternAnchor(model,definition),torchLighting=createMiniatureTorchLighting(localShadows.uniforms);
+        let measured=measurements.get(definition.url);
+        if(!measured){measured={anchor:measureLanternAnchor(model,definition)};measurements.set(definition.url,measured);}
+        const lanternAnchor=measured.anchor.clone(),torchLighting=createMiniatureTorchLighting(localShadows.uniforms);
+        const measureBody=()=>measured!.body??(measured!.body=measureMistBody(gltf.scene,definition));
         centered.add(model); root.add(centered);
         // A ground-plane marker in the same depth buffer as the miniature:
         // body, base and weapons occlude its rear arc. It follows live drags
@@ -781,6 +815,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           const copy = (material: Material) => {
             if (!cloned.has(material)) {
               const copy = material.clone();
+              copy.userData.batchSource=material.uuid;
               // Generated color-only atlases omit metallicFactor; glTF defaults
               // that omission to 1 (solid metal), even for skin and cloth. Give
               // those atlases a diffuse response to local light. Preserve every
@@ -835,7 +870,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           shader.vertexShader = 'uniform vec2 outlineViewport; varying vec2 outlineInward;\n' + shader.vertexShader;
           shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
             #include <project_vertex>
-            vec3 outlineNormal = normalMatrix * normal;
+            vec3 outlineObjectNormal=normal;
+            #ifdef USE_INSTANCING
+              mat3 im=mat3(instanceMatrix);
+              outlineObjectNormal/=vec3(dot(im[0],im[0]),dot(im[1],im[1]),dot(im[2],im[2]));
+              outlineObjectNormal=im*outlineObjectNormal;
+            #endif
+            vec3 outlineNormal = normalMatrix * outlineObjectNormal;
             vec2 outlineDirection = (projectionMatrix * vec4(outlineNormal, 0.0)).xy;
             float outlineLength = length(outlineDirection);
             outlineInward = -outlineDirection;
@@ -864,6 +905,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
         const instance: Instance = {
+          modelId:definition.id,
           mirrors:createMirrorImages(centered,root,renderer,()=>scene.environment,definition.baseDiameter),
           baseDiameter:definition.baseDiameter,lanternAnchor,torchLighting,
           root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, hunterMark, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
@@ -872,8 +914,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
           // Emissive/material flicker does not change the ground silhouette.
           shadowAnimated: gltf.animations.some(clip => clip.tracks.some(track => /\.(position|quaternion|scale|morphTargetInfluences)(\[|$)/.test(track.name))),
-          measureBody:()=>measureMistBody(gltf.scene,definition),
-          mistBody:props.environmentPreview?measureMistBody(gltf.scene,definition):undefined,
+          measureBody,
+          mistBody:props.environmentPreview?measureBody():undefined,
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };
         place(current, instance);
@@ -882,11 +924,17 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // new body; KHR_parallel_shader_compile lets existing figures keep moving.
         try { await renderer.compileAsync(root,camera,scene); }
         catch(error) {console.warn('Miniature shader preparation failed',error);}
-        const latest=props.tokens.find(t=>t.id===token.id&&t.definition.url===definition.url);
-        if(disposed||failed||!latest||instances.has(token.id)) {disposeInstance(instance);return;}
+        const latest=tokenById.get(token.id);
+        if(disposed||failed||!latest||latest.definition.url!==definition.url||instances.get(token.id)?.url===definition.url) {disposeInstance(instance);return;}
+        batches.restore();
+        const heldMove=moves.get(token.id);
+        if(instances.has(token.id))removeInstance(token.id);
+        if(heldMove)moves.set(token.id,heldMove);
+        loading.delete(token.id);
         instances.set(token.id, instance);
         place(latest, instance);
         scene.add(root);
+        evictRetiredPlayerAssets();
         if(battlefield)renderer.shadowMap.needsUpdate=true;
         invalidate();
         const fx = definition.fxUrl ? await manifests.get(definition.fxUrl) : null;
@@ -898,6 +946,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       });
     }
     for (const definition of next.preloadDefinitions ?? []) loadDefinition(definition);
+    evictRetiredPlayerAssets();
     invalidate();
   };
   const contextLost = (event: Event) => { event.preventDefault(); fail(); };
@@ -905,6 +954,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    batches.dispose();
     abort.abort();
     cancelAnimationFrame(frame);
     renderer.domElement.removeEventListener('webglcontextlost', contextLost);
@@ -988,7 +1038,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     },
     moveToken(id, x, y, finished, facing) {
       if (disposed) return;
-      const token = props.tokens.find((item) => item.id === id)??props.environmentPreview?.carriedLanterns?.find(t=>t.id===id);
+      const token = tokenById.get(id)??props.environmentPreview?.carriedLanterns?.find(t=>t.id===id);
       if (!token) return;
       if(finished && facing!==undefined && x===token.x && y===token.y){
         moves.delete(id);invalidate();return;

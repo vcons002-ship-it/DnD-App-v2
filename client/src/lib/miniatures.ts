@@ -1,5 +1,7 @@
 ﻿import manifest from '../../public/miniatures/manifest.json';
 import monsters from '../../public/miniatures/monsters/manifest.json';
+import qualityManifest from '../../public/miniatures/quality-manifest.json';
+import type {EnvironmentQuality} from '../../../shared/mapEnvironment';
 import objects from '../../public/miniatures/objects/manifest.json';
 import type { TokenKind } from '../../../shared/types';
 import { type MonsterAppearance, monsterVariation, monsterVariantIds } from '../../../shared/monsterAppearance';
@@ -14,12 +16,19 @@ export type MiniatureDefinition = {
   baseCenter: [number, number, number];
   fxUrl?: string;
   baseTextureUrl?: string;
+  fallbackUrl?: string;
 };
 /** Four-view Hunyuan reconstruction, shared by all defeated creature markers. */
 export const DEATH_SKULL: MiniatureDefinition = {id:'death-skull',url:'/miniatures/objects/death-skull-c1d9470a2def.glb',baseDiameter:1,baseCenter:[0,0,0]};
 export const SPIRITUAL_WEAPON: MiniatureDefinition = {id:'spiritual-weapon',url:'builtin:spiritual-weapon',baseDiameter:1,baseCenter:[0,0,0]};
 export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models, ...monsters.variants, ...objects.models].map(model => [model.id, model])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
 const generated: Record<string, MiniatureDefinition> = Object.create(null);
+const qualityModels=new Map(qualityManifest.models.map(m=>[`${m.id}:${m.profile}`,{...MINIATURES[m.id],url:m.url,fallbackUrl:MINIATURES[m.id].url}]));
+/** Stable IDs/base measurements keep effects, hit areas and facing identical across tiers. */
+export function miniatureForQuality(model:MiniatureDefinition|null,quality:EnvironmentQuality):MiniatureDefinition|null{
+  if(!model||quality==='high'||quality==='auto')return model;
+  return qualityModels.get(`${model.id}:${quality==='balanced'?'balanced':'low'}`)??model;
+}
 const bundledMonsterIds = new Set([...monsters.models, ...monsters.variants].map(m => m.id));
 const listeners = new Set<() => void>();
 let revision = 0, signature = '', pending = false;

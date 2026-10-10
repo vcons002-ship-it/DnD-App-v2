@@ -32,9 +32,9 @@ export function environmentalShadowSlope(source:{x:number;y:number},caster:{x:nu
  return d>.001?{x:dx/d*scale,y:dy/d*scale}:{x:0,y:0};
 }
 /** Spend the shadow-map budget on sources that actually reach visible figures. */
-export function selectShadowLights<T extends Source>(lights:readonly T[],casters:readonly ShadowCaster[],walls:readonly MapWall[]):T[]{
+export function selectShadowLights<T extends Source>(lights:readonly T[],casters:readonly ShadowCaster[],walls:readonly MapWall[],sight=hasLineOfSight):T[]{
  return lights.map(light=>({light,score:casters.reduce((sum,c)=>{
-  if(!castsLocalShadow(light,c)||!hasLineOfSight(light,c,walls))return sum;
+  if(!castsLocalShadow(light,c)||!sight(light,c,walls))return sum;
   return sum+lightIrradiance(Math.hypot(light.x-c.x,light.y-c.y,light.height),light.radius,light.strength);
  },0)})).filter(entry=>entry.score>0).sort((a,b)=>b.score-a.score||a.light.id.localeCompare(b.light.id)).slice(0,LOCAL_SHADOW_SOURCES).map(entry=>entry.light);
 }

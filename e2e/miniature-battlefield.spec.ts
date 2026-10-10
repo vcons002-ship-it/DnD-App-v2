@@ -625,7 +625,7 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
   const cancel=(await personalTokenView(page,druk.id))!,ca=offsetPoint(cancel,600-druk.x,700-druk.y),cb=offsetPoint(cancel,670-druk.x,760-druk.y);
   await page.mouse.move(ca.x,ca.y);await page.mouse.down();await page.mouse.move(cb.x,cb.y,{steps:8});await page.keyboard.press('Escape');await page.mouse.up();
   expect((await f.snapshot()).map!.walls).toHaveLength(2);
-  await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Undo last wall',exact:true}).click();
+  await page.getByRole('button',{name:'Walls',exact:true}).click();if(!await page.getByRole('button',{name:'Undo last wall',exact:true}).isVisible())await page.getByRole('button',{name:'Edit tools',exact:true}).click();await page.getByRole('button',{name:'Undo last wall',exact:true}).click();
   if(!await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).isVisible())await page.getByRole('button',{name:'Add features',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
   await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(1);
   await rectangle(770,790,730,720);
@@ -665,7 +665,7 @@ test('DM draws saved walls and each player sees their own lit side in overhead a
     await rogue.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player'});
     expect((await f.snapshot()).map!.walls).toEqual(walls);
     // Erase using the actual DM tool; both players immediately regain sight.
-    await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Erase a wall',exact:true}).click();
+    await page.getByRole('button',{name:'Walls',exact:true}).click();if(!await page.getByRole('button',{name:'Delete entire wall',exact:true}).isVisible())await page.getByRole('button',{name:'Edit tools',exact:true}).click();await page.getByRole('button',{name:'Delete entire wall',exact:true}).click();
     await mapClick((walls[0].ax+walls[0].bx)/2,(walls[0].ay+walls[0].by)/2);
     await expect.poll(async()=>(await f.snapshot()).map?.walls?.length).toBe(1);
     await expect.poll(()=>personalTokenView(west,vanec.id)).not.toBeNull();

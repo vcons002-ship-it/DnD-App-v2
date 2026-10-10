@@ -1,11 +1,12 @@
 import {PointLight,Vector4,Box3,WebGLCubeRenderTarget,WebGLRenderTarget,CubeDepthTexture,LinearFilter,LessEqualCompare,Scene,Mesh,PlaneGeometry,MeshBasicMaterial,OrthographicCamera,type Group,type Object3D,type DepthTexture,type Camera,type Texture,type WebGLRenderer} from 'three';
-import {hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
+import {type MapWall} from '../../../shared/mapWalls';
 import {LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
 import type {TorchLight} from './miniatureTorchLighting';
 import {selectShadowLights,castsLocalShadow,compactShadowHeightScale,localShadowContactBias,localShadowDepthGlsl,type ShadowCaster} from '../../../shared/localLightShadows';
 import {creatureShadowStyle} from './creatureShadowStyle';
 import {createEnvironmentalLocalShadows,environmentalLocalShadowGlsl} from './environmentalLocalShadows';
 import {graphicsBudget} from '../../../shared/graphicsQuality';
+import {createLightSightCache} from '../../../shared/lightSightCache';
 
 // A bounded set of cached cube maps keeps moving lanterns affordable. Sources
 // are chosen by their contribution at visible figures, never by array order.
@@ -58,10 +59,11 @@ export function createLocalLightShadows(renderer:WebGLRenderer){
   ...Object.fromEntries(maps.map((uniform,i)=>['localShadowMap'+i,uniform]))};
  const pool=Array.from({length:4},()=>{
   const light=new PointLight(0xffffff,0);light.castShadow=true;light.shadow.autoUpdate=false;
-  light.shadow.mapSize.set(512,512);light.shadow.camera.near=.5;
+  light.shadow.mapSize.set(512,512);light.shadow.camera.near=.5;light.shadow.camera.layers.enable(7);
   return {light,id:'',key:'',carried:false,casterIds:[] as string[]};
  });
  let updates=0,shadowSize=512;
+ const sight=createLightSightCache();
  const dimensions=new WeakMap<Group,{height:number;radius:number}>(),bounds=new Box3();
  return {uniforms,
   render(renderer:WebGLRenderer,scene:Scene,camera:Camera,lights:TorchLight[],casters:readonly (ShadowCaster&{id:string;root:Group;diameter:number;animated?:boolean})[],walls:readonly MapWall[],enabled:boolean,environmentalLength:number,budget=graphicsBudget('high')){
@@ -71,7 +73,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer){
     maps.forEach(map=>map.value=empty.depthTexture!);
    }
    for(const light of lights)light.shadowSlot=-1;
-   const selected=enabled?selectShadowLights(lights,casters,walls).slice(0,budget.localShadowLights):[];
+   const selected=enabled?selectShadowLights(lights,casters,walls,(a,b,w)=>sight.visible(`${(a as {id?:string}).id??`${a.x},${a.y}`}:${(b as {id?:string}).id??`${b.x},${b.y}`}`,a,b,w??[])).slice(0,budget.localShadowLights):[];
    // Keep slots stable as flicker changes the relative strength of two torches.
    for(const entry of pool)if(!selected.some(l=>l.id===entry.id)){entry.id='';entry.key='';}
    if(!selected.length){origins.forEach(o=>o.w=0);return;}
@@ -82,13 +84,13 @@ export function createLocalLightShadows(renderer:WebGLRenderer){
     dimensions.set(caster.root,{height:Math.max(.1,bounds.max.y-caster.root.position.y)/scale,
      radius:Math.hypot(Math.max(Math.abs(bounds.min.x-caster.x),Math.abs(bounds.max.x-caster.x)),Math.max(Math.abs(bounds.min.z-caster.y),Math.abs(bounds.max.z-caster.y)))/scale});
    }
-   for(const caster of casters)if(caster.visible)caster.root.traverseVisible(node=>{if(node.castShadow)transforms.push({id:caster.id,node,x:node.matrixWorld.elements[12],y:node.matrixWorld.elements[14],key:node.uuid+':'+node.matrixWorld.elements.join(',')});});
+   for(const caster of casters)if(caster.visible)caster.root.traverseVisible(node=>{if(node.castShadow)transforms.push({id:caster.id,node,x:caster.x,y:caster.y,key:node.uuid+':'+node.matrixWorld.elements.join(',')});});
    for(const source of selected){
     const entry=pool.find(e=>e.id===source.id)??pool.find(e=>!e.id)!;entry.id=source.id;entry.carried=!!source.carried;
     const slot=pool.indexOf(entry),light=entry.light;
     // Radius flicker changes brightness, not occluder geometry or cube coverage.
     const far=Math.max(entry.key?light.distance:0,Math.ceil(source.radius*LIGHT_SPILL_MULTIPLIER/100+1)*100);
-    const reaches=(p:{id?:string;x:number;y:number})=>castsLocalShadow(source,{...p,visible:true})&&Math.hypot(p.x-source.x,p.y-source.y)<far&&hasLineOfSight(source,p,walls);
+    const reaches=(p:{id?:string;x:number;y:number})=>castsLocalShadow(source,{...p,visible:true})&&Math.hypot(p.x-source.x,p.y-source.y)<far&&sight.visible(`${source.id}:${p.id??`${p.x},${p.y}`}`,source,p,walls);
     const key=[source.carried,source.x,source.y,source.height,far,planar?environmentalLength:0,...transforms.filter(reaches).map(t=>t.key)].join(',');
     const animated=casters.some(c=>c.visible&&c.animated&&reaches(c));
     light.position.set(source.x,source.height,source.y);light.distance=far;light.updateMatrixWorld();
@@ -109,7 +111,11 @@ export function createLocalLightShadows(renderer:WebGLRenderer){
      for(const entry of dirty){
       // Exclude only this source's carrier, including equipment and base. Restore
       // castShadow even on failure so sunlight and other lanterns remain correct.
-      const excluded=transforms.filter(t=>entry.carried&&t.id===entry.id);
+      const source=selected.find(l=>l.id===entry.id)!;
+      // The illumination and shadow pass must agree about closed doors/walls.
+      // Otherwise a body in another room can shadow this room through a solid door.
+      const allowed=new Set(casters.filter(c=>castsLocalShadow(source,c)&&sight.visible(`${source.id}:${c.id}`,source,c,walls)).map(c=>c.id));
+      const excluded=transforms.filter(t=>!allowed.has(t.id));
       for(const t of excluded)t.node.castShadow=false;
       const scaled=creatureShadowStyle==='compact'?casters.filter(c=>castsLocalShadow(entry,c)).map(c=>({caster:c,y:c.root.scale.y})):[];
       try{

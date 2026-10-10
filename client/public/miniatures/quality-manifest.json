@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "models": [
+    {
+      "id": "druk",
+      "profile": "balanced",
+      "url": "/miniatures/druk-balanced-c9d669208f41.glb",
+      "sha256": "c9d669208f41cdedf420373c877973c58f15b22cb3765090c220955ad174068e",
+      "bytes": 17212072,
+      "triangles": 277100,
+      "sourceUrl": "/miniatures/druk-c98df869b913.glb",
+      "sourceSha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
+      "receipt": "assets/miniatures/character-reduction/druk-balanced.json"
+    },
+    {
+      "id": "druk",
+      "profile": "low",
+      "url": "/miniatures/druk-light-0af485ac49a2.glb",
+      "sha256": "0af485ac49a2d13b4a95fa385de286f9c260c9a31d5bdd2ba3b06d37b7f70576",
+      "bytes": 14969144,
+      "triangles": 142186,
+      "sourceUrl": "/miniatures/druk-c98df869b913.glb",
+      "sourceSha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
+      "receipt": "assets/miniatures/character-reduction/druk-light.json"
+    },
+    {
+      "id": "varis",
+      "profile": "balanced",
+      "url": "/miniatures/varis-sharpened-weapons-cad4711bca1b.glb",
+      "sha256": "cad4711bca1b456902699759e4dea1f9f1e5e287efa4defc76a144951af6231e",
+      "bytes": 18698608,
+      "triangles": 348006,
+      "sourceUrl": "/miniatures/varis-264feff1b076.glb",
+      "sourceSha256": "264feff1b076e6fc0b7d75f72a143e9e02948c4de5e5cef3bd91dbda0defbd5d",
+      "receipt": "assets/miniatures/character-reduction/varis-balanced.json",
+      "refinementReceipt": "assets/miniatures/character-reduction/varis-balanced-sharpened-weapons.json"
+    },
+    {
+      "id": "varis",
+      "profile": "low",
+      "url": "/miniatures/varis-sharpened-weapons-ffc2a5072344.glb",
+      "sha256": "ffc2a507234437c4954f4ea61cd5e88fd249da27596d6b1b9a0937da6fa2a112",
+      "bytes": 16227716,
+      "triangles": 203252,
+      "sourceUrl": "/miniatures/varis-264feff1b076.glb",
+      "sourceSha256": "264feff1b076e6fc0b7d75f72a143e9e02948c4de5e5cef3bd91dbda0defbd5d",
+      "receipt": "assets/miniatures/character-reduction/varis-light.json",
+      "refinementReceipt": "assets/miniatures/character-reduction/varis-sharpened-weapons.json"
+    },
+    {
+      "id": "vanec",
+      "profile": "balanced",
+      "url": "/miniatures/vanec-balanced-c5c3961b54b7.glb",
+      "sha256": "c5c3961b54b75338dc86fce0c2bd74353d379457a71112ce8f054540a41767c7",
+      "bytes": 22758880,
+      "triangles": 355589,
+      "sourceUrl": "/miniatures/vanec-7f57d87ce42f.glb",
+      "sourceSha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
+      "receipt": "assets/miniatures/character-reduction/vanec-balanced.json"
+    },
+    {
+      "id": "vanec",
+      "profile": "low",
+      "url": "/miniatures/vanec-light-239045d67404.glb",
+      "sha256": "239045d67404238e3fb01a469f694fa3e24758271ceb316de7943ece72f5d61b",
+      "bytes": 19902264,
+      "triangles": 207975,
+      "sourceUrl": "/miniatures/vanec-7f57d87ce42f.glb",
+      "sourceSha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
+      "receipt": "assets/miniatures/character-reduction/vanec-light.json"
+    }
+  ]
+}

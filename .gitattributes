@@ -63,3 +63,11 @@ client/public/miniatures/druk-c98df869b913.glb -filter -diff -merge -text
 client/public/miniatures/varis-264feff1b076.glb -filter -diff -merge -text
 client/public/miniatures/vanec-7f57d87ce42f.glb -filter -diff -merge -text
 assets/miniatures/character-compression/*.json -filter diff merge -text whitespace=cr-at-eol
+
+# Reviewed geometry tiers are regular Git assets (textures retain their source bytes).
+client/public/miniatures/druk-balanced-c9d669208f41.glb -filter -diff -merge -text
+client/public/miniatures/druk-light-0af485ac49a2.glb -filter -diff -merge -text
+client/public/miniatures/varis-sharpened-weapons-cad4711bca1b.glb -filter -diff -merge -text
+client/public/miniatures/varis-sharpened-weapons-ffc2a5072344.glb -filter -diff -merge -text
+client/public/miniatures/vanec-balanced-c5c3961b54b7.glb -filter -diff -merge -text
+client/public/miniatures/vanec-light-239045d67404.glb -filter -diff -merge -text

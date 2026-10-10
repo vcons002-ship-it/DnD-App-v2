@@ -25,6 +25,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const memoryCanvas=useRef<HTMLCanvasElement>(null);
  const retainedRange=useRef<SVGGElement>(null);
  const memoryProjection=useRef<{geometry:ExploredTerrain|undefined;camera:string}|null>(null);
+ const wallsCache=useRef<{walls:PlayerVision['walls'];key:string}>({walls:undefined,key:'[]'});
  const polygonCache=useRef(new Map<string,{key:string;points:WallPoint[]}>());
  const id=useId().replace(/:/g,'');
  const lightId=`vision-lights-${id}`,shadeId=`vision-shade-${id}`,nearId=`vision-near-${id}`,coverId=`vision-cover-${id}`;
@@ -42,7 +43,8 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   if(!shade.current||!lightPaths.current||!originPaths.current||!sightPaths.current||!lightClips.current)return;
   const {vision,view,tilt,rotation,width,height}=state.current;
   const sy=groundYScale(tilt),a=rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a),k=perspectiveSlope(width,height,tilt);
-  const wallsKey=JSON.stringify(vision.walls??[]);
+  if(wallsCache.current.walls!==vision.walls)wallsCache.current={walls:vision.walls,key:JSON.stringify(vision.walls??[])};
+  const wallsKey=wallsCache.current.key;
   const activeKeys=new Set<string>();
   const polygon=(point:{id:string;x:number;y:number},radius:number)=>{
    const slot=point.id+':'+radius;activeKeys.add(slot);
