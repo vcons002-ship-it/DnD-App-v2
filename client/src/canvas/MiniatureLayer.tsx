@@ -182,7 +182,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const scene = new Scene();
   const footprints=createMiniatureFootprints(scene);
   const spellImpacts=createSpellImpactEffects(scene);
-  const localShadows=createLocalLightShadows(renderer);
+  const localShadows=createLocalLightShadows(renderer,()=>invalidate());
   // Shared screen mask measures local silhouette thickness for every model,
   // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
   const outlineMask = new WebGLRenderTarget(1, 1);
@@ -554,7 +554,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
-    if (!failed && (archArtStudy?.animating || archArtLayer.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
+    if (!failed && (localShadows.pending || archArtStudy?.animating || archArtLayer.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
   };
   const queueDraw = () => {
     if (frame || frameQueued || disposed || failed) return;

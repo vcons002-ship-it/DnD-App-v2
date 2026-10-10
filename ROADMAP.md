@@ -1,5 +1,14 @@
 # Roadmap & Feature Backlog
 
+- [x] Reduce local-light shadow work: background shadow-only mesh simplification,
+  30 Hz movement and 10 Hz idle-pose refresh, cached stationary floor silhouettes
+  for Balanced/Low, and full point-light cube shadows at High. Visible assets
+  remain unchanged. Doors, visibility and model replacement invalidate immediately;
+  camera motion, flicker and equivalent wall snapshots reuse cached masks.
+  Browser regressions cover contact at different scales/heights, all presets,
+  stationary reuse, final movement, door invalidation and real asset reduction.
+  See [graphics presets](docs/GRAPHICS_PRESETS.md).
+
 - [x] Per-browser graphics presets: High, Balanced, Low and Effects off, with
   Auto selecting Balanced on narrow screens. Resolution, map/local/dice shadow
   budgets and atmosphere particle counts scale independently of gameplay rules.

@@ -13,6 +13,10 @@ describe('local graphics presets',()=>{
       expect(high[key]).toBeGreaterThan(balanced[key]);expect(balanced[key]).toBeGreaterThan(low[key]);
     }
     expect(low.localShadowLights).toBe(2);expect(balanced.localShadowLights).toBe(4);
+    expect(high.localShadowMethod).toBe('cube');
+    expect(balanced.localShadowMethod).toBe('floor');expect(low.localShadowMethod).toBe('floor');
+    expect(balanced.localShadowFloorSize).toBe(768);expect(low.localShadowFloorSize).toBe(512);
+    expect(high.localShadowFps).toBe(30);expect(balanced.localShadowPoseFps).toBe(10);
   });
   it('uses Balanced for narrow Auto viewers, while explicit High is honored',()=>{
     expect(graphicsBudget('auto',390).resolved).toBe('balanced');

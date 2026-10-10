@@ -12,7 +12,8 @@ saved choice exists. Existing choices, including Auto, remain unchanged.
 | Player models | Original | Conservative reduction | Lighter reduction |
 | Combined player triangles | 2,924,413 | 980,695 | 553,413 |
 | Maximum render pixel ratio | 2 | 1.5 | 1 |
-| Token shadow cube face | 512 | 384 | 256 |
+| Token shadow method | Point-light cube | Floor silhouette | Floor silhouette |
+| Token shadow texture | 512 per cube face | 768 floor mask | 512 floor mask |
 | Maximum token shadow sources | 4 | 4 | 2 |
 | Maximum map shadow texture | 2048 | 1024 | 512 |
 | Dice shadow texture | 1024 | 512 | 256 |
@@ -22,6 +23,10 @@ saved choice exists. Existing choices, including Auto, remain unchanged.
 
 Actual resolution also respects the device pixel ratio. All lights still
 illuminate the scene in Low; only the strongest two receive token shadow maps.
+Balanced and Low project full figure silhouettes onto the flat map, following
+each selected light's position and height. Other lights still fill those shadows.
+These floor shadows do not cast onto other figures; High retains that detail
+with full point-light cube maps.
 Effects off uses Low resolution, removes mist/weather/decorative particles and
 token/map shadows, and keeps lighting, darkness and fog. Character dice powers
 remain visible at every preset. Dice capture their graphics budget when a roll
@@ -49,8 +54,8 @@ loader tries the original. Changing quality keeps the current figure visible
 until its replacement is prepared, so it does not flash back to 2D.
 
 Eligible opaque, static repeated creatures share instanced color/depth draws.
-Independent tint, facing and base selection are retained. Individual geometry
-still casts each light's shadow; animated, transparent and shared-party-sight
+Independent tint, facing and base selection are retained. Shadow-only geometry
+casts each light's shadow; animated, transparent and shared-party-sight
 figures stay on the existing path. Different nearby light sets are separate
 batches. The developer comparison flag `?batching=off` disables batching for
 measurement; it is not a saved preference. Frame diagnostics include actual
@@ -60,6 +65,50 @@ Per-source visibility tests are cached until a light/receiver moves or wall/door
 geometry changes. Camera motion and flame flicker reuse those tests. Stationary
 wall-light geometry and figure measurements are also reused. Doors block each
 source independently; a blocked lamp cannot cancel a lamp inside another room.
+
+Shadow geometry is simplified in a background Worker once per loaded geometry.
+Visible meshes, texture bytes, base measurements and saved assets are untouched.
+Small parts and partial draw ranges retain their original topology. Simplification
+uses a 0.75% extent error limit and preserves borders; deforming meshes retain
+vertex identity to preserve skinning and morph data. If the Worker or simplifier
+fails, original geometry remains available for shadows.
+
+Moving lights/figures refresh shadows at up to 30 Hz without capping scene FPS.
+Idle animated poses refresh at 10 Hz. Final movement positions remain scheduled
+until rendered. Camera motion and flicker reuse masks; wall/door geometry,
+caster visibility and model replacement invalidate immediately. New snapshots
+with identical walls do not invalidate the cache. Fixed floor lights maintain
+separate stationary masks, so moving a figure does not repeatedly redraw every
+stationary monster. A carried lantern must update its entire mask as it moves.
+These clocks affect rendering only, never movement, targeting or fog rules.
+
+The integrated-GPU shadow comparison (2026-10-10, Ryzen 7 7800X3D Radeon
+graphics, 1440 x 900 / DPR 1) used matching 20-second before/after samples:
+
+| Scene | Before FPS | After FPS | Median GPU before / after |
+| --- | ---: | ---: | ---: |
+| Player, Balanced | 20.7 | 23.4 | 27.9 / 23.1 ms |
+| Player, High | 12.1 | 14.8 | 54.6 / 46.6 ms |
+| DM reference, Balanced | 40.9 | 46.6 | 21.3 / 18.5 ms |
+
+The player scene has 27 figures, 20 walls, two fixed torches and a moving
+lantern, wall-based player vision, heavy darkness, tall mist, rain and embers.
+The DM reference keeps the figures and effects but removes walls, the carried
+lantern and the player vision mask. It matches the lighter conditions of the
+earlier roughly 35 FPS test, rather than its complete camera/input replay.
+These scene differences explain why player results are lower than the earlier
+DM measurement. Do not compare FPS across those setups as an optimization delta.
+Low reached 25.5 FPS in the heavier player scene; there is no matching Low
+baseline in this run. The 5090 encoded native Windows capture only; AMD rendered
+the app. Short sequential samples have recording/device-load variance.
+The receipt is `docs/shadow-rendering-benchmark.json`; the comparison video is
+at https://dnd.nic024i.app/uploads/previews/shadow-performance-20261010/index.html.
+
+Shadow contact, all presets, stationary-mask reuse, movement throttling and
+immediate door invalidation have browser coverage in
+`e2e/local-shadow-contact.spec.ts`. Background geometry reduction and no-flash
+quality changes are exercised with 27 real figures in
+`e2e/adaptive-rendering.spec.ts`.
 
 Validate the tier package with `node scripts/token-assets/validate-quality-models.mjs`.
 The client prebuild runs both original and reduced asset validation. Real-board
