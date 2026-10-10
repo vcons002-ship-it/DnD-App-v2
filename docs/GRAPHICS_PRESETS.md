@@ -199,3 +199,42 @@ rendered triangles. Median measured GPU time was 5.36 ms without batching and
 4.52 ms with it. Both runs were near the 60 Hz frame cap; this demonstrates
 reduced work, not a guaranteed FPS increase on every device. The small receipt
 is `docs/adaptive-rendering-benchmark.json`. Phone performance remains unmeasured.
+
+## Personal fog composition
+
+Personal bodies and the rendered ground now compose on the existing WebGL
+canvas. `miniatureVisionComposite.ts` uses the same world-space polygons as the
+SVG fog cover, with current sight in one texture channel and exploration in
+another. It reuses the texture while the camera, sight and lights are unchanged.
+The final shader reproduces the old scene/fog/body alpha equation rather than
+replacing soft lantern boundaries with a hard cutout. Shared party sightings
+still use their cached separate pass and remain noninteractive.
+
+This removes the recurring WebGL-to-Canvas2D personal-body copy and full-scene
+restore draw. A GPU framebuffer copy and one final composite remain. Remembered
+artwork is cached; camera changes can still regenerate/upload that texture. The
+old lift is created lazily while memory artwork is unavailable, including
+daylight boards without an environment renderer. `?legacyVisionLift=1` selects
+the old path for a controlled comparison.
+
+The 2026-10-10 comparison selected the old and new paths in the same build,
+sequentially, after models and shadow proxies were ready. AMD integrated
+graphics rendered the app at 1440 x 900 / DPR 1, Balanced settings, 45-degree
+view, with 27 figures, 20 walls, two flickering torches, one moving lantern and
+heavy darkness. Mist and weather were disabled. Each unrecorded sample lasted
+20 seconds, without tracing:
+
+| Scene | Old path | New path | Slow frame interval (p95), old / new |
+| --- | ---: | ---: | ---: |
+| Stationary torches | 37.6 FPS | 43.3 FPS | 33.2 / 31.7 ms |
+| Lantern movement every 450 ms | 25.0 FPS | 29.5 FPS | 50.6 / 42.4 ms |
+
+These are rendered-frame measurements, not guaranteed phone results. No model,
+texture, mist or shadow settings were reduced by this optimization. Browser
+tests cover raised heads without surrounding terrain leaks, shared sight,
+retained-map range limits, visibility switches and soft fog over translucent
+content. The receipt is `docs/fog-composite-benchmark.json`; the
+[AV1-recorded preview](https://dnd.nic024i.app/uploads/previews/fog-composite-20261010/index.html)
+also checks free rotation during lantern movement. The RTX 5090 encodes the
+recording; AMD renders the board. Recorded counters can differ from the
+unrecorded benchmark because of capture overhead and short-term variation.

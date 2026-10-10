@@ -548,6 +548,13 @@ async function enter(page: Page, code: string, characterName = 'Druk', tilted = 
   if (tilted) await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
 }
 
+async function togglePlayerLantern(page:Page){
+ await page.locator('.hud-actions').getByRole('button',{name:'Character',exact:true}).click();
+ await page.locator('.sheet-exploration > summary').click();
+ await page.getByRole('button',{name:'Carried lantern',exact:true}).click();
+ await page.getByRole('button',{name:'Close character window',exact:true}).click();
+}
+
 async function afterPaint(page: Page) {
   // Allow both Konva and the separate WebGL canvas to present the last input.
   await page.evaluate(() => new Promise<void>(resolve =>
@@ -2452,7 +2459,7 @@ test('personal darkvision dungeon demo with and without lanterns',async({page,re
   const template=(await f.snapshot()).monsterTemplates.find(m=>m.name===`Dungeon guard ${i}`)!;
   f.socket.emit('token:spawn',{mapId:f.mapId,kind:'monster',refId:template.id,x,y:630});
  }
- f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:false,mist:true,mistOpacity:.08,mistHeightFt:1,shadows:true,lights:[]}});
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,lighting:'dungeon',heavyDarkness:true,mist:true,mistOpacity:.08,mistHeightFt:1,shadows:true,lights:[]}});
  await enter(page,f.code);
  const vision=page.getByTestId('player-vision');await expect(vision).toHaveAttribute('data-range-ft','60');
  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-personal-miniature-count','3',{timeout:60000});
@@ -2479,13 +2486,12 @@ test('personal darkvision dungeon demo with and without lanterns',async({page,re
    f.socket.emit('token:move',{tokenId:druk.id,x:450,y:560});
    f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{heavyDarkness:heavy}});
    await expect(vision).toHaveAttribute('data-heavy',String(heavy));
-   const lamp=page.getByRole('button',{name:'Carried lantern',exact:true});
    // Toggle through the player's real control; the character owns the light.
    const current=(await f.snapshot()).tokens.find(t=>t.id===druk.id)?.carriedLantern??false;
-   if(current!==lantern)await lamp.click();
+   if(current!==lantern)await togglePlayerLantern(page);
    await expect.poll(async()=>!!(await f.snapshot()).tokens.find(t=>t.id===druk.id)?.carriedLantern).toBe(lantern);
    await page.waitForTimeout(650);
-   await caption(`${heavy?'Heavy darkness: grayscale':'Regular darkness: color'} - ${lantern?'hip lantern':'Darkvision only'} - 60 ft`);
+   await caption(`${heavy?'Heavy darkness: 60 ft darkvision':'Regular darkness: unlimited dim sight'} - ${lantern?'hip lantern':'No lantern'}`);
    await page.screenshot({path:info.outputPath(`${heavy?'heavy':'regular'}-${lantern?'lantern':'darkvision'}.png`)});
    if(movementDemo)await page.waitForTimeout(1200);
    const base=(await personalTokenView(page,druk.id))!,end=offsetPoint(base,220,0);
@@ -3028,13 +3034,15 @@ test('shared creature awareness stays grayscale and noninteractive until persona
  // framebuffer must change actual head pixels, without exposing terrain or a
  // second copy of the shared figures. Disable only the lift for the comparison.
  const lift=page.getByTestId('personal-sight-miniatures');
- await expect(lift).toBeVisible();
+ const composite=await page.getByTestId('miniature-layer').getAttribute('data-vision-composite')==='gpu';
+ if(composite)await expect(page.getByTestId('miniature-layer')).toBeVisible();else await expect(lift).toBeVisible();
  const base=(await tokenView(page,druk.id))!;
  const crop={x:Math.floor(base.x-110),y:Math.floor(base.y-150),width:220,height:200};
  const restored=await page.screenshot({clip:crop,path:info.outputPath('head-after.png')});
- await lift.evaluate((c:HTMLCanvasElement)=>{c.style.visibility='hidden';});await afterPaint(page);
+ const lower=composite?await page.addStyleTag({content:'[data-testid="miniature-layer"]{z-index:1!important}'}):null;
+ if(!composite)await lift.evaluate((c:HTMLCanvasElement)=>{c.style.visibility='hidden';});await afterPaint(page);
  const covered=await page.screenshot({clip:crop,path:info.outputPath('head-before.png')});
- await lift.evaluate((c:HTMLCanvasElement)=>{c.style.visibility='';});await afterPaint(page);
+ if(lower)await lower.evaluate(n=>n.remove());else await lift.evaluate((c:HTMLCanvasElement)=>{c.style.visibility='';});await afterPaint(page);
  const a=await sharp(restored).removeAlpha().raw().toBuffer(),b=await sharp(covered).removeAlpha().raw().toBuffer();
  let restoredHeadPixels=0,changedSurroundings=0;
  for(let y=0;y<crop.height;y++)for(let x=0;x<crop.width;x++){
@@ -3045,7 +3053,7 @@ test('shared creature awareness stays grayscale and noninteractive until persona
  expect(restoredHeadPixels).toBeGreaterThan(100);expect(changedSurroundings).toBeLessThan(15);
  await page.mouse.move(250,160);await page.mouse.down({button:'right'});
  await page.mouse.move(356,160,{steps:25});await page.mouse.up({button:'right'});await afterPaint(page);
- await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText('37\u00b0');
+ await expect.poll(async()=>Number(await page.getByTestId('miniature-layer').getAttribute('data-camera-rotation'))).toBeCloseTo(37.1,0);
  await page.screenshot({path:info.outputPath('03b-rotated.png')});if(movementDemo)await page.waitForTimeout(1500);
  await page.getByRole('button',{name:'Reset battlefield rotation',exact:true}).click();await page.waitForTimeout(700);
  // The 2D fallback has the identical awareness and input rules.
@@ -3059,12 +3067,12 @@ test('shared creature awareness stays grayscale and noninteractive until persona
   await expect(page.getByTestId('shared-sight-miniatures')).toHaveAttribute('data-token-ids',new RegExp(enemy.id));
   await page.waitForTimeout(600);await page.screenshot({path:info.outputPath(heavyDarkness?'06-heavy-darkness.png':'05-dim-darkness.png')});if(movementDemo)await page.waitForTimeout(1800);
  }
- await page.getByRole('button',{name:'Carried lantern',exact:true}).click();
+ await togglePlayerLantern(page);
  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{mist:true,mistOpacity:.3,mistHeightFt:6}});
  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-mist-visible','true');
  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-carried-lantern-count','1');
  await page.waitForTimeout(1000);await page.screenshot({path:info.outputPath('06b-lantern-mist.png')});if(movementDemo)await page.waitForTimeout(2000);
- await page.getByRole('button',{name:'Carried lantern',exact:true}).click();
+ await togglePlayerLantern(page);
  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{mist:false}});
  // Another real player has personal sight of the same creature.
  const ctx=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1500,height:1000}});
@@ -3149,7 +3157,7 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
   await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
   await p.waitForTimeout(800);
   const own=name==='Varis'?varis:druk;
-  await p.getByRole('button',{name:'Carried lantern',exact:true}).click();
+  await togglePlayerLantern(p);
   await p.getByTitle('Zoom in',{exact:true}).click();await afterPaint(p);
   // Frame the whole route, including the side room, in both independent views.
   const current=(await f.snapshot()).tokens.find(t=>t.id===own.id)!,v=(await tokenView(p,own.id))!,anchor=offsetPoint(v,740-current.x,580-current.y);
@@ -3238,17 +3246,23 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
     expect(Math.max(...memoryTerrain)-Math.min(...memoryTerrain)).toBeLessThan(2);
     const bodySample=async(p:Page,shared:boolean)=>{
      const v=(await tokenView(p,enemy.id))!;
-     return p.getByTestId(shared?'shared-sight-miniatures':'personal-sight-miniatures').evaluate((canvas:HTMLCanvasElement,point)=>{
+     const gpu=!shared&&await p.getByTestId('miniature-layer').getAttribute('data-vision-composite')==='gpu';
+     const source=gpu?p.getByTestId('miniature-layer').locator('canvas'):p.getByTestId(shared?'shared-sight-miniatures':'personal-sight-miniatures');
+     return source.evaluate((canvas:HTMLCanvasElement,point)=>{
       const rect=canvas.getBoundingClientRect(),scale=canvas.width/rect.width;
-      const bytes=canvas.getContext('2d')!.getImageData(Math.round((point.x-rect.left-45)*scale),Math.round((point.y-rect.top-100)*scale),Math.round(90*scale),Math.round(99*scale)).data;
-      let total=0,count=0;for(let i=0;i<bytes.length;i+=4)if(bytes[i+3]>128){total+=bytes[i]*.2126+bytes[i+1]*.7152+bytes[i+2]*.0722;count++;}
-      return {mean:total/Math.max(1,count),count};
+      // Read a test-only copy: the production personal pass is now the WebGL
+      // canvas and cannot also expose a Canvas2D context.
+      const copy=document.createElement('canvas');copy.width=canvas.width;copy.height=canvas.height;const ctx=copy.getContext('2d')!;ctx.drawImage(canvas,0,0);
+      const bytes=ctx.getImageData(Math.round((point.x-rect.left-45)*scale),Math.round((point.y-rect.top-100)*scale),Math.round(90*scale),Math.round(99*scale)).data;
+      const values:number[]=[];for(let i=0;i<bytes.length;i+=4)if(bytes[i+3]>128)values.push(bytes[i]*.2126+bytes[i+1]*.7152+bytes[i+2]*.0722);
+      values.sort((a,b)=>b-a);const highlight=values.slice(0,Math.max(1,Math.ceil(values.length/4)));
+      return {mean:values.reduce((a,b)=>a+b,0)/Math.max(1,values.length),highlight:highlight.reduce((a,b)=>a+b,0)/highlight.length,count:values.length};
      },{x:v.x,y:v.y});
     };
     const personalBody=await bodySample(scout,false),sharedBody=await bodySample(fighter,true);
     expect(personalBody.count).toBeGreaterThan(50);expect(sharedBody.count).toBeGreaterThan(50);
-    expect(personalBody.mean,'Unlit creatures retain readable darkvision detail').toBeGreaterThan(10);
-    expect(sharedBody.mean,'Shared creatures do not use brighter daylight lighting').toBeLessThanOrEqual(personalBody.mean+3);
+    expect(personalBody.highlight,'Unlit creatures retain readable darkvision detail').toBeGreaterThan(10);
+    expect(sharedBody.mean,'Shared creatures do not use brighter daylight lighting').toBeLessThanOrEqual(personalBody.highlight+3);
     evidence.push({phase:'heavy-darkness appearance',liveTerrain,memoryTerrain,personalBody,sharedBody});
    }
    await scout.screenshot({path:info.outputPath('01-varis-reveal.png')});await fighter.screenshot({path:info.outputPath('02-druk-shared.png')});

@@ -40,6 +40,14 @@ npx playwright test -c e2e/playwright.config.ts e2e/damage-prompt-ownership.spec
 
 ## What a failure means
 
+`vision-composite.spec.ts` verifies the GPU fog compositor with real WebGL
+pixels: personal/shared body masks, wall-clipped distant light, cache reuse,
+camera/viewport invalidation, and an old/new screenshot comparison over unknown
+and remembered fog with translucent content. `miniature-battlefield.spec.ts`
+exercises the same path through actual player sessions: exploration, lanterns,
+shared sight, raised heads and retained-color fog's heavy-darkness range. Both
+the GPU path and the lazy legacy fallback must preserve these visibility rules.
+
 A regression test checks behavior that should continue to work after a change. A failing old test is not automatically obsolete. Reproduce it on the base branch and compare the assertion with the current feature contract before changing it.
 
 - Fix the app when the expected behavior still applies.
