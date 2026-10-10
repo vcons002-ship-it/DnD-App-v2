@@ -1,8 +1,9 @@
 import type {EnvironmentQuality} from './mapEnvironment.js';
 
 /** Browser-only rendering budgets. Never used for visibility, movement or dice outcomes. */
-export function graphicsBudget(quality:EnvironmentQuality, viewportWidth=1440){
-  const resolved=quality==='auto'?(viewportWidth<900?'balanced':'high'):quality;
+export type AutoGraphicsTier='high'|'balanced'|'low';
+export function graphicsBudget(quality:EnvironmentQuality, viewportWidth=1440,autoTier?:AutoGraphicsTier){
+  const resolved=quality==='auto'?(autoTier??(viewportWidth<900?'balanced':'high')):quality;
   const low=resolved==='low'||resolved==='off';
   return {
     resolved,

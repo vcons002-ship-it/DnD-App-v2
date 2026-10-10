@@ -33,7 +33,7 @@ import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, 
 import { useBoxSelection } from './useBoxSelection';
 import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
-import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
+import { resolveMiniature, miniatureForQuality, useMiniatureCatalog } from '../lib/miniatures';
 import { HpFxLayer, HpNumberLayer } from './HpFx';
 import {spellImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
 import type {SpellImpact} from './spellImpactEffects';
@@ -1240,9 +1240,9 @@ export function MapStage({
 
   // The public party roster contains names, not hidden token positions.
   const preloadMiniatures = useMemo(() => [...(use3dTokens || use3dMonsters ? [DEATH_SKULL] : []), ...(use3dTokens ? snapshot.characters.flatMap(character => {
-    const definition = resolveMiniature(character.name, 'pc');
+    const definition = miniatureForQuality(resolveMiniature(character.name, 'pc'),graphics.resolved);
     return definition ? [definition] : [];
-  }) : [])], [snapshot.characters, use3dTokens, use3dMonsters]);
+  }) : [])], [snapshot.characters, use3dTokens, use3dMonsters, graphics.resolved]);
 
   // Content-stable so TokenShape's memo isn't defeated by each snapshot's fresh arrays.
   const terrainZones=useContentStable(useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]));
@@ -1254,7 +1254,7 @@ export function MapStage({
     if ((token.isHidden && !isDm) || hiddenGhosts.has(token.id)) return [];
     const monster = token.kind === 'monster' ? snapshot.monsters.find(m => m.id === token.refId) : undefined;
     const display = resolveToken(snapshot, token), dead = display.dead === true;
-    const definition = dead ? DEATH_SKULL : resolveMiniature(display.name, token.kind, monster, token.refId);
+    const definition = dead ? DEATH_SKULL : miniatureForQuality(resolveMiniature(display.name, token.kind, monster, token.refId),graphics.resolved);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
       mirrorImages:dead ? 0 : mirrorImageCount(display.conditions),
@@ -1270,7 +1270,7 @@ export function MapStage({
       activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
       selected: !token.sharedSightOnly && (orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id)),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, hiddenGhosts, miniatureCatalogRevision]);
+  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, hiddenGhosts, miniatureCatalogRevision, graphics.resolved]);
   const miniatureIds=useMemo(()=>new Set(miniatureTokens.map(m=>m.id)),[miniatureTokens]);
   const doorTokenIds=new Set(doors.flatMap(d=>d.tokenId?[d.tokenId]:[]));
   useEffect(() => {

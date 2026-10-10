@@ -1,22 +1,31 @@
 import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
 import {Box3, Mesh, MeshStandardMaterial, Vector3, Vector4, type Camera, type Group, type Material, type Object3D} from 'three';
 import type {MiniatureDefinition} from '../lib/miniatures';
-import {hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
+import {type MapWall} from '../../../shared/mapWalls';
 import {localShadowGlsl,type createLocalLightShadows} from './localLightShadows';
+import {createLightSightCache} from '../../../shared/lightSightCache';
 
+const EMPTY_WALLS:readonly MapWall[]=[];
 export type TorchLight = {id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight?:number;radius:number;strength:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number;transient?:boolean};
 
 /** Each figure gets its strongest nearby sources, independent of the map's light count. */
 export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms']){
   const uniforms={...shadowUniforms,torchShadowSlots:{value:Array(8).fill(-1)},darkvisionDetail:{value:0},torchCount:{value:0},torchPositions:{value:Array.from({length:8},()=>new Vector4())},torchColors:{value:Array.from({length:8},()=>new Vector3())}};
   const point=new Vector3();
-  return {attach(material:Material){
+  const sight=createLightSightCache();
+  let signature='';
+  return {uniforms,get signature(){return signature;},get cacheState(){return sight.state;},attach(material:Material){
     if(!(material instanceof MeshStandardMaterial))return;
     const previous=material.onBeforeCompile,cache=material.customProgramCacheKey();
     material.onBeforeCompile=function(shader,renderer){
       previous.call(this,shader,renderer);Object.assign(shader.uniforms,uniforms);
       shader.vertexShader='varying vec3 torchWorldPosition;\n'+shader.vertexShader;
-      shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\n torchWorldPosition=(modelMatrix*vec4(transformed,1.)).xyz;');
+      shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>',`#include <worldpos_vertex>
+        vec4 torchWorld=vec4(transformed,1.);
+        #ifdef USE_INSTANCING
+          torchWorld=instanceMatrix*torchWorld;
+        #endif
+        torchWorldPosition=(modelMatrix*torchWorld).xyz;`);
       shader.fragmentShader=localShadowGlsl+lightFalloffGlsl+'varying vec3 torchWorldPosition; uniform float torchShadowSlots[8]; uniform float darkvisionDetail; uniform int torchCount; uniform vec4 torchPositions[8]; uniform vec3 torchColors[8];\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',`#include <lights_fragment_begin>
         float darkvisionLight=0.;
@@ -47,18 +56,20 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
         #include <opaque_fragment>`);
     };
     material.customProgramCacheKey=()=>cache+'-nearby-torches-v10-spell-flashes';
-  },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false,walls:readonly MapWall[]=[]){
+  },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false,walls:readonly MapWall[]=EMPTY_WALLS){
     uniforms.darkvisionDetail.value=darkvision?1:0;
     const chosen:{light:TorchLight;score:number}[]=[];
     for(const light of lights){
       const d2=(light.x-root.position.x)**2+(light.y-root.position.z)**2;
       if(d2>(light.radius*LIGHT_SPILL_MULTIPLIER)**2)continue;
-      if(!hasLineOfSight(light,{x:root.position.x,y:root.position.z},walls))continue;
+      if(!sight.visible(light.id,light,{x:root.position.x,y:root.position.z},walls))continue;
       const score=light.strength*light.radius**2/Math.max(1,d2+light.height**2*.25);
       let i=0;while(i<chosen.length&&chosen[i].score>=score)i++;
       if(i<8){chosen.splice(i,0,{light,score});if(chosen.length>8)chosen.pop();}
     }
     uniforms.torchCount.value=chosen.length;
+    chosen.sort((a,b)=>a.light.id.localeCompare(b.light.id));
+    signature=JSON.stringify([darkvision,chosen.map(c=>c.light.id)]);
     chosen.forEach(({light},i)=>{
       point.set(light.x,light.height,light.y).applyMatrix4(camera.matrixWorldInverse);
       uniforms.torchPositions.value[i].set(point.x,point.y,point.z,light.radius);

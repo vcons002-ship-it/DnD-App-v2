@@ -11,7 +11,7 @@ export function EnvironmentQualityControl(){
     <select aria-label="Graphics quality" value={quality} onChange={e=>setQuality(e.target.value as EnvironmentQuality)}>
       <option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="low">Low</option><option value="off">Effects off</option>
     </select>
-    <small>Only changes this browser. Balanced and Low reduce resolution, shadows and particles. Effects off keeps lighting and fog. {quality==='auto'?`Auto: ${budget.resolved}.`:''}</small>
+    <small>Only changes this browser. Balanced and Low use lighter figures, resolution, shadows and particles. Effects off keeps lighting and fog. {quality==='auto'?`Auto: ${budget.resolved}. Adjusts to sustained frame performance.`:''}</small>
   </label>;
 }
 

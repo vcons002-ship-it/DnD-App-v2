@@ -104,18 +104,22 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   const splats=new Mesh(fieldGeometry,fieldMaterial);splats.frustumCulled=false;fieldScene.add(splats);
   const wallSplats=new Mesh(new BufferGeometry(),fieldMaterial);wallSplats.frustumCulled=false;wallSplats.visible=false;fieldScene.add(wallSplats);
   let wallGeometryKey='',vertexSources:number[]=[];
+  let lastWalls:EnvironmentPreviewSettings['walls'],wallKey='';
+  let nominalRadii=new Map<string,number>();
   const lightPolygons=new Map<string,{key:string;points:{x:number;y:number}[]}>();
   function updateWallField(){
     const walls=settings.walls??[];
     wallGeometryMode.value=walls.length?1:0;splats.visible=!walls.length;wallSplats.visible=!!walls.length;
     if(!walls.length)return;
-    const wallKey=JSON.stringify(walls),positions:number[]=[],indices:number[]=[];
-    const next=JSON.stringify([wallKey,lights.map(l=>[l.id,l.x,l.y])]);
+    if(lastWalls!==settings.walls){lastWalls=settings.walls;wallKey=JSON.stringify(walls);}
+    const radiusFor=(l:TorchLight)=>(l.transient?l.radius:(l.carried?20:nominalRadii.get(l.id)??20)*(settings.pixelsPerFoot??12.8))*LIGHT_SPILL_MULTIPLIER*1.2;
+    const positions:number[]=[],indices:number[]=[];
+    const next=JSON.stringify([wallKey,lights.map(l=>[l.id,l.x,l.y,radiusFor(l)])]);
     if(next!==wallGeometryKey){
       wallGeometryKey=next;
       const ids=new Set(lights.map(l=>l.id));for(const id of lightPolygons.keys())if(!ids.has(id))lightPolygons.delete(id);
       lights.forEach((l,index)=>{
-        const radius=(l.transient?l.radius:(l.carried?20:settings.lights?.find(s=>s.id===l.id)?.radiusFt??20)*(settings.pixelsPerFoot??12.8))*LIGHT_SPILL_MULTIPLIER*1.2;
+        const radius=radiusFor(l);
         const cacheKey=`${wallKey}:${l.x},${l.y},${radius}`;
         let cached=lightPolygons.get(l.id);
         if(cached?.key!==cacheKey){cached={key:cacheKey,points:wallVisibilityPolygon(l,walls,radius)};lightPolygons.set(l.id,cached);}
@@ -246,7 +250,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     flame.uniforms.flameTime.value=time;
   };
   return {fieldUniforms,terrainGrade:{gradeColor:uniforms.gradeColor,gradeOpacity:uniforms.gradeOpacity,sceneTint:uniforms.sceneTint,sceneTintStrength:uniforms.sceneTintStrength},update(next:EnvironmentPreviewSettings){
-    settings=next;wallGeometryKey='';const enabled=next.enabled,preset=palettes[next.lighting??'day'];
+    settings=next;nominalRadii=new Map((next.lights??[]).map(l=>[l.id,l.radiusFt]));const enabled=next.enabled,preset=palettes[next.lighting??'day'];
     const level=(next.lightLevel??1)*(next.heavyDarkness?.10:1);
     plane.visible=enabled;plane.position.set((next.mapX??0)+next.mapWidth/2,.004,(next.mapY??0)+next.mapHeight/2);plane.scale.set(next.mapWidth,next.mapHeight,1);
     fieldUniforms.torchBounds.value.set(next.mapX??0,next.mapY??0,next.mapWidth,next.mapHeight);

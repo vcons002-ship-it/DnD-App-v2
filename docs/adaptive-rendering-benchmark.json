@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-10",
+  "hardware": "NVIDIA RTX 5090",
+  "viewport": {
+    "width": 1440,
+    "height": 900,
+    "devicePixelRatio": 2
+  },
+  "scene": "27 real figures, 24 goblins, original High party models, two flickering lights, dense mist and weather",
+  "comparison": "Same models and scene; batching=off versus batching enabled. Single run, not a phone benchmark.",
+  "results": [
+    {
+      "batching": false,
+      "colorDrawCalls": 450.0,
+      "colorTriangles": 6870310.0,
+      "gpuMs": 5.36496,
+      "renderFps": 59.1,
+      "miniatureBatches": 0.0,
+      "batchedMeshInstances": 0.0
+    },
+    {
+      "batching": true,
+      "colorDrawCalls": 366.0,
+      "colorTriangles": 6870310.0,
+      "gpuMs": 4.516672,
+      "renderFps": 59.0,
+      "miniatureBatches": 12.0,
+      "batchedMeshInstances": 96.0
+    }
+  ]
+}

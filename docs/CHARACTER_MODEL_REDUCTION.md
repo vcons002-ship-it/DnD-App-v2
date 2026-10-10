@@ -2,12 +2,14 @@
 
 Review candidates generated on 10 October 2026 from the exact runtime models in
 `client/public/miniatures/manifest.json`. The original catalog and GLBs remain
-unchanged. This experiment does not deploy replacement models to campaigns.
+unchanged. Reviewed copies now ship as local graphics tiers: High uses originals,
+Balanced uses conservative copies, and Low/Effects off use lighter copies. Campaign
+token data and base sizes do not change.
 
 | Character | Original triangles | Conservative triangles | Lighter triangles | Original MB | Lighter MB |
 |---|---:|---:|---:|---:|---:|
 | Druk | 880,404 | 277,100 | 142,186 | 24.97 | 14.97 |
-| Varis | 905,238 | 348,006 | 203,252 | 25.47 | 16.12 |
+| Varis | 905,238 | 348,006 | 203,252 | 25.47 | 16.23 |
 | Vanec | 1,138,771 | 355,589 | 207,975 | 33.21 | 19.90 |
 
 The lighter set totals 553,413 triangles, 81.1% fewer than the 2,924,413 original
@@ -69,8 +71,8 @@ npx.cmd playwright test -c e2e/playwright.config.ts e2e/character-reduction.spec
 Set `CHARACTER_REDUCTION_ENV=plain` for daylight without mist, weather or shadows;
 unset it for the three-light, dense-mist, rain/embers test. Measured GPU time is
 the miniature rendering loop, not the entire app. Desktop results do not establish
-Fold/mobile FPS improvements. The live app continues using the originals until
-a replacement or preset-specific model policy is chosen.
+Fold/mobile FPS improvements. The tier policy is documented in `GRAPHICS_PRESETS.md`. These earlier measurements
+compare geometry alone, before the new batching and cache optimizations.
 
 ## Verified results
 
@@ -116,7 +118,7 @@ performed. The handles and guards retain their existing finish.
 The candidate remains at 203,252 triangles and is 16.23 MB (16.12 MB baseline).
 Splitting blade and handle materials adds primitives and about 112 KB, so this
 is an appearance refinement, not a further performance optimization. The
-live catalog continues using the original models.
+High uses the original model; Balanced and Low use the sharpened reduced copies.
 
 ```powershell
 node scripts/token-assets/sharpen-varis-weapons.mjs D:/dnd-approved-release/character-reduction-20261010/varis-light-ce7d0501c260.glb D:/dnd-approved-release/varis-weapons-20261010
