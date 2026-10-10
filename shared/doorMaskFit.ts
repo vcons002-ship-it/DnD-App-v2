@@ -10,7 +10,7 @@ export function fitDoorMarker(marker:DoorMarker,walls:readonly MapWall[],gridSiz
   if(!Array.isArray(marker.footprint)||marker.footprint.length<3||marker.footprint.length>32||marker.footprint.some(p=>!p||!Number.isFinite(p.x)||!Number.isFinite(p.y)))return {issue:'Invalid door footprint.'};
   const cx=(Math.min(...marker.footprint.map(p=>p.x))+Math.max(...marker.footprint.map(p=>p.x)))/2,cy=(Math.min(...marker.footprint.map(p=>p.y))+Math.max(...marker.footprint.map(p=>p.y)))/2;
   const candidates:{marker:DoorMarker;distance:number}[]=[];
-  for(const wall of walls.filter(w=>!w.door&&!w.window))for(const {a,b} of wallBoundarySegments(wall)){
+  for(const wall of walls.filter(w=>!w.door&&!w.window&&!w.arch))for(const {a,b} of wallBoundarySegments(wall)){
     const dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);if(l<2)continue;
     const tx=dx/l,ty=dy/l,nx=-ty,ny=tx,along=(cx-a.x)*tx+(cy-a.y)*ty,across=(cx-a.x)*nx+(cy-a.y)*ny;
     const distance=Math.hypot(across,along<0?-along:along>l?along-l:0);if(distance>gridSizePx*.9)continue;
@@ -31,7 +31,7 @@ export function fitDoorMarker(marker:DoorMarker,walls:readonly MapWall[],gridSiz
 function connectDoorJambs(marker:DoorMarker,walls:readonly MapWall[],grid:number):DoorFit|undefined {
   if(!Number.isFinite(grid)||grid<=0||!marker.footprint)return;
   const footprint=marker.footprint,cx=(Math.min(...footprint.map(p=>p.x))+Math.max(...footprint.map(p=>p.x)))/2,cy=(Math.min(...footprint.map(p=>p.y))+Math.max(...footprint.map(p=>p.y)))/2;
-  const ends=walls.filter(w=>!w.door&&!w.window).flatMap(w=>wallBoundarySegments(w).map(s=>({...s,wall:w,c:{x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},length:Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y)})))
+  const ends=walls.filter(w=>!w.door&&!w.window&&!w.arch).flatMap(w=>wallBoundarySegments(w).map(s=>({...s,wall:w,c:{x:(s.a.x+s.b.x)/2,y:(s.a.y+s.b.y)/2},length:Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y)})))
     .filter(s=>s.length>=2&&s.length<=grid*.75&&Math.hypot(s.c.x-cx,s.c.y-cy)<=grid*2+Math.hypot(marker.bx-marker.ax,marker.by-marker.ay)/2);
   const fits:{fit:DoorFit;score:number}[]=[];
   for(let i=0;i<ends.length;i++)for(let j=i+1;j<ends.length;j++){
@@ -69,7 +69,7 @@ function fitDoorLine(marker:DoorMarker,walls:readonly MapWall[],gridSizePx:numbe
   if(!Number.isFinite(length)||length<2)return {issue:'The door marker is too short.'};
   const x=(marker.ax+marker.bx)/2,y=(marker.ay+marker.by)/2,tx=dx/length,ty=dy/length;
   if(walls.some(w=>w.door&&Math.hypot((w.ax+w.bx)/2-x,(w.ay+w.by)/2-y)<Math.max(gridSizePx*.5,length*.25)))return {issue:'A working door already exists here.'};
-  const solids=walls.filter(w=>!w.door);
+  const solids=walls.filter(w=>!w.door&&!w.window&&!w.arch);
   if(solids.some(w=>insideWallGeometry({x,y},w)))return {issue:'A wall covers this opening. Adjust it or use Draw door opening first.'};
   const hits:number[]=[];
   for(const wall of solids)for(const {a,b} of wallBoundarySegments(wall)){

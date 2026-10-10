@@ -31,6 +31,7 @@ import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
 import {createLocalLightShadows} from './localLightShadows';
 import { useStore } from '../state/socket';
 import {createRaisedMapStudy} from './raisedMapStudy';
+import {createArchArtLayer} from './archArtLayer';
 import {createArchArtStudy} from './archArtStudy';
 import {CARRIED_LANTERN_LIGHT_HEIGHT_FT} from '../../../shared/lightFalloff';
 import {
@@ -416,7 +417,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
         const labels=props.nameLabels?.()??[];
         const renderedNames=names.sync(labels,visible,sharedIds);
-        if (archArtStudy || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
+        if (archArtStudy || archArtLayer.hasArt || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
           const shadowUpdate = renderer.shadowMap.needsUpdate;
@@ -480,6 +481,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         renderer.render(scene, camera);
         battlefield?.renderMist(renderer,camera);
+        archArtLayer.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
+          [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
         archArtStudy?.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
         visionLift.render(!!props.personalVision);
@@ -523,7 +526,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
-    if (!failed && (archArtStudy?.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
+    if (!failed && (archArtStudy?.animating || archArtLayer.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
   };
   const queueDraw = () => {
     if (frame || frameQueued || disposed || failed) return;
@@ -660,11 +663,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   const raisedStudy=import.meta.env.VITE_COURTYARD_STUDY==='1'&&new URLSearchParams(location.search).get('raisedWalls')==='1'
     ?createRaisedMapStudy(scene,host,invalidate):null;
+  const archArtLayer=createArchArtLayer(renderer,outlineMask.texture,host,invalidate);
   const archArtStudy=import.meta.env.VITE_ARCH_ART_STUDY==='1'&&new URLSearchParams(location.search).get('archArt')==='1'
     ?createArchArtStudy(renderer,outlineMask.texture,host,invalidate):null;
   const sync = (next: Props) => {
     if (disposed || failed) return;
     props = next;
+    const archSnapshot=useStore.getState().snapshot;archArtLayer.sync(archSnapshot?.map,archSnapshot?.mapImages);
     const marks=next.footprints?.()??[];footprints.sync(marks);host.dataset.footprintCount=String(marks.length);
     raisedStudy?.sync(useStore.getState().snapshot?.map?.id);
     spellImpacts.sync(next.spellImpacts??[],performance.now());
@@ -906,6 +911,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     shaderWarmup.dispose();
     raisedStudy?.dispose();
     archArtStudy?.dispose();
+    archArtLayer.dispose();
     spellImpacts.dispose();
     footprints.dispose();
     clearPreview();previewMaterial.dispose();

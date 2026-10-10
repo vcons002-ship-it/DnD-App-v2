@@ -34,7 +34,7 @@ export function editMapWalls(sessionId:string,mapId:string,edit:WallEdit):string
     const old=walls.find(w=>w.id===edit.update!.id);
     if(!old)return 'Wall not found.';
     // Transforming geometry must not change lock state or detach the door object.
-    const [wall]=sanitizeWalls([{...edit.update,door:old.door,open:old.open,tokenId:old.tokenId,window:old.window}]);
+    const [wall]=sanitizeWalls([{...edit.update,door:old.door,open:old.open,tokenId:old.tokenId,window:old.window,arch:old.arch}]);
     if(!wall)return 'Invalid wall shape.';
     const next=walls.map(w=>w.id===old.id?wall:w);
     if(old.tokenId)db.prepare('UPDATE tokens SET x=?, y=? WHERE id=? AND map_id=?').run((wall.ax+wall.bx)/2,(wall.ay+wall.by)/2,old.tokenId,mapId);

@@ -425,6 +425,13 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   cut to its central 70%, leaving 15% at each end uncut for existing supports.
   Verify both passages with actual player drags and support blocking checks in
   the disposable app. Full arch artwork footprints remain unchanged.
+- [x] Wire **Arches / overpasses** into the normal map-analysis options and add
+  a dedicated run under Walls > AI analysis. Use a separate magenta mask, Qwen
+  only for automatic runs, and keep orange uncertain spans review-only. Include
+  assembled tiles and selected regions. Save removable, draggable, rotatable
+  arch overlays: their center opens movement and sight without destroying saved
+  wall geometry, and their original 2D art fades over figures underneath in
+  normal overhead and tilted views. Removing an arch restores wall blocking.
 - [x] Join structural wall-mask paint breaks up to one quarter of a grid square.
   Keep wider cuts reserved, retain precise colored-opening extraction, and
   verify the same courtyard masks with normal draft application and player drags.
