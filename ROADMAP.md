@@ -1,5 +1,13 @@
 # Roadmap & Feature Backlog
 
+- [x] Retain static miniature transforms and reuse world matrices across render
+  passes. Broaden identical-creature batching on High without losing individual
+  lights, colors, shadows or visibility; keep cheaper shared uniforms and the
+  original threshold on Balanced/Low after integrated-GPU testing. Cache sight
+  projection and light camera coefficients, and remove the health orb's repeated
+  layout read. Pixel, shadow, movement and fog regressions preserve visual and
+  interaction contracts. See [dual-GPU render-reuse results](docs/performance/miniature-render-reuse-2026-10-11.md).
+
 - [x] Coalesce battlefield camera updates and animated effects into one scene
   paint per browser frame. Apply projected map/vision transforms before the paint,
   skip unused daylight vision overlays when both fog switches are off, and count

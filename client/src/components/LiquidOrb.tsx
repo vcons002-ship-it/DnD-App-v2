@@ -125,6 +125,9 @@ export const LiquidOrb = memo(function LiquidOrb({
       previous = 0,
       shown = value.current,
       stopped = false;
+    // ResizeObserver owns CSS-size reads; polling clientWidth in each animated
+    // frame forced unrelated map/vision style updates through layout.
+    let cssWidth=el.clientWidth;
     const draw = (now: number) => {
       if (stopped || document.hidden) return;
       if (now - previous >= 32 || motion.matches) {
@@ -134,7 +137,7 @@ export const LiquidOrb = memo(function LiquidOrb({
           384,
           Math.max(
             96,
-            Math.round(el.clientWidth * Math.min(devicePixelRatio, 2)),
+            Math.round(cssWidth * Math.min(devicePixelRatio, 2)),
           ),
         );
         if (el.width !== size) {
@@ -169,7 +172,10 @@ export const LiquidOrb = memo(function LiquidOrb({
     requestStaticDraw.current = () => {
       if (motion.matches) restart();
     };
-    const resize = new ResizeObserver(() => requestStaticDraw.current?.());
+    const resize = new ResizeObserver(entries => {
+      cssWidth=entries[0]?.contentRect.width??cssWidth;
+      requestStaticDraw.current?.();
+    });
     resize.observe(el);
     const lost = (e: Event) => {
       e.preventDefault();

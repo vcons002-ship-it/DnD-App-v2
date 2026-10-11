@@ -6,9 +6,9 @@ import {Mesh,Sprite,SkinnedMesh,InstancedMesh,type BufferAttribute,type Interlea
 export function createMiniatureMaskCache(){
   let previous='',updates=0;
   return {
-    needsRender(target:WebGLRenderTarget,scene:Scene,camera:Camera){
+    needsRender(target:WebGLRenderTarget,scene:Scene,camera:Camera,worldMatricesCurrent=false){
       camera.updateMatrixWorld();
-      scene.updateMatrixWorld(true);
+      if(!worldMatricesCurrent)scene.updateMatrixWorld(true);
       const bodies:unknown[]=[];
       scene.traverseVisible(node=>{
         if(!(node instanceof Mesh||node instanceof Sprite)||!((node.layers.mask&((1<<1)|(1<<6)))))return;

@@ -63,7 +63,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer,invalidate:()=>vo
  const roots=new Map<string,{key:string;movingUntil:number}>(),nodes=new WeakMap<Group,Mesh[]>(),sight=createLightSightCache();
  let updates=0,shadowSize=512,method:'cube'|'floor'='cube',wallsRef:readonly MapWall[]|undefined,wallKey='',wallVersion=0,pending=false,originalTriangles=0,proxyTriangles=0;
  return {uniforms,
-  render(renderer:WebGLRenderer,scene:Scene,camera:Camera,lights:TorchLight[],casters:readonly Caster[],walls:readonly MapWall[],enabled:boolean,_environmentalLength:number,budget=graphicsBudget('high')){
+  render(renderer:WebGLRenderer,scene:Scene,camera:Camera,lights:TorchLight[],casters:readonly Caster[],walls:readonly MapWall[],enabled:boolean,_environmentalLength:number,budget=graphicsBudget('high'),worldMatricesCurrent=false){
    const now=performance.now();pending=false;
    const nextMethod=creatureShadowStyle==='map'?'floor':budget.localShadowMethod;
    if(method!==nextMethod||shadowSize!==budget.localShadowSize){
@@ -77,7 +77,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer,invalidate:()=>vo
    for(const entry of pool)if(!selected.some(l=>l.id===entry.id)){entry.id='';entry.key='';entry.structural='';}
    origins.forEach(o=>o.w=0);
    if(!selected.length)return;
-   scene.updateMatrixWorld(true);
+   if(!worldMatricesCurrent)scene.updateMatrixWorld(true);
    const active=new Set(casters.map(c=>c.id));for(const id of roots.keys())if(!active.has(id))roots.delete(id);
    proxies.release(casters.map(c=>c.root));
    originalTriangles=0;proxyTriangles=0;

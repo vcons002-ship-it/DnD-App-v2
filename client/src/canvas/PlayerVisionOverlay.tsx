@@ -7,7 +7,7 @@ import {wallVisibilityPolygon,SIGHT_EXTENT,type WallPoint} from '../../../shared
 import type {TokenPresentation} from './tokenPresentation';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
 import type {VisionCoverFrame} from './miniatureVisionComposite';
-import {visionLightEllipse} from './visionLightEllipse';
+import {createVisionLightProjector} from './visionLightEllipse';
 import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
@@ -29,6 +29,8 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const memoryProjection=useRef<{geometry:ExploredTerrain|undefined;camera:string}|null>(null);
  const wallsCache=useRef<{walls:PlayerVision['walls'];key:string}>({walls:undefined,key:'[]'});
  const polygonCache=useRef(new Map<string,{key:string;points:WallPoint[]}>());
+ const projectedPolygons=useRef(new WeakMap<WallPoint[],{camera:string;path:string}>());
+ const circlePaths=useRef(new Map<string,{key:string;path:string}>());
  const id=useId().replace(/:/g,'');
  const lightId=`vision-lights-${id}`,shadeId=`vision-shade-${id}`,nearId=`vision-near-${id}`,coverId=`vision-cover-${id}`;
  const sightId=`vision-sight-${id}`;
@@ -51,6 +53,8 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   const {vision,view,tilt,rotation,width,height}=state.current;
   if(root.current){root.current.dataset.cameraRotation=String(rotation);root.current.dataset.cameraTilt=String(tilt);}
   const sy=groundYScale(tilt),a=rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a),k=perspectiveSlope(width,height,tilt);
+  const projectionKey=[view.x,view.y,view.scale,tilt,rotation,width,height].join(':');
+  const lightEllipse=createVisionLightProjector(view,tilt,rotation,width,height);
   if(wallsCache.current.walls!==vision.walls)wallsCache.current={walls:vision.walls,key:JSON.stringify(vision.walls??[])};
   const wallsKey=wallsCache.current.key;
   const activeKeys=new Set<string>();
@@ -63,6 +67,8 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    polygonCache.current.set(slot,{key,points});return points;
   };
   const project=(vertices:WallPoint[])=>{
+   const cached=projectedPolygons.current.get(vertices);
+   if(cached?.camera===projectionKey)return cached.path;
    let poly=vertices.map(vertex=>{
     const dx=view.x+vertex.x*view.scale-width/2;
     const dy=view.y+vertex.y*view.scale*sy-height/2;
@@ -72,11 +78,16 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length],pin=p.w>=.01,qin=q.w>=.01;
     if(pin)clipped.push(p);if(pin!==qin){const t=(.01-p.w)/(q.w-p.w);clipped.push({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t,w:.01});}}
    poly=clipped;
-   return poly.length?'M'+poly.map(p=>`${(width/2+p.x/p.w).toFixed(2)},${(height/2+p.y/p.w).toFixed(2)}`).join('L')+'Z':'';
+   const result=poly.length?'M'+poly.map(p=>`${(width/2+p.x/p.w).toFixed(2)},${(height/2+p.y/p.w).toFixed(2)}`).join('L')+'Z':'';
+   projectedPolygons.current.set(vertices,{camera:projectionKey,path:result});return result;
   };
   const path=(point:{id:string;x:number;y:number},radius:number,actual=false,occlude=false)=>{
    const p=actual?point:state.current.presentation?.position(point.id)??live.current.get(point.id)??point;
-   return project(occlude?polygon({...p,id:point.id},radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius})));
+   if(occlude)return project(polygon({...p,id:point.id},radius));
+   const slot=point.id+':'+radius,key=[projectionKey,p.x,p.y].join(':');activeKeys.add('circle:'+slot);
+   const cached=circlePaths.current.get(slot);if(cached?.key===key)return cached.path;
+   const result=project(circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius})));
+   circlePaths.current.set(slot,{key,path:result});return result;
   };
   // Reproject remembered terrain only when history or camera changes, never for
   // every light flicker. It contains map images/grid only, not a live scene copy.
@@ -101,7 +112,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
     const alpha=Math.max(0,(coverage-previous)/Math.max(.00001,1-previous));previous=coverage;
     if(alpha>.0001){
      const p=renderedLights.current?l:state.current.presentation?.position(l.id)??live.current.get(l.id)??l;
-     const ellipse=visionLightEllipse(view,tilt,rotation,width,height,p.x,p.y,radius);
+     const ellipse=lightEllipse(p.x,p.y,radius);
      bands.push(ellipse?`<ellipse fill="black" fill-opacity="${alpha.toFixed(4)}" cx="${ellipse.cx.toFixed(2)}" cy="${ellipse.cy.toFixed(2)}" rx="${ellipse.rx.toFixed(2)}" ry="${ellipse.ry.toFixed(2)}" transform="rotate(${ellipse.rotation.toFixed(4)} ${ellipse.cx.toFixed(2)} ${ellipse.cy.toFixed(2)})"/>`:
       `<path fill="black" fill-opacity="${alpha.toFixed(4)}" d="${path(l,radius,!!renderedLights.current)}"/>`);
     }
@@ -134,6 +145,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
     return {source,polygon:polygon(source,SIGHT_EXTENT)};
    })};
   for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);
+  for(const slot of circlePaths.current.keys())if(!activeKeys.has('circle:'+slot))circlePaths.current.delete(slot);
   // Cosmetic flashes restore color only inside already-visible terrain. They
   // never enter the sight-cover mask or authorize/persist exploration.
   setMarkup(spellPaths.current,spellBands.join(''));
