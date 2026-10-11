@@ -445,6 +445,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           eligible:!['druk','varis','vanec',DEATH_SKULL.id,SPIRITUAL_WEAPON.id].includes(tokenById.get(id)?.definition.id??'')&&!i.mixer&&!i.fx&&!i.lightning&&!tokenById.get(id)?.sharedSightOnly&&!tokenById.get(id)?.hidden&&!tokenById.get(id)?.invisible&&!tokenById.get(id)?.mirrorImages})),batchingEnabled);
         host.dataset.miniatureBatches=String(batching.batches);host.dataset.batchedMeshInstances=String(batching.instances);
         battlefield?.lighting.renderField(renderer);
+        battlefield?.prepareMist(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
         const labels=props.nameLabels?.()??[];
@@ -555,6 +556,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           host.dataset.mistScale=String(mistState.scale);
           host.dataset.mistSteps=String(mistState.steps);
           host.dataset.mistResolution=`${mistState.bufferWidth}x${mistState.bufferHeight}`;
+          host.dataset.mistDensityCache=String(mistState.densityCache);
+          host.dataset.mistCacheUpdates=String(mistState.cacheUpdates);
+          host.dataset.mistCacheResolution=mistState.cacheResolution;
+          host.dataset.mistCacheSlices=String(mistState.cacheSlices);
+          host.dataset.mistCacheHz=String(mistState.cacheHz);
           host.dataset.mistWakes=String(mistState.wakes);
           host.dataset.mistTime=String(mistState.time);
           host.dataset.mistOldestWakeAge=String(mistState.oldestWakeAge);

@@ -1,0 +1,186 @@
+{
+  "baseRevision": "4be984d",
+  "prototypeBranch": "codex/mist-density-cache",
+  "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "cpu": "AMD Ryzen 7 7800X3D",
+  "configuration": {
+    "viewport": [
+      1440,
+      900
+    ],
+    "dpr": 1,
+    "graphics": "high",
+    "models": "original",
+    "figures": 27,
+    "walls": 20,
+    "tilt": 45,
+    "mistHeightFt": 6,
+    "mistOpacity": 0.35,
+    "movementIntervalMs": 450,
+    "movementPixels": 80,
+    "recording": false,
+    "tracing": false,
+    "sampleSeconds": 15
+  },
+  "cache": {
+    "hz": 8,
+    "slices": 32,
+    "raySteps": 24,
+    "fieldTexture": "920x344",
+    "mode": "four height samples packed into RGBA; two time states interpolated; body contact and visibility remain live",
+    "fallback": "Low quality, large fields, unsupported texture dimensions"
+  },
+  "pairs": [
+    {
+      "label": "Daylight - High mist, shadows off | Stationary",
+      "id": "day-mist",
+      "moving": false,
+      "before": {
+        "fps": 24.126738691577696,
+        "frameMs": {
+          "median": 40.700000047683716,
+          "p95": 52.80000019073486,
+          "max": 62.59999990463257
+        },
+        "gpuMs": {
+          "median": 31.9324,
+          "p95": 31.96276,
+          "max": 31.9722
+        }
+      },
+      "after": {
+        "fps": 28.58018440575124,
+        "frameMs": {
+          "median": 34.700000047683716,
+          "p95": 46,
+          "max": 60.299999952316284
+        },
+        "gpuMs": {
+          "median": 26.50744,
+          "p95": 26.66346,
+          "max": 26.66384
+        }
+      },
+      "gainPercent": 18.458548298233858,
+      "gpuSavedMs": 5.424960000000002
+    },
+    {
+      "label": "Daylight - High mist, shadows off | Lantern movement",
+      "id": "day-mist",
+      "moving": true,
+      "before": {
+        "fps": 19.794985270461076,
+        "frameMs": {
+          "median": 49.60000014305115,
+          "p95": 61.299999952316284,
+          "max": 73.70000004768372
+        },
+        "gpuMs": {
+          "median": 39.27984,
+          "p95": 39.324,
+          "max": 39.33392
+        }
+      },
+      "after": {
+        "fps": 23.58757720918653,
+        "frameMs": {
+          "median": 42.10000014305115,
+          "p95": 53.60000014305115,
+          "max": 60.10000014305115
+        },
+        "gpuMs": {
+          "median": 32.71112,
+          "p95": 32.76568,
+          "max": 32.78272
+        }
+      },
+      "gainPercent": 19.159357215511164,
+      "gpuSavedMs": 6.568719999999999
+    },
+    {
+      "label": "Heavy darkness - High shadows + High mist | Stationary",
+      "id": "heavy-mist",
+      "moving": false,
+      "before": {
+        "fps": 17.849412234839654,
+        "frameMs": {
+          "median": 57.299999952316284,
+          "p95": 73.20000004768372,
+          "max": 78.29999995231628
+        },
+        "gpuMs": {
+          "median": 42.51992,
+          "p95": 42.72876,
+          "max": 42.75992
+        }
+      },
+      "after": {
+        "fps": 21.724498703998496,
+        "frameMs": {
+          "median": 46.59999990463257,
+          "p95": 56.59999990463257,
+          "max": 61.5
+        },
+        "gpuMs": {
+          "median": 33.84636,
+          "p95": 34.40508,
+          "max": 34.43808
+        }
+      },
+      "gainPercent": 21.70988275790502,
+      "gpuSavedMs": 8.673560000000002
+    },
+    {
+      "label": "Heavy darkness - High shadows + High mist | Lantern movement",
+      "id": "heavy-mist",
+      "moving": true,
+      "before": {
+        "fps": 14.38858505576428,
+        "frameMs": {
+          "median": 70,
+          "p95": 78.90000009536743,
+          "max": 89.5
+        },
+        "gpuMs": {
+          "median": 49.9826,
+          "p95": 50.13532,
+          "max": 50.16772
+        }
+      },
+      "after": {
+        "fps": 17.52025154545703,
+        "frameMs": {
+          "median": 58.200000047683716,
+          "p95": 71.59999990463257,
+          "max": 79.29999995231628
+        },
+        "gpuMs": {
+          "median": 40.67796,
+          "p95": 40.71468,
+          "max": 40.73224
+        }
+      },
+      "gainPercent": 21.764937118943163,
+      "gpuSavedMs": 9.30464
+    }
+  ],
+  "errors": {
+    "before": [],
+    "after": []
+  },
+  "validation": {
+    "unitTests": 1982,
+    "focusedTestsAfterRefreshChange": 20,
+    "browserTests": 6
+  },
+  "chapters": [
+    {
+      "label": "Daylight - High mist, shadows off | Lantern movement",
+      "start": 0
+    },
+    {
+      "label": "Heavy darkness - High shadows + High mist | Lantern movement",
+      "start": 6
+    }
+  ]
+}
