@@ -10,15 +10,17 @@ test('default spell illumination restores color grading locally without uncoveri
  flushSync(()=>root.render(React.createElement(PlayerVisionOverlay,{ref,width:700,height:500,view:{x:0,y:0,scale:1},tilt:45,rotation:30,mapFogOfWar:true,
  vision:{daylight:false,rangeFt:60,radius:160,heavy:true,origins:[{id:'pc',x:180,y:160}],lights:[],walls:[{id:'wall',kind:'rectangle',ax:300,ay:0,bx:312,by:500}]}})));
  const before=ref.current.cover(),mask=container.querySelector('[id^="vision-cover-"]').innerHTML;
+ ref.current.prepareLights([{id:'spell',x:220,y:160,height:50,radius:100,strength:3,transient:true}]);
+ const heldInvisible=container.querySelectorAll('[id^="vision-shade-"] ellipse').length===0;
  ref.current.lights([{id:'spell',x:220,y:160,height:50,radius:100,strength:3,transient:true}]);ref.current.cover();
  const count=container.querySelectorAll('[id^="vision-shade-"] ellipse').length,clip=container.querySelector('[id^="vision-shade-"] g[clip-path]')?.getAttribute('clip-path');
  const during=ref.current.cover(),sameCover=mask===container.querySelector('[id^="vision-cover-"]').innerHTML;
  ref.current.lights([]);ref.current.cover();
- window.result={count,clip,sameCover,transientSight:during.lights.some(l=>l.source.transient),sameOrigins:JSON.stringify(before.origins)===JSON.stringify(during.origins),remaining:container.querySelectorAll('[id^="vision-shade-"] ellipse').length};root.unmount();
+ window.result={heldInvisible,count,clip,sameCover,transientSight:during.lights.some(l=>l.source.transient),sameOrigins:JSON.stringify(before.origins)===JSON.stringify(during.origins),remaining:container.querySelectorAll('[id^="vision-shade-"] ellipse').length};root.unmount();
  `}});
  await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
  const r=await page.evaluate(()=>(window as any).result);
- expect(r.count).toBeGreaterThan(0);expect(r.clip).toContain('url(');
+ expect(r.heldInvisible).toBe(true);expect(r.count).toBeGreaterThan(0);expect(r.clip).toContain('url(');
  expect(r.sameCover).toBe(true);expect(r.sameOrigins).toBe(true);expect(r.transientSight).toBe(false);expect(r.remaining).toBe(0);
 });
 

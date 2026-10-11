@@ -2,7 +2,6 @@ import {HiddenRollReview} from './HiddenRollReview';
 import {diceTriggerForTray} from '../lib/rollTrayPresentation';
 import {dicePreloadPlan} from '../lib/dicePreloadPlan';
 import {physicalRollTimeline,liveNaturalCritical} from '../lib/diceFinaleTiming';
-import {ROLL_BACKGROUND_PREWARM_MS} from '../lib/rollBackgroundBudget';
 import {DICE_TRIGGER_HOLD_MS} from '../../../shared/diceTriggers';
 import {LiveDiceOverlay} from './LiveDiceOverlay';
 import {ROLL_MODIFIER_STEP_MS,ROLL_TOTAL_TWEEN_MS,hasDrukMaximum} from '../../../shared/dicePresentationTiming';
@@ -173,6 +172,18 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     }, 0);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [preloadContext, preloadThemes, reducedMotion, rollAnimations, preloadBusy]);
+  const preparationRoll=useStore(s=>s.rollFx?.backgroundPrepared&&!s.rollFx.impactReady?s.rollFx.rollId:'');
+  useEffect(()=>{
+    if(!preparationRoll||!preloadContext||reducedMotion)return;
+    let cancelled=false;
+    const timer=setTimeout(()=>{void import('../lib/diceTrayRenderer').then(async m=>{
+      const canStart=()=>!cancelled&&!useStore.getState().liveDice&&useStore.getState().rollFx?.rollId===preparationRoll&&!useStore.getState().rollFx?.impactReady;
+      for(const theme of JSON.parse(preloadThemes) as ReturnType<typeof dicePreloadPlan>){
+        if(!canStart())break;if(!m.diceGraphicsPreloaded(theme.id))await m.preloadDiceGraphics(theme,canStart,preloadContext);
+      }
+    }).catch(()=>{});},32);
+    return()=>{cancelled=true;clearTimeout(timer);};
+  },[preparationRoll,preloadContext,preloadThemes,reducedMotion]);
   const liveDice = useStore(s=>s.liveDice);
   const rollFx = useStore((s) => s.rollFx);
   const intermediate=!!liveDice?.calculation;
@@ -353,6 +364,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
       // immediately after number flights instead of pausing before arithmetic.
       const {complete,impact:impactAt}=physicalRollTimeline(reveal,inlineTray,inlineTray&&!!rollFx.tray&&hasDrukMaximum(rollFx.tray));
       at(complete,()=>{
+        if(!intermediate)useStore.getState().prepareRollBackground(rollFx.rollId);
         setStage(p=>({...p,phase:isBurst?'damage':'outcome'}));
         if(earlyCritical){} // The live tray already announced the natural 20.
         else if(naturalTwenty||reveal.outcome==='crit')playCritical();
@@ -360,9 +372,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         else if(isCheck||isDice)playSkill();else playHit();
       });
       if(!intermediate){
-        // Restore raster buffers during the existing reading hold, while the
-        // tray still covers the map. Keep its 12 FPS cap until impact release.
-        at(Math.max(0,impactAt-ROLL_BACKGROUND_PREWARM_MS),()=>useStore.getState().prepareRollBackground(rollFx.rollId));
+        // Preparation runs during the existing hold; release timing is unchanged.
         at(impactAt,()=>releaseImpact(rollFx.rollId));
         at(impactAt+resultHoldMs,dismiss);
       }

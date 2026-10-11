@@ -3368,7 +3368,7 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
   const label=document.createElement('div');label.id='spell-demo-caption';label.style.cssText='position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:100;background:#080d13eb;border:1px solid #a7b8b1;color:#ebf4ed;padding:12px 24px;border-radius:8px;font:22px Georgia;pointer-events:none;white-space:nowrap';document.body.append(label);
   const samples:any[]=[];(window as any).spellLightSamples=samples;
   const sample=()=>{const l=document.querySelector('[data-testid="miniature-layer"]') as HTMLElement|null,r=document.querySelector('.roll-reveal');
-   samples.push({t:performance.now(),count:Number(l?.dataset.spellImpactCount??0),transient:Number(l?.dataset.spellTransientCount??0),strength:Number(l?.dataset.spellLightStrength??0),positions:JSON.parse(l?.dataset.spellLightPositions??'[]'),kinds:l?.dataset.spellImpactKinds,rolling:!!document.querySelector('[data-live-dice="true"]'),ready:r?.getAttribute('data-impact-ready'),caption:document.getElementById('spell-demo-caption')?.textContent});
+   samples.push({t:performance.now(),count:Number(l?.dataset.spellImpactCount??0),prepared:Number(l?.dataset.spellPreparedCount??0),warm:Number(l?.dataset.spellGpuWarmCount??0),promoted:Number(l?.dataset.spellPreparedPromoted??0),transient:Number(l?.dataset.spellTransientCount??0),strength:Number(l?.dataset.spellLightStrength??0),positions:JSON.parse(l?.dataset.spellLightPositions??'[]'),kinds:l?.dataset.spellImpactKinds,rolling:!!document.querySelector('[data-live-dice="true"]'),ready:r?.getAttribute('data-impact-ready'),caption:document.getElementById('spell-demo-caption')?.textContent});
    (window as any).spellLightFrame=requestAnimationFrame(sample);};sample();
  });
  const caption=async(text:string)=>page.locator('#spell-demo-caption').evaluate((el,text)=>{el.textContent=text;},text);
@@ -3429,6 +3429,9 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
  const samples=await page.evaluate(()=>{cancelAnimationFrame((window as any).spellLightFrame);return (window as any).spellLightSamples;});
  writeFileSync(info.outputPath('spell-light-timing.json'),JSON.stringify({samples,errors},null,2));
  expect(samples.some((s:any)=>s.count>0)).toBe(true);
+ expect(samples.some((s:any)=>s.prepared>0&&s.count===0)).toBe(true);
+ expect(samples.some((s:any)=>s.warm>0)).toBe(true);
+ expect(samples.some((s:any)=>s.promoted>0)).toBe(true);
  expect(samples.filter((s:any)=>s.transient>0&&s.rolling&&s.ready!=='true')).toEqual([]);
  const movingSources=(kind:string)=>samples.filter((s:any)=>s.kinds===kind&&s.positions.length===3);
  const arrowSources=movingSources('arrows'),vineSources=movingSources('vines');

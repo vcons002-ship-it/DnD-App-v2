@@ -129,11 +129,30 @@ on the target while the condition is active, alongside its condition indicators.
 
 ## Roll handoff
 
-Dice-time battlefield rendering stays capped at 12 FPS. For a completed physical
-roll, its existing final reading hold prepares full battlefield raster resolution
-500 ms before map impacts are released. This shifts allocation and the first
-full-size paint behind the tray. It adds no delay, does not release damage early,
-and does not change dice sizes, roll timing, modifiers, or the Druk finale.
-Skip still releases immediately. Stale preparation callbacks cannot affect another
-roll, and private approval steps remain required. See
-[roll handoff measurements](ROLL_BACKGROUND_PREWARM_2026-10-11.md).
+Dice-time battlefield rendering stays capped at 12 FPS. At the start of a
+completed physical roll's existing final reading hold, restore full raster
+resolution, format held damage labels, build detached spell geometry/materials,
+and warm shaders and geometry buffers offscreen. Prepare bounded ground-light
+buffers, wall clips and detached darkvision light masks. Retry any interrupted
+session dice-theme preload while there is spare hold time.
+
+Prepared spell roots and masks stay detached: they emit no map light or visible
+animation. Activation reuses them and starts their full lifetime on release.
+Moving effect samples, changed walls and camera transforms are checked again at
+activation and during animation. Preparation shifts first-use work; it does not
+remove the recurring cost of mist, light sampling or visibility.
+
+Skip releases immediately using ready resources, with normal first-use rendering
+as a fallback. It never waits for shader compilation. Late warmup callbacks
+cannot hide or replay an activated effect, and private approval steps remain
+required. No roll, modifier, reading hold or Druk finale timing was extended.
+
+Floating numbers rasterize their stroke/shadow once at native canvas resolution.
+Running totals redraw only when their value, position or opacity changes. They
+still count up, follow the token/camera and fade on their original shared clock.
+The warmed label payload formats strings/colors; native text raster caching occurs
+when labels mount, rather than starting their visible clock during the dice hold.
+
+See [hold preparation and floating-number measurements](ROLL_HOLD_PREPARATION_2026-10-11.md).
+The [earlier 500 ms raster-only measurements](ROLL_BACKGROUND_PREWARM_2026-10-11.md)
+are historical and used the diagnostic spell overlay.

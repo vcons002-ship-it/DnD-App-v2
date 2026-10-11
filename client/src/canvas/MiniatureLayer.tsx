@@ -76,6 +76,8 @@ type Props = {
   graphics?: ReturnType<typeof graphicsBudget>;
   footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
+  preparedSpellImpacts?: SpellImpact[];
+  onPrepareVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   memoryTerrainCanvas?: ()=>HTMLCanvasElement|null;
   visionCoverFrame?: ()=>VisionCoverFrame|undefined;
   personalVision?: boolean;
@@ -420,6 +422,20 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const t=reducedMotion.matches?1:Math.min(1,(now-fade.start)/850),ease=t*t*(3-2*t);fade.value=fade.from+(fade.to-fade.from)*ease;
         instance.materials.forEach((m,i)=>{if(t<1&&!m.transparent){m.transparent=true;m.needsUpdate=true;}m.opacity=instance.originalOpacity[i]*fade.value;});
       }
+      const staged=props.preparedSpellImpacts??[];
+      const preparedLights=spellImpacts.prepare(staged,now,props.environmentPreview?.pixelsPerFoot??12.8,reducedMotion.matches,id=>{
+        const impact=staged.find(e=>e.tokenId===id);if(!impact)return;
+        const instance=instances.get(id),x=impact.fixed?impact.x:instance?.root.position.x??impact.x,y=impact.fixed?impact.y:instance?.root.position.z??impact.y;
+        return {x,y,height:instance?.mistBody?instance.mistBody.height*instance.root.scale.x:undefined,visible:props.isVisibleAt?.(id,x,y)??true};
+      });
+      if(preparedLights.length){
+        if(!props.spellColorOverlay){battlefield?.lighting.prepareTransient(preparedLights,renderer);props.onPrepareVisionLights?.(preparedLights);}
+      }else if(!staged.length&&!spellImpacts.active){battlefield?.lighting.prepareTransient([]);props.onPrepareVisionLights?.([]);}
+      if(spellImpacts.preparation.pending)spellImpacts.warm(renderer,camera);
+      host.dataset.spellPreparedCount=String(spellImpacts.preparation.pending);
+      host.dataset.spellGeometryBuilt=String(spellImpacts.preparation.built);
+      host.dataset.spellPreparedPromoted=String(spellImpacts.preparation.promoted);
+      host.dataset.spellGpuWarmCount=String(spellImpacts.preparation.gpuWarmCount);
       const impactLights=spellImpacts.tick(now,props.environmentPreview?.pixelsPerFoot??12.8,reducedMotion.matches,id=>{
         const impact=props.spellImpacts?.find(e=>e.tokenId===id);if(!impact)return;
         const instance=instances.get(id),point=impact.fixed?impact:props.visualPosition?.(id)??impact;

@@ -709,6 +709,7 @@ export function MapStage({
   useEffect(()=>()=>{if(areaShareTimer.current)clearTimeout(areaShareTimer.current);useStore.getState().shareSpellArea(null);},[]);
   const areaRangeError=areaCast&&areaActor&&map&&!areaCast.spec.self&&areaPoints.some(p=>tokenDistanceFt({...areaActor,widthFt:0},{...p,widthFt:0},map)>areaCast.spec.rangeFt+1e-6||!hasLineOfSight(areaActor,p,map.walls));
   const hpFx = useStore((s) => s.hpFx);
+  const preparedHpFx=useStore(s=>s.preparedHpFx);
   const rollBackground = useStore(s => reduceRollBackground(s));
   const rollBackgroundPrepared=useStore(s=>!s.liveDice&&!!s.rollFx?.backgroundPrepared);
   const spellRollFx = useStore(s=>s.rollFx);
@@ -1287,7 +1288,7 @@ export function MapStage({
   }, [miniatureTokens.length, handleMiniatureReady]);
 
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
-  const spellImpacts=useMemo<SpellImpact[]>(()=>[...hpFx.flatMap(event=>{
+  const mapSpellEvent=(event:typeof hpFx[number]):SpellImpact[]=>{
     if(!spellImpactStyle(event))return [];
     if(event.areaPosition){const p=event.areaPosition;if(p.mapId!==snapshot.map?.id)return [];return [{id:event.id,event,startAt:event.numberStartAt,tokenId:`area:${event.id}`,x:p.x,y:p.y,diameter:event.spell==='Dispel Magic'?Math.min(12,p.radiusFt*2)*pxPerFoot:p.radiusFt*2*pxPerFoot,fixed:true}];}
     const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
@@ -1297,7 +1298,9 @@ export function MapStage({
     if(spellImpactStyle(event)?.kind==='chains'&&resolveToken(snapshot,token).conditions.some(c=>persistentSpellVisual(c)===event.spell))return [];
     return [{id:event.id,event,startAt:event.numberStartAt,tokenId:token.id,x:token.x,y:token.y,
       diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot}];
-  }),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
+  };
+  const preparedSpellImpacts=preparedHpFx.flatMap(mapSpellEvent);
+  const spellImpacts=useMemo<SpellImpact[]>(()=>[...hpFx.flatMap(mapSpellEvent),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
     if(token.sharedSightOnly||(!isDm&&token.isHidden))return [];
     return resolveToken(snapshot,token).conditions.flatMap(condition=>{
       const spell=persistentSpellVisual(condition);if(!spell||isRollImpactPending(condition.combatEffect?.visualRollId))return [];
@@ -2734,10 +2737,10 @@ export function MapStage({
             </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer spellColorOverlay={spellColorOverlay} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
+            <MiniatureLayer preparedSpellImpacts={preparedSpellImpacts} spellColorOverlay={spellColorOverlay} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas} visionCoverFrame={visionCoverFrame}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
-              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} />
+              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?lights=>visionRef.current?.prepareLights(lights):undefined} />
           </Suspense></MiniatureFallback>}
           {renderPlayerVision&&snapshot.playerVision&&<PlayerVisionOverlay spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>}

@@ -11,7 +11,7 @@ import {createVisionLightMask} from './visionLightMask';
 import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
-export type PlayerVisionHandle={cover:()=>VisionCoverFrame|undefined;memoryCanvas:()=>HTMLCanvasElement|null;frame:()=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
+export type PlayerVisionHandle={cover:()=>VisionCoverFrame|undefined;memoryCanvas:()=>HTMLCanvasElement|null;frame:()=>void;prepareLights:(lights:VisionLight[])=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
 /** Terrain visibility stays below lifted miniature pixels; darkvision
  * desaturation remains above both. Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
@@ -47,6 +47,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const renderedLights=useRef<VisionLight[]|null>(null);
  const pendingDraw=useRef(0),fullDraw=useRef(true),lastBaseLightDraw=useRef(0);
  const ordinaryMask=useRef<ReturnType<typeof createVisionLightMask>>(),spellMask=useRef<ReturnType<typeof createVisionLightMask>>();
+ const prepareProjection=useRef<Parameters<ReturnType<typeof createVisionLightMask>['prepare']>[1]>();
  const drawCount=useRef(0),baseDrawCount=useRef(0);
  const coverFrame=useRef<VisionCoverFrame>();
  const markup=useRef(new WeakMap<Element,string>());
@@ -101,6 +102,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   if(spellPaths.current)spellMask.current??=createVisionLightMask(spellPaths.current,lightClips.current,`vision-spell-${id}`);
   const projection={key:projectionKey,wallsKey,occluded:!!vision.walls?.length,ellipse:lightEllipse,
    circle:(l:VisionLight,r:number)=>path(l,r,true),clip:(l:VisionLight)=>path(l,SIGHT_EXTENT,true,true)};
+  prepareProjection.current=projection;
   spellMask.current?.sync(sourceLights.filter(l=>l.transient&&state.current.spellLighting!==false).map(positioned),projection);
   const finish=()=>{if(root.current){
    root.current.dataset.visionCpuMs=(performance.now()-began).toFixed(2);
@@ -163,6 +165,11 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   cover(){if(pendingDraw.current){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();}return coverFrame.current;},
   memoryCanvas:()=>memoryCanvas.current,
   frame(){fullDraw.current=true;cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},
+  prepareLights(next){
+   if(state.current.spellLighting!==false&&prepareProjection.current){spellMask.current?.prepare(next,prepareProjection.current);
+    if(root.current)root.current.dataset.preparedSpellMasks=String(spellMask.current?.stats.prepared??0);
+   }
+  },
   lights(next){
    if(state.current.spellLighting===false){
     next=next.filter(l=>!l.transient);

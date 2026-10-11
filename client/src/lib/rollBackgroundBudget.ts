@@ -1,5 +1,4 @@
 /** Presentation only: never changes model selection, visibility or physics. */
-export const ROLL_BACKGROUND_PREWARM_MS=500;
 export function rollBackgroundBudget(basePixelRatio:number,reduced:boolean,prepared=false){
   return {pixelRatio:reduced&&!prepared?Math.min(1,basePixelRatio*.65):basePixelRatio,fps:reduced?12:60};
 }

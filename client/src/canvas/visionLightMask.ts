@@ -12,18 +12,20 @@ type Projection={key:string;wallsKey:string;occluded:boolean;ellipse:ReturnType<
  * attenuation markup into one DOM write, avoiding hundreds of attribute writes.
  * Ordinary and cosmetic masks are independent, so flashes never rebuild lamps. */
 export function createVisionLightMask(group:SVGGElement,defs:SVGGElement,id:string){
- const entries=new Map<string,Entry>();let serial=0,created=0,geometryUpdates=0,lastMarkup='';
- return {sync(lights:readonly VisionLight[],projection:Projection){
+ const entries=new Map<string,Entry>(),stagedEntries=new Map<string,Entry>(),detachedDefs=element('g');let serial=0,created=0,geometryUpdates=0,lastMarkup='';
+ function syncInternal(lights:readonly VisionLight[],projection:Projection,prepare=false){
+  const target=prepare?stagedEntries:entries,clipContainer=prepare?detachedDefs:defs;
   const live=new Set<string>(),markup:string[]=[];
   for(const light of lights){
    // A zero peak produces no attenuation anywhere. Avoid projection and wall
    // clipping for that source until it contributes, without discarding its cache.
    live.add(light.id);if(lightCoverage(0,light)===0)continue;
-   let entry=entries.get(light.id);
+   let entry=target.get(light.id);
+   if(!entry&&!prepare&&stagedEntries.has(light.id)){entry=stagedEntries.get(light.id)!;stagedEntries.delete(light.id);target.set(light.id,entry);defs.append(entry.clip);}
    if(!entry){
     const clip=element('clipPath'),clipPath=element('path');
-    clip.id=id+'-'+serial++;clip.setAttribute('clipPathUnits','userSpaceOnUse');clip.append(clipPath);defs.append(clip);
-    entry={clip,clipPath,geometry:'',profile:'',shapes:[],alphas:[],markup:'',occlusion:''};entries.set(light.id,entry);created++;
+    clip.id=id+'-'+serial++;clip.setAttribute('clipPathUnits','userSpaceOnUse');clip.append(clipPath);clipContainer.append(clip);
+    entry={clip,clipPath,geometry:'',profile:'',shapes:[],alphas:[],markup:'',occlusion:''};target.set(light.id,entry);created++;
    }
    let changed=false;
    const profile=[light.radius,light.height,light.strength,!!light.transient].join(':');
@@ -55,7 +57,11 @@ export function createVisionLightMask(group:SVGGElement,defs:SVGGElement,id:stri
     entry.alphas.map((alpha,i)=>alpha?`${entry!.shapes[i]} fill="black" fill-opacity="${entry!.alphas[i]}"/>`:'').join('')+'</g>';
    markup.push(entry.markup);
   }
-  for(const [key,entry] of entries)if(!live.has(key)){entry.clip.remove();entries.delete(key);}
-  const next=markup.join('');if(next!==lastMarkup){group.innerHTML=next;lastMarkup=next;}
- },get stats(){return {created,geometryUpdates,lights:entries.size};},dispose(){for(const entry of entries.values())entry.clip.remove();entries.clear();group.innerHTML='';lastMarkup='';}};
+  for(const [key,entry] of target)if(!live.has(key)){entry.clip.remove();target.delete(key);}
+  const next=markup.join('');if(!prepare&&next!==lastMarkup){group.innerHTML=next;lastMarkup=next;}
+ }
+ return {sync:(lights:readonly VisionLight[],projection:Projection)=>syncInternal(lights,projection),
+  prepare:(lights:readonly VisionLight[],projection:Projection)=>syncInternal(lights.slice(0,24),projection,true),
+  get stats(){return {created,geometryUpdates,lights:entries.size,prepared:stagedEntries.size};},
+  dispose(){for(const entry of [...entries.values(),...stagedEntries.values()])entry.clip.remove();entries.clear();stagedEntries.clear();group.innerHTML='';lastMarkup='';}};
 }

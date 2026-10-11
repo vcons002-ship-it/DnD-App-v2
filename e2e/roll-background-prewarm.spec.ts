@@ -7,7 +7,7 @@ test('physical roll prepares raster behind the tray without releasing impact, an
  import {useStore} from './client/src/state/socket';import {RollRevealOverlay} from './client/src/components/RollRevealOverlay';
  import {rollBackgroundBudget,reduceRollBackground} from './client/src/lib/rollBackgroundBudget';
  const container=document.createElement('div');document.body.append(container);window.store=useStore;
- window.startRoll=(id)=>{useStore.setState({snapshot:null,liveDice:null,hiddenRollReview:null,hpFx:[],showRollAnim:true,rollFx:{id,rollId:'roll-'+id,reveal:{kind:'damage',physical:true,attacker:'Druk',title:'Damage',outcome:'none',damage:4,damageDice:[{label:'1d6',value:4,faces:[4]}]}}});};
+ window.startRoll=(id)=>{useStore.setState({snapshot:null,liveDice:null,hiddenRollReview:null,hpFx:[],showRollAnim:true,preparedHpFx:[],rollFx:{id,rollId:'roll-'+id,reveal:{kind:'damage',physical:true,attacker:'Druk',title:'Damage',outcome:'none',damage:6,damageMods:[{label:'STR',value:2}],damageDice:[{label:'1d6',value:4,faces:[4]}]}}});};
  window.read=()=>{const s=useStore.getState(),reduced=reduceRollBackground(s);return {prepared:!!s.rollFx?.backgroundPrepared,ready:!!s.rollFx?.impactReady,present:!!s.rollFx,budget:rollBackgroundBudget(1,reduced,!!s.rollFx?.backgroundPrepared)};};
  window.events=[];useStore.subscribe(()=>window.events.push(window.read()));
  const root=createRoot(container);window.unmount=()=>root.unmount();flushSync(()=>root.render(React.createElement(RollRevealOverlay)));

@@ -1,4 +1,4 @@
-import {scheduleHpFeedback,hpNumberStacks,hpStackEnd,hpImpactId,type ScheduledHpEvent} from '../lib/hpFeedback';
+import {prepareHpFeedback,scheduleHpFeedback,hpNumberStacks,hpStackEnd,hpImpactId,type ScheduledHpEvent} from '../lib/hpFeedback';
 import {partySpell} from '../../../shared/partySpells';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import {resultTrayFor} from '../lib/rollTrayPresentation';
@@ -120,6 +120,7 @@ type Store = {
   setAiBusy: (busy: boolean) => void;
   /** Transient floating ±X HP numbers (server 'fx:hp'); auto-expire ~1.2 s. */
   hpFx: HpFloater[];
+  preparedHpFx: HpFloater[];
   presentHpFx: (events: HpFloater[]) => void;
   releaseRollImpact: (rollId: string) => void;
   prepareRollBackground: (rollId: string) => void;
@@ -552,6 +553,7 @@ export const useStore = create<Store>((set, get) => ({
   notify: (message, options) => set({ toast: { id: Date.now(), message, durationMs: options?.durationMs } }),
   aiBusy: false,
   hpFx: [],
+  preparedHpFx: [],
   presentHpFx: (added) => {
     queuedHpFx.push(...added);
     if (!queuedHpFx.length || hpFxFrame !== undefined) return;
@@ -573,7 +575,7 @@ export const useStore = create<Store>((set, get) => ({
       const displayed = queuedHpFx.splice(0);
       if (!displayed.length) return;
       const feedback=scheduleHpFeedback(displayed,performance.now(),state.hpFx);
-      set((st) => ({ hpFx: [...st.hpFx, ...feedback.events] }));
+      set((st) => ({ hpFx: [...st.hpFx, ...feedback.events],preparedHpFx:st.preparedHpFx.filter(e=>!displayed.some(d=>d.id===e.id)) }));
       // Lifetimes begin when DISPLAYED, not while loading/rolling/adding bonuses.
       const expire=()=>{
         const st=get(),now=performance.now(),keep=new Set<number>();
@@ -607,10 +609,15 @@ export const useStore = create<Store>((set, get) => ({
     hpFxFrame = requestAnimationFrame(() => { hpFxFrame = requestAnimationFrame(flush); });
   },
   prepareRollBackground: (rollId) => {
-    set(st=>st.rollFx?.rollId===rollId&&!st.rollFx.impactReady&&!st.rollFx.backgroundPrepared
-      ?{rollFx:{...st.rollFx,backgroundPrepared:true}}:{});
+    const current=get().rollFx;if(current?.rollId!==rollId||current.impactReady)return;
+    const prepared=prepareHpFeedback(heldHpFx.get(rollId)??[]);
+    if(prepared.length)heldHpFx.set(rollId,prepared);
+    set(st=>({rollFx:st.rollFx?.rollId===rollId?{...st.rollFx,backgroundPrepared:true}:st.rollFx,
+      preparedHpFx:[...st.preparedHpFx.filter(e=>e.rollId!==rollId),...prepared]}));
   },
   releaseRollImpact: (rollId) => {
+    // Skip uses whatever is already staged, never awaits graphics preparation.
+    if(get().rollFx?.rollId===rollId&&!get().rollFx?.impactReady)get().prepareRollBackground(rollId);
     const waiting = heldHpFx.get(rollId);
     heldHpFx.delete(rollId);
     // A late fx packet for a completed reveal must display immediately too.
@@ -762,7 +769,7 @@ export const useStore = create<Store>((set, get) => ({
     // Auto-reconnect keeps working: it fires socket.io's 'connect', not this.
     seenRollIds = new Set();
     rollSfxReady = false;
-    heldHpFx.clear();
+    heldHpFx.clear();set({preparedHpFx:[]});
     clearQueuedHpFx();
     // Session-scoped transient state must not carry over to a different game:
     // clear the ephemeral fx timers + slices and any armed toggles (an armed
@@ -917,6 +924,8 @@ export const useStore = create<Store>((set, get) => ({
         if ((event.delta < 0 || event.spell) && event.rollId && get().showRollAnim &&
           ((current?.rollId === event.rollId && !current.impactReady) || queuedRollFx.some(fx=>fx.rollId===event.rollId))) {
           heldHpFx.set(event.rollId, [...(heldHpFx.get(event.rollId) ?? []), event]);
+          // A late packet can still prepare during the remaining reading hold.
+          if(current?.rollId===event.rollId&&current.backgroundPrepared)get().prepareRollBackground(event.rollId);
         } else immediate.push(event);
       }
       if (current?.impactReady && immediate.some(e => e.rollId === current.rollId)) {
@@ -1104,7 +1113,7 @@ export const useStore = create<Store>((set, get) => ({
     completedLiveTrays.clear();
     clearSavedSession(); // an intentional leave — don't auto-rejoin
     get().socket?.disconnect();
-    heldHpFx.clear();
+    heldHpFx.clear();set({preparedHpFx:[]});
     clearQueuedHpFx();
     queuedRollFx.length=0;set({ liveDice:null, skippedLiveDiceId:null, socket: null, status: 'idle', snapshot: null, chatAccessToken: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
   },

@@ -1,12 +1,16 @@
 # Roadmap & Feature Backlog
 
-- [x] Simplify spell illumination on Balanced to terrain flashes, keeping ordinary
-  torch and lantern lighting directional. Low reuses the existing wall-clipped
-  ground light field for a uniform response across each figure, bypassing per-token
-  source selection and directional local-light shading. Keep individual sample
-  positions in repeated-creature batches and suppress personal lighting on shared
-  party sightings. High retains directional spell lighting. Visibility, damage,
-  spell geometry and ground-shadow budgets remain unchanged.
+- [x] Prepare held spell geometry, shaders/buffers, bounded lighting clips and
+  damage-label payloads during the existing dice reading hold. Keep staged effects
+  invisible and reset their animation clock on activation. Skip releases immediately
+  without awaiting warmup; delayed callbacks cannot hide or replay effects.
+- [x] Cache floating number artwork at native resolution and avoid redrawing
+  stationary totals. Preserve counting, token/camera anchors and fade timing.
+  Measurements: [hold preparation and floating numbers](docs/ROLL_HOLD_PREPARATION_2026-10-11.md).
+- [x] Preserve full spell illumination of nearby figures/terrain and local color
+  through darkvision on High/Balanced. The simpler spell overlay remains a
+  diagnostic option. Low retains ground-sampled figure lighting. Record the costs
+  of both modes without changing damage, visibility or shadow rules.
 
 - [x] Retain static miniature transforms and reuse world matrices across render
   passes. Broaden identical-creature batching on High without losing individual

@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {hpNumbers,hpNumberStacks,hpNumberSequence,hpTotalTimeline,hpFeedbackDuration,hpStackStart,hpStackEnd,scheduleHpFeedback} from '../../client/src/lib/hpFeedback.js';
+import {prepareHpFeedback,hpNumbers,hpNumberStacks,hpNumberSequence,hpTotalTimeline,hpFeedbackDuration,hpStackStart,hpStackEnd,scheduleHpFeedback} from '../../client/src/lib/hpFeedback.js';
 import {createSession,createCharacter,applyDamage,drainHpFx,getCharacter,setTempHp} from './sessions.js';
 
 describe('typed floating damage feedback',()=>{
@@ -92,4 +92,19 @@ describe('typed floating damage feedback',()=>{
   expect(later.events[0].numberStartAt).toBe(9000);
   expect(hpStackEnd(merged)).toBe(14020);
  });
+});
+
+it('prepares damage labels without starting clocks and rebases them when released after a long hold or skip',()=>{
+ const event={id:91,kind:'monster' as const,refId:'g',rollId:'held',delta:-13,damageParts:[{amount:9,damageType:'piercing'},{amount:4,damageType:'force',spell:"Hunter's Mark"}]};
+ const prepared=prepareHpFeedback([event]);
+ expect(prepared[0].preparedNumbers).toEqual(hpNumbers(event));
+ expect(prepared[0]).not.toHaveProperty('numberStartAt');expect(prepared[0]).not.toHaveProperty('componentStarts');
+ expect(prepareHpFeedback(prepared)[0]).toBe(prepared[0]);
+ for(const releaseAt of [2000,12000]){
+  const result=scheduleHpFeedback(prepared,releaseAt);
+  expect(result.events[0].numberStartAt).toBe(releaseAt);
+  expect(result.events[0].componentStarts?.[0]).toBe(releaseAt);
+  expect(hpNumberStacks(result.events)[0].numbers.at(-1)?.delta).toBe(-13);
+  expect(result.expiryMs).toBeGreaterThan(4000);
+ }
 });
