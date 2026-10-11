@@ -2222,7 +2222,7 @@ for (const tilted of [false, true]) test(`base overlap nudges a player drop in $
 test('animated view rotation keeps player base dragging aligned in both projections',async({page,request},info)=>{
  test.setTimeout(120000);await page.setViewportSize({width:1440,height:1000});
  const f=await fixture(page,request);await enter(page,f.code,'Druk',false);
- const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','3');
+ const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
  const token=f.ready.tokens[0];
  for(const tilted of [false,true]){
   if(tilted){await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await expect(layer).toHaveAttribute('data-tilt-degrees','45');}
@@ -2234,7 +2234,7 @@ test('animated view rotation keeps player base dragging aligned in both projecti
   });
   await page.mouse.move(250,160);await page.mouse.down({button:'right'});
   await page.mouse.move(356,160,{steps:20});await page.mouse.up({button:'right'});
-  await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText(tilted?'74\u00b0':'37\u00b0');
+  await expect.poll(async()=>Math.round(Number(await layer.getAttribute('data-camera-rotation')))).toBe(tilted?74:37);
   await page.waitForTimeout(100);
   expect(await page.evaluate(()=>{const n=(window as any).__orbitResizes;(window as any).__restoreOrbitCanvas();return n;})).toBe(0);
   const before=(await f.snapshot()).tokens.find(t=>t.id===token.id)!;
@@ -2245,7 +2245,7 @@ test('animated view rotation keeps player base dragging aligned in both projecti
   await page.screenshot({path:info.outputPath(tilted?'rotated-45.png':'rotated-overhead.png')});
  }
  await page.getByRole('button',{name:'Reset battlefield rotation',exact:true}).click();
- await expect(page.getByRole('button',{name:'Reset battlefield rotation',exact:true})).toHaveText('0\u00b0');
+ await expect(layer).toHaveAttribute('data-camera-rotation','0');
  const target=(await tokenView(page,token.id))!;await page.mouse.click(target.x,target.y,{button:'right'});
  await expect(page.getByRole('dialog',{name:'Token actions'})).toBeVisible();
 });
@@ -2969,7 +2969,8 @@ test('DM automatic fog switches reveal terrain and tokens independently in dayli
    expect(await tokenView(player,enemy.id)).toBeNull();
    await player.screenshot({path:info.outputPath(mode+'-tokens-only.png')});
    await tokenToggle.click();await expect.poll(async()=>(await tokenView(player,enemy.id))?.miniatureReady,{timeout:60000}).toBe(true);
-   await expect(player.getByTestId('player-vision')).toHaveAttribute('data-range-ft',mode==='heavy'?'60':'unlimited');
+   if(mode==='day')await expect(player.getByTestId('player-vision')).toHaveCount(0);
+   else await expect(player.getByTestId('player-vision')).toHaveAttribute('data-range-ft',mode==='heavy'?'60':'unlimited');
    if(mode==='heavy'){
     expect(await tokenView(player,farEnemy.id)).toBeNull();
     expect(Math.max(...await sample(1000,700))).toBeLessThan(10);
@@ -3486,4 +3487,31 @@ test('Keep revealed fog retains color and last-seen figures across all lighting 
   await expect(player.getByTestId('explored-terrain-grade')).not.toHaveCSS('filter','none');
   expect(errors).toEqual([]);
  }finally{await context.close();}
+});
+
+
+test('continuous camera rotation paints animated miniatures once per browser frame',async({page,request})=>{
+ test.setTimeout(120000);await page.setViewportSize({width:1440,height:1000});
+ const f=await fixture(page,request);
+ f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:true,mist:false,weather:'rain',shadows:false}});
+ await enter(page,f.code,'Druk',true);
+ const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
+ await expect(layer).toHaveAttribute('data-weather','rain');
+ await page.evaluate(()=>{
+  const w=window as any,raf=window.requestAnimationFrame;
+  w.__paintTicks={};w.__lastPaintTick=undefined;
+  window.requestAnimationFrame=callback=>raf.call(window,time=>{w.__lastPaintTick=time;callback(time);});
+  const node=document.querySelector('[data-testid="miniature-layer"]') as HTMLElement;let previous=Number(node.dataset.renderCount);
+  w.__paintObserver=new MutationObserver(()=>{const count=Number(node.dataset.renderCount),tick=w.__lastPaintTick;
+   if(tick!==undefined)w.__paintTicks[tick]=(w.__paintTicks[tick]??0)+count-previous;previous=count;});
+  w.__paintObserver.observe(node,{attributes:true,attributeFilter:['data-render-count']});
+ });
+ await page.mouse.move(250,160);await page.mouse.down({button:'right'});
+ await page.mouse.move(420,160,{steps:100});await page.mouse.up({button:'right'});
+ await expect.poll(async()=>Number(await layer.getAttribute('data-camera-rotation'))).toBeCloseTo(59.5,2);
+ await page.waitForTimeout(250);
+ const paints=await page.evaluate(()=>{const w=window as any;w.__paintObserver.disconnect();return Object.values(w.__paintTicks) as number[];});
+ expect(paints.length).toBeGreaterThan(10);expect(Math.max(...paints)).toBe(1);
+ const counters=await layer.evaluate(el=>({draws:Number((el as HTMLElement).dataset.renderCount),frames:Number((el as HTMLElement).dataset.frameCount)}));
+ expect(counters.draws).toBe(counters.frames);
 });

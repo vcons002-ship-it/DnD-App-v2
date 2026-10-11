@@ -71,3 +71,6 @@ client/public/miniatures/varis-sharpened-weapons-cad4711bca1b.glb -filter -diff 
 client/public/miniatures/varis-sharpened-weapons-ffc2a5072344.glb -filter -diff -merge -text
 client/public/miniatures/vanec-balanced-c5c3961b54b7.glb -filter -diff -merge -text
 client/public/miniatures/vanec-light-239045d67404.glb -filter -diff -merge -text
+
+# Distance-based battlefield models preserve source textures.
+client/public/miniatures/*-battlefield-*.glb -filter -diff -merge -text

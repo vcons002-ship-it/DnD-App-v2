@@ -42,8 +42,10 @@ test('crowded real board batches monsters, changes model tiers without a 2D flas
    const data=await layer.evaluate(e=>({...((e as HTMLElement).dataset)}));results.push({batch,data});
    expect(data.localShadowMethod).toBe('floor');
    expect(Number(data.shadowProxyJobs)).toBe(0);
-   expect(Number(data.shadowProxyTriangles)).toBeLessThan(Number(data.shadowOriginalTriangles)*.75);
-   if(batch){expect(Number(data.miniatureBatches)).toBeGreaterThan(0);expect(Number(data.batchedMeshInstances)).toBeGreaterThanOrEqual(48);}
+   // Battle-distance bodies are already reduced; proxies must never add triangles.
+   expect(Number(data.shadowProxyTriangles)).toBeLessThanOrEqual(Number(data.shadowOriginalTriangles));
+   // Count body/base instances only: removed outline shells no longer contribute.
+   if(batch){expect(Number(data.miniatureBatches)).toBeGreaterThan(0);expect(Number(data.batchedMeshInstances)).toBeGreaterThanOrEqual(24);}
    else {expect(Number(data.miniatureBatches)).toBe(0);expect(Number(data.batchedMeshInstances)).toBe(0);}
    await page.screenshot({path:info.outputPath(batch?'batched.png':'individual.png')});
   }
@@ -59,8 +61,8 @@ test('crowded real board batches monsters, changes model tiers without a 2D flas
    await select.selectOption(quality);await expect(layer).toHaveAttribute('data-graphics-quality',quality==='auto'?'high':quality);
    await expect(layer).toHaveAttribute('data-local-shadow-method',quality==='auto'||quality==='high'?'cube':'floor');
    if(quality==='auto')await expect(layer).toHaveAttribute('data-model-quality','original');
-   await expect.poll(async()=>layer.evaluate(e=>JSON.parse((e as HTMLElement).dataset.modelUrls??'[]').filter((u:string)=>u.includes('balanced')||u.includes('light')||u.includes('sharpened-weapons')).length)).toBe(quality==='high'||quality==='auto'?0:3);
-   await expect.poll(async()=>layer.evaluate(e=>JSON.parse((e as HTMLElement).dataset.activeModelUrls??'[]').filter((u:string)=>u.includes('balanced')||u.includes('light')||u.includes('sharpened-weapons')).length),{timeout:60000}).toBe(quality==='high'||quality==='auto'?0:3);
+   await expect.poll(async()=>layer.evaluate(e=>JSON.parse((e as HTMLElement).dataset.modelUrls??'[]').filter((u:string)=>u.includes('battlefield')).length)).toBe(3);
+   await expect.poll(async()=>layer.evaluate(e=>JSON.parse((e as HTMLElement).dataset.activeModelUrls??'[]').filter((u:string)=>u.includes('battlefield')).length),{timeout:60000}).toBe(3);
    await expect(layer).toHaveAttribute('data-miniature-count','27');
   }
   const frames=await page.evaluate(()=>{(window as any).qualityObserver.disconnect();return (window as any).qualityFrames;});

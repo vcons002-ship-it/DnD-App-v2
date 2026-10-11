@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-11",
+  "renderer": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "viewport": [
+    1440,
+    900
+  ],
+  "devicePixelRatio": 1,
+  "quality": "High",
+  "fixture": "30 figures total, 21 visible, 23 wall rectangles, heavy darkness, strong high mist, rain, embers, six lights and three carried lanterns",
+  "beforeRecording": false,
+  "afterRecording": "Windows Graphics Capture; RTX 5090 NVENC AV1; VFR up to 60 FPS",
+  "samplesSeconds": 12,
+  "before": [
+    {
+      "label": "High player view: stationary heavy darkness",
+      "mapFps": 29.281602502129882,
+      "diceFrameMs": {
+        "median": 0,
+        "p95": 0,
+        "max": 0
+      }
+    },
+    {
+      "label": "Perception: full dice tray over the same scene",
+      "mapFps": 22.32338813837184,
+      "diceFrameMs": {
+        "median": 42.5,
+        "p95": 72.69999999999709,
+        "max": 85.90000000000146
+      }
+    },
+    {
+      "label": "After roll: full map resolution restored",
+      "mapFps": 25.30760393589794,
+      "diceFrameMs": {
+        "median": 0,
+        "p95": 0,
+        "max": 0
+      }
+    }
+  ],
+  "after": [
+    {
+      "label": "High player view: stationary heavy darkness",
+      "mapFps": 34.400613047517886,
+      "diceFrameMs": {
+        "median": 0,
+        "p95": 0,
+        "max": 0
+      }
+    },
+    {
+      "label": "Perception: full dice tray over the same scene",
+      "mapFps": 16.163123212731566,
+      "diceFrameMs": {
+        "median": 8,
+        "p95": 29.5,
+        "max": 66.59999999999854
+      }
+    },
+    {
+      "label": "After roll: full map resolution restored",
+      "mapFps": 33.31723000562967,
+      "diceFrameMs": {
+        "median": 0,
+        "p95": 0,
+        "max": 0
+      }
+    }
+  ],
+  "maskCpuMsMedian": 0.7,
+  "visibilityGpuMsMedian": 1.3238,
+  "sceneGpuMsMedian": 18.804765,
+  "budget": {
+    "backgroundFps": 12,
+    "pixelRatioMultiplier": 0.65,
+    "maximumPixelRatio": 1
+  },
+  "limitations": [
+    "Single warmed run per version; not a guaranteed device-wide improvement.",
+    "GPU timers exclude browser SVG rasterization/CSS composition; CPU mask timer excludes server authoritative sight decisions.",
+    "GPU counters show rolling medians over up to 120 samples, so roll-time counters retain earlier full-resolution samples.",
+    "Median dice-frame interval is not sustained FPS; compare the p95 as well."
+  ]
+}

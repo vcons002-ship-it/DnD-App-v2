@@ -9,8 +9,9 @@ saved choice exists. Existing choices, including Auto, remain unchanged.
 
 | Budget | High | Balanced | Low |
 |---|---:|---:|---:|
-| Player models | Original | Conservative reduction | Lighter reduction |
-| Combined player triangles | 2,924,413 | 980,695 | 553,413 |
+| Closest-view player model ceiling | Original | Conservative reduction | Lighter reduction |
+| Combined player triangles at closest detail | 2,924,413 | 980,695 | 553,413 |
+| Combined player triangles at battlefield distance | 305,829 | 305,829 | 305,829 |
 | Maximum render pixel ratio | 2 | 1.5 | 1 |
 | Token shadow method | Point-light cube | Floor silhouette | Floor silhouette |
 | Token shadow texture | 512 per cube face | 768 floor mask | 512 floor mask |
@@ -41,17 +42,34 @@ idle frame caps are excluded. Narrow screens stay at most Balanced in Auto.
 Explicit presets always override Auto. The resolved setting appears next to the
 quality control. This is a browser rendering preference, never a visibility rule.
 
-Auto selects model quality along with its resolved lighting/effect tier: originals
-at High, conservative reduced copies at Balanced, and lighter copies at Low.
-Balanced defaults to about 58.67 MB combined versus 83.64 MB for originals,
-with 66.5% fewer triangles and identical texture images. Low is about 51.10 MB
-combined with 81.1% fewer triangles.
+Auto selects the maximum model detail along with its resolved lighting/effect
+tier. Every preset now uses battlefield copies for small figures. As their base
+diameter grows on screen, detail advances at 100, 180 and 300 CSS pixels, up to
+Low, Balanced or original respectively. Boundaries have 15% hysteresis to avoid
+repeated switches while zooming. Map feet and display pixel density do not alter
+these thresholds. The three battlefield models total 305,829 triangles and
+44.50 MB, with unchanged texture images. Close-view Balanced copies total about
+58.67 MB versus 83.64 MB for originals; Low is about 51.10 MB.
 
 Original player assets stay intact. Reduced variants retain exact embedded texture
 bytes and base measurements, and Varis' reduced variants include the approved
-weapon refinement. Only the chosen variant is requested; if unavailable the
-loader tries the original. Changing quality keeps the current figure visible
-until its replacement is prepared, so it does not flash back to 2D.
+weapon refinement. Battlefield copies preload first. Zooming or changing quality
+keeps the current figure visible until its replacement is loaded and prepared,
+so it does not flash back to 2D. Unused higher-detail GPU assets are released.
+The existing fallback chain remains available when a variant cannot load.
+
+Affinity borders use the existing body/depth mask and a color palette instead
+of drawing another copy of each model. Only the outer silhouette is colored;
+foreground figures cover rear borders and thin blades do not become thick
+colored weapons. The rim is 70% opacity; separate authored weapon parts receive
+one-quarter of that strength. Lengthwise coverage alone cannot qualify a blade:
+the filter checks transverse width too. Bounds match the placement group's
+single base offset without changing the source model's pose. The filter is
+restricted to projected figure bounds. Affinity
+changes invalidate the mask, including independently colored instanced creatures.
+Personal/shared visibility still uses the same mask channels and fog rules.
+Measured integrated-GPU results and model provenance are in
+[`performance/silhouette-lod-2026-10-10.md`](performance/silhouette-lod-2026-10-10.md).
 
 Eligible opaque, static repeated creatures share instanced color/depth draws.
 Independent tint, facing and base selection are retained. Shadow-only geometry

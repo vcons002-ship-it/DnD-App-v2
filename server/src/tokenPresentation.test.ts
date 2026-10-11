@@ -19,6 +19,12 @@ function snapshot(y=650,shared=false,dark=false):StateSnapshot {
 }
 
 describe('movement-aligned reveal presentation',()=>{
+  it('reuses stationary personal and party vision instead of rebuilding them for an idle clock',()=>{
+    const p=new TokenPresentation();p.sync(snapshot(),10,1000);
+    const personal=p.personalVision(),party=p.partyVision();
+    p.advance(1200);p.advance(1400);
+    expect(p.personalVision()).toBe(personal);expect(p.partyVision()).toBe(party);
+  });
   it.each([false,true])('waits for the displayed scout to clear the wall (darkness=%s)',dark=>{
     const p=new TokenPresentation();p.sync(snapshot(650,false,dark),10,1000);
     p.sync(snapshot(550,false,dark),10,1001);

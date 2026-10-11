@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "models": [
+    {
+      "id": "druk",
+      "url": "/miniatures/druk-battlefield-765c69ae3d10.glb",
+      "sha256": "765c69ae3d10ef7a37fdfa19f9c7e3e7e121cbbaac38930732e5f6996e763b40",
+      "bytes": 12673896,
+      "triangles": 51832,
+      "baseCenter": [
+        0.03537392616271973,
+        -1.1119999885559082,
+        0.0656827986240387
+      ],
+      "baseDiameter": 1.3600000143051147,
+      "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
+      "receipt": "assets/miniatures/battlefield-lod/druk.json"
+    },
+    {
+      "id": "varis",
+      "url": "/miniatures/varis-battlefield-f7cc36107994.glb",
+      "sha256": "f7cc36107994c122f994ad892179d6016608604d161bf940d9cc2f988097cfa5",
+      "bytes": 12521176,
+      "triangles": 74034,
+      "baseCenter": [
+        0.08445727825164795,
+        -0.9991905093193054,
+        -0.0005622506141662598
+      ],
+      "baseDiameter": 1.2431232929229736,
+      "receipt": "assets/miniatures/battlefield-lod/varis.json"
+    },
+    {
+      "id": "vanec",
+      "url": "/miniatures/vanec-battlefield-8f82ab431a8d.glb",
+      "sha256": "8f82ab431a8d90e34d79adb7aa287202adf1ab460c1c558fd5f7138bc4626c88",
+      "bytes": 19308132,
+      "triangles": 179963,
+      "baseCenter": [
+        -0.00920414924621582,
+        -0.9993069767951965,
+        0.019209861755371094
+      ],
+      "baseDiameter": 1.1495295763015747,
+      "fxUrl": "/miniatures/vanec-fx-2e60effcfd99.json",
+      "receipt": "assets/miniatures/battlefield-lod/vanec.json"
+    }
+  ]
+}

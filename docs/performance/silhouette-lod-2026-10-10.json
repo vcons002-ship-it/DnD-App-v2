@@ -1,0 +1,1045 @@
+{
+  "note": "Single warm matching-workload runs on AMD 7800X3D integrated graphics. No concurrent recording. Combined changes; not an isolated outline-only comparison.",
+  "runs": [
+    {
+      "state": "baseline",
+      "quality": "balanced",
+      "revision": "8241e8b",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "configuration": {
+        "quality": "balanced",
+        "viewport": [
+          1440,
+          900
+        ],
+        "dpr": 1,
+        "models": "reduced",
+        "party": 3,
+        "creatures": 6,
+        "walls": 23,
+        "mistHeightFt": 3,
+        "mistOpacity": 0.35,
+        "recording": false,
+        "physics": "live server-authoritative",
+        "diceVisibility": "DM rolls shown"
+      },
+      "errors": [],
+      "results": [
+        {
+          "label": "Daylight: stationary dungeon and mist",
+          "seconds": 12.011900000095368,
+          "mapFps": 44.28941299842458,
+          "browserFps": 69.84740132646283,
+          "frameMs": {
+            "median": 22.200000047683716,
+            "p95": 27.299999952316284,
+            "max": 164.69999980926514
+          },
+          "browserFrameMs": {
+            "median": 16,
+            "p95": 24.099999999998545,
+            "max": 166.39999999999782
+          },
+          "gpuMs": {
+            "median": 13.79732,
+            "p95": 13.8612,
+            "max": 13.87376
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 157,
+            "maxMs": 157
+          },
+          "colorTriangles": 2131046,
+          "colorDrawCalls": 329,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/druk-balanced-c9d669208f41.glb",
+            "/miniatures/vanec-balanced-c5c3961b54b7.glb",
+            "/miniatures/varis-sharpened-weapons-cad4711bca1b.glb"
+          ]
+        },
+        {
+          "label": "Daylight: drag exploration and mist wake",
+          "seconds": 13.503,
+          "mapFps": 37.028808412945274,
+          "browserFps": 37.6212693475524,
+          "frameMs": {
+            "median": 23.300000190734863,
+            "p95": 46,
+            "max": 124.19999980926514
+          },
+          "browserFrameMs": {
+            "median": 23.5,
+            "p95": 44,
+            "max": 108.09999999999854
+          },
+          "gpuMs": {
+            "median": 13.7636,
+            "p95": 13.90968,
+            "max": 13.97192
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 112,
+            "maxMs": 112
+          },
+          "colorTriangles": 2046470,
+          "colorDrawCalls": 317,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/druk-balanced-c9d669208f41.glb",
+            "/miniatures/vanec-balanced-c5c3961b54b7.glb",
+            "/miniatures/varis-sharpened-weapons-cad4711bca1b.glb"
+          ]
+        },
+        {
+          "label": "Dim light: lantern movement around walls",
+          "seconds": 13.433200000047684,
+          "mapFps": 31.042491736780498,
+          "browserFps": 31.042491736780498,
+          "frameMs": {
+            "median": 29.299999952316284,
+            "p95": 60.200000047683716,
+            "max": 82.5
+          },
+          "browserFrameMs": {
+            "median": 31.30000000000291,
+            "p95": 63.400000000001455,
+            "max": 87.29999999999563
+          },
+          "gpuMs": {
+            "median": 16.64264,
+            "p95": 16.84048,
+            "max": 16.87888
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 2131052,
+          "colorDrawCalls": 332,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/druk-balanced-c9d669208f41.glb",
+            "/miniatures/vanec-balanced-c5c3961b54b7.glb",
+            "/miniatures/varis-sharpened-weapons-cad4711bca1b.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: stationary lanterns, shadows and mist",
+          "seconds": 12.016,
+          "mapFps": 38.61517976031958,
+          "browserFps": 38.61517976031958,
+          "frameMs": {
+            "median": 25.199999809265137,
+            "p95": 32.200000047683716,
+            "max": 35.40000009536743
+          },
+          "browserFrameMs": {
+            "median": 24,
+            "p95": 35,
+            "max": 36.10000000000582
+          },
+          "gpuMs": {
+            "median": 16.02676,
+            "p95": 16.14,
+            "max": 16.1602
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 2131048,
+          "colorDrawCalls": 330,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/druk-balanced-c9d669208f41.glb",
+            "/miniatures/vanec-balanced-c5c3961b54b7.glb",
+            "/miniatures/varis-sharpened-weapons-cad4711bca1b.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: lantern movement and reveal",
+          "seconds": 13.045799999952317,
+          "mapFps": 32.73084057716359,
+          "browserFps": 33.0374526668794,
+          "frameMs": {
+            "median": 28.199999809265137,
+            "p95": 57.799999952316284,
+            "max": 80.69999980926514
+          },
+          "browserFrameMs": {
+            "median": 28.5,
+            "p95": 58.89999999999418,
+            "max": 75.5
+          },
+          "gpuMs": {
+            "median": 16.51776,
+            "p95": 16.68244,
+            "max": 16.884
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 2046470,
+          "colorDrawCalls": 317,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/druk-balanced-c9d669208f41.glb",
+            "/miniatures/vanec-balanced-c5c3961b54b7.glb",
+            "/miniatures/varis-sharpened-weapons-cad4711bca1b.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: free camera rotation and zoom",
+          "seconds": 13.188,
+          "mapFps": 37.60994843797391,
+          "browserFps": 26.84258416742493,
+          "frameMs": {
+            "median": 24.799999952316284,
+            "p95": 52.299999952316284,
+            "max": 63.39999985694885
+          },
+          "browserFrameMs": {
+            "median": 32.60000000000582,
+            "p95": 59.39999999999418,
+            "max": 63
+          },
+          "gpuMs": {
+            "median": 16.7854,
+            "p95": 18.17436,
+            "max": 18.22338
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 2046468,
+          "colorDrawCalls": 316,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/druk-balanced-c9d669208f41.glb",
+            "/miniatures/vanec-balanced-c5c3961b54b7.glb",
+            "/miniatures/varis-sharpened-weapons-cad4711bca1b.glb"
+          ]
+        }
+      ]
+    },
+    {
+      "state": "new",
+      "quality": "balanced",
+      "revision": "8241e8bc plus codex/silhouette-outlines-distance-lod working changes",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "configuration": {
+        "quality": "balanced",
+        "viewport": [
+          1440,
+          900
+        ],
+        "dpr": 1,
+        "models": "distance LOD: all three battlefield copies at measured zoom",
+        "party": 3,
+        "creatures": 6,
+        "walls": 23,
+        "mistHeightFt": 3,
+        "mistOpacity": 0.35,
+        "recording": false,
+        "physics": "live server-authoritative",
+        "diceVisibility": "DM rolls shown"
+      },
+      "errors": [],
+      "results": [
+        {
+          "label": "Daylight: stationary dungeon and mist",
+          "seconds": 12.012,
+          "mapFps": 57.10955710955711,
+          "browserFps": 233.34998334998335,
+          "frameMs": {
+            "median": 17.200000047683716,
+            "p95": 20.5,
+            "max": 21.799999952316284
+          },
+          "browserFrameMs": {
+            "median": 4,
+            "p95": 8,
+            "max": 8.799999999999272
+          },
+          "gpuMs": {
+            "median": 8.05956,
+            "p95": 8.08828,
+            "max": 8.09788
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 271631,
+          "colorDrawCalls": 186,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Daylight: drag exploration and mist wake",
+          "seconds": 11.748299999952316,
+          "mapFps": 56.43369679040295,
+          "browserFps": 139.50954606254967,
+          "frameMs": {
+            "median": 16.59999990463257,
+            "p95": 28.300000190734863,
+            "max": 74.09999990463257
+          },
+          "browserFrameMs": {
+            "median": 4,
+            "p95": 24,
+            "max": 68.20000000000073
+          },
+          "gpuMs": {
+            "median": 7.39108,
+            "p95": 8.01064,
+            "max": 8.06194
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 67,
+            "maxMs": 67
+          },
+          "colorTriangles": 229339,
+          "colorDrawCalls": 178,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Dim light: lantern movement around walls",
+          "seconds": 11.594299999952316,
+          "mapFps": 50.62832598797807,
+          "browserFps": 93.06297059800399,
+          "frameMs": {
+            "median": 18.799999952316284,
+            "p95": 35.200000047683716,
+            "max": 52.799999952316284
+          },
+          "browserFrameMs": {
+            "median": 8,
+            "p95": 28,
+            "max": 52
+          },
+          "gpuMs": {
+            "median": 8.83836,
+            "p95": 8.96676,
+            "max": 9.03356
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 271641,
+          "colorDrawCalls": 191,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: stationary lanterns, shadows and mist",
+          "seconds": 12.005,
+          "mapFps": 55.393586005830905,
+          "browserFps": 170.17909204498125,
+          "frameMs": {
+            "median": 17.799999952316284,
+            "p95": 24.299999952316284,
+            "max": 35.799999952316284
+          },
+          "browserFrameMs": {
+            "median": 4.099999999998545,
+            "p95": 12.099999999998545,
+            "max": 20
+          },
+          "gpuMs": {
+            "median": 8.95572,
+            "p95": 9.0584,
+            "max": 9.081
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 271633,
+          "colorDrawCalls": 187,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: lantern movement and reveal",
+          "seconds": 11.616599999904633,
+          "mapFps": 50.70330389312152,
+          "browserFps": 86.68629375275614,
+          "frameMs": {
+            "median": 18.399999856948853,
+            "p95": 34.09999990463257,
+            "max": 51.90000009536743
+          },
+          "browserFrameMs": {
+            "median": 8.10000000000582,
+            "p95": 27.59999999999127,
+            "max": 61
+          },
+          "gpuMs": {
+            "median": 8.83612,
+            "p95": 9.08628,
+            "max": 9.181
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 229341,
+          "colorDrawCalls": 179,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: free camera rotation and zoom",
+          "seconds": 11.054200000047684,
+          "mapFps": 51.835501438143716,
+          "browserFps": 86.302039043611,
+          "frameMs": {
+            "median": 17.59999990463257,
+            "p95": 36.09999990463257,
+            "max": 53.700000047683716
+          },
+          "browserFrameMs": {
+            "median": 4.100000000005821,
+            "p95": 40.40000000000873,
+            "max": 63
+          },
+          "gpuMs": {
+            "median": 9.31632,
+            "p95": 10.00319,
+            "max": 10.34632
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 229337,
+          "colorDrawCalls": 177,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        }
+      ]
+    },
+    {
+      "state": "baseline",
+      "quality": "high",
+      "revision": "8241e8b",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "configuration": {
+        "quality": "high",
+        "viewport": [
+          1440,
+          900
+        ],
+        "dpr": 1,
+        "models": "original",
+        "party": 3,
+        "creatures": 6,
+        "walls": 23,
+        "mistHeightFt": 3,
+        "mistOpacity": 0.35,
+        "recording": false,
+        "physics": "live server-authoritative",
+        "diceVisibility": "DM rolls shown"
+      },
+      "errors": [],
+      "results": [
+        {
+          "label": "Daylight: stationary dungeon and mist",
+          "seconds": 12.005700000047684,
+          "mapFps": 28.569762695939236,
+          "browserFps": 44.22899122899048,
+          "frameMs": {
+            "median": 35.09999990463257,
+            "p95": 38.299999952316284,
+            "max": 42.09999990463257
+          },
+          "browserFrameMs": {
+            "median": 30.299999999999272,
+            "p95": 36.5,
+            "max": 41.29999999999927
+          },
+          "gpuMs": {
+            "median": 25.06872,
+            "p95": 25.62572,
+            "max": 25.8436
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 6018482,
+          "colorDrawCalls": 311,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/varis-264feff1b076.glb",
+            "/miniatures/druk-c98df869b913.glb",
+            "/miniatures/vanec-7f57d87ce42f.glb"
+          ]
+        },
+        {
+          "label": "Daylight: drag exploration and mist wake",
+          "seconds": 14.878299999952317,
+          "mapFps": 23.725828891817702,
+          "browserFps": 24.196312750862248,
+          "frameMs": {
+            "median": 37.700000047683716,
+            "p95": 63,
+            "max": 155
+          },
+          "browserFrameMs": {
+            "median": 36,
+            "p95": 60.099999999998545,
+            "max": 127.90000000000146
+          },
+          "gpuMs": {
+            "median": 25.67096,
+            "p95": 26.56744,
+            "max": 26.60448
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 128,
+            "maxMs": 128
+          },
+          "colorTriangles": 5933906,
+          "colorDrawCalls": 299,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/varis-264feff1b076.glb",
+            "/miniatures/druk-c98df869b913.glb",
+            "/miniatures/vanec-7f57d87ce42f.glb"
+          ]
+        },
+        {
+          "label": "Dim light: lantern movement around walls",
+          "seconds": 15.596200000047684,
+          "mapFps": 19.04310024230851,
+          "browserFps": 19.171336607576578,
+          "frameMs": {
+            "median": 51,
+            "p95": 91.70000004768372,
+            "max": 121.69999980926514
+          },
+          "browserFrameMs": {
+            "median": 47.799999999995634,
+            "p95": 94.30000000000291,
+            "max": 131.6999999999971
+          },
+          "gpuMs": {
+            "median": 32.45288,
+            "p95": 33.04784,
+            "max": 33.12064
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 6018488,
+          "colorDrawCalls": 314,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/varis-264feff1b076.glb",
+            "/miniatures/druk-c98df869b913.glb",
+            "/miniatures/vanec-7f57d87ce42f.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: stationary lanterns, shadows and mist",
+          "seconds": 12.005,
+          "mapFps": 23.49021241149521,
+          "browserFps": 23.49021241149521,
+          "frameMs": {
+            "median": 41,
+            "p95": 55.09999990463257,
+            "max": 58.40000009536743
+          },
+          "browserFrameMs": {
+            "median": 42.89999999999418,
+            "p95": 51.5,
+            "max": 52.5
+          },
+          "gpuMs": {
+            "median": 31.29304,
+            "p95": 31.34596,
+            "max": 31.359
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 6018484,
+          "colorDrawCalls": 312,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/varis-264feff1b076.glb",
+            "/miniatures/druk-c98df869b913.glb",
+            "/miniatures/vanec-7f57d87ce42f.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: lantern movement and reveal",
+          "seconds": 15.064100000143052,
+          "mapFps": 20.114045976667885,
+          "browserFps": 20.246811956711895,
+          "frameMs": {
+            "median": 50.299999952316284,
+            "p95": 73.79999995231628,
+            "max": 103.70000004768372
+          },
+          "browserFrameMs": {
+            "median": 47.70000000001164,
+            "p95": 72.19999999999709,
+            "max": 103.39999999999418
+          },
+          "gpuMs": {
+            "median": 32.18596,
+            "p95": 32.48652,
+            "max": 32.63324
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 5933906,
+          "colorDrawCalls": 299,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/varis-264feff1b076.glb",
+            "/miniatures/druk-c98df869b913.glb",
+            "/miniatures/vanec-7f57d87ce42f.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: free camera rotation and zoom",
+          "seconds": 18.427299999952318,
+          "mapFps": 22.03252782562017,
+          "browserFps": 16.008856425019584,
+          "frameMs": {
+            "median": 42.299999952316284,
+            "p95": 87.79999995231628,
+            "max": 302.59999990463257
+          },
+          "browserFrameMs": {
+            "median": 52.5,
+            "p95": 95.09999999999127,
+            "max": 201.40000000000873
+          },
+          "gpuMs": {
+            "median": 33.27488,
+            "p95": 34.67172,
+            "max": 35.28232
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 542,
+            "maxMs": 271
+          },
+          "colorTriangles": 5933904,
+          "colorDrawCalls": 298,
+          "outlineMethod": "model-shell",
+          "actualModelUrls": [
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/goblin-crest.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/monsters/skeleton-helmet.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/varis-264feff1b076.glb",
+            "/miniatures/druk-c98df869b913.glb",
+            "/miniatures/vanec-7f57d87ce42f.glb"
+          ]
+        }
+      ]
+    },
+    {
+      "state": "new",
+      "quality": "high",
+      "revision": "8241e8bc plus codex/silhouette-outlines-distance-lod working changes",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "configuration": {
+        "quality": "high",
+        "viewport": [
+          1440,
+          900
+        ],
+        "dpr": 1,
+        "models": "distance LOD: all three battlefield copies at measured zoom",
+        "party": 3,
+        "creatures": 6,
+        "walls": 23,
+        "mistHeightFt": 3,
+        "mistOpacity": 0.35,
+        "recording": false,
+        "physics": "live server-authoritative",
+        "diceVisibility": "DM rolls shown"
+      },
+      "errors": [],
+      "results": [
+        {
+          "label": "Daylight: stationary dungeon and mist",
+          "seconds": 12.003799999952316,
+          "mapFps": 49.06779519838216,
+          "browserFps": 87.055765674549,
+          "frameMs": {
+            "median": 20,
+            "p95": 26.100000143051147,
+            "max": 40
+          },
+          "browserFrameMs": {
+            "median": 12,
+            "p95": 23.299999999999272,
+            "max": 28.400000000001455
+          },
+          "gpuMs": {
+            "median": 12.18244,
+            "p95": 12.23052,
+            "max": 12.29652
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 271631,
+          "colorDrawCalls": 186,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/skeleton.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Daylight: drag exploration and mist wake",
+          "seconds": 12.864099999904633,
+          "mapFps": 41.66634276816673,
+          "browserFps": 43.92067847763843,
+          "frameMs": {
+            "median": 20.90000009536743,
+            "p95": 40.299999952316284,
+            "max": 126.20000004768372
+          },
+          "browserFrameMs": {
+            "median": 20.099999999998545,
+            "p95": 39.599999999998545,
+            "max": 112
+          },
+          "gpuMs": {
+            "median": 12.23244,
+            "p95": 12.38568,
+            "max": 12.45376
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 110,
+            "maxMs": 110
+          },
+          "colorTriangles": 229339,
+          "colorDrawCalls": 178,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/skeleton.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Dim light: lantern movement around walls",
+          "seconds": 12.849900000095367,
+          "mapFps": 34.786262927858,
+          "browserFps": 38.910808644136466,
+          "frameMs": {
+            "median": 26.59999990463257,
+            "p95": 53.10000014305115,
+            "max": 74.70000004768372
+          },
+          "browserFrameMs": {
+            "median": 23.900000000001455,
+            "p95": 48,
+            "max": 70.59999999999854
+          },
+          "gpuMs": {
+            "median": 14.93428,
+            "p95": 15.1988,
+            "max": 15.27928
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 271637,
+          "colorDrawCalls": 189,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/skeleton.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: stationary lanterns, shadows and mist",
+          "seconds": 12.007600000143052,
+          "mapFps": 41.39045271278849,
+          "browserFps": 65.04213997723905,
+          "frameMs": {
+            "median": 21,
+            "p95": 34.89999985694885,
+            "max": 53
+          },
+          "browserFrameMs": {
+            "median": 16,
+            "p95": 31.400000000001455,
+            "max": 38.599999999998545
+          },
+          "gpuMs": {
+            "median": 14.60988,
+            "p95": 14.89904,
+            "max": 14.90208
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 271633,
+          "colorDrawCalls": 187,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/skeleton.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: lantern movement and reveal",
+          "seconds": 12.733199999809266,
+          "mapFps": 36.047497880098916,
+          "browserFps": 37.775264663023044,
+          "frameMs": {
+            "median": 25,
+            "p95": 51.799999952316284,
+            "max": 73.89999985694885
+          },
+          "browserFrameMs": {
+            "median": 24,
+            "p95": 47.59999999999127,
+            "max": 74.5
+          },
+          "gpuMs": {
+            "median": 14.85012,
+            "p95": 15.10168,
+            "max": 15.17732
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "colorTriangles": 229339,
+          "colorDrawCalls": 178,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/skeleton.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        },
+        {
+          "label": "Heavy darkness: free camera rotation and zoom",
+          "seconds": 12.985,
+          "mapFps": 38.19792067770504,
+          "browserFps": 39.12206391990759,
+          "frameMs": {
+            "median": 21,
+            "p95": 51.59999990463257,
+            "max": 177.69999980926514
+          },
+          "browserFrameMs": {
+            "median": 20,
+            "p95": 56.5,
+            "max": 112.79999999998836
+          },
+          "gpuMs": {
+            "median": 15.19436,
+            "p95": 16.28656,
+            "max": 16.43064
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 289,
+            "maxMs": 145
+          },
+          "colorTriangles": 229337,
+          "colorDrawCalls": 177,
+          "outlineMethod": "silhouette",
+          "actualModelUrls": [
+            "/miniatures/druk-battlefield-765c69ae3d10.glb",
+            "/miniatures/monsters/bugbear.glb",
+            "/miniatures/monsters/goblin-helmet.glb",
+            "/miniatures/monsters/goblin.glb",
+            "/miniatures/monsters/skeleton.glb",
+            "/miniatures/monsters/wolf.glb",
+            "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
+            "/miniatures/varis-battlefield-f7cc36107994.glb"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
 import {mirrorImageCount} from '../../../shared/linkedSpells';
 import {pointInSpellArea,areaOrigin,type SpellAreaPlacement} from '../../../shared/spellAreas';
 import {tokenDistanceFt} from '../../../shared/distance';
@@ -7,6 +8,7 @@ import {ObjectControls} from '../components/ObjectControls';
 import { activeHasteCondition, speedIsZero, walkingSpeedFeet } from '../../../shared/spellBuffs';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
 import {TokenPresentation} from './tokenPresentation';
+import {reduceRollBackground} from '../lib/rollBackgroundBudget';
 import {WallMenu,type WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {doorInReach,doorInteractionArea} from '../../../shared/doorInteraction';
@@ -420,6 +422,9 @@ export function MapStage({
   const readFootprints=useCallback(()=>footprintMarks.current,[]);
   const updateFootprints=useCallback((marks:FootprintMark[])=>{footprintMarks.current=marks;miniatureRef.current?.setFootprints(marks);},[]);
   const visionRef=useRef<PlayerVisionHandle>(null);
+  // Both fog layers off in daylight need no SVG light/sight masks. Keep
+  // darkness grading/range and server wall movement/targeting rules intact.
+  const renderPlayerVision=!!snapshot.playerVision&&(!snapshot.playerVision.daylight||usesTokenVision(snapshot.map));
   const memoryTerrainCanvas=useCallback(()=>visionRef.current?.memoryCanvas()??null,[]);
   const visionCoverFrame=useCallback(()=>visionRef.current?.cover(),[]);
   const presentation=useRef(new TokenPresentation()).current;
@@ -460,7 +465,7 @@ export function MapStage({
   const projectionCanvases=useRef<ReturnType<typeof installPerspectiveCanvas>[]>([]);
   const rotationLabel=useRef<HTMLButtonElement>(null);
   const rotationGesture=useRef<{x:number;start:number;angle:number;pointerId:number;frame:number;view:View}|null>(null);
-  useEffect(()=>()=>{cancelAnimationFrame(viewAnimation.current);if(rotationGesture.current)cancelAnimationFrame(rotationGesture.current.frame);},[]);
+  useEffect(()=>()=>{cancelBattlefieldFrame(viewAnimation.current);if(rotationGesture.current)cancelBattlefieldFrame(rotationGesture.current.frame);},[]);
   const tokenPreferenceKey = `dnd.tokenView:${getPlayerId()}`;
   const [use3dTokens, setUse3dTokens] = useState(() => {
     try { return localStorage.getItem(tokenPreferenceKey) !== '2d'; }
@@ -703,6 +708,7 @@ export function MapStage({
   useEffect(()=>()=>{if(areaShareTimer.current)clearTimeout(areaShareTimer.current);useStore.getState().shareSpellArea(null);},[]);
   const areaRangeError=areaCast&&areaActor&&map&&!areaCast.spec.self&&areaPoints.some(p=>tokenDistanceFt({...areaActor,widthFt:0},{...p,widthFt:0},map)>areaCast.spec.rangeFt+1e-6||!hasLineOfSight(areaActor,p,map.walls));
   const hpFx = useStore((s) => s.hpFx);
+  const rollBackground = useStore(s => reduceRollBackground(s));
   const spellRollFx = useStore(s=>s.rollFx);
   // Remote cursors, drag tethers and chat bubbles arrive many times a second.
   // Their layers subscribe to the store themselves; the map only needs to know
@@ -1947,7 +1953,7 @@ export function MapStage({
     safeSetItem(rotationKey,String(rotation%360));
   };
   const animateView = (nextTilt: number, nextRotation: number) => {
-    cancelAnimationFrame(viewAnimation.current);userAdjusted.current=true;
+    cancelBattlefieldFrame(viewAnimation.current);userAdjusted.current=true;
     const {tilt:startTilt,rotation:startRotation}=projectionState.current,startView=view;
     const targetRotation=startRotation+((nextRotation-startRotation+180)%360+360)%360-180;
     const centerY=(size.h/2-view.y)/groundYScale(startTilt),started=performance.now();
@@ -1957,9 +1963,9 @@ export function MapStage({
       const angle=startTilt+(nextTilt-startTilt)*ease,rotation=startRotation+(targetRotation-startRotation)*ease;
       const nextView={...startView,y:size.h/2-centerY*groundYScale(angle)};
       paintProjection(angle,rotation,nextView);
-      if(t<1)viewAnimation.current=requestAnimationFrame(tick);else commitProjection(angle,rotation,nextView);
+      if(t<1)viewAnimation.current=requestBattlefieldFrame(tick,'camera');else commitProjection(angle,rotation,nextView);
     };
-    viewAnimation.current=requestAnimationFrame(tick);
+    viewAnimation.current=requestBattlefieldFrame(tick,'camera');
   };
   const chooseTilt = (next: boolean) => {
     if(next===tilted)return;
@@ -1971,7 +1977,7 @@ export function MapStage({
     const stage=stageRef.current;stage?.setPointersPositions(event.nativeEvent);
     const point=stage?.getPointerPosition();
     if(point && stage?.getIntersection(point)?.findAncestor('.token',true))return false;
-    event.preventDefault();event.stopPropagation();cancelAnimationFrame(viewAnimation.current);
+    event.preventDefault();event.stopPropagation();cancelBattlefieldFrame(viewAnimation.current);
     userAdjusted.current=true;setMenu(null);setHover(null);
     rotationGesture.current={x:event.clientX,start:projectionState.current.rotation,angle:projectionState.current.rotation,pointerId:event.pointerId,frame:0,view};
     event.currentTarget.setPointerCapture(event.pointerId);return true;
@@ -1979,12 +1985,12 @@ export function MapStage({
   const rotateMove=(event:React.PointerEvent<HTMLDivElement>)=>{
     const gesture=rotationGesture.current;if(!gesture || gesture.pointerId!==event.pointerId)return false;
     event.preventDefault();event.stopPropagation();gesture.angle=gesture.start+(event.clientX-gesture.x)*.35;
-    if(!gesture.frame)gesture.frame=requestAnimationFrame(()=>{gesture.frame=0;paintProjection(projectionState.current.tilt,gesture.angle,gesture.view);});
+    if(!gesture.frame)gesture.frame=requestBattlefieldFrame(()=>{gesture.frame=0;paintProjection(projectionState.current.tilt,gesture.angle,gesture.view);},'camera');
     return true;
   };
   const rotateEnd=(event:React.PointerEvent<HTMLDivElement>)=>{
     const gesture=rotationGesture.current;if(!gesture || gesture.pointerId!==event.pointerId)return false;
-    event.preventDefault();event.stopPropagation();cancelAnimationFrame(gesture.frame);
+    event.preventDefault();event.stopPropagation();cancelBattlefieldFrame(gesture.frame);
     paintProjection(projectionState.current.tilt,gesture.angle,gesture.view);
     commitProjection(projectionState.current.tilt,gesture.angle,gesture.view);rotationGesture.current=null;
     if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);return true;
@@ -2726,12 +2732,12 @@ export function MapStage({
             </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
+            <MiniatureLayer key={map?.id} ref={miniatureRef} rollBackground={rollBackground} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas} visionCoverFrame={visionCoverFrame}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
-              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />
+              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
-          {snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+          {renderPlayerVision&&snapshot.playerVision&&<PlayerVisionOverlay ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>}
           {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
           {!wallActive&&nearbyDoors.length>0&&!doorDragPreview&&<div data-testid="door-controls" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,display:'flex',gap:8,padding:8,background:'#161b23ee',border:'1px solid #aa8550',borderRadius:6}}>

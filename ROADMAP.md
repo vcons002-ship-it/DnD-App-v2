@@ -1,5 +1,13 @@
 # Roadmap & Feature Backlog
 
+- [x] Coalesce battlefield camera updates and animated effects into one scene
+  paint per browser frame. Apply projected map/vision transforms before the paint,
+  skip unused daylight vision overlays when both fog switches are off, and count
+  distinct render frames in FPS diagnostics. Keep graphics quality, wall targeting,
+  movement collision, darkness and exploration rules intact. Browser regressions
+  cover continuous rotation, dragging after rotation and fog switches. See
+  [controlled integrated-GPU results](docs/performance/rotation-scheduler-2026-10-11.md).
+
 - [x] Consolidate personal miniature/fog composition in the existing WebGL
   canvas. Reuse wall visibility polygons and cache the GPU cover until sight,
   lighting or camera changes; remove the recurring Canvas2D body copy and
@@ -3021,3 +3029,14 @@ Smaller refinements on top of the shipped Phase 2 work.
   The DM screen can download it ("⬇ Back up library") and restore it through
   "⬆ Restore from backup file", which merges without overwriting same-named
   entries.
+
+## Player sight and roll background performance - October 11, 2026
+
+- [x] Stationary personal/party sight stays cached; unchanged SVG sight and
+  exploration clips are retained. Circular light bands use equivalent projected
+  ellipses with the existing near-plane clipping fallback.
+- [x] Full dice trays temporarily reduce battlefield raster resolution and cap
+  its updates to 12 FPS, restoring the saved quality before map impacts. Dice,
+  UI, visibility rules and physics retain their normal quality.
+- [x] Split benchmark GPU timers and integrated-GPU runtime evidence are in
+  [the performance note](docs/performance/player-vision-roll-budget-2026-10-11.md).

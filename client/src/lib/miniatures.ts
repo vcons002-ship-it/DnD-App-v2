@@ -1,6 +1,8 @@
 ﻿import manifest from '../../public/miniatures/manifest.json';
 import monsters from '../../public/miniatures/monsters/manifest.json';
 import qualityManifest from '../../public/miniatures/quality-manifest.json';
+import battlefieldManifest from '../../public/miniatures/battlefield-manifest.json';
+import type {MiniatureLod} from '../../../shared/miniatureLod';
 import type {EnvironmentQuality} from '../../../shared/mapEnvironment';
 import objects from '../../public/miniatures/objects/manifest.json';
 import type { TokenKind } from '../../../shared/types';
@@ -24,6 +26,15 @@ export const SPIRITUAL_WEAPON: MiniatureDefinition = {id:'spiritual-weapon',url:
 export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models, ...monsters.variants, ...objects.models].map(model => [model.id, model])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
 const generated: Record<string, MiniatureDefinition> = Object.create(null);
 const qualityModels=new Map(qualityManifest.models.map(m=>[`${m.id}:${m.profile}`,{...MINIATURES[m.id],url:m.url,fallbackUrl:MINIATURES[m.id].url}]));
+const battlefieldModels=new Map(battlefieldManifest.models.map(m=>[m.id,{...MINIATURES[m.id],url:m.url,fallbackUrl:qualityModels.get(`${m.id}:low`)?.url??MINIATURES[m.id].url}]));
+/** Character variants share the original bases, FX and art. Other families stay
+ * on their existing, already reduced geometry. */
+export function miniatureForLod(model:MiniatureDefinition,level:MiniatureLod):MiniatureDefinition{
+  if(!battlefieldModels.has(model.id))return model;
+  if(level==='battlefield')return battlefieldModels.get(model.id)!;
+  if(level==='high')return MINIATURES[model.id];
+  return qualityModels.get(`${model.id}:${level}`)??model;
+}
 /** Stable IDs/base measurements keep effects, hit areas and facing identical across tiers. */
 export function miniatureForQuality(model:MiniatureDefinition|null,quality:EnvironmentQuality):MiniatureDefinition|null{
   if(!model||quality==='high'||quality==='auto')return model;

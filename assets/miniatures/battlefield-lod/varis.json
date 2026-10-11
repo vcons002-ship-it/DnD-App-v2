@@ -1,0 +1,972 @@
+{
+  "id": "varis",
+  "profile": "battlefield",
+  "policy": {
+    "id": "battlefield",
+    "bodyRatio": 0.12,
+    "detailRatio": 0.25,
+    "error": 0.004,
+    "permissive": true
+  },
+  "sourceUrl": "/miniatures/varis-sharpened-weapons-ffc2a5072344.glb",
+  "sourceSha256": "ffc2a507234437c4954f4ea61cd5e88fd249da27596d6b1b9a0937da6fa2a112",
+  "sourceBytes": 16227716,
+  "sourceTriangles": 203252,
+  "sourceGeometryBytes": 8573598,
+  "geometryBytes": 2589548,
+  "filename": "varis-battlefield-f7cc36107994.glb",
+  "sha256": "f7cc36107994c122f994ad892179d6016608604d161bf940d9cc2f988097cfa5",
+  "bytes": 12521176,
+  "triangles": 74034,
+  "baseCenter": [
+    0.08445727825164795,
+    -0.9991905093193054,
+    -0.0005622506141662598
+  ],
+  "baseDiameter": 1.2431232929229736,
+  "textureBytes": 10721935,
+  "textures": [
+    {
+      "name": "",
+      "mime": "image/webp",
+      "sha256": "03f23e36cddd454917195212da8fb6b5dd01be6609efc8f0b8666f28ec28b62b",
+      "bytes": 2497282
+    },
+    {
+      "name": "Image_0",
+      "mime": "image/jpeg",
+      "sha256": "13b9bf6a5f63c01fdc6bbdd3e1572534cd2e0afb5a7b7ca89764d691aa41d085",
+      "bytes": 1210516
+    },
+    {
+      "name": "Image_1",
+      "mime": "image/webp",
+      "sha256": "d594a9a8e5d704a1b04a3548a5fd9928b9ac3c4b2e9eaf8168c960441595a0c2",
+      "bytes": 3008122
+    },
+    {
+      "name": "Image_0",
+      "mime": "image/webp",
+      "sha256": "6400e423b0348e799771546891d72caca1337120dc66eeacb80ccab25998917d",
+      "bytes": 1928274
+    },
+    {
+      "name": "VarisWeapon_Original_front",
+      "mime": "image/png",
+      "sha256": "eb8a6fb128fa3516b4b70933005ba026409bd92a02adf96679e28efd4004cb8a",
+      "bytes": 272863
+    },
+    {
+      "name": "VarisWeapon_Original_back",
+      "mime": "image/png",
+      "sha256": "b10cd7cb96e822ac4b6d94e5d1ae94f1d491409c967bf48f461a93361ebd7891",
+      "bytes": 277638
+    },
+    {
+      "name": "VarisWeapon_Original_left",
+      "mime": "image/png",
+      "sha256": "e5b4da6b38089b8d7fd3aa4f5102511169e0f994430d59443a413f9d94c6cf22",
+      "bytes": 154186
+    },
+    {
+      "name": "VarisWeapon_Original_right",
+      "mime": "image/png",
+      "sha256": "fc0ffee8651aaeebd011a45cfada812c86c1373c99f3da859add37a9098d9ff2",
+      "bytes": 164848
+    },
+    {
+      "name": "VarisWeapon_Original_front",
+      "mime": "image/png",
+      "sha256": "14245242f55f9963df11626ba458c6eafd8966e8e38b96c04de97bd8f30b0da6",
+      "bytes": 385388
+    },
+    {
+      "name": "VarisWeapon_Original_back",
+      "mime": "image/png",
+      "sha256": "668ceb0a95ba180e97cc8159d9dd28332c5eb5688e01ff61b8c4d7322cb4c2c9",
+      "bytes": 382013
+    },
+    {
+      "name": "VarisWeapon_Original_left",
+      "mime": "image/png",
+      "sha256": "8bcafe2b9aa69faf4dfb2dc6556505d0b79116ba1401de47525f62b1029d9073",
+      "bytes": 218435
+    },
+    {
+      "name": "VarisWeapon_Original_right",
+      "mime": "image/png",
+      "sha256": "c453a9a0a034d4356381de4d9ebe223d1318930541c75e40e9cf1a73b0d9057f",
+      "bytes": 222370
+    }
+  ],
+  "primitives": [
+    {
+      "nodes": [
+        "Varis_Preserved_Body"
+      ],
+      "material": "",
+      "before": 13946,
+      "after": 5038,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.003981417044997215
+    },
+    {
+      "nodes": [
+        "Varis_Refined_Face_and_Hair"
+      ],
+      "material": "PBR_Material",
+      "before": 80389,
+      "after": 20091,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0026294742710888386
+    },
+    {
+      "nodes": [
+        "Varis_Refined_Face_and_Hair"
+      ],
+      "material": "Varis_Balanced_Beard_Native_Vertex_Paint",
+      "before": 27855,
+      "after": 6963,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0003170626296196133
+    },
+    {
+      "nodes": [
+        "Varis_Inside_Hood_Lining"
+      ],
+      "material": "Varis_Inside_Hood_Cloth",
+      "before": 413,
+      "after": 413,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Stitched_Leather_Quiver"
+      ],
+      "material": "VarisV4_Matte_Grained_Leather",
+      "before": 4136,
+      "after": 496,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.0030097507406026125
+    },
+    {
+      "nodes": [
+        "VarisV4_Leather_Bottom_Band"
+      ],
+      "material": "VarisV4_Dark_Leather_Edges",
+      "before": 640,
+      "after": 506,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.0038773284759372473
+    },
+    {
+      "nodes": [
+        "VarisV4_Closed_Leather_Bottom"
+      ],
+      "material": "VarisV4_Dark_Leather_Edges",
+      "before": 128,
+      "after": 128,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Rim_And_Carry_Band"
+      ],
+      "material": "VarisV4_Dark_Leather_Edges",
+      "before": 1002,
+      "after": 520,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.003997937776148319
+    },
+    {
+      "nodes": [
+        "VarisV4_Fitted_Leather_Mount_Tab"
+      ],
+      "material": "VarisV4_Dark_Leather_Edges",
+      "before": 44,
+      "after": 44,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Rolled_Open_Leather_Rim"
+      ],
+      "material": "VarisV4_Dark_Leather_Edges",
+      "before": 860,
+      "after": 524,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.003981312736868858
+    },
+    {
+      "nodes": [
+        "VarisV4_Individual_Waxed_Stitches"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 600,
+      "after": 72,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.001887293765321374
+    },
+    {
+      "nodes": [
+        "VarisV4_Leather_Center_Seam"
+      ],
+      "material": "VarisV4_Dark_Leather_Edges",
+      "before": 40,
+      "after": 40,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_01_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_01_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1264,
+      "after": 648,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00395309180021286
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_01_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_02_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_02_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1352,
+      "after": 644,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.003940606024116278
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_02_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_03_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_03_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1332,
+      "after": 666,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.0039802840910851955
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_03_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_04_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_04_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1256,
+      "after": 638,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.003876236965879798
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_04_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_05_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_05_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1354,
+      "after": 640,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.003991351462900639
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_05_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_06_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_06_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1344,
+      "after": 662,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.003969511017203331
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_06_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_07_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_07_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1250,
+      "after": 642,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.0038608538452535868
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_07_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_08_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_08_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1360,
+      "after": 642,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.00399433309212327
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_08_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_09_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_09_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1322,
+      "after": 640,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.003992211073637009
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_09_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_10_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_10_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1252,
+      "after": 628,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.0038791352417320013
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_10_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_11_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_11_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1354,
+      "after": 666,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.003946835640817881
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_11_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_12_Shaft"
+      ],
+      "material": "VarisV4_Ash_Arrow_Shafts",
+      "before": 64,
+      "after": 64,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_12_Three_Individual_Feathers"
+      ],
+      "material": "VarisV4_Natural_Feathers",
+      "before": 1356,
+      "after": 658,
+      "detail": false,
+      "preserved": false,
+      "actualError": 0.0039575956761837006
+    },
+    {
+      "nodes": [
+        "VarisV4_Arrow_12_Bindings_And_Split_Nock"
+      ],
+      "material": "VarisV4_Waxed_Tan_Stitch",
+      "before": 448,
+      "after": 448,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Original_Bracer_Clip"
+      ],
+      "material": "",
+      "before": 46,
+      "after": 46,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Original_Bracer_Clip"
+      ],
+      "material": "",
+      "before": 58,
+      "after": 58,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Preserved_Druk_Hand"
+      ],
+      "material": "DrukV7_Gauntlet_Leather",
+      "before": 4968,
+      "after": 2472,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003989351913332939
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Preserved_Druk_Hand"
+      ],
+      "material": "DrukV7_Glove_Grip_Interior",
+      "before": 734,
+      "after": 734,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Preserved_Druk_Hand"
+      ],
+      "material": "DrukV7_Gauntlet_Leather",
+      "before": 1157,
+      "after": 667,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003995561972260475
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_front",
+      "before": 2456,
+      "after": 964,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003864038037136197
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_back",
+      "before": 2398,
+      "after": 934,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003937099128961563
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_left",
+      "before": 911,
+      "after": 879,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0038250519428402185
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_right",
+      "before": 899,
+      "after": 869,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0038423603400588036
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_front_Sharpened_Steel",
+      "before": 2518,
+      "after": 1020,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003666038392111659
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_back_Sharpened_Steel",
+      "before": 2527,
+      "after": 997,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003632777603343129
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_left_Sharpened_Steel",
+      "before": 1009,
+      "after": 971,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0027233492583036423
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_right_Sharpened_Steel",
+      "before": 992,
+      "after": 938,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.00245015905238688
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Preserved_Druk_Hand"
+      ],
+      "material": "DrukV7_Gauntlet_Leather",
+      "before": 5187,
+      "after": 2675,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003968007396906614
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Preserved_Druk_Hand"
+      ],
+      "material": "DrukV7_Glove_Grip_Interior",
+      "before": 734,
+      "after": 734,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_front",
+      "before": 4329,
+      "after": 1683,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003987117670476437
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_front",
+      "before": 1612,
+      "after": 442,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0011802689405158162
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_back",
+      "before": 4368,
+      "after": 1640,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003974519670009613
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_back",
+      "before": 1544,
+      "after": 398,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003262559650465846
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_left",
+      "before": 1557,
+      "after": 1205,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003662186674773693
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_right",
+      "before": 1489,
+      "after": 1197,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003978753928095102
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_front_Sharpened_Steel",
+      "before": 2521,
+      "after": 747,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003733285702764988
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_front_Sharpened_Steel",
+      "before": 13,
+      "after": 13,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_back_Sharpened_Steel",
+      "before": 2507,
+      "after": 775,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003951328806579113
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_left_Sharpened_Steel",
+      "before": 725,
+      "after": 663,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0022703639697283506
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_left_Sharpened_Steel",
+      "before": 5,
+      "after": 5,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_right_Sharpened_Steel",
+      "before": 871,
+      "after": 751,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.0028821725863963366
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Generated_Weapon"
+      ],
+      "material": "VarisWeapon_Reference_right_Sharpened_Steel",
+      "before": 5,
+      "after": 5,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "VarisV5_Right_Internal_Wrist_Overlap"
+      ],
+      "material": "Varis_Short_Internal_Wrist_Leather",
+      "before": 1539,
+      "after": 383,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003677979577332735
+    },
+    {
+      "nodes": [
+        "VarisV5_Left_Internal_Wrist_Overlap"
+      ],
+      "material": "Varis_Short_Internal_Wrist_Leather",
+      "before": 1580,
+      "after": 416,
+      "detail": true,
+      "preserved": false,
+      "actualError": 0.003900827607139945
+    }
+  ],
+  "elapsedMs": 402.28749999999997,
+  "verified": {
+    "texturesByteExact": true,
+    "materialsPreserved": true,
+    "nodeTransformsPreserved": true,
+    "animationChannelsExact": true,
+    "validIndicesAndFinitePositions": true,
+    "sourceUnchanged": true
+  },
+  "geometryLossless": false
+}

@@ -1,15 +1,18 @@
+import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
+import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart} from './miniatureSilhouetteOutline';
+import {miniatureLodForPixels,type MiniatureLod} from '../../../shared/miniatureLod';
 import {createMiniatureBatches} from './miniatureBatches';
 import {createMirrorImages} from './mirrorImages';
 import {createMiniatureFootprints} from './miniatureFootprints';
 import type {FootprintMark} from './FootprintTrails';
 import {createSpiritualWeapon} from './spiritualWeapon';
-import {DEATH_SKULL,SPIRITUAL_WEAPON} from '../lib/miniatures';
+import {DEATH_SKULL,SPIRITUAL_WEAPON,miniatureForLod} from '../lib/miniatures';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {COMBAT_ROLE_ICON} from '../../../shared/combatRole';
 import type {CombatRole} from '../../../shared/types';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
-  AlwaysStencilFunc, NotEqualStencilFunc, ReplaceStencilOp, KeepStencilOp, BackSide, Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
+  Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
   Box3, Sprite, SpriteMaterial, CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, Vector3, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
 } from 'three';
@@ -34,6 +37,7 @@ import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
 import {createLocalLightShadows} from './localLightShadows';
 import {useEnvironmentQuality,recordGraphicsFrame} from '../lib/useEnvironmentQuality';
 import {graphicsBudget} from '../../../shared/graphicsQuality';
+import {rollBackgroundBudget} from '../lib/rollBackgroundBudget';
 import { useStore } from '../state/socket';
 import {createRaisedMapStudy} from './raisedMapStudy';
 import {createArchArtLayer} from './archArtLayer';
@@ -64,6 +68,7 @@ export type MiniatureToken = {
 };
 const EMPTY_WALLS:import('../../../shared/mapWalls').MapWall[]=[];
 type Props = {
+  rollBackground?: boolean;
   graphics?: ReturnType<typeof graphicsBudget>;
   footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
@@ -106,12 +111,11 @@ type Instance = {
   modelId:string;
   mirrors:ReturnType<typeof createMirrorImages>;
   baseDiameter:number;
+  outlineBounds:Box3;
   lanternAnchor:Vector3;
   torchLighting:ReturnType<typeof createMiniatureTorchLighting>;
   measureBody: () => MistBody;
   root: Group;
-  outlineMaterial: MeshBasicMaterial;
-  outlineViewport: { value: Vector2 };
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
   selectionRing: Mesh<RingGeometry, MeshBasicMaterial>;
   conditionRings: Mesh<RingGeometry, MeshBasicMaterial>[];
@@ -194,6 +198,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const outlineProjectionInverse = {value: new Matrix4()};
   const maskMaterial = createMiniatureVisibilityMaterial();
   const outlineResolution = {value: new Vector2(1, 1)};
+  const silhouette=createMiniatureSilhouetteOutline(outlineMask.texture,outlineMask.depthTexture,outlineProjectionInverse);
 
   const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
   const legacyVision=new URLSearchParams(location.search).get('legacyVisionLift')==='1'||!initial.visionCoverFrame;
@@ -229,7 +234,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   } catch (error) {
     spellImpacts.dispose();localShadows.dispose();
     sharedCanvas.remove();sharedDepth.dispose();names.dispose();visionLift?.dispose();visionComposite?.dispose();
-    outlineMask.dispose(); maskMaterial.dispose();
+    silhouette.dispose();outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
@@ -258,14 +263,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     preview=null;delete host.dataset.previewTokenId;
   };
   const abort = new AbortController();
-  let props = initial;
+  let props = initial,sourceProps=initial;
+  const lodLevels=new Map<string,MiniatureLod>();
+  let lodTimer:ReturnType<typeof setTimeout>|undefined;
   let tokenById=new Map(initial.tokens.map(t=>[t.id,t]));
   const batches=createMiniatureBatches(scene);
   const batchingEnabled=new URLSearchParams(location.search).get('batching')!=='off';
   const measurements=new Map<string,{anchor:Vector3;body?:MistBody}>();
   const playerAssetUrls=new Set<string>();
   function evictRetiredPlayerAssets(){
-    const keep=new Set([...(props.preloadDefinitions??[]).map(d=>d.url),...props.tokens.map(t=>t.definition.url),...[...instances.values()].map(i=>i.url),...loading.values()]);
+    const keep=new Set([...(props.preloadDefinitions??[]).map(d=>miniatureForLod(d,'battlefield').url),...props.tokens.map(t=>t.definition.url),...[...instances.values()].map(i=>i.url),...loading.values()]);
     for(const url of playerAssetUrls){
       if(keep.has(url)||!assets.has(url))continue;
       const promise=assets.get(url)!;assets.delete(url);measurements.delete(url);
@@ -279,7 +286,6 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let disposed = false;
   let failed = false;
   let frame = 0;
-  let frameQueued = false;
   let lastPaint = 0;
   const started = performance.now();
   let lastIds = '';
@@ -291,8 +297,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let battlefield: ReturnType<typeof createBattlefieldEnvironment> | null = null;
   let lastEnvironment: EnvironmentPreviewSettings | undefined;
   let paintCount = 0, paintEpoch = performance.now();
-  let totalPaintCount = 0;
+  let totalPaintCount = 0, totalFrameCount = 0, countedFrame = -Infinity;
   const timing=initial.environmentPreview&&new URLSearchParams(location.search).has('benchmark')?createPreviewGpuTiming(renderer.getContext()):null;
+  const visionTiming=timing?createPreviewGpuTiming(renderer.getContext()):null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let paintedReducedMotion: boolean | undefined;
 
@@ -350,7 +357,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     failed = true;
     props.onUnavailable?.();
     renderer.domElement.style.visibility = 'hidden';
-    cancelAnimationFrame(frame);
+    cancelBattlefieldFrame(frame);
     frame = 0;
     publish();
     dispose();
@@ -370,7 +377,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
     // Paint the preference change even inside the frame cap: this may be the
     // last frame once animation stops, so no flash or moving effect may linger.
-    if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= (props.environmentPreview || spellImpacts.active ? 1000 / 60 - 1 : 1000 / 24)) {
+    const fps=props.rollBackground?12:props.environmentPreview||spellImpacts.active?60:24;
+    if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= 1000/fps-1) {
       paintedReducedMotion = reducedMotion.matches;
       lastPaint = now;
       const seconds = (now - started) / 1000;
@@ -517,7 +525,22 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         renderer.render(scene, camera);
         host.dataset.colorDrawCalls=String(renderer.info.render.calls);
         host.dataset.colorTriangles=String(renderer.info.render.triangles);
+        host.dataset.loadedModelUrls=JSON.stringify([...instances.values()].map(i=>i.url).sort());
         recordGraphicsFrame(now,!!(animated||atmosphereAnimated||settling||casting.length||spellImpacts.active),loading.size>0);
+        const outlineRects=[];
+        for(const [id,instance] of instances){
+          const token=tokenById.get(id);if(!instance.root.visible||!token?.outline||token.invisible||token.sharedSightOnly)continue;
+          const b=instance.outlineBounds;let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+          for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z]){
+            const p=new Vector3(x,y,z).applyMatrix4(instance.root.matrixWorld).project(camera);
+            const sx=(p.x+1)*props.width/2,sy=(p.y+1)*props.height/2;
+            minX=Math.min(minX,sx);maxX=Math.max(maxX,sx);minY=Math.min(minY,sy);maxY=Math.max(maxY,sy);
+          }
+          const x=Math.max(0,Math.floor(minX)-4),y=Math.max(0,Math.floor(minY)-4);
+          outlineRects.push({x,y,width:Math.min(props.width,Math.ceil(maxX)+4)-x,height:Math.min(props.height,Math.ceil(maxY)+4)-y});
+        }
+        silhouette.render(renderer,outlineRects);
+        host.dataset.outlineMethod='silhouette';host.dataset.outlineShells='0';
         battlefield?.renderMist(renderer,camera);
         archArtLayer.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
@@ -528,14 +551,19 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // this also covers daylight boards without an environment renderer.
         const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
         if(props.personalVision&&!useComposite)visionLift??=createMiniatureVisionLift(renderer,host,outlineMask.texture);
+        timing?.end();visionTiming?.begin();
         visionLift?.render(!!props.personalVision&&!useComposite);
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
+        visionTiming?.end();
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
-        timing?.end();
+        host.dataset.renderCount=String(++totalPaintCount);
+        // Count distinct browser frames, not extra scene draws within a frame.
+        if (_frameTime !== countedFrame) {
+          countedFrame = _frameTime; paintCount++;
+          host.dataset.frameCount=String(++totalFrameCount);
+        }
+        if(now-paintEpoch>=1500){host.dataset.renderFps=(paintCount*1000/(now-paintEpoch)).toFixed(1);paintCount=0;paintEpoch=now;}
         if (battlefield) {
-          paintCount++;
-          host.dataset.renderCount=String(++totalPaintCount);
-          if(now-paintEpoch>=1500){host.dataset.renderFps=(paintCount*1000/(now-paintEpoch)).toFixed(1);paintCount=0;paintEpoch=now;}
           host.dataset.environment=props.environmentPreview?.enabled ? 'on' : 'off';
           host.dataset.shadows=String(!!props.environmentPreview?.enabled && props.environmentPreview.shadows);
           host.dataset.directionalShadow=String(key.castShadow);
@@ -568,7 +596,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
             height:instance.mistBody.height*instance.root.scale.x,width:instance.mistBody.radiusX*2*instance.root.scale.x,depth:instance.mistBody.radiusZ*2*instance.root.scale.x}]:[]));
           host.dataset.mistObstacles=String(mistState.obstacles);
           host.dataset.mistInteraction=String(mistState.enabled);
-          if(timing){host.dataset.gpuMs=String(timing.median??'unavailable');host.dataset.gpuSamples=String(timing.count);}
+          if(timing){host.dataset.gpuMs=String(timing.median===null?'unavailable':timing.median+(visionTiming?.median??0));host.dataset.gpuSamples=String(timing.count);
+            host.dataset.gpuSceneMs=String(timing.median??'unavailable');host.dataset.gpuVisionMs=String(visionTiming?.median??'unavailable');}
         }
         props.onRenderedNames?.(renderedNames);
         host.dataset.nameRendering='per-pixel';host.dataset.nameCount=String(renderedNames.size);
@@ -578,15 +607,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (!failed && (localShadows.pending || archArtStudy?.animating || archArtLayer.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
   };
   const queueDraw = () => {
-    if (frame || frameQueued || disposed || failed) return;
-    frameQueued = true;
-    // Let an enclosing camera-animation callback queue its next update first.
-    // That update can then cancel this fallback and paint the final camera and
-    // token positions once, instead of painting the old view and then the new.
-    queueMicrotask(() => {
-      frameQueued = false;
-      if (!frame && !disposed && !failed) frame = requestAnimationFrame(draw);
-    });
+    if (frame || disposed || failed) return;
+    frame = requestBattlefieldFrame(draw);
   };
   const invalidate = () => {
     if (disposed || failed || document.hidden) return;
@@ -604,7 +626,6 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (battlefield) renderer.shadowMap.needsUpdate = true;
     instance.materials.forEach((material) => material.dispose());
     instance.lightning?.dispose();
-    instance.outlineMaterial.dispose();
     instance.badgeMesh.geometry.dispose();instance.badgeMesh.material.dispose();instance.badgeTexture.dispose();
     instance.hunterMark.material.map?.dispose();instance.hunterMark.material.dispose();
     instance.conditionRings.forEach(ring=>{ring.geometry.dispose();ring.material.dispose();});
@@ -663,10 +684,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.selectionRing.visible = !!token.selected;
     instance.selectionRing.scale.setScalar(token.definition.baseDiameter);
     instance.selectionRing.material.opacity = token.hidden ? 0.45 : 1;
-    instance.outlineMaterial.visible = !!token.outline && !token.invisible;
-    instance.outlineMaterial.color.set(token.outline ?? "#000000");
-    instance.outlineMaterial.opacity = token.hidden ? 0.45 : 1;
-    instance.outlineViewport.value.set(Math.max(1, props.width), Math.max(1, props.height));
+    const outlineId=silhouette.slot(token.invisible||token.sharedSightOnly?undefined:token.outline,token.hidden?.45:1);
+    const weaponOutlineId=outlineId?silhouette.slot(token.outline,(token.hidden?.45:1)*.25):0;
+    model.traverse(node=>{if(node instanceof Mesh)node.userData.outlineId=node.userData.outlineWeapon?weaponOutlineId:outlineId;});
     instance.materials.forEach((material, index) => {
       if (material instanceof MeshStandardMaterial && instance.originalColors[index]) {
         material.color.copy(instance.originalColors[index]!);
@@ -720,6 +740,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const sync = (next: Props) => {
     if (disposed || failed) return;
     batches.restore();
+    sourceProps=next;
     const liveTilt=props.tiltDegrees,liveRotation=props.rotationDegrees;
     props = {...next,tiltDegrees:next.tiltDegrees===committedTilt?liveTilt:next.tiltDegrees,
       rotationDegrees:(next.rotationDegrees??0)===committedRotation?liveRotation:next.rotationDegrees};
@@ -732,7 +753,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     // Unrelated snapshots during an imperative Konva pan must not restore the
     // last committed camera position before dragend commits the new view.
     if (next.view !== committedView) { view = next.view; committedView = next.view; }
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2);
+    const pixelRatio = rollBackgroundBudget(Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2),!!next.rollBackground).pixelRatio;
+    host.dataset.rollBackground=next.rollBackground?'reduced':'full';
+    host.dataset.backgroundFpsCap=next.rollBackground?'12':'60';
     host.dataset.graphicsQuality=next.graphics?.resolved??'high';
     host.dataset.modelQuality=next.graphics?.modelQuality==='high'?'original':next.graphics?.modelQuality==='balanced'?'balanced':'light';
     host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
@@ -754,6 +777,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       host.dataset.carriedLanternCount='0';host.dataset.visibleTorchCount='0';host.dataset.carriedLanternPositions='[]';
     }
     updateCamera();
+    props={...props,tokens:props.tokens.map(token=>{
+      // Measure both ground axes in the actual camera, including perspective.
+      const c=new Vector3(token.x,0,token.y).project(camera);
+      const diameter=Math.max(...[new Vector3(token.x+token.diameter/2,0,token.y),new Vector3(token.x,0,token.y+token.diameter/2)].map(p=>{p.project(camera);return Math.hypot((p.x-c.x)*props.width,(p.y-c.y)*props.height);}));
+      const level=miniatureLodForPixels(diameter,props.graphics?.modelQuality??'high',lodLevels.get(token.id));
+      lodLevels.set(token.id,level);return {...token,definition:miniatureForLod(token.definition,level)};
+    })};
+    next=props;tokenById=new Map(next.tokens.map(t=>[t.id,t]));
+    host.dataset.modelLods=JSON.stringify(Object.fromEntries(lodLevels));
+    host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
     shaderWarmup.update(camera,scene,`${renderer.shadowMap.enabled}:${key.castShadow}:${!!scene.environment}`);
     for (const [id, url] of loading) {
       if (!next.tokens.some((token) => token.id === id && token.definition.url === url)) loading.delete(id);
@@ -761,6 +794,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     for (const id of moves.keys()) {
       if (!next.tokens.some((token) => token.id === id) && !next.environmentPreview?.carriedLanterns?.some(t=>t.id===id)) moves.delete(id);
     }
+    for(const id of lodLevels.keys())if(!tokenById.has(id))lodLevels.delete(id);
     for (const [id, instance] of instances) {
       const token = tokenById.get(id);
       if (!token || token.definition.id!==instance.modelId) removeInstance(id);
@@ -848,91 +882,22 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
               const pbr=sourceIndex===undefined?undefined:gltf.parser.json.materials?.[sourceIndex]?.pbrMetallicRoughness;
               if(copy instanceof MeshStandardMaterial && pbr && pbr.metallicFactor===undefined && !pbr.metallicRoughnessTexture)copy.metalness=0;
               torchLighting.attach(copy);
-              // Mark the complete visible figure, not individual mesh boundaries.
-              // All bodies mask outlines so overlapping tokens also stay clean.
-              copy.stencilWrite = true;
-              copy.stencilRef = 1;
-              copy.stencilFunc = AlwaysStencilFunc;
-              copy.stencilZPass = ReplaceStencilOp;
               cloned.set(material, copy);
             }
             return cloned.get(material)!;
           };
           node.material = Array.isArray(node.material) ? node.material.map(copy) : copy(node.material);
         });
-        // Screen-space back-face shells share geometry and follow source transforms.
-        const outlineViewport = { value: new Vector2(props.width, props.height) };
-        const outlineMaterial = new MeshBasicMaterial({
-          side: BackSide, depthWrite: false, transparent: true, toneMapped: false,
-          stencilWrite: true, stencilRef: 1, stencilFunc: NotEqualStencilFunc,
-          stencilFail: KeepStencilOp, stencilZFail: KeepStencilOp, stencilZPass: KeepStencilOp,
-        });
-        outlineMaterial.onBeforeCompile = shader => {
-          shader.uniforms.outlineViewport = outlineViewport;
-          shader.uniforms.outlineMask = {value: outlineMask.texture};
-          shader.uniforms.outlineResolution = outlineResolution;
-          shader.uniforms.outlineDepth = {value: outlineMask.depthTexture};
-          shader.uniforms.outlineProjectionInverse = outlineProjectionInverse;
-          shader.fragmentShader = 'uniform sampler2D outlineDepth; uniform mat4 outlineProjectionInverse; uniform sampler2D outlineMask; uniform vec2 outlineResolution; uniform vec2 outlineViewport; varying vec2 outlineInward;\n' + shader.fragmentShader;
-          shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
-            // Require coverage a few CSS pixels inside the edge. Thin blades fade
-            // out instead of acquiring a thicker colored silhouette than the blade.
-            vec2 maskUV = gl_FragCoord.xy / outlineResolution;
-            vec2 inward = outlineInward / max(length(outlineInward), 0.00001) / outlineViewport;
-            float nearCoverage = texture2D(outlineMask, maskUV + inward * 1.5).a;
-            float deepCoverage = texture2D(outlineMask, maskUV + inward * 3.5).a;
-            // Reject a base or another surface behind a thin weapon: coverage must
-            // also be close to the outline surface in view-space depth.
-            vec4 here = outlineProjectionInverse * vec4(maskUV * 2.0 - 1.0, gl_FragCoord.z * 2.0 - 1.0, 1.0);
-            vec2 deepUV = maskUV + inward * 3.5;
-            vec4 behind = outlineProjectionInverse * vec4(deepUV * 2.0 - 1.0, texture2D(outlineDepth, deepUV).r * 2.0 - 1.0, 1.0);
-            float tolerance = 10.0 * abs(outlineProjectionInverse[1][1] / here.w) / outlineViewport.y;
-            deepCoverage *= 1.0 - smoothstep(tolerance, tolerance * 2.0, max(0.0, here.z / here.w - behind.z / behind.w));
-            diffuseColor.a *= smoothstep(0.25, 0.85, nearCoverage * deepCoverage);
-            #include <opaque_fragment>
-          `);
-          shader.vertexShader = 'uniform vec2 outlineViewport; varying vec2 outlineInward;\n' + shader.vertexShader;
-          shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
-            #include <project_vertex>
-            vec3 outlineObjectNormal=normal;
-            #ifdef USE_INSTANCING
-              mat3 im=mat3(instanceMatrix);
-              outlineObjectNormal/=vec3(dot(im[0],im[0]),dot(im[1],im[1]),dot(im[2],im[2]));
-              outlineObjectNormal=im*outlineObjectNormal;
-            #endif
-            vec3 outlineNormal = normalMatrix * outlineObjectNormal;
-            vec2 outlineDirection = (projectionMatrix * vec4(outlineNormal, 0.0)).xy;
-            float outlineLength = length(outlineDirection);
-            outlineInward = -outlineDirection;
-            // Orthographic projection and model scaling can make this very small.
-            // Only reject a truly degenerate direction, not a valid overhead edge.
-            if (outlineLength > 0.0000000001) {
-              gl_Position.xy += outlineDirection / outlineLength * 2.0 / outlineViewport * gl_Position.w;
-            }
-          `);
-        };
-        const outlinedMeshes: Mesh[] = [];
-        model.traverse(node => {
-          if (node instanceof Mesh && node.geometry.hasAttribute('normal') &&
-              (Array.isArray(node.material) ? node.material : [node.material]).every(m => !m.transparent)) {
-            node.layers.enable(1);
-            outlinedMeshes.push(node);
-          }
-        });
-        for (const mesh of outlinedMeshes) {
-          const shell = new Mesh(mesh.geometry, outlineMaterial);
-          shell.name = 'disposition-outline';
-          shell.raycast = () => {};
-          mesh.add(shell);
-        }
+        model.traverse(node=>{if(node instanceof Mesh){node.userData.outlineWeapon=isMiniatureWeaponPart(node.name);if((Array.isArray(node.material)?node.material:[node.material]).every(m=>!m.transparent))node.layers.enable(1);}});
         const mixer = gltf.animations.length ? new AnimationMixer(model) : null;
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
+        const outlineBounds=centeredMiniatureOutlineBounds(model,definition.baseCenter);
         const instance: Instance = {
           modelId:definition.id,
           mirrors:createMirrorImages(centered,root,renderer,()=>scene.environment,definition.baseDiameter),
-          baseDiameter:definition.baseDiameter,lanternAnchor,torchLighting,
-          root, outlineMaterial, outlineViewport, turnRing, selectionRing, conditionRings, hunterMark, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
+          baseDiameter:definition.baseDiameter,outlineBounds,lanternAnchor,torchLighting,
+          root, turnRing, selectionRing, conditionRings, hunterMark, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
@@ -969,7 +934,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         }
       });
     }
-    for (const definition of next.preloadDefinitions ?? []) loadDefinition(definition);
+    for (const definition of next.preloadDefinitions ?? []) loadDefinition(miniatureForLod(definition,'battlefield'));
     evictRetiredPlayerAssets();
     invalidate();
   };
@@ -979,8 +944,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (disposed) return;
     disposed = true;
     batches.dispose();
+    if(lodTimer)clearTimeout(lodTimer);
     abort.abort();
-    cancelAnimationFrame(frame);
+    cancelBattlefieldFrame(frame);
     renderer.domElement.removeEventListener('webglcontextlost', contextLost);
     document.removeEventListener('visibilitychange', visibility);
     reducedMotion.removeEventListener('change', invalidate);
@@ -999,7 +965,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     battlefield?.dispose();battlefield=null;
     localShadows.dispose();
     timing?.dispose();
-    outlineMask.dispose(); maskMaterial.dispose();
+    visionTiming?.dispose();
+    silhouette.dispose();outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     scene.environment = null;
     renderer.dispose();
@@ -1009,6 +976,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   renderer.domElement.addEventListener('webglcontextlost', contextLost);
   document.addEventListener('visibilitychange', visibility);
   reducedMotion.addEventListener('change', invalidate);
+  const scheduleLod=()=>{if(lodTimer)clearTimeout(lodTimer);lodTimer=setTimeout(()=>{lodTimer=undefined;if(!disposed&&!failed)sync(sourceProps);},160);};
   sync(initial);
   return {
     sync,
@@ -1028,13 +996,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     setProjection(tilt, rotation, nextView) {
       if(disposed || failed)return;
       props={...props,tiltDegrees:tilt,rotationDegrees:rotation};view=nextView;
-      // Keep the miniature projection synchronous with the map. queueDraw puts
-      // the automatic animation fallback after the next camera update, so the
-      // update replaces that fallback rather than duplicating the scene render.
-      updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now());
-      host.dataset.tiltDegrees=String(tilt);
+      // The shared frame applies all camera/vision transforms before its one
+      // scene paint, including an effects render queued before this gesture.
+      updateCamera();invalidate();
+      host.dataset.tiltDegrees=String(tilt);scheduleLod();
     },
-    setView(next) { if (disposed||failed) return; view = next; updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now()); },
+    setView(next) { if (disposed||failed) return; view = next; scheduleLod();updateCamera();invalidate(); },
     previewMove(id, point) {
       if(disposed)return;
       if(!point){if(preview?.id===id)clearPreview();invalidate();return;}

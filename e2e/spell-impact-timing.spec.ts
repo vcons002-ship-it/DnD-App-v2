@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { io } from 'socket.io-client';
 import { readFileSync } from 'node:fs';
 import { PORT, DM_SECRET } from './playwright.config';
+import {HP_TOTAL_HOLD_MS,HP_NUMBER_FADE_MS} from '../client/src/lib/hpFeedback';
 
 // Route-delayed cold assets must not be served by the app's offline cache.
 test.use({ serviceWorkers: 'block' });
@@ -107,6 +108,7 @@ for (const scenario of [
           settled: tray?.getAttribute('data-status') === 'settled',
           filled: boxes.length > 0 && boxes.every(e => e.getAttribute('data-filled') === 'true'),
           renderTime: Number(document.querySelector('.dice-tray-canvas')?.getAttribute('data-render-time') ?? 0),
+          background:document.querySelector('[data-testid="miniature-layer"]')?.getAttribute('data-roll-background'),
           large: cards.some(e => e.getBoundingClientRect().height > 180) });
         if ((window as any).__impactSampling) requestAnimationFrame(sample);
       };
@@ -115,6 +117,8 @@ for (const scenario of [
     if (spell === 'Cure Wounds') {
       await page.locator('.compact-player-combat').getByRole('button', { name: /Cure Wounds/ }).click();
       await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
+      await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-roll-background','reduced');
+      await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-background-fps-cap','12');
       await page.evaluate(()=>{(window as any).__healingTrayCanvas=document.querySelector('.dice-tray-canvas');});
       if (!cold) await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-dice-preloaded', 'true');
     } else await page.locator('.damage-prompt').getByRole('button', { name: scenario.mark ? 'L2' : 'L1', exact: true }).click();
@@ -154,6 +158,8 @@ for (const scenario of [
       return (window as any).__impactSamples;
     });
     expect(samples.some((s: any) => s.live)).toBe(true);
+    expect(samples.filter((s:any)=>s.fx).every((s:any)=>s.background==='full'),
+      'Map resolution is restored before damage or healing effects appear').toBe(true);
     expect(samples.filter((s: any) => s.fx && (s.live || s.large)).slice(0, 5),
       'Map effects must not play beneath the live tray or a full result card').toEqual([]);
     if (scenario.mark&&!scenario.skip) {
@@ -200,7 +206,7 @@ for (const scenario of [
         'Every number rises from its own token center').toBe(true);
       expect(await page.evaluate(() => ((window as any).Konva?.stages??[]).flatMap((stage:any)=>stage.find('.hp-floater-label')).length)).toBe(0);
       expect(mainSamples.find((s:any)=>s.time>=total.time+2100)?.numbers.some((n:any)=>n.total&&n.opacity>.95)).toBe(true);
-      expect(mainSamples.find((s:any)=>s.time>=total.time+3000)?.numbers.some((n:any)=>n.total&&n.opacity>.2&&n.opacity<.95)).toBe(true);
+      expect(mainSamples.find((s:any)=>s.time>=total.time+HP_TOTAL_HOLD_MS+HP_NUMBER_FADE_MS*.5)?.numbers.some((n:any)=>n.total&&n.opacity>.2&&n.opacity<.95)).toBe(true);
     }
     if (scenario.skip) {
       await expect(page.locator('.roll-reveal')).toHaveCount(0);

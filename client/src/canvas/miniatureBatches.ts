@@ -1,4 +1,4 @@
-import {DynamicDrawUsage,InstancedMesh,Mesh,MeshBasicMaterial,MeshStandardMaterial,type Group,type Material,type Scene,type Vector3,type Vector4} from 'three';
+import {DynamicDrawUsage,InstancedBufferAttribute,InstancedMesh,Mesh,MeshBasicMaterial,MeshStandardMaterial,type Group,type Material,type Scene,type Vector3,type Vector4} from 'three';
 type Lighting={signature:string;uniforms:{torchCount:{value:number};darkvisionDetail:{value:number};torchShadowSlots:{value:number[]};torchPositions:{value:Vector4[]};torchColors:{value:Vector3[]};[key:string]:{value:unknown}}};
 export type BatchFigure={root:Group;lighting:Lighting;eligible:boolean};
 type Member={mesh:Mesh;material:MeshBasicMaterial|MeshStandardMaterial;lighting:Lighting;layers:number};
@@ -10,7 +10,7 @@ export function createMiniatureBatches(scene:Scene){
   const buckets=new Map<string,Bucket>(),suppressed=new Map<Mesh,number>();
   const meshes=new WeakMap<Group,Mesh[]>();
   const restore=()=>{for(const [mesh,layers] of suppressed)mesh.layers.mask=layers;suppressed.clear();};
-  const remove=(b:Bucket)=>{scene.remove(b.mesh);b.mesh.dispose();(b.mesh.material as Material).dispose();};
+  const remove=(b:Bucket)=>{scene.remove(b.mesh);b.mesh.geometry.dispose();b.mesh.dispose();(b.mesh.material as Material).dispose();};
   const copyLights=(to:Lighting['uniforms'],from:Lighting['uniforms'])=>{
     to.torchCount.value=from.torchCount.value;to.darkvisionDetail.value=from.darkvisionDetail.value;
     for(let i=0;i<8;i++){
@@ -49,16 +49,22 @@ export function createMiniatureBatches(scene:Scene){
           const hook=first.material.onBeforeCompile,cache=first.material.customProgramCacheKey();
           material.onBeforeCompile=function(shader,renderer){hook.call(this,shader,renderer);Object.assign(shader.uniforms,uniforms);};
           material.customProgramCacheKey=()=>cache+'-batched';
-          const mesh=new InstancedMesh(first.mesh.geometry,material,capacity);mesh.name='batched-miniatures';
+          // Per-instance affinity IDs share the body-mask pass, not color lighting.
+          const geometry=first.mesh.geometry.clone();
+          geometry.setAttribute('instanceOutline',new InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(DynamicDrawUsage));
+          const mesh=new InstancedMesh(geometry,material,capacity);mesh.name='batched-miniatures';
           mesh.instanceMatrix.setUsage(DynamicDrawUsage);mesh.layers.mask=first.layers;mesh.receiveShadow=first.mesh.receiveShadow;mesh.castShadow=first.mesh.castShadow;mesh.renderOrder=first.mesh.renderOrder;
           bucket={mesh,capacity,uniforms,members:[],layers:first.layers};buckets.set(key,bucket);scene.add(mesh);
         }
         copyLights(bucket.uniforms,first.lighting.uniforms);
-        let matrixChanged=bucket.mesh.count!==members.length,colorChanged=false;
+        let matrixChanged=bucket.mesh.count!==members.length,colorChanged=false,outlineChanged=false;
+        const outlines=bucket.mesh.geometry.getAttribute('instanceOutline') as InstancedBufferAttribute;
         bucket.mesh.count=members.length;
         const data=bucket.mesh.instanceMatrix.array;
         for(let i=0;i<members.length;i++){
           const member=members[i],elements=member.mesh.matrixWorld.elements;
+          const outlineId=member.mesh.userData.outlineId??0;
+          if(outlines.getX(i)!==outlineId){outlines.setX(i,outlineId);outlineChanged=true;}
           // Compare in the GPU buffer's Float32 precision. A fixed absolute
           // epsilon treated stationary fractional map positions as movement,
           // uploading identical matrices and invalidating depth every frame.
@@ -71,6 +77,7 @@ export function createMiniatureBatches(scene:Scene){
         }
         bucket.members=members.map(m=>m.mesh);
         if(matrixChanged){bucket.mesh.instanceMatrix.needsUpdate=true;bucket.mesh.computeBoundingSphere();}
+        if(outlineChanged)outlines.needsUpdate=true;
         if(colorChanged&&bucket.mesh.instanceColor)bucket.mesh.instanceColor.needsUpdate=true;
         instances+=members.length;
       }

@@ -28,8 +28,10 @@ test('only covered name pixels fade through a foreground miniature',async({page:
  socket.emit('character:update',{characterId:vanec.id,level:17,spellSlots:{L3:{max:2,used:0}},sheetAbilities:[{id:'fireball',name:'Fireball',type:'spell',level:3,description:'A burst of flame. Dexterity save for half damage.',roll:{kind:'save',dice:'8d6',scaleDice:'1d6',save:'DEX',saveDamage:'half',damageType:'fire',baseLevel:3}}]});
  socket.emit('map:setActive',{mapId:map.id});socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:vanec.id,x:640,y:480});
  socket.emit('monster:create',{name:'Goblin',modelType:'goblin',maxHp:100,armorClass:1,disposition:'enemy'});
- const template=(await snap()).monsterTemplates.find((m:any)=>m.name==='Goblin');socket.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:640,y:416});await snap();
+ const template=(await snap()).monsterTemplates.find((m:any)=>m.name==='Goblin');socket.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:665,y:416});await snap();
  await dm.setViewportSize({width:1440,height:900});await dm.goto(`/join?code=${code}`);await dm.getByRole('button',{name:'Join',exact:true}).click();await dm.locator('.claim-row').filter({hasText:'Druk'}).click();await expect(dm.getByTestId('player-hud')).toBeVisible();await dm.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await dm.waitForTimeout(1500);
+ // Pixel comparison measures name opacity, not the hover card above the label.
+ await dm.addStyleTag({content:'.hover-card{visibility:hidden!important}'});
  // A real weapon hit waits for the player's damage button, then commits once.
  socket.emit('character:update',{characterId:vanec.id,weapons:[{name:'Greatsword',kind:'melee',damage:'2d6',damageType:'bludgeoning',attackBonus:100}]});await snap();
  const target=(await snap()).tokens.find((t:any)=>t.kind==='monster');socket.emit('condition:set',{kind:'monster',refId:target.refId,condition:{label:'Paralyzed',aura:'blue',isConcentration:false}});await snap();
@@ -61,7 +63,7 @@ test('only covered name pixels fade through a foreground miniature',async({page:
  await record(dm,'Only covered parts fade; uncovered letters stay bright',async()=>{await dm.waitForTimeout(1200);});
  let full:Buffer;
  await record(dm,'Hover to show the complete name and reveal tag',async()=>{
-  const p=await point(dm,640,416);await dm.mouse.move(p.x,p.y);await dm.waitForTimeout(800);
+  const p=await point(dm,665,416);await dm.mouse.move(p.x,p.y);await dm.waitForTimeout(800);
   full=await dm.screenshot({clip,path:dir+'/full-name.png'});await dm.waitForTimeout(700);
  });
  const evidence=await dm.evaluate(async({partial,full})=>{
@@ -81,7 +83,7 @@ test('only covered name pixels fade through a foreground miniature',async({page:
  expect(evidence.brightColumns).toBeGreaterThan(5);expect(evidence.fadedColumns).toBeGreaterThan(5);
  await dm.mouse.move(100,70);
  await record(dm,'Moving the goblin reveals each letter as it clears Druk',async()=>{
-  for(let i=1;i<=28;i++){socket.emit('token:move',{tokenId:target.id,x:640+i*3.4,y:416});await snap();await dm.waitForTimeout(45);}
+  for(let i=1;i<=28;i++){socket.emit('token:move',{tokenId:target.id,x:665+i*3.4,y:416});await snap();await dm.waitForTimeout(45);}
  });
  await dm.getByRole('button',{name:'Flat battlefield view',exact:true}).click();
  await record(dm,'Overhead view uses the same silhouette masking',async()=>{await dm.waitForTimeout(1000);});

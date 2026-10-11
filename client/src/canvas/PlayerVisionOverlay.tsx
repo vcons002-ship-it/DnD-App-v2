@@ -7,6 +7,7 @@ import {wallVisibilityPolygon,SIGHT_EXTENT,type WallPoint} from '../../../shared
 import type {TokenPresentation} from './tokenPresentation';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
 import type {VisionCoverFrame} from './miniatureVisionComposite';
+import {visionLightEllipse} from './visionLightEllipse';
 import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
@@ -42,7 +43,10 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const renderedLights=useRef<VisionLight[]|null>(null);
  const pendingDraw=useRef(0);
  const coverFrame=useRef<VisionCoverFrame>();
+ const markup=useRef(new WeakMap<Element,string>());
+ const setMarkup=(node:Element|null,value:string)=>{if(node&&markup.current.get(node)!==value){node.innerHTML=value;markup.current.set(node,value);}};
  const draw=()=>{
+  const began=performance.now();
   if(!shade.current||!lightPaths.current||!originPaths.current||!sightPaths.current||!lightClips.current)return;
   const {vision,view,tilt,rotation,width,height}=state.current;
   if(root.current){root.current.dataset.cameraRotation=String(rotation);root.current.dataset.cameraTilt=String(tilt);}
@@ -78,15 +82,15 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   // every light flicker. It contains map images/grid only, not a live scene copy.
   const geometry=state.current.presentation?state.current.presentation.explored():state.current.terrain?.explored,camera=JSON.stringify([view,tilt,rotation,width,height]);
   if(memoryPaths.current&&(memoryProjection.current?.geometry!==geometry||memoryProjection.current?.camera!==camera)){
-   memoryPaths.current.innerHTML=(geometry??[]).map(p=>`<path clip-rule="evenodd" d="${p.map(r=>project(r.map(([x,y])=>({x,y})))).join('')}"/>`).join('');
+   setMarkup(memoryPaths.current,(geometry??[]).map(p=>`<path clip-rule="evenodd" d="${p.map(r=>project(r.map(([x,y])=>({x,y})))).join('')}"/>`).join(''));
    memoryProjection.current={geometry,camera};
    if(memoryPlane.current)memoryPlane.current.style.transform=groundPerspectiveCss(width,height,tilt,rotation);
    if(memoryMap.current)memoryMap.current.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale},${view.scale*sy})`;
   }
   const wallFog=state.current.mapFogOfWar!==false;
   const circles=vision.origins.map(o=>`<path fill="black" d="${path(o,vision.heavy?vision.radius:SIGHT_EXTENT,false,wallFog&&!!vision.walls?.length)}"/>`).join('');
-  sightPaths.current.innerHTML=vision.origins.map(o=>`<path d="${path(o,SIGHT_EXTENT,false,wallFog)}"/>`).join('');
-  if(nearPaths.current)nearPaths.current.innerHTML=!vision.daylight&&!vision.heavy?vision.origins.map(o=>`<path d="${path(o,vision.radius,false,wallFog)}"/>`).join(''):'';
+  setMarkup(sightPaths.current,vision.origins.map(o=>`<path d="${path(o,SIGHT_EXTENT,false,wallFog)}"/>`).join(''));
+  setMarkup(nearPaths.current,!vision.daylight&&!vision.heavy?vision.origins.map(o=>`<path d="${path(o,vision.radius,false,wallFog)}"/>`).join(''):'');
   // Nested bands sample the renderer's smooth attenuation, including source height,
   // intensity, flicker radius and the actual animated hip anchor. No hard color disk.
   const clips:string[]=[],spellBands:string[]=[];
@@ -95,7 +99,12 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    for(let i=48;i>=1;i--){const radius=l.radius*LIGHT_SPILL_MULTIPLIER*i/48;
     const coverage=lightCoverage(radius-l.radius/64,l);
     const alpha=Math.max(0,(coverage-previous)/Math.max(.00001,1-previous));previous=coverage;
-    if(alpha>.0001)bands.push(`<path fill="black" fill-opacity="${alpha.toFixed(4)}" d="${path(l,radius,!!renderedLights.current)}"/>`);
+    if(alpha>.0001){
+     const p=renderedLights.current?l:state.current.presentation?.position(l.id)??live.current.get(l.id)??l;
+     const ellipse=visionLightEllipse(view,tilt,rotation,width,height,p.x,p.y,radius);
+     bands.push(ellipse?`<ellipse fill="black" fill-opacity="${alpha.toFixed(4)}" cx="${ellipse.cx.toFixed(2)}" cy="${ellipse.cy.toFixed(2)}" rx="${ellipse.rx.toFixed(2)}" ry="${ellipse.ry.toFixed(2)}" transform="rotate(${ellipse.rotation.toFixed(4)} ${ellipse.cx.toFixed(2)} ${ellipse.cy.toFixed(2)})"/>`:
+      `<path fill="black" fill-opacity="${alpha.toFixed(4)}" d="${path(l,radius,!!renderedLights.current)}"/>`);
+    }
    }
    if(!vision.walls?.length){if(l.transient){spellBands.push(bands.join(''));return '';}return bands.join('');}
    const clip=`vision-lamp-${id}-${index}`;
@@ -104,12 +113,12 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    if(l.transient){spellBands.push(result);return '';}
    return result;
   }).join('');
-  lightClips.current.innerHTML=clips.join('');
+  setMarkup(lightClips.current,clips.join(''));
   // Keep the SVG mask in the DOM and share light geometry between both masks.
   // Encoding/decoding two large SVG image URLs per frame caused mobile stalls.
-  originPaths.current.innerHTML=circles;
-  if(retainedRange.current)retainedRange.current.innerHTML=vision.heavy?vision.origins.map(o=>`<path fill="white" d="${path(o,vision.radius)}"/>`).join(''):`<rect width="${width}" height="${height}" fill="white"/>`;
-  lightPaths.current.innerHTML=lights;
+  setMarkup(originPaths.current,circles);
+  setMarkup(retainedRange.current,vision.heavy?vision.origins.map(o=>`<path fill="white" d="${path(o,vision.radius)}"/>`).join(''):`<rect width="${width}" height="${height}" fill="white"/>`);
+  setMarkup(lightPaths.current,lights);
   const livePoint=(p:{id:string;x:number;y:number})=>state.current.presentation?.position(p.id)??live.current.get(p.id)??p;
   const originPolygon=(o:{id:string;x:number;y:number},radius:number)=>{
    const p=livePoint(o);
@@ -127,12 +136,13 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);
   // Cosmetic flashes restore color only inside already-visible terrain. They
   // never enter the sight-cover mask or authorize/persist exploration.
-  if(spellPaths.current)spellPaths.current.innerHTML=spellBands.join('');
+  setMarkup(spellPaths.current,spellBands.join(''));
   const filter=vision.daylight?'none':vision.heavy?`grayscale(${HEAVY_DARKVISION_DESATURATION})`:'grayscale(.88) brightness(.78)';
   shade.current.style.backdropFilter=filter;
   shade.current.style.setProperty('-webkit-backdrop-filter',filter);
   const nearFilter=`grayscale(${REGULAR_DARKVISION_DESATURATION}) brightness(1.18)`;
-  if(nearShade.current){nearShade.current.style.backdropFilter=nearFilter;nearShade.current.style.setProperty('-webkit-backdrop-filter',nearFilter);}
+  if(nearShade.current){nearShade.current.style.display=vision.daylight||vision.heavy?'none':'';nearShade.current.style.backdropFilter=nearFilter;nearShade.current.style.setProperty('-webkit-backdrop-filter',nearFilter);}
+  if(root.current){root.current.dataset.visionCpuMs=(performance.now()-began).toFixed(2);root.current.dataset.lightBandShape='ellipse';}
  };
  // Movement, camera following and flickering lights can all update in one
  // frame. Rebuild the SVG masks once using the final state, not for every event.
