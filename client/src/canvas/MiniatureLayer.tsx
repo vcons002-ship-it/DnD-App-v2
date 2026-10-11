@@ -71,6 +71,8 @@ export type MiniatureToken = {
 const EMPTY_WALLS:import('../../../shared/mapWalls').MapWall[]=[];
 type Props = {
   rollBackground?: boolean;
+  rollBackgroundPrepared?: boolean;
+  spellColorOverlay?: boolean;
   graphics?: ReturnType<typeof graphicsBudget>;
   footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
@@ -92,7 +94,7 @@ type Props = {
   onReady: (tokenIds: ReadonlySet<string>) => void;
   nameLabels?: () => MiniatureNameLabel[];
   onRenderedNames?: (ids: ReadonlySet<string>) => void;
-  /** Shared renderer settings; the app uses a transparent ground overlay. */
+  /** Shared renderer settings for figure illumination. */
   environmentPreview?: EnvironmentPreviewSettings;
 };
 export type MiniatureLayerHandle = {
@@ -429,8 +431,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       host.dataset.spellImpactKinds=spellImpacts.kinds.join(',');
       host.dataset.spellLightStrength=String(impactLights.reduce((sum,l)=>sum+l.strength,0));
       host.dataset.spellLightPositions=JSON.stringify(impactLights.map(l=>[l.x,l.height,l.y]));
-      // Spell flashes are cosmetic overlays, never illumination/vision inputs.
-      spellColor.draw(impactLights,view,props.tiltDegrees,props.rotationDegrees??0,props.width,props.height);
+      // Full illumination remains the default; the overlay is a diagnostic comparison.
+      battlefield?.lighting.setTransient(props.spellColorOverlay?[]:impactLights);
+      spellColor.draw(props.spellColorOverlay?impactLights:[],view,props.tiltDegrees,props.rotationDegrees??0,props.width,props.height);
       battlefield?.setTokens(props.tokens.map(token => {
         const instance=instances.get(token.id);
         const x=instance?.root.position.x??token.x,y=instance?.root.position.z??token.y;
@@ -572,6 +575,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
         visionTiming?.end();
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
+        host.dataset.lastRenderedPixelRatio=String(renderer.getPixelRatio());
         host.dataset.renderCount=String(++totalPaintCount);
         // Count distinct browser frames, not extra scene draws within a frame.
         if (_frameTime !== countedFrame) {
@@ -771,13 +775,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     // Unrelated snapshots during an imperative Konva pan must not restore the
     // last committed camera position before dragend commits the new view.
     if (next.view !== committedView) { view = next.view; committedView = next.view; }
-    const pixelRatio = rollBackgroundBudget(Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2),!!next.rollBackground).pixelRatio;
+    const pixelRatio = rollBackgroundBudget(Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2),!!next.rollBackground,!!next.rollBackgroundPrepared).pixelRatio;
     host.dataset.rollBackground=next.rollBackground?'reduced':'full';
     host.dataset.backgroundFpsCap=next.rollBackground?'12':'60';
     host.dataset.graphicsQuality=next.graphics?.resolved??'high';
     host.dataset.modelQuality=next.graphics?.modelQuality==='high'?'original':next.graphics?.modelQuality==='balanced'?'balanced':'light';
     host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
     host.dataset.renderPixelRatio=String(pixelRatio);
+    host.dataset.backgroundPrepared=String(!!next.rollBackgroundPrepared);
     if (next.width !== renderedWidth || next.height !== renderedHeight || pixelRatio !== renderedPixelRatio) {
       renderedWidth = next.width; renderedHeight = next.height; renderedPixelRatio = pixelRatio;
       renderer.setPixelRatio(pixelRatio);

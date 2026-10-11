@@ -32,7 +32,7 @@ describe('local graphics presets',()=>{
   });
   it('keeps directional High, uses terrain spell lights on Balanced and ground sampling on Low including Auto',()=>{
     expect(graphicsBudget('high').miniatureLightMode).toBe('directional');
-    expect(graphicsBudget('balanced').miniatureLightMode).toBe('spells-ground');
+    expect(graphicsBudget('balanced').miniatureLightMode).toBe('directional');
     expect(graphicsBudget('low').miniatureLightMode).toBe('ground');
     for(const tier of ['high','balanced','low'] as const)expect(graphicsBudget('auto',1440,tier).miniatureLightMode).toBe(graphicsBudget(tier).miniatureLightMode);
   });

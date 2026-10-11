@@ -1,5 +1,11 @@
 # Cosmetic spell overlay - 11 October 2026
 
+
+Current decision: preserve full spell illumination and darkvision grading in the
+normal game. High and Balanced light nearby figures; Low retains ground sampling.
+The overlay experiment remains available with `?spellColorOverlay=1` for measurement.
+These results document the experiments, rather than a decision to remove the effects.
+
 Spells no longer modify darkvision masks or the ground/figure light field. Soft colored flashes are composited above grading and clipped by existing visibility. Ordinary lamps are unchanged.
 
 [Video and measurements](https://dnd.nic024i.app/uploads/previews/spell-color-overlay-20261011/index.html)

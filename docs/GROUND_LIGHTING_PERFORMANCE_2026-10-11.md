@@ -1,5 +1,11 @@
 # Ground lighting performance — 11 October 2026
 
+
+Current decision: preserve full spell illumination and darkvision grading in the
+normal game. High and Balanced light nearby figures; Low retains ground sampling.
+The overlay experiment remains available with `?spellColorOverlay=1` for measurement.
+These results document the experiments, rather than a decision to remove the effects.
+
 This experiment did not produce a consistent overall FPS improvement over the previous same-preset lighting. Low is faster than High as a whole preset; the lighting simplification alone was mostly neutral, with mixed Balanced results.
 
 Candidate uses ground-only spell lighting on Balanced and ground-sampled figure lighting on Low; High retains directional lighting.

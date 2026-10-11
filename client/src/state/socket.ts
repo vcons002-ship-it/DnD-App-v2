@@ -122,12 +122,13 @@ type Store = {
   hpFx: HpFloater[];
   presentHpFx: (events: HpFloater[]) => void;
   releaseRollImpact: (rollId: string) => void;
+  prepareRollBackground: (rollId: string) => void;
   /** One-shot red screen-edge flash when MY claimed PC takes damage (players
    *  only — the DM claims nothing). Cleared automatically after the CSS anim. */
   hurtFx: { id: number; amount: number } | null;
   /** Brief attack-roll REVEAL animation (the latest attack's d20 + outcome +
    *  damage), shown to everyone and auto-dismissed; click/tap skips it early. */
-  rollFx: { id: number; reveal: RollReveal; rollId: string; tray?: LiveDiceFrame; impactReady?: boolean; hasMapImpact?: boolean } | null;
+  rollFx: { id: number; reveal: RollReveal; rollId: string; tray?: LiveDiceFrame; impactReady?: boolean; hasMapImpact?: boolean; backgroundPrepared?: boolean } | null;
   /** Dismiss the current roll-reveal animation (click/tap to skip). */
   dismissRollFx: () => void;
   /** Per-user toggle: show the roll-reveal animation (default ON). */
@@ -604,6 +605,10 @@ export const useStore = create<Store>((set, get) => ({
     };
     // Allow snapshot/dice:finished handlers and React's compact layout to paint.
     hpFxFrame = requestAnimationFrame(() => { hpFxFrame = requestAnimationFrame(flush); });
+  },
+  prepareRollBackground: (rollId) => {
+    set(st=>st.rollFx?.rollId===rollId&&!st.rollFx.impactReady&&!st.rollFx.backgroundPrepared
+      ?{rollFx:{...st.rollFx,backgroundPrepared:true}}:{});
   },
   releaseRollImpact: (rollId) => {
     const waiting = heldHpFx.get(rollId);

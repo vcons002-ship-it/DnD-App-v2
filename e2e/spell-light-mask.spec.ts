@@ -2,6 +2,26 @@ import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 import sharp from 'sharp';
 
+test('default spell illumination restores color grading locally without uncovering terrain or retaining light after expiry',async({page})=>{
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',define:{'import.meta.env':'{}'},stdin:{resolveDir:process.cwd(),contents:`
+ import React from 'react';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';
+ import {PlayerVisionOverlay} from './client/src/canvas/PlayerVisionOverlay';
+ const container=document.createElement('div');document.body.append(container);const root=createRoot(container),ref=React.createRef();
+ flushSync(()=>root.render(React.createElement(PlayerVisionOverlay,{ref,width:700,height:500,view:{x:0,y:0,scale:1},tilt:45,rotation:30,mapFogOfWar:true,
+ vision:{daylight:false,rangeFt:60,radius:160,heavy:true,origins:[{id:'pc',x:180,y:160}],lights:[],walls:[{id:'wall',kind:'rectangle',ax:300,ay:0,bx:312,by:500}]}})));
+ const before=ref.current.cover(),mask=container.querySelector('[id^="vision-cover-"]').innerHTML;
+ ref.current.lights([{id:'spell',x:220,y:160,height:50,radius:100,strength:3,transient:true}]);ref.current.cover();
+ const count=container.querySelectorAll('[id^="vision-shade-"] ellipse').length,clip=container.querySelector('[id^="vision-shade-"] g[clip-path]')?.getAttribute('clip-path');
+ const during=ref.current.cover(),sameCover=mask===container.querySelector('[id^="vision-cover-"]').innerHTML;
+ ref.current.lights([]);ref.current.cover();
+ window.result={count,clip,sameCover,transientSight:during.lights.some(l=>l.source.transient),sameOrigins:JSON.stringify(before.origins)===JSON.stringify(during.origins),remaining:container.querySelectorAll('[id^="vision-shade-"] ellipse').length};root.unmount();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
+ const r=await page.evaluate(()=>(window as any).result);
+ expect(r.count).toBeGreaterThan(0);expect(r.clip).toContain('url(');
+ expect(r.sameCover).toBe(true);expect(r.sameOrigins).toBe(true);expect(r.transientSight).toBe(false);expect(r.remaining).toBe(0);
+});
+
 test('ordinary light bands preserve attenuation and reuse projected geometry and clips through flicker',async({page})=>{
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
  import {createVisionLightMask} from './client/src/canvas/visionLightMask';
@@ -52,7 +72,7 @@ test('colored spell overlay stays above darkvision, is clipped at walls and clea
  document.body.style.margin='0';
  const container=document.createElement('div');container.style.cssText='position:relative;width:700px;height:500px;background:#303030';document.body.append(container);
  const root=createRoot(container),ref=React.createRef();let overlay;
- window.setFlashMode=heavy=>{overlay?.dispose();flushSync(()=>root.render(React.createElement(PlayerVisionOverlay,{ref,width:700,height:500,view:{x:0,y:0,scale:1},tilt:0,rotation:0,mapFogOfWar:true,
+ window.setFlashMode=heavy=>{overlay?.dispose();flushSync(()=>root.render(React.createElement(PlayerVisionOverlay,{ref,width:700,height:500,view:{x:0,y:0,scale:1},tilt:0,rotation:0,mapFogOfWar:true,spellLighting:false,
  vision:{daylight:false,rangeFt:60,radius:160,heavy,origins:[{id:'pc',x:180,y:160}],lights:[],walls:[{id:'wall',kind:'rectangle',ax:300,ay:0,bx:312,by:500}]}})));overlay=createSpellColorOverlay(container);};
  window.flash=on=>overlay.draw(on?[{id:'flash',x:270,y:160,height:50,radius:150,strength:3,color:new Vector3(1,0,0),visibleTorch:false,transient:true}]:[],{x:0,y:0,scale:1},0,0,700,500);
  `}});
@@ -81,7 +101,7 @@ test('spell flashes cannot change darkvision, sight or exploration; ordinary lig
  const container=document.createElement('div');document.body.append(container);const root=createRoot(container),ref=React.createRef();
  const lamp={id:'lamp',x:160,y:140,height:60,radius:90,strength:1};
  const vision={rangeFt:60,radius:160,heavy:true,origins:[{id:'pc',x:180,y:160}],lights:[lamp],walls:[{id:'wall',kind:'rectangle',ax:300,ay:20,bx:312,by:220}]};
- const props={width:700,height:500,view:{x:160,y:100,scale:1},tilt:45,rotation:0,vision,mapFogOfWar:true};
+ const props={width:700,height:500,view:{x:160,y:100,scale:1},tilt:45,rotation:0,vision,mapFogOfWar:true,spellLighting:false};
  flushSync(()=>root.render(React.createElement(PlayerVisionOverlay,{...props,ref})));
  const initial=ref.current.cover(),base=Number(container.firstChild.dataset.visionBaseDrawCount),paths=container.querySelector('[id^="vision-cover-"]').innerHTML;
  let same=0;

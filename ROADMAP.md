@@ -3058,10 +3058,10 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ## Player sight and roll background performance - October 11, 2026
 
-- [x] Spell flashes use a soft colored overlay above darkvision grading, clipped
-  by existing visibility. They do not modify sight, exploration, darkvision masks,
-  ground/figure illumination or shadows. Ordinary torches and lanterns retain
-  their lighting and approximately 15 Hz vision updates.
+- [x] Preserve spell illumination of nearby figures and terrain and local color
+  restoration through darkvision. Neither expands sight/history nor adds spell
+  shadow maps. A simpler overlay remains available for diagnostic comparisons.
+  Ordinary torches and lanterns retain their approximately 15 Hz vision updates.
 - [x] Stationary personal/party sight stays cached; unchanged SVG sight and
   exploration clips are retained. Circular light bands use equivalent projected
   ellipses with the existing near-plane clipping fallback.
@@ -3070,3 +3070,8 @@ Smaller refinements on top of the shipped Phase 2 work.
   UI, visibility rules and physics retain their normal quality.
 - [x] Split benchmark GPU timers and integrated-GPU runtime evidence are in
   [the performance note](docs/performance/player-vision-roll-budget-2026-10-11.md).
+
+- [x] Preserve full spell illumination/darkvision grading by default; retain the
+  simpler color overlay behind a diagnostic URL flag with measured tradeoffs.
+- [x] Prepare full battlefield raster during the existing dice reading hold,
+  keeping the 12 FPS background cap and original roll/impact timing.

@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 
-test('Balanced excludes only spells, High restores them, and Low avoids source sight checks',async({page})=>{
+test('Experimental ground-only spells exclude direct spell lights, directional mode restores them, and Low avoids source sight checks',async({page})=>{
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',define:{'import.meta.env':'{}'},stdin:{resolveDir:process.cwd(),contents:`
  import {DataTexture,Group,PerspectiveCamera,Vector3,Vector4} from 'three';
  import {createMiniatureTorchLighting} from './client/src/canvas/miniatureTorchLighting';

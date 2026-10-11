@@ -2,6 +2,7 @@ import {HiddenRollReview} from './HiddenRollReview';
 import {diceTriggerForTray} from '../lib/rollTrayPresentation';
 import {dicePreloadPlan} from '../lib/dicePreloadPlan';
 import {physicalRollTimeline,liveNaturalCritical} from '../lib/diceFinaleTiming';
+import {ROLL_BACKGROUND_PREWARM_MS} from '../lib/rollBackgroundBudget';
 import {DICE_TRIGGER_HOLD_MS} from '../../../shared/diceTriggers';
 import {LiveDiceOverlay} from './LiveDiceOverlay';
 import {ROLL_MODIFIER_STEP_MS,ROLL_TOTAL_TWEEN_MS,hasDrukMaximum} from '../../../shared/dicePresentationTiming';
@@ -359,6 +360,9 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         else if(isCheck||isDice)playSkill();else playHit();
       });
       if(!intermediate){
+        // Restore raster buffers during the existing reading hold, while the
+        // tray still covers the map. Keep its 12 FPS cap until impact release.
+        at(Math.max(0,impactAt-ROLL_BACKGROUND_PREWARM_MS),()=>useStore.getState().prepareRollBackground(rollFx.rollId));
         at(impactAt,()=>releaseImpact(rollFx.rollId));
         at(impactAt+resultHoldMs,dismiss);
       }
