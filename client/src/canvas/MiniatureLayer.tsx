@@ -456,7 +456,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         scene.updateMatrixWorld();
         timing?.begin();
         localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!tokenById.get(id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??EMPTY_WALLS,!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3,props.graphics,true);
-        for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??impactLights,instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
+        const lightMode=props.graphics?.miniatureLightMode??'directional';
+        host.dataset.miniatureLightMode=lightMode;
+        for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??impactLights,instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls,lightMode,battlefield?.lighting.fieldUniforms);
         const batching=batches.update([...instances].map(([id,i])=>({root:i.root,lighting:i.torchLighting,
           eligible:!['druk','varis','vanec',DEATH_SKULL.id,SPIRITUAL_WEAPON.id].includes(tokenById.get(id)?.definition.id??'')&&!i.mixer&&!i.fx&&!i.lightning&&!tokenById.get(id)?.sharedSightOnly&&!tokenById.get(id)?.hidden&&!tokenById.get(id)?.invisible&&!tokenById.get(id)?.mirrorImages})),batchingEnabled,true,(props.graphics?.resolved??'high')==='high');
         host.dataset.batchLighting=(props.graphics?.resolved??'high')==='high'?'instance-rows':'shared-uniforms';

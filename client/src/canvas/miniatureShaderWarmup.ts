@@ -10,6 +10,7 @@ export function createMiniatureShaderWarmup(renderer:WebGLRenderer, torchLightin
   const batchLighting=createMiniatureBatchLighting(1);
   const sharedLighting=createMiniatureSharedLighting(torchLighting.uniforms);
   geometry.setAttribute('instanceTorchRow',new InstancedBufferAttribute(new Float32Array([0]),1));
+  geometry.setAttribute('instanceGroundPoint',new InstancedBufferAttribute(new Float32Array(2),2));
   geometry.setAttribute('color',new Float32BufferAttribute(new Float32Array(12).fill(1),3));
   const texture=new DataTexture(new Uint8Array([255,255,255,255]),1,1);
   texture.colorSpace=SRGBColorSpace;texture.needsUpdate=true;

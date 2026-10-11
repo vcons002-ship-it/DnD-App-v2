@@ -1,6 +1,6 @@
-import {DataTexture,FloatType,RGBAFormat,type Material,type Vector3,type Vector4} from 'three';
+import {DataTexture,FloatType,RGBAFormat,type Material,type Vector2,type Vector3,type Vector4,type Texture} from 'three';
 
-export type MiniatureLightUniforms={torchCount:{value:number};darkvisionDetail:{value:number};torchShadowSlots:{value:number[]};torchPositions:{value:Vector4[]};torchColors:{value:Vector3[]};[key:string]:{value:unknown}};
+export type MiniatureLightUniforms={torchCount:{value:number};darkvisionDetail:{value:number};torchShadowSlots:{value:number[]};torchPositions:{value:Vector4[]};torchColors:{value:Vector3[]};torchGroundEnabled?:{value:number};torchGroundField?:{value:Texture};torchGroundBounds?:{value:Vector4};torchGroundPoint?:{value:Vector2};[key:string]:{value:unknown}|undefined};
 const WIDTH=19;
 
 /** One row per instance preserves its own nearby lights and wall occlusion.
@@ -51,17 +51,22 @@ export function createMiniatureBatchLighting(capacity:number){
  * extra per-fragment texture fetches on bandwidth-limited integrated graphics. */
 export function createMiniatureSharedLighting(source:MiniatureLightUniforms){
   const uniforms={torchCount:{value:0},darkvisionDetail:{value:0},torchShadowSlots:{value:Array(8).fill(-1)},
-    torchPositions:{value:source.torchPositions.value.map(v=>v.clone())},torchColors:{value:source.torchColors.value.map(v=>v.clone())}};
+    torchPositions:{value:source.torchPositions.value.map(v=>v.clone())},torchColors:{value:source.torchColors.value.map(v=>v.clone())},
+    ...(source.torchGroundEnabled?{torchGroundEnabled:{value:source.torchGroundEnabled.value},torchGroundField:{value:source.torchGroundField!.value},torchGroundBounds:{value:source.torchGroundBounds!.value}}:{})};
   return {
     write(row:number,next:MiniatureLightUniforms){
       if(row!==0)return;
       uniforms.torchCount.value=next.torchCount.value;uniforms.darkvisionDetail.value=next.darkvisionDetail.value;
+      if(uniforms.torchGroundEnabled&&next.torchGroundEnabled){uniforms.torchGroundEnabled.value=next.torchGroundEnabled.value;uniforms.torchGroundField!.value=next.torchGroundField!.value;uniforms.torchGroundBounds!.value=next.torchGroundBounds!.value;}
       for(let i=0;i<8;i++){uniforms.torchPositions.value[i].copy(next.torchPositions.value[i]);uniforms.torchColors.value[i].copy(next.torchColors.value[i]);uniforms.torchShadowSlots.value[i]=next.torchShadowSlots.value[i];}
     },flush(){},dispose(){},
     attach(material:Material){
       const hook=material.onBeforeCompile,cache=material.customProgramCacheKey();
-      material.onBeforeCompile=function(shader,renderer){hook.call(this,shader,renderer);Object.assign(shader.uniforms,uniforms);};
-      material.customProgramCacheKey=()=>cache+'-batched-shared-lights-v1';
+      material.onBeforeCompile=function(shader,renderer){hook.call(this,shader,renderer);Object.assign(shader.uniforms,uniforms);
+        shader.vertexShader='attribute vec2 instanceGroundPoint;\n'+shader.vertexShader;
+        shader.vertexShader=shader.vertexShader.replace('vec2 groundPoint=torchGroundPoint;','vec2 groundPoint=instanceGroundPoint;');
+      };
+      material.customProgramCacheKey=()=>cache+'-batched-shared-lights-v2-ground';
     },
   };
 }

@@ -30,6 +30,12 @@ describe('local graphics presets',()=>{
     expect(graphicsBudget('balanced').modelQuality).toBe('balanced');
     expect(graphicsBudget('off').modelQuality).toBe('low');
   });
+  it('keeps directional High, uses terrain spell lights on Balanced and ground sampling on Low including Auto',()=>{
+    expect(graphicsBudget('high').miniatureLightMode).toBe('directional');
+    expect(graphicsBudget('balanced').miniatureLightMode).toBe('spells-ground');
+    expect(graphicsBudget('low').miniatureLightMode).toBe('ground');
+    for(const tier of ['high','balanced','low'] as const)expect(graphicsBudget('auto',1440,tier).miniatureLightMode).toBe(graphicsBudget(tier).miniatureLightMode);
+  });
   it('Effects off removes decorative budgets without changing any rules fields',()=>{
     const budget=graphicsBudget('off');expect(budget.particleScale).toBe(0);expect(budget.mistQuality).toBe('off');
     expect(budget.localShadowLights).toBe(0);expect(budget).not.toHaveProperty('visionDistance');

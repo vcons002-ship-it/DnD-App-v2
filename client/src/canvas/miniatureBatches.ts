@@ -1,6 +1,6 @@
-import {DynamicDrawUsage,InstancedBufferAttribute,InstancedMesh,Mesh,MeshBasicMaterial,MeshStandardMaterial,type Group,type Material,type Scene,type Vector3,type Vector4} from 'three';
-import {createMiniatureBatchLighting,createMiniatureSharedLighting} from './miniatureBatchLighting.js';
-type Lighting={signature:string;uniforms:{torchCount:{value:number};darkvisionDetail:{value:number};torchShadowSlots:{value:number[]};torchPositions:{value:Vector4[]};torchColors:{value:Vector3[]};[key:string]:{value:unknown}}};
+import {DynamicDrawUsage,InstancedBufferAttribute,InstancedMesh,Mesh,MeshBasicMaterial,MeshStandardMaterial,type Group,type Material,type Scene} from 'three';
+import {createMiniatureBatchLighting,createMiniatureSharedLighting,type MiniatureLightUniforms} from './miniatureBatchLighting.js';
+type Lighting={signature:string;uniforms:MiniatureLightUniforms};
 export type BatchFigure={root:Group;lighting:Lighting;eligible:boolean};
 type Member={mesh:Mesh;material:MeshBasicMaterial|MeshStandardMaterial;lighting:Lighting;layers:number};
 type Bucket={mesh:InstancedMesh;capacity:number;lighting:ReturnType<typeof createMiniatureBatchLighting>|ReturnType<typeof createMiniatureSharedLighting>;members:Mesh[];layers:number};
@@ -45,17 +45,22 @@ export function createMiniatureBatches(scene:Scene){
           const geometry=first.mesh.geometry.clone();
           geometry.setAttribute('instanceOutline',new InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(DynamicDrawUsage));
           geometry.setAttribute('instanceTorchRow',new InstancedBufferAttribute(Float32Array.from({length:capacity},(_,i)=>i),1));
+          geometry.setAttribute('instanceGroundPoint',new InstancedBufferAttribute(new Float32Array(capacity*2),2).setUsage(DynamicDrawUsage));
           const mesh=new InstancedMesh(geometry,material,capacity);mesh.name='batched-miniatures';
           mesh.instanceMatrix.setUsage(DynamicDrawUsage);mesh.layers.mask=first.layers;mesh.receiveShadow=first.mesh.receiveShadow;mesh.castShadow=first.mesh.castShadow;mesh.renderOrder=first.mesh.renderOrder;
           bucket={mesh,capacity,lighting,members:[],layers:first.layers};buckets.set(key,bucket);scene.add(mesh);
         }
-        let matrixChanged=bucket.mesh.count!==members.length,colorChanged=false,outlineChanged=false;
+        let matrixChanged=bucket.mesh.count!==members.length,colorChanged=false,outlineChanged=false,groundChanged=false;
         const outlines=bucket.mesh.geometry.getAttribute('instanceOutline') as InstancedBufferAttribute;
+        const groundPoints=bucket.mesh.geometry.getAttribute('instanceGroundPoint') as InstancedBufferAttribute;
         bucket.mesh.count=members.length;
         const data=bucket.mesh.instanceMatrix.array;
         for(let i=0;i<members.length;i++){
           const member=members[i],elements=member.mesh.matrixWorld.elements;
           bucket.lighting.write(i,member.lighting.uniforms);
+          const ground=member.lighting.uniforms.torchGroundPoint?.value;
+          const gx=Math.fround(ground?.x??0),gy=Math.fround(ground?.y??0);
+          if(groundPoints.getX(i)!==gx||groundPoints.getY(i)!==gy){groundPoints.setXY(i,gx,gy);groundChanged=true;}
           const outlineId=member.mesh.userData.outlineId??0;
           if(outlines.getX(i)!==outlineId){outlines.setX(i,outlineId);outlineChanged=true;}
           // Compare in the GPU buffer's Float32 precision. A fixed absolute
@@ -71,6 +76,7 @@ export function createMiniatureBatches(scene:Scene){
         bucket.members=members.map(m=>m.mesh);
         if(matrixChanged){bucket.mesh.instanceMatrix.needsUpdate=true;bucket.mesh.computeBoundingSphere();}
         if(outlineChanged)outlines.needsUpdate=true;
+        if(groundChanged)groundPoints.needsUpdate=true;
         if(colorChanged&&bucket.mesh.instanceColor)bucket.mesh.instanceColor.needsUpdate=true;
         bucket.lighting.flush();
         instances+=members.length;

@@ -1,7 +1,9 @@
 # Spell impact lighting and hunter effects
 
-Spell impacts briefly illuminate the visible map, atmosphere and nearby 3D
-figures. Fire is orange, cold icy blue, lightning blue-white, thunder lavender,
+Spell impacts briefly illuminate the visible map and atmosphere. High also
+illuminates nearby 3D figures directionally; Balanced keeps spell light on the
+ground, and Low gives figures a uniform response sampled from the ground field.
+Fire is orange, cold icy blue, lightning blue-white, thunder lavender,
 acid yellow-green, poison green, necrotic purple, radiant gold, force violet,
 psychic pink and healing green. Physical damage alone adds no light.
 
@@ -49,6 +51,14 @@ this is not ray-traced emissive global illumination. Illumination reuses the
 existing bounded light field and the strongest eight nearby lights per miniature.
 Spell lights do not add cube shadow renders. Reduced motion suppresses light
 flashes and uses stationary geometry.
+Graphics presets affect presentation only. Balanced excludes transient spell
+sources from the figures' nearby-light selection, leaving ordinary torches and
+lanterns directional. Low bypasses that selection and its sight checks altogether:
+each figure samples the existing wall-clipped ground light texture at its base,
+with one texture lookup per vertex and a uniform diffuse response. Batched figures
+retain separate sample positions. Ground creature shadows keep the preset's
+existing budget; spell sources remain excluded from shadow generation. Shared
+party sightings disable the ground sample just as they disable direct lights.
 The first and final light update bypass the ordinary vision-light throttle so
 a static scene cannot retain a stale flash mask after rendering goes idle.
 
@@ -81,6 +91,9 @@ can replay identical visibility-filtered `fx:hp` payloads at the client socket
 boundary, without dice or gameplay randomness, then verify real combat timing
 separately. Use a fixed graphics preset, verify the actual WebGL adapter, and
 keep capture, CPU profiling and DOM mutation instrumentation out of FPS runs.
+The ground-lighting experiment did not show a consistent overall speedup over the
+previous same-preset lighting. See the [ground-lighting preset measurements and
+videos](GROUND_LIGHTING_PERFORMANCE_2026-10-11.md) for the tested tradeoffs.
 See the [11 October dual-GPU comparison](SPELL_IMPACT_PERFORMANCE_2026-10-11.md)
 for the measured gains and remaining frame-time limits.
 

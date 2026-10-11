@@ -3322,6 +3322,9 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
 
 test('spell impacts light a heavy dungeon after dice and keep hunter spell identities',async({page,request},info)=>{
  test.setTimeout(240000);page.setDefaultTimeout(20000);await page.setViewportSize({width:1600,height:1000});
+ // Directional spell illumination is the High-quality contract. Balanced keeps
+ // terrain flashes and Low samples the terrain field instead (tested separately).
+ await page.addInitScript(()=>localStorage.setItem('dnd-environment-quality','high'));
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});
  page.on('dialog',d=>d.accept());
  const f=await fixture(page,request,await cornerDemoMap()),[druk,varis,vanec]=f.ready.tokens;

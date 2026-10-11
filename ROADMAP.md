@@ -1,5 +1,13 @@
 # Roadmap & Feature Backlog
 
+- [x] Simplify spell illumination on Balanced to terrain flashes, keeping ordinary
+  torch and lantern lighting directional. Low reuses the existing wall-clipped
+  ground light field for a uniform response across each figure, bypassing per-token
+  source selection and directional local-light shading. Keep individual sample
+  positions in repeated-creature batches and suppress personal lighting on shared
+  party sightings. High retains directional spell lighting. Visibility, damage,
+  spell geometry and ground-shadow budgets remain unchanged.
+
 - [x] Retain static miniature transforms and reuse world matrices across render
   passes. Broaden identical-creature batching on High without losing individual
   lights, colors, shadows or visibility; keep cheaper shared uniforms and the
