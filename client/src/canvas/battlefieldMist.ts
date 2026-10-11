@@ -7,9 +7,10 @@ import type {EnvironmentContactToken, EnvironmentPreviewSettings} from './battle
 import {createMistFlow} from './mistFlow';
 import {environmentVisibilityGlsl, type createEnvironmentVisibility} from './environmentVisibility';
 import {torchFieldGlsl,type createBattlefieldLighting} from './battlefieldLighting';
+import {createMistDensityCache,mistCacheSampler} from './mistDensityCache';
 
 // Shared by the volume and its ground shading, so both move and reshape together.
-const densityField = /* glsl */`
+export const mistDensitySource = /* glsl */`
   ${environmentVisibilityGlsl}
   uniform highp sampler3D mistNoise;
   uniform sampler2D mistFlow, mistBodyHeight;
@@ -45,16 +46,7 @@ const densityField = /* glsl */`
     }
     return patches * border;
   }
-  float mistDensity(vec3 world) {
-    float y = world.y / mistHeight;
-    if (y <= 0.0 || y >= 1.0) return 0.0;
-    float edge = mistEnvelope(world.xz) * environmentVisible(world.xz);
-    if (edge < .001) return 0.0;
-    vec4 flow = texture2D(mistFlow, (world.xz - mistOrigin) / mistMapSize);
-    float bodyHeight = texture2D(mistBodyHeight, (world.xz - mistOrigin) / mistMapSize).r * mistBodyHeightScale;
-    // Whole-body contact, tapered above the figure rather than halfway up the mist.
-    float bodyContact = bodyHeight > .001 ? 1.0 - smoothstep(bodyHeight*.9,bodyHeight*1.1,world.y) : 1.0;
-    vec2 bent = world.xz + (flow.rg * 255.0 - 128.0) * .5 * bodyContact;
+  float mistAmbient(vec2 bent,float y) {
     // World-space domain warping and differently oriented octaves prevent long
     // parallel strips showing through when looking along the wind direction.
     vec2 drift = bent / mistWorldScale - mistWind * mistTime;
@@ -68,8 +60,22 @@ const densityField = /* glsl */`
     float bank = mistNoiseAt(vec3(p.x / 83.0 + 21.0, y * 1.5 + 17.0, p.y / 69.0));
     float wisps = smoothstep(.36,.64,strands) * smoothstep(.20,.53,bank) * (1.0 - smoothstep(.13,.5,y));
     float billow = smoothstep(.51,.75,bank) * (1.0 - smoothstep(.28,.93,y));
-    float clearing = mix(1.0,flow.b,bodyContact);
     float ambient = wisps * 1.5 + billow * .8;
+    return ambient;
+  }
+`;
+const densityField=mistDensitySource+mistCacheSampler+/* glsl */`
+  float mistDensity(vec3 world) {
+    float y = world.y / mistHeight;
+    if (y <= 0.0 || y >= 1.0) return 0.0;
+    float edge = mistEnvelope(world.xz) * environmentVisible(world.xz);
+    if (edge < .001) return 0.0;
+    vec4 flow = texture2D(mistFlow, (world.xz - mistOrigin) / mistMapSize);
+    float bodyHeight = texture2D(mistBodyHeight, (world.xz - mistOrigin) / mistMapSize).r * mistBodyHeightScale;
+    float bodyContact = bodyHeight > .001 ? 1.0 - smoothstep(bodyHeight*.9,bodyHeight*1.1,world.y) : 1.0;
+    vec2 bent = world.xz + (flow.rg * 255.0 - 128.0) * .5 * bodyContact;
+    float ambient=mistAmbientAt(bent,y);
+    float clearing = mix(1.0,flow.b,bodyContact);
     // Displaced banks must not refill the fresh body gap in the same sample.
     float compressed = flow.a * bodyContact * smoothstep(.2,.85,flow.b);
     // Compress the existing noisy volume only. Adding density independently of
@@ -214,7 +220,8 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
     mistPatchRotation:{value:Array.from({length:8},()=>new Vector2(1,0))},
   };
   const lowResolution=new Vector2(1,1);
-  const material = new ShaderMaterial({uniforms:{...common,...torchField,
+  const densityCache=createMistDensityCache(mistDensitySource,common);
+  const material = new ShaderMaterial({uniforms:{...common,...densityCache.uniforms,...torchField,
     mistSceneDepth:{value:depth}, mistResolution:{value:lowResolution},mistSteps:{value:24},
     mistProjectionInverse:{value:new Matrix4()}, mistCameraWorld:{value:new Matrix4()},
   }, vertexShader, fragmentShader, side:BackSide, blending:NoBlending, depthWrite:false, depthTest:false, toneMapped:false});
@@ -275,10 +282,13 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
       const {x,y}=common.mistOrigin.value;
       flow.setTokens(tokens.map(t=>({...t,x:t.x-x,y:t.y-y,body:t.body?{...t.body,x:t.body.x-x,y:t.body.y-y}:undefined})));
     },
-    render(renderer:WebGLRenderer,camera:Camera){
-      if(!volume.visible)return;
+    prepare(renderer:WebGLRenderer){
       // Auto caps fog pixel work; main scene and miniatures keep full resolution.
       resolvedQuality=quality==='auto'?(resolution.x*resolution.y>2_000_000||renderer.domElement.clientWidth<600?'low':'high'):quality??'high';
+      densityCache.prepare(renderer,volume.visible&&resolvedQuality==='high');
+    },
+    render(renderer:WebGLRenderer,camera:Camera){
+      if(!volume.visible)return;
       scale=resolvedQuality==='low'?.25:.5;
       const width=Math.max(1,Math.ceil(resolution.x*scale)),height=Math.max(1,Math.ceil(resolution.y*scale));
       if(target.width!==width||target.height!==height){target.setSize(width,height);lowResolution.set(width,height);}
@@ -291,7 +301,7 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
       }finally{renderer.setRenderTarget(previous);renderer.autoClear=autoClear;renderer.shadowMap.needsUpdate=shadowUpdate;}
     },
     extendGroundShader(shader:{uniforms:Record<string,{value:unknown}>;vertexShader:string;fragmentShader:string},overlay=false) {
-      Object.assign(shader.uniforms,common);
+      Object.assign(shader.uniforms,common,densityCache.uniforms);
       shader.vertexShader='varying vec3 mistGroundWorld;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('void main() {','void main() {\n mistGroundWorld = (modelMatrix * vec4(position,1.0)).xyz;');
       shader.fragmentShader='varying vec3 mistGroundWorld;\n'+densityField+shader.fragmentShader;
@@ -301,7 +311,7 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
     },
     tick(seconds:number){common.mistTime.value=seconds;flow.tick(seconds);return volume.visible;},
     get state(){return {visible:volume.visible,coverage,height:common.mistHeight.value,layers:1,shadows:common.mistShadowStrength.value>0,
-      quality:volume.visible?resolvedQuality:'off',scale,steps:material.uniforms.mistSteps.value,bufferWidth:target.width,bufferHeight:target.height,...flow.state};},
-    dispose(){geometry.dispose();material.dispose();noise.dispose();target.dispose();quadGeometry.dispose();composite.dispose();flow.dispose();},
+      quality:volume.visible?resolvedQuality:'off',scale,steps:material.uniforms.mistSteps.value,bufferWidth:target.width,bufferHeight:target.height,...densityCache.state,...flow.state};},
+    dispose(){geometry.dispose();material.dispose();noise.dispose();target.dispose();quadGeometry.dispose();composite.dispose();flow.dispose();densityCache.dispose();},
   };
 }
