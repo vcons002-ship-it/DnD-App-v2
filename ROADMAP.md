@@ -3021,3 +3021,14 @@ Smaller refinements on top of the shipped Phase 2 work.
   The DM screen can download it ("⬇ Back up library") and restore it through
   "⬆ Restore from backup file", which merges without overwriting same-named
   entries.
+
+## Player sight and roll background performance - October 11, 2026
+
+- [x] Stationary personal/party sight stays cached; unchanged SVG sight and
+  exploration clips are retained. Circular light bands use equivalent projected
+  ellipses with the existing near-plane clipping fallback.
+- [x] Full dice trays temporarily reduce battlefield raster resolution and cap
+  its updates to 12 FPS, restoring the saved quality before map impacts. Dice,
+  UI, visibility rules and physics retain their normal quality.
+- [x] Split benchmark GPU timers and integrated-GPU runtime evidence are in
+  [the performance note](docs/performance/player-vision-roll-budget-2026-10-11.md).

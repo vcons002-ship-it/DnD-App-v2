@@ -7,6 +7,7 @@ import {ObjectControls} from '../components/ObjectControls';
 import { activeHasteCondition, speedIsZero, walkingSpeedFeet } from '../../../shared/spellBuffs';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
 import {TokenPresentation} from './tokenPresentation';
+import {reduceRollBackground} from '../lib/rollBackgroundBudget';
 import {WallMenu,type WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {doorInReach,doorInteractionArea} from '../../../shared/doorInteraction';
@@ -703,6 +704,7 @@ export function MapStage({
   useEffect(()=>()=>{if(areaShareTimer.current)clearTimeout(areaShareTimer.current);useStore.getState().shareSpellArea(null);},[]);
   const areaRangeError=areaCast&&areaActor&&map&&!areaCast.spec.self&&areaPoints.some(p=>tokenDistanceFt({...areaActor,widthFt:0},{...p,widthFt:0},map)>areaCast.spec.rangeFt+1e-6||!hasLineOfSight(areaActor,p,map.walls));
   const hpFx = useStore((s) => s.hpFx);
+  const rollBackground = useStore(s => reduceRollBackground(s));
   const spellRollFx = useStore(s=>s.rollFx);
   // Remote cursors, drag tethers and chat bubbles arrive many times a second.
   // Their layers subscribe to the store themselves; the map only needs to know
@@ -2726,7 +2728,7 @@ export function MapStage({
             </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer key={map?.id} ref={miniatureRef} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
+            <MiniatureLayer key={map?.id} ref={miniatureRef} rollBackground={rollBackground} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas} visionCoverFrame={visionCoverFrame}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={snapshot.playerVision?handleVisionLights:undefined} />

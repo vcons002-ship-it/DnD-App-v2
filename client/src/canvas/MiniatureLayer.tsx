@@ -36,6 +36,7 @@ import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
 import {createLocalLightShadows} from './localLightShadows';
 import {useEnvironmentQuality,recordGraphicsFrame} from '../lib/useEnvironmentQuality';
 import {graphicsBudget} from '../../../shared/graphicsQuality';
+import {rollBackgroundBudget} from '../lib/rollBackgroundBudget';
 import { useStore } from '../state/socket';
 import {createRaisedMapStudy} from './raisedMapStudy';
 import {createArchArtLayer} from './archArtLayer';
@@ -66,6 +67,7 @@ export type MiniatureToken = {
 };
 const EMPTY_WALLS:import('../../../shared/mapWalls').MapWall[]=[];
 type Props = {
+  rollBackground?: boolean;
   graphics?: ReturnType<typeof graphicsBudget>;
   footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
@@ -297,6 +299,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let paintCount = 0, paintEpoch = performance.now();
   let totalPaintCount = 0;
   const timing=initial.environmentPreview&&new URLSearchParams(location.search).has('benchmark')?createPreviewGpuTiming(renderer.getContext()):null;
+  const visionTiming=timing?createPreviewGpuTiming(renderer.getContext()):null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let paintedReducedMotion: boolean | undefined;
 
@@ -374,7 +377,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
     // Paint the preference change even inside the frame cap: this may be the
     // last frame once animation stops, so no flash or moving effect may linger.
-    if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= (props.environmentPreview || spellImpacts.active ? 1000 / 60 - 1 : 1000 / 24)) {
+    const fps=props.rollBackground?12:props.environmentPreview||spellImpacts.active?60:24;
+    if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= 1000/fps-1) {
       paintedReducedMotion = reducedMotion.matches;
       lastPaint = now;
       const seconds = (now - started) / 1000;
@@ -547,10 +551,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // this also covers daylight boards without an environment renderer.
         const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
         if(props.personalVision&&!useComposite)visionLift??=createMiniatureVisionLift(renderer,host,outlineMask.texture);
+        timing?.end();visionTiming?.begin();
         visionLift?.render(!!props.personalVision&&!useComposite);
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
+        visionTiming?.end();
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
-        timing?.end();
         if (battlefield) {
           paintCount++;
           host.dataset.renderCount=String(++totalPaintCount);
@@ -587,7 +592,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
             height:instance.mistBody.height*instance.root.scale.x,width:instance.mistBody.radiusX*2*instance.root.scale.x,depth:instance.mistBody.radiusZ*2*instance.root.scale.x}]:[]));
           host.dataset.mistObstacles=String(mistState.obstacles);
           host.dataset.mistInteraction=String(mistState.enabled);
-          if(timing){host.dataset.gpuMs=String(timing.median??'unavailable');host.dataset.gpuSamples=String(timing.count);}
+          if(timing){host.dataset.gpuMs=String(timing.median===null?'unavailable':timing.median+(visionTiming?.median??0));host.dataset.gpuSamples=String(timing.count);
+            host.dataset.gpuSceneMs=String(timing.median??'unavailable');host.dataset.gpuVisionMs=String(visionTiming?.median??'unavailable');}
         }
         props.onRenderedNames?.(renderedNames);
         host.dataset.nameRendering='per-pixel';host.dataset.nameCount=String(renderedNames.size);
@@ -750,7 +756,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     // Unrelated snapshots during an imperative Konva pan must not restore the
     // last committed camera position before dragend commits the new view.
     if (next.view !== committedView) { view = next.view; committedView = next.view; }
-    const pixelRatio = Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2);
+    const pixelRatio = rollBackgroundBudget(Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2),!!next.rollBackground).pixelRatio;
+    host.dataset.rollBackground=next.rollBackground?'reduced':'full';
+    host.dataset.backgroundFpsCap=next.rollBackground?'12':'60';
     host.dataset.graphicsQuality=next.graphics?.resolved??'high';
     host.dataset.modelQuality=next.graphics?.modelQuality==='high'?'original':next.graphics?.modelQuality==='balanced'?'balanced':'light';
     host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
@@ -960,6 +968,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     battlefield?.dispose();battlefield=null;
     localShadows.dispose();
     timing?.dispose();
+    visionTiming?.dispose();
     silhouette.dispose();outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
     scene.environment = null;

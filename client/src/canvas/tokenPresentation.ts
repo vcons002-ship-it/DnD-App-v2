@@ -43,8 +43,9 @@ export class TokenPresentation {
   }
 
   advance(now:number) {
+    const changing=this.moving();
     this.time=Math.max(this.time,now);
-    this.visionDirty=true;
+    if(changing)this.visionDirty=true;
     if(!this.moving())this.memory=this.snapshot?.exploredTerrain;
   }
 
