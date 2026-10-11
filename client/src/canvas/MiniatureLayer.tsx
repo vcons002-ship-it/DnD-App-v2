@@ -1,4 +1,4 @@
-import {createMiniatureSilhouetteOutline} from './miniatureSilhouetteOutline';
+import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart} from './miniatureSilhouetteOutline';
 import {miniatureLodForPixels,type MiniatureLod} from '../../../shared/miniatureLod';
 import {createMiniatureBatches} from './miniatureBatches';
 import {createMirrorImages} from './mirrorImages';
@@ -682,7 +682,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.selectionRing.scale.setScalar(token.definition.baseDiameter);
     instance.selectionRing.material.opacity = token.hidden ? 0.45 : 1;
     const outlineId=silhouette.slot(token.invisible||token.sharedSightOnly?undefined:token.outline,token.hidden?.45:1);
-    model.traverse(node=>{if(node instanceof Mesh)node.userData.outlineId=outlineId;});
+    const weaponOutlineId=outlineId?silhouette.slot(token.outline,(token.hidden?.45:1)*.25):0;
+    model.traverse(node=>{if(node instanceof Mesh)node.userData.outlineId=node.userData.outlineWeapon?weaponOutlineId:outlineId;});
     instance.materials.forEach((material, index) => {
       if (material instanceof MeshStandardMaterial && instance.originalColors[index]) {
         material.color.copy(instance.originalColors[index]!);
@@ -882,12 +883,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           };
           node.material = Array.isArray(node.material) ? node.material.map(copy) : copy(node.material);
         });
-        model.traverse(node=>{if(node instanceof Mesh&&(Array.isArray(node.material)?node.material:[node.material]).every(m=>!m.transparent))node.layers.enable(1);});
+        model.traverse(node=>{if(node instanceof Mesh){node.userData.outlineWeapon=isMiniatureWeaponPart(node.name);if((Array.isArray(node.material)?node.material:[node.material]).every(m=>!m.transparent))node.layers.enable(1);}});
         const mixer = gltf.animations.length ? new AnimationMixer(model) : null;
         gltf.animations.forEach((clip) => mixer!.clipAction(clip).play());
         const materials = [...cloned.values()];
-        model.position.set(...definition.baseCenter.map(v=>-v) as [number,number,number]);
-        const outlineBounds=new Box3().setFromObject(model);
+        const outlineBounds=centeredMiniatureOutlineBounds(model,definition.baseCenter);
         const instance: Instance = {
           modelId:definition.id,
           mirrors:createMirrorImages(centered,root,renderer,()=>scene.environment,definition.baseDiameter),

@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 import {io} from 'socket.io-client';
-import {readFileSync} from 'node:fs';
+import {readFileSync,writeFileSync} from 'node:fs';
 import {DM_SECRET,PORT} from './playwright.config';
 
 test('silhouette borders preserve body visibility, reject thin blades and never paint over front bodies',async({page})=>{
@@ -17,7 +17,8 @@ test('silhouette borders preserve body visibility, reject thin blades and never 
  const outline=createMiniatureSilhouetteOutline(mask.texture,mask.depthTexture,{value:c.projectionMatrixInverse});
  function body(x,y,width,height,z,color,border){const m=new T.Mesh(new T.PlaneGeometry(width,height),new T.MeshBasicMaterial({color}));m.position.set(x,y,z);m.userData.outlineId=outline.slot(border);m.layers.enable(1);s.add(m);return m;}
  body(-40,0,32,32,0,'#333333','#ff0000');body(10,0,32,32,0,'#333333','#0000ff');
- body(12,0,20,24,1,'#555555',undefined);body(60,0,1,40,0,'#333333','#00ff00');
+ body(12,0,20,24,1,'#555555',undefined);body(60,0,3,40,0,'#333333','#00ff00');
+ const diagonal=body(-40,-60,3,40,0,'#333333','#00ffff');diagonal.rotation.z=Math.PI/4;
  const batchGeometry=new T.PlaneGeometry(16,16);batchGeometry.setAttribute('instanceOutline',new T.InstancedBufferAttribute(new Float32Array(['#ff0000','#00ff00','#0000ff'].map(color=>outline.slot(color))),1));
  const batch=new T.InstancedMesh(batchGeometry,new T.MeshBasicMaterial({color:'#333333'}),3);batch.layers.enable(1);
  [-40,0,40].forEach((x,i)=>batch.setMatrixAt(i,new T.Matrix4().makeTranslation(x,60,0)));s.add(batch);
@@ -26,17 +27,20 @@ test('silhouette borders preserve body visibility, reject thin blades and never 
  const pixels=new Uint8Array(200*200*4);r.readRenderTargetPixels(output,0,0,200,200,pixels);
  const pixel=(x,y)=>Array.from(pixels.slice((y*200+x)*4,(y*200+x)*4+4));
  const maskPixels=new Uint8Array(200*200*4);r.readRenderTargetPixels(mask,0,0,200,200,maskPixels);
- window.result={batch:[pixel(51,160),pixel(91,160),pixel(131,160)],red:pixel(43,100),blue:pixel(93,100),front:pixel(112,100),thin:pixel(158,100),body:Array.from(maskPixels.slice((100*200+60)*4,(100*200+60)*4+4))};
+ let diagonalBorder=0;for(let y=15;y<65;y++)for(let x=35;x<85;x++){const p=pixel(x,y);if(p[0]<5&&p[1]>120&&p[2]>120)diagonalBorder++;}
+ window.result={diagonalBorder,batch:[pixel(51,160),pixel(91,160),pixel(131,160)],red:pixel(43,100),blue:pixel(93,100),front:pixel(112,100),thin:pixel(157,100),body:Array.from(maskPixels.slice((100*200+60)*4,(100*200+60)*4+4))};
  outline.dispose();material.dispose();mask.dispose();output.dispose();r.dispose();
  `}});
  await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
  const result=await page.evaluate(()=>(window as any).result);
  expect(errors).toEqual([]);
- expect(result.red[0]).toBeGreaterThan(240);expect(result.red[1]).toBeLessThan(5);
- expect(result.blue[2]).toBeGreaterThan(240);
+ expect(result.red[0]).toBeGreaterThan(160);expect(result.red[0]).toBeLessThan(200);expect(result.red[1]).toBeLessThan(5);
+ expect(result.blue[2]).toBeGreaterThan(160);
+ expect(result.red[3]).toBeGreaterThan(150);expect(result.red[3]).toBeLessThan(200);
  expect(Math.max(...result.front.slice(0,3))-Math.min(...result.front.slice(0,3))).toBeLessThan(3);
  expect(result.thin[3]).toBe(0);
- expect(result.batch[0][0]).toBeGreaterThan(240);expect(result.batch[1][1]).toBeGreaterThan(240);expect(result.batch[2][2]).toBeGreaterThan(240);
+ expect(result.diagonalBorder).toBe(0);
+ expect(result.batch[0][0]).toBeGreaterThan(160);expect(result.batch[1][1]).toBeGreaterThan(160);expect(result.batch[2][2]).toBeGreaterThan(160);
  expect(result.body[0]).toBe(255);expect(result.body[3]).toBe(255);
 });
 
@@ -52,7 +56,8 @@ test('real character models change detail on zoom without losing tokens, bases o
   const initial=await snap();socket.emit('map:setActive',{mapId:map.id});socket.emit('map:setGrid',{mapId:map.id,gridSizePx:64,feetPerSquare:5,widthFt:95,locked:false});
   for(const layer of ['map','tokens'])socket.emit('fog:setLayer',{mapId:map.id,layer,enabled:false});
   for(const [i,name] of ['Druk','Varis','Vanec'].entries())socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:initial.characters.find((c:any)=>c.name===name).id,x:550+i*110,y:500});
-  await snap();await page.setViewportSize({width:1440,height:900});
+  const placed=await snap(),vanec=placed.tokens.find((t:any)=>t.refId===initial.characters.find((c:any)=>c.name==='Vanec').id);
+  await page.setViewportSize({width:1440,height:900});
   await page.addInitScript(()=>localStorage.setItem('dnd-environment-quality','high'));
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','3',{timeout:60000});
@@ -63,10 +68,11 @@ test('real character models change detail on zoom without losing tokens, bases o
   await page.waitForTimeout(800);
   await page.screenshot({path:info.outputPath('battlefield-tilted.png')});
   await layer.evaluate(e=>{(window as any).lodCounts=[];new MutationObserver(()=>{(window as any).lodCounts.push(Number((e as HTMLElement).dataset.miniatureCount));}).observe(e,{attributes:true,attributeFilter:['data-miniature-count']});});
-  for(let i=0;i<11;i++)await page.getByTitle('Zoom in',{exact:true}).click();
-  await expect.poll(async()=>Object.values(JSON.parse((await layer.getAttribute('data-model-lods'))!)).some(l=>l==='high'),{timeout:60000}).toBe(true);
+  for(let i=0;i<14;i++)await page.getByTitle('Zoom in',{exact:true}).click();
+  await expect.poll(async()=>JSON.parse((await layer.getAttribute('data-model-lods'))!)[vanec.id],{timeout:60000}).toBe('high');
   await expect(layer).toHaveAttribute('data-miniature-count','3');
   await expect.poll(async()=>{const d=await layer.evaluate(e=>({...((e as HTMLElement).dataset)}));return d.loadedModelUrls===JSON.stringify(JSON.parse(d.modelUrls!).sort());},{timeout:60000}).toBe(true);
+  writeFileSync(info.outputPath('close-detail.json'),JSON.stringify(await layer.evaluate(e=>({...((e as HTMLElement).dataset)})),null,2));
   await page.waitForTimeout(300);await page.screenshot({path:info.outputPath('inspection.png')});
   await page.getByTitle('Fit to window',{exact:true}).click();
   await expect.poll(async()=>JSON.parse((await layer.getAttribute('data-model-urls'))!).filter((u:string)=>u.includes('battlefield')).length).toBe(3);

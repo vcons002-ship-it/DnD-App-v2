@@ -3,21 +3,22 @@
   "profile": "battlefield",
   "policy": {
     "id": "battlefield",
-    "bodyRatio": 0.12,
-    "detailRatio": 0.25,
-    "error": 0.004,
-    "permissive": true
+    "bodyRatio": 0.2,
+    "detailRatio": 0.45,
+    "error": 0.002,
+    "permissive": false,
+    "preserveHead": true
   },
   "sourceUrl": "/miniatures/vanec-light-239045d67404.glb",
   "sourceSha256": "239045d67404238e3fb01a469f694fa3e24758271ceb316de7943ece72f5d61b",
   "sourceBytes": 19902264,
   "sourceTriangles": 207975,
   "sourceGeometryBytes": 12282568,
-  "geometryBytes": 2445478,
-  "filename": "vanec-battlefield-2f6df13bfe5c.glb",
-  "sha256": "2f6df13bfe5c887f358f40b40b204f476ca6578a3948c3db91d2aae09b98a368",
-  "bytes": 13896108,
-  "triangles": 58441,
+  "geometryBytes": 11338148,
+  "filename": "vanec-battlefield-8f82ab431a8d.glb",
+  "sha256": "8f82ab431a8d90e34d79adb7aa287202adf1ab460c1c558fd5f7138bc4626c88",
+  "bytes": 19308132,
+  "triangles": 179963,
   "baseCenter": [
     -0.00920414924621582,
     -0.9993069767951965,
@@ -89,10 +90,10 @@
       ],
       "material": "",
       "before": 44729,
-      "after": 6063,
+      "after": 38619,
       "detail": false,
       "preserved": false,
-      "actualError": 0.003999671433120966
+      "actualError": 0.0019530780846253037
     },
     {
       "nodes": [
@@ -133,10 +134,10 @@
       ],
       "material": "PBR_Material",
       "before": 5683,
-      "after": 2385,
+      "after": 5683,
       "detail": true,
-      "preserved": false,
-      "actualError": 0.0039034304209053516
+      "preserved": true,
+      "actualError": 0
     },
     {
       "nodes": [
@@ -144,10 +145,10 @@
       ],
       "material": "Vanec_Charcoal_Hair_And_Plum_Horns",
       "before": 85565,
-      "after": 21365,
+      "after": 85565,
       "detail": true,
-      "preserved": false,
-      "actualError": 0.002929200418293476
+      "preserved": true,
+      "actualError": 0
     },
     {
       "nodes": [
@@ -155,10 +156,10 @@
       ],
       "material": "Material_0",
       "before": 3700,
-      "after": 1642,
+      "after": 3378,
       "detail": true,
       "preserved": false,
-      "actualError": 0.003938276786357164
+      "actualError": 0.0019993064925074577
     },
     {
       "nodes": [
@@ -166,10 +167,10 @@
       ],
       "material": "Vanec_Left_Hand_Local_Fingertip_Color_Refinement",
       "before": 4640,
-      "after": 1874,
+      "after": 3658,
       "detail": true,
       "preserved": false,
-      "actualError": 0.0039972239173948765
+      "actualError": 0.0019968629349023104
     },
     {
       "nodes": [
@@ -419,10 +420,10 @@
       ],
       "material": "VanecV4_Reference_front",
       "before": 1296,
-      "after": 1224,
+      "after": 1276,
       "detail": true,
       "preserved": false,
-      "actualError": 0.003906857687979937
+      "actualError": 0.0019797589629888535
     },
     {
       "nodes": [
@@ -430,10 +431,10 @@
       ],
       "material": "VanecV4_Reference_back",
       "before": 1229,
-      "after": 1135,
+      "after": 1197,
       "detail": true,
       "preserved": false,
-      "actualError": 0.003791250754147768
+      "actualError": 0.00196072761900723
     },
     {
       "nodes": [
@@ -441,10 +442,10 @@
       ],
       "material": "VanecV4_Reference_left",
       "before": 1238,
-      "after": 1182,
+      "after": 1226,
       "detail": true,
       "preserved": false,
-      "actualError": 0.0037899992894381285
+      "actualError": 0.0018353734631091356
     },
     {
       "nodes": [
@@ -452,10 +453,10 @@
       ],
       "material": "VanecV4_Reference_right",
       "before": 1235,
-      "after": 1171,
+      "after": 1219,
       "detail": true,
       "preserved": false,
-      "actualError": 0.003933811094611883
+      "actualError": 0.0019395631970837712
     },
     {
       "nodes": [
@@ -463,13 +464,13 @@
       ],
       "material": "",
       "before": 43476,
-      "after": 5216,
-      "detail": false,
+      "after": 22958,
+      "detail": true,
       "preserved": false,
-      "actualError": 0.00212812889367342
+      "actualError": 0.0019527284894138575
     }
   ],
-  "elapsedMs": 485.4570000000001,
+  "elapsedMs": 409.95980000000003,
   "verified": {
     "texturesByteExact": true,
     "materialsPreserved": true,

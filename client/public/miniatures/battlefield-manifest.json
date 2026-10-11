@@ -32,10 +32,10 @@
     },
     {
       "id": "vanec",
-      "url": "/miniatures/vanec-battlefield-2f6df13bfe5c.glb",
-      "sha256": "2f6df13bfe5c887f358f40b40b204f476ca6578a3948c3db91d2aae09b98a368",
-      "bytes": 13896108,
-      "triangles": 58441,
+      "url": "/miniatures/vanec-battlefield-8f82ab431a8d.glb",
+      "sha256": "8f82ab431a8d90e34d79adb7aa287202adf1ab460c1c558fd5f7138bc4626c88",
+      "bytes": 19308132,
+      "triangles": 179963,
       "baseCenter": [
         -0.00920414924621582,
         -0.9993069767951965,

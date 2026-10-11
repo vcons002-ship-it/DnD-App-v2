@@ -1,5 +1,14 @@
-import {Color, DataTexture, Mesh, NearestFilter, OrthographicCamera, PlaneGeometry, RGBAFormat, Scene, ShaderMaterial, Vector2, Vector4, type Matrix4, type Texture, type WebGLRenderer} from 'three';
+import {Box3, Color, DataTexture, Mesh, NearestFilter, OrthographicCamera, PlaneGeometry, RGBAFormat, Scene, ShaderMaterial, Vector2, Vector3, Vector4, type Matrix4, type Object3D, type Texture, type WebGLRenderer} from 'three';
 export type OutlineRect={x:number;y:number;width:number;height:number};
+/** Match the placement group's one base offset without changing source poses. */
+export function centeredMiniatureOutlineBounds(model:Object3D,baseCenter:readonly number[]):Box3 {
+  return new Box3().setFromObject(model).translate(new Vector3(-baseCenter[0],-baseCenter[1],-baseCenter[2]));
+}
+/** Separate authored weapon parts get a faint rim; merged bodies still use the
+ * general screen-width filter, so creature names do not dim whole figures. */
+export function isMiniatureWeaponPart(name:string):boolean {
+  return !/body|head|face|full.?model/i.test(name)&&/weapon|sword|knife|dagger|bow|axe|staff|spear|mace|hammer|trident|halberd|scimitar/i.test(name);
+}
 /** A border only touches the projected model bounds. Merge overlapping scissors
  * so translucent borders are never painted twice. Sparse boards avoid a full
  * screen filter over empty terrain. Rectangles use CSS pixels, bottom-left Y. */
@@ -50,11 +59,18 @@ export function createMiniatureSilhouetteOutline(mask: Texture, depth: Texture, 
           // base/other body behind them using the same depth-thickness test.
           float coverage=nearBody.a*deepBody.a;
           if(abs(indexOf(nearBody)-id)>.5||abs(indexOf(deepBody)-id)>.5)coverage=0.;
+          // Sampling along a blade's length must not mistake it for a wide body.
+          // Require width across that direction as well, in CSS pixels.
+          vec2 crossUv=vec2(-direction.y,direction.x)*pixelRatio/resolution*2.5;
+          vec2 inner=edge+stepUv*2.;
+          vec4 left=maskAt(inner-crossUv),right=maskAt(inner+crossUv);
+          coverage*=left.a*right.a;
+          if(abs(indexOf(left)-id)>.5||abs(indexOf(right)-id)>.5)coverage=0.;
           vec4 here=inverseProjection*vec4(edge*2.-1.,texture2D(bodyDepth,edge).r*2.-1.,1.);
           float tolerance=10.*abs(inverseProjection[1][1]/here.w)/max(1.,resolution.y/pixelRatio);
           coverage*=1.-smoothstep(tolerance,tolerance*2.,max(0.,viewDepth(edge)-viewDepth(edge+stepUv*3.5)));
           vec4 color=texture2D(palette,vec2((id+.5)/256.,.5));
-          float strength=smoothstep(.25,.85,coverage)*color.a;
+          float strength=smoothstep(.25,.85,coverage)*color.a*.7;
           if(strength>best){best=strength;border=color;}
         }
         if(best<.01)discard;

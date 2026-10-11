@@ -21,7 +21,11 @@ for(const model of manifest.models){
   const pos=p.getAttribute('POSITION');for(const v of pos.getArray())assert(Number.isFinite(v));
   for(const i of p.getIndices().getArray())assert(i<pos.getCount());triangles+=p.getIndices().getCount()/3;
  }
- assert.equal(triangles,model.triangles);assert(triangles<source.triangles*.5);
+ assert.equal(triangles,model.triangles);assert(triangles<source.triangles);
+ if(model.id==='vanec'){
+  const head=receipt.primitives.filter(p=>p.nodes.some(n=>/head|face/i.test(n)));
+  assert(head.length>0);assert(head.every(p=>p.preserved&&p.before===p.after),'Vanec head remains intact');
+ }else assert(triangles<source.triangles*.5);
  assert.deepEqual(doc.getRoot().listTextures().map(t=>hash(t.getImage())),receipt.textures.map(t=>t.sha256));
  assert(Object.values(receipt.verified).every(Boolean));
  console.log(`${model.id}: ${triangles.toLocaleString()} triangles; textures, bases and source hashes verified`);

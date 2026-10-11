@@ -7,8 +7,8 @@ foreground bodies suppress it. Scissors restrict the filter to figure bounds.
 The mask's personal-visibility and coverage channels remain unchanged.
 
 Druk, Varis and Vanec have additional battlefield copies with 51,832, 74,034
-and 58,441 triangles respectively. Together they contain 184,307 triangles,
-93.7% fewer than the originals. Textures remain byte-exact; materials, animation
+and 179,963 triangles respectively. Together they contain 305,829 triangles,
+89.5% fewer than the originals. Textures remain byte-exact; materials, animation
 channels, transforms and base measurements are preserved. Geometry reduction
 is lossy, so these copies are intended for small on-screen figures.
 
@@ -21,8 +21,9 @@ released. Monster models already have much smaller geometry and are unchanged.
 
 ## Integrated GPU comparison
 
-Before: merged revision `8241e8bc`. After: its `codex/silhouette-outlines-distance-lod`
-implementation. Ryzen 7 7800X3D integrated AMD graphics, verified through ANGLE
+Before: merged revision `8241e8bc`. After: first iteration `06a7982`, before the
+visual refinement below. These timings do not measure the final refined models
+or centering correction. Ryzen 7 7800X3D integrated AMD graphics, verified through ANGLE
 D3D11 adapter 0x164E, 1440 x 900 / DPR 1. The RTX 5090 did not render these runs.
 This desktop's small integrated GPU is not representative of every laptop.
 
@@ -76,6 +77,26 @@ and prior quality GLBs remain intact. Prebuild validates the shipped copies.
 supports synchronized rotation, zoom and character selection. It uses studio
 lighting and is a shape review, not a mobile battlefield performance benchmark.
 Normal-distance side-by-side views were inspected for all three characters.
+
+## Visual refinement after the first review
+
+The first implementation accidentally centered the source scene and its placement
+group, putting figures above the intended base and clipping the outline at the
+shoulders. Outline bounds now account for the one placement offset without
+changing source transforms. A geometry test compares them with the actual placed
+model. Borders have 70% opacity and inspect transverse width as well as inward
+coverage; separate authored weapon parts receive a quarter-strength rim.
+
+Vanec's first 58,441-triangle copy lost face/collar detail. His replacement keeps
+the Low model's head geometry intact and uses non-permissive simplification for
+the remaining meshes, protecting UV/normal seams. Body/detail targets are 20%/45%
+at a 0.002 error limit, with crown geometry counted as detail. It contains 179,963
+triangles and is 19.31 MB, still 84.2% fewer triangles than the original. Close
+zoom restores higher detail up to the chosen quality ceiling; a browser test
+checks Vanec specifically reaches the original on High.
+
+[Updated interactive review](https://dnd.nic024i.app/uploads/previews/silhouette-lod-refined-20261010/index.html)
+shows the replacement next to the original, including a face view.
 
 Browser regressions cover thin-blade suppression, overlapping bodies, distinct
 instanced border colors, visibility-mask channels, name occlusion, cached masks,
