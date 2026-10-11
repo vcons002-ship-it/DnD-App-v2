@@ -1,3 +1,4 @@
+import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
 import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart} from './miniatureSilhouetteOutline';
 import {miniatureLodForPixels,type MiniatureLod} from '../../../shared/miniatureLod';
 import {createMiniatureBatches} from './miniatureBatches';
@@ -285,7 +286,6 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let disposed = false;
   let failed = false;
   let frame = 0;
-  let frameQueued = false;
   let lastPaint = 0;
   const started = performance.now();
   let lastIds = '';
@@ -297,7 +297,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let battlefield: ReturnType<typeof createBattlefieldEnvironment> | null = null;
   let lastEnvironment: EnvironmentPreviewSettings | undefined;
   let paintCount = 0, paintEpoch = performance.now();
-  let totalPaintCount = 0;
+  let totalPaintCount = 0, totalFrameCount = 0, countedFrame = -Infinity;
   const timing=initial.environmentPreview&&new URLSearchParams(location.search).has('benchmark')?createPreviewGpuTiming(renderer.getContext()):null;
   const visionTiming=timing?createPreviewGpuTiming(renderer.getContext()):null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -357,7 +357,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     failed = true;
     props.onUnavailable?.();
     renderer.domElement.style.visibility = 'hidden';
-    cancelAnimationFrame(frame);
+    cancelBattlefieldFrame(frame);
     frame = 0;
     publish();
     dispose();
@@ -556,10 +556,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
         visionTiming?.end();
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
+        host.dataset.renderCount=String(++totalPaintCount);
+        // Count distinct browser frames, not extra scene draws within a frame.
+        if (_frameTime !== countedFrame) {
+          countedFrame = _frameTime; paintCount++;
+          host.dataset.frameCount=String(++totalFrameCount);
+        }
+        if(now-paintEpoch>=1500){host.dataset.renderFps=(paintCount*1000/(now-paintEpoch)).toFixed(1);paintCount=0;paintEpoch=now;}
         if (battlefield) {
-          paintCount++;
-          host.dataset.renderCount=String(++totalPaintCount);
-          if(now-paintEpoch>=1500){host.dataset.renderFps=(paintCount*1000/(now-paintEpoch)).toFixed(1);paintCount=0;paintEpoch=now;}
           host.dataset.environment=props.environmentPreview?.enabled ? 'on' : 'off';
           host.dataset.shadows=String(!!props.environmentPreview?.enabled && props.environmentPreview.shadows);
           host.dataset.directionalShadow=String(key.castShadow);
@@ -603,15 +607,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (!failed && (localShadows.pending || archArtStudy?.animating || archArtLayer.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
   };
   const queueDraw = () => {
-    if (frame || frameQueued || disposed || failed) return;
-    frameQueued = true;
-    // Let an enclosing camera-animation callback queue its next update first.
-    // That update can then cancel this fallback and paint the final camera and
-    // token positions once, instead of painting the old view and then the new.
-    queueMicrotask(() => {
-      frameQueued = false;
-      if (!frame && !disposed && !failed) frame = requestAnimationFrame(draw);
-    });
+    if (frame || disposed || failed) return;
+    frame = requestBattlefieldFrame(draw);
   };
   const invalidate = () => {
     if (disposed || failed || document.hidden) return;
@@ -949,7 +946,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     batches.dispose();
     if(lodTimer)clearTimeout(lodTimer);
     abort.abort();
-    cancelAnimationFrame(frame);
+    cancelBattlefieldFrame(frame);
     renderer.domElement.removeEventListener('webglcontextlost', contextLost);
     document.removeEventListener('visibilitychange', visibility);
     reducedMotion.removeEventListener('change', invalidate);
@@ -999,13 +996,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     setProjection(tilt, rotation, nextView) {
       if(disposed || failed)return;
       props={...props,tiltDegrees:tilt,rotationDegrees:rotation};view=nextView;
-      // Keep the miniature projection synchronous with the map. queueDraw puts
-      // the automatic animation fallback after the next camera update, so the
-      // update replaces that fallback rather than duplicating the scene render.
-      updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now());
+      // The shared frame applies all camera/vision transforms before its one
+      // scene paint, including an effects render queued before this gesture.
+      updateCamera();invalidate();
       host.dataset.tiltDegrees=String(tilt);scheduleLod();
     },
-    setView(next) { if (disposed||failed) return; view = next; scheduleLod();updateCamera();cancelAnimationFrame(frame);frame=0;lastPaint=0;draw(performance.now()); },
+    setView(next) { if (disposed||failed) return; view = next; scheduleLod();updateCamera();invalidate(); },
     previewMove(id, point) {
       if(disposed)return;
       if(!point){if(preview?.id===id)clearPreview();invalidate();return;}

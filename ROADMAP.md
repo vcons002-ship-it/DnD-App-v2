@@ -1,5 +1,13 @@
 # Roadmap & Feature Backlog
 
+- [x] Coalesce battlefield camera updates and animated effects into one scene
+  paint per browser frame. Apply projected map/vision transforms before the paint,
+  skip unused daylight vision overlays when both fog switches are off, and count
+  distinct render frames in FPS diagnostics. Keep graphics quality, wall targeting,
+  movement collision, darkness and exploration rules intact. Browser regressions
+  cover continuous rotation, dragging after rotation and fog switches. See
+  [controlled integrated-GPU results](docs/performance/rotation-scheduler-2026-10-11.md).
+
 - [x] Consolidate personal miniature/fog composition in the existing WebGL
   canvas. Reuse wall visibility polygons and cache the GPU cover until sight,
   lighting or camera changes; remove the recurring Canvas2D body copy and
