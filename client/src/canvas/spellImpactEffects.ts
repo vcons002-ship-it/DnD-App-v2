@@ -123,6 +123,7 @@ export function createSpellImpactEffects(scene:Scene){
       return lights;
     },
     get active(){return effects.size>0;},
+    get transientCount(){let count=0;for(const e of effects.values())if(e.root.visible&&!e.input.persistent)count++;return count;},
     get kinds(){return [...effects.values()].filter(e=>e.root.visible).map(e=>e.style.kind);},
     dispose(){effects.forEach(dispose);effects.clear();seen.clear();shapes.dispose();[plane,shaft,tip,spark].forEach(g=>g.dispose());glow.dispose();},
   };

@@ -2860,6 +2860,16 @@ Smaller refinements on top of the shipped Phase 2 work.
   auras; light waits for dice, respects walls and leaves exploration unchanged.
   See [spell impact lighting](docs/SPELL_IMPACT_LIGHTING.md).
 
+- [x] Spell-impact vision performance: cache exact light-band SVG geometry,
+  batch changed mask markup, and separate cosmetic flash updates
+  from the ordinary lighting/sight cover. Camera, movement and door edits remain
+  immediate; browser pixel comparisons and impact-only GPU benchmarks verify
+  the change independently of dice-time map throttling.
+
+- [x] Damage-number frame scheduling: one elapsed-time animation per component
+  preserves hold/easing and avoids delayed fades overlapping the next number;
+  blocked-frame and late-mount browser regression plus real spell timing checks.
+
 - [x] DM wall tracing with drag-to-draw rectangles covering both sides and thickness in one stroke; connected lines remain available for diagonal barriers. Includes endpoint/grid snapping and whole-wall erase/undo; saved per map and preserved through backup/restore. Walls block personal terrain/token sight, darkvision and placed/carried lights; hidden/fog rules and encounter reveal tags remain server-enforced. Includes cached visibility polygons and clipped light-field geometry for overhead/tilted views, plus a recorded two-player dungeon walkthrough. See [wall controls and verification](docs/MAP_WALLS_2026_09_28.md).
 - [x] Night/Dungeon and heavy darkness default to light-source-only token shadows. A separate saved Map directional shadows option lets the DM restore the fixed map shadow; lighting changes and presets apply their default while ordinary edits preserve overrides. Daylight retains map shadows, and old dark saves adopt the new default without changing torch/lantern shadows.
 - [x] Local torches and carried lanterns cast creature geometry shadows on terrain and figures; dungeon fill no longer casts a fixed directional shadow. Four nearby source depth cubes are cached between caster/source movement, with remaining lights still contributing illumination. Recorded Varis approaching Druk through the painted south doorway, entering/backtracking, darkvision, moving-lantern shadows and an opposite-side torch comparison.

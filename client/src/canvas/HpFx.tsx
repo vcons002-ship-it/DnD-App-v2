@@ -380,19 +380,21 @@ function FloaterText({number,position,fontSize,rise,startAt,holdMs,fadeMs,target
   const group=useRef<Konva.Group>(null);
   useEffect(()=>{
     const node=group.current;if(!node)return;
-    let drift:Konva.Tween|undefined,fade:Konva.Tween|undefined,fadeTimer:ReturnType<typeof setTimeout>|undefined;
-    const follow=new Konva.Animation(()=>{
-      const head=headPosition(tokenId);if(!head||!anchor.current)return false;
-      anchor.current.position({x:head.x,y:head.y+fontSize*.3});
+    // Use the shared impact clock for position and opacity. Timer-started
+    // tweens extend their lifetimes after a busy frame and can overlap the
+    // next scheduled component; one animation needs no delayed callbacks.
+    const duration=holdMs+fadeMs;
+    const animation=new Konva.Animation(()=>{
+      const elapsed=performance.now()-startAt;
+      if(elapsed<0)return false;
+      const head=headPosition(tokenId);
+      if(head&&anchor.current)anchor.current.position({x:head.x,y:head.y+fontSize*.3});
+      node.y(-rise*Konva.Easings.EaseOut(Math.min(duration,elapsed),0,1,duration));
+      node.opacity(elapsed<=holdMs?1:1-Konva.Easings.EaseIn(Math.min(fadeMs,elapsed-holdMs),0,1,fadeMs));
+      if(elapsed>=duration)animation.stop();
     },node.getLayer());
-    follow.start();
-    const stopTimer=setTimeout(()=>follow.stop(),Math.max(0,startAt-performance.now())+holdMs+fadeMs);
-    const timer=setTimeout(()=>{
-      node.opacity(1);
-      drift=new Konva.Tween({node,y:-rise,duration:(holdMs+fadeMs)/1000,easing:Konva.Easings.EaseOut});drift.play();
-      fadeTimer=setTimeout(()=>{fade=new Konva.Tween({node,opacity:0,duration:fadeMs/1000,easing:Konva.Easings.EaseIn});fade.play();},holdMs);
-    },Math.max(0,startAt-performance.now()));
-    return()=>{clearTimeout(timer);clearTimeout(fadeTimer);clearTimeout(stopTimer);follow.stop();drift?.destroy();fade?.destroy();};
+    animation.start();
+    return()=>{animation.stop();};
   },[]);
   const width=fontSize*3;
   return <Group ref={anchor} x={position.x} y={position.y+fontSize*1.3} listening={false}><Group ref={group} opacity={0} listening={false}>

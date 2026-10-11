@@ -52,6 +52,38 @@ flashes and uses stationary geometry.
 The first and final light update bypass the ordinary vision-light throttle so
 a static scene cannot retain a stale flash mask after rendering goes idle.
 
+Player vision maintains separate ordinary-light and spell-light masks. Spell
+flashes update at the map's rendered frame rate; ordinary lantern/torch vision
+updates retain their approximately 15 Hz cadence. Camera changes, movement,
+wall/door edits and server snapshots still refresh vision immediately. A
+cosmetic flash does not rebuild the GPU sight/exploration cover on every frame.
+
+The SVG light masks cache projected geometry for their 48 attenuation bands
+and retain wall clips instead of replacing the entire overlay DOM tree. Camera
+or source motion invalidates only that source's projected geometry; flicker
+updates the cached attenuation profile. Changed mask markup is batched into one
+DOM write per mask, avoiding hundreds of individual SVG attribute updates.
+Sources with exactly zero peak coverage skip projection/clipping entirely;
+only bands with nonzero opacity are projected. Geometry, rounding, falloff and
+clipping match the previous masks. No effect
+geometry, light samples, model quality or fog rules are reduced.
+
+Floating damage components use one elapsed-time animation each, replacing
+separate follow, drift and fade callbacks/timers. The existing hold durations,
+easing and rise remain the same. A delayed frame catches up to the impact's
+schedule instead of extending a fade into the next colored number; components
+mounted after their lifetime do not flash back onto the map.
+
+Performance measurements distinguish active spell-impact frames, ordinary map
+frames and dice-time background throttling. The existing 12 FPS map budget
+during a dice roll is not a spell-effect benchmark. Repeatable impact tests
+can replay identical visibility-filtered `fx:hp` payloads at the client socket
+boundary, without dice or gameplay randomness, then verify real combat timing
+separately. Use a fixed graphics preset, verify the actual WebGL adapter, and
+keep capture, CPU profiling and DOM mutation instrumentation out of FPS runs.
+See the [11 October dual-GPU comparison](SPELL_IMPACT_PERFORMANCE_2026-10-11.md)
+for the measured gains and remaining frame-time limits.
+
 ## Verification
 
 - Server regressions cover canonical identity, colors, smooth expiry, real Hail
@@ -61,8 +93,19 @@ a static scene cannot retain a stale flash mask after rendering goes idle.
   disposable heavy-darkness dungeon with walls, a lantern, all three player
   models and goblins. It verifies impact timing, expiry, hidden enemy privacy,
   increased rendered brightness on a nearby miniature, and light positions that
-  descend with arrows and rise along the growing vines.
+  descend with arrows and remain attached to the persistent vines.
 - Existing saves and the installed campaign are not modified by the tests.
+- `e2e/spell-light-mask.spec.ts` compares the retained masks against the old
+  attenuation using browser-rasterized pixels, verifies geometry/clip reuse,
+  unchanged-node retention, zero-contribution skips, clip invalidation,
+  ellipse/path fallback and expiry, and checks that flashes do
+  not change sight or delay movement/camera updates. The movement renderer
+  regressions also cover rotation during snapshots and door invalidation.
+- `e2e/hp-number-clock.spec.ts` advances a blocked-frame clock across multiple
+  damage components and verifies ordering, fade expiry, the cumulative total,
+  and late mounting. Real Hail of Thorns and Cure Wounds timing checks use
+  actual combat rolls. Persistent spell visuals are distinguished from newly
+  triggered impact flashes when checking that dice finish before new effects.
 
-The automated arrow/vine effects are a first visual pass. They are transient;
-they do not replace the target's persistent condition indicators.
+Arrow impacts are transient. Ensnaring Strike's condition-backed vines remain
+on the target while the condition is active, alongside its condition indicators.

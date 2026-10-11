@@ -423,6 +423,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           height:instance?.mistBody?instance.mistBody.height*instance.root.scale.x:undefined};
       });
       host.dataset.spellImpactCount=String(spellImpacts.kinds.length);
+      host.dataset.spellTransientCount=String(spellImpacts.transientCount);
       host.dataset.spellImpactKinds=spellImpacts.kinds.join(',');
       host.dataset.spellLightStrength=String(impactLights.reduce((sum,l)=>sum+l.strength,0));
       host.dataset.spellLightPositions=JSON.stringify(impactLights.map(l=>[l.x,l.height,l.y]));

@@ -169,7 +169,10 @@ for (const scenario of [
       expect(bowCalculation.every((s:any)=>s.wall<firstSave),'Bow arithmetic finishes before the first save frame').toBe(true);
       expect(frames.filter(f=>f.calculation)).toHaveLength(1);
       const dexFrame=frames.find(f=>f.mods.some(m=>m.label==='DEX'))!;
-      expect(dexFrame.sides,'DEX belongs to the bow d10, never the mark d6').toEqual([10]);
+      // A natural 20 adds a second weapon d10. Neither hit nor crit may
+      // attach DEX to the separately presented Hunter's Mark d6.
+      expect([1,2]).toContain(dexFrame.sides.length);
+      expect(dexFrame.sides.every(side=>side===10),'DEX belongs to the bow d10s, never the mark d6').toBe(true);
       // Compare presentations in the same browser, not a second socket's earlier delivery time.
       const firstMark=samples.find((s:any)=>s.live&&/Hunter.s Mark/.test(s.title))!.wall;
       expect(bowCalculation.every((s:any)=>s.wall<firstMark),'Bow arithmetic finishes before Hunter’s Mark rolls').toBe(true);
