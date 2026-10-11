@@ -3058,6 +3058,10 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ## Player sight and roll background performance - October 11, 2026
 
+- [x] Spell flashes use a soft colored overlay above darkvision grading, clipped
+  by existing visibility. They do not modify sight, exploration, darkvision masks,
+  ground/figure illumination or shadows. Ordinary torches and lanterns retain
+  their lighting and approximately 15 Hz vision updates.
 - [x] Stationary personal/party sight stays cached; unchanged SVG sight and
   exploration clips are retained. Circular light bands use equivalent projected
   ellipses with the existing near-plane clipping fallback.

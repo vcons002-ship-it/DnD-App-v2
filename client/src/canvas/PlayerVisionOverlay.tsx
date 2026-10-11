@@ -21,7 +21,6 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const nearShade=useRef<HTMLDivElement>(null),nearPaths=useRef<SVGGElement>(null);
  const root=useRef<HTMLDivElement>(null);
  const lightPaths=useRef<SVGGElement>(null),originPaths=useRef<SVGGElement>(null);
- const spellPaths=useRef<SVGGElement>(null);
  const sightPaths=useRef<SVGClipPathElement>(null),lightClips=useRef<SVGGElement>(null);
  const memoryPaths=useRef<SVGClipPathElement>(null),memoryPlane=useRef<HTMLDivElement>(null),memoryMap=useRef<HTMLDivElement>(null);
  const memoryCanvas=useRef<HTMLCanvasElement>(null);
@@ -34,17 +33,19 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const id=useId().replace(/:/g,'');
  const lightId=`vision-lights-${id}`,shadeId=`vision-shade-${id}`,nearId=`vision-near-${id}`,coverId=`vision-cover-${id}`;
  const sightId=`vision-sight-${id}`;
+ const flashId=`vision-visible-flash-${id}`;
  const memoryId=`vision-memory-${id}`,rangeId=`vision-retained-range-${id}`;
  useLayoutEffect(()=>{
   const parent=root.current?.parentElement;
   parent?.style.setProperty('--player-vision-cover',props.mapFogOfWar===false&&!props.vision.heavy?'none':`url(#${coverId})`);
-  return ()=>{parent?.style.removeProperty('--player-vision-cover');};
+  parent?.style.setProperty('--spell-vision-visible',props.mapFogOfWar===false&&!props.vision.heavy?'none':`url(#${flashId})`);
+  return ()=>{parent?.style.removeProperty('--player-vision-cover');parent?.style.removeProperty('--spell-vision-visible');};
  },[coverId,props.mapFogOfWar,props.vision.heavy]);
  const state=useRef(props);const live=useRef(new Map<string,{x:number;y:number}>());
  const propCamera=useRef({view:props.view,tilt:props.tilt,rotation:props.rotation});
  const renderedLights=useRef<VisionLight[]|null>(null);
- const pendingDraw=useRef(0),fullDraw=useRef(true),lastBaseLightDraw=useRef(0);
- const ordinaryMask=useRef<ReturnType<typeof createVisionLightMask>>(),spellMask=useRef<ReturnType<typeof createVisionLightMask>>();
+ const pendingDraw=useRef(0);
+ const ordinaryMask=useRef<ReturnType<typeof createVisionLightMask>>();
  const drawCount=useRef(0),baseDrawCount=useRef(0);
  const coverFrame=useRef<VisionCoverFrame>();
  const markup=useRef(new WeakMap<Element,string>());
@@ -93,21 +94,18 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   };
   const sourceLights=renderedLights.current??vision.lights;
   const positioned=(l:VisionLight)=>renderedLights.current?l:{...l,...(state.current.presentation?.position(l.id)??live.current.get(l.id)??l)};
-  // Separate retained nodes keep spell flashes from rebuilding sight, history,
-  // ordinary attenuation bands, or the GPU terrain cover on every frame.
+  // Only ordinary lamps affect darkvision. Cosmetic spell color is drawn
+  // separately above the grading and cannot change sight or exploration.
   ordinaryMask.current??=createVisionLightMask(lightPaths.current,lightClips.current,`vision-lamp-${id}`);
-  if(spellPaths.current)spellMask.current??=createVisionLightMask(spellPaths.current,lightClips.current,`vision-spell-${id}`);
   const projection={key:projectionKey,wallsKey,occluded:!!vision.walls?.length,ellipse:lightEllipse,
    circle:(l:VisionLight,r:number)=>path(l,r,true),clip:(l:VisionLight)=>path(l,SIGHT_EXTENT,true,true)};
-  spellMask.current?.sync(sourceLights.filter(l=>l.transient).map(positioned),projection);
   const finish=()=>{if(root.current){
    root.current.dataset.visionCpuMs=(performance.now()-began).toFixed(2);
    root.current.dataset.visionDrawCount=String(++drawCount.current);
    root.current.dataset.visionBaseDrawCount=String(baseDrawCount.current);
    root.current.dataset.lightBandShape='ellipse';root.current.dataset.lightBandReuse='retained';
   }};
-  if(!fullDraw.current){finish();return;}
-  fullDraw.current=false;lastBaseLightDraw.current=began;baseDrawCount.current++;
+  baseDrawCount.current++;
   // Reproject remembered terrain only when history or camera changes, never for
   // every light flicker. It contains map images/grid only, not a live scene copy.
   const geometry=state.current.presentation?state.current.presentation.explored():state.current.terrain?.explored,camera=JSON.stringify([view,tilt,rotation,width,height]);
@@ -121,8 +119,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   const circles=vision.origins.map(o=>`<path fill="black" d="${path(o,vision.heavy?vision.radius:SIGHT_EXTENT,false,wallFog&&!!vision.walls?.length)}"/>`).join('');
   setMarkup(sightPaths.current,vision.origins.map(o=>`<path d="${path(o,SIGHT_EXTENT,false,wallFog)}"/>`).join(''));
   setMarkup(nearPaths.current,!vision.daylight&&!vision.heavy?vision.origins.map(o=>`<path d="${path(o,vision.radius,false,wallFog)}"/>`).join(''):'');
-  // Ordinary lanterns keep their existing ~15 Hz vision cadence while the
-  // renderer and cosmetic spell-light bands continue at full frame rate.
+  // Ordinary lanterns keep their existing ~15 Hz vision cadence.
   ordinaryMask.current.sync(sourceLights.filter(l=>!l.transient).map(positioned),projection);
   // Keep the SVG mask in the DOM and share light geometry between both masks.
   // Encoding/decoding two large SVG image URLs per frame caused mobile stalls.
@@ -144,8 +141,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    })};
   for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);
   for(const slot of circlePaths.current.keys())if(!activeKeys.has('circle:'+slot))circlePaths.current.delete(slot);
-  // Cosmetic flashes restore color only inside already-visible terrain. They
-  // never enter the sight-cover mask or authorize/persist exploration.
+  // Grading is independent of spell flashes.
   const filter=vision.daylight?'none':vision.heavy?`grayscale(${HEAVY_DARKVISION_DESATURATION})`:'grayscale(.88) brightness(.78)';
   shade.current.style.backdropFilter=filter;
   shade.current.style.setProperty('-webkit-backdrop-filter',filter);
@@ -156,23 +152,21 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  // Movement, camera following and flickering lights can all update in one
  // frame. Rebuild the SVG masks once using the final state, not for every event.
  const schedule=()=>{if(!pendingDraw.current)pendingDraw.current=requestAnimationFrame(()=>{pendingDraw.current=0;draw();});};
- useEffect(()=>()=>{cancelAnimationFrame(pendingDraw.current);ordinaryMask.current?.dispose();spellMask.current?.dispose();},[]);
+ useEffect(()=>()=>{cancelAnimationFrame(pendingDraw.current);ordinaryMask.current?.dispose();},[]);
  useImperativeHandle(ref,()=>({
   cover(){if(pendingDraw.current){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();}return coverFrame.current;},
   memoryCanvas:()=>memoryCanvas.current,
-  frame(){fullDraw.current=true;cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},
+  frame(){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},
   lights(next){
-   const wasSpell=renderedLights.current?.some(l=>l.transient),spell=next.some(l=>l.transient);
-   renderedLights.current=next;
-   // First/last flash frames always publish normal lighting, including a map
-   // whose animation loop becomes idle immediately after the spell expires.
-   if(!spell||!wasSpell||performance.now()-lastBaseLightDraw.current>=66)fullDraw.current=true;
+   const ordinary=next.filter(l=>!l.transient),previous=renderedLights.current??state.current.vision.lights.filter(l=>!l.transient);
+   if(ordinary.length===previous.length&&ordinary.every((l,i)=>{const p=previous[i];return l.id===p.id&&l.x===p.x&&l.y===p.y&&l.radius===p.radius&&l.height===p.height&&l.strength===p.strength;}))return;
+   renderedLights.current=ordinary;
    schedule();
   },
-  camera(next){fullDraw.current=true;state.current={...state.current,...next};cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},
+  camera(next){state.current={...state.current,...next};cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},
   move(id,x,y){
    if(!state.current.vision.origins.some(o=>o.id===id)&&!state.current.vision.lights.some(l=>l.id===id))return;
-   live.current.set(id,{x,y});fullDraw.current=true;schedule();
+   live.current.set(id,{x,y});schedule();
   },
  }),[]);
  useLayoutEffect(()=>{
@@ -183,7 +177,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   state.current={...props,view:sameView?current.view:props.view,tilt:props.tilt===previous.tilt?current.tilt:props.tilt,rotation:props.rotation===previous.rotation?current.rotation:props.rotation};
   propCamera.current={view:props.view,tilt:props.tilt,rotation:props.rotation};renderedLights.current=null;
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
-  fullDraw.current=true;cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},[props]);
+  cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},[props]);
  const terrain=props.terrain,b=terrain?.bounds,g=terrain?.grid;
  return <><div ref={root} data-testid="player-vision" data-explored-regions={terrain?.explored?.length??0} data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.heavy?props.vision.rangeFt:'unlimited'} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
   style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}}>
@@ -194,13 +188,16 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    <mask id={rangeId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}><g ref={retainedRange}/></mask>
    <g id={`${nearId}-paths`} ref={nearPaths}/>
    <mask id={shadeId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
-    <rect width={props.width} height={props.height} fill="white"/><use href={`#${nearId}-paths`} fill="black"/><use href={`#${lightId}`}/><g ref={spellPaths}/>{props.keepRevealed&&<g clipPath={`url(#${memoryId})`} mask={`url(#${rangeId})`}><rect width={props.width} height={props.height} fill="black"/></g>}
+    <rect width={props.width} height={props.height} fill="white"/><use href={`#${nearId}-paths`} fill="black"/><use href={`#${lightId}`}/>{props.keepRevealed&&<g clipPath={`url(#${memoryId})`} mask={`url(#${rangeId})`}><rect width={props.width} height={props.height} fill="black"/></g>}
    </mask>
    <mask id={nearId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
     <rect width={props.width} height={props.height} fill="black"/><use href={`#${nearId}-paths`} fill="white"/><use href={`#${lightId}`}/>
    </mask>
    <mask id={coverId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
     <rect width={props.width} height={props.height} fill="white"/><g ref={originPaths}/>{props.vision.origins.length>0&&<g clipPath={`url(#${sightId})`}><use href={`#${lightId}`}/></g>}
+   </mask>
+   <mask id={flashId} maskUnits="userSpaceOnUse" x="0" y="0" width={props.width} height={props.height}>
+    <rect width={props.width} height={props.height} fill="white"/><rect width={props.width} height={props.height} fill="black" mask={`url(#${coverId})`}/>
    </mask>
   </defs></svg>
   <div data-testid="automatic-map-fog" style={{display:props.mapFogOfWar===false&&!props.vision.heavy?'none':undefined,position:'absolute',inset:0,background:'#050608',maskImage:`url(#${coverId})`}}>

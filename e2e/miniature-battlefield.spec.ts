@@ -3320,10 +3320,9 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
  }
 });
 
-test('spell impacts light a heavy dungeon after dice and keep hunter spell identities',async({page,request},info)=>{
+test('spell impacts overlay color in a heavy dungeon after dice and keep hunter spell identities',async({page,request},info)=>{
  test.setTimeout(240000);page.setDefaultTimeout(20000);await page.setViewportSize({width:1600,height:1000});
- // Directional spell illumination is the High-quality contract. Balanced keeps
- // terrain flashes and Low samples the terrain field instead (tested separately).
+ // All presets use cosmetic spell color; High still exercises the full geometry.
  await page.addInitScript(()=>localStorage.setItem('dnd-environment-quality','high'));
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});
  page.on('dialog',d=>d.accept());
@@ -3355,15 +3354,6 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
  const focus=(await tokenView(page,enemy.id))!;await page.mouse.move(focus.x,focus.y);
  for(let i=0;i<7;i++){await page.mouse.wheel(0,-100);await afterPaint(page);}
  await page.mouse.move(1250,230);await page.waitForTimeout(400);
- const drukView=(await tokenView(page,druk.id))!;
- const brightness=async(png:Buffer)=>{
-  const {data}=await sharp(png).extract({left:Math.round(drukView.x-16),top:Math.round(drukView.y-65),width:32,height:55}).removeAlpha().raw().toBuffer({resolveWithObject:true});
-  // Colored light need not raise all three channels: measure its strongest
-  // channel rather than treating saturated orange as dimmer than gray.
-  const channels=[0,0,0];for(let i=0;i<data.length;i++)channels[i%3]+=data[i];
-  return Math.max(...channels)/(data.length/3);
- };
- let darkBody=0;
  await page.evaluate(()=>{
   const label=document.createElement('div');label.id='spell-demo-caption';label.style.cssText='position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:100;background:#080d13eb;border:1px solid #a7b8b1;color:#ebf4ed;padding:12px 24px;border-radius:8px;font:22px Georgia;pointer-events:none;white-space:nowrap';document.body.append(label);
   const samples:any[]=[];(window as any).spellLightSamples=samples;
@@ -3377,8 +3367,9 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
   await page.waitForFunction(kind=>(document.querySelector('[data-testid="miniature-layer"]') as HTMLElement)?.dataset.spellImpactKinds===kind,kind,{polling:'raf',timeout:45000});
   await page.waitForFunction(()=>Number((document.querySelector('[data-testid="miniature-layer"]') as HTMLElement)?.dataset.spellLightStrength)>1,undefined,{polling:'raf',timeout:5000});
   if(kind==='arrows')await page.waitForTimeout(500); // falling light reaches the figures
-  const png=await page.screenshot({path:info.outputPath(`${name}.png`)});
-  if(kind==='arrows'||kind==='burst')expect(await brightness(png),'The nearby figure is actually illuminated').toBeGreaterThan(darkBody*1.3);
+  await expect.poll(async()=>Number(await page.getByTestId('spell-color-overlay').getAttribute('data-emitters'))).toBeGreaterThan(0);
+  await page.screenshot({path:info.outputPath(`${name}.png`)});
+  expect(await page.locator('[id^="vision-spell-"]').count()).toBe(0);
   expect(await tokenView(page,hidden.id)).toBeNull();
   if(kind==='vines'){
    // Current Ensnaring Strike keeps its vines while the condition is active.
@@ -3387,7 +3378,7 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
    expect(await layer.getAttribute('data-spell-impact-kinds')).toContain('vines');
   }else await done();
  };
- await caption('Heavy darkness — lantern light only');await page.waitForTimeout(1800);darkBody=await brightness(await page.screenshot({path:info.outputPath('00-before.png')}));
+ await caption('Heavy darkness — lantern light only');await page.waitForTimeout(1800);await page.screenshot({path:info.outputPath('00-before.png')});
  await caption('Hail of Thorns — a descending volley of magical arrows');
  let hailHit=false;
  for(let attempt=0;attempt<5&&!hailHit;attempt++){

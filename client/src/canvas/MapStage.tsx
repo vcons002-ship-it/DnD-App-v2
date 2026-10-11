@@ -429,13 +429,9 @@ export function MapStage({
   const visionCoverFrame=useCallback(()=>visionRef.current?.cover(),[]);
   const presentation=useRef(new TokenPresentation()).current;
   const visionLightTime=useRef(0);
-  const visionSpellLights=useRef(false);
   const handleVisionLights=useCallback((lights:import('../../../shared/playerVision').VisionLight[])=>{
-    const now=performance.now(),spell=lights.some(l=>l.transient);
-    // Always publish the first and last flash frame, including a static map
-    // whose render loop goes idle immediately after the effect expires.
-    if(spell===visionSpellLights.current&&now-visionLightTime.current<(spell?16:66))return;
-    visionSpellLights.current=spell;
+    const now=performance.now();
+    if(now-visionLightTime.current<66)return;
     visionLightTime.current=now;visionRef.current?.lights(lights);
   },[]);
   const [readyMiniatures, setReadyMiniatures] = useState<ReadonlySet<string>>(new Set());

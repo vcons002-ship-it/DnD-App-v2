@@ -35,6 +35,7 @@ import { createVanecLightning } from './vanecLightning';
 import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
 import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
 import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
+import {createSpellColorOverlay} from './spellColorOverlay';
 import {createLocalLightShadows} from './localLightShadows';
 import {useEnvironmentQuality,recordGraphicsFrame} from '../lib/useEnvironmentQuality';
 import {graphicsBudget} from '../../../shared/graphicsQuality';
@@ -194,6 +195,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   scene.matrixAutoUpdate=false;scene.matrixWorldAutoUpdate=false;
   const footprints=createMiniatureFootprints(scene);
   const spellImpacts=createSpellImpactEffects(scene);
+  const spellColor=createSpellColorOverlay(host.parentElement!);
   const localShadows=createLocalLightShadows(renderer,()=>invalidate());
   // Shared screen mask measures local silhouette thickness for every model,
   // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
@@ -237,7 +239,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     scene.environment = environment.texture;
     scene.environmentIntensity = NEUTRAL_MINIATURE_LIGHTING.reflection;
   } catch (error) {
-    spellImpacts.dispose();localShadows.dispose();
+    spellImpacts.dispose();spellColor.dispose();localShadows.dispose();
     sharedCanvas.remove();sharedDepth.dispose();names.dispose();visionLift?.dispose();visionComposite?.dispose();
     silhouette.dispose();outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
@@ -427,7 +429,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       host.dataset.spellImpactKinds=spellImpacts.kinds.join(',');
       host.dataset.spellLightStrength=String(impactLights.reduce((sum,l)=>sum+l.strength,0));
       host.dataset.spellLightPositions=JSON.stringify(impactLights.map(l=>[l.x,l.height,l.y]));
-      battlefield?.lighting.setTransient(impactLights);
+      // Spell flashes are cosmetic overlays, never illumination/vision inputs.
+      spellColor.draw(impactLights,view,props.tiltDegrees,props.rotationDegrees??0,props.width,props.height);
       battlefield?.setTokens(props.tokens.map(token => {
         const instance=instances.get(token.id);
         const x=instance?.root.position.x??token.x,y=instance?.root.position.z??token.y;
@@ -975,7 +978,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     raisedStudy?.dispose();
     archArtStudy?.dispose();
     archArtLayer.dispose();
-    spellImpacts.dispose();
+    spellImpacts.dispose();spellColor.dispose();
     footprints.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());

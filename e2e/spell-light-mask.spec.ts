@@ -1,7 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
+import sharp from 'sharp';
 
-test('retained spell-light bands match the previous attenuation and reuse projected geometry and clips through flicker',async({page})=>{
+test('ordinary light bands preserve attenuation and reuse projected geometry and clips through flicker',async({page})=>{
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
  import {createVisionLightMask} from './client/src/canvas/visionLightMask';
  import {createVisionLightProjector} from './client/src/canvas/visionLightEllipse';
@@ -44,7 +45,35 @@ test('retained spell-light bands match the previous attenuation and reuse projec
  expect(result.invisible).toBe(true);expect(result.moved).toBe(true);expect(result.fallback).toBe(true);expect(result.remaining).toBe(0);expect(result.clips).toBe(0);
 });
 
-test('spell flashes update independently without changing sight or delaying camera and movement',async({page})=>{
+test('colored spell overlay stays above darkvision, is clipped at walls and clears after the flash',async({page})=>{
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',define:{'import.meta.env':'{}'},stdin:{resolveDir:process.cwd(),contents:`
+ import React from 'react';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';
+ import {Vector3} from 'three';import {PlayerVisionOverlay} from './client/src/canvas/PlayerVisionOverlay';import {createSpellColorOverlay} from './client/src/canvas/spellColorOverlay';
+ document.body.style.margin='0';
+ const container=document.createElement('div');container.style.cssText='position:relative;width:700px;height:500px;background:#303030';document.body.append(container);
+ const root=createRoot(container),ref=React.createRef();let overlay;
+ window.setFlashMode=heavy=>{overlay?.dispose();flushSync(()=>root.render(React.createElement(PlayerVisionOverlay,{ref,width:700,height:500,view:{x:0,y:0,scale:1},tilt:0,rotation:0,mapFogOfWar:true,
+ vision:{daylight:false,rangeFt:60,radius:160,heavy,origins:[{id:'pc',x:180,y:160}],lights:[],walls:[{id:'wall',kind:'rectangle',ax:300,ay:0,bx:312,by:500}]}})));overlay=createSpellColorOverlay(container);};
+ window.flash=on=>overlay.draw(on?[{id:'flash',x:270,y:160,height:50,radius:150,strength:3,color:new Vector3(1,0,0),visibleTorch:false,transient:true}]:[],{x:0,y:0,scale:1},0,0,700,500);
+ `}});
+ await page.setViewportSize({width:700,height:500});await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
+ const pixels=async()=>{const png=await page.screenshot();return sharp(png).removeAlpha().raw().toBuffer();};
+ for(const heavy of [false,true]){
+  await page.evaluate(h=>(window as any).setFlashMode(h),heavy);const before=await pixels();
+  const originalMask=await page.locator('[id^="vision-cover-"]').innerHTML();
+  await page.evaluate(()=>(window as any).flash(true));const flash=await pixels();
+  const pixel=(data:Buffer,x:number,y:number)=>[...data.subarray((y*700+x)*3,(y*700+x)*3+3)];
+  const visibleBefore=pixel(before,265,160),visibleFlash=pixel(flash,265,160);
+  expect(visibleFlash[0]-visibleBefore[0]).toBeGreaterThan(25);
+  expect(visibleFlash[0]-visibleFlash[1]).toBeGreaterThan(25);
+  expect(pixel(flash,340,160)).toEqual(pixel(before,340,160));
+  expect(await page.locator('[id^="vision-cover-"]').innerHTML()).toBe(originalMask);
+  await page.evaluate(()=>(window as any).flash(false));const after=await pixels();
+  expect(pixel(after,265,160)).toEqual(visibleBefore);
+ }
+});
+
+test('spell flashes cannot change darkvision, sight or exploration; ordinary lights, camera and movement still update',async({page})=>{
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',define:{'import.meta.env':'{}'},stdin:{resolveDir:process.cwd(),contents:`
  import React from 'react';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';
  import {PlayerVisionOverlay} from './client/src/canvas/PlayerVisionOverlay';
@@ -58,14 +87,15 @@ test('spell flashes update independently without changing sight or delaying came
  let same=0;
  for(let i=0;i<20;i++){now+=16;const before=ref.current.cover();ref.current.lights([lamp,{id:'spell',x:200+i,y:150,height:50,radius:90,strength:1+i*.1,transient:true}]);const after=ref.current.cover();if(after===before)same++;}
  const end=Number(container.firstChild.dataset.visionBaseDrawCount),unchanged=paths===container.querySelector('[id^="vision-cover-"]').innerHTML;
+ const beforeLamp=ref.current.cover();ref.current.lights([{...lamp,strength:2}]);const changedLamp=ref.current.cover()!==beforeLamp;
  const beforeMove=ref.current.cover();ref.current.move('pc',220,160);const moved=ref.current.cover()!==beforeMove;
  const oldPaths=[...container.querySelectorAll('ellipse')].map(n=>n.getAttribute('transform')).join(',');ref.current.camera({rotation:60});
  const camera=oldPaths!==[...container.querySelectorAll('ellipse')].map(n=>n.getAttribute('transform')).join(',');
  ref.current.lights([lamp]);ref.current.cover();const expired=container.querySelectorAll('[id^="vision-spell-"]').length===0;
- window.flashResult={same,baseDraws:end-base,unchanged,moved,camera,expired,hasTransient:initial.lights.some(l=>l.source.transient)};root.unmount();
+ window.flashResult={same,baseDraws:end-base,unchanged,changedLamp,moved,camera,expired,hasTransient:initial.lights.some(l=>l.source.transient)};root.unmount();
  `}});
  await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
  const r=await page.evaluate(()=>(window as any).flashResult);
- expect(r.same).toBeGreaterThanOrEqual(14);expect(r.baseDraws).toBeLessThanOrEqual(6);
- expect(r.unchanged).toBe(true);expect(r.moved).toBe(true);expect(r.camera).toBe(true);expect(r.expired).toBe(true);expect(r.hasTransient).toBe(false);
+ expect(r.same).toBe(20);expect(r.baseDraws).toBe(0);
+ expect(r.unchanged).toBe(true);expect(r.changedLamp).toBe(true);expect(r.moved).toBe(true);expect(r.camera).toBe(true);expect(r.expired).toBe(true);expect(r.hasTransient).toBe(false);
 });

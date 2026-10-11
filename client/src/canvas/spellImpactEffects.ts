@@ -7,8 +7,8 @@ import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeomet
 export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;startAt?:number;persistent?:boolean;fixed?:boolean};
 type Effect={input:SpellImpact;style:SpellImpactStyle;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
 
-/** Bounded, short-lived world-space geometry. No model downloads or new lights
- * in Three's shader signature: illumination uses the existing local light field. */
+/** Bounded world-space geometry. Emission samples feed a cosmetic color overlay;
+ * they do not become light sources or modify darkvision/sight calculations. */
 export function createSpellImpactEffects(scene:Scene){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=64;
   const ctx=canvas.getContext('2d')!,gradient=ctx.createRadialGradient(32,32,0,32,32,32);
@@ -96,7 +96,7 @@ export function createSpellImpactEffects(scene:Scene){
         e.sparks.forEach((point,i)=>{const a=point.userData.angle+(reduced?0:t*.5),progress=e.input.persistent?(t*.2+point.userData.seed)%1:t,r=e.style.kind==='mark'?.55:.4+progress*.4;
           point.position.set(Math.cos(a)*r,.15+(reduced?.25:progress)*(.4+point.userData.seed),Math.sin(a)*r);point.scale.setScalar(i%3===0?1.3:.7);});
         // Sample luminous geometry after applying this frame's exact transforms.
-        // Three samples approximate an extended emitter without new shadow maps.
+        // Three samples place the cosmetic overlay around the animated geometry.
         // No source is placed at the target center, and hidden geometry emits none.
         e.root.updateMatrixWorld(true);
         const samples:{object:Group|Mesh;local:Vector3;weight:number}[]=[];
