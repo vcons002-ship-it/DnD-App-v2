@@ -5,7 +5,9 @@ Review candidates generated on 10 October 2026 from the exact runtime models in
 unchanged. Reviewed copies now ship as local graphics tiers: High uses originals,
 Balanced (the default) uses conservative copies, and Low/Effects off use lighter
 copies. Auto selects the matching model tier based on rendering performance. Campaign
-token data and base sizes do not change.
+token data and base sizes do not change. These graphics tiers now serve as detail
+ceilings: small figures use newer battlefield copies and acquire more detail as
+you zoom in. See [the distance-detail follow-up](performance/silhouette-lod-2026-10-10.md).
 
 | Character | Original triangles | Conservative triangles | Lighter triangles | Original MB | Lighter MB |
 |---|---:|---:|---:|---:|---:|

@@ -11,10 +11,15 @@ import {MeshoptDecoder,MeshoptEncoder,MeshoptSimplifier} from 'meshoptimizer';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const out=path.resolve(process.argv[2]??path.join(root,'artifacts/character-reduction'));
 const manifest=JSON.parse(await fs.readFile(path.join(root,'client/public/miniatures/manifest.json'),'utf8'));
+const battlefield=process.argv.includes('--battlefield');
+if(battlefield){
+ const quality=JSON.parse(await fs.readFile(path.join(root,'client/public/miniatures/quality-manifest.json'),'utf8'));
+ manifest.models=manifest.models.map(m=>({...m,...quality.models.find(q=>q.id===m.id&&q.profile==='low')}));
+}
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 await Promise.all([MeshoptDecoder.ready,MeshoptEncoder.ready,MeshoptSimplifier.ready]);
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({'meshopt.decoder':MeshoptDecoder,'meshopt.encoder':MeshoptEncoder});
-const profiles=[{id:'balanced',bodyRatio:.22,detailRatio:.45,error:.001},{id:'light',bodyRatio:.08,detailRatio:.25,error:.002}];
+const profiles=battlefield?[{id:'battlefield',bodyRatio:.12,detailRatio:.25,error:.004,permissive:true}]:[{id:'balanced',bodyRatio:.22,detailRatio:.45,error:.001},{id:'light',bodyRatio:.08,detailRatio:.25,error:.002}];
 const accessor=a=>({type:a.getType(),normalized:a.getNormalized(),array:hash(Buffer.from(a.getArray().buffer,a.getArray().byteOffset,a.getArray().byteLength))});
 const animations=d=>d.getRoot().listAnimations().map(a=>({name:a.getName(),channels:a.listChannels().map(c=>({node:c.getTargetNode().getName(),path:c.getTargetPath(),interpolation:c.getSampler().getInterpolation(),input:accessor(c.getSampler().getInput()),output:accessor(c.getSampler().getOutput())}))}));
 const scene=d=>d.getRoot().listNodes().map(n=>({name:n.getName(),translation:n.getTranslation(),rotation:n.getRotation(),scale:n.getScale(),children:n.listChildren().map(x=>x.getName()),mesh:d.getRoot().listMeshes().indexOf(n.getMesh())}));
@@ -46,8 +51,8 @@ for(const model of manifest.models){
   for(const mesh of doc.getRoot().listMeshes())for(const p of mesh.listPrimitives()){
    const nodes=doc.getRoot().listNodes().filter(n=>n.getMesh()===mesh).map(n=>n.getName());
    const label=[...nodes,p.getMaterial()?.getName()].join(' '),before=p.getIndices().getCount()/3;
-   const detail=/head|face|hand(?!axe)|wrist|neck/i.test(label);
-   const preserve=before<2000||/lightning|glow|repair|closure|transition|eye/i.test(label);
+   const detail=/head|face|hand(?!axe)|wrist|neck/i.test(label)||(battlefield&&/weapon|sword|knife|bow|staff/i.test(label));
+   const preserve=before<(battlefield?500:2000)||/lightning|glow|repair|closure|transition|eye/i.test(label);
    let actualError=0;
    if(!preserve){
     // Retain existing vertex attributes. Weight normals, UVs and vertex color in
@@ -63,7 +68,7 @@ for(const model of manifest.models){
      let offset=v*stride;for(const a of attrs)for(let k=0;k<a.getElementSize();k++)packed[offset++]=a.getArray()[v*a.getElementSize()+k];
     }
     const simplifier={simplify(indices,positions,posStride,target,error,flags){
-     const result=MeshoptSimplifier.simplifyWithAttributes(indices,positions,posStride,packed,stride,weights,null,target,error,flags);
+     const result=MeshoptSimplifier.simplifyWithAttributes(indices,positions,posStride,packed,stride,weights,null,target,error,battlefield?[...flags,'Permissive']:flags);
      actualError=result[1];return result;
     }};
     simplifyPrimitive(p,{simplifier,ratio:detail?policy.detailRatio:policy.bodyRatio,error:policy.error,lockBorder:true});

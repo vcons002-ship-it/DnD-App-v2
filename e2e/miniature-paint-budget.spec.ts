@@ -83,7 +83,7 @@ test('body mask reuses identical pixels and immediately refreshes pose, camera, 
  const replacement=new T.Group();root.remove(model);root.add(replacement);if(mask.needsRender(target,scene,camera))rendered++;
  window.maskPaint={idle,movedCount,cameraCount,hiddenCount,sharedCount,mirrorsCount,animationCount,materialCount,modelCount,resizeCount,replacementCount:rendered,
   moved:JSON.stringify(initial)!==JSON.stringify(moved),cameraChanged:JSON.stringify(moved)!==JSON.stringify(cameraPixels),
-  hiddenEmpty:hidden.every(v=>v===0),sharedHasBody:shared.some((v,i)=>i%4===1&&v>0),sharedPersonalEmpty:shared.every((v,i)=>i%4!==0||v===0)};
+  hiddenEmpty:hidden.every(v=>v===0),sharedHasBody:shared.some((v,i)=>i%4===3&&v>0),sharedPersonalEmpty:shared.every((v,i)=>i%4!==0||v===0)};
  target.dispose();material.dispose();body.geometry.dispose();body.material.dispose();renderer.dispose();
  `}});
  await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});

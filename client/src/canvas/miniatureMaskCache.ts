@@ -15,7 +15,7 @@ export function createMiniatureMaskCache(){
         if(node instanceof InstancedMesh&&node.count===0)return;
         const geometry=node.geometry;
         bodies.push([node.uuid,node.layers.mask,node.matrixWorld.elements,geometry.uuid,
-          geometry.getAttribute('position')?.version,geometry.index?.version,geometry.drawRange,geometry.groups,
+          node.userData.outlineId,geometry.getAttribute('instanceOutline')?.version,geometry.getAttribute('position')?.version,geometry.index?.version,geometry.drawRange,geometry.groups,
           geometry.morphTargetsRelative,geometry.morphAttributes.position?.map((a:BufferAttribute|InterleavedBufferAttribute)=>'data' in a?a.data.version:a.version),
           node instanceof Mesh?node.morphTargetInfluences:undefined,
           node instanceof SkinnedMesh?node.skeleton.bones.map(b=>b.matrixWorld.elements):undefined,
