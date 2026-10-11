@@ -32,16 +32,40 @@ describe('static miniature batching',()=>{
     batches.dispose();expect(scene.children.some(n=>n.name==='batched-miniatures')).toBe(false);
     expect((items[0].root.children[0].children[0] as Mesh).layers.isEnabled(0)).toBe(true);
   });
-  it('keeps hidden, shared-sight, animated eligibility and incompatible lights on separate paths',()=>{
+  it('excludes ineligible figures while batching even two figures with different lights',()=>{
     const scene=new Scene(),items=figures(scene),batches=createMiniatureBatches(scene);
     items[0].eligible=false;items[1].root.visible=false;
-    expect(batches.update(items)).toEqual({batches:0,instances:0});
+    expect(batches.update(items)).toEqual({batches:1,instances:2});
     items[0].eligible=true;items[1].root.visible=true;
     (items[0].lighting as any).signature='other room lamp';
-    expect(batches.update(items)).toEqual({batches:1,instances:3});
-    expect((items[0].root.children[0].children[0] as Mesh).layers.isEnabled(0)).toBe(true);
+    expect(batches.update(items)).toEqual({batches:1,instances:4});
     expect(batches.update(items,false)).toEqual({batches:0,instances:0});
     for(const item of items)expect((item.root.children[0].children[0] as Mesh).layers.isEnabled(0)).toBe(true);
+    batches.dispose();
+  });
+  it('retains independent per-instance source colors, shadow slots and darkvision and updates them without rebuilding a batch',()=>{
+    const scene=new Scene(),items=figures(scene),batches=createMiniatureBatches(scene);
+    items.forEach((f,i)=>{f.lighting.signature='lamp'+i;const u=f.lighting.uniforms;
+      u.torchCount.value=i+1;u.darkvisionDetail.value=i%2;
+      u.torchPositions.value[0].set(i,2,3,4);u.torchColors.value[0].set(.1*i,.2,.3);u.torchShadowSlots.value[0]=i-2;});
+    batches.update(items);const batch=scene.getObjectByName('batched-miniatures') as any;
+    const shader={uniforms:{},vertexShader:'#include <project_vertex>',fragmentShader:'uniform float torchShadowSlots[8]; uniform float darkvisionDetail; uniform int torchCount; uniform vec4 torchPositions[8]; uniform vec3 torchColors[8]; torchPositions[torchIndex]; torchColors[torchIndex]; torchShadowSlots[torchIndex]; torchCount; darkvisionDetail;'};
+    batch.material.onBeforeCompile(shader,{});const tex=(shader.uniforms as any).batchTorches.value,data=tex.image.data,width=tex.image.width;
+    for(let i=0;i<4;i++){expect(data[i*width*4]).toBe(i+1);expect(data[i*width*4+1]).toBe(i%2);
+      expect(data[(i*width+1)*4]).toBe(i);expect(data[(i*width+9)*4+3]).toBe(i-2);}
+    const version=tex.version;items[0].lighting.uniforms.torchPositions.value[0].x=42;batches.update(items);
+    expect(scene.getObjectByName('batched-miniatures')).toBe(batch);expect(data[4]).toBe(42);expect(tex.version).toBeGreaterThan(version);
+    const stable=tex.version;batches.update(items);expect(tex.version).toBe(stable);batches.dispose();
+  });
+  it('uses shared light uniforms on modest presets and never groups different source selections',()=>{
+    const scene=new Scene(),items=figures(scene),batches=createMiniatureBatches(scene);
+    items[0].lighting.signature=items[1].lighting.signature='left';items[2].lighting.signature=items[3].lighting.signature='right';
+    expect(batches.update(items,true,false,false)).toEqual({batches:0,instances:0});
+    items[2].lighting.signature='left';
+    expect(batches.update(items,true,false,false)).toEqual({batches:1,instances:3});
+    const meshes=scene.children.filter(n=>n.name==='batched-miniatures') as any[];
+    for(const mesh of meshes){const shader={uniforms:{},vertexShader:'',fragmentShader:''};mesh.material.onBeforeCompile(shader,{});
+      expect((shader.uniforms as any).batchTorches).toBeUndefined();expect((shader.uniforms as any).torchPositions).toBeDefined();}
     batches.dispose();
   });
 });

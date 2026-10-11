@@ -1,11 +1,15 @@
-import {Color, InstancedMesh, DataTexture, DoubleSide, Float32BufferAttribute, FrontSide, Group, Light, Mesh, MeshStandardMaterial, PlaneGeometry, SRGBColorSpace, Vector4, type Camera, type Scene, type WebGLRenderer} from 'three';
+import {Color, InstancedMesh, InstancedBufferAttribute, DataTexture, DoubleSide, Float32BufferAttribute, FrontSide, Group, Light, Mesh, MeshStandardMaterial, PlaneGeometry, SRGBColorSpace, Vector4, type Camera, type Scene, type WebGLRenderer} from 'three';
 import {createMiniatureTorchLighting} from './miniatureTorchLighting';
+import {createMiniatureBatchLighting,createMiniatureSharedLighting} from './miniatureBatchLighting';
 
 /** Compile common body/pewter shaders before an encounter is revealed. These
  * probes contain no creature art or encounter information and are never drawn.
  * Keep their materials alive so Three retains the linked programs for reuse. */
 export function createMiniatureShaderWarmup(renderer:WebGLRenderer, torchLighting:ReturnType<typeof createMiniatureTorchLighting>){
   const root=new Group(),geometry=new PlaneGeometry(1,1);
+  const batchLighting=createMiniatureBatchLighting(1);
+  const sharedLighting=createMiniatureSharedLighting(torchLighting.uniforms);
+  geometry.setAttribute('instanceTorchRow',new InstancedBufferAttribute(new Float32Array([0]),1));
   geometry.setAttribute('color',new Float32BufferAttribute(new Float32Array(12).fill(1),3));
   const texture=new DataTexture(new Uint8Array([255,255,255,255]),1,1);
   texture.colorSpace=SRGBColorSpace;texture.needsUpdate=true;
@@ -16,9 +20,11 @@ export function createMiniatureShaderWarmup(renderer:WebGLRenderer, torchLightin
   ];
   for(const material of materials){
     torchLighting.attach(material);
-    const batched=material.clone();batched.onBeforeCompile=material.onBeforeCompile;
-    const cache=material.customProgramCacheKey();batched.customProgramCacheKey=()=>cache+'-batched';
-    const instanced=new InstancedMesh(geometry,batched,1);instanced.setColorAt(0,new Color(0xffffff));instanced.receiveShadow=true;instanced.layers.set(30);root.add(instanced);
+    for(const lighting of [batchLighting,sharedLighting]){
+      const batched=material.clone();batched.onBeforeCompile=material.onBeforeCompile;
+      batched.customProgramCacheKey=material.customProgramCacheKey;lighting.attach(batched);
+      const instanced=new InstancedMesh(geometry,batched,1);instanced.setColorAt(0,new Color(0xffffff));instanced.receiveShadow=true;instanced.layers.set(30);root.add(instanced);
+    }
     const mesh=new Mesh(geometry,material);mesh.receiveShadow=true;
     mesh.frustumCulled=false;mesh.layers.set(30);root.add(mesh);
   }
@@ -54,6 +60,6 @@ export function createMiniatureShaderWarmup(renderer:WebGLRenderer, torchLightin
         if(!disposed){lastKey='';console.warn('Miniature shader warmup unavailable',error);}
       });
     },
-    dispose(){disposed=true;root.traverse(node=>{if(node instanceof InstancedMesh){node.dispose();(node.material as MeshStandardMaterial).dispose();}});materials.forEach(m=>m.dispose());geometry.dispose();texture.dispose();},
+    dispose(){disposed=true;root.traverse(node=>{if(node instanceof InstancedMesh){node.dispose();(node.material as MeshStandardMaterial).dispose();}});batchLighting.dispose();sharedLighting.dispose();materials.forEach(m=>m.dispose());geometry.dispose();texture.dispose();},
   };
 }

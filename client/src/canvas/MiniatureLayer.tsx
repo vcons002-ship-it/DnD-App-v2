@@ -2,6 +2,7 @@ import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame
 import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart} from './miniatureSilhouetteOutline';
 import {miniatureLodForPixels,type MiniatureLod} from '../../../shared/miniatureLod';
 import {createMiniatureBatches} from './miniatureBatches';
+import {createMiniatureTransform,retainMiniatureLocalTransforms} from './miniatureTransforms';
 import {createMirrorImages} from './mirrorImages';
 import {createMiniatureFootprints} from './miniatureFootprints';
 import type {FootprintMark} from './FootprintTrails';
@@ -116,6 +117,7 @@ type Instance = {
   torchLighting:ReturnType<typeof createMiniatureTorchLighting>;
   measureBody: () => MistBody;
   root: Group;
+  updateTransform:()=>boolean;
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
   selectionRing: Mesh<RingGeometry, MeshBasicMaterial>;
   conditionRings: Mesh<RingGeometry, MeshBasicMaterial>[];
@@ -187,6 +189,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   renderer.domElement.setAttribute('aria-hidden', 'true');
   host.appendChild(renderer.domElement);
   const scene = new Scene();
+  // All transforms are prepared once after environment/token animation. Color,
+  // body-mask and shared-sight passes then reuse those exact world matrices.
+  scene.matrixAutoUpdate=false;scene.matrixWorldAutoUpdate=false;
   const footprints=createMiniatureFootprints(scene);
   const spellImpacts=createSpellImpactEffects(scene);
   const localShadows=createLocalLightShadows(renderer,()=>invalidate());
@@ -395,6 +400,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if (battlefield && (wasVisible !== instance.root.visible || instance.root.position.x !== position.x || instance.root.position.z !== position.y || instance.root.rotation.y !== (position.facing ?? 0) || (animated && instance.shadowAnimated))) renderer.shadowMap.needsUpdate = true;
         instance.root.position.set(position.x, 0, position.y);
         instance.root.rotation.y = position.facing ?? 0;
+        instance.updateTransform();
     instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
         const pulse = reducedMotion.matches ? 0 : (Math.sin(seconds / 0.28) + 1) / 2;
         const selectionPulse = reducedMotion.matches ? 0 : (Math.sin(seconds * Math.PI * 2 / 1.6) + 1) / 2;
@@ -446,11 +452,15 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         props.onVisionLights?.(battlefield.lighting.lights);
       }
       try {
+        scene.updateMatrixWorld();
         timing?.begin();
-        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!tokenById.get(id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??EMPTY_WALLS,!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3,props.graphics);
+        localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!tokenById.get(id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??EMPTY_WALLS,!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3,props.graphics,true);
         for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??impactLights,instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
         const batching=batches.update([...instances].map(([id,i])=>({root:i.root,lighting:i.torchLighting,
-          eligible:!['druk','varis','vanec',DEATH_SKULL.id,SPIRITUAL_WEAPON.id].includes(tokenById.get(id)?.definition.id??'')&&!i.mixer&&!i.fx&&!i.lightning&&!tokenById.get(id)?.sharedSightOnly&&!tokenById.get(id)?.hidden&&!tokenById.get(id)?.invisible&&!tokenById.get(id)?.mirrorImages})),batchingEnabled);
+          eligible:!['druk','varis','vanec',DEATH_SKULL.id,SPIRITUAL_WEAPON.id].includes(tokenById.get(id)?.definition.id??'')&&!i.mixer&&!i.fx&&!i.lightning&&!tokenById.get(id)?.sharedSightOnly&&!tokenById.get(id)?.hidden&&!tokenById.get(id)?.invisible&&!tokenById.get(id)?.mirrorImages})),batchingEnabled,true,(props.graphics?.resolved??'high')==='high');
+        host.dataset.batchLighting=(props.graphics?.resolved??'high')==='high'?'instance-rows':'shared-uniforms';
+        // New batch meshes were added after the scene transform preparation.
+        for(const child of scene.children)if(child.name==='batched-miniatures')child.updateMatrixWorld();
         host.dataset.miniatureBatches=String(batching.batches);host.dataset.batchedMeshInstances=String(batching.instances);
         battlefield?.lighting.renderField(renderer);
         battlefield?.prepareMist(renderer);
@@ -459,7 +469,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const labels=props.nameLabels?.()??[];
         const renderedNames=names.sync(labels,visible,sharedIds);
         if ((archArtStudy || archArtLayer.hasArt || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) &&
-          bodyMaskCache.needsRender(outlineMask,scene,camera)) {
+          bodyMaskCache.needsRender(outlineMask,scene,camera,true)) {
           const originalLayers = camera.layers.mask;
           camera.layers.set(1); scene.overrideMaterial = maskMaterial;
           const shadowUpdate = renderer.shadowMap.needsUpdate;
@@ -656,11 +666,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       node.layers.enable(token.sharedSightOnly?4:5);
     });
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
+    model.updateMatrix();
     if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
     instance.hunterMark.visible=!!token.hunterMarked && !token.sharedSightOnly;
     instance.root.visible = visible;
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;
+    instance.updateTransform();
     instance.mirrors.update(token.mirrorImages??0,camera,!!token.sharedSightOnly,token.hidden);
         instance.combatBadge.rotation.y=(props.rotationDegrees??0)*Math.PI/180-instance.root.rotation.y;
     instance.combatBadge.visible=!!token.combatRole;
@@ -815,9 +827,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const current=tokenById.get(token.id);
         if (!current || current.definition.url!==definition.url || instances.get(token.id)?.url===definition.url) return;
         const root = new Group();
+        const updateTransform=createMiniatureTransform(root);
         // Animated source transforms remain intact below this base-centering group.
         const centered = new Group();
         const model = gltf.scene.clone(true);
+        if(!gltf.animations.length)retainMiniatureLocalTransforms(model);
+        centered.matrixAutoUpdate=false;
         let measured=measurements.get(definition.url);
         if(!measured){measured={anchor:measureLanternAnchor(model,definition)};measurements.set(definition.url,measured);}
         const lanternAnchor=measured.anchor.clone(),torchLighting=createMiniatureTorchLighting(localShadows.uniforms);
@@ -897,7 +912,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           modelId:definition.id,
           mirrors:createMirrorImages(centered,root,renderer,()=>scene.environment,definition.baseDiameter),
           baseDiameter:definition.baseDiameter,outlineBounds,lanternAnchor,torchLighting,
-          root, turnRing, selectionRing, conditionRings, hunterMark, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
+          root, updateTransform, turnRing, selectionRing, conditionRings, hunterMark, combatBadge, badgeMesh, badgeTexture, url: definition.url, materials,
           originalColors: materials.map(m => m instanceof MeshStandardMaterial ? m.color.clone() : null),
           originalOpacity: materials.map((material) => material.opacity),
           originalTransparent: materials.map((material) => material.transparent), mixer, fx: null,
