@@ -1,6 +1,6 @@
 import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
 import {mirrorImageCount} from '../../../shared/linkedSpells';
-import {pointInSpellArea,areaOrigin,type SpellAreaPlacement} from '../../../shared/spellAreas';
+import {tokenInSpellArea,areaExcludesCaster,areaOrigin,type SpellAreaPlacement} from '../../../shared/spellAreas';
 import {tokenDistanceFt} from '../../../shared/distance';
 import {SpellAreaShapes} from './SpellAreaShapes';
 import {DEATH_SKULL} from '../lib/miniatures';
@@ -696,7 +696,7 @@ export function MapStage({
   const areaTargets=areaCast&&areaActor&&map?snapshot.tokens.filter(t=>{
     const e=resolveToken(snapshot,t);
     return !t.sharedSightOnly&&!e.dead&&!(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.objectKind)&&
-      !(areaCast.spec.excludeCaster&&t.id===areaActor.id)&&pointInSpellArea(areaCast.spec,areaPreview,areaActor,t,map.gridSizePx/map.feetPerSquare)&&
+      !(areaExcludesCaster(areaCast.spec)&&t.id===areaActor.id)&&tokenInSpellArea(areaCast.spec,areaPreview,areaActor,t,map.gridSizePx/map.feetPerSquare)&&
       areaPreview.points.some((_,i)=>hasLineOfSight(areaOrigin(areaCast.spec,areaPreview,areaActor,map.gridSizePx/map.feetPerSquare,i),t,map.walls));
   }):[];
   // Send the latest geometry at most every 70 ms while the pointer is moving.
@@ -2798,7 +2798,7 @@ export function MapStage({
           {teleportCast&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Misty Step destination" style={{zIndex:30}}><strong>Misty Step ? 30 ft</strong><span>Click a visible, unoccupied destination, then confirm.</span>{teleportError&&<span role="alert">{teleportError}</span>}<button className="btn" disabled={!teleportPoint||!!teleportError} onClick={()=>{if(teleportPoint&&map)useStore.getState().rollAbility({...teleportCast,destination:{mapId:map.id,...teleportPoint}});clearTeleportCast();}}>Teleport</button><button className="btn" onClick={clearTeleportCast}>Cancel (Esc)</button></div>}
           {areaCast&&areaActor&&map&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Place spell area" style={{flexWrap:'wrap',maxWidth:'min(760px,calc(100% - 30px))',zIndex:30,borderColor:'#e0be6b'}}>
             <strong>{areaCast.name} · {areaCast.spec.sizeFt} ft {['sphere','cylinder','emanation'].includes(areaCast.spec.kind)?'radius':areaCast.spec.kind}</strong>
-            <span>{areaCast.name.toLowerCase()==='pass without trace'?'Choose allies to share your moving Stealth aura.':areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Base centers determine affected creatures; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
+            <span>{areaCast.name.toLowerCase()==='pass without trace'?'Choose allies to share your moving Stealth aura.':areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Overlapping combat footprints are affected; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
             {areaRangeError&&<span role="alert">Choose an origin within {areaCast.spec.rangeFt} ft and outside Total Cover.</span>}
             <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} visible targets{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
             {areaCast.spec.selective&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{areaTargets.map(t=>{const e=resolveToken(snapshot,t);return <label key={t.id}><input type="checkbox" checked={!areaExcluded.includes(t.id)} onChange={()=>setAreaExcluded(old=>old.includes(t.id)?old.filter(id=>id!==t.id):[...old,t.id])}/>{e.name}{t.revealTag&&t.revealTag!=='U'?` ${t.revealTag}`:''}</label>;})}</div>}

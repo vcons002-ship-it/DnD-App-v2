@@ -183,6 +183,11 @@ describe('linked damage and saving throws',()=>{
     const logs=listRollLog(f.session.id);expect(logs.some(r=>r.reveal?.title?.includes('cold Damage'))).toBe(true);
     expect(logs.filter(r=>r.reveal?.title?.includes('DEX Saving Throw'))).toHaveLength(2);
   });
+  it.each([true,false])('Ice Knife splash checks the nearby occupied footprint (overlap %s)',overlap=>{
+    const f=setup('Ice Knife');moveToken(f.nearby.id,overlap?274:276,100);
+    withDiceSource(s=>s.map(n=>n===20?1:4),()=>f.cast(2));
+    expect(getMonster(f.second.id)!.curHp).toBe(overlap?488:500);
+  });
   it('Acid Arrow deals delayed damage once at the end of the target turn, and no delayed damage on a miss',()=>{
     const f=setup("Melf’s Acid Arrow");withDiceSource(s=>s.map(n=>n===20?15:2),()=>f.cast(2));expect(monsterHp(f)).toBe(492);
     dice(2,()=>processHitEffects(f.session.id,f.target,'start'));expect(monsterHp(f)).toBe(492);

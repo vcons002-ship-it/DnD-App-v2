@@ -1,6 +1,62 @@
 import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 
+test('Lightning Bolt follows the full aimed line at waist height, renders in both views and expires',async({page})=>{
+ const errors:string[]=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(e.message));
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import {Scene,Vector3,PerspectiveCamera,WebGLRenderer} from 'three';import {createSpellImpactEffects} from './client/src/canvas/spellImpactEffects';
+ const scene=new Scene(),effects=createSpellImpactEffects(scene),event={id:1,tokenId:'area',x:10,y:20,diameter:5,event:{kind:'pc',refId:'mage',delta:0,effect:'spell-area',spell:'Lightning Bolt',areaPosition:{mapId:'map',x:10,y:20,radiusFt:2.5,end:{x:10,y:120}}}};
+ effects.sync([event],0);const lights=effects.tick(200,1,false,()=>({x:10,y:20,visible:true,height:6}));
+ const root=scene.children[0],shape=root.children[1];root.updateMatrixWorld(true);
+ const start=shape.localToWorld(new Vector3(0,0,0)).toArray(),end=shape.localToWorld(new Vector3(1,0,0)).toArray();
+ const scales=[1,2,10].map(px=>{const lights=effects.tick(200,px,false,()=>({x:10,y:20,visible:true,height:6}));root.updateMatrixWorld(true);return {px,height:shape.localToWorld(new Vector3()).y,lightHeights:lights.map(l=>l.height)};});
+ const camera=new PerspectiveCamera(45,1,.1,300),renderer=new WebGLRenderer({alpha:true,preserveDrawingBuffer:true});renderer.setSize(256,256);document.body.append(renderer.domElement);camera.layers.set(7);
+ const views=[];
+ for(const [x,y,z,reduced] of [[10,145,70,false],[100,110,70,false],[10,145,70,true]]){
+  camera.position.set(x,y,z);camera.lookAt(10,4,70);effects.tick(440,1,reduced,()=>({x:10,y:20,visible:true,height:6}));renderer.render(scene,camera);
+  const gl=renderer.getContext(),pixels=new Uint8Array(256*256*4);gl.readPixels(0,0,256,256,gl.RGBA,gl.UNSIGNED_BYTE,pixels);let colored=0;
+  for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>20)colored++;views.push({colored,error:gl.getError()});
+ }
+ effects.tick(1400,1,false,()=>({x:10,y:20,visible:true,height:6}));window.result={start,end,scales,lights:lights.map(l=>({x:l.x,y:l.y,height:l.height})),parts:shape.children.length,views,expired:!effects.active};effects.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});const r=await page.evaluate(()=>(window as any).result);
+ expect(errors).toEqual([]);expect(r.start[0]).toBeCloseTo(10);expect(r.start[1]).toBeCloseTo(2.5);expect(r.start[2]).toBeCloseTo(20);
+ expect(r.end[0]).toBeCloseTo(10);expect(r.end[1]).toBeCloseTo(2.5);expect(r.end[2]).toBeCloseTo(120);expect(r.parts).toBe(3);expect(r.expired).toBe(true);
+ expect(r.lights).toHaveLength(3);expect(r.lights.map((l:any)=>l.y)).toEqual([35,70,105]);
+ for(const light of r.lights)expect(light.height).toBeCloseTo(2.5);
+ for(const scale of r.scales){expect(scale.height/scale.px).toBeCloseTo(2.5);for(const height of scale.lightHeights)expect(height/scale.px).toBeCloseTo(2.5);}
+ for(const view of r.views){expect(view.error).toBe(0);expect(view.colored).toBeGreaterThan(20);}
+});
+
+test('Ice Storm fills its chosen disk with bounded instanced hail and frost in tilted, overhead and reduced views',async({page})=>{
+ const errors:string[]=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(e.message));
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import {Scene,PerspectiveCamera,WebGLRenderer,Matrix4,Vector3} from 'three';import {createSpellImpactEffects} from './client/src/canvas/spellImpactEffects';
+ const scene=new Scene(),effects=createSpellImpactEffects(scene),event={id:1,tokenId:'area',x:100,y:100,diameter:40,event:{kind:'pc',refId:'mage',delta:0,effect:'spell-area',spell:'Ice Storm',areaPosition:{mapId:'map',x:100,y:100,radiusFt:20}}};
+ effects.sync([event],0);const camera=new PerspectiveCamera(45,1,.1,300),renderer=new WebGLRenderer({alpha:true,preserveDrawingBuffer:true});renderer.setSize(256,256);document.body.append(renderer.domElement);camera.layers.set(7);
+ const views=[];
+ for(const [y,z,reduced] of [[55,135,false],[65,100.01,false],[55,135,true]]){
+  camera.position.set(100,y,z);camera.lookAt(100,0,100);const lights=effects.tick(650,1,reduced,()=>({x:100,y:100,visible:true,height:6}));renderer.render(scene,camera);
+  const hail=scene.getObjectByName('ice-storm-hail'),chips=scene.getObjectByName('ice-storm-splinters'),frost=scene.getObjectByName('ice-storm-frost'),matrix=new Matrix4(),point=new Vector3(),positions=[];
+  hail.updateMatrixWorld(true);for(let i=0;i<hail.count;i++){hail.getMatrixAt(i,matrix);point.setFromMatrixPosition(matrix).applyMatrix4(hail.matrixWorld);positions.push({r:Math.hypot(point.x-100,point.z-100),x:point.x,z:point.z,y:point.y});}
+  const gl=renderer.getContext(),pixels=new Uint8Array(256*256*4);gl.readPixels(0,0,256,256,gl.RGBA,gl.UNSIGNED_BYTE,pixels);let colored=0;
+  for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>10)colored++;
+  views.push({colored,error:gl.getError(),count:hail.count,chips:chips.count,calls:renderer.info.render.calls,positions,floorScale:frost.getWorldScale(new Vector3()).x,lights:lights.length});
+ }
+ effects.tick(2500,1,false,()=>({x:100,y:100,visible:true}));window.result={views,expired:!effects.active};effects.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});const r=await page.evaluate(()=>(window as any).result);
+ expect(errors).toEqual([]);expect(r.expired).toBe(true);
+ expect(r.views.map((v:any)=>v.count)).toEqual([96,96,32]);expect(r.views.map((v:any)=>v.chips)).toEqual([384,384,128]);
+ for(const v of r.views){
+  expect(v.error).toBe(0);expect(v.colored).toBeGreaterThan(1000);expect(v.calls).toBeLessThanOrEqual(4);expect(v.floorScale).toBeCloseTo(40);
+  expect(v.positions.some((p:any)=>p.x<90)).toBe(true);expect(v.positions.some((p:any)=>p.x>110)).toBe(true);
+  expect(v.positions.some((p:any)=>p.z<90)).toBe(true);expect(v.positions.some((p:any)=>p.z>110)).toBe(true);
+  for(const p of v.positions)expect(p.r).toBeLessThan(20);
+ }
+ expect(r.views[0].lights).toBe(3);expect(r.views[2].lights).toBe(0);
+});
+
 test('Fireball travels from its caster before one full-radius explosion; Call Lightning strikes stay inside the selected radius',async({page})=>{
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
  import {Scene,Vector3,Box3} from 'three';import {createSpellImpactEffects} from './client/src/canvas/spellImpactEffects';

@@ -106,6 +106,12 @@ describe('Hypnotic Pattern linked conditions',()=>{
  });
 });
 describe('Pass without Trace',()=>{
+ it('includes chosen creatures whose combat footprint overlaps the aura edge',()=>{
+  const f=fixture();moveToken(f.enemy.id,424,100);
+  resolveAbilityRoll(f.session.id,'Vanec',f.now(),spell('Pass without Trace'),2,undefined,undefined,undefined,{mapId:f.map.id,points:[f.actor],angle:0,selected:[f.enemy.id]});
+  expect(skillExtra(getMonster(f.monster.id)!,'Stealth').total).toBe(10);
+  moveToken(f.enemy.id,426,100);syncPassWithoutTrace(f.session.id);expect(skillExtra(getMonster(f.monster.id)!,'Stealth').total).toBe(0);
+ });
  it('grants a labelled, non-stacking bonus to chosen creatures inside the moving aura; leave/re-enter and concentration cleanup',()=>{
   const f=fixture();resolveAbilityRoll(f.session.id,'Vanec',f.now(),spell('Pass without Trace'),2,undefined,undefined,undefined,{mapId:f.map.id,points:[f.actor],angle:0,selected:[f.actor.id,f.enemy.id]});
   expect(drainHpFx(f.session.id)).toEqual([expect.objectContaining({spell:'Pass without Trace',delta:0,refId:f.caster.id})]);

@@ -25,6 +25,7 @@ describe('spell impact identity and lighting',()=>{
  it('Call Lightning uses jagged area bolts while Ice Storm keeps falling shards',()=>{
    expect(spellImpactStyle({spell:'Call Lightning',damageType:'lightning',delta:-10})).toMatchObject({kind:'bolts',color:'#96cfff'});
    expect(spellImpactStyle({spell:'Ice Storm',delta:-10})?.kind).toBe('storm');
+   expect(spellImpactStyle({spell:'Ice Storm',delta:0,effect:'spell-area'})).toMatchObject({kind:'ice-storm',duration:2400});
  });
  it('keeps a Shocking Grasp status marker only while its opportunity attack restriction remains active',()=>{
   expect(persistentSpellVisual({id:'grasp',label:'No Opportunity Attacks',aura:'red',isConcentration:false,

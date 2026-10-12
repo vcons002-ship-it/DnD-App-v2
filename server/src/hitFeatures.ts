@@ -2,6 +2,7 @@ import {materializeLiveDamage,presentAttackDamage} from './combat.js';
 import { abilityKey, hitFeature, hitSpell } from '../../shared/hitFeatures.js';
 import type { Character, Token, Weapon, SheetAbility, Condition } from '../../shared/types.js';
 import { tokenDistanceFt } from '../../shared/distance.js';
+import {tokenInSpellRadius} from '../../shared/spellAreas.js';
 import { rollDice, rollDicePool, withDiceMetadata, usingPhysicalDice } from '../../shared/dice.js';
 import { hasLineOfSight } from '../../shared/mapWalls.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
@@ -109,7 +110,7 @@ export function resolveHitFeature(sid:string,roller:string,rollId:string,ability
     const targets=listTokens(target.mapId).filter(t=>{
       const entity=markedEntity(t.kind,t.refId),id=`${t.kind}:${t.refId}`;
       if(!entity||('objectKind' in entity&&entity.objectKind)||seen.has(id)||
-        tokenDistanceFt(t,target,map)>5+1e-6||!hasLineOfSight(target,t,map.walls))return false;
+        !tokenInSpellRadius(target,t,5,map.gridSizePx/map.feetPerSquare)||!hasLineOfSight(target,t,map.walls))return false;
       seen.add(id);return true;
     });
     // Show the shared damage first, then all target saves in one labeled throw.

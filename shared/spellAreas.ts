@@ -90,6 +90,33 @@ export function pointInSpellArea(spec:SpellArea,p:SpellAreaPlacement,caster:Poin
   return dx*dx+dy*dy<=(spec.sizeFt+eps)**2;
  });
 }
+/** A circular occupied footprint intersects the actual shape, not its expanded
+ * bounding box (which would over-select corners). Cosmetic model scale is separate. */
+export function tokenInSpellArea(spec:SpellArea,p:SpellAreaPlacement,caster:Point,token:Point&{widthFt:number},pxPerFoot:number):boolean{
+ if(pointInSpellArea(spec,p,caster,token,pxPerFoot))return true;
+ const radius=Math.max(0,Number.isFinite(token.widthFt)?token.widthFt:0)/2;
+ if(radius<=0||!Number.isFinite(pxPerFoot)||pxPerFoot<=0)return false;
+ return p.points.some((_,i)=>{
+  const origin=areaOrigin(spec,p,caster,pxPerFoot,i),dx=(token.x-origin.x)/pxPerFoot,dy=(token.y-origin.y)/pxPerFoot;
+  if(!['cube','cone','line'].includes(spec.kind))return Math.hypot(dx,dy)<=spec.sizeFt+radius+1e-6;
+  const x=dx*Math.cos(p.angle)+dy*Math.sin(p.angle),y=-dx*Math.sin(p.angle)+dy*Math.cos(p.angle);
+  const half=spec.sizeFt/2,width=(spec.widthFt??5)/2;
+  const vertices=spec.kind==='cube'?[[-half,-half],[half,-half],[half,half],[-half,half]]:
+   spec.kind==='cone'?[[0,0],[spec.sizeFt,-half],[spec.sizeFt,half]]:[[0,-width],[spec.sizeFt,-width],[spec.sizeFt,width],[0,width]];
+  return vertices.some(([ax,ay],j)=>{
+   const [bx,by]=vertices[(j+1)%vertices.length],vx=bx-ax,vy=by-ay;
+   const t=Math.max(0,Math.min(1,((x-ax)*vx+(y-ay)*vy)/(vx*vx+vy*vy)));
+   return Math.hypot(x-ax-t*vx,y-ay-t*vy)<=radius+1e-6;
+  });
+ });
+}
+export function areaExcludesCaster(spec:SpellArea):boolean{
+ return spec.excludeCaster??(!!spec.self&&['line','cone'].includes(spec.kind));
+}
+/** Shared splash/buff radius selection uses the same occupied-footprint rule. */
+export function tokenInSpellRadius(center:Point,token:Point&{widthFt:number},radiusFt:number,pxPerFoot:number):boolean{
+ return tokenInSpellArea({kind:'sphere',sizeFt:radiusFt,rangeFt:0},{mapId:'',points:[center],angle:0},center,token,pxPerFoot);
+}
 export function areaPolygon(spec:SpellArea,origin:Point,angle:number,pxPerFoot:number):number[]{
  const len=spec.sizeFt*pxPerFoot,half=(spec.widthFt??5)*pxPerFoot/2;
  const local=spec.kind==='cube'?[[-len/2,-len/2],[len/2,-len/2],[len/2,len/2],[-len/2,len/2]]:
