@@ -309,7 +309,7 @@ function LinearLightning({start,end,width}:{start:{x:number;y:number};end:{x:num
     <Line points={points} stroke="#e4f3ff" strokeWidth={width*.035} perfectDrawEnabled={false}/>
   </Group>;
 }
-function FlameCone({start,end}:{start:{x:number;y:number};end:{x:number;y:number}}){
+function FlameCone({start,end,frost=false}:{start:{x:number;y:number};end:{x:number;y:number};frost?:boolean}){
   const group=useRef<Konva.Group>(null),length=Math.hypot(end.x-start.x,end.y-start.y);
   useEffect(()=>{
     if(!group.current)return;
@@ -318,10 +318,15 @@ function FlameCone({start,end}:{start:{x:number;y:number};end:{x:number;y:number
     grow.play();const timer=setTimeout(()=>fade.play(),260);return ()=>{clearTimeout(timer);grow.destroy();fade.destroy();};
   },[]);
   return <Group ref={group} x={start.x} y={start.y} rotation={Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI} scaleX={.01} scaleY={.01} listening={false}>
-    {[1,.83,.59].map((width,i)=><Line key={i} points={[0,0,length,-length*width/2,length,length*width/2]} closed fill={['#ff5924','#ff9f30','#ffe494'][i]} opacity={.5} perfectDrawEnabled={false}/>)}
+    {[1,.83,.59].map((width,i)=><Line key={i} points={[0,0,length,-length*width/2,length,length*width/2]} closed fill={(frost?['#528fd0','#9fe1ff','#ecfaff']:['#ff5924','#ff9f30','#ffe494'])[i]} opacity={.5} perfectDrawEnabled={false}/>)}
   </Group>;
 }
 
+function SquareWave({center,size,end,color}:{center:{x:number;y:number};size:number;end?:{x:number;y:number};color:string}){
+ const ref=useRef<Konva.Group>(null);
+ useEffect(()=>{if(!ref.current)return;const tween=new Konva.Tween({node:ref.current,scaleX:1,scaleY:1,opacity:0,duration:1.5,easing:Konva.Easings.EaseOut});tween.play();return ()=>tween.destroy();},[]);
+ return <Group ref={ref} x={center.x} y={center.y} rotation={end?Math.atan2(end.y-center.y,end.x-center.x)*180/Math.PI:0} scaleX={.1} scaleY={.1} listening={false}><Line points={[-size/2,-size/2,size/2,-size/2,size/2,size/2,-size/2,size/2]} closed stroke={color} strokeWidth={size*.025} perfectDrawEnabled={false}/></Group>;
+}
 function BurstFx({
   spellEffects3D,
   floater,
@@ -337,14 +342,21 @@ function BurstFx({
   const { x: cx, y: cy } = token;
   if(floater.suppressSpellVisual)return null;
   const spell=spellImpactStyle(floater);
-  if(spell?.kind==='flame-cone')return !spellEffects3D&&floater.areaPosition?.end?
-    <FlameCone start={floater.areaPosition} end={floater.areaPosition.end}/>:null;
+  if(spell?.kind==='flame-cone'||spell?.kind==='frost-cone')return !spellEffects3D&&floater.areaPosition?.end?
+    <FlameCone start={floater.areaPosition} end={floater.areaPosition.end} frost={spell.kind==='frost-cone'}/>:null;
   if(spell?.kind==='lightning-line')return !spellEffects3D&&floater.areaPosition?.end?
     <LinearLightning start={floater.areaPosition} end={floater.areaPosition.end} width={5*pxPerFoot}/>:null;
   if(spell?.kind==='ice-storm')return !spellEffects3D&&floater.areaPosition?<>
     <RingPulse cx={floater.areaPosition.x} cy={floater.areaPosition.y} radius={floater.areaPosition.radiusFt*pxPerFoot} color={spell.color}/>
     <Particles cx={floater.areaPosition.x} cy={floater.areaPosition.y} spread={floater.areaPosition.radiusFt*pxPerFoot} palette={['#d4f2ff','#8dcedf','#eefaff']} count={32} mode="radial"/>
   </>:null;
+  if(spell&&['shatter-area','flame-column','ice-splash','meteor-area','thunder-cube'].includes(spell.kind)&&floater.areaPosition){
+    const p=floater.areaPosition,r=p.radiusFt*pxPerFoot;
+    return !spellEffects3D?<Group listening={false}>
+      {spell.kind==='thunder-cube'?<SquareWave center={p} size={r*2} end={p.end} color={spell.color}/>:<RingPulse cx={p.x} cy={p.y} radius={r/1.6} color={spell.color}/>}
+      <Particles cx={p.x} cy={p.y} spread={r*.75} palette={[spell.color,'#ffffff']} count={24} mode={spell.kind==='flame-column'?'rise':'radial'}/>
+    </Group>:null;
+  }
   if(spell?.kind==='bolts')return !spellEffects3D?<>
     {Array.from({length:14},(_,i)=>{const a=i*2.399963,r=i===0?0:Math.sqrt(i/13)*(floater.areaWidthFt??10)*pxPerFoot*.46;
       return <LightningBolt key={i} cx={cx+Math.cos(a)*r} cy={cy+Math.sin(a)*r} radius={Math.max(12,radius*.7)}/>;})}

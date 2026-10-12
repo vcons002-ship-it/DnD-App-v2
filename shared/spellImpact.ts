@@ -1,13 +1,13 @@
 import type {Condition,HpFxEvent} from './types.js';
 
-export type SpellImpactStyle={kind:`weapon-${NonNullable<HpFxEvent['weaponAttack']>['kind']}`|'lightning-line'|'flame-cone'|'ice-storm'|'shock'|'fireball'|'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
+export type SpellImpactStyle={kind:`weapon-${NonNullable<HpFxEvent['weaponAttack']>['kind']}`|'lightning-line'|'flame-cone'|'frost-cone'|'thunder-cube'|'shatter-area'|'flame-column'|'ice-splash'|'meteor-area'|'ice-storm'|'shock'|'fireball'|'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
 export const LINKED_SPELL_FX=['Dispel Magic','Invisibility','Spike Growth','Counterspell','Shield','Misty Step','Hypnotic Pattern','Pass without Trace','Command','Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
 const colors:Record<string,string>={fire:'#ff702c',cold:'#72cbff',lightning:'#96cfff',thunder:'#b9a7ff',acid:'#b5ed43',poison:'#68d868',necrotic:'#a471df',radiant:'#ffe6a0',force:'#bc9bff',psychic:'#ff79cd'};
 /** Only cosmetic spell identifiers cross the FX channel, never a hidden
  * attack's full title, weapon details or modifier breakdown. */
 export function spellImpactName(source:string|undefined):string|undefined{
   const name=(source??'').replace(/[’‘]/g,"'").toLowerCase();
-  return ['Ensnaring Strike','Entangle','Hail of Thorns','Conjure Barrage','Conjure Volley','Lightning Arrow','Searing Smite','Thunderous Smite','Wrathful Smite','Divine Smite','Fireball','Lightning Bolt','Burning Hands','Cone of Cold',"Hunter's Mark",'Hex']
+  return ['Ensnaring Strike','Entangle','Hail of Thorns','Conjure Barrage','Conjure Volley','Lightning Arrow','Searing Smite','Thunderous Smite','Wrathful Smite','Divine Smite','Fireball','Lightning Bolt','Burning Hands','Cone of Cold','Thunderwave','Shatter',"Hunter's Mark",'Hex']
     .concat(LINKED_SPELL_FX).find(candidate=>name.includes(candidate.toLowerCase()));
 }
 /** Cosmetic identity only. Does not infer damage, conditions or visibility. */
@@ -40,6 +40,17 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
   if(name==='lightning bolt'&&event.effect==='spell-area')return {kind:'lightning-line',color:'#96cfff',radiusFt:8,strength:2.6,duration:1300};
   if(name==='burning hands'&&event.effect==='spell-area')return {kind:'flame-cone',color:'#ff782b',radiusFt:10,strength:2.2,duration:1750};
   if(name==='ice storm'&&event.effect==='spell-area')return {kind:'ice-storm',color:'#9bd8f4',radiusFt:22,strength:1.8,duration:2400};
+  if(event.effect==='spell-area'){
+    const fields:Record<string,[SpellImpactStyle['kind'],string,number,number]>={
+      'cone of cold':['frost-cone','#9fdfff',2200,22],
+      'thunderwave':['thunder-cube','#c4aaff',1500,12],
+      'shatter':['shatter-area','#d4baff',1700,15],
+      'flame strike':['flame-column','#ffe0a0',2300,18],
+      'ice knife':['ice-splash','#9ee6ff',1500,8],
+      'meteor swarm':['meteor-area','#ff702c',3000,44],
+    };
+    const field=fields[name];if(field)return {kind:field[0],color:field[1],duration:field[2],radiusFt:field[3],strength:2.2};
+  }
   // A small electrical status marker stays while the hit's opportunity-attack
   // restriction is active. The damaging touch remains a brief body crackle.
   if(name==='shocking grasp'&&event.delta===0)return {kind:'shock',color:'#96cfff',radiusFt:3,strength:.08,duration:1000};
@@ -90,7 +101,8 @@ export function spellLightEnvelope(age:number,duration:number){
 /** The visible glow and the light it emits share this envelope. Elemental
  * impacts flare quickly; arrows and vines stay luminous as their forms move. */
 export const FIREBALL_FLIGHT_MS=600;
+export const METEOR_FLIGHT_MS=900;
 export function spellEmissionEnvelope(age:number,style:SpellImpactStyle){
-  if(style.kind==='fireball')return age<FIREBALL_FLIGHT_MS?Math.min(1,Math.max(0,age/90))*.42:spellLightEnvelope(age-FIREBALL_FLIGHT_MS,style.duration-FIREBALL_FLIGHT_MS);
+  if(style.kind==='fireball'||style.kind==='meteor-area'){const flight=style.kind==='meteor-area'?METEOR_FLIGHT_MS:FIREBALL_FLIGHT_MS;return age<flight?Math.min(1,Math.max(0,age/90))*.42:spellLightEnvelope(age-flight,style.duration-flight);}
   return spellLightEnvelope(age,style.kind==='burst'?Math.min(550,style.duration):style.duration);
 }

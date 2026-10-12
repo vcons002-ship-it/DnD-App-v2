@@ -13,7 +13,7 @@ import {newId} from './db.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 import {applyDamageNoted,noteConcentration,resolveForcedSave,resolveAbilityRoll,resolveMonsterSheetAbility,stanceResistances} from './combat.js';
 import {hitEffectSave,turnKey} from './hitFeatures.js';
-import {getCharacter,getMonster,getMap,getToken,getSessionById,listTokens,setCondition,clearCondition,setConcentration,addRollLog,queueSpellImpact,isDeadEntity,createSpiritualWeapon,moveToken,wallLimitedMove,faceTokenToward} from './sessions.js';
+import {getCharacter,getMonster,getMap,getToken,getSessionById,listTokens,setCondition,clearCondition,setConcentration,addRollLog,queueSpellImpact,beginPlacedSpellImpact,isDeadEntity,createSpiritualWeapon,moveToken,wallLimitedMove,faceTokenToward} from './sessions.js';
 
 const entity=(kind:TokenKind,id:string)=>kind==='pc'?getCharacter(id):getMonster(id);
 type Fx=NonNullable<Condition['combatEffect']>;
@@ -155,6 +155,7 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
   const requests=targets.map(t=>{const e=entity(t.kind,t.refId)!,labels=e.conditions.map(c=>c.label);return {target:t,c:{stats:effectiveStats(e).scores,level:e.level,isMonster:t.kind==='monster'},ability:save,dc:ctx.dc,
     mode:saveAdvantage(labels,save).state,proficient:e.saveProficiencies.includes(save),extra:saveExtra(e,save).total,autoFail:!!saveAutoFail(labels,save)};});
   const saveFirst=spellKey(ctx.spell)==='ice knife';
+  const areaImpact=saveFirst?beginPlacedSpellImpact(sid,center.kind,center.refId,ctx.spell):undefined;
   const rollSaves=()=>rollSaveBatch(requests,`${ctx.spell} — ${save} Saving Throws`);
   const before=saveFirst?rollSaves():undefined;
   const damage=withDiceMetadata({label:`${ctx.spell} — ${type} Damage`},()=>rollDice(expression))!,impactId=newId();
@@ -170,7 +171,9 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
     addRollLog(sid,{roller,label:`${ctx.spell}: ${save} save`,expr:`${save} save`,total,hpNote,hideMods:r.target.kind==='monster'&&('disposition'in e&&e.disposition!=='friendly'),
       detail:`${e.name}: ${save} save ${total} — ${pass?'PASS':'FAIL'}; ${amount} ${type} damage.`,
       reveal:{presentedLive:usingPhysicalDice(),kind:'check',title:`${ctx.spell} — ${save} Saving Throw`,attacker:e.name,target:e.name,outcome:pass?'pass':'fail',d20:out.face,attackTotal:total,toHit:[{label:`${save} save modifiers`,value:total-out.face}],effectOutcome:`${pass?'Save passed':'Save failed'} — ${amount} ${type} damage.`,visibilityTarget:{kind:r.target.kind,refId:e.id}}});
-  });if(saveFirst)addDamageLog();queueSpellImpact(sid,center.kind,center.refId,ctx.spell,impactId,Math.max(map.feetPerSquare,center.widthFt)+radius*2);
+  });if(saveFirst)addDamageLog();
+  if(areaImpact)areaImpact(impactId,{mapId:map.id,x:center.x,y:center.y,radiusFt:radius},undefined);
+  else queueSpellImpact(sid,center.kind,center.refId,ctx.spell,impactId,Math.max(map.feetPerSquare,center.widthFt)+radius*2);
 }
 
 export function mixedSpellDamage(sid:string,roller:string,ctx:LinkedSpellContext) {

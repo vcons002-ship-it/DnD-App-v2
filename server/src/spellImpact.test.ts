@@ -7,6 +7,11 @@ import {getSpell} from './spells/srd.js';
 afterEach(()=>vi.restoreAllMocks());
 
 describe('spell impact identity and lighting',()=>{
+ it.each([['Cone of Cold','frost-cone'],['Thunderwave','thunder-cube'],['Shatter','shatter-area'],['Flame Strike','flame-column'],['Ice Knife','ice-splash'],['Meteor Swarm','meteor-area']])('%s uses a full-field visual only for the confirmed area', (spell,kind)=>{
+  expect(spellImpactName(spell)).toBe(spell);
+  expect(spellImpactStyle({spell,delta:0,effect:'spell-area'})?.kind).toBe(kind);
+  expect(spellImpactStyle({spell,delta:-10,damageType:'cold'})?.kind).not.toBe(kind);
+ });
  it('gives all five repaired party spells distinct visuals without illuminating a stealth veil',()=>{
    const expected={'Shield':'shield','Misty Step':'mist','Hypnotic Pattern':'pattern','Pass without Trace':'veil','Command':'command'};
    for(const [spell,kind] of Object.entries(expected))expect(spellImpactStyle({spell,delta:0})?.kind).toBe(kind);

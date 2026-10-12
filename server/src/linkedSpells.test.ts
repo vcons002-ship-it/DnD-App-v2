@@ -182,6 +182,12 @@ describe('linked damage and saving throws',()=>{
     expect(getMonster(f.second.id)!.curHp).toBe(488); // 3d6, failed DEX; casting DC 18
     const logs=listRollLog(f.session.id);expect(logs.some(r=>r.reveal?.title?.includes('cold Damage'))).toBe(true);
     expect(logs.filter(r=>r.reveal?.title?.includes('DEX Saving Throw'))).toHaveLength(2);
+    const events=drainHpFx(f.session.id),areas=events.filter(e=>e.areaPosition);
+    expect(areas).toHaveLength(1);expect(areas[0]).toMatchObject({spell:'Ice Knife',effect:'spell-area',delta:0,areaPosition:{mapId:f.target.mapId,x:f.target.x,y:f.target.y,radiusFt:5}});
+    for(const e of events.filter(e=>e.delta<0&&e.damageType==='cold'))expect(e).toMatchObject({suppressSpellVisual:true,impact:{id:areas[0].impact!.id}});
+    // A successful primary piercing hit still has its own art; only splash
+    // victims share the one cold field.
+    if(face===15)expect(events.find(e=>e.damageType==='piercing'&&e.delta<0)?.suppressSpellVisual).not.toBe(true);
   });
   it.each([true,false])('Ice Knife splash checks the nearby occupied footprint (overlap %s)',overlap=>{
     const f=setup('Ice Knife');moveToken(f.nearby.id,overlap?274:276,100);

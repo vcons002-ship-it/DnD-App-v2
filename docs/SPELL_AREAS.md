@@ -110,15 +110,15 @@ actual server effect dispatch and client geometry, not just a spell's AoE tag.
 
 | Status | Spells | Current presentation |
 | --- | --- | --- |
-| Full confirmed area | Fireball, Lightning Bolt, Call Lightning, Ice Storm, Burning Hands | One authoritative effect fills the confirmed footprint, including empty space. |
+| Full confirmed area | Fireball, Lightning Bolt, Call Lightning, Ice Storm, Burning Hands, Cone of Cold, Thunderwave, Shatter, Flame Strike, Meteor Swarm | One authoritative effect fills the confirmed footprint, including empty space. |
 | Persistent ground area | Spike Growth | Thorn field fills the placed radius while active. |
-| Next damage-art updates | Cone of Cold, Thunderwave, Shatter, Acid Splash, Arms of Hadar, Flame Strike, Circle of Death, Sunbeam, Fire Storm, Sunburst, Meteor Swarm, Weird | Generic bursts or specialized individual-victim effects, rather than one confirmed cone, cube, line or disk. |
+| Next damage-art updates | Acid Splash, Arms of Hadar, Circle of Death, Sunbeam, Fire Storm, Sunburst, Weird | Generic bursts or specialized individual-victim effects, rather than one confirmed cone, cube, line or disk. |
 | Utility/control artwork still partial | Color Spray, Entangle, Faerie Fire, Grease, Sleep, Calm Emotions, Fear, Hypnotic Pattern, Slow, Confusion | Templates and/or individual status effects; no complete confirmed-area cast animation. |
 | Other placed/ongoing areas | Wind Wall, Cloud of Daggers, fog/cloud spells, magical walls and other ongoing catalogue areas | Placement/measurement or specialized ongoing presentation; not a universal full-area art renderer. |
 
 Hit-centered ranger splashes (Hail of Thorns and Lightning Arrow) already have
 specialized arrows/impact art. They use a separate resolution path; they are not
-part of the placed-area dispatcher above. Ice Knife still has a target-sized shard burst rather than a full splash field.
+part of the placed-area dispatcher above. Ice Knife now has one full 5-foot-radius cold explosion after its primary piercing hit or miss, with separate save and damage feedback.
 Conjure Barrage/Volley also use arrow
 art and still need a confirmed-footprint art review. Manual-only catalogue spells
 retain their existing rule-support flags; artwork is not a rules automation claim.
@@ -138,3 +138,16 @@ approval, so late pointer packets cannot change a submitted cast. Persistent
 measurements for ongoing spells are separate from the aiming preview. Burning
 Hands starts lower, near arm level; its horizontal cone matches the map-space
 preview even though elevated flames have perspective parallax in tilted views.
+
+The next six damage-art updates use the confirmed combat footprint: Cone of Cold
+spreads a frost front and crystals along its 60-foot aimed cone; Thunderwave
+fills its oriented 15-foot cube with a pressure front; Shatter sends a resonant
+shockwave across its 10-foot radius; Flame Strike descends as a mixed fire and
+radiant column across its 10-foot cylinder. Meteor Swarm reuses Fireball’s
+volumetric dome and folded flame crest with larger projectiles falling from
+the sky into each selected 40-foot-radius area. Overlapping victims still
+take damage only once. Empty areas still display their cast. Ice Knife uses
+one splash field instead of repeated victim-sized bursts. Typed defenses,
+grouped saves, hidden-roll approval and roll completion/skip timing are
+unchanged. Shared geometry, bounded instancing and reduced particle counts
+keep these cosmetic fields independent of the number of victims.
