@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import type {LightningFrame} from './diceLightningTiming.js';
 
-/** Occasional independent surface discharges. Fixed ribbons are regenerated
+/** Occasional surface discharges synchronized to internal strikes. Fixed ribbons are regenerated
  * only when a bolt fires; no live lights or additional render passes. */
 export function createDiceEscapingLightning(root:THREE.Group,planes:THREE.Vector4[],radius:number){
  const capacity=18*6,positions=new Float32Array(capacity*3),tangents=new Float32Array(capacity*3),edges=new Float32Array(capacity);
@@ -25,7 +26,7 @@ export function createDiceEscapingLightning(root:THREE.Group,planes:THREE.Vector
  });
  const mesh=new THREE.Mesh(geometry,material);mesh.frustumCulled=false;
  mesh.name='maximum-escaping-lightning';mesh.userData.dicePowerArt=true;root.add(mesh);
- let next=NaN,born=-Infinity,bursts=0,segments=0,active=false;
+ let next=NaN,born=-Infinity,bursts=0,segments=0,active=false,lastStrike=0;
  const direction=new THREE.Vector3(),side=new THREE.Vector3(),up=new THREE.Vector3(),axis=new THREE.Vector3();
  function discharge(now:number){
   direction.set(Math.random()*2-1,Math.random()*2-1,Math.random()*2-1).normalize();
@@ -55,12 +56,16 @@ export function createDiceEscapingLightning(root:THREE.Group,planes:THREE.Vector
   geometry.setDrawRange(0,vertex);segments=lines.length;born=now;bursts++;
  }
  return {
-  reset(){next=NaN;born=-Infinity;bursts=0;segments=0;active=false;mesh.visible=false;},
+  reset(){next=NaN;born=-Infinity;bursts=0;segments=0;active=false;lastStrike=0;mesh.visible=false;},
   state(){return {escapingBolts:mesh.visible?segments:0,lightningBursts:bursts};},
-  update(now:number,maximum:boolean,age:number,reduced:boolean){
+  update(now:number,maximum:boolean,age:number,reduced:boolean,frame:LightningFrame){
    if(!maximum||reduced){active=false;next=NaN;mesh.visible=false;return;}
    if(!active){active=true;next=now+Math.max(0,.45-age)*1000+Math.random()*350;}
-   if(now>=next){discharge(now);next=now+650+Math.random()*900;}
+   // Wait for a visible internal leader, rather than firing on a separate
+   // timer while the glass is dark. Only one escape can use a given strike.
+   if(now>=next&&frame.strike!==lastStrike&&frame.phase>=.18&&frame.phase<=.6){
+    discharge(now);lastStrike=frame.strike;next=now+650+Math.random()*900;
+   }
    const elapsed=(now-born)/1000;
    mesh.visible=elapsed>=0&&elapsed<.19;
    material.uniforms.pulse.value=mesh.visible?(1-elapsed/.19)*(.65+.35*Math.pow(Math.cos(elapsed*65),2)):0;

@@ -40,6 +40,9 @@ from changing points on its surface, with dark pauses between bolts. Both work
 on ordinary and gold dice, only for confirmed natural maxima, and disable in
 reduced-motion mode. Each effect uses one bounded mesh per applicable die, with
 no additional lights; lightning geometry updates only when a bolt fires.
+Maximum internal lightning now uses slower, readable strikes approximately
+360–580 ms apart. Escaping bolts wait for one of those internal strikes instead
+of flashing independently; their occasional cadence still varies between dice.
 
 After changing production dice art or sounds, rebuild and refresh the published
 bundle:

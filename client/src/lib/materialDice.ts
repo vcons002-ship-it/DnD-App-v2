@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {createLightningTiming} from './diceLightningTiming';
+import {createLightningTiming,type LightningFrame} from './diceLightningTiming';
 import {createRollPowerState,DRUK_EXPLOSION_DELAY,drukFinaleAge} from './diceRollPower';
 import {dmDiceCharge} from './dmDiceCharge';
 import {createDiceShatterArt} from './diceShatterArt';
@@ -671,9 +671,11 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     center.multiplyScalar(fit);
   };
   let lightning=createLightningTiming();
+  let lightningFrame:LightningFrame={phase:3,seed:0,strike:0};
   const updateLightning=(now:number)=>{
     if(!uniforms.internalLightning.value&&!(theme.id==='sorcerer'&&crit))return;
     const frame=lightning.advance(now/1000,powerView.known?powerView.strength:undefined,powerView.maximum&&!powerReduced);
+    lightningFrame=frame;
     uniforms.lightningPhase.value=frame.phase;uniforms.lightningSeed.value=frame.seed;
   };
   let resinBody:THREE.MeshPhysicalMaterial|undefined;
@@ -835,7 +837,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,camera);
       updateGoldSparkles(now);
       leafSwirl?.update(now,powerView.maximum,powerView.age,powerReduced);
-      escapingLightning?.update(now,powerView.maximum,powerView.age,powerReduced);
+      escapingLightning?.update(now,powerView.maximum,powerView.age,powerReduced,lightningFrame);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean,percentileValue?:number){
       power.setResult(rolling||((tens||ones)&&percentileValue===undefined)?null:value,percentileValue);
@@ -861,7 +863,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,s.camera);
       updateGoldSparkles(now);
       leafSwirl?.update(now,powerView.maximum,powerView.age,powerReduced);
-      escapingLightning?.update(now,powerView.maximum,powerView.age,powerReduced);
+      escapingLightning?.update(now,powerView.maximum,powerView.age,powerReduced,lightningFrame);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);
