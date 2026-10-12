@@ -2,6 +2,61 @@ import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 import sharp from 'sharp';
 
+test('visible spell geometry survives terrain fog without revealing map pixels or drawing through foreground figures',async({page})=>{
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import * as T from 'three';
+ import {createMiniatureVisionComposite} from './client/src/canvas/miniatureVisionComposite';
+ import {createMiniatureVisionLift} from './client/src/canvas/miniatureVisionLift';
+ import {createSpellImpactEffects,SPELL_IMPACT_LAYER} from './client/src/canvas/spellImpactEffects';
+ const renderer=new T.WebGLRenderer({alpha:true,preserveDrawingBuffer:true});renderer.setSize(160,160);renderer.setClearColor(0,0);
+ const host=document.createElement('div');document.body.appendChild(host);host.appendChild(renderer.domElement);
+ const body=new T.DataTexture(new Uint8Array([0,0,0,0]),1,1);body.needsUpdate=true;
+ const compositor=createMiniatureVisionComposite(renderer,host,body),scene=new T.Scene();
+ const floor=new T.Mesh(new T.PlaneGeometry(100,100),new T.MeshBasicMaterial({color:'#704030'}));floor.rotation.x=-Math.PI/2;floor.position.set(50,0,50);scene.add(floor);
+ // An opaque figure in front of the vines must continue to occlude them after fog compositing.
+ const figure=new T.Mesh(new T.BoxGeometry(8,25,8),new T.MeshBasicMaterial({color:'#704030'}));figure.position.set(50,12.5,48);scene.add(figure);
+ const camera=new T.OrthographicCamera(-50,50,50,-50,.1,1000);camera.position.set(50,100,120);camera.lookAt(50,0,50);
+ const effects=createSpellImpactEffects(scene),input={id:1,tokenId:'visible-target',x:50,y:50,diameter:22,event:{kind:'monster',refId:'g',delta:-1,spell:'Ensnaring Strike'}};
+ effects.sync([input],0);effects.tick(400,2,false,()=>({x:50,y:50,height:28,visible:true}));
+ const rect=(x,y,w,h)=>[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
+ const cover={enabled:true,origins:[rect(0,0,30,100)],sight:[],lights:[],explored:[],memory:null,keepRevealed:false};
+ const read=()=>{const gl=renderer.getContext(),p=new Uint8Array(160*160*4);gl.readPixels(0,0,160,160,gl.RGBA,gl.UNSIGNED_BYTE,p);return p;};
+ camera.layers.disable(SPELL_IMPACT_LAYER);renderer.render(scene,camera);const plain=read();
+ camera.layers.enable(SPELL_IMPACT_LAYER);renderer.render(scene,camera);const effect=read();
+ camera.layers.disable(SPELL_IMPACT_LAYER);renderer.render(scene,camera);compositor.render(true,cover,camera);const fog=read();
+ effects.renderForeground(renderer,camera);const fixed=read();
+ let visible=0,restored=0,leaked=0;
+ for(let i=0;i<plain.length;i+=4){
+  const colored=effect[i+1]>plain[i+1]+15&&effect[i+1]>effect[i]+15;
+  if(colored&&fog[i]<10&&fog[i+1]<10){visible++;if(fixed[i+1]>fog[i+1]+15)restored++;}
+  // Empty terrain remains exactly covered; a spell never reveals the map underneath it.
+  if(effect[i]===plain[i]&&effect[i+1]===plain[i+1]&&effect[i+2]===plain[i+2]&&fixed.slice(i,i+4).some((v,j)=>v!==fog[i+j]))leaked++;
+ }
+ const center=new T.Vector3(50,20,48).project(camera),x=Math.floor((center.x+1)*80),y=Math.floor((center.y+1)*80),index=(y*160+x)*4;
+ const occluded=[...fixed.slice(index,index+4)],occludedFog=[...fog.slice(index,index+4)];
+ // The fallback must also lift only effect pixels, preserving original depth.
+ renderer.render(scene,camera);
+ const lift=createMiniatureVisionLift(renderer,host,body);
+ lift.render(true,()=>effects.renderForeground(renderer,camera));
+ const lifted=document.querySelector('[data-testid="personal-sight-miniatures"]'),liftPixels=lifted.getContext('2d').getImageData(0,0,160,160).data;
+ let legacyVisible=0,legacyLeak=0;
+ for(let i=0;i<plain.length;i+=4){const flipped=((159-Math.floor(i/4/160))*160+(i/4)%160)*4;
+  if(liftPixels[flipped+1]>30&&liftPixels[flipped+1]>liftPixels[flipped]+15)legacyVisible++;
+  if(effect[i]===plain[i]&&effect[i+1]===plain[i+1]&&effect[i+2]===plain[i+2]&&liftPixels[flipped+3])legacyLeak++;
+ }
+ lift.dispose();
+ effects.tick(400,2,false,()=>({x:50,y:50,height:28,visible:false}));renderer.render(scene,camera);compositor.render(true,cover,camera);effects.renderForeground(renderer,camera);const hidden=read();
+ window.spellFog={visible,restored,leaked,legacyVisible,legacyLeak,occluded,occludedFog,hiddenLeak:hidden.some((v,i)=>v!==fog[i]),autoClear:renderer.autoClear,layer:camera.layers.mask};
+ effects.dispose();compositor.dispose();body.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
+ const result=await page.evaluate(()=>(window as any).spellFog);
+ expect(result.visible).toBeGreaterThan(60);expect(result.restored).toBeGreaterThan(result.visible*.98);
+ expect(result.leaked).toBe(0);expect(result.occluded).toEqual(result.occludedFog);expect(result.hiddenLeak).toBe(false);
+ expect(result.legacyVisible).toBeGreaterThan(60);expect(result.legacyLeak).toBe(0);
+ expect(result.autoClear).toBe(true);expect(result.layer).toBe(1);
+});
+
 test('GPU sight compositor preserves raised bodies, clips distant light to sight, and reuses unchanged masks',async({page})=>{
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
  import * as T from 'three';

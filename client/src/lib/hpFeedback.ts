@@ -14,11 +14,12 @@ const colors:Record<string,string>={
   radiant:'#ffe8a0',force:'#d1b1ff',psychic:'#ff9ce4',
 };
 export type HpNumber = {delta:number;label:string;color:string;total?:boolean;startAt?:number};
-export type ScheduledHpEvent=HpFxEvent&{id:number;numberStartAt?:number;componentStarts?:number[]};
+export type ScheduledHpEvent=HpFxEvent&{id:number;preparedNumbers?:HpNumber[];numberStartAt?:number;componentStarts?:number[]};
 export const hpImpactId=(event:ScheduledHpEvent)=>event.impact?.id??event.rollId??String(event.id);
 const stackId=(event:ScheduledHpEvent)=>event.delta<0?`${event.kind}:${event.refId}:${hpImpactId(event)}`:`heal:${event.id}`;
 /** Parts are only a visual breakdown of the already-applied full delta. */
-export function hpNumbers(event:HpFxEvent):HpNumber[]{
+export function hpNumbers(event:HpFxEvent&{preparedNumbers?:HpNumber[]}):HpNumber[]{
+  if(event.preparedNumbers)return event.preparedNumbers;
   if(!event.delta)return [];
   if(event.delta>0)return [{delta:event.delta,label:'Healing',color:'#62efa0'}];
   const valid=event.damageParts?.filter(p=>Number.isFinite(p.amount)&&p.amount>0);
@@ -135,4 +136,9 @@ export function scheduleHpFeedback<T extends ScheduledHpEvent>(events:T[],now:nu
   const result=events.map(event=>scheduled.get(event.id)!);
   const expiresAt=Math.max(now,...hpNumberStacks([...existing,...result]).map(hpStackEnd));
   return {events:result,expiryMs:expiresAt-now+300};
+}
+
+/** Labels/colors can be prepared without starting their visible clock. */
+export function prepareHpFeedback<T extends ScheduledHpEvent>(events:readonly T[]):(T&{preparedNumbers:HpNumber[]})[]{
+  return events.map(event=>event.preparedNumbers?event as T&{preparedNumbers:HpNumber[]}:{...event,preparedNumbers:hpNumbers(event)});
 }

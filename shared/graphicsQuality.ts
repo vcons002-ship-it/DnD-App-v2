@@ -9,6 +9,7 @@ export function graphicsBudget(quality:EnvironmentQuality, viewportWidth=1440,au
   return {
     resolved,
     modelQuality:resolved==='off'?'low' as const:resolved,
+    miniatureLightMode:low?'ground' as const:'directional' as const,
     pixelRatioCap:low?1:resolved==='balanced'?1.5:2,
     localShadowSize:low?256:resolved==='balanced'?384:512,
     localShadowLights:resolved==='off'?0:low?2:4,

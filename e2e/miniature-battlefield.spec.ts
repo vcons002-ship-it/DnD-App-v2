@@ -3322,11 +3322,16 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
 
 test('spell impacts light a heavy dungeon after dice and keep hunter spell identities',async({page,request},info)=>{
  test.setTimeout(240000);page.setDefaultTimeout(20000);await page.setViewportSize({width:1600,height:1000});
+ // Directional spell illumination is the High-quality contract. Balanced keeps
+ // terrain flashes and Low samples the terrain field instead (tested separately).
+ await page.addInitScript(()=>localStorage.setItem('dnd-environment-quality','high'));
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});
  page.on('dialog',d=>d.accept());
  const f=await fixture(page,request,await cornerDemoMap()),[druk,varis,vanec]=f.ready.tokens;
  f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:150,locked:false,hidden:false});
- for(const [token,x,y] of [[druk,1050,570],[varis,650,550],[vanec,700,600]] as const)f.socket.emit('token:move',{tokenId:token.id,x,y});
+ // Druk observes from just outside the 5 ft damage burst, within its emitted
+ // light. Sampling a remote figure made this fail on unchanged Main as well.
+ for(const [token,x,y] of [[druk,930,520],[varis,650,550],[vanec,700,600]] as const)f.socket.emit('token:move',{tokenId:token.id,x,y});
  cornerDemoWalls.forEach(([ax,ay,bx,by],i)=>f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:`spell-wall-${i}`,kind:'rectangle',ax,ay,bx,by}}));
  f.socket.emit('monster:create',{name:'Goblin sentry',modelType:'goblin',disposition:'enemy',maxHp:400,armorClass:1,stats:{STR:1,DEX:1},weapons:[{name:'Scimitar',kind:'melee',damage:'1d6',attackBonus:4}]});
  const template=(await f.snapshot()).monsterTemplates.find(m=>m.name==='Goblin sentry')!;
@@ -3342,7 +3347,7 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
  const layer=page.getByTestId('miniature-layer'),combat=page.locator('.compact-player-combat');
  await expect(layer).toHaveAttribute('data-miniature-count','4',{timeout:60000});
  await expect(layer).toHaveAttribute('data-spell-impact-count','0');
- await page.getByRole('button',{name:'Carried lantern',exact:true}).click();
+ await togglePlayerLantern(page);
  await page.getByLabel('Attack target',{exact:true}).selectOption(enemy.id);
  await expect.poll(()=>tokenView(page,hidden.id)).toBeNull();
  // Inspect the actual figure materials at a readable scale, not just a distant flash.
@@ -3363,7 +3368,7 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
   const label=document.createElement('div');label.id='spell-demo-caption';label.style.cssText='position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:100;background:#080d13eb;border:1px solid #a7b8b1;color:#ebf4ed;padding:12px 24px;border-radius:8px;font:22px Georgia;pointer-events:none;white-space:nowrap';document.body.append(label);
   const samples:any[]=[];(window as any).spellLightSamples=samples;
   const sample=()=>{const l=document.querySelector('[data-testid="miniature-layer"]') as HTMLElement|null,r=document.querySelector('.roll-reveal');
-   samples.push({t:performance.now(),count:Number(l?.dataset.spellImpactCount??0),strength:Number(l?.dataset.spellLightStrength??0),positions:JSON.parse(l?.dataset.spellLightPositions??'[]'),kinds:l?.dataset.spellImpactKinds,rolling:!!document.querySelector('[data-live-dice="true"]'),ready:r?.getAttribute('data-impact-ready'),caption:document.getElementById('spell-demo-caption')?.textContent});
+   samples.push({t:performance.now(),count:Number(l?.dataset.spellImpactCount??0),prepared:Number(l?.dataset.spellPreparedCount??0),warm:Number(l?.dataset.spellGpuWarmCount??0),promoted:Number(l?.dataset.spellPreparedPromoted??0),transient:Number(l?.dataset.spellTransientCount??0),strength:Number(l?.dataset.spellLightStrength??0),positions:JSON.parse(l?.dataset.spellLightPositions??'[]'),kinds:l?.dataset.spellImpactKinds,rolling:!!document.querySelector('[data-live-dice="true"]'),ready:r?.getAttribute('data-impact-ready'),caption:document.getElementById('spell-demo-caption')?.textContent});
    (window as any).spellLightFrame=requestAnimationFrame(sample);};sample();
  });
  const caption=async(text:string)=>page.locator('#spell-demo-caption').evaluate((el,text)=>{el.textContent=text;},text);
@@ -3374,7 +3379,13 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
   if(kind==='arrows')await page.waitForTimeout(500); // falling light reaches the figures
   const png=await page.screenshot({path:info.outputPath(`${name}.png`)});
   if(kind==='arrows'||kind==='burst')expect(await brightness(png),'The nearby figure is actually illuminated').toBeGreaterThan(darkBody*1.3);
-  expect(await tokenView(page,hidden.id)).toBeNull();await done();
+  expect(await tokenView(page,hidden.id)).toBeNull();
+  if(kind==='vines'){
+   // Current Ensnaring Strike keeps its vines while the condition is active.
+   // Let the initial growth finish; the next concentration spell clears them.
+   await page.waitForTimeout(1800);
+   expect(await layer.getAttribute('data-spell-impact-kinds')).toContain('vines');
+  }else await done();
  };
  await caption('Heavy darkness — lantern light only');await page.waitForTimeout(1800);darkBody=await brightness(await page.screenshot({path:info.outputPath('00-before.png')}));
  await caption('Hail of Thorns — a descending volley of magical arrows');
@@ -3403,12 +3414,12 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
  await page.locator('.damage-prompt').getByRole('button',{name:'L1',exact:true}).click();
  await impact('vines','02-vines');
  await caption('Hunter’s Mark — a brief green magical aura');
- await combat.getByRole('button',{name:/Hunter.s Mark/}).click();await impact('mark','03-mark');
+ await combat.getByRole('button',{name:/Hunter.s Mark$/}).click();await impact('mark','03-mark');
  // A normal elemental spell follows the same light channel, including its damage-roll wait.
  await caption('Fire Bolt — warm firelight on the floor and nearby figures');
  let fireHit=false;
  for(let attempt=0;attempt<5&&!fireHit;attempt++){
-  await combat.getByRole('button',{name:/Fire Bolt/}).click();
+  await combat.getByRole('button',{name:/Fire Bolt$/}).click();
   await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
   await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});await page.keyboard.press('Escape');
   fireHit=await page.locator('.damage-prompt-btn').isVisible();
@@ -3418,13 +3429,19 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
  const samples=await page.evaluate(()=>{cancelAnimationFrame((window as any).spellLightFrame);return (window as any).spellLightSamples;});
  writeFileSync(info.outputPath('spell-light-timing.json'),JSON.stringify({samples,errors},null,2));
  expect(samples.some((s:any)=>s.count>0)).toBe(true);
- expect(samples.filter((s:any)=>s.count>0&&s.rolling&&s.ready!=='true')).toEqual([]);
+ expect(samples.some((s:any)=>s.prepared>0&&s.count===0)).toBe(true);
+ expect(samples.some((s:any)=>s.warm>0)).toBe(true);
+ expect(samples.some((s:any)=>s.promoted>0)).toBe(true);
+ expect(samples.filter((s:any)=>s.transient>0&&s.rolling&&s.ready!=='true')).toEqual([]);
  const movingSources=(kind:string)=>samples.filter((s:any)=>s.kinds===kind&&s.positions.length===3);
  const arrowSources=movingSources('arrows'),vineSources=movingSources('vines');
  expect(arrowSources.length).toBeGreaterThan(4);expect(vineSources.length).toBeGreaterThan(4);
  expect(arrowSources[0].positions[0][1]-arrowSources.at(-1).positions[0][1],'Arrow light descends with the luminous shaft').toBeGreaterThan(20);
- const vineTop=vineSources.at(-1).positions[0][1];
- expect(vineTop-vineSources[0].positions[0][1],'Vine light rises along the growing vine, scaled to this creature').toBeGreaterThan(vineTop*.25);
+ // The current condition-backed vines are already fully grown and remain on
+ // the target. Their light stays on the vine rather than replaying growth.
+ const vineLight=vineSources.at(-1).positions[0];
+ expect(vineLight[1],'Persistent vine light is above the ground').toBeGreaterThan(0);
+ expect(Math.hypot(vineLight[0]-enemy.x,vineLight[2]-enemy.y),'Vine light stays on the struck creature').toBeLessThan(50);
  expect(errors).toEqual([]);
 });
 

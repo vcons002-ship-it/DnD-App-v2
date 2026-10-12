@@ -1,5 +1,22 @@
 # Roadmap & Feature Backlog
 
+- [x] Render visible spell geometry above terrain fog without uncovering the map.
+  Preserve scene depth so foreground figures still occlude particles. Both GPU
+  and fallback sight paths keep hidden targets hidden and reuse the body mask.
+  [Open-space and wall-edge spell recordings](docs/SPELL_FOG_VISIBILITY_2026-10-11.md).
+
+- [x] Prepare held spell geometry, shaders/buffers, bounded lighting clips and
+  damage-label payloads during the existing dice reading hold. Keep staged effects
+  invisible and reset their animation clock on activation. Skip releases immediately
+  without awaiting warmup; delayed callbacks cannot hide or replay effects.
+- [x] Cache floating number artwork at native resolution and avoid redrawing
+  stationary totals. Preserve counting, token/camera anchors and fade timing.
+  Measurements: [hold preparation and floating numbers](docs/ROLL_HOLD_PREPARATION_2026-10-11.md).
+- [x] Preserve full spell illumination of nearby figures/terrain and local color
+  through darkvision on High/Balanced. The simpler spell overlay remains a
+  diagnostic option. Low retains ground-sampled figure lighting. Record the costs
+  of both modes without changing damage, visibility or shadow rules.
+
 - [x] Retain static miniature transforms and reuse world matrices across render
   passes. Broaden identical-creature batching on High without losing individual
   lights, colors, shadows or visibility; keep cheaper shared uniforms and the
@@ -2860,6 +2877,16 @@ Smaller refinements on top of the shipped Phase 2 work.
   auras; light waits for dice, respects walls and leaves exploration unchanged.
   See [spell impact lighting](docs/SPELL_IMPACT_LIGHTING.md).
 
+- [x] Spell-impact vision performance: cache exact light-band SVG geometry,
+  batch changed mask markup, and separate cosmetic flash updates
+  from the ordinary lighting/sight cover. Camera, movement and door edits remain
+  immediate; browser pixel comparisons and impact-only GPU benchmarks verify
+  the change independently of dice-time map throttling.
+
+- [x] Damage-number frame scheduling: one elapsed-time animation per component
+  preserves hold/easing and avoids delayed fades overlapping the next number;
+  blocked-frame and late-mount browser regression plus real spell timing checks.
+
 - [x] DM wall tracing with drag-to-draw rectangles covering both sides and thickness in one stroke; connected lines remain available for diagonal barriers. Includes endpoint/grid snapping and whole-wall erase/undo; saved per map and preserved through backup/restore. Walls block personal terrain/token sight, darkvision and placed/carried lights; hidden/fog rules and encounter reveal tags remain server-enforced. Includes cached visibility polygons and clipped light-field geometry for overhead/tilted views, plus a recorded two-player dungeon walkthrough. See [wall controls and verification](docs/MAP_WALLS_2026_09_28.md).
 - [x] Night/Dungeon and heavy darkness default to light-source-only token shadows. A separate saved Map directional shadows option lets the DM restore the fixed map shadow; lighting changes and presets apply their default while ordinary edits preserve overrides. Daylight retains map shadows, and old dark saves adopt the new default without changing torch/lantern shadows.
 - [x] Local torches and carried lanterns cast creature geometry shadows on terrain and figures; dungeon fill no longer casts a fixed directional shadow. Four nearby source depth cubes are cached between caster/source movement, with remaining lights still contributing illumination. Recorded Varis approaching Druk through the painted south doorway, entering/backtracking, darkvision, moving-lantern shadows and an opposite-side torch comparison.
@@ -3040,6 +3067,10 @@ Smaller refinements on top of the shipped Phase 2 work.
 
 ## Player sight and roll background performance - October 11, 2026
 
+- [x] Preserve spell illumination of nearby figures and terrain and local color
+  restoration through darkvision. Neither expands sight/history nor adds spell
+  shadow maps. A simpler overlay remains available for diagnostic comparisons.
+  Ordinary torches and lanterns retain their approximately 15 Hz vision updates.
 - [x] Stationary personal/party sight stays cached; unchanged SVG sight and
   exploration clips are retained. Circular light bands use equivalent projected
   ellipses with the existing near-plane clipping fallback.
@@ -3048,3 +3079,8 @@ Smaller refinements on top of the shipped Phase 2 work.
   UI, visibility rules and physics retain their normal quality.
 - [x] Split benchmark GPU timers and integrated-GPU runtime evidence are in
   [the performance note](docs/performance/player-vision-roll-budget-2026-10-11.md).
+
+- [x] Preserve full spell illumination/darkvision grading by default; retain the
+  simpler color overlay behind a diagnostic URL flag with measured tradeoffs.
+- [x] Prepare full battlefield raster during the existing dice reading hold,
+  keeping the 12 FPS background cap and original roll/impact timing.

@@ -105,6 +105,9 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   const splats=new Mesh(fieldGeometry,fieldMaterial);splats.frustumCulled=false;fieldScene.add(splats);
   const wallSplats=new Group();wallSplats.visible=false;fieldScene.add(wallSplats);
   const wallLights=new Map<string,{mesh:Mesh<BufferGeometry,ShaderMaterial>;key:string;light:TorchLight;vertices:number}>();
+  const preparedWallLights=new Map<string,{mesh:Mesh<BufferGeometry,ShaderMaterial>;key:string;light:TorchLight;vertices:number}>();
+  let preparedGeometryCount=0;
+  const preparationScene=new Scene(),preparationTarget=new WebGLRenderTarget(8,8);
   let wallLightGeometryUpdates=0,wallLightPositionUploads=0;
   let lastWalls:EnvironmentPreviewSettings['walls'],wallKey='';
   let nominalRadii=new Map<string,number>();
@@ -119,6 +122,9 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     for(const l of lights){
       const radius=radiusFor(l),cacheKey=`${wallKey}:${l.x},${l.y},${radius}`;
       let entry=wallLights.get(l.id);
+      if(!entry&&preparedWallLights.has(l.id)){entry=preparedWallLights.get(l.id)!;preparedWallLights.delete(l.id);wallLights.set(l.id,entry);wallSplats.add(entry.mesh);
+        const current=entry;entry.mesh.onBeforeRender=()=>{const source=current.light;wallSource.value.set(source.x,source.height,source.y,source.radius);wallRadiance.value.set(source.color.x,source.color.y,source.color.z,source.strength);wallShadowSlot.value=source.transient?-2:source.shadowSlot??-1;fieldMaterial.uniformsNeedUpdate=true;};
+      }
       if(!entry){
         const mesh=new Mesh(new BufferGeometry(),fieldMaterial);mesh.frustumCulled=false;
         entry={mesh,key:'',light:l,vertices:0};wallLights.set(l.id,entry);wallSplats.add(mesh);
@@ -276,7 +282,25 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     if(enabled&&ambient){ambient.color.copy(original.sky).lerp(uniforms.sceneTint.value,tintAmount);ambient.groundColor.copy(original.ground).lerp(uniforms.sceneTint.value,tintAmount);}
     if(enabled){key.intensity=baseLight.key;key.color.copy(baseLight.color);if(ambient)ambient.intensity=baseLight.ambient;scene.environmentIntensity=baseLight.reflection;}
     else restore();tick(time);
-  },tick,setCarried(next:CarriedLanternLight[]){carried=next;},setTransient(next:TorchLight[]){transient=next;},get lights(){return lights;},
+  },tick,prepareTransient(next:readonly TorchLight[],renderer?:WebGLRenderer){
+      if(!settings)return;ensureCapacity(lights.length+Math.min(24,next.length));
+      const ids=new Set(next.map(l=>l.id));
+      for(const [id,entry] of preparedWallLights)if(!ids.has(id)){entry.mesh.geometry.dispose();preparedWallLights.delete(id);}
+      const walls=settings.walls??[];if(!walls.length)return;
+      const key=JSON.stringify(walls);let upload=false;
+      for(const light of next.slice(0,24)){
+        if(preparedWallLights.has(light.id)||wallLights.has(light.id))continue;
+        const radius=light.radius*LIGHT_SPILL_MULTIPLIER*1.2,polygon=wallVisibilityPolygon(light,walls,radius),count=polygon.length*3;
+        const capacity=2**Math.ceil(Math.log2(Math.max(1,count))),geometry=new BufferGeometry(),points=new Float32BufferAttribute(new Float32Array(capacity*3),3).setUsage(DynamicDrawUsage);
+        polygon.forEach((p,i)=>{const q=polygon[(i+1)%polygon.length],v=i*3;points.setXYZ(v,light.x,light.y,0);points.setXYZ(v+1,p.x,p.y,0);points.setXYZ(v+2,q.x,q.y,0);});
+        geometry.setAttribute('position',points);geometry.setDrawRange(0,count);const mesh=new Mesh(geometry,fieldMaterial);mesh.frustumCulled=false;
+        preparedWallLights.set(light.id,{mesh,key:`${key}:${light.x},${light.y},${radius}`,light,vertices:count});preparedGeometryCount++;upload=true;
+        mesh.onBeforeRender=()=>{wallSource.value.set(light.x,light.height,light.y,light.radius);wallRadiance.value.set(light.color.x,light.color.y,light.color.z,light.strength);wallShadowSlot.value=-2;fieldMaterial.uniformsNeedUpdate=true;};
+        preparationScene.add(mesh);
+      }
+      if(upload&&renderer){const previous=renderer.getRenderTarget();try{renderer.setRenderTarget(preparationTarget);renderer.clear();renderer.render(preparationScene,fieldCamera);}finally{renderer.setRenderTarget(previous);preparationScene.clear();}}
+      else preparationScene.clear();
+    },setCarried(next:CarriedLanternLight[]){carried=next;},setTransient(next:TorchLight[]){transient=next;},get lights(){return lights;},
     renderField(renderer:WebGLRenderer){
       lights.forEach((l,i)=>shadowAttribute.setX(i,l.transient?-2:l.shadowSlot??-1));shadowAttribute.needsUpdate=true;
       const previous=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate,clearAlpha=renderer.getClearAlpha();renderer.getClearColor(fieldClearColor);renderer.shadowMap.needsUpdate=false;
@@ -286,11 +310,11 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     },
     get animated(){return plane.visible&&(carried.length>0||(settings?.lights??[]).some(l=>l.flicker)||(settings?.groundWetness??0)>0||!!settings?.lightning);},
     get state(){return {lighting:plane.visible?settings.lighting??'day':'off',darkness:settings.heavyDarkness?'heavy':'normal',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch&&l.fixture!=='lantern').length,placedLanternCount:lights.filter(l=>l.visibleTorch&&l.fixture==='lantern'&&!l.carried).length,carriedLanternCount:carried.length,
-      wallLightGeometryUpdates,wallLightPositionUploads,wallLightMeshes:wallLights.size,
+      wallLightGeometryUpdates,wallLightPositionUploads,wallLightMeshes:wallLights.size,preparedWallLightMeshes:preparedWallLights.size,preparedGeometryCount,
       sceneTint:settings.sceneTint??'#ffffff',sceneTintStrength:plane.visible?settings.sceneTintStrength??0:0,sceneGradeOpacity:plane.visible?uniforms.gradeOpacity.value:0,
       wetGround:plane.visible?settings.groundWetness??0:0,lightningEnabled:plane.visible&&!!settings.lightning&&settings.weather==='rain',lightningFlash:fieldUniforms.stormFlash.value,
       carriedLanternPositions:JSON.stringify(lights.filter(l=>l.carried).map(l=>({id:l.id,x:l.x,y:l.y,height:l.height,fixtureHeight:l.fixtureHeight})))};},
     dispose(){scene.remove(plane);plane.geometry.dispose();material.dispose();for(const mesh of [shafts,cups,flames,frames,windows,handles])if(mesh){scene.remove(mesh);mesh.dispose();}
-      shaftGeometry.dispose();cupGeometry.dispose();flameGeometry.dispose();lanternGeometry.dispose();handleGeometry.dispose();bronze.dispose();glow.dispose();wood.dispose();iron.dispose();flame.dispose();field.dispose();fieldGeometry.dispose();for(const entry of wallLights.values())entry.mesh.geometry.dispose();wallLights.clear();fieldMaterial.dispose();restore();},
+      shaftGeometry.dispose();cupGeometry.dispose();flameGeometry.dispose();lanternGeometry.dispose();handleGeometry.dispose();bronze.dispose();glow.dispose();wood.dispose();iron.dispose();flame.dispose();field.dispose();fieldGeometry.dispose();for(const entry of wallLights.values())entry.mesh.geometry.dispose();wallLights.clear();for(const entry of preparedWallLights.values())entry.mesh.geometry.dispose();preparedWallLights.clear();preparationTarget.dispose();preparationScene.clear();fieldMaterial.dispose();restore();},
   };
 }

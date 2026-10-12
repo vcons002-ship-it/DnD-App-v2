@@ -37,5 +37,8 @@ describe('dice background rendering budget',()=>{
     expect(rollBackgroundBudget(1,true)).toEqual({pixelRatio:.65,fps:12});
     expect(rollBackgroundBudget(2,true)).toEqual({pixelRatio:1,fps:12});
     expect(rollBackgroundBudget(1.5,false)).toEqual({pixelRatio:1.5,fps:60});
+    expect(rollBackgroundBudget(1,true,true)).toEqual({pixelRatio:1,fps:12});
+    expect(rollBackgroundBudget(2,true,true)).toEqual({pixelRatio:2,fps:12});
+    expect(rollBackgroundBudget(1.5,false,true)).toEqual({pixelRatio:1.5,fps:60});
   });
 });

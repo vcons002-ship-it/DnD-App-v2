@@ -45,7 +45,7 @@ export function createMiniatureVisionLift(renderer: WebGLRenderer, host: HTMLEle
   const geometry = new PlaneGeometry(2, 2);
   scene.add(new Mesh(geometry, material));
   return {
-    render(enabled: boolean) {
+    render(enabled: boolean, renderEffects?:()=>void) {
       canvas.style.display = enabled ? 'block' : 'none';
       if (!enabled) return;
       const { width, height } = renderer.domElement;
@@ -55,12 +55,18 @@ export function createMiniatureVisionLift(renderer: WebGLRenderer, host: HTMLEle
         canvas.width = width; canvas.height = height;
       }
       renderer.copyFramebufferToTexture(frame);
-      material.uniforms.extract.value = 1;
-      renderer.render(scene, camera);
-      context.clearRect(0, 0, width, height);
-      context.drawImage(renderer.domElement, 0, 0);
-      material.uniforms.extract.value = 0;
-      renderer.render(scene, camera);
+      const autoClear=renderer.autoClear;
+      try{
+        renderer.autoClear=false;
+        material.uniforms.extract.value = 1;
+        renderer.render(scene, camera);
+        renderEffects?.();
+        context.clearRect(0, 0, width, height);
+        context.drawImage(renderer.domElement, 0, 0);
+        material.uniforms.extract.value = 0;
+        renderer.render(scene, camera);
+        renderEffects?.();
+      }finally{renderer.autoClear=autoClear;}
     },
     dispose() { canvas.remove(); frame?.dispose(); material.dispose(); geometry.dispose(); },
   };

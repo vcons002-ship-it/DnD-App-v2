@@ -378,25 +378,31 @@ type HeadPosition=(id:string)=>{x:number;y:number}|undefined;
 function FloaterText({number,position,fontSize,rise,startAt,holdMs,fadeMs,targetX,tokenId,headPosition}:{number:HpNumber;position:{x:number;y:number};fontSize:number;rise:number;startAt:number;holdMs:number;fadeMs:number;targetX:number;tokenId:string;headPosition:HeadPosition}) {
   const anchor=useRef<Konva.Group>(null);
   const group=useRef<Konva.Group>(null);
+  const text=useRef<Konva.Text>(null);
   useEffect(()=>{
     const node=group.current;if(!node)return;
-    let drift:Konva.Tween|undefined,fade:Konva.Tween|undefined,fadeTimer:ReturnType<typeof setTimeout>|undefined;
-    const follow=new Konva.Animation(()=>{
-      const head=headPosition(tokenId);if(!head||!anchor.current)return false;
-      anchor.current.position({x:head.x,y:head.y+fontSize*.3});
+    // Stroke and shadow are static artwork. Rasterize once at the canvas's
+    // native resolution, then move/fade that image instead of repainting glyphs.
+    text.current?.cache({pixelRatio:Konva.pixelRatio});
+    // Use the shared impact clock for position and opacity. Timer-started
+    // tweens extend their lifetimes after a busy frame and can overlap the
+    // next scheduled component; one animation needs no delayed callbacks.
+    const duration=holdMs+fadeMs;
+    const animation=new Konva.Animation(()=>{
+      const elapsed=performance.now()-startAt;
+      if(elapsed<0)return false;
+      const head=headPosition(tokenId);
+      if(head&&anchor.current)anchor.current.position({x:head.x,y:head.y+fontSize*.3});
+      node.y(-rise*Konva.Easings.EaseOut(Math.min(duration,elapsed),0,1,duration));
+      node.opacity(elapsed<=holdMs?1:1-Konva.Easings.EaseIn(Math.min(fadeMs,elapsed-holdMs),0,1,fadeMs));
+      if(elapsed>=duration)animation.stop();
     },node.getLayer());
-    follow.start();
-    const stopTimer=setTimeout(()=>follow.stop(),Math.max(0,startAt-performance.now())+holdMs+fadeMs);
-    const timer=setTimeout(()=>{
-      node.opacity(1);
-      drift=new Konva.Tween({node,y:-rise,duration:(holdMs+fadeMs)/1000,easing:Konva.Easings.EaseOut});drift.play();
-      fadeTimer=setTimeout(()=>{fade=new Konva.Tween({node,opacity:0,duration:fadeMs/1000,easing:Konva.Easings.EaseIn});fade.play();},holdMs);
-    },Math.max(0,startAt-performance.now()));
-    return()=>{clearTimeout(timer);clearTimeout(fadeTimer);clearTimeout(stopTimer);follow.stop();drift?.destroy();fade?.destroy();};
+    animation.start();
+    return()=>{animation.stop();text.current?.clearCache();};
   },[]);
   const width=fontSize*3;
   return <Group ref={anchor} x={position.x} y={position.y+fontSize*1.3} listening={false}><Group ref={group} opacity={0} listening={false}>
-    <Text name={`hp-floater-number ${number.total?'hp-floater-total':number.delta<0?'hp-floater-component':'hp-floater-heal'}`} targetMapX={targetX} text={`${number.delta>0?'+':'\u2212'}${Math.abs(number.delta)}`}
+    <Text ref={text} name={`hp-floater-number ${number.total?'hp-floater-total':number.delta<0?'hp-floater-component':'hp-floater-heal'}`} targetMapX={targetX} text={`${number.delta>0?'+':'\u2212'}${Math.abs(number.delta)}`}
       fontSize={number.total||number.delta>0?fontSize:fontSize*.72} fontStyle="bold" fill={number.color} stroke="#08090d" strokeWidth={Math.max(1.5,fontSize*.09)} fillAfterStrokeEnabled
       shadowColor="#000" shadowBlur={5} shadowOpacity={.9} align="center" width={width} offsetX={width/2} listening={false}/>
   </Group></Group>;
@@ -413,7 +419,9 @@ function RunningTotal({numbers,position,fontSize,startAt,targetX,tokenId,headPos
     let previousText='';
     const animation=new Konva.Animation(()=>{
       const elapsed=performance.now()-startAt;
-      const head=headPosition(tokenId);if(head&&anchor.current)anchor.current.position({x:head.x,y:head.y-fontSize});
+      let changed=false;
+      const head=headPosition(tokenId);if(head&&anchor.current){const y=head.y-fontSize;
+        if(anchor.current.x()!==head.x||anchor.current.y()!==y){anchor.current.position({x:head.x,y});changed=true;}}
       let amount=0;
       for(let i=0;i<milestones.length;i++){
         const item=milestones[i];if(elapsed<item.delayMs)break;
@@ -422,11 +430,15 @@ function RunningTotal({numbers,position,fontSize,startAt,targetX,tokenId,headPos
         amount=before+(item.delta-before)*(1-(1-progress)**3);
       }
       const shown=Math.ceil(-amount),value=`\u2212${shown}`;
-      if(value!==previousText){label.text(value);previousText=value;}
-      node.opacity(elapsed<milestones[0].delayMs-220?0:elapsed<=last.delayMs+HP_TOTAL_HOLD_MS?1:Math.max(0,1-(elapsed-last.delayMs-HP_TOTAL_HOLD_MS)/HP_NUMBER_FADE_MS));
+      if(value!==previousText){label.text(value);label.clearCache();label.cache({pixelRatio:Konva.pixelRatio});previousText=value;changed=true;}
+      const opacity=elapsed<milestones[0].delayMs-220?0:elapsed<=last.delayMs+HP_TOTAL_HOLD_MS?1:Math.max(0,1-(elapsed-last.delayMs-HP_TOTAL_HOLD_MS)/HP_NUMBER_FADE_MS);
+      if(node.opacity()!==opacity){node.opacity(opacity);changed=true;}
       if(elapsed>last.delayMs+HP_TOTAL_HOLD_MS+HP_NUMBER_FADE_MS)animation.stop();
+      // A stationary, fully visible total needs no canvas redraw. Camera or
+      // token movement still updates its anchor, and its fade remains animated.
+      return changed;
     },node.getLayer());
-    animation.start();return()=>{animation.stop();};
+    animation.start();return()=>{animation.stop();label.clearCache();};
   },[startAt,tokenId,headPosition,timingKey]);
   if(!timeline.length)return null;
   const width=fontSize*4;

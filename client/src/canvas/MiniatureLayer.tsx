@@ -34,7 +34,8 @@ import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
 import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
 import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
-import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
+import {createSpellImpactEffects,SPELL_IMPACT_LAYER,type SpellImpact} from './spellImpactEffects';
+import {createSpellColorOverlay} from './spellColorOverlay';
 import {createLocalLightShadows} from './localLightShadows';
 import {useEnvironmentQuality,recordGraphicsFrame} from '../lib/useEnvironmentQuality';
 import {graphicsBudget} from '../../../shared/graphicsQuality';
@@ -70,9 +71,13 @@ export type MiniatureToken = {
 const EMPTY_WALLS:import('../../../shared/mapWalls').MapWall[]=[];
 type Props = {
   rollBackground?: boolean;
+  rollBackgroundPrepared?: boolean;
+  spellColorOverlay?: boolean;
   graphics?: ReturnType<typeof graphicsBudget>;
   footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
+  preparedSpellImpacts?: SpellImpact[];
+  onPrepareVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   memoryTerrainCanvas?: ()=>HTMLCanvasElement|null;
   visionCoverFrame?: ()=>VisionCoverFrame|undefined;
   personalVision?: boolean;
@@ -91,7 +96,7 @@ type Props = {
   onReady: (tokenIds: ReadonlySet<string>) => void;
   nameLabels?: () => MiniatureNameLabel[];
   onRenderedNames?: (ids: ReadonlySet<string>) => void;
-  /** Shared renderer settings; the app uses a transparent ground overlay. */
+  /** Shared renderer settings for figure illumination. */
   environmentPreview?: EnvironmentPreviewSettings;
 };
 export type MiniatureLayerHandle = {
@@ -194,6 +199,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   scene.matrixAutoUpdate=false;scene.matrixWorldAutoUpdate=false;
   const footprints=createMiniatureFootprints(scene);
   const spellImpacts=createSpellImpactEffects(scene);
+  const spellColor=createSpellColorOverlay(host.parentElement!);
   const localShadows=createLocalLightShadows(renderer,()=>invalidate());
   // Shared screen mask measures local silhouette thickness for every model,
   // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
@@ -226,6 +232,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   key.position.set(-3, 8, 5);
   scene.add(key);
   ambient.layers.enable(4);key.layers.enable(4);
+  ambient.layers.enable(SPELL_IMPACT_LAYER);key.layers.enable(SPELL_IMPACT_LAYER);
   // A small neutral environment keeps metal readable without per-token lights/shadows.
   let pmrem: PMREMGenerator | null = null;
   let room: RoomEnvironment | null = null;
@@ -237,7 +244,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     scene.environment = environment.texture;
     scene.environmentIntensity = NEUTRAL_MINIATURE_LIGHTING.reflection;
   } catch (error) {
-    spellImpacts.dispose();localShadows.dispose();
+    spellImpacts.dispose();spellColor.dispose();localShadows.dispose();
     sharedCanvas.remove();sharedDepth.dispose();names.dispose();visionLift?.dispose();visionComposite?.dispose();
     silhouette.dispose();outlineMask.dispose(); maskMaterial.dispose();
     environment?.dispose();
@@ -416,6 +423,20 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const t=reducedMotion.matches?1:Math.min(1,(now-fade.start)/850),ease=t*t*(3-2*t);fade.value=fade.from+(fade.to-fade.from)*ease;
         instance.materials.forEach((m,i)=>{if(t<1&&!m.transparent){m.transparent=true;m.needsUpdate=true;}m.opacity=instance.originalOpacity[i]*fade.value;});
       }
+      const staged=props.preparedSpellImpacts??[];
+      const preparedLights=spellImpacts.prepare(staged,now,props.environmentPreview?.pixelsPerFoot??12.8,reducedMotion.matches,id=>{
+        const impact=staged.find(e=>e.tokenId===id);if(!impact)return;
+        const instance=instances.get(id),x=impact.fixed?impact.x:instance?.root.position.x??impact.x,y=impact.fixed?impact.y:instance?.root.position.z??impact.y;
+        return {x,y,height:instance?.mistBody?instance.mistBody.height*instance.root.scale.x:undefined,visible:props.isVisibleAt?.(id,x,y)??true};
+      });
+      if(preparedLights.length){
+        if(!props.spellColorOverlay){battlefield?.lighting.prepareTransient(preparedLights,renderer);props.onPrepareVisionLights?.(preparedLights);}
+      }else if(!staged.length&&!spellImpacts.active){battlefield?.lighting.prepareTransient([]);props.onPrepareVisionLights?.([]);}
+      if(spellImpacts.preparation.pending)spellImpacts.warm(renderer,camera);
+      host.dataset.spellPreparedCount=String(spellImpacts.preparation.pending);
+      host.dataset.spellGeometryBuilt=String(spellImpacts.preparation.built);
+      host.dataset.spellPreparedPromoted=String(spellImpacts.preparation.promoted);
+      host.dataset.spellGpuWarmCount=String(spellImpacts.preparation.gpuWarmCount);
       const impactLights=spellImpacts.tick(now,props.environmentPreview?.pixelsPerFoot??12.8,reducedMotion.matches,id=>{
         const impact=props.spellImpacts?.find(e=>e.tokenId===id);if(!impact)return;
         const instance=instances.get(id),point=impact.fixed?impact:props.visualPosition?.(id)??impact;
@@ -423,10 +444,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           height:instance?.mistBody?instance.mistBody.height*instance.root.scale.x:undefined};
       });
       host.dataset.spellImpactCount=String(spellImpacts.kinds.length);
+      host.dataset.spellTransientCount=String(spellImpacts.transientCount);
       host.dataset.spellImpactKinds=spellImpacts.kinds.join(',');
       host.dataset.spellLightStrength=String(impactLights.reduce((sum,l)=>sum+l.strength,0));
       host.dataset.spellLightPositions=JSON.stringify(impactLights.map(l=>[l.x,l.height,l.y]));
-      battlefield?.lighting.setTransient(impactLights);
+      // Full illumination remains the default; the overlay is a diagnostic comparison.
+      battlefield?.lighting.setTransient(props.spellColorOverlay?[]:impactLights);
+      spellColor.draw(props.spellColorOverlay?impactLights:[],view,props.tiltDegrees,props.rotationDegrees??0,props.width,props.height);
       battlefield?.setTokens(props.tokens.map(token => {
         const instance=instances.get(token.id);
         const x=instance?.root.position.x??token.x,y=instance?.root.position.z??token.y;
@@ -455,7 +479,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         scene.updateMatrixWorld();
         timing?.begin();
         localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!tokenById.get(id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??EMPTY_WALLS,!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3,props.graphics,true);
-        for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??impactLights,instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls);
+        const lightMode=props.graphics?.miniatureLightMode??'directional';
+        host.dataset.miniatureLightMode=lightMode;
+        for(const instance of instances.values())instance.torchLighting.update(battlefield?.lighting.lights??impactLights,instance.root,camera,!!props.environmentPreview?.darkvisionTerrain,props.environmentPreview?.walls,lightMode,battlefield?.lighting.fieldUniforms);
         const batching=batches.update([...instances].map(([id,i])=>({root:i.root,lighting:i.torchLighting,
           eligible:!['druk','varis','vanec',DEATH_SKULL.id,SPIRITUAL_WEAPON.id].includes(tokenById.get(id)?.definition.id??'')&&!i.mixer&&!i.fx&&!i.lightning&&!tokenById.get(id)?.sharedSightOnly&&!tokenById.get(id)?.hidden&&!tokenById.get(id)?.invisible&&!tokenById.get(id)?.mirrorImages})),batchingEnabled,true,(props.graphics?.resolved??'high')==='high');
         host.dataset.batchLighting=(props.graphics?.resolved??'high')==='high'?'instance-rows':'shared-uniforms';
@@ -532,7 +558,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
         battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
+        const sightFrame=props.visionCoverFrame?.();
+        // Keep the existing path until the remembered-art texture is ready;
+        // this also covers daylight boards without an environment renderer.
+        const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
+        const deferSpells=!!props.personalVision&&(!useComposite||!!sightFrame?.enabled);
+        if(deferSpells)camera.layers.disable(SPELL_IMPACT_LAYER);else camera.layers.enable(SPELL_IMPACT_LAYER);
         renderer.render(scene, camera);
+        camera.layers.enable(SPELL_IMPACT_LAYER);
         host.dataset.colorDrawCalls=String(renderer.info.render.calls);
         host.dataset.colorTriangles=String(renderer.info.render.triangles);
         host.dataset.loadedModelUrls=JSON.stringify([...instances.values()].map(i=>i.url).sort());
@@ -556,16 +589,15 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
         archArtStudy?.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
-        const sightFrame=props.visionCoverFrame?.();
-        // Keep the existing path until the remembered-art texture is ready;
-        // this also covers daylight boards without an environment renderer.
-        const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
         if(props.personalVision&&!useComposite)visionLift??=createMiniatureVisionLift(renderer,host,outlineMask.texture);
         timing?.end();visionTiming?.begin();
-        visionLift?.render(!!props.personalVision&&!useComposite);
+        visionLift?.render(!!props.personalVision&&!useComposite,()=>spellImpacts.renderForeground(renderer,camera));
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
+        if(deferSpells&&useComposite)spellImpacts.renderForeground(renderer,camera);
+        host.dataset.spellFogPass=deferSpells?(useComposite?'foreground':'legacy-lift'):'scene';
         visionTiming?.end();
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
+        host.dataset.lastRenderedPixelRatio=String(renderer.getPixelRatio());
         host.dataset.renderCount=String(++totalPaintCount);
         // Count distinct browser frames, not extra scene draws within a frame.
         if (_frameTime !== countedFrame) {
@@ -765,13 +797,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     // Unrelated snapshots during an imperative Konva pan must not restore the
     // last committed camera position before dragend commits the new view.
     if (next.view !== committedView) { view = next.view; committedView = next.view; }
-    const pixelRatio = rollBackgroundBudget(Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2),!!next.rollBackground).pixelRatio;
+    const pixelRatio = rollBackgroundBudget(Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2),!!next.rollBackground,!!next.rollBackgroundPrepared).pixelRatio;
     host.dataset.rollBackground=next.rollBackground?'reduced':'full';
     host.dataset.backgroundFpsCap=next.rollBackground?'12':'60';
     host.dataset.graphicsQuality=next.graphics?.resolved??'high';
     host.dataset.modelQuality=next.graphics?.modelQuality==='high'?'original':next.graphics?.modelQuality==='balanced'?'balanced':'light';
     host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
     host.dataset.renderPixelRatio=String(pixelRatio);
+    host.dataset.backgroundPrepared=String(!!next.rollBackgroundPrepared);
     if (next.width !== renderedWidth || next.height !== renderedHeight || pixelRatio !== renderedPixelRatio) {
       renderedWidth = next.width; renderedHeight = next.height; renderedPixelRatio = pixelRatio;
       renderer.setPixelRatio(pixelRatio);
@@ -972,7 +1005,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     raisedStudy?.dispose();
     archArtStudy?.dispose();
     archArtLayer.dispose();
-    spellImpacts.dispose();
+    spellImpacts.dispose();spellColor.dispose();
     footprints.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());

@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {BoxGeometry,Color,Group,Mesh,MeshStandardMaterial,Scene,Vector3,Vector4} from 'three';
+import {BoxGeometry,Color,Group,Mesh,MeshStandardMaterial,Scene,Vector2,Vector3,Vector4} from 'three';
 import {createMiniatureBatches,type BatchFigure} from '../../client/src/canvas/miniatureBatches.js';
 
 describe('static miniature batching',()=>{
@@ -66,6 +66,17 @@ describe('static miniature batching',()=>{
     const meshes=scene.children.filter(n=>n.name==='batched-miniatures') as any[];
     for(const mesh of meshes){const shader={uniforms:{},vertexShader:'',fragmentShader:''};mesh.material.onBeforeCompile(shader,{});
       expect((shader.uniforms as any).batchTorches).toBeUndefined();expect((shader.uniforms as any).torchPositions).toBeDefined();}
+    batches.dispose();
+  });
+  it('keeps separate ground sample positions for Low instances even in one shared draw',()=>{
+    const scene=new Scene(),items=figures(scene),batches=createMiniatureBatches(scene);
+    items.forEach((f,i)=>{f.lighting.uniforms.torchGroundPoint={value:new Vector2(i*30,100+i)};});
+    expect(batches.update(items,true,false,false)).toEqual({batches:1,instances:4});
+    const batch=scene.getObjectByName('batched-miniatures') as any,points=batch.geometry.getAttribute('instanceGroundPoint');
+    expect(Array.from(points.array)).toEqual([0,100,30,101,60,102,90,103]);
+    items[1].lighting.uniforms.torchGroundPoint!.value.set(44,55);batches.update(items,true,false,false);
+    expect(points.getX(1)).toBe(44);expect(points.getY(1)).toBe(55);
+    const version=points.version;batches.update(items,true,false,false);expect(points.version).toBe(version);
     batches.dispose();
   });
 });

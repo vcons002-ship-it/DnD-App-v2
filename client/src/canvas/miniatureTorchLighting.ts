@@ -1,16 +1,21 @@
 import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
-import {Box3, Mesh, MeshStandardMaterial, Vector3, Vector4, type Camera, type Group, type Material, type Object3D} from 'three';
+import {Box3, DataTexture, Mesh, MeshStandardMaterial, Vector2, Vector3, Vector4, type Camera, type Group, type Material, type Object3D, type Texture} from 'three';
 import type {MiniatureDefinition} from '../lib/miniatures';
 import {type MapWall} from '../../../shared/mapWalls';
 import {localShadowGlsl,type createLocalLightShadows} from './localLightShadows';
 import {createLightSightCache} from '../../../shared/lightSightCache';
 
 const EMPTY_WALLS:readonly MapWall[]=[];
+export type MiniatureLightMode='directional'|'spells-ground'|'ground';
+type GroundField={torchField:{value:Texture};torchBounds:{value:Vector4}};
+// Valid sampler while no environment is mounted or the shared-sight pass is unlit.
+const emptyGroundField=new DataTexture(new Uint8Array(4),1,1);emptyGroundField.needsUpdate=true;
 export type TorchLight = {id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight?:number;radius:number;strength:number;nominalRadius?:number;nominalStrength?:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number;transient?:boolean};
 
 /** Each figure gets its strongest nearby sources, independent of the map's light count. */
 export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms']){
-  const uniforms={...shadowUniforms,torchShadowSlots:{value:Array(8).fill(-1)},darkvisionDetail:{value:0},torchCount:{value:0},torchPositions:{value:Array.from({length:8},()=>new Vector4())},torchColors:{value:Array.from({length:8},()=>new Vector3())}};
+  const uniforms={...shadowUniforms,torchShadowSlots:{value:Array(8).fill(-1)},darkvisionDetail:{value:0},torchCount:{value:0},torchPositions:{value:Array.from({length:8},()=>new Vector4())},torchColors:{value:Array.from({length:8},()=>new Vector3())},
+    torchGroundEnabled:{value:0},torchGroundField:{value:emptyGroundField as Texture},torchGroundBounds:{value:new Vector4()},torchGroundPoint:{value:new Vector2()}};
   const point=new Vector3();
   const sight=createLightSightCache();
   let signature='';
@@ -19,16 +24,25 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
     const previous=material.onBeforeCompile,cache=material.customProgramCacheKey();
     material.onBeforeCompile=function(shader,renderer){
       previous.call(this,shader,renderer);Object.assign(shader.uniforms,uniforms);
-      shader.vertexShader='varying vec3 torchWorldPosition;\n'+shader.vertexShader;
+      shader.vertexShader=`varying vec3 torchWorldPosition;varying vec3 torchGroundRadiance;
+        uniform float torchGroundEnabled;uniform sampler2D torchGroundField;uniform vec4 torchGroundBounds;uniform vec2 torchGroundPoint;\n`+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>',`#include <worldpos_vertex>
         vec4 torchWorld=vec4(transformed,1.);
         #ifdef USE_INSTANCING
           torchWorld=instanceMatrix*torchWorld;
         #endif
-        torchWorldPosition=(modelMatrix*torchWorld).xyz;`);
-      shader.fragmentShader=localShadowGlsl+lightFalloffGlsl+'varying vec3 torchWorldPosition; uniform float torchShadowSlots[8]; uniform float darkvisionDetail; uniform int torchCount; uniform vec4 torchPositions[8]; uniform vec3 torchColors[8];\n'+shader.fragmentShader;
+        torchWorldPosition=(modelMatrix*torchWorld).xyz;
+        // Low samples the already-rendered, wall-clipped ground field. One
+        // sample per vertex supplies a uniform response across the whole figure.
+        vec2 groundPoint=torchGroundPoint;
+        torchGroundRadiance=vec3(0.);
+        if(torchGroundEnabled>.5){
+          vec2 groundUv=(groundPoint-torchGroundBounds.xy)/max(torchGroundBounds.zw,vec2(.001));
+          if(all(greaterThanEqual(groundUv,vec2(0.)))&&all(lessThanEqual(groundUv,vec2(1.))))torchGroundRadiance=texture2D(torchGroundField,groundUv).rgb;
+        }`);
+      shader.fragmentShader=localShadowGlsl+lightFalloffGlsl+'varying vec3 torchWorldPosition; varying vec3 torchGroundRadiance; uniform float torchShadowSlots[8]; uniform float darkvisionDetail; uniform int torchCount; uniform vec4 torchPositions[8]; uniform vec3 torchColors[8];\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',`#include <lights_fragment_begin>
-        float darkvisionLight=0.;
+        float darkvisionLight=max(torchGroundRadiance.r,max(torchGroundRadiance.g,torchGroundRadiance.b));
         #if defined(RE_Direct)
         for(int torchIndex=0;torchIndex<8;torchIndex++){
           if(torchIndex>=torchCount)break;
@@ -47,6 +61,7 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
         }
         #endif`);
       shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
+        outgoingLight+=diffuseColor.rgb*torchGroundRadiance*.30;
         float sourceLuma=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
         float contour=pow(1.-abs(dot(normalize(normal),normalize(vViewPosition))),3.);
         // Gentle midtone/facing detail for creatures in unlit heavy darkness.
@@ -55,11 +70,18 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
         outgoingLight+=vec3(detail*darkvisionDetail*(1.-lightColorCoverage(darkvisionLight)));
         #include <opaque_fragment>`);
     };
-    material.customProgramCacheKey=()=>cache+'-nearby-torches-v10-spell-flashes';
-  },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false,walls:readonly MapWall[]=EMPTY_WALLS){
+    material.customProgramCacheKey=()=>cache+'-nearby-torches-v11-ground-presets';
+  },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false,walls:readonly MapWall[]=EMPTY_WALLS,mode:MiniatureLightMode='directional',field?:GroundField){
     uniforms.darkvisionDetail.value=darkvision?1:0;
+    uniforms.torchGroundEnabled.value=mode==='ground'&&field&&lights.length?1:0;
+    uniforms.torchGroundField.value=field?.torchField.value??emptyGroundField;
+    if(field)uniforms.torchGroundBounds.value.copy(field.torchBounds.value);else uniforms.torchGroundBounds.value.set(0,0,0,0);
+    uniforms.torchGroundPoint.value.set(root.position.x,root.position.z);
     const chosen:{light:TorchLight;score:number}[]=[];
-    for(const light of lights){
+    // Balanced spells illuminate terrain only. Low bypasses per-figure source
+    // selection entirely, including its ray checks and eight-light shader loop.
+    if(mode!=='ground')for(const light of lights){
+      if(mode==='spells-ground'&&light.transient)continue;
       const d2=(light.x-root.position.x)**2+(light.y-root.position.z)**2;
       if(d2>(light.radius*LIGHT_SPILL_MULTIPLIER)**2)continue;
       if(!sight.visible(light.id,light,{x:root.position.x,y:root.position.z},walls))continue;
@@ -69,7 +91,7 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
     }
     uniforms.torchCount.value=chosen.length;
     chosen.sort((a,b)=>a.light.id.localeCompare(b.light.id));
-    signature=JSON.stringify([darkvision,chosen.map(c=>c.light.id)]);
+    signature=JSON.stringify([mode,uniforms.torchGroundEnabled.value,darkvision,chosen.map(c=>c.light.id)]);
     chosen.forEach(({light},i)=>{
       point.set(light.x,light.height,light.y).applyMatrix4(camera.matrixWorldInverse);
       uniforms.torchPositions.value[i].set(point.x,point.y,point.z,light.radius);

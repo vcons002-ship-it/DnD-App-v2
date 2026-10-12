@@ -1,14 +1,17 @@
-import {InstancedMesh,AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3} from 'three';
+import {InstancedMesh,AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3,WebGLRenderTarget,type Camera,type WebGLRenderer} from 'three';
 import {spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
 import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
 import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeometry';
 
 export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;startAt?:number;persistent?:boolean;fixed?:boolean};
+// A separate color pass lets visible spell geometry rise above terrain fog
+// without lifting any hidden map pixels or invalidating the cached body mask.
+export const SPELL_IMPACT_LAYER=7;
 type Effect={input:SpellImpact;style:SpellImpactStyle;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
 
-/** Bounded, short-lived world-space geometry. No model downloads or new lights
- * in Three's shader signature: illumination uses the existing local light field. */
+/** Prepare detached geometry during a roll hold; only activation starts its
+ * visible lifetime and feeds illumination. Preparation never emits scene light. */
 export function createSpellImpactEffects(scene:Scene){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=64;
   const ctx=canvas.getContext('2d')!,gradient=ctx.createRadialGradient(32,32,0,32,32,32);
@@ -16,9 +19,11 @@ export function createSpellImpactEffects(scene:Scene){
   ctx.fillStyle=gradient;ctx.fillRect(0,0,64,64);
   const glow=new CanvasTexture(canvas),plane=new PlaneGeometry(1,1),shaft=new CylinderGeometry(.012,.018,.75,5),tip=new ConeGeometry(.075,.22,5),spark=new SphereGeometry(.045,5,4);
   const shapes=createLinkedSpellGeometry();
+  const prepared=new Map<number|string,Effect>(),preparedScene=new Scene(),warmTarget=new WebGLRenderTarget(8,8),warming=new WeakSet<Group>(),warmed=new WeakSet<Group>();
+  let disposed=false,built=0,promoted=0,gpuWarmCount=0;
   const effects=new Map<number|string,Effect>(),seen=new Set<number|string>(),worldPoint=new Vector3();
-  const dispose=(effect:Effect)=>{scene.remove(effect.root);effect.root.traverse(n=>{if(n instanceof InstancedMesh)n.dispose();});effect.materials.forEach(m=>m.dispose());effect.vines.forEach(v=>v.geometry.dispose());effect.bolt?.geometry.dispose();};
-  function add(input:SpellImpact,now:number){
+  const dispose=(effect:Effect)=>{effect.root.removeFromParent();effect.root.traverse(n=>{if(n instanceof InstancedMesh)n.dispose();});effect.materials.forEach(m=>m.dispose());effect.vines.forEach(v=>v.geometry.dispose());effect.bolt?.geometry.dispose();};
+  function add(input:SpellImpact,now:number,target=effects){
     const style=spellImpactStyle(input.event);if(!style)return;
     const root=new Group();root.name=`spell-impact-${style.kind}`;
     const body=new MeshBasicMaterial({color:style.color,transparent:true,depthWrite:false,toneMapped:false});
@@ -59,20 +64,13 @@ export function createSpellImpactEffects(scene:Scene){
     // Darkvision artwork is a transparent ground overlay at order 3. Effects
     // draw afterwards with depth testing intact, so terrain cannot erase the
     // field and a foreground figure still occludes its particles and thorns.
-    root.traverse(node=>{if(node instanceof Mesh)node.renderOrder=5;});
-    scene.add(root);effects.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:input.startAt??now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
+    root.traverse(node=>{if(node instanceof Mesh){node.renderOrder=5;node.layers.set(SPELL_IMPACT_LAYER);}});
+    (target===prepared?preparedScene:scene).add(root);built++;target.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:input.startAt??now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
   }
-  return {
-    sync(inputs:readonly SpellImpact[],now:number){
-      const ids=new Set(inputs.map(e=>e.id));for(const id of seen)if(!ids.has(id))seen.delete(id);
-      for(const [id,e] of effects)if(!ids.has(id)){dispose(e);effects.delete(id);}
-      for(const input of inputs){const e=effects.get(input.id);if(e)e.input=input;
-        else if(!seen.has(input.id)){seen.add(input.id);if(input.persistent||[...effects.values()].filter(e=>!e.input.persistent).length<16)add(input,now);}}
-    },
-    tick(now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
+  function tickEffects(collection:Map<number|string,Effect>,now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
       const lights:TorchLight[]=[];
-      for(const [id,e] of effects){
-        const age=now-e.start;if(age<0){e.root.visible=false;continue;}if(!e.input.persistent&&age>=e.style.duration){dispose(e);effects.delete(id);continue;}
+      for(const [id,e] of collection){
+        const age=now-e.start;if(age<0){e.root.visible=false;continue;}if(!e.input.persistent&&age>=e.style.duration){dispose(e);collection.delete(id);continue;}
         const p=position(e.input.tokenId);e.root.visible=!!p?.visible;if(!p?.visible)continue;
         const size=Math.max(pixelsPerFoot*2,e.input.diameter),height=Math.max(size*.85,p.height??size*1.5);
         e.root.position.set(p.x,0,p.y);e.root.scale.set(size,e.style.kind==='thorns'?size:height/1.2,size);
@@ -96,7 +94,7 @@ export function createSpellImpactEffects(scene:Scene){
         e.sparks.forEach((point,i)=>{const a=point.userData.angle+(reduced?0:t*.5),progress=e.input.persistent?(t*.2+point.userData.seed)%1:t,r=e.style.kind==='mark'?.55:.4+progress*.4;
           point.position.set(Math.cos(a)*r,.15+(reduced?.25:progress)*(.4+point.userData.seed),Math.sin(a)*r);point.scale.setScalar(i%3===0?1.3:.7);});
         // Sample luminous geometry after applying this frame's exact transforms.
-        // Three samples approximate an extended emitter without new shadow maps.
+        // Three samples place the cosmetic overlay around the animated geometry.
         // No source is placed at the target center, and hidden geometry emits none.
         e.root.updateMatrixWorld(true);
         const samples:{object:Group|Mesh;local:Vector3;weight:number}[]=[];
@@ -121,9 +119,69 @@ export function createSpellImpactEffects(scene:Scene){
         }
       }
       return lights;
+  }
+  return {
+    sync(inputs:readonly SpellImpact[],now:number){
+      const ids=new Set(inputs.map(e=>e.id));for(const id of seen)if(!ids.has(id))seen.delete(id);
+      for(const [id,e] of effects)if(!ids.has(id)){dispose(e);effects.delete(id);}
+      for(const input of inputs){const e=effects.get(input.id);if(e)e.input=input;
+        else if(!seen.has(input.id)){seen.add(input.id);if(input.persistent||[...effects.values()].filter(e=>!e.input.persistent).length<16){
+          const staged=prepared.get(input.id);
+          if(staged){prepared.delete(input.id);staged.input=input;staged.start=input.startAt??now;staged.root.visible=false;scene.add(staged.root);effects.set(input.id,staged);promoted++;}
+          else add(input,now);
+        }}}
     },
+    tick(now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
+      return tickEffects(effects,now,pixelsPerFoot,reduced,position);
+    },
+    renderForeground(renderer:WebGLRenderer,camera:Camera){
+      if(![...effects.values()].some(e=>e.root.visible))return;
+      const layers=camera.layers.mask,autoClear=renderer.autoClear,pending=renderer.shadowMap.needsUpdate;
+      try{
+        camera.layers.set(SPELL_IMPACT_LAYER);renderer.autoClear=false;renderer.shadowMap.needsUpdate=false;
+        // Keep the scene's depth: a foreground figure still covers particles.
+        renderer.render(scene,camera);
+      }finally{camera.layers.mask=layers;renderer.autoClear=autoClear;renderer.shadowMap.needsUpdate=pending;}
+    },
+    prepare(inputs:readonly SpellImpact[],now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
+      const ids=new Set(inputs.map(e=>e.id));
+      for(const [id,e] of prepared)if(!ids.has(id)){dispose(e);prepared.delete(id);}
+      for(const input of inputs)if(!prepared.has(input.id)&&!effects.has(input.id)&&prepared.size<16){
+        add(input,now,prepared);
+        const e=prepared.get(input.id);if(e)e.start=now-e.style.duration*.22;
+      }
+      for(const e of prepared.values())e.start=now-e.style.duration*.22;
+      // Pose/sample only the detached scene. These lights are for allocation
+      // and clipping preparation, never for the visible illumination field.
+      const samples=tickEffects(prepared,now,pixelsPerFoot,reduced,position);
+      for(const e of prepared.values())e.root.visible=false;
+      return samples;
+    },
+    warm(renderer:WebGLRenderer,camera:Camera){
+      for(const e of prepared.values()){
+        const root=e.root;if(warming.has(root)||warmed.has(root))continue;
+        warming.add(root);
+        void renderer.compileAsync(root,camera,scene).then(()=>{
+          if(disposed||prepared.get(e.input.id)!==e)return;
+          const oldTarget=renderer.getRenderTarget(),auto=renderer.autoClear,layers=camera.layers.mask;
+          const culling=new Map<Mesh,boolean>();
+          try{
+            root.visible=true;root.traverse(n=>{if(n instanceof Mesh){culling.set(n,n.frustumCulled);n.frustumCulled=false;}});
+            // One tiny offscreen pass uploads actual geometry/texture buffers.
+            // Other prepared roots remain hidden and never touch the map canvas.
+            camera.layers.enable(SPELL_IMPACT_LAYER);renderer.autoClear=true;renderer.setRenderTarget(warmTarget);renderer.render(preparedScene,camera);
+            warmed.add(root);gpuWarmCount++;
+          }finally{
+            root.visible=false;for(const [mesh,value] of culling)mesh.frustumCulled=value;
+            camera.layers.mask=layers;renderer.autoClear=auto;renderer.setRenderTarget(oldTarget);
+          }
+        }).catch(()=>{/* A skip or unsupported warmup falls back to normal rendering. */});
+      }
+    },
+    get preparation(){return {pending:prepared.size,built,promoted,gpuWarmCount};},
     get active(){return effects.size>0;},
+    get transientCount(){let count=0;for(const e of effects.values())if(e.root.visible&&!e.input.persistent)count++;return count;},
     get kinds(){return [...effects.values()].filter(e=>e.root.visible).map(e=>e.style.kind);},
-    dispose(){effects.forEach(dispose);effects.clear();seen.clear();shapes.dispose();[plane,shaft,tip,spark].forEach(g=>g.dispose());glow.dispose();},
+    dispose(){disposed=true;effects.forEach(dispose);prepared.forEach(dispose);prepared.clear();warmTarget.dispose();effects.clear();seen.clear();shapes.dispose();[plane,shaft,tip,spark].forEach(g=>g.dispose());glow.dispose();},
   };
 }
