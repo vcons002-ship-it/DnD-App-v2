@@ -1,6 +1,34 @@
 import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 
+test('Burning Hands renders a caster-origin full cone in overhead, tilted and reduced views',async({page})=>{
+ const errors:string[]=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(e.message));
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import {Scene,PerspectiveCamera,WebGLRenderer,Vector3,Matrix4} from 'three';import {createSpellImpactEffects} from './client/src/canvas/spellImpactEffects';
+ const scene=new Scene(),effects=createSpellImpactEffects(scene),event={id:1,tokenId:'area',x:0,y:0,diameter:15,event:{kind:'pc',refId:'mage',delta:0,effect:'spell-area',spell:'Burning Hands',areaPosition:{mapId:'map',x:0,y:0,radiusFt:7.5,end:{x:0,y:15}}}};
+ effects.sync([event],0);const renderer=new WebGLRenderer({alpha:true,preserveDrawingBuffer:true});renderer.setSize(512,512);document.body.append(renderer.domElement);const camera=new PerspectiveCamera(45,1,.1,300);camera.layers.set(7);
+ const results=[];
+ for(const [px,top,reduced] of [[1,false,false],[2,true,false],[1,false,true]]){
+  event.event.areaPosition.end.y=15*px;event.diameter=15*px;effects.sync([event],0);
+  const lights=effects.tick(450,px,reduced,()=>({x:0,y:0,visible:true,height:6*px}));camera.position.set(top?0:20*px,top?35*px:22*px,top?7.51*px:30*px);camera.lookAt(0,0,7.5*px);renderer.render(scene,camera);
+  const front=scene.getObjectByName('burning-hands-cone'),embers=scene.getObjectByName('burning-hands-embers');front.updateMatrixWorld(true);
+  const tip=front.localToWorld(new Vector3(1,0,0)),edge=front.localToWorld(new Vector3(1,0,.5)),positions=[],matrix=new Matrix4();
+  for(let i=0;i<embers.count;i++){embers.getMatrixAt(i,matrix);const p=new Vector3().setFromMatrixPosition(matrix);positions.push({x:p.x,z:p.z});}
+  const gl=renderer.getContext(),pixels=new Uint8Array(512*512*4);gl.readPixels(0,0,512,512,gl.RGBA,gl.UNSIGNED_BYTE,pixels);let colored=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>10)colored++;
+  results.push({tip:tip.toArray(),edge:edge.toArray(),count:embers.count,positions,calls:renderer.info.render.calls,lights:lights.length,colored,error:gl.getError(),px});
+ }
+ window.result=results;effects.tick(1800,1,false,()=>({x:0,y:0,visible:true}));window.expired=!effects.active;effects.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});const r=await page.evaluate(()=>(window as any).result);
+ expect(errors).toEqual([]);expect(await page.evaluate(()=>(window as any).expired)).toBe(true);expect(r.map((v:any)=>v.count)).toEqual([72,72,24]);
+ for(const view of r){
+  expect(view.tip[0]).toBeCloseTo(0);expect(view.tip[2]/view.px).toBeCloseTo(15);expect(Math.abs(view.edge[0])/view.px).toBeCloseTo(7.5);
+  expect(view.calls).toBe(3);expect(view.colored).toBeGreaterThan(1500);expect(view.error).toBe(0);
+  for(const p of view.positions){expect(p.x).toBeGreaterThanOrEqual(0);expect(p.x).toBeLessThanOrEqual(1);expect(Math.abs(p.z)).toBeLessThanOrEqual(p.x/2+.00001);}
+ }
+ expect(r.map((v:any)=>v.lights)).toEqual([3,3,0]);
+});
+
 test('Lightning Bolt follows the full aimed line at waist height, renders in both views and expires',async({page})=>{
  const errors:string[]=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(e.message));
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`

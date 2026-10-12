@@ -47,7 +47,7 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
  if(spec.maxTargets&&targets.length>spec.maxTargets)return false;
  if(advancedSpell(a)==='spike growth')return castSpikeGrowth(sid,roller,kind,caster.id,a,p,level??2);
  const before=new Set(listRollLog(sid).map(r=>r.id));
- const areaImpact=['Fireball','Call Lightning','Lightning Bolt','Ice Storm'].includes(a.name)?beginPlacedSpellImpact(sid,kind,caster.id,a.name):undefined;
+ const areaImpact=['Fireball','Call Lightning','Lightning Bolt','Ice Storm','Burning Hands'].includes(a.name)?beginPlacedSpellImpact(sid,kind,caster.id,a.name):undefined;
  if(!cast(!!spec.ongoing&&!spec.initialEffect))return false;
  const entries=listRollLog(sid).filter(r=>!before.has(r.id)),source=[...entries].reverse().find(r=>r.apply);
  const automated=!!source?.apply&&(!spec.ongoing||spec.initialEffect);
@@ -64,8 +64,8 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
    });
    setRollApply(source.id,undefined);
    if(source.reveal&&!source.reveal.damageMods?.length)setRollReveal(source.id,{...source.reveal,presentedLive:usingPhysicalDice()});
-   if(areaImpact)for(const point of p.points)areaImpact(source.id,a.name==='Lightning Bolt'
-     ?{mapId:map.id,x:actor.x,y:actor.y,radiusFt:(spec.widthFt??5)/2,end:{x:actor.x+Math.cos(p.angle)*spec.sizeFt*px,y:actor.y+Math.sin(p.angle)*spec.sizeFt*px}}
+   if(areaImpact)for(const point of p.points)areaImpact(source.id,['Lightning Bolt','Burning Hands'].includes(a.name)
+     ?{mapId:map.id,x:actor.x,y:actor.y,radiusFt:spec.kind==='cone'?spec.sizeFt/2:(spec.widthFt??5)/2,end:{x:actor.x+Math.cos(p.angle)*spec.sizeFt*px,y:actor.y+Math.sin(p.angle)*spec.sizeFt*px}}
      :{mapId:map.id,...point,radiusFt:spec.sizeFt},{mapId:map.id,x:actor.x,y:actor.y});
  }
  if(!automated||spec.ongoing){

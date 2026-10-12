@@ -1,13 +1,13 @@
 import type {Condition,HpFxEvent} from './types.js';
 
-export type SpellImpactStyle={kind:`weapon-${NonNullable<HpFxEvent['weaponAttack']>['kind']}`|'lightning-line'|'ice-storm'|'shock'|'fireball'|'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
+export type SpellImpactStyle={kind:`weapon-${NonNullable<HpFxEvent['weaponAttack']>['kind']}`|'lightning-line'|'flame-cone'|'ice-storm'|'shock'|'fireball'|'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
 export const LINKED_SPELL_FX=['Dispel Magic','Invisibility','Spike Growth','Counterspell','Shield','Misty Step','Hypnotic Pattern','Pass without Trace','Command','Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
 const colors:Record<string,string>={fire:'#ff702c',cold:'#72cbff',lightning:'#96cfff',thunder:'#b9a7ff',acid:'#b5ed43',poison:'#68d868',necrotic:'#a471df',radiant:'#ffe6a0',force:'#bc9bff',psychic:'#ff79cd'};
 /** Only cosmetic spell identifiers cross the FX channel, never a hidden
  * attack's full title, weapon details or modifier breakdown. */
 export function spellImpactName(source:string|undefined):string|undefined{
   const name=(source??'').replace(/[’‘]/g,"'").toLowerCase();
-  return ['Ensnaring Strike','Entangle','Hail of Thorns','Conjure Barrage','Conjure Volley','Lightning Arrow','Searing Smite','Thunderous Smite','Wrathful Smite','Divine Smite','Fireball','Lightning Bolt','Cone of Cold',"Hunter's Mark",'Hex']
+  return ['Ensnaring Strike','Entangle','Hail of Thorns','Conjure Barrage','Conjure Volley','Lightning Arrow','Searing Smite','Thunderous Smite','Wrathful Smite','Divine Smite','Fireball','Lightning Bolt','Burning Hands','Cone of Cold',"Hunter's Mark",'Hex']
     .concat(LINKED_SPELL_FX).find(candidate=>name.includes(candidate.toLowerCase()));
 }
 /** Cosmetic identity only. Does not infer damage, conditions or visibility. */
@@ -38,6 +38,7 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
   if(partyStyles[name])return partyStyles[name];
   if(name==='fireball')return {kind:'fireball',color:'#ff702c',radiusFt:22,strength:2.6,duration:2100};
   if(name==='lightning bolt'&&event.effect==='spell-area')return {kind:'lightning-line',color:'#96cfff',radiusFt:8,strength:2.6,duration:1300};
+  if(name==='burning hands'&&event.effect==='spell-area')return {kind:'flame-cone',color:'#ff782b',radiusFt:10,strength:2.2,duration:1750};
   if(name==='ice storm'&&event.effect==='spell-area')return {kind:'ice-storm',color:'#9bd8f4',radiusFt:22,strength:1.8,duration:2400};
   // A small electrical status marker stays while the hit's opportunity-attack
   // restriction is active. The damaging touch remains a brief body crackle.

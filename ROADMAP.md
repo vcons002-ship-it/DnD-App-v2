@@ -3107,3 +3107,5 @@ Smaller refinements on top of the shipped Phase 2 work.
   keeping the 12 FPS background cap and original roll/impact timing.
 
 - [x] Physical weapon hit effects: slashing/thrust strikes, bludgeoning impacts, and bow/bolt/thrown projectiles, linked to damage reveal completion without exposing hidden origins. See docs/WEAPON_ATTACK_EFFECTS_2026-10-12.md.
+
+- [x] Burning Hands full aimed 15-foot flame cone, shared across its targets with map-scale invariant artwork, reduced effects, and a 2D fallback. AoE artwork gaps audited in docs/SPELL_AREAS.md.
