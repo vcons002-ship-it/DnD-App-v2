@@ -1,7 +1,8 @@
 # Roadmap & Feature Backlog
 
 - [x] Replace Fireball's separate expanding lobes with one filled, volumetric
-  dome blast across the selected radius. Preserve projectile travel and damage
+  dome blast with a folded leading flame crest across the selected radius.
+  Preserve projectile travel and damage
   timing, with illumination following the moving flame front.
   [Before/after comparison](docs/FIREBALL_WAVE_2026-10-12.md).
 

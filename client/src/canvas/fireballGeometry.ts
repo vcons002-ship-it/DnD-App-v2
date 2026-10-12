@@ -1,8 +1,9 @@
 import {Data3DTexture,Group,LinearFilter,Mesh,MeshBasicMaterial,RedFormat,RepeatWrapping,SphereGeometry,Vector3} from 'three';
 import {FIREBALL_FLIGHT_MS,spellLightEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
+import {createFireballFlameFront} from './fireballFlameFront';
 
 /** One expanding hemisphere filled with fire, not separate puffs or a hollow
- * ring. A shared 3D noise texture makes the short volume pass inexpensive. */
+ * ring. Its folded leading crest shares the expansion and 3D noise. */
 export function createFireballGeometry(){
  const sphere=new SphereGeometry(1,24,16),dome=new SphereGeometry(1,64,32,0,Math.PI*2,0,Math.PI/2);
  const width=32,data=new Uint8Array(width**3);let seed=721347;
@@ -10,6 +11,7 @@ export function createFireballGeometry(){
  const noise=new Data3DTexture(data,width,width,width);noise.format=RedFormat;
  noise.minFilter=noise.magFilter=LinearFilter;noise.wrapS=noise.wrapT=noise.wrapR=RepeatWrapping;
  noise.unpackAlignment=1;noise.needsUpdate=true;
+ const flameFront=createFireballFlameFront();
  function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,white:MeshBasicMaterial){
   const root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
   const hot=white.clone();hot.color.set('#fff3b1');materials.push(hot);
@@ -66,6 +68,7 @@ export function createFireballGeometry(){
   const front=new Mesh(dome,surface);front.name='fireball-continuous-front';front.frustumCulled=false;root.add(front);parts.push(front);
   front.onBeforeRender=(_renderer,_scene,camera)=>{camera.getWorldPosition(eye.value);front.worldToLocal(eye.value);};
   front.userData.emitterPoints=Array.from({length:3},(_,i)=>new Vector3(Math.cos(i*Math.PI*2/3)*.65,.43,Math.sin(i*Math.PI*2/3)*.65));
+  const crestSurface=flameFront.build(body,noise,clock);root.add(crestSurface.mesh);parts.push(crestSurface.mesh);materials.push(crestSurface.material);
   const origin=new Vector3(),at=new Vector3(),target=new Vector3(0,.025,0),arc=new Vector3();
   const path=(u:number)=>at.lerpVectors(origin,target,u).add(arc.set(0,Math.sin(u*Math.PI)*.045,0));
   return {root,parts,materials,update(t:number,_persistent:boolean,reduced:boolean,_areaScale:number,source?:Vector3){
@@ -78,8 +81,9 @@ export function createFireballGeometry(){
    trail.forEach((m,i)=>{const v=u-(i+1)*.018;m.visible=flight&&v>=0;m.position.copy(path(Math.max(0,v)));m.scale.setScalar(.018*(1-i/13));});
    const growth=1-Math.pow(1-Math.min(1,q/.42),2);
    front.visible=!flight;front.scale.setScalar(.5*Math.max(.015,growth));front.position.y=.012;
-   flame.opacity=flight?.8:0;hot.opacity=flight?1:0;surface.opacity=crest*.97;
+   crestSurface.mesh.visible=!flight;crestSurface.mesh.scale.copy(front.scale);crestSurface.mesh.position.y=.016;
+   flame.opacity=flight?.8:0;hot.opacity=flight?1:0;surface.opacity=crest*.82;crestSurface.material.opacity=crest*.94;
   }};
  }
- return {build,dispose(){sphere.dispose();dome.dispose();noise.dispose();}};
+ return {build,dispose(){sphere.dispose();dome.dispose();flameFront.dispose();noise.dispose();}};
 }

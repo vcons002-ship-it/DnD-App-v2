@@ -1,9 +1,12 @@
-# Fireball: one expanding dome blast
+# Fireball: filled dome with a folded flame front
 
 The previous explosion used eighteen independently expanding spheres plus a
 plain circular outline. The first revision used a connected polar surface, but
-its hollow center read as a ring. The current revision uses one hemisphere
-filled with ray-marched fire. Advected, twisted 3D noise makes rolling flame
+its hollow center read as a ring. The combined revision uses one hemisphere
+filled with ray-marched fire and restores the ring as its leading flame crest.
+Both meshes share one clock, growth curve, radius and lifetime. The crest adds
+sharp fire folds at the edge without a second delayed blast or extra lights.
+Advected, twisted 3D noise makes rolling flame
 folds inside the volume, with orange-red variation, hotter pockets and soft
 edges. It expands once to the selected radius, then cools and fades.
 
@@ -28,8 +31,12 @@ Video: <https://dnd.nic024i.app/uploads/previews/fireball-wave-20261012/index.ht
 
 Dome versus ring: <https://dnd.nic024i.app/uploads/previews/fireball-dome-20261012/index.html>
 
+Combined version: <https://dnd.nic024i.app/uploads/previews/fireball-combined-20261012/index.html>
+
 Focused browser coverage checks the single front, expansion to the map-scaled
 radius, projectile flight, light samples, expiry, detached GPU warmup, and skips
-before/during shader compilation. A GPU pixel test verifies a filled center from
+before/during shader compilation. A regression pins the crest and dome to the
+same expansion and verifies both remain hidden during projectile travel.
+A GPU pixel test verifies a filled center from
 overhead and oblique cameras, checks reduced rendering, and rejects shader or
 WebGL errors. This is a development change pending approval.
