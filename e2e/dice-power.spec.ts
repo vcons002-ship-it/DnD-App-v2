@@ -112,8 +112,21 @@ test('DM high rolls glow red behind black ink without recoloring its pigment',as
  page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width:1150,height:1000});await page.goto('/dice-power.html');
  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
+ await page.evaluate(()=>{
+  const windowState=window as any;windowState.dmLowCharges=[];windowState.dmCollect=true;
+  const sample=()=>{
+   const tray=document.querySelector<HTMLElement>('#tray'),canvas=tray?.querySelector<HTMLCanvasElement>('canvas');
+   if(tray?.dataset.theme==='dm'&&tray.dataset.state==='ready'&&canvas?.dataset.rollPower){
+    const low=JSON.parse(canvas.dataset.rollPower)[0];
+    if(low.known)windowState.dmLowCharges.push(low.dmCharge);
+   }
+   if(windowState.dmCollect)requestAnimationFrame(sample);
+  };requestAnimationFrame(sample);
+ });
  await page.locator('button[data-theme="dm"]').click();await expect(page.locator('#tray')).toHaveAttribute('data-theme','dm');
  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');await page.waitForTimeout(750);
+ const lowCharges=await page.evaluate(()=>{(window as any).dmCollect=false;return (window as any).dmLowCharges as number[];});
+ expect(lowCharges.length).toBeGreaterThan(0);expect(lowCharges.every(charge=>charge===0)).toBe(true);
  await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[1].dmCharge>.55);
  const charge=JSON.parse((await page.locator('#tray canvas').getAttribute('data-roll-power'))!);
  expect(charge[0].dmCharge).toBe(0);expect(charge[1].dmPulseFrequency).toBeGreaterThan(.2);

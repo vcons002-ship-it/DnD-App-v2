@@ -18,6 +18,8 @@ Higher faces glow brighter and pulse more frequently, with independent timing
 per die; a maximum keeps a sustained red inner glow. Reduced-motion mode uses a
 steady glow instead of pulses. This is part of the shared production material,
 so it applies to gameplay trays as well as the simulator when this code is installed.
+Red illumination uses the confirmed natural face, with a gentle onset; it never
+uses the temporary material strength or carries a previous roll's glow into a toss.
 
 The linked `dice-power.html` compares low, strong, and maximum sample values.
 `dice-models.html` provides the material inspection page. These are isolated
@@ -43,6 +45,9 @@ no additional lights; lightning geometry updates only when a bolt fires.
 Maximum internal lightning now uses slower, readable strikes approximately
 360–580 ms apart. Escaping bolts wait for one of those internal strikes instead
 of flashing independently; their occasional cadence still varies between dice.
+Internal lightning is crimson at every strength. Escaping lightning has
+connected irregular branches, tapered tips, a traveling leader and return
+stroke, with a hot red core and soft crimson corona in the same single mesh.
 
 After changing production dice art or sounds, rebuild and refresh the published
 bundle:

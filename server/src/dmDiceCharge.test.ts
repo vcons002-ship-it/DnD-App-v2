@@ -1,12 +1,26 @@
 import {describe,it,expect} from 'vitest';
 import {dmDiceCharge} from '../../client/src/lib/dmDiceCharge.js';
 import {diceRollPower} from '../../client/src/lib/diceRollPower.js';
+import {createRollPowerState} from '../../client/src/lib/diceRollPower.js';
 
 const charge=(sides:number,value:number,seconds=5,seed=0)=>{
  const power=diceRollPower(sides,value);
  return dmDiceCharge(power.strength,power.known,power.maximum,1,seconds,seed);
 };
 describe('DM resin red charge',()=>{
+ it('does not flash red when a minimum face first becomes known',()=>{
+  const state=createRollPowerState(20);state.advance(0);state.setResult(1);
+  const p=state.advance(1);
+  // The smoothed material is still transitioning from its unknown placeholder.
+  expect(p.strength).toBeGreaterThan(.3);expect(p.naturalStrength).toBe(0);
+  expect(dmDiceCharge(p.naturalStrength,p.known,p.maximum,p.age,3,0).charge).toBe(0);
+ });
+ it('fades a confirmed high result in rather than starting at a pulse peak',()=>{
+  expect(dmDiceCharge(.9,true,false,0,3,0).charge).toBe(0);
+  const full=dmDiceCharge(.9,true,false,1,3,0).charge;
+  expect(full).toBeGreaterThan(0);
+  expect(dmDiceCharge(.9,true,false,.175,3,0).charge).toBeCloseTo(full*.5);
+ });
  it('stays purple for unknown rolls and low natural faces',()=>{
   expect(dmDiceCharge(1,false,true,10,10,0).charge).toBe(0);
   for(const value of [1,2,3,4,5])expect(charge(20,value).charge).toBe(0);

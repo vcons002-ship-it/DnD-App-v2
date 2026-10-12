@@ -16,5 +16,5 @@ export function dmDiceCharge(strength:number,known:boolean,maximum:boolean,age:n
  const phase=seconds*frequency+seed+.045*Math.sin(seconds*.35+seed);
  const wave=.5-.5*Math.cos(phase*Math.PI*2);
  const pulse=smooth(0,1,wave);
- return {charge:Math.pow(level,.75)*.84*pulse,frequency};
+ return {charge:Math.pow(level,.75)*.84*pulse*smooth(0,.35,age),frequency};
 }

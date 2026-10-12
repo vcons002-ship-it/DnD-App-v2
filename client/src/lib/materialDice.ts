@@ -251,7 +251,7 @@ void main(){
       }
       float core=exp(-distanceToArc*distanceToArc/(rollMaximum>.5?.0006:.0012));
       float halo=exp(-distanceToArc*distanceToArc/(rollMaximum>.5?.0045:.014));
-     vec3 strokeColor=mix(vec3(1.,.62,.60)*11.,vec3(1.5,.025,.065)*7.,rollMaximum);
+     vec3 strokeColor=mix(vec3(1.5,.025,.045)*7.,vec3(1.8,.015,.035)*7.,rollMaximum);
      energy+=(strokeColor*core+vec3(1.,.018,.055)*halo*2.4)*burst*stepSize*interior;
    }
    if(style==3){
@@ -635,10 +635,13 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const shatterAge=(now:number)=>drukFinaleAge(powerView.age,now,explosionAt);
   const resinRedCharge={value:0},chargeSeed=dm?dmChargeSequence++*2.399963:0;
   let dmChargeView={charge:0,frequency:0};
+  let dmResultBorn=NaN;
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
     if(dm){
-      dmChargeView=dmDiceCharge(powerView.strength,powerView.known,powerView.maximum,powerView.age,now/1000,chargeSeed,powerReduced);
+      if(!powerView.known)dmResultBorn=NaN;
+      else if(Number.isNaN(dmResultBorn))dmResultBorn=now;
+      dmChargeView=dmDiceCharge(powerView.naturalStrength,powerView.known,powerView.maximum,Math.min(powerView.age,(now-dmResultBorn)/1000),now/1000,chargeSeed,powerReduced);
       resinRedCharge.value=dmChargeView.charge;
     }
     uniforms.rollPower.value=powerView.strength;
@@ -780,7 +783,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
-    resetForRoll(){power.reset();powerView=power.advance(performance.now());explosionAt=undefined;shatter?.reset();moteRays?.reset();leafSwirl?.reset();escapingLightning?.reset();lightning=createLightningTiming();moteRevision=-1;lastValue=-1;lastReadable=false;},
+    resetForRoll(){power.reset();powerView=power.advance(performance.now());dmResultBorn=NaN;dmChargeView={charge:0,frequency:0};resinRedCharge.value=0;explosionAt=undefined;shatter?.reset();moteRays?.reset();leafSwirl?.reset();escapingLightning?.reset();lightning=createLightningTiming();moteRevision=-1;lastValue=-1;lastReadable=false;},
     setRollResult(value:number|null|undefined,percentileValue?:number){power.setResult(value,percentileValue);},
     setReducedMotion(reduced:boolean){powerReduced=reduced;},
     setExplosionAt(at:number|null|undefined){explosionAt=at;},
