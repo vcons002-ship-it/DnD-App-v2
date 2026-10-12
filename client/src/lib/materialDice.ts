@@ -1,8 +1,12 @@
 import * as THREE from 'three';
-import {createLightningTiming} from './diceLightningTiming';
+import {createLightningTiming,type LightningFrame} from './diceLightningTiming';
 import {createRollPowerState,DRUK_EXPLOSION_DELAY,drukFinaleAge} from './diceRollPower';
+import {dmDiceCharge} from './dmDiceCharge';
 import {createDiceShatterArt} from './diceShatterArt';
 import {createDiceMoteRays} from './diceMoteRays';
+import {createGoldDiceSparkles} from './goldDiceSparkles';
+import {createDiceLeafSwirl} from './diceLeafSwirl';
+import {createDiceEscapingLightning} from './diceEscapingLightning';
 import type {ShatterWorld} from './diceShatterPhysics';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -14,6 +18,7 @@ import type { DiceTheme } from '../../../shared/diceThemes';
 // into its existing 2D canvas; no extra contexts compete with the battlefield.
 let stage: ReturnType<typeof makeStage> | undefined;
 let rangerMoteSequence=0;
+let dmChargeSequence=0;
 function drawDieNumeral(ctx:CanvasRenderingContext2D,text:string,x:number,y:number){
   ctx.fillText(text,x,y);
   if(!text.includes('6'))return;
@@ -66,6 +71,7 @@ uniform float enchantedAmber;
 uniform vec3 motePosition;
 uniform float moteRoom;
 uniform bool trayLighting;
+uniform bool tetrahedron;
 uniform float internalLightning;
 uniform float lightningPhase; uniform float lightningSeed;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -175,7 +181,9 @@ vec3 polishedGoldSurface(vec3 n,vec3 incoming){
 // Keep the upward result surface readable in the tray while preserving side
 // reflections and polished metal inlays. Model viewers retain studio lighting.
 float traySurfaceReflection(vec3 n){
- return trayLighting?1.-smoothstep(.50,.88,(rotation*n).z)*.88:1.;
+ // A resting d4 has three upward sloping faces with z ~= 1/3. The old
+ // top-face glare threshold never reached those faces.
+ return trayLighting?1.-smoothstep(tetrahedron?.15:.50,tetrahedron?.60:.88,(rotation*n).z)*.88:1.;
 }
 // Keep the frame dark; numeral rims use a brighter copper-bronze for legibility.
 vec3 bronzeSurface(vec3 n,vec3 incoming){
@@ -213,7 +221,10 @@ void main(){
  vec3 ray=refract(incoming,n,1./1.48);float distance=5.;
  for(int j=0;j<20;j++){if(j>=count)break;float denom=dot(planes[j].xyz,ray);if(denom>.0001)distance=min(distance,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));}
  vec3 beyond=studioLight(rotation*ray);
- vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?.75:2.4));
+ // The tetrahedron's short optical paths otherwise turn its broad faces
+ // into pale studio-light wedges instead of colored glass/resin.
+ vec3 through=beyond*exp(-distance*(tetrahedron?2.25:1.)*(vec3(1.)-tint)*(style==3?.75:2.4));
+ if(tetrahedron&&(style==0||style==2))through*=mix(vec3(1.),tint,.24);
  if(style==3)through*=vec3(.15,.015,.32);
  float smoke=0.;vec3 energy=vec3(0.),mossColor=vec3(0.);float mossDepth=0.;vec3 amberColor=vec3(0.);float amberWeight=0.,fernDepth=0.;float stepSize=distance/20.;
  if(style==0||style==2||style==3){for(int j=0;j<20;j++){
@@ -246,7 +257,7 @@ void main(){
       }
       float core=exp(-distanceToArc*distanceToArc/(rollMaximum>.5?.0006:.0012));
       float halo=exp(-distanceToArc*distanceToArc/(rollMaximum>.5?.0045:.014));
-     vec3 strokeColor=mix(vec3(1.,.62,.60)*11.,vec3(1.5,.025,.065)*7.,rollMaximum);
+     vec3 strokeColor=mix(vec3(1.5,.025,.045)*7.,vec3(1.8,.015,.035)*7.,rollMaximum);
      energy+=(strokeColor*core+vec3(1.,.018,.055)*halo*2.4)*burst*stepSize*interior;
    }
    if(style==3){
@@ -314,7 +325,7 @@ void main(){
    float travel=max(0.,dot(motePosition-pos,incoming));
    float separation=length(pos+incoming*travel-motePosition);
    float core=exp(-pow(separation/(moteRoom*.15),2.));
-   float halo=exp(-pow(separation/(moteRoom*.44),2.));
+   float halo=exp(-pow(separation/(moteRoom*mix(.44,.34,rollMaximum)),2.));
    // Foreground inclusions veil the emitter as it travels deeper. Keep the
    // light behind the surface polish, rather than painting a white spot over it.
    float foreground=0.;
@@ -327,11 +338,11 @@ void main(){
    energy+=(orb+vec3(.10,.35,.018)*halo*.3)*depthFade*(.18+rollPower*1.85+rollMaximum*.35);
    // The same source illuminates the nearby resin and embedded inclusions.
    float proximity=dot(pos-motePosition,pos-motePosition)/(moteRoom*moteRoom);
-   through+=vec3(.08,.22,.015)*.13/(.3+proximity)*(.2+rollPower*1.8);
+   through+=vec3(.08,.22,.015)*.13/(.3+proximity)*(.2+rollPower*1.8)*mix(1.,.5,rollMaximum);
    // Gentle enclosed shafts continue into the soft escaping light geometry.
    float incidence=max(0.,dot(-normalize(nor),normalize(motePosition-pos)));
    float falloff=1./(1.+proximity*.8);
-   energy+=vec3(.10,.30,.035)*incidence*falloff*depthFade*rollMaximum*(.975+.025*sin(time*1.7));
+   energy+=vec3(.035,.075,.012)*incidence*falloff*depthFade*rollMaximum*(.975+.025*sin(time*1.7));
    if(rollMaximum>.5){
     float chord=5.;
     for(int j=0;j<20;j++){
@@ -356,10 +367,10 @@ void main(){
      // Fade at the emitter and faces so these read as softly lit resin,
      // rather than hard beams or bright spots painted on the shell.
      scatter*=smoothstep(0.,moteRoom*.08,along)*smoothstep(0.,moteRoom*.04,min(viewTravel,chord-viewTravel));
-     shafts+=vec3(.62,.90,.28)*scatter;
+     shafts+=vec3(.20,.55,.05)*scatter;
     }
-    energy+=shafts*depthFade*.9;
-    energy+=vec3(.15,.42,.035)*halo*depthFade*.25;
+    energy+=shafts*depthFade*.45;
+    energy+=vec3(.15,.42,.035)*halo*depthFade*.08;
    }
  }
  through=through*exp(-smoke*1.9)+energy;
@@ -505,10 +516,14 @@ void main(){
    // their character's maximum-roll heat/charge across the metallic shell.
    if(!engraved||cut>.85){
     if(style==1&&rollPower>.2){float heat=1.-smoothstep(.002,.035+rollPower*.06,moltenFracture(pos));color+=vec3(2.8,.22,.006)*heat*rollPower;color=mix(color,vec3(4.,.55,.012),moltenWarning*.86);}
-    if(style==0&&rollMaximum>.5){
+    if(style==0&&rollPower>.3){
      float channel=min(electricArc(pos,lightningSeed).x,electricArc(pos.yzx,lightningSeed+41.).x);
      float stroke=smoothstep(.12,.16,lightningPhase)*(1.-smoothstep(.60,.90,lightningPhase));
-     color+=vec3(1.5,.025,.065)*exp(-channel*channel/.003)*2.*stroke;
+     color+=vec3(2.,.025,.065)*exp(-channel*channel/.003)*2.*stroke*rollPower;
+    }
+    if(style==2){
+     float sweep=pow(.5+.5*sin(dot(pos,vec3(3.,4.,-2.))+time*1.3),5.);
+     color+=vec3(.12,1.1,.05)*sweep*smoothstep(.3,1.,rollPower)*.6;
     }
    }
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
@@ -532,7 +547,7 @@ uniform float resinTime;
 uniform float resinGlow;
 uniform float resinDensity;
 uniform float resinInk;
-uniform float resinMaximum;
+uniform float resinRedCharge;
 uniform vec4 resinPlanes[20];
 uniform int resinPlaneCount;
 float resinHash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -571,13 +586,17 @@ const resinCloudTransmission=`
    float interior=smoothstep(.015,.16,min(travel,cloudLength-travel));
    if(resinInk>.5){
      float ink=resinInkDensity(point,resinTime);
-     float opacity=1.-exp(-ink*cloudStep*interior*4.8);
+     float opacity=1.-exp(-ink*cloudStep*interior*8.);
      // Light behind and between dark lobes gives a readable silhouette.
      vec3 lamp=point-vec3(-.18,.2,-.1);
      float illumination=exp(-dot(lamp,lamp)*2.1)*resinGlow;
-     vec3 pigment=mix(vec3(.002,.0006,.005),vec3(.065,.0006,.002),resinMaximum);
-     vec3 innerLight=mix(vec3(.24,.095,.43),vec3(.38,.006,.010),resinMaximum);
-     inkLight+=inkTransmission*(pigment*opacity+innerLight*illumination*(1.-opacity)*cloudStep*interior);
+     // Ink stays black at every face value. A moving red emitter illuminates
+     // the clear resin between lobes, with foreground ink absorbing its light.
+     vec3 redLamp=point-vec3(.26*sin(resinTime*.41),.15*cos(resinTime*.33),-.12);
+     float redGlow=exp(-dot(redLamp,redLamp)*12.)*resinRedCharge;
+     vec3 pigment=vec3(.002,.0006,.005);
+     vec3 light=vec3(.24,.095,.43)*illumination+vec3(1.65,.018,.045)*redGlow;
+     inkLight+=inkTransmission*(pigment*opacity+light*(1.-opacity)*cloudStep*interior);
      inkTransmission*=1.-opacity;
    }else{
      vec3 curl=vec3(sin(point.y*2.4+resinTime*.18),cos(point.z*2.1-resinTime*.14),sin(point.x*2.7+resinTime*.12))*.25;
@@ -620,11 +639,17 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const power=createRollPowerState(sides);
   let powerView=power.advance(0),powerReduced=false,explosionAt:number|null|undefined;
   const shatterAge=(now:number)=>drukFinaleAge(powerView.age,now,explosionAt);
-  const resinMaximum={value:0};
+  const resinRedCharge={value:0},chargeSeed=dm?dmChargeSequence++*2.399963:0;
+  let dmChargeView={charge:0,frequency:0};
+  let dmResultBorn=NaN;
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
-    // A color transition stays available with reduced motion, without flashes.
-    resinMaximum.value=powerView.maximum?THREE.MathUtils.smoothstep(powerView.age,0,.35):0;
+    if(dm){
+      if(!powerView.known)dmResultBorn=NaN;
+      else if(Number.isNaN(dmResultBorn))dmResultBorn=now;
+      dmChargeView=dmDiceCharge(powerView.naturalStrength,powerView.known,powerView.maximum,Math.min(powerView.age,(now-dmResultBorn)/1000),now/1000,chargeSeed,powerReduced);
+      resinRedCharge.value=dmChargeView.charge;
+    }
     uniforms.rollPower.value=powerView.strength;
     uniforms.moltenWarning.value=style===1&&powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(shatterAge(now),.1,DRUK_EXPLOSION_DELAY-.03):0;
     uniforms.rollMaximum.value=powerView.maximum&&!powerReduced?1:0;
@@ -655,9 +680,11 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     center.multiplyScalar(fit);
   };
   let lightning=createLightningTiming();
+  let lightningFrame:LightningFrame={phase:3,seed:0,strike:0};
   const updateLightning=(now:number)=>{
-    if(!uniforms.internalLightning.value&&!(theme.id==='sorcerer'&&powerView.maximum))return;
+    if(!uniforms.internalLightning.value&&!(theme.id==='sorcerer'&&crit))return;
     const frame=lightning.advance(now/1000,powerView.known?powerView.strength:undefined,powerView.maximum&&!powerReduced);
+    lightningFrame=frame;
     uniforms.lightningPhase.value=frame.phase;uniforms.lightningSeed.value=frame.seed;
   };
   let resinBody:THREE.MeshPhysicalMaterial|undefined;
@@ -676,7 +703,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const makeMaterial=(etching?:THREE.Texture)=>{
     // Draw front gold after transmission so refraction cannot duplicate a bright
     // front numeral into the interior. Only its dark backing enters that pass.
-    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},thinGoldEdge:{value:style===1&&sides===6&&!crit},numeralsOnly:{value:gem},inlayBacking:{value:false},numeralEmphasis:{value:1}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,tetrahedron:{value:sides===4},etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},thinGoldEdge:{value:style===1&&sides===6&&!crit},numeralsOnly:{value:gem},inlayBacking:{value:false},numeralEmphasis:{value:1}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();
@@ -735,35 +762,41 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     resin.onBeforeCompile=shader=>{
       shader.uniforms.resinEye=uniforms.eye;shader.uniforms.resinTime=uniforms.time;
       shader.uniforms.trayLighting=uniforms.trayLighting;
+      shader.uniforms.resinTetrahedron={value:sides===4};
       shader.uniforms.resinGlow=uniforms.resinGlow;
       shader.uniforms.resinDensity=uniforms.resinDensity;
       shader.uniforms.resinInk=uniforms.resinInk;
-      shader.uniforms.resinMaximum=resinMaximum;
+      shader.uniforms.resinRedCharge=resinRedCharge;
       shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
       shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
-      shader.fragmentShader='uniform bool trayLighting;\n'+resinCloudDeclarations+resinInkField+'\n'+shader.fragmentShader;
+      shader.fragmentShader='uniform bool trayLighting;\nuniform bool resinTetrahedron;\n'+resinCloudDeclarations+resinInkField+'\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
-        float topReflection=trayLighting?1.-smoothstep(.50,.88,inverseTransformDirection(normal,viewMatrix).z)*.88:1.;
+        float topReflection=trayLighting?1.-smoothstep(resinTetrahedron?.15:.50,resinTetrahedron?.60:.88,inverseTransformDirection(normal,viewMatrix).z)*.88:1.;
         reflectedLight.directSpecular*=topReflection;reflectedLight.indirectSpecular*=topReflection;`);
       shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
     };
-    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v6';
+    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v8-black-ink-red-light';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   const shatter=theme.id==='fighter'?createDiceShatterArt(root,source.faces.map(ids=>ids.map(i=>vertices[i])),crit):undefined;
   const moteRays=style===2?createDiceMoteRays(root,planes.slice(0,faces.length),uniforms.moteRoom.value):undefined;
+  const effectRadius=Math.max(...vertices.map(v=>v.length()));
+  const leafSwirl=style===2?createDiceLeafSwirl(root,effectRadius):undefined;
+  const escapingLightning=theme.id==='sorcerer'?createDiceEscapingLightning(root,planes.slice(0,faces.length),effectRadius):undefined;
+  const goldSparkles=crit?createGoldDiceSparkles(root,vertices,style):undefined;
+  const updateGoldSparkles=(now:number)=>goldSparkles?.update(now,powerView.known,powerView.strength,powerView.maximum,powerReduced,shatter?.state().broken??false);
   let lastValue=-1,lastReadable=false;
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
-    resetForRoll(){power.reset();powerView=power.advance(performance.now());explosionAt=undefined;shatter?.reset();moteRays?.reset();lightning=createLightningTiming();moteRevision=-1;lastValue=-1;lastReadable=false;},
+    resetForRoll(){power.reset();powerView=power.advance(performance.now());dmResultBorn=NaN;dmChargeView={charge:0,frequency:0};resinRedCharge.value=0;explosionAt=undefined;shatter?.reset();moteRays?.reset();leafSwirl?.reset();escapingLightning?.reset();lightning=createLightningTiming();moteRevision=-1;lastValue=-1;lastReadable=false;},
     setRollResult(value:number|null|undefined,percentileValue?:number){power.setResult(value,percentileValue);},
     setReducedMotion(reduced:boolean){powerReduced=reduced;},
     setExplosionAt(at:number|null|undefined){explosionAt=at;},
     setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
     prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
-    powerState(){return {...powerView,particles:moteRays?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
+    powerState(){return {...powerView,critical:crit,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldCharge:goldSparkles?.strength()??0,goldSparkles:goldSparkles?.count()??0,particles:moteRays?.count()??0,...leafSwirl?.state(),...escapingLightning?.state(),...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.
@@ -812,6 +845,9 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,camera);
+      updateGoldSparkles(now);
+      leafSwirl?.update(now,powerView.maximum,powerView.age,powerReduced);
+      escapingLightning?.update(now,powerView.maximum,powerView.age,powerReduced,lightningFrame);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean,percentileValue?:number){
       power.setResult(rolling||((tens||ones)&&percentileValue===undefined)?null:value,percentileValue);
@@ -835,13 +871,16 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,s.camera);
+      updateGoldSparkles(now);
+      leafSwirl?.update(now,powerView.maximum,powerView.age,powerReduced);
+      escapingLightning?.update(now,powerView.maximum,powerView.age,powerReduced,lightningFrame);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);
       const shadow=ctx.createRadialGradient(size*.5,size*.88,0,size*.5,size*.88,size*.28);shadow.addColorStop(0,'#0008');shadow.addColorStop(1,'#0000');ctx.fillStyle=shadow;ctx.save();ctx.translate(0,size*.7);ctx.scale(1,.2);ctx.fillRect(0,0,size,size);ctx.restore();
       ctx.drawImage(s.renderer.domElement,0,0,size,size);
     },
-    dispose(){moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
+    dispose(){escapingLightning?.dispose();leafSwirl?.dispose();goldSparkles?.dispose();moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
   };
 }
 

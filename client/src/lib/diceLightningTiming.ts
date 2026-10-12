@@ -1,19 +1,20 @@
 /** Each die owns its own unpredictable discharge clock. Animation speed stays
  * independent from the longer, irregular pauses between flashes. Seconds. */
+export type LightningFrame={phase:number;seed:number;strike:number};
 export function createLightningTiming(random:()=>number=Math.random){
  let next=Infinity,start=-Infinity,last=-Infinity,seed=random()*10000,previousStrength:number|undefined;
- let maximumNext=Infinity,maximumStart=-Infinity,wasMaximum=false;
+ let maximumNext=Infinity,maximumStart=-Infinity,wasMaximum=false,strike=0;
  return {advance(now:number,strength?:number,maximum=false){
   const newlyKnown=strength!==undefined&&previousStrength===undefined;
   const lostResult=strength===undefined&&previousStrength!==undefined;
   previousStrength=strength;
   if(maximum){
-   // Rapid, separate leaders and return strokes. Even at maximum each strike
-   // goes fully dark before the next, rather than becoming a steady beam.
+   // Give each maximum leader time to cross the glass, followed by a dark
+   // interval. The strike ID also synchronizes occasional escaping bolts.
    if(!wasMaximum||now<last||now>last+.4){maximumStart=-Infinity;maximumNext=now+random()*.07;}
-   if(now>=maximumNext){maximumStart=now;seed=random()*10000;maximumNext=now+.12+random()*.09;}
+   if(now>=maximumNext){maximumStart=now;seed=random()*10000;strike++;maximumNext=now+.36+random()*.22;}
    wasMaximum=true;last=now;next=now+.2;
-   return {phase:Number.isFinite(maximumStart)?Math.min(3,(now-maximumStart)*13):3,seed};
+   return {phase:Number.isFinite(maximumStart)?Math.min(3,(now-maximumStart)*5):3,seed,strike};
   }
   // Keep the change obvious during a short result hold: a minimum gets one
   // initial spark then a long pause; a strong roll repeats several times.
@@ -25,9 +26,9 @@ export function createLightningTiming(random:()=>number=Math.random){
   }
   wasMaximum=false;
   last=now;
-  if(now>=next){start=now;seed=random()*10000;next=now+(strength===undefined?1.4+random()*2.2:.8+random()*.4)*interval;}
+  if(now>=next){start=now;seed=random()*10000;strike++;next=now+(strength===undefined?1.4+random()*2.2:.8+random()*.4)*interval;}
   // Re-stagger overdue strikes after backgrounding instead of flashing every
   // die at once on the first resumed frame.
-  return {phase:Number.isFinite(start)?Math.min(3,(now-start)*5):3,seed};
+  return {phase:Number.isFinite(start)?Math.min(3,(now-start)*5):3,seed,strike};
  }};
 }

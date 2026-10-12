@@ -28,7 +28,7 @@ export function createRollPowerState(sides:number){
    if(Number.isNaN(born))born=now;
    const dt=last===undefined?0:Math.max(0,Math.min(.1,(now-last)/1000));last=now;
    strength+=(result.strength-strength)*(1-Math.exp(-dt*9));
-   return {...result,strength,age:result.maximum?Math.max(0,(now-born)/1000):Infinity,revision};
+   return {...result,strength,naturalStrength:result.strength,age:result.maximum?Math.max(0,(now-born)/1000):Infinity,revision};
   },
  };
 }

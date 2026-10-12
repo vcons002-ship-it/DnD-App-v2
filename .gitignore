@@ -38,6 +38,7 @@ tools/*
 !tools/wall-benchmark.ts
 !tools/benchmark-walls.mts
 !tools/audit-spell-support.ts
+!tools/publish-dice-roller.mjs
 
 # Playwright e2e output
 test-results/
