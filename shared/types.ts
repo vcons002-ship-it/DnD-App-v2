@@ -69,6 +69,7 @@ export type Disposition = 'friendly' | 'neutral' | 'enemy';
 /** At-a-glance battlefield role shown as a token badge (⚔️ / 🏹 / ✨). */
 export type CombatRole = 'melee' | 'ranged' | 'caster';
 
+export type WeaponAttackKind = 'slash'|'blunt'|'thrust'|'arrow'|'bolt'|'stone'|'thrown'|'axe'|'knife'|'spear'|'trident'|'hammer'|'dart'|'bullet'|'whip'|'claw'|'bite';
 /**
  * A tagged weapon entry — structured so missing fields are obvious to fill and
  * reusable by later features (combat-role detection now; attack rolls in WP11).
@@ -1120,6 +1121,8 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  /** Server-only cosmetic origin; stripped from outgoing pending offers. */
+  weaponFx?: Pick<HpFxEvent,'weaponAttack'|'sourcePosition'>;
   diceTrigger?:RollReveal['diceTrigger'];
   impact?: HpFxEvent['impact'];
   /** Defended cosmetic components; HP/concentration still resolve once. */
@@ -1962,6 +1965,8 @@ export type JoinAck =
  *  elemental burst on the token — e.g. a flame flash for fire damage. */
 export type HpDamagePart = { amount: number; damageType?: string; spell?: string };
 export type HpFxEvent = {
+  /** Generic physical attack visual, with no weapon identity or combat stats. */
+  weaponAttack?: {kind:WeaponAttackKind;critical?:boolean};
   /** Cosmetic shared impact; order identifies separately clicked strikes within a cast. */
   impact?: {id:string;order?:number};
   /** Post-defense parts of this delta, never extra HP applications. */

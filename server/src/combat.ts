@@ -1,3 +1,4 @@
+import {weaponAttackKind} from '../../shared/weaponImpact.js';
 import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
 import {partySpell} from '../../shared/partySpells.js';
 import {seesInvisible} from '../../shared/invisibleSight.js';
@@ -372,9 +373,10 @@ export function applyDamageNoted(
   spell?: string,
   damageParts?: HpDamagePart[],
   impact?: import('../../shared/types.js').HpFxEvent['impact'],
+  weaponFx?: import('../../shared/types.js').PendingDamage['weaponFx'],
 ): RollEntry['hpNote'] {
   const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const after = applyDamage(kind, refId, amount, damageType, crit, rollId, {spell,damageParts,impact});
+  const after = applyDamage(kind, refId, amount, damageType, crit, rollId, {spell,damageParts,impact,...weaponFx});
   if (!before || !after) return undefined;
   if(amount>0&&attacker)breakInvisibility(attacker.kind,attacker.refId,'dealing damage');
   // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
@@ -667,7 +669,7 @@ export function resolveAttack(
     addRollLog(sessionId,{roller,label:'Attack',expr:weapon.name,total:out.attackTotal,
       detail:`${a.name} \u2192 ${t.name}: ${out.detailToHit} \u2014 roll damage`,hideMods:hidesMods(at.kind,at.refId),
       reveal:{kind:'attack',d20:out.face,toHit:out.toHitSteps,attackTotal:out.attackTotal,outcome:out.crit?'crit':'hit',attacker:a.name,target:t.name},
-      pending:{...(shield?{shield:{...shield,attackTotal:out.attackTotal,natural20:out.face===20}}:{}),target:{kind:t.kind,refId:t.refId,name:t.name},attacker:{kind:a.kind,refId:a.refId},weapon:weapon.name,amount:0,crit:out.crit,dice:[],mods:[],owner:ownerCharacterId,
+      pending:{...(shield?{shield:{...shield,attackTotal:out.attackTotal,natural20:out.face===20}}:{}),target:{kind:t.kind,refId:t.refId,name:t.name},attacker:{kind:a.kind,refId:a.refId},weapon:weapon.name,weaponFx:{weaponAttack:{kind:weaponAttackKind(weapon,distance),critical:out.crit},sourcePosition:{mapId:at.mapId,x:at.x,y:at.y}},amount:0,crit:out.crit,dice:[],mods:[],owner:ownerCharacterId,
         live:{kind:'weapon',args:[sessionId,roller,attackerTokenId,targetTokenId,weaponIndex,advantage,offhand,twoHanded,ownerCharacterId,riposteAbilityId],fixed:{out,state:{at,tt,a,t,ch,maneuverRoll}}},
         ...(features.length?{hitOptions:{abilityIds:features.map(ab=>ab.id),attackerTokenId,targetTokenId,weaponIndex,turn:turnKey(sessionId),used:[],multiplier:1,rawDamage:0}}:{}),
         ...(maneuvers.length?{maneuver:{abilityIds:maneuvers.map(ab=>ab.id),targetTokenId,rawDamage:0,multiplier:1,minimumAdjustment:0,dc:0}}:{})},
@@ -886,9 +888,10 @@ export function resolveAttack(
     : [];
   if(!liveResume)consumeHitAdvantage(tt);
   const attackRollId = liveResume?.id ?? newId();
+  const weaponFx=out.hit?{weaponAttack:{kind:weaponAttackKind(weapon,distance),critical:out.crit},sourcePosition:{mapId:at.mapId,x:at.x,y:at.y}}:undefined;
   let hpNote: RollEntry['hpNote'];
   if (applied > 0 && !deferDamage) {
-    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit, attackRollId, [weapon.name,...damageBreakdown.dice.map(d=>d.label)].join(" + "), hitDamageParts);
+    hpNote = applyDamageNoted(t.kind, t.refId, applied, fxType, { kind: at.kind, refId: at.refId }, out.crit, attackRollId, [weapon.name,...damageBreakdown.dice.map(d=>d.label)].join(" + "), hitDamageParts,undefined,weaponFx);
     noteConcentration(sessionId, t.kind, t.refId, applied);
   }
   // RAW the smite comes IMMEDIATELY after its hit, so this character's new
@@ -947,6 +950,7 @@ export function resolveAttack(
             target: { kind: t.kind, refId: t.refId, name: t.name },
             attacker: { kind: at.kind, refId: at.refId },
             weapon: weapon.name,
+            weaponFx,
             amount: applied,
             ...(weaponDamagePresented ? { damagePresented: true } : {}),
             damageParts: hitDamageParts,
@@ -1317,6 +1321,7 @@ export function resolveAttackDamage(
     [p.weapon,...p.dice.map(d=>d.label)].join(" + "),
     p.damageParts,
     p.impact,
+    p.weaponFx,
   );
   noteConcentration(sessionId, p.target.kind, p.target.refId, p.amount);
   const linkedTarget=p.spellLink&&listTokens(getSessionById(sessionId)?.activeMapId??'').find(t=>t.kind===p.target.kind&&t.refId===p.target.refId);

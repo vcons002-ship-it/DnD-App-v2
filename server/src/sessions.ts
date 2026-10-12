@@ -3465,7 +3465,7 @@ export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta, damageType, damageParts, effect, rollId, spell, areaWidthFt, areaPosition, sourcePosition, suppressSpellVisual, impact } = hpFxQueue[i];
+    const { kind, refId, delta, damageType, damageParts, effect, rollId, spell, areaWidthFt, areaPosition, sourcePosition, weaponAttack, suppressSpellVisual, impact } = hpFxQueue[i];
     mine.unshift({
       kind,
       refId,
@@ -3475,6 +3475,7 @@ export function drainHpFx(sessionId: string): HpFxEvent[] {
       ...(areaWidthFt ? {areaWidthFt} : {}),
       ...(areaPosition ? {areaPosition} : {}),
       ...(sourcePosition ? {sourcePosition} : {}),
+      ...(weaponAttack ? {weaponAttack} : {}),
       ...(suppressSpellVisual ? {suppressSpellVisual} : {}),
       ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),
@@ -3503,7 +3504,7 @@ export function applyDamage(
    *  a dead creature — and it reconciles the whole death state (saves, Dead
    *  mark, downed conditions), not just the HP number. Callers must gate it on
    *  the DM role; spells, abilities and potions never pass it. */
-  opts?: { correction?: boolean; spell?: string; damageParts?: HpFxEvent['damageParts'];impact?:HpFxEvent['impact'] },
+  opts?: { correction?: boolean; spell?: string; damageParts?: HpFxEvent['damageParts'];impact?:HpFxEvent['impact'];weaponAttack?:HpFxEvent['weaponAttack'];sourcePosition?:HpFxEvent['sourcePosition'] },
 ): Character | Monster | null {
   const table = kind === 'pc' ? 'characters' : 'monsters';
   let entity = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
@@ -3570,6 +3571,7 @@ export function applyDamage(
       refId,
       delta: fxDelta,
       ...(opts?.impact ? {impact:opts.impact} : {}),
+      ...(amount>0&&opts?.weaponAttack?{weaponAttack:opts.weaponAttack,sourcePosition:opts.sourcePosition}:{}),
       ...(damageParts ? {damageParts} : {}),
       ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),

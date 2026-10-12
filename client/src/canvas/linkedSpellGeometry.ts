@@ -1,3 +1,4 @@
+import {createWeaponAttackGeometry} from './weaponAttackGeometry';
 import {createAdvancedSpellGeometry} from './advancedSpellGeometry';
 import {createFireballGeometry} from './fireballGeometry';
 import {BoxGeometry,ConeGeometry,CurvePath,LineCurve3,TubeGeometry,Group,Mesh,MeshBasicMaterial,SphereGeometry,TorusGeometry,Vector3,type BufferGeometry} from 'three';
@@ -15,7 +16,7 @@ export function lightningStrikePath(){
 /** Reuses the impact renderer's luminous materials. Geometry is shared by every
  * instance; the spell only chooses its shape and motion, never a new art style. */
 export function createLinkedSpellGeometry(){
-  const advanced=createAdvancedSpellGeometry();
+  const advanced=createAdvancedSpellGeometry(),weapons=createWeaponAttackGeometry();
   const fireball=createFireballGeometry();
   const link=new TorusGeometry(.047,.009,4,9),crystal=new ConeGeometry(.09,.4,5),
     drop=new SphereGeometry(.075,7,5),blade=new BoxGeometry(.075,.85,.025),guard=new BoxGeometry(.36,.055,.045);
@@ -41,6 +42,7 @@ export function createLinkedSpellGeometry(){
   }
   const chains=mergeGeometries(chainLinks)!;chainLinks.forEach(g=>g.dispose());geometries.push(chains);
   function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,white=bright){
+    if(style.kind.startsWith('weapon-'))return weapons.build(style,body,bright,white);
     if(style.kind==='fireball')return fireball.build(style,body,bright,white);
     if(['shimmer','counter','dispel','thorns'].includes(style.kind))return advanced.build(style,body,bright,white);
     const root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
@@ -158,5 +160,5 @@ export function createLinkedSpellGeometry(){
       });
     }};
   }
-  return {build,dispose(){advanced.dispose();fireball.dispose();geometries.forEach(g=>g.dispose());}};
+  return {build,dispose(){advanced.dispose();fireball.dispose();weapons.dispose();geometries.forEach(g=>g.dispose());}};
 }

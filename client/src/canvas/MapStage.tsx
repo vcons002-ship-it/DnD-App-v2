@@ -37,7 +37,8 @@ import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
 import { resolveMiniature, miniatureForQuality, useMiniatureCatalog } from '../lib/miniatures';
 import { HpFxLayer, HpNumberLayer } from './HpFx';
-import {spellImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
+import {weaponTravelMs} from '../../../shared/weaponImpact';
+import {spellImpactStyle,weaponImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
 import type {SpellImpact} from './spellImpactEffects';
 import { DragGhostLayer } from './DragGhostLayer';
 import { SpeechBubbles } from './SpeechBubbles';
@@ -1290,15 +1291,16 @@ export function MapStage({
 
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
   const mapSpellEvent=(event:typeof hpFx[number]):SpellImpact[]=>{
-    if(event.suppressSpellVisual||!spellImpactStyle(event))return [];
+    if(!weaponImpactStyle(event)&&(event.suppressSpellVisual||!spellImpactStyle(event)))return [];
     if(event.areaPosition){const p=event.areaPosition;if(p.mapId!==snapshot.map?.id)return [];return [{id:event.id,event,startAt:event.numberStartAt,tokenId:`area:${event.id}`,x:p.x,y:p.y,diameter:event.spell==='Dispel Magic'?Math.min(12,p.radiusFt*2)*pxPerFoot:p.radiusFt*2*pxPerFoot,fixed:true}];}
     const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
     if(!token)return [];
     // The active restraint is already the visible impact; stacking an identical
     // transient mesh would briefly double its brightness and number of links.
     if(spellImpactStyle(event)?.kind==='chains'&&resolveToken(snapshot,token).conditions.some(c=>persistentSpellVisual(c)===event.spell))return [];
-    return [{id:event.id,event,startAt:event.numberStartAt,tokenId:token.id,x:token.x,y:token.y,
-      diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot}];
+    const input={event,tokenId:token.id,x:token.x,y:token.y,diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot};
+    return [...(!event.suppressSpellVisual&&spellImpactStyle(event)?[{...input,id:event.id,startAt:event.numberStartAt===undefined?undefined:event.numberStartAt+weaponTravelMs(event)}]:[]),
+      ...(weaponImpactStyle(event)?[{...input,id:`weapon-${event.id}`,weaponOnly:true,startAt:event.numberStartAt}]:[])];
   };
   const preparedSpellImpacts=preparedHpFx.flatMap(mapSpellEvent);
   const spellImpacts=useMemo<SpellImpact[]>(()=>[...hpFx.flatMap(mapSpellEvent),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
