@@ -114,9 +114,10 @@ test('DM high rolls pulse red inside purple resin and a maximum keeps the blood-
  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
  await page.locator('button[data-theme="dm"]').click();await expect(page.locator('#tray')).toHaveAttribute('data-theme','dm');
  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');await page.waitForTimeout(750);
- await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[1].dmCharge>.65);
+ await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[1].dmCharge>.55);
  const charge=JSON.parse((await page.locator('#tray canvas').getAttribute('data-roll-power'))!);
- expect(charge[0].dmCharge).toBe(0);expect(charge[1].dmPulseFrequency).toBeGreaterThan(1);
+ expect(charge[0].dmCharge).toBe(0);expect(charge[1].dmPulseFrequency).toBeGreaterThan(.2);
+ expect(charge[1].dmPulseFrequency).toBeLessThan(.8);
  expect(charge[1].maximum).toBe(false);expect(charge[2].dmCharge).toBe(1);
  await page.screenshot({path:info.outputPath('dm-high-roll-red-pulse.png')});
  await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[1].dmCharge<.04);

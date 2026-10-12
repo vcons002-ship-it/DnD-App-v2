@@ -12,7 +12,7 @@ if(requestedSides&&['4','6','8','10','12','20','100'].includes(requestedSides))s
 let theme=reviewParams.get('character')??'fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
 if(!['fighter','sorcerer','ranger','dm'].includes(theme))theme='fighter';
 focus.checked=reviewParams.get('closeup')==='1';
-descriptions.dm='Red energy pulses through the purple ink as the natural result rises: higher rolls pulse brighter and more often. A maximum fills the cloud with a sustained blood-red glow while the gold numerals remain clear.';
+descriptions.dm='Soft red swells roll through the purple ink, gently brightening and fading. Higher natural results build stronger, more frequent pulses. A maximum fills the cloud with a sustained blood-red glow while the gold numerals remain clear.';
 async function show(){
  const controls=[...document.querySelectorAll<HTMLButtonElement|HTMLSelectElement|HTMLInputElement>('nav button,nav select,nav input')];
  controls.forEach(c=>c.disabled=true);tray.dataset.state='preparing';

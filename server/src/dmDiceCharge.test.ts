@@ -16,7 +16,7 @@ describe('DM resin red charge',()=>{
   expect(frequencies[0]).toBeGreaterThan(0);
   for(let i=1;i<frequencies.length;i++)expect(frequencies[i]).toBeGreaterThan(frequencies[i-1]);
   expect(charge(6,5).frequency).toBeGreaterThan(charge(20,5).frequency);
-  expect(frequencies[3]).toBeLessThan(3);
+  expect(frequencies[3]).toBeLessThan(.8);
  });
  it('has brighter peaks at high rolls with quiet purple intervals between pulses',()=>{
   const samples=(value:number)=>Array.from({length:3000},(_,i)=>charge(20,value,i/100).charge);
@@ -24,6 +24,8 @@ describe('DM resin red charge',()=>{
   expect(Math.max(...high)).toBeGreaterThan(Math.max(...medium)+.3);
   expect(Math.min(...high)).toBe(0);
   expect(Math.max(...high)).toBeLessThan(1);
+  // Gentle full-cycle fades, including the wrap between successive pulses.
+  expect(Math.max(...high.slice(1).map((v,i)=>Math.abs(v-high[i])))).toBeLessThan(.04);
   const other=Array.from({length:3000},(_,i)=>charge(20,19,i/100,2.399963).charge);
   expect(high.some((v,i)=>Math.abs(v-other[i])>.5)).toBe(true);
  });
