@@ -9,7 +9,8 @@ test('character power art scales d20 and damage faces, including maxima and gold
  page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width:1150,height:1000});await page.goto('/dice-power.html');
  const canvas=page.locator('#tray canvas');
- await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+ // A cold GPU shader cache can take more than the default five seconds.
+ await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
  for(const theme of ['fighter','sorcerer','ranger'])for(const sides of [20,6]){
   await page.locator(`button[data-theme="${theme}"]`).click();await page.getByLabel('Die type').selectOption(String(sides));
   await expect(page.locator('#tray')).toHaveAttribute('data-sides',String(sides));
@@ -110,7 +111,7 @@ test('DM maximum changes the internal ink to red while ordinary rolls stay purpl
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width:1150,height:1000});await page.goto('/dice-power.html');
- await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+ await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
  await page.locator('button[data-theme="dm"]').click();await expect(page.locator('#tray')).toHaveAttribute('data-theme','dm');
  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');await page.waitForTimeout(750);
  const ink=await page.evaluate(()=>{
