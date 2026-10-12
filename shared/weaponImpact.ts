@@ -25,7 +25,7 @@ export function weaponAttackKind(weapon:Weapon,distanceFt=0):WeaponAttackKind{
   if(weapon.damageType?.toLowerCase()==='piercing')return 'thrust';
   return 'blunt';
 }
-export const WEAPON_FLIGHT_MS=420;
+export const WEAPON_FLIGHT_MS=340;
 export const isWeaponProjectile=(kind:WeaponAttackKind)=>
   ['arrow','bolt','stone','thrown','axe','knife','spear','trident','hammer','dart','bullet'].includes(kind);
 export const weaponTravelMs=(event:Pick<HpFxEvent,'weaponAttack'|'sourcePosition'>)=>

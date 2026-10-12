@@ -24,7 +24,7 @@ local impact without exposing their projectile origin; hidden victims emit no
 player feedback.
 
 Effects start after the correlated damage roll finishes or is skipped. A ranged
-hit has a 420 ms flight before its floating numbers and spell rider appear.
+hit has a 340 ms flight before its floating numbers and spell rider appear.
 Hunter's Mark and other spell effects remain independent of the physical hit.
 The effect follows the victim's displayed position and uses the existing
 terrain-fog-safe effect pass and foreground model depth. Physical impacts add
@@ -33,8 +33,8 @@ no illumination or shadow calculations and reuse small shared meshes.
 This is impact/projectile presentation; the model's arms are not re-rigged or
 animated. Misses and manual HP edits do not create a weapon-hit effect.
 
-Validation: client/server type checks, production build, 2,055 unit tests, and
-six focused browser checks passed. Coverage includes both damage modes, ranged
+Validation: client/server type checks, production build, 2,090 unit tests, and
+14 focused browser checks passed. Coverage includes both damage modes, ranged
 arrival timing, overhead/tilted GPU rendering, hidden origins/victims, private
 pending payloads, coexistence with spell riders, and existing Fireball/warmup
 regressions.
@@ -77,3 +77,30 @@ Each style has its own caption and chapter. This is a controlled cosmetic replay
 through the current app renderer, captured at 60 fps with RTX 5090 AV1 NVENC.
 The published H.264 copy supports mobile playback. The overhead render test
 frames the expanded debris as well as the body; its pixel threshold is unchanged.
+
+## Mirroring, throw direction, and rendering budget
+
+Each melee effect chooses its left/right mirror once when created. Detached
+prewarming and promotion retain that choice, so an active cut cannot flip in
+the middle of an animation. Ranged impacts are not mirrored. Projectile flight
+is now 340 ms instead of 420 ms; the shared damage-feedback clock uses the same
+constant, so floating damage still begins at contact.
+
+Thrown axes, knives and hammers tumble in the vertical flight plane around an
+axis perpendicular to travel. The axe completes its final quarter-turn with its
+blade edge pointing forward. Its thicker handle uses dark brown `#70401f`.
+
+Impact shards are two instanced meshes instead of twelve individual meshes.
+Shared geometry and reused transform scratch storage retain the visual detail.
+Physical effects emit no lights, change no visibility masks, cast no shadows,
+and expire independently of the longer damage-number reading hold.
+
+Monster attacks use the same authoritative weapon classification and damage
+correlation. Regression coverage includes all 17 styles from monster attacks
+in automatic and manual modes, hidden DM roll redaction, melee mirroring,
+axe orientation, repeated burst cleanup, GPU geometry retention, damage-number
+clock behavior, detached warmup and skip behavior, and map raster prewarming.
+
+Paired integrated-graphics and RTX 5090 runs, including the heavy player scene
+and damage-number-only comparison, are documented in
+[the weapon rendering budget](performance/weapon-attack-budget-2026-10-12.md).
