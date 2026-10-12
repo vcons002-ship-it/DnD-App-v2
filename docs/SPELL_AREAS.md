@@ -93,4 +93,11 @@ the shapes with real server dice in a disposable campaign.
 
 Area inclusion uses the occupied combat diameter (`Token.widthFt`), normally 5 feet for Small/Medium and 10 feet for Large creatures. Any overlap with the exact circle, cone, cube or line counts, including edges and end caps. Cosmetic miniature scaling does not change targeting. Self-origin cones and lines exclude their caster; non-self areas can affect the caster. Doorway clearance is unchanged. Splash damage, Pass without Trace and Spike Growth use the same footprint edge rule.
 
-Lightning Bolt draws one jagged, flickering 100-foot bolt from the caster along the confirmed direction. Its individual victims retain separate save/defense calculations and floating damage feedback. The bolt starts when the roll sequence completes or is skipped; an empty line still displays the cast.
+Lightning Bolt draws one jagged, flickering 100-foot bolt from the caster along the confirmed direction, at a waist-level 2½ feet above the map so it passes through smaller creatures in the tilted view. Its individual victims retain separate save/defense calculations and floating damage feedback. The bolt starts when the roll sequence completes or is skipped; an empty line still displays the cast.
+
+Ice Storm displays one hail field over the entire confirmed 20-foot-radius area,
+including empty space between creatures. Faceted ice falls, breaks into splinters,
+and leaves a brief moving frost wash. The field uses instanced geometry and fewer
+pieces on reduced effects settings. Separate Bludgeoning/Cold rolls, per-type
+defenses, grouped saves and creature-specific damage numbers are unchanged;
+individual damage events do not create duplicate storms.

@@ -1,6 +1,10 @@
 import {CurvePath,LineCurve3,TubeGeometry,Group,Mesh,Vector3,type MeshBasicMaterial} from 'three';
 import type {SpellImpactStyle} from '../../../shared/spellImpact';
 
+// Waist-level channel reads through humanoid bodies in the tilted view,
+// including the shorter goblins; this never changes the combat footprint.
+export const LINEAR_LIGHTNING_HEIGHT_FT=2.5;
+
 /** Shared narrow, jagged channel with a traveling white return-stroke and blue
  * corona. No per-frame geometry allocations or dynamic shadows. */
 export function createLinearLightningGeometry(){

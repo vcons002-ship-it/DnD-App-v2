@@ -322,9 +322,14 @@ function BurstFx({
 }) {
   const radius = (token.widthFt * pxPerFoot) / 2;
   const { x: cx, y: cy } = token;
+  if(floater.suppressSpellVisual)return null;
   const spell=spellImpactStyle(floater);
   if(spell?.kind==='lightning-line')return !spellEffects3D&&floater.areaPosition?.end?
     <LinearLightning start={floater.areaPosition} end={floater.areaPosition.end} width={5*pxPerFoot}/>:null;
+  if(spell?.kind==='ice-storm')return !spellEffects3D&&floater.areaPosition?<>
+    <RingPulse cx={floater.areaPosition.x} cy={floater.areaPosition.y} radius={floater.areaPosition.radiusFt*pxPerFoot} color={spell.color}/>
+    <Particles cx={floater.areaPosition.x} cy={floater.areaPosition.y} spread={floater.areaPosition.radiusFt*pxPerFoot} palette={['#d4f2ff','#8dcedf','#eefaff']} count={32} mode="radial"/>
+  </>:null;
   if(spell?.kind==='bolts')return !spellEffects3D?<>
     {Array.from({length:14},(_,i)=>{const a=i*2.399963,r=i===0?0:Math.sqrt(i/13)*(floater.areaWidthFt??10)*pxPerFoot*.46;
       return <LightningBolt key={i} cx={cx+Math.cos(a)*r} cy={cy+Math.sin(a)*r} radius={Math.max(12,radius*.7)}/>;})}

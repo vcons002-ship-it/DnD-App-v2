@@ -39,18 +39,18 @@ function setup(name:string){
  return {s,map,c,a,target,p};
 }
 describe('authoritative area combat',()=>{
- it.each(['Fireball','Call Lightning'])('%s has one chosen-area effect and separately defended HP feedback',name=>{
-  const f=setup(name),one=f.target(200,100),two=f.target(210,100,{resistances:[name==='Fireball'?'fire':'lightning']});
-  withDiceSource(sides=>sides.map(s=>s===20?1:4),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,3,undefined,undefined,undefined,f.p)).toBe(true));
+ it.each(['Fireball','Call Lightning','Ice Storm'])('%s has one chosen-area effect and separately defended HP feedback',name=>{
+  const f=setup(name),one=f.target(200,100),two=f.target(210,100,{resistances:name==='Ice Storm'?['bludgeoning','cold']:[name==='Fireball'?'fire':'lightning']});
+  withDiceSource(sides=>sides.map(s=>s===20?1:4),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,name==='Ice Storm'?4:3,undefined,undefined,undefined,f.p)).toBe(true));
   const events=drainHpFx(f.s.id),area=events.filter(e=>e.areaPosition);
-  expect(area).toHaveLength(1);expect(area[0]).toMatchObject({spell:name,delta:0,effect:'spell-area',areaPosition:{mapId:f.map.id,x:200,y:100,radiusFt:name==='Fireball'?20:5},sourcePosition:{mapId:f.map.id,x:name==='Fireball'?-100:0,y:0}});
+  expect(area).toHaveLength(1);expect(area[0]).toMatchObject({spell:name,delta:0,effect:'spell-area',areaPosition:{mapId:f.map.id,x:200,y:100,radiusFt:name==='Call Lightning'?5:20},sourcePosition:{mapId:f.map.id,x:name==='Call Lightning'?0:-100,y:0}});
   const damage=events.filter(e=>e.delta<0);expect(damage).toHaveLength(2);
   expect(damage.every(e=>e.suppressSpellVisual&&e.impact?.id===area[0].impact?.id)).toBe(true);
   expect(-damage.find(e=>e.refId===one.m.id)!.delta).toBe(-damage.find(e=>e.refId===two.m.id)!.delta*2);
  });
- it('Fireball still travels and explodes when its chosen area is empty',()=>{
-  const f=setup('Fireball');withDiceSource(s=>s.map(()=>4),()=>resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,3,undefined,undefined,undefined,f.p));
-  expect(drainHpFx(f.s.id)).toEqual([expect.objectContaining({spell:'Fireball',areaPosition:{mapId:f.map.id,x:200,y:100,radiusFt:20},delta:0})]);
+ it.each(['Fireball','Ice Storm'])('%s still displays its field when the chosen area is empty',name=>{
+  const f=setup(name);withDiceSource(s=>s.map(()=>4),()=>resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,name==='Ice Storm'?4:3,undefined,undefined,undefined,f.p));
+  expect(drainHpFx(f.s.id)).toEqual([expect.objectContaining({spell:name,areaPosition:{mapId:f.map.id,x:200,y:100,radiusFt:20},delta:0})]);
  });
  it.each([false,true])('Ice Storm separates Cold and Bludgeoning defenses (passed save=%s)',async pass=>{
   const f=setup('Ice Storm'),one=f.target(200,100,{name:'Cold resistant',resistances:['cold']}),two=f.target(250,100,{name:'Bludgeoning immune',immunities:['bludgeoning']}),outside=f.target(2000,100);

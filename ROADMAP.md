@@ -447,6 +447,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
   Apply the same edge rule to splash damage, moving stealth auras and Spike Growth
   travel. Lightning Bolt emits one aimed 100-foot channel from the caster, with
   shared save resolution, independent defenses and dice-gated damage feedback.
+  Its visual channel sits 2½ feet above the map to pass through smaller figures
+  in the tilted view, with emitted light sampled at that same height.
+  Ice Storm uses one instanced hail/splinter field and moving frost across the
+  selected area, including empty ground, with fewer pieces on reduced settings.
 
 - [x] Spell-specific effects for the repaired party spells: blue Shield barrier,
   silver Misty Step wisps, multicolor Hypnotic Pattern loops, a subtle moving

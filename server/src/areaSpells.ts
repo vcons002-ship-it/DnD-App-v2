@@ -47,7 +47,7 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
  if(spec.maxTargets&&targets.length>spec.maxTargets)return false;
  if(advancedSpell(a)==='spike growth')return castSpikeGrowth(sid,roller,kind,caster.id,a,p,level??2);
  const before=new Set(listRollLog(sid).map(r=>r.id));
- const areaImpact=['Fireball','Call Lightning','Lightning Bolt'].includes(a.name)?beginPlacedSpellImpact(sid,kind,caster.id,a.name):undefined;
+ const areaImpact=['Fireball','Call Lightning','Lightning Bolt','Ice Storm'].includes(a.name)?beginPlacedSpellImpact(sid,kind,caster.id,a.name):undefined;
  if(!cast(!!spec.ongoing&&!spec.initialEffect))return false;
  const entries=listRollLog(sid).filter(r=>!before.has(r.id)),source=[...entries].reverse().find(r=>r.apply);
  const automated=!!source?.apply&&(!spec.ongoing||spec.initialEffect);
