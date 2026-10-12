@@ -12,13 +12,14 @@ if(requestedSides&&['4','6','8','10','12','20','100'].includes(requestedSides))s
 let theme=reviewParams.get('character')??'fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
 if(!['fighter','sorcerer','ranger','dm'].includes(theme))theme='fighter';
 focus.checked=reviewParams.get('closeup')==='1';
-descriptions.dm='Soft red swells roll through the purple ink, gently brightening and fading. Higher natural results build stronger, more frequent pulses. A maximum fills the cloud with a sustained blood-red glow while the gold numerals remain clear.';
+critical.checked=reviewParams.get('gold')==='1';
+descriptions.dm='Soft red light glows behind black swirls of ink inside purple resin. Higher natural results build stronger, more frequent swells. A maximum holds a strong red inner glow, with the dark ink still moving in front of it.';
 async function show(){
  const controls=[...document.querySelectorAll<HTMLButtonElement|HTMLSelectElement|HTMLInputElement>('nav button,nav select,nav input')];
  controls.forEach(c=>c.disabled=true);tray.dataset.state='preparing';
  const current=++epoch;renderer?.dispose();renderer=undefined;
  const n=Number(sides.value),values=focus.checked?[n]:[1,Math.max(2,Math.ceil(n*.75)),n];
- document.querySelector('#description')!.textContent=descriptions[theme];
+ document.querySelector('#description')!.textContent=critical.checked?({fighter:'Gold critical dice carry orange heat across the metal and around their edges. A maximum still shudders and bursts into obsidian shards and lava.',sorcerer:'Gold critical dice carry red lightning across their outer shell, with more frequent bursts on stronger rolls and a charged red edge glow.',ranger:'Gold critical dice carry a green magical sheen and edge glow. A maximum sends gentle rotating rays outside the gold shell.',dm:'Gold critical dice carry soft red pulses around their outer edges. A maximum holds that red charge, keeping the gold face and dark numerals clear.'}[theme])+ ' Low, strong and maximum results use the same natural-face strength as ordinary dice.':descriptions[theme];
  const labels=document.querySelector<HTMLElement>('#labels')!;labels.style.gridTemplateColumns=`repeat(${values.length},1fr)`;
  labels.innerHTML=values.map((v,i)=>`<div><strong>${v} / ${n}</strong><span>${focus.checked?'Maximum — close-up':['Low','Strong','Maximum'][i]}</span></div>`).join('');
  document.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.theme===theme)));
@@ -38,7 +39,7 @@ async function show(){
   const r=tray.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,1.5);
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
   renderer!.draw(ctx,r.width,r.height,dpr,0,now);
-  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,age:p.age,strength:+p.strength.toFixed(2),maximum:p.maximum,dmCharge:p.dmCharge,dmPulseFrequency:p.dmPulseFrequency,particles:p.particles,broken:p.broken,shudder:p.shudder,lavaDrop:p.lavaDrop,fragments:p.fragments,frozenFragments:p.frozenFragments,lava:p.lava,pools:p.pools,melting:p.melting,preservedSurfaces:p.preservedSurfaces,physics:p.physics,mote:p.mote})));
+  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,age:p.age,strength:+p.strength.toFixed(2),maximum:p.maximum,dmCharge:p.dmCharge,dmPulseFrequency:p.dmPulseFrequency,goldAura:p.goldAura,particles:p.particles,broken:p.broken,shudder:p.shudder,lavaDrop:p.lavaDrop,fragments:p.fragments,frozenFragments:p.frozenFragments,lava:p.lava,pools:p.pools,melting:p.melting,preservedSurfaces:p.preservedSurfaces,physics:p.physics,mote:p.mote})));
   requestAnimationFrame(draw);
  }
  requestAnimationFrame(draw);

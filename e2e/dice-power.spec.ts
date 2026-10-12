@@ -107,7 +107,7 @@ test('Druk ordinary high rolls keep visibly hotter cracks than low rolls',async(
  expect(glow.high).toBeGreaterThan(glow.low*1.5+10);
 });
 
-test('DM high rolls pulse red inside purple resin and a maximum keeps the blood-red ink',async({page},info)=>{
+test('DM high rolls glow red behind black ink without recoloring its pigment',async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width:1150,height:1000});await page.goto('/dice-power.html');
@@ -127,10 +127,43 @@ test('DM high rolls pulse red inside purple resin and a maximum keeps the blood-
   const red=(x:number)=>{const {data}=ctx.getImageData(canvas.width*x,canvas.height*.35,canvas.width*.18,canvas.height*.3);let count=0;
    for(let i=0;i<data.length;i+=4)if(data[i]>55&&data[i]>data[i+1]*1.8&&data[i]>data[i+2]*1.3)count++;
    return count;};
-  return {low:red(.18),maximum:red(.60)};
+  // A crop inside the maximum die (excluding tray/background) must retain
+  // dark foreground ink even while its inner red light is at full strength.
+  const {data}=ctx.getImageData(canvas.width*.695,canvas.height*.44,canvas.width*.065,canvas.height*.10);
+  let darkInk=0;
+  for(let i=0;i<data.length;i+=4)if(data[i]<65&&data[i+1]<40&&data[i+2]<90)darkInk++;
+  return {low:red(.18),maximum:red(.60),darkInk};
  });
  expect(ink.maximum).toBeGreaterThan(ink.low+100);
+ expect(ink.darkInk).toBeGreaterThan(25);
  await page.screenshot({path:info.outputPath('dm-purple-and-blood-red-ink.png')});expect(errors).toEqual([]);
+});
+
+test('gold critical dice carry readable exterior charge for every character',async({page},info)=>{
+ test.setTimeout(90000);
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
+ await page.setViewportSize({width:1150,height:1000});
+ await page.goto('/dice-power.html?character=ranger&gold=1');
+ await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
+ await expect(page.getByLabel('Gold critical dice')).toBeChecked();
+ for(const theme of ['ranger','sorcerer','fighter','dm']){
+  await page.locator(`button[data-theme="${theme}"]`).click();
+  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
+  await page.waitForFunction(()=>{
+   const states=JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!);
+   return states[1]?.goldAura>.15&&states[2]?.goldAura>.5;
+  });
+  const states=JSON.parse((await page.locator('#tray canvas').getAttribute('data-roll-power'))!);
+  expect(states[0].goldAura).toBe(0);expect(states[2].goldAura).toBeGreaterThan(states[1].goldAura);
+  await page.screenshot({path:info.outputPath(`${theme}-gold-exterior-charge.png`)});
+  if(theme==='fighter'){
+   await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[2].broken);
+   expect(JSON.parse((await page.locator('#tray canvas').getAttribute('data-roll-power'))!)[2].goldAura).toBe(0);
+  }
+ }
+ await page.setViewportSize({width:430,height:932});await page.screenshot({path:info.outputPath('gold-exterior-charge-mobile.png')});
+ expect(errors).toEqual([]);
 });
 
 test('Druk warning visibly grows from cracks to a mostly incandescent shell before the shard burst',async({page},info)=>{

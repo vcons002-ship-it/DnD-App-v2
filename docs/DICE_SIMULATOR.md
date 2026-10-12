@@ -9,16 +9,23 @@ Druk, Varis, Vanec, or the DM and roll d4 through d100. Each percentile roll use
 two physical dice. Sound begins after a browser gesture, and the Sounds checkbox
 and Volume slider use the app's saved sound preferences on that browser.
 
-The DM's confirmed natural results progressively charge the purple ink with red
-pulses with a soft, full-cycle swell and fade. Higher faces pulse brighter and
-more frequently, with independent timing
-per die; a maximum keeps a sustained blood-red glow. Reduced-motion mode uses a
-steady tint instead of pulses. This is part of the shared production material,
+The DM's confirmed natural results add soft red illumination inside purple resin,
+behind moving black ink. The ink pigment stays black, even at a maximum.
+Higher faces glow brighter and pulse more frequently, with independent timing
+per die; a maximum keeps a sustained red inner glow. Reduced-motion mode uses a
+steady glow instead of pulses. This is part of the shared production material,
 so it applies to gameplay trays as well as the simulator when this code is installed.
 
 The linked `dice-power.html` compares low, strong, and maximum sample values.
 `dice-models.html` provides the material inspection page. These are isolated
 previews, so their rolls never modify a campaign or enter its roll log.
+
+Gold bonus critical dice use a separate exterior charge, since their opaque
+metal hides internal effects. Druk gets surface heat and an orange rim, Vanec
+gets red surface lightning, Varis gets a green sheen and escaping maximum rays,
+and the DM gets a red rim pulse. Dark numerals remain clear. The aura is one
+small additive halo per critical die, with no extra lights or bloom passes; it
+switches off when Druk's shell bursts. Use `dice-power.html?gold=1` to compare.
 
 After changing production dice art or sounds, rebuild and refresh the published
 bundle:

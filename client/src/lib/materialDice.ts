@@ -4,6 +4,7 @@ import {createRollPowerState,DRUK_EXPLOSION_DELAY,drukFinaleAge} from './diceRol
 import {dmDiceCharge} from './dmDiceCharge';
 import {createDiceShatterArt} from './diceShatterArt';
 import {createDiceMoteRays} from './diceMoteRays';
+import {createGoldDiceAura} from './goldDiceAura';
 import type {ShatterWorld} from './diceShatterPhysics';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -507,10 +508,14 @@ void main(){
    // their character's maximum-roll heat/charge across the metallic shell.
    if(!engraved||cut>.85){
     if(style==1&&rollPower>.2){float heat=1.-smoothstep(.002,.035+rollPower*.06,moltenFracture(pos));color+=vec3(2.8,.22,.006)*heat*rollPower;color=mix(color,vec3(4.,.55,.012),moltenWarning*.86);}
-    if(style==0&&rollMaximum>.5){
+    if(style==0&&rollPower>.3){
      float channel=min(electricArc(pos,lightningSeed).x,electricArc(pos.yzx,lightningSeed+41.).x);
      float stroke=smoothstep(.12,.16,lightningPhase)*(1.-smoothstep(.60,.90,lightningPhase));
-     color+=vec3(1.5,.025,.065)*exp(-channel*channel/.003)*2.*stroke;
+     color+=vec3(2.,.025,.065)*exp(-channel*channel/.003)*2.*stroke*rollPower;
+    }
+    if(style==2){
+     float sweep=pow(.5+.5*sin(dot(pos,vec3(3.,4.,-2.))+time*1.3),5.);
+     color+=vec3(.12,1.1,.05)*sweep*smoothstep(.3,1.,rollPower)*.6;
     }
    }
    if(engraved)color=mix(vec3(.028,.012,.003),color,smoothstep(.18,.8,cut));
@@ -573,13 +578,17 @@ const resinCloudTransmission=`
    float interior=smoothstep(.015,.16,min(travel,cloudLength-travel));
    if(resinInk>.5){
      float ink=resinInkDensity(point,resinTime);
-     float opacity=1.-exp(-ink*cloudStep*interior*4.8);
+     float opacity=1.-exp(-ink*cloudStep*interior*8.);
      // Light behind and between dark lobes gives a readable silhouette.
      vec3 lamp=point-vec3(-.18,.2,-.1);
-     float illumination=exp(-dot(lamp,lamp)*2.1)*resinGlow*(1.+resinRedCharge*.65);
-     vec3 pigment=mix(vec3(.002,.0006,.005),vec3(.065,.0006,.002),resinRedCharge);
-     vec3 innerLight=mix(vec3(.24,.095,.43),vec3(.45,.006,.014),resinRedCharge);
-     inkLight+=inkTransmission*(pigment*opacity+innerLight*illumination*(1.-opacity)*cloudStep*interior);
+     float illumination=exp(-dot(lamp,lamp)*2.1)*resinGlow;
+     // Ink stays black at every face value. A moving red emitter illuminates
+     // the clear resin between lobes, with foreground ink absorbing its light.
+     vec3 redLamp=point-vec3(.26*sin(resinTime*.41),.15*cos(resinTime*.33),-.12);
+     float redGlow=exp(-dot(redLamp,redLamp)*12.)*resinRedCharge;
+     vec3 pigment=vec3(.002,.0006,.005);
+     vec3 light=vec3(.24,.095,.43)*illumination+vec3(1.65,.018,.045)*redGlow;
+     inkLight+=inkTransmission*(pigment*opacity+light*(1.-opacity)*cloudStep*interior);
      inkTransmission*=1.-opacity;
    }else{
      vec3 curl=vec3(sin(point.y*2.4+resinTime*.18),cos(point.z*2.1-resinTime*.14),sin(point.x*2.7+resinTime*.12))*.25;
@@ -622,11 +631,11 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const power=createRollPowerState(sides);
   let powerView=power.advance(0),powerReduced=false,explosionAt:number|null|undefined;
   const shatterAge=(now:number)=>drukFinaleAge(powerView.age,now,explosionAt);
-  const resinRedCharge={value:0},chargeSeed=gem?dmChargeSequence++*2.399963:0;
+  const resinRedCharge={value:0},chargeSeed=dm?dmChargeSequence++*2.399963:0;
   let dmChargeView={charge:0,frequency:0};
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
-    if(gem){
+    if(dm){
       dmChargeView=dmDiceCharge(powerView.strength,powerView.known,powerView.maximum,powerView.age,now/1000,chargeSeed,powerReduced);
       resinRedCharge.value=dmChargeView.charge;
     }
@@ -661,7 +670,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   };
   let lightning=createLightningTiming();
   const updateLightning=(now:number)=>{
-    if(!uniforms.internalLightning.value&&!(theme.id==='sorcerer'&&powerView.maximum))return;
+    if(!uniforms.internalLightning.value&&!(theme.id==='sorcerer'&&crit))return;
     const frame=lightning.advance(now/1000,powerView.known?powerView.strength:undefined,powerView.maximum&&!powerReduced);
     uniforms.lightningPhase.value=frame.phase;uniforms.lightningSeed.value=frame.seed;
   };
@@ -753,11 +762,13 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
         reflectedLight.directSpecular*=topReflection;reflectedLight.indirectSpecular*=topReflection;`);
       shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
     };
-    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v7-red-pulses';
+    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v8-black-ink-red-light';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   const shatter=theme.id==='fighter'?createDiceShatterArt(root,source.faces.map(ids=>ids.map(i=>vertices[i])),crit):undefined;
   const moteRays=style===2?createDiceMoteRays(root,planes.slice(0,faces.length),uniforms.moteRoom.value):undefined;
+  const goldAura=crit?createGoldDiceAura(root,vertices,style):undefined;
+  const updateGoldAura=(now:number)=>goldAura?.update(now,powerView.known,powerView.strength,powerView.maximum,powerReduced,dmChargeView.charge,shatter?.state().broken??false);
   let lastValue=-1,lastReadable=false;
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
@@ -768,7 +779,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     setExplosionAt(at:number|null|undefined){explosionAt=at;},
     setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
     prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
-    powerState(){return {...powerView,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,particles:moteRays?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
+    powerState(){return {...powerView,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldAura:goldAura?.strength()??0,particles:moteRays?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.
@@ -817,6 +828,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,camera);
+      updateGoldAura(now);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean,percentileValue?:number){
       power.setResult(rolling||((tens||ones)&&percentileValue===undefined)?null:value,percentileValue);
@@ -840,13 +852,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,s.camera);
+      updateGoldAura(now);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);
       const shadow=ctx.createRadialGradient(size*.5,size*.88,0,size*.5,size*.88,size*.28);shadow.addColorStop(0,'#0008');shadow.addColorStop(1,'#0000');ctx.fillStyle=shadow;ctx.save();ctx.translate(0,size*.7);ctx.scale(1,.2);ctx.fillRect(0,0,size,size);ctx.restore();
       ctx.drawImage(s.renderer.domElement,0,0,size,size);
     },
-    dispose(){moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
+    dispose(){goldAura?.dispose();moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
   };
 }
 
