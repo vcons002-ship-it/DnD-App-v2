@@ -8,7 +8,7 @@ import {createDiceSound,rollingSpeeds} from '../lib/diceSfx';
 import {getSfxVolume,isDiceSfxOn,setSfxMuted,setDiceSfxOn,setSfxVolume,sfxOutput,playCritical} from '../lib/sfx';
 
 const names=['Druk','Varis','Vanec','DM'];
-const materials=['Molten obsidian & gold','Forest resin, wood & bronze','Red glass, lightning & silver','Purple resin, flowing ink & gold'];
+const materials=['Molten obsidian & gold','Forest resin, wood & bronze | Woodland wake','Red glass, lightning & silver','Purple resin, flowing ink & gold'];
 const themes=[diceThemeForClass('Fighter'),diceThemeForClass('Ranger'),diceThemeForClass('Sorcerer'),diceThemeForRoll('',true)];
 const tray=document.querySelector<HTMLDivElement>('#tray')!;
 const canvas=tray.querySelector('canvas')!,ctx=canvas.getContext('2d')!;
@@ -16,9 +16,6 @@ const status=document.querySelector<HTMLSpanElement>('#status')!;
 const buttons=[...document.querySelectorAll<HTMLButtonElement>('button')];
 const roller=document.querySelector<HTMLSelectElement>('#roller')!;
 const count=document.querySelector<HTMLInputElement>('#count')!;
-const rangerLook=document.querySelector<HTMLSelectElement>('#ranger-look')!;
-const requestedLook=new URLSearchParams(location.search).get('ranger');
-rangerLook.value=requestedLook&&['vine','amber','moss','resin'].includes(requestedLook)?requestedLook:'resin';
 const results=document.querySelector<HTMLDivElement>('.results')!;
 const sounds=document.querySelector<HTMLInputElement>('#sounds')!,volume=document.querySelector<HTMLInputElement>('#volume')!;
 sounds.checked=isDiceSfxOn();volume.value=String(Math.round(getSfxVolume()*100));
@@ -36,12 +33,10 @@ async function roll(next=sides){
  count.max=String(next===100?20:40);
  if(!count.reportValidity())return;
  const quantity=Number(count.value),player=Number(roller.value),current=++epoch;
- const moss=rangerLook.value==='moss',amber=rangerLook.value==='amber';
- materials[1]=amber?'Enchanted amber, fern inclusions, wood & bronze | Woodland wake':moss?'Moss agate, wood & bronze | Windblown woodland wake':rangerLook.value==='resin'?'Original forest resin, wood & bronze | Woodland wake':'Forest resin, wood & bronze | Vine trail';
  sides=next;done=false;tray.dataset.state='preparing';
  sound?.stop();sound=undefined;sfxOutput();
  buttons.forEach(b=>{b.disabled=true;if(b.dataset.sides)b.setAttribute('aria-pressed',String(Number(b.dataset.sides)===sides));});
- roller.disabled=count.disabled=rangerLook.disabled=true;
+ roller.disabled=count.disabled=true;
  status.textContent=`Preparing ${names[player]}'s ${quantity}d${sides}...`;
  renderer?.dispose();renderer=undefined;world=undefined;
  labels.forEach(l=>l.remove());
@@ -56,10 +51,8 @@ async function roll(next=sides){
  toss={radius:snapshot.radius,trayScale:snapshot.trayScale,frames:new Float32Array(snapshot.poses),frameCount:1,step:1,topFaces:dice.map(()=>0),duration:Infinity,settleTimes:[],wallHits:0};
  const art=await loadTrayTexture(themes[player].id);await waitForDiceGraphics(themes[player].id);
  if(current!==epoch){art?.dispose();return;}
- // The approved look uses production defaults, so future material updates also
- // reach the simulator. Optional Varis experiments stay explicitly opt-in.
- const appearance=player===1&&rangerLook.value!=='resin'?{molten:true,lightning:true,liquidInk:true,dmGlow:.65,denseDm:true,varisTrail:true,mossAgate:moss,enchantedAmber:amber,woodlandWake:rangerLook.value!=='vine'}:undefined;
- const nextRenderer=createTrayRenderer(dice,toss,themes[player],undefined,art,true,undefined,appearance);
+ // Use production defaults for every character, including Varis' approved look.
+ const nextRenderer=createTrayRenderer(dice,toss,themes[player],undefined,art,true);
  labels=dice.map(d=>{const l=document.createElement('div');l.className='die-label';l.textContent=`#${d.index+1}${d.tens?' tens':d.ones?' ones':''}`;l.hidden=true;tray.append(l);return l;});
  const r=tray.getBoundingClientRect();
  await nextRenderer.prepare(r.width,r.height,Math.min(devicePixelRatio,1.5));
@@ -67,7 +60,7 @@ async function roll(next=sides){
  renderer=nextRenderer;world=nextWorld;sound=createDiceSound(dice.map(d=>d.sides));last=performance.now();
  tray.dataset.theme=themes[player].id;tray.dataset.soundImpacts='0';
  status.textContent=`${names[player]} rolling ${quantity}d${sides}`;tray.dataset.state='rolling';tray.dataset.sides=String(sides);tray.dataset.roller=names[player];tray.dataset.diceCount=String(dice.length);
- buttons.forEach(b=>b.disabled=false);roller.disabled=count.disabled=rangerLook.disabled=false;
+ buttons.forEach(b=>b.disabled=false);roller.disabled=count.disabled=false;
  function frame(now:number){
   if(current!==epoch||!renderer||!world||!toss)return;
   const previous=world.snapshot(),snapshot=done?previous:world.advance(Math.min(.04,Math.max(.001,(now-last)/1000))*LIVE_DICE_PRESENTATION_RATE);last=now;
@@ -100,11 +93,10 @@ async function roll(next=sides){
   if(current!==epoch)return;
   sound?.stop();
   status.textContent=error instanceof Error?error.message:'Could not prepare the dice';
-  buttons.forEach(b=>b.disabled=false);roller.disabled=count.disabled=rangerLook.disabled=false;
+  buttons.forEach(b=>b.disabled=false);roller.disabled=count.disabled=false;
  }
 }
 buttons.forEach(b=>b.addEventListener('click',()=>void roll(b.dataset.sides?Number(b.dataset.sides):sides)));
-rangerLook.addEventListener('change',()=>{roller.value='1';void roll();});
 count.addEventListener('keydown',event=>{if(event.key==='Enter')void roll();});
 await roll();
 window.addEventListener('pagehide',()=>{epoch++;sound?.stop();renderer?.dispose();});
