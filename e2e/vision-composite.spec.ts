@@ -2,6 +2,102 @@ import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 import sharp from 'sharp';
 
+test('wall fog preserves the complete visible body and its outside outline at different camera angles',async({page})=>{
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import * as T from 'three';
+ import {createMiniatureVisibilityMaterial} from './client/src/canvas/miniatureVisionLift';
+ import {createMiniatureVisionComposite} from './client/src/canvas/miniatureVisionComposite';
+ import {createMiniatureSilhouetteOutline} from './client/src/canvas/miniatureSilhouetteOutline';
+ const renderer=new T.WebGLRenderer({alpha:true,antialias:false,preserveDrawingBuffer:true});renderer.setSize(200,200);renderer.setClearColor(0,0);
+ const host=document.createElement('div');document.body.append(host);host.append(renderer.domElement);
+ const scene=new T.Scene(),mask=new T.WebGLRenderTarget(200,200);mask.depthTexture=new T.DepthTexture(200,200);
+ const visibility=createMiniatureVisibilityMaterial(),inverse={value:new T.Matrix4()},outline=createMiniatureSilhouetteOutline(mask.texture,mask.depthTexture,inverse);
+ const figure=new T.Mesh(new T.BoxGeometry(18,32,12),new T.MeshBasicMaterial({color:'#d49565'}));figure.position.set(50,16,62);figure.layers.enable(1);figure.userData.outlineId=outline.slot('#40ff60',1);scene.add(figure);
+ const floor=new T.Mesh(new T.PlaneGeometry(100,100),new T.MeshBasicMaterial({color:'#604040'}));floor.rotation.x=-Math.PI/2;floor.position.set(50,-.1,50);scene.add(floor);
+ const camera=new T.PerspectiveCamera(45,1,.1,1000),composite=createMiniatureVisionComposite(renderer,host,mask.texture);
+ const rect=(x,y,w,h)=>[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
+ const cover={enabled:true,origins:[rect(0,56,100,44)],sight:[],lights:[],explored:[],memory:null,keepRevealed:false};
+ const read=()=>{const gl=renderer.getContext(),p=new Uint8Array(200*200*4);gl.readPixels(0,0,200,200,gl.RGBA,gl.UNSIGNED_BYTE,p);return p;};
+ const results=[];
+ for(const angle of [0,.9,1.9]){
+  camera.position.set(50+Math.sin(angle)*100,100,50+Math.cos(angle)*100);camera.lookAt(50,0,50);camera.updateMatrixWorld();inverse.value.copy(camera.projectionMatrixInverse);
+  camera.layers.set(1);scene.overrideMaterial=visibility;renderer.setRenderTarget(mask);renderer.render(scene,camera);scene.overrideMaterial=null;camera.layers.set(0);renderer.setRenderTarget(null);
+  const maskPixels=new Uint8Array(200*200*4);renderer.readRenderTargetPixels(mask,0,0,200,200,maskPixels);
+  renderer.render(scene,camera);const body=read();outline.render(renderer);const withOutline=read();
+  composite.render(true,cover,camera);const clipped=read();outline.render(renderer);const fixed=read();
+  let borders=0,lost=0,restored=0,bodyChanged=0,terrainLeaked=0;
+  for(let i=0;i<body.length;i+=4){
+   const border=withOutline[i+1]>body[i+1]+20&&withOutline[i+1]>withOutline[i]+30;
+   if(border){borders++;if(clipped[i+1]<withOutline[i+1]-20){lost++;if(fixed[i+1]>clipped[i+1]+20)restored++;}}
+   if(maskPixels[i]===255&&maskPixels[i+3]===255&&body.slice(i,i+4).some((v,j)=>v!==fixed[i+j]))bodyChanged++;
+   if(!border&&!maskPixels[i+3]&&clipped.slice(i,i+4).some((v,j)=>v!==fixed[i+j]))terrainLeaked++;
+  }
+  results.push({borders,lost,restored,bodyChanged,terrainLeaked});
+ }
+ window.wallOutline=results;outline.dispose();composite.dispose();mask.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
+ const results=await page.evaluate(()=>(window as any).wallOutline);
+ for(const r of results){expect(r.borders).toBeGreaterThan(20);expect(r.bodyChanged).toBe(0);expect(r.terrainLeaked).toBe(0);expect(r.restored).toBe(r.lost);}
+ expect(results.some((r:any)=>r.lost>10)).toBe(true);
+});
+
+test('lit figures retain their head colors when projected over hidden ground while unlit figures keep darkvision grading',async({page})=>{
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import * as T from 'three';
+ import {createMiniatureVisibilityMaterial} from './client/src/canvas/miniatureVisionLift';
+ import {createMiniatureVisionComposite} from './client/src/canvas/miniatureVisionComposite';
+ const renderer=new T.WebGLRenderer({alpha:true,antialias:false,preserveDrawingBuffer:true});renderer.setSize(160,160);renderer.setClearColor(0,0);
+ const host=document.createElement('div');document.body.append(host);host.append(renderer.domElement);
+ const scene=new T.Scene(),mask=new T.WebGLRenderTarget(160,160),material=createMiniatureVisibilityMaterial();
+ const figure=new T.Mesh(new T.BoxGeometry(18,32,12),new T.MeshBasicMaterial({color:'#e47733'}));figure.position.set(50,16,62);figure.layers.enable(1);figure.userData.bodySlot=1;scene.add(figure);
+ const floor=new T.Mesh(new T.PlaneGeometry(100,100),new T.MeshBasicMaterial({color:'#604040'}));floor.rotation.x=-Math.PI/2;floor.position.set(50,-.1,50);scene.add(floor);
+ const camera=new T.PerspectiveCamera(45,1,.1,1000);camera.position.set(50,100,150);camera.lookAt(50,0,50);
+ camera.layers.set(1);scene.overrideMaterial=material;renderer.setRenderTarget(mask);renderer.render(scene,camera);scene.overrideMaterial=null;camera.layers.set(0);renderer.setRenderTarget(null);
+ const mp=new Uint8Array(160*160*4);renderer.readRenderTargetPixels(mask,0,0,160,160,mp);
+ const read=()=>{const gl=renderer.getContext(),p=new Uint8Array(160*160*4);gl.readPixels(0,0,160,160,gl.RGBA,gl.UNSIGNED_BYTE,p);return p;};
+ const rect=(x,y,w,h)=>[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}];
+ const room=rect(0,56,100,44),near=rect(0,56,100,44);
+ const base={enabled:true,origins:[room],sight:[room],lights:[{polygon:room,source:{id:'lamp',x:50,y:70,height:9,radius:40,strength:1}}],explored:[],memory:null,keepRevealed:false,grade:{heavy:false,daylight:false,near:[near]}};
+ const composite=createMiniatureVisionComposite(renderer,host,mask.texture),points=[{slot:1,x:50,y:62}];
+ renderer.render(scene,camera);const plain=read();composite.gradeBodies(base,points);composite.render(true,base,camera);const lit=read();
+ const unlitFrame={...base,lights:[]};renderer.render(scene,camera);composite.gradeBodies(unlitFrame,points);composite.render(true,unlitFrame,camera);const dim=read();
+ const noFog={...base,enabled:false};renderer.render(scene,camera);composite.gradeBodies(noFog,points);composite.render(true,noFog,camera);const withoutFog=read();
+ const field=new T.DataTexture(new Float32Array([3,3,3,0]),1,1,T.RGBAFormat,T.FloatType);field.needsUpdate=true;
+ renderer.render(scene,camera);composite.gradeBodies(unlitFrame,points,{torchField:{value:field},torchBounds:{value:new T.Vector4(0,0,100,100)}});composite.render(true,unlitFrame,camera);const fieldLit=read();
+ let groundRestored=0;for(let i=0;i<mp.length;i+=4)if(!mp[i+3]&&dim[i+3]===255&&fieldLit.slice(i,i+3).some((v,j)=>Math.abs(v-dim[i+j])>5))groundRestored++;
+ let litChanged=0,dimColored=0,bodyPixels=0;
+ let noFogChanged=0,fieldChangedBody=0;
+ for(let i=0;i<mp.length;i+=4)if(mp[i]===255&&mp[i+3]===255){bodyPixels++;if(plain.slice(i,i+4).some((v,j)=>Math.abs(v-lit[i+j])>1))litChanged++;if(dim[i]>dim[i+1]+15&&dim[i+1]>dim[i+2])dimColored++;if(plain.slice(i,i+4).some((v,j)=>Math.abs(v-withoutFog[i+j])>1))noFogChanged++;if(dim.slice(i,i+4).some((v,j)=>v!==fieldLit[i+j]))fieldChangedBody++;}
+ const after=new Uint8Array(mp.length);renderer.readRenderTargetPixels(mask,0,0,160,160,after);
+ window.bodyGrade={litChanged,bodyPixels,dimColored,noFogChanged,groundRestored,fieldChangedBody,maskUnchanged:after.every((v,i)=>v===mp[i]),grading:host.parentElement.dataset.gpuVisionGrade};
+ field.dispose();composite.dispose();mask.dispose();material.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
+ const r=await page.evaluate(()=>(window as any).bodyGrade);
+ expect(r.bodyPixels).toBeGreaterThan(300);expect(r.litChanged).toBe(0);expect(r.dimColored).toBe(r.bodyPixels);expect(r.grading).toBe('true');
+ expect(r.noFogChanged).toBe(0);expect(r.groundRestored).toBeGreaterThan(100);expect(r.fieldChangedBody).toBe(0);
+ expect(r.maskUnchanged).toBe(true);
+});
+
+test('Shocking Grasp leaves a small readable electrical status instead of a standing sky bolt and removes it with the condition',async({page})=>{
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import * as T from 'three';
+ import {createSpellImpactEffects} from './client/src/canvas/spellImpactEffects';
+ const scene=new T.Scene(),effects=createSpellImpactEffects(scene),camera=new T.PerspectiveCamera(45,1,.1,1000);
+ const input={id:'active:grasp',tokenId:'target',x:50,y:50,diameter:20,persistent:true,event:{kind:'monster',refId:'g',delta:0,spell:'Shocking Grasp'}};
+ effects.sync([input],0);effects.tick(4000,4,false,()=>({x:50,y:50,height:40,visible:true}));camera.position.set(50,100,120);camera.lookAt(50,0,50);effects.faceCamera(camera);
+ const names=[];scene.traverse(n=>names.push(n.name));const bounds=new T.Box3().setFromObject(scene);
+ const active={kinds:effects.kinds,names,height:bounds.max.y-bounds.min.y};
+ effects.tick(4100,4,false,()=>({x:50,y:50,height:40,visible:false}));const hidden=effects.kinds;
+ effects.sync([],4200);const expired=effects.active;effects.dispose();window.graspStatus={active,hidden,expired};
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
+ const r=await page.evaluate(()=>(window as any).graspStatus);
+ expect(r.active.kinds).toEqual(['shock']);expect(r.active.names).toContain('shocking-grasp-active');expect(r.active.names).toContain('shocking-grasp-status-rim');
+ expect(r.active.height).toBeLessThan(55);expect(r.hidden).toEqual([]);expect(r.expired).toBe(false);
+});
+
 test('visible spell geometry survives terrain fog without revealing map pixels or drawing through foreground figures',async({page})=>{
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
  import * as T from 'three';

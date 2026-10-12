@@ -3450,11 +3450,22 @@ export function queueSpellImpact(sessionId:string,kind:TokenKind,refId:string,sp
   if(name&&hpFxQueue.length<200)hpFxQueue.push({sessionId,kind,refId,delta:0,spell:name,...(areaPosition?{areaPosition}:{}),...(rollId?{rollId}:{}),...(areaWidthFt?{areaWidthFt}:{})});
 }
 export function checkpointHpFx(){const saved=hpFxQueue.slice();return ()=>{hpFxQueue.splice(0,hpFxQueue.length,...saved);};}
+/** Captures only this cast's feedback. HP and conditions remain per creature;
+ * the visual travels/explodes once at the authoritative chosen point. */
+export function beginPlacedSpellImpact(sessionId:string,kind:TokenKind,refId:string,spell:string){
+  const before=new Set(hpFxQueue);
+  return (rollId:string,areaPosition:NonNullable<HpFxEvent['areaPosition']>,sourcePosition:HpFxEvent['sourcePosition'])=>{
+    for(const e of hpFxQueue)if(!before.has(e)&&e.sessionId===sessionId&&e.spell===spell&&e.delta<0){
+      e.suppressSpellVisual=true;e.impact={id:rollId};
+    }
+    hpFxQueue.push({sessionId,kind,refId,delta:0,spell,effect:'spell-area',impact:{id:rollId},rollId,areaPosition,sourcePosition});
+  };
+}
 export function drainHpFx(sessionId: string): HpFxEvent[] {
   const mine: HpFxEvent[] = [];
   for (let i = hpFxQueue.length - 1; i >= 0; i--) {
     if (hpFxQueue[i].sessionId !== sessionId) continue;
-    const { kind, refId, delta, damageType, damageParts, effect, rollId, spell, areaWidthFt, areaPosition, impact } = hpFxQueue[i];
+    const { kind, refId, delta, damageType, damageParts, effect, rollId, spell, areaWidthFt, areaPosition, sourcePosition, suppressSpellVisual, impact } = hpFxQueue[i];
     mine.unshift({
       kind,
       refId,
@@ -3463,6 +3474,8 @@ export function drainHpFx(sessionId: string): HpFxEvent[] {
       ...(damageParts ? {damageParts} : {}),
       ...(areaWidthFt ? {areaWidthFt} : {}),
       ...(areaPosition ? {areaPosition} : {}),
+      ...(sourcePosition ? {sourcePosition} : {}),
+      ...(suppressSpellVisual ? {suppressSpellVisual} : {}),
       ...(spell ? {spell} : {}),
       ...(rollId ? { rollId } : {}),
       ...(damageType ? { damageType } : {}),

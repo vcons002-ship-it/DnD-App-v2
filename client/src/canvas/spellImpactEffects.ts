@@ -53,11 +53,14 @@ export function createSpellImpactEffects(scene:Scene){
     }
     let bolt:Mesh|undefined;
     if((style.kind==='burst'||style.kind==='storm')&&(input.event.damageType==='lightning'||/witch bolt|shocking grasp|call lightning/i.test(input.event.spell??''))){
-      const path=lightningStrikePath();
+      // Shocking Grasp crackles around the touched body, never from the sky.
+      const path=input.event.spell==='Shocking Grasp'?new CatmullRomCurve3(Array.from({length:16},(_,i)=>{
+        const a=i/15*Math.PI*3;return new Vector3(Math.cos(a)*.32,.28+i/15*.65+Math.sin(i*2)*.045,Math.sin(a)*.32);
+      })):lightningStrikePath();
       bolt=new Mesh(new TubeGeometry(path,30,.023,5,false),bright);bolt.userData.path=path;root.add(bolt);
     }
     // Drifting points help carry the impact and the mark without emoji glyphs.
-    for(let i=0;i<(['shimmer','counter','dispel','thorns','haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
+    for(let i=0;i<(['shock','fireball','shimmer','counter','dispel','thorns','haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
       const point=new Mesh(spark,bright);point.userData={angle:i*2.399963,seed:(i%4)/4};root.add(point);sparks.push(point);
     }
     const color=new Color(style.color);
@@ -73,7 +76,7 @@ export function createSpellImpactEffects(scene:Scene){
         const age=now-e.start;if(age<0){e.root.visible=false;continue;}if(!e.input.persistent&&age>=e.style.duration){dispose(e);collection.delete(id);continue;}
         const p=position(e.input.tokenId);e.root.visible=!!p?.visible;if(!p?.visible)continue;
         const size=Math.max(pixelsPerFoot*2,e.input.diameter),height=Math.max(size*.85,p.height??size*1.5);
-        e.root.position.set(p.x,0,p.y);e.root.scale.set(size,e.style.kind==='thorns'?size:height/1.2,size);
+        e.root.position.set(p.x,0,p.y);e.root.scale.set(size,['fireball','thorns'].includes(e.style.kind)?size:height/1.2,size);
         const t=e.input.persistent?age/1000:age/e.style.duration;
         const persistentGlow=reduced?.55:.58+.08*Math.sin(age/900);
         const fade=e.input.persistent?persistentGlow:spellLightEnvelope(age,e.style.duration),emission=e.input.persistent?persistentGlow:spellEmissionEnvelope(age,e.style);
@@ -84,14 +87,15 @@ export function createSpellImpactEffects(scene:Scene){
         if(e.style.kind==='veil'){e.materials[0].opacity=fade*.18;e.materials[1].opacity=emission*.12;}
         e.halo.scale.setScalar(e.style.kind==='mark'?1.6:2.4);e.halo.rotation.z=reduced?0:t*.7;
         const areaScale=e.input.event.areaWidthFt?e.input.event.areaWidthFt*pixelsPerFoot/size:0;
-        e.shape.update(t,!!e.input.persistent,reduced,areaScale);
+        const source=e.input.event.sourcePosition;
+        e.shape.update(t,!!e.input.persistent,reduced,areaScale,source?new Vector3((source.x-p.x)/size,pixelsPerFoot*4/size,(source.y-p.y)/size):undefined);
         for(const arrow of e.arrows){const progress=Math.max(0,Math.min(1,(t-arrow.userData.delay)/.48));
           const x=areaScale?arrow.userData.areaX*areaScale:arrow.userData.x,z=areaScale?arrow.userData.areaZ*areaScale:arrow.userData.z;
           arrow.visible=t>=arrow.userData.delay;arrow.position.set(x+(1-progress)*.4,reduced?.15:2.4*(1-progress)+.12,z);}
         for(const vine of e.vines){const growth=reduced||e.input.persistent?1:Math.max(.001,Math.min(1,(t-vine.userData.delay)/.40));
           vine.userData.growth=growth;vine.geometry.setDrawRange(0,Math.floor((vine.geometry.index!.count*growth)/3)*3);
           vine.children.forEach((leaf,j)=>{leaf.visible=growth>=(8+j*10)/39;});}
-        e.sparks.forEach((point,i)=>{const a=point.userData.angle+(reduced?0:t*.5),progress=e.input.persistent?(t*.2+point.userData.seed)%1:t,r=e.style.kind==='mark'?.55:.4+progress*.4;
+        e.sparks.forEach((point,i)=>{const a=point.userData.angle+(reduced?0:t*.5),progress=e.input.persistent?(t*.2+point.userData.seed)%1:t,r=e.style.kind==='mark'?.55:e.style.kind==='bolts'?.3+progress*.15:.4+progress*.4;
           point.position.set(Math.cos(a)*r,.15+(reduced?.25:progress)*(.4+point.userData.seed),Math.sin(a)*r);point.scale.setScalar(i%3===0?1.3:.7);});
         // Sample luminous geometry after applying this frame's exact transforms.
         // Three samples place the cosmetic overlay around the animated geometry.
@@ -133,6 +137,12 @@ export function createSpellImpactEffects(scene:Scene){
     },
     tick(now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
       return tickEffects(effects,now,pixelsPerFoot,reduced,position);
+    },
+    faceCamera(camera:Camera){
+      // Only the active-status glyph faces the viewer, never the body crackle.
+      for(const e of effects.values())if(e.style.kind==='shock')for(const m of e.shape.parts.slice(0,2)){
+        m.quaternion.copy(camera.quaternion);m.updateMatrixWorld();
+      }
     },
     renderForeground(renderer:WebGLRenderer,camera:Camera){
       if(![...effects.values()].some(e=>e.root.visible))return;

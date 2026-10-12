@@ -12,8 +12,9 @@ import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISI
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
 export type PlayerVisionHandle={cover:()=>VisionCoverFrame|undefined;memoryCanvas:()=>HTMLCanvasElement|null;frame:()=>void;prepareLights:(lights:VisionLight[])=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
-/** Terrain visibility stays below lifted miniature pixels; darkvision
- * desaturation remains above both. Never disabled by effect quality. */
+/** Terrain visibility stays below lifted miniature pixels. The GPU path keeps
+ * artwork grading below figures and grades their full silhouette at the base.
+ * Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
 type MemoryTerrain={environment?:MapEnvironment;explored?:ExploredTerrain;tiles:TerrainTile[];bounds:{x:number;y:number;w:number;h:number};grid?:{size:number;x:number;y:number}};
 export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;spellLighting?:boolean;mapFogOfWar?:boolean;keepRevealed?:boolean;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
@@ -138,6 +139,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    return wallFog?polygon({...p,id:o.id},radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius}));
   };
   coverFrame.current={enabled:wallFog||vision.heavy,
+   grade:{heavy:vision.heavy,daylight:!!vision.daylight,near:!vision.daylight&&!vision.heavy?vision.origins.map(o=>originPolygon(o,vision.radius)):[]},
    explored:geometry??[],memory:memoryCanvas.current,keepRevealed:!!state.current.keepRevealed,
    memoryRange:state.current.keepRevealed&&vision.heavy?vision.origins.map(o=>{const p=livePoint(o);return circleVertices.map(v=>({x:p.x+v.x*vision.radius,y:p.y+v.y*vision.radius}));}):undefined,
    origins:vision.origins.map(o=>originPolygon(o,vision.heavy?vision.radius:SIGHT_EXTENT)),

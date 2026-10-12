@@ -130,7 +130,12 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
     const visible = hpFx.filter((e) => e.areaPosition
       ? snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||visionContains(snapshot.playerVision,e.areaPosition.x,e.areaPosition.y)) && (conn.role==='dm'||(!snapshot.map.mapFogEnabled||snapshot.map.mapFogRevealed.includes(`${Math.floor(e.areaPosition.x/snapshot.map.gridSizePx)},${Math.floor(e.areaPosition.y/snapshot.map.gridSizePx)}`)))
       : snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),
-    ).map((event) => {
+    ).map((original) => {
+      // The destination can be visible while its caster is behind a wall.
+      // Do not reveal that hidden origin through projectile coordinates.
+      const source=original.sourcePosition;
+      const event=source&&conn.role!=='dm'&&(!snapshot.tokens.some(t=>!t.sharedSightOnly&&!t.isHidden&&t.kind===original.kind&&t.refId===original.refId)||!visionContains(snapshot.playerVision,source.x,source.y))
+        ? (({sourcePosition,...rest})=>rest)(original):original;
       const visibleImpact=!event.impact||publicRolls.has(event.impact.id);
       if ((!event.rollId || visibleRolls.has(event.rollId))&&visibleImpact) return event;
       // Hidden DM rolls still cause visible HP feedback, but never expose a

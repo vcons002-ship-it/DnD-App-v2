@@ -1968,6 +1968,10 @@ export type HpFxEvent = {
   damageParts?: HpDamagePart[];
   /** Server-selected world-space spell origin, gated like its map location. */
   areaPosition?: {mapId:string;x:number;y:number;radiusFt:number};
+  /** Cosmetic projectile origin; omitted when the caster is not visible. */
+  sourcePosition?: {mapId:string;x:number;y:number};
+  /** One placed-area effect replaces this victim's duplicated spell burst. */
+  suppressSpellVisual?: boolean;
   /** Server-selected footprint of a single area impact, in feet. */
   areaWidthFt?: number;
   /** Cosmetic source name, including spell riders on a weapon hit. */

@@ -1,5 +1,5 @@
 import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
-import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart} from './miniatureSilhouetteOutline';
+import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart,type OutlineRect} from './miniatureSilhouetteOutline';
 import {miniatureLodForPixels,type MiniatureLod} from '../../../shared/miniatureLod';
 import {createMiniatureBatches} from './miniatureBatches';
 import {createMiniatureTransform,retainMiniatureLocalTransforms} from './miniatureTransforms';
@@ -205,6 +205,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   // including weapons merged into a body mesh. Layer 1 contains opaque bodies only.
   const outlineMask = new WebGLRenderTarget(1, 1);
   const bodyMaskCache=createMiniatureMaskCache();
+  const bodySlots=new Map<string,number>();
   outlineMask.depthTexture = new DepthTexture(1, 1);
   const outlineProjectionInverse = {value: new Matrix4()};
   const maskMaterial = createMiniatureVisibilityMaterial();
@@ -476,7 +477,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         props.onVisionLights?.(battlefield.lighting.lights);
       }
       try {
+        const sightFrame=props.visionCoverFrame?.();
+        visionComposite?.gradeBodies(sightFrame,[...instances].filter(([,i])=>i.root.visible).map(([id,i])=>({slot:bodySlots.get(id)??0,x:i.root.position.x,y:i.root.position.z})),battlefield?.lighting.fieldUniforms,impactLights,props.environmentPreview?.walls);
         scene.updateMatrixWorld();
+        spellImpacts.faceCamera(camera);
         timing?.begin();
         localShadows.render(renderer,scene,camera,battlefield?.lighting.lights.filter(l=>!l.transient)??[],[...instances].map(([id,i])=>({id,root:i.root,diameter:i.baseDiameter*i.root.scale.x,x:i.root.position.x,y:i.root.position.z,visible:i.root.visible&&!tokenById.get(id)?.sharedSightOnly,animated:animated&&i.shadowAnimated})),props.environmentPreview?.walls??EMPTY_WALLS,!!environment?.enabled&&environment.shadows,environment?.shadowLength??1.3,props.graphics,true);
         const lightMode=props.graphics?.miniatureLightMode??'directional';
@@ -506,7 +510,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
             // real figure. Alpha-aware sprites never become rectangle masks.
             const autoClear=renderer.autoClear;
             scene.overrideMaterial=null;camera.layers.set(6);renderer.autoClear=false;
-            for(const instance of instances.values())instance.mirrors.setVisibilityPass(true);
+            for(const [id,instance] of instances)instance.mirrors.setVisibilityPass(true,bodySlots.get(id));
             try {renderer.render(scene,camera);} finally {
               for(const instance of instances.values())instance.mirrors.setVisibilityPass(false);
               renderer.autoClear=autoClear;
@@ -558,11 +562,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
         battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
-        const sightFrame=props.visionCoverFrame?.();
         // Keep the existing path until the remembered-art texture is ready;
         // this also covers daylight boards without an environment renderer.
         const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
-        const deferSpells=!!props.personalVision&&(!useComposite||!!sightFrame?.enabled);
+        const deferSpells=!!props.personalVision&&(!useComposite||!!sightFrame?.enabled||!!sightFrame?.grade&&!sightFrame.grade.daylight);
         if(deferSpells)camera.layers.disable(SPELL_IMPACT_LAYER);else camera.layers.enable(SPELL_IMPACT_LAYER);
         renderer.render(scene, camera);
         camera.layers.enable(SPELL_IMPACT_LAYER);
@@ -570,7 +573,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         host.dataset.colorTriangles=String(renderer.info.render.triangles);
         host.dataset.loadedModelUrls=JSON.stringify([...instances.values()].map(i=>i.url).sort());
         recordGraphicsFrame(now,!!(animated||atmosphereAnimated||settling||casting.length||spellImpacts.active),loading.size>0);
-        const outlineRects=[];
+        const outlineRects:OutlineRect[]=[];
         for(const [id,instance] of instances){
           const token=tokenById.get(id);if(!instance.root.visible||!token?.outline||token.invisible||token.sharedSightOnly)continue;
           const b=instance.outlineBounds;let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
@@ -582,7 +585,6 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           const x=Math.max(0,Math.floor(minX)-4),y=Math.max(0,Math.floor(minY)-4);
           outlineRects.push({x,y,width:Math.min(props.width,Math.ceil(maxX)+4)-x,height:Math.min(props.height,Math.ceil(maxY)+4)-y});
         }
-        silhouette.render(renderer,outlineRects);
         host.dataset.outlineMethod='silhouette';host.dataset.outlineShells='0';
         battlefield?.renderMist(renderer,camera);
         archArtLayer.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
@@ -591,9 +593,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
         if(props.personalVision&&!useComposite)visionLift??=createMiniatureVisionLift(renderer,host,outlineMask.texture);
         timing?.end();visionTiming?.begin();
-        visionLift?.render(!!props.personalVision&&!useComposite,()=>spellImpacts.renderForeground(renderer,camera));
+        // Fog covers ground, never the silhouette of an already visible figure.
+        // Its outside rim is not part of the opaque body mask; draw it after fog
+        // rather than letting a wall boundary erase heads/shoulders' outlines.
+        const foreground=()=>{silhouette.render(renderer,outlineRects);spellImpacts.renderForeground(renderer,camera);};
+        visionLift?.render(!!props.personalVision&&!useComposite,foreground);
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
-        if(deferSpells&&useComposite)spellImpacts.renderForeground(renderer,camera);
+        if(!props.personalVision||useComposite){
+          silhouette.render(renderer,outlineRects);
+          if(deferSpells&&useComposite)spellImpacts.renderForeground(renderer,camera);
+        }
         host.dataset.spellFogPass=deferSpells?(useComposite?'foreground':'legacy-lift'):'scene';
         visionTiming?.end();
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
@@ -682,6 +691,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (!instance) return;
     disposeInstance(instance);
     instances.delete(id);
+    bodySlots.delete(id);
     loading.delete(id);
     moves.delete(id);
   };
@@ -696,6 +706,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if(!(node instanceof Mesh)||node.name==='disposition-outline')return;
       node.layers.disable(4);node.layers.disable(5);
       node.layers.enable(token.sharedSightOnly?4:5);
+      if(!bodySlots.has(token.id)){
+        const used=new Set(bodySlots.values());let slot=1;while(slot<255&&used.has(slot))slot++;
+        bodySlots.set(token.id,slot<255?slot:0);
+      }
+      node.userData.bodySlot=bodySlots.get(token.id);
     });
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     model.updateMatrix();

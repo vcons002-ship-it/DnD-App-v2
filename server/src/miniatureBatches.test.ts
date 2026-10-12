@@ -10,6 +10,7 @@ describe('static miniature batching',()=>{
       material.userData.batchSource='same-authored-material';
       const mesh=new Mesh(geometry,material);mesh.layers.enable(1);mesh.layers.enable(5);mesh.castShadow=true;
       mesh.userData.outlineId=i+1;
+      mesh.userData.bodySlot=i+10;
       center.add(mesh);root.add(center);root.position.x=i*3;root.rotation.y=i*.2;scene.add(root);
       return {root,eligible:true,lighting:{signature:'same lamps',uniforms:{torchCount:{value:0},darkvisionDetail:{value:0},torchShadowSlots:{value:Array(8).fill(-1)},torchPositions:{value:Array.from({length:8},()=>new Vector4())},torchColors:{value:Array.from({length:8},()=>new Vector3())}}} as any};
     });
@@ -20,15 +21,20 @@ describe('static miniature batching',()=>{
     const batch=scene.children.find(n=>n.name==='batched-miniatures') as any;
     expect(batch.castShadow).toBe(true);expect(batch.layers.isEnabled(5)).toBe(true);
     expect(Array.from(batch.geometry.getAttribute('instanceOutline').array).slice(0,4)).toEqual([1,2,3,4]);
+    expect(Array.from(batch.geometry.getAttribute('instanceBodySlot').array).slice(0,4)).toEqual([10,11,12,13]);
     for(let i=0;i<4;i++){
       const mesh=items[i].root.children[0].children[0] as Mesh;
-      expect(mesh.castShadow).toBe(true);expect(mesh.layers.mask).toBe(1<<7);
+      expect(mesh.castShadow).toBe(true);expect(mesh.layers.mask).toBe(0);
       expect(batch.instanceMatrix.array[i*16+12]).toBe(i*3);
       const color=new Color();batch.getColorAt(i,color);expect(color.equals((mesh.material as MeshStandardMaterial).color)).toBe(true);
     }
     items[0].root.position.x=50;batches.update(items);expect(batch.instanceMatrix.array[12]).toBe(50);
     (items[0].root.children[0].children[0] as Mesh).userData.outlineId=6;
     batches.update(items);expect(batch.geometry.getAttribute('instanceOutline').getX(0)).toBe(6);
+    (items[0].root.children[0].children[0] as Mesh).userData.bodySlot=20;
+    batches.update(items);expect(batch.geometry.getAttribute('instanceBodySlot').getX(0)).toBe(20);
+    const version=batch.geometry.getAttribute('instanceBodySlot').version;
+    batches.update(items);expect(batch.geometry.getAttribute('instanceBodySlot').version).toBe(version);
     batches.dispose();expect(scene.children.some(n=>n.name==='batched-miniatures')).toBe(false);
     expect((items[0].root.children[0].children[0] as Mesh).layers.isEnabled(0)).toBe(true);
   });

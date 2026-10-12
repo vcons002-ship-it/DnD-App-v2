@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Keep personally visible miniature outlines above terrain fog at wall edges,
+  without uncovering hidden terrain. Shocking Grasp has a small electrical status
+  marker until the target's next turn, replacing the old lingering vertical bolt.
+  [Wall-edge and active-status checks](docs/TOKEN_WALL_EDGE_2026-10-11.md).
+
 - [x] Render visible spell geometry above terrain fog without uncovering the map.
   Preserve scene depth so foreground figures still occlude particles. Both GPU
   and fallback sight paths keep hidden targets hidden and reuse the body mask.

@@ -2,6 +2,7 @@ import {describe,it,expect,vi,afterEach} from 'vitest';
 import {withDiceSource} from '../../shared/dice.js';
 import {effectiveSheetAbility} from '../../shared/spellExecution.js';
 import {spellCombatSupport} from '../../shared/spellSupport.js';
+import {persistentSpellVisual} from '../../shared/spellImpact.js';
 import {linkedSpellProfile,mirrorImageCount} from '../../shared/linkedSpells.js';
 import {effectiveSpeed,spellActionBlock} from '../../shared/spellBuffs.js';
 import type {SheetAbility} from '../../shared/types.js';
@@ -297,7 +298,13 @@ describe('repeat actions and hit riders',()=>{
     const f=setup('Chill Touch');dice(15,()=>f.cast());const hp=monsterHp(f);applyDamage('monster',f.monster.id,-10);expect(monsterHp(f)).toBe(hp);applyDamage('monster',f.monster.id,-10,undefined,false,undefined,{correction:true});expect(monsterHp(f)).toBe(hp+10);
   });
   it('Shocking Grasp blocks only opportunity attacks until target next turn',()=>{
-    const f=setup('Shocking Grasp');dice(15,()=>f.cast());expect(getMonster(f.monster.id)!.conditions.some(c=>c.combatEffect?.noOpportunityAttacks)).toBe(true);expect(spellActionBlock(getMonster(f.monster.id)!)).toBeUndefined();processHitEffects(f.session.id,f.target,'start');expect(getMonster(f.monster.id)!.conditions).toEqual([]);
+    const f=setup('Shocking Grasp');dice(15,()=>f.cast());
+    expect(getMonster(f.monster.id)!.conditions.some(c=>c.combatEffect?.noOpportunityAttacks)).toBe(true);
+    expect(getMonster(f.monster.id)!.conditions.map(persistentSpellVisual)).toContain('Shocking Grasp');
+    expect(spellActionBlock(getMonster(f.monster.id)!)).toBeUndefined();
+    processHitEffects(f.session.id,f.target,'start');
+    expect(getMonster(f.monster.id)!.conditions).toEqual([]);
+    expect(getMonster(f.monster.id)!.conditions.map(persistentSpellVisual)).not.toContain('Shocking Grasp');
   });
   it('Heat Metal imposes attack/check disadvantage only until caster next turn, preserving the item link',()=>{
     const f=setup('Heat Metal');dice(1,()=>f.cast());const victim=()=>getMonster(f.monster.id)!;expect(victim().conditions.some(c=>c.combatEffect?.attackDisadvantage)).toBe(true);
