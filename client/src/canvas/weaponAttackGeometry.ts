@@ -18,8 +18,8 @@ export function createWeaponAttackGeometry(){
     const g=keep(new BufferGeometry());g.setAttribute('position',new Float32BufferAttribute(points,3));g.setIndex(indices);g.computeVertexNormals();return g;
   }
   // Upper-left to lower-right across the body, rather than orbiting its base.
-  const cut=streak(t=>[-.62+t*1.24,.78-t*1.56+Math.sin(t*Math.PI)*.08],.085);
-  const lash=streak(t=>[-.9+t*1.7,.3*Math.sin(t*Math.PI*2)-.1],.026);
+  const cut=streak(t=>[-.76+t*1.52,.9-t*1.8+Math.sin(t*Math.PI)*.08],.115);
+  const lash=streak(t=>[-1.1+t*2.1,.3*Math.sin(t*Math.PI*2)-.1],.045);
   const stab=keep(new BufferGeometry());stab.setAttribute('position',new Float32BufferAttribute([-.85,-.04,0,.06,0,0,-.85,.04,0,-.65,0,.015,.08,0,.015,-.65,.014,.015],3));stab.computeVertexNormals();
   const shaft=keep(new CylinderGeometry(.014,.014,.58,6)),head=keep(new ConeGeometry(.05,.15,4)),feather=keep(new BoxGeometry(.08,.14,.009)),
     chip=keep(new ConeGeometry(.04,.1,4)),orb=keep(new SphereGeometry(.07,8,6)),ring=keep(new TorusGeometry(.3,.025,4,40)),
@@ -44,8 +44,10 @@ export function createWeaponAttackGeometry(){
     const teeth=Array.from({length:6},(_,i)=>{const m=add(fang,metal,jaw);m.userData.row=i<3?1:-1;m.position.x=(i%3-1)*.22;m.rotation.z=i<3?Math.PI:0;return m;});
     const flash=add(orb,steel,impactFace);flash.name='weapon-contact';
     const shock=add(ring,dust,impactFace);
-    const chips=Array.from({length:8},(_,i)=>add(chip,i%2?metal:dust,impactFace));
+    const chips=Array.from({length:12},(_,i)=>add(chip,i%2?metal:dust,impactFace));
     const projectile=new Group();projectile.name='weapon-projectile';root.add(projectile);projectile.scale.setScalar(1.65);
+    const wake=new Group();wake.name='weapon-flight-wake';root.add(wake);
+    for(let i=0;i<3;i++){const m=add(shaft,material('#e6dfce',.32/(i+1)),wake);m.scale.set(.7-i*.15,1.1-i*.2,.7-i*.15);m.position.set((i-1)*.07,-.6-i*.2,0);}
     const shaftAt=(y:number,length=1)=>{const m=add(shaft,wood,projectile);m.position.y=y;m.scale.y=length;return m;};
     const tipAt=(x:number,y:number)=>{const m=add(head,metal,projectile);m.position.set(x,y,0);return m;};
     if(kind==='stone'||kind==='bullet'){
@@ -79,21 +81,26 @@ export function createWeaponAttackGeometry(){
       const hit=Math.max(0,(t-flight)/(1-flight)),active=t>=flight;
       start.copy(source??new Vector3(-.7,.8,0));direction.copy(destination).sub(start);
       cuts.visible=active&&['slash','claw','whip'].includes(kind)&&hit<.7;
-      const sweep=Math.min(1,.15+hit/.16);
-      cuts.scale.set(sweep,sweep*Math.max(.8,height/1.5),1);cuts.position.set(-.62*(1-sweep),.78*(1-sweep),0);
+      // Fast wind-up, forceful follow-through, then a short readable cut scar.
+      const sweep=Math.min(1,.08+hit/.085),follow=Math.min(1,hit/.22);
+      cuts.scale.set(sweep,sweep*Math.max(.8,height/1.5),1);cuts.position.set(-.76*(1-sweep)+follow*.12,.9*(1-sweep)-follow*.14,0);
       thrust.visible=active&&kind==='thrust'&&hit<.55;
-      const drive=Math.sin(Math.min(1,hit/.38)*Math.PI);thrust.position.set(-.35+drive*.35,0,0);thrust.rotation.z=Math.PI/6;thrust.scale.set(.55+drive*.55,1,1);
+      const drive=Math.sin(Math.min(1,hit/.3)*Math.PI);thrust.position.set(-.6+drive*.65,0,0);thrust.rotation.z=Math.PI/6;thrust.scale.set(.6+drive*.9,1.6,1);
       jaw.visible=active&&kind==='bite'&&hit<.6;
       teeth.forEach(m=>{m.position.y=m.userData.row*(.1+.28*(1-Math.sin(Math.min(1,hit/.5)*Math.PI)));});
       projectile.visible=flight>0&&t<flight;
+      wake.visible=projectile.visible;
       if(projectile.visible){
-        const q=Math.min(1,t/flight);projectile.position.copy(start).lerp(destination,q);projectile.position.y+=Math.sin(q*Math.PI)*.16;
+        const q=Math.pow(Math.min(1,t/flight),1.22);projectile.position.copy(start).lerp(destination,q);projectile.position.y+=Math.sin(q*Math.PI)*.12;
         projectile.quaternion.setFromUnitVectors(up,direction.normalize());
-        if(['axe','hammer','knife','thrown'].includes(kind))projectile.rotateZ(q*Math.PI*4);
+        // Keep the flight wake separate from the rotating weapon.
+        wake.position.copy(projectile.position);wake.quaternion.copy(projectile.quaternion);
+        if(['axe','hammer','knife','thrown'].includes(kind))projectile.rotateZ(q*Math.PI*5);
       }
-      flash.visible=active&&hit<.3;flash.position.set(0,0,0);flash.scale.setScalar(.4+Math.sin(Math.min(1,hit/.3)*Math.PI)*2.8);
-      shock.visible=active&&['blunt','stone','hammer','bullet'].includes(kind)&&hit<.75;shock.scale.setScalar(.5+hit*2.8);
-      chips.forEach((m,i)=>{m.visible=active&&hit<.8;m.position.set(Math.cos(i*2.399)*hit*.95,Math.sin(i*2.399)*hit*.95-hit*.25,Math.sin(hit*Math.PI)*(.18+i%3*.05));m.rotation.set(hit*i,0,hit*3);m.scale.setScalar(reduced?.85:1.25);});
+      flash.visible=active&&hit<.13;flash.position.set(0,0,0);flash.scale.setScalar(.3+Math.sin(Math.min(1,hit/.13)*Math.PI)*2.5);
+      const heavy=['blunt','stone','hammer'].includes(kind),burst=1-Math.pow(1-Math.min(1,hit/.55),3);
+      shock.visible=active&&hit<.55;shock.scale.set( .4+burst*(heavy?3.2:1.9),.4+burst*(heavy?2.5:1.5),1);
+      chips.forEach((m,i)=>{const angle=i*2.399,travel=burst*(heavy?1.7:1.25),cutting=['slash','claw','whip','axe'].includes(kind);m.visible=active&&hit<.62;m.position.set(Math.cos(angle)*travel,Math.sin(angle)*travel-hit*hit*.8,Math.sin(hit*Math.PI)*(.18+i%3*.05));m.rotation.set(0,0,angle-Math.PI/2);m.scale.set(reduced?.75:1,(cutting?2.5:1.5)*(1-hit),.7);});
       for(const m of materials)m.opacity=m.userData.opacityScale*(active?Math.max(0,1-hit*1.1):1);
     }};
   }

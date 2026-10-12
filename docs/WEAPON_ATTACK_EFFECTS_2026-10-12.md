@@ -59,3 +59,21 @@ weapon/natural-attack families. Shared geometry is not mutated per effect, so
 simultaneous cuts retain independent animation timing.
 
 New preview: https://dnd.nic024i.app/uploads/previews/weapon-attacks-expanded-20261012/index.html
+
+## Stronger physical impacts
+
+Cuts now snap through a wider diagonal with follow-through. Piercing thrusts
+drive farther into the target. Projectiles accelerate into contact, have short
+motion wakes, and thrown axes/knives/hammers tumble more aggressively. The
+contact flash is shorter so it does not obscure the weapon-specific shape;
+expanding impact rings and twelve fast debris streaks sell the force of contact.
+Blunt impacts have a wider burst. These remain small shared meshes without
+lights, shadows, camera shake, or changes to token movement and damage rules.
+
+Complete recording of all 17 styles in tilted and overhead views:
+https://dnd.nic024i.app/uploads/previews/weapon-force-20261012/index.html
+
+Each style has its own caption and chapter. This is a controlled cosmetic replay
+through the current app renderer, captured at 60 fps with RTX 5090 AV1 NVENC.
+The published H.264 copy supports mobile playback. The overhead render test
+frames the expanded debris as well as the body; its pixel threshold is unchanged.
