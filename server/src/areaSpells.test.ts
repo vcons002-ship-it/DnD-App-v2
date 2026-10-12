@@ -39,6 +39,20 @@ function setup(name:string){
  return {s,map,c,a,target,p};
 }
 describe('authoritative area combat',()=>{
+ it.each([0,Math.PI/2,Math.PI*.73])('Burning Hands emits one full caster-origin cone at angle %s',angle=>{
+  const f=setup('Burning Hands'),inside=f.target(Math.cos(angle)*100,Math.sin(angle)*100),outside=f.target(-Math.cos(angle)*100,-Math.sin(angle)*100);
+  // Self cones use the caster, even when the submitted point differs.
+  withDiceSource(s=>s.map(sides=>sides===20?1:3),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,1,undefined,undefined,undefined,{...f.p,angle})).toBe(true));
+  const events=drainHpFx(f.s.id),area=events.filter(e=>e.areaPosition);
+  expect(area).toHaveLength(1);expect(area[0]).toMatchObject({spell:'Burning Hands',delta:0,effect:'spell-area',areaPosition:{x:0,y:0,radiusFt:7.5}});
+  expect(area[0].areaPosition!.end!.x).toBeCloseTo(Math.cos(angle)*150);expect(area[0].areaPosition!.end!.y).toBeCloseTo(Math.sin(angle)*150);
+  expect(events.filter(e=>e.delta<0)).toEqual([expect.objectContaining({refId:inside.m.id,delta:-9,suppressSpellVisual:true,impact:{id:area[0].impact!.id}})]);
+  expect(getMonster(outside.m.id)!.curHp).toBe(500);expect(getCharacter(f.c.id)!.curHp).toBe(100);
+ });
+ it('Burning Hands still emits its full cone without a victim',()=>{
+  const f=setup('Burning Hands');withDiceSource(s=>s.map(()=>3),()=>resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,1,undefined,undefined,undefined,f.p));
+  expect(drainHpFx(f.s.id)).toEqual([expect.objectContaining({spell:'Burning Hands',effect:'spell-area',delta:0,areaPosition:expect.objectContaining({x:0,y:0,radiusFt:7.5})})]);
+ });
  it.each(['Fireball','Call Lightning','Ice Storm'])('%s has one chosen-area effect and separately defended HP feedback',name=>{
   const f=setup(name),one=f.target(200,100),two=f.target(210,100,{resistances:name==='Ice Storm'?['bludgeoning','cold']:[name==='Fireball'?'fire':'lightning']});
   withDiceSource(sides=>sides.map(s=>s===20?1:4),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,name==='Ice Storm'?4:3,undefined,undefined,undefined,f.p)).toBe(true));

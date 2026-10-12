@@ -22,6 +22,11 @@ describe('spell impact identity and lighting',()=>{
    expect(persistentSpellVisual({...veil,combatEffect:{...veil.combatEffect,stealthBonus:undefined}})).toBeUndefined();
    expect(persistentSpellVisual({...condition,label:'Command: Halt',combatEffect:{...condition.combatEffect,spell:'Command',commandWord:'Halt'}})).toBe('Command');
  });
+ it('Burning Hands identifies its full cone without changing generic fire hits',()=>{
+  expect(spellImpactName('Burning Hands')).toBe('Burning Hands');
+  expect(spellImpactStyle({spell:'Burning Hands',delta:0,effect:'spell-area'})).toMatchObject({kind:'flame-cone',duration:1750});
+  expect(spellImpactStyle({damageType:'fire',delta:-9})?.kind).toBe('burst');
+ });
  it('Call Lightning uses jagged area bolts while Ice Storm keeps falling shards',()=>{
    expect(spellImpactStyle({spell:'Call Lightning',damageType:'lightning',delta:-10})).toMatchObject({kind:'bolts',color:'#96cfff'});
    expect(spellImpactStyle({spell:'Ice Storm',delta:-10})?.kind).toBe('storm');

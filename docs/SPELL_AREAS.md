@@ -101,3 +101,40 @@ and leaves a brief moving frost wash. The field uses instanced geometry and fewe
 pieces on reduced effects settings. Separate Bludgeoning/Cold rolls, per-type
 defenses, grouped saves and creature-specific damage numbers are unchanged;
 individual damage events do not create duplicate storms.
+
+
+## Area artwork audit (12 October 2026)
+
+Area targeting support does not imply full-area artwork. This audit follows the
+actual server effect dispatch and client geometry, not just a spell's AoE tag.
+
+| Status | Spells | Current presentation |
+| --- | --- | --- |
+| Full confirmed area | Fireball, Lightning Bolt, Call Lightning, Ice Storm, Burning Hands | One authoritative effect fills the confirmed footprint, including empty space. |
+| Persistent ground area | Spike Growth | Thorn field fills the placed radius while active. |
+| Next damage-art updates | Cone of Cold, Thunderwave, Shatter, Acid Splash, Arms of Hadar, Flame Strike, Circle of Death, Sunbeam, Fire Storm, Sunburst, Meteor Swarm, Weird | Generic bursts or specialized individual-victim effects, rather than one confirmed cone, cube, line or disk. |
+| Utility/control artwork still partial | Color Spray, Entangle, Faerie Fire, Grease, Sleep, Calm Emotions, Fear, Hypnotic Pattern, Slow, Confusion | Templates and/or individual status effects; no complete confirmed-area cast animation. |
+| Other placed/ongoing areas | Wind Wall, Cloud of Daggers, fog/cloud spells, magical walls and other ongoing catalogue areas | Placement/measurement or specialized ongoing presentation; not a universal full-area art renderer. |
+
+Hit-centered ranger splashes (Hail of Thorns and Lightning Arrow) already have
+specialized arrows/impact art. They use a separate resolution path; they are not
+part of the placed-area dispatcher above. Ice Knife still has a target-sized shard burst rather than a full splash field.
+Conjure Barrage/Volley also use arrow
+art and still need a confirmed-footprint art review. Manual-only catalogue spells
+retain their existing rule-support flags; artwork is not a rules automation claim.
+
+Burning Hands now renders a single caster-origin flame cone that grows across
+its 15-foot length and width. Folded, advected flame surfaces and flowing embers
+cover the area between victims. The confirmed angle and map scale drive the
+geometry; decorative token size and submitted non-self origin points do not.
+Three draw calls and reduced ember counts keep the transient effect bounded.
+Two-dimensional rendering has an aimed, expanding flame-cone fallback. Per-target
+DEX saves, half damage, fire defenses, Total Cover, and roll completion/skip
+presentation gating remain unchanged. Empty cones still display the cast.
+
+Targeting previews disappear immediately on confirmation for the caster and DM.
+The server still locks the confirmed geometry during saves and hidden-roll
+approval, so late pointer packets cannot change a submitted cast. Persistent
+measurements for ongoing spells are separate from the aiming preview. Burning
+Hands starts lower, near arm level; its horizontal cone matches the map-space
+preview even though elevated flames have perspective parallax in tilted views.

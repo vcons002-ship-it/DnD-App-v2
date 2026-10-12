@@ -309,6 +309,19 @@ function LinearLightning({start,end,width}:{start:{x:number;y:number};end:{x:num
     <Line points={points} stroke="#e4f3ff" strokeWidth={width*.035} perfectDrawEnabled={false}/>
   </Group>;
 }
+function FlameCone({start,end}:{start:{x:number;y:number};end:{x:number;y:number}}){
+  const group=useRef<Konva.Group>(null),length=Math.hypot(end.x-start.x,end.y-start.y);
+  useEffect(()=>{
+    if(!group.current)return;
+    const grow=new Konva.Tween({node:group.current,scaleX:1,scaleY:1,duration:.26,easing:Konva.Easings.EaseOut});
+    const fade=new Konva.Tween({node:group.current,opacity:0,duration:1.49,easing:Konva.Easings.EaseIn});
+    grow.play();const timer=setTimeout(()=>fade.play(),260);return ()=>{clearTimeout(timer);grow.destroy();fade.destroy();};
+  },[]);
+  return <Group ref={group} x={start.x} y={start.y} rotation={Math.atan2(end.y-start.y,end.x-start.x)*180/Math.PI} scaleX={.01} scaleY={.01} listening={false}>
+    {[1,.83,.59].map((width,i)=><Line key={i} points={[0,0,length,-length*width/2,length,length*width/2]} closed fill={['#ff5924','#ff9f30','#ffe494'][i]} opacity={.5} perfectDrawEnabled={false}/>)}
+  </Group>;
+}
+
 function BurstFx({
   spellEffects3D,
   floater,
@@ -324,6 +337,8 @@ function BurstFx({
   const { x: cx, y: cy } = token;
   if(floater.suppressSpellVisual)return null;
   const spell=spellImpactStyle(floater);
+  if(spell?.kind==='flame-cone')return !spellEffects3D&&floater.areaPosition?.end?
+    <FlameCone start={floater.areaPosition} end={floater.areaPosition.end}/>:null;
   if(spell?.kind==='lightning-line')return !spellEffects3D&&floater.areaPosition?.end?
     <LinearLightning start={floater.areaPosition} end={floater.areaPosition.end} width={5*pxPerFoot}/>:null;
   if(spell?.kind==='ice-storm')return !spellEffects3D&&floater.areaPosition?<>

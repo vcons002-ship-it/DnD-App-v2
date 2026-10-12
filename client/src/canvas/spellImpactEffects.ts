@@ -31,7 +31,7 @@ export function createSpellImpactEffects(scene:Scene){
     const bright=body.clone();bright.blending=AdditiveBlending;
     const white=bright.clone();white.color.set('#ffffff');
     const haloMaterial=new MeshBasicMaterial({color:style.color,map:glow,transparent:true,blending:AdditiveBlending,side:DoubleSide,depthWrite:false,toneMapped:false});
-    const halo=new Mesh(plane,haloMaterial);halo.rotation.x=-Math.PI/2;halo.position.y=.08;halo.visible=style.kind!=='ice-storm';root.add(halo);
+    const halo=new Mesh(plane,haloMaterial);halo.rotation.x=-Math.PI/2;halo.position.y=.08;halo.visible=!['ice-storm','flame-cone'].includes(style.kind);root.add(halo);
     const shape=shapes.build(style,body,bright,white);root.add(shape.root);
     const arrows:Group[]=[],vines:Mesh[]=[],sparks:Mesh[]=[];
     const arrowCount=input.event.areaWidthFt?32:style.projectiles??14;
@@ -61,7 +61,7 @@ export function createSpellImpactEffects(scene:Scene){
       bolt=new Mesh(new TubeGeometry(path,30,.023,5,false),bright);bolt.userData.path=path;root.add(bolt);
     }
     // Drifting points help carry the impact and the mark without emoji glyphs.
-    for(let i=0;i<(style.kind.startsWith('weapon-')?0:['lightning-line','ice-storm','shock','fireball','shimmer','counter','dispel','thorns','haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
+    for(let i=0;i<(style.kind.startsWith('weapon-')?0:['lightning-line','flame-cone','ice-storm','shock','fireball','shimmer','counter','dispel','thorns','haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
       const point=new Mesh(spark,bright);point.userData={angle:i*2.399963,seed:(i%4)/4};root.add(point);sparks.push(point);
     }
     const color=new Color(style.color);
@@ -77,7 +77,7 @@ export function createSpellImpactEffects(scene:Scene){
         const age=now-e.start;if(age<0){e.root.visible=false;continue;}if(!e.input.persistent&&age>=e.style.duration){dispose(e);collection.delete(id);continue;}
         const p=position(e.input.tokenId);e.root.visible=!!p?.visible;if(!p?.visible)continue;
         const size=Math.max(pixelsPerFoot*2,e.input.diameter),height=Math.max(size*.85,p.height??size*1.5);
-        e.root.position.set(p.x,0,p.y);e.root.scale.set(size,(e.style.kind.startsWith('weapon-')||['lightning-line','ice-storm','fireball','thorns'].includes(e.style.kind))?size:height/1.2,size);
+        e.root.position.set(p.x,0,p.y);e.root.scale.set(size,(e.style.kind.startsWith('weapon-')||['lightning-line','flame-cone','ice-storm','fireball','thorns'].includes(e.style.kind))?size:height/1.2,size);
         e.shape.root.userData.bodyHeight=height/size;
         const t=e.input.persistent?age/1000:age/e.style.duration;
         const persistentGlow=reduced?.55:.58+.08*Math.sin(age/900);
@@ -90,7 +90,7 @@ export function createSpellImpactEffects(scene:Scene){
         e.halo.scale.setScalar(e.style.kind==='mark'?1.6:2.4);e.halo.rotation.z=reduced?0:t*.7;
         const areaScale=e.input.event.areaWidthFt?e.input.event.areaWidthFt*pixelsPerFoot/size:0;
         const source=e.input.event.sourcePosition;
-        const lineEnd=e.style.kind==='lightning-line'?e.input.event.areaPosition?.end:undefined;
+        const lineEnd=['lightning-line','flame-cone'].includes(e.style.kind)?e.input.event.areaPosition?.end:undefined;
         e.shape.update(t,!!e.input.persistent,reduced,areaScale,lineEnd?new Vector3((lineEnd.x-p.x)/size,pixelsPerFoot*LINEAR_LIGHTNING_HEIGHT_FT/size,(lineEnd.y-p.y)/size):source?new Vector3((source.x-p.x)/size,pixelsPerFoot*4/size,(source.y-p.y)/size):undefined);
         for(const arrow of e.arrows){const progress=Math.max(0,Math.min(1,(t-arrow.userData.delay)/.48));
           const x=areaScale?arrow.userData.areaX*areaScale:arrow.userData.x,z=areaScale?arrow.userData.areaZ*areaScale:arrow.userData.z;
