@@ -80,11 +80,18 @@ frames the expanded debris as well as the body; its pixel threshold is unchanged
 
 ## Mirroring, throw direction, and rendering budget
 
-Each melee effect chooses its left/right mirror once when created. Detached
+Slashes and other nondirectional melee effects choose their left/right mirror once when created. Detached
 prewarming and promotion retain that choice, so an active cut cannot flip in
 the middle of an animation. Ranged impacts are not mirrored. Projectile flight
 is now 340 ms instead of 420 ms; the shared damage-feedback clock uses the same
 constant, so floating damage still begins at contact.
+
+Piercing thrusts are excluded from mirroring. Their camera-facing streak points
+from the attacker's map position toward the victim, and updates that orientation
+as the camera rotates. A hidden attacker retains a neutral local impact without
+revealing its origin. No extra geometry, lights or shadows are needed.
+The direction check covers five attacker positions at three camera rotations
+in overhead and tilted views, and a hidden-origin fallback.
 
 Thrown axes, knives and hammers tumble in the vertical flight plane around an
 axis perpendicular to travel. The axe completes its final quarter-turn with its

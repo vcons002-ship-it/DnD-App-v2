@@ -33,7 +33,7 @@ export function createWeaponAttackGeometry(){
     const add=(g:BufferGeometry,m:MeshBasicMaterial,parent=root)=>{const mesh=new Mesh(g,m);parent.add(mesh);parts.push(mesh);return mesh;};
     const impactFace=new Group();root.add(impactFace);
     // Choose once per effect (including detached prewarm), never per frame.
-    const mirror=isWeaponProjectile(kind)?1:Math.random()<.5?-1:1;
+    const mirror=isWeaponProjectile(kind)||kind==='thrust'?1:Math.random()<.5?-1:1;
     impactFace.scale.x=mirror;root.userData.meleeMirror=mirror;
     const cuts=new Group();cuts.name='weapon-diagonal-cut';impactFace.add(cuts);
     const cutCount=kind==='claw'?3:1,cutGeometry=kind==='whip'?lash:cut;
@@ -73,25 +73,38 @@ export function createWeaponAttackGeometry(){
       if(kind==='trident'){const cross=add(shaft,metal,projectile);cross.position.y=-.09;cross.scale.y=.45;cross.rotation.z=Math.PI/2;}
       if(['arrow','bolt','dart'].includes(kind))for(const angle of [0,Math.PI/2]){const f=add(feather,dust,projectile);f.position.y=kind==='arrow'?-.46:-.37;f.rotation.y=angle;}
     }
-    const destination=new Vector3(0,.7,0),start=new Vector3(),direction=new Vector3(),eye=new Vector3(),spinAxis=new Vector3(),rollUp=new Vector3(),basis=new Matrix4();
+    const destination=new Vector3(0,.7,0),start=new Vector3(),direction=new Vector3(),eye=new Vector3(),spinAxis=new Vector3(),rollUp=new Vector3(),basis=new Matrix4(),projectedStart=new Vector3(),projectedEnd=new Vector3();
+    let hasSource=false,thrustOffset=0;
     root.userData.faceCamera=(camera:Camera)=>{
       camera.getWorldPosition(eye);eye.sub(root.getWorldPosition(scratch)).normalize();
       const height=root.userData.bodyHeight??1.5;
       // Only contact geometry faces the viewer. Foreground bodies keep occluding it.
       impactFace.position.copy(destination).addScaledVector(eye,height*.62);
       impactFace.quaternion.copy(camera.quaternion);root.updateMatrixWorld(true);
+      if(kind==='thrust'){
+        // Keep the readable camera-facing streak, but aim it along the actual
+        // attacker-to-victim direction, including when the map camera rotates.
+        let angle=Math.PI/6;
+        if(hasSource){
+          projectedStart.set(start.x,destination.y,start.z);root.localToWorld(projectedStart).project(camera);
+          projectedEnd.copy(destination);root.localToWorld(projectedEnd).project(camera);
+          const dx=(projectedEnd.x-projectedStart.x)*camera.projectionMatrix.elements[5]/camera.projectionMatrix.elements[0],dy=projectedEnd.y-projectedStart.y;
+          if(dx*dx+dy*dy>1e-10)angle=Math.atan2(dy,dx);
+        }
+        thrust.rotation.z=angle;thrust.position.set(Math.cos(angle)*thrustOffset,Math.sin(angle)*thrustOffset,0);root.updateMatrixWorld(true);
+      }
     };
     return {root,parts,materials,update(t:number,_persistent:boolean,reduced:boolean,_areaScale:number,source?:Vector3){
       const height=root.userData.bodyHeight??1.5;destination.y=height*.58;
       const flight=isWeaponProjectile(kind)&&source?WEAPON_FLIGHT_MS/style.duration:0;
       const hit=Math.max(0,(t-flight)/(1-flight)),active=t>=flight;
-      if(source)start.copy(source);else start.set(-.7,.8,0);direction.copy(destination).sub(start);
+      hasSource=!!source;if(source)start.copy(source);else start.set(-.7,.8,0);direction.copy(destination).sub(start);
       cuts.visible=active&&['slash','claw','whip'].includes(kind)&&hit<.7;
       // Fast wind-up, forceful follow-through, then a short readable cut scar.
       const sweep=Math.min(1,.08+hit/.085),follow=Math.min(1,hit/.22);
       cuts.scale.set(sweep,sweep*Math.max(.8,height/1.5),1);cuts.position.set(-.76*(1-sweep)+follow*.12,.9*(1-sweep)-follow*.14,0);
       thrust.visible=active&&kind==='thrust'&&hit<.55;
-      const drive=Math.sin(Math.min(1,hit/.3)*Math.PI);thrust.position.set(-.6+drive*.65,0,0);thrust.rotation.z=Math.PI/6;thrust.scale.set(.6+drive*.9,1.6,1);
+      const drive=Math.sin(Math.min(1,hit/.3)*Math.PI);thrustOffset=-.6+drive*.65;thrust.position.set(thrustOffset,0,0);thrust.scale.set(.6+drive*.9,1.6,1);
       jaw.visible=active&&kind==='bite'&&hit<.6;
       teeth.forEach(m=>{m.position.y=m.userData.row*(.1+.28*(1-Math.sin(Math.min(1,hit/.5)*Math.PI)));});
       projectile.visible=flight>0&&t<flight;

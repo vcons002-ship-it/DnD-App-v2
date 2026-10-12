@@ -50,7 +50,7 @@ test('melee mirrors stay stable, axes tumble in the flight plane, and shards use
  import {weaponImpactStyle} from './shared/spellImpact';import {WEAPON_FLIGHT_MS} from './shared/weaponImpact';
  const shapes=createWeaponAttackGeometry(),mat=new MeshBasicMaterial(),original=Math.random;
  const make=kind=>shapes.build(weaponImpactStyle({weaponAttack:{kind},delta:-5}),mat,mat,mat);
- Math.random=()=>0;const left=make('slash');Math.random=()=>.99;const right=make('thrust');const axe=make('axe');Math.random=original;
+ Math.random=()=>0;const left=make('slash');Math.random=()=>.99;const right=make('slash');const axe=make('axe');Math.random=original;
  const mirrors=[left.root.userData.meleeMirror,right.root.userData.meleeMirror];left.update(.2,false,false,0);right.update(.4,false,false,0);
  const stable=[left.root.userData.meleeMirror,right.root.userData.meleeMirror];
  const source=new Vector3(-4,1,0),dir=new Vector3(0,.87,0).sub(source).normalize();axe.update(WEAPON_FLIGHT_MS/1250*.999,false,false,0,source);
@@ -62,6 +62,31 @@ test('melee mirrors stay stable, axes tumble in the flight plane, and shards use
  await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
  const r=await page.evaluate(()=>(window as any).result);
  expect(r.mirrors).toEqual([-1,1]);expect(r.stable).toEqual(r.mirrors);expect(r.spinAlongFlight).toBeLessThan(.001);expect(r.edgeForward).toBeGreaterThan(.99);expect(r.handle).toBe('70401f');expect(r.batches).toBe(2);expect(r.shards).toBe(12);
+});
+
+test('piercing thrusts follow the attacker direction through camera rotation instead of random mirroring',async({page})=>{
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import {Vector3,PerspectiveCamera,MeshBasicMaterial} from 'three';import {createWeaponAttackGeometry} from './client/src/canvas/weaponAttackGeometry';import {weaponImpactStyle} from './shared/spellImpact';
+ const shapes=createWeaponAttackGeometry(),mat=new MeshBasicMaterial(),original=Math.random;Math.random=()=>0;
+ const shape=shapes.build(weaponImpactStyle({weaponAttack:{kind:'thrust'},delta:-5}),mat,mat,mat);Math.random=original;
+ shape.root.position.set(3,0,2);shape.root.scale.setScalar(2);shape.root.userData.bodyHeight=2;
+ const camera=new PerspectiveCamera(45,1.8,.1,100),results=[];
+ for(const top of [false,true])for(const yaw of [0,.7,2])for(const [x,z] of [[-4,0],[4,0],[0,-4],[0,4],[-3,3]]){
+  camera.position.set(3+Math.sin(yaw)*(top?.01:8),top?14:7,2+Math.cos(yaw)*(top?.01:8));camera.lookAt(3,1,2);camera.updateMatrixWorld(true);
+  shape.update(.1,false,false,0,new Vector3(x,1,z));shape.root.userData.faceCamera(camera);
+  const thrust=shape.root.getObjectByName('weapon-thrust-streak'),tail=thrust.localToWorld(new Vector3(-.85,0,0)).project(camera),tip=thrust.localToWorld(new Vector3(.06,0,0)).project(camera);
+  const source=shape.root.localToWorld(new Vector3(x,1.16,z)).project(camera),target=shape.root.localToWorld(new Vector3(0,1.16,0)).project(camera);
+  const actual=new Vector3(tip.x-tail.x,tip.y-tail.y,0).normalize(),expected=new Vector3(target.x-source.x,target.y-source.y,0).normalize();
+  results.push({top,yaw,x,z,alignment:actual.dot(expected),mirror:shape.root.userData.meleeMirror});
+ }
+ shape.update(.1,false,false,0);shape.root.userData.faceCamera(camera);
+ window.result={results,fallbackFinite:shape.root.getObjectByName('weapon-thrust-streak').matrixWorld.elements.every(Number.isFinite)};
+ shape.materials.forEach(m=>m.dispose());shape.root.traverse(n=>{if(n.isInstancedMesh)n.dispose()});mat.dispose();shapes.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
+ const r=await page.evaluate(()=>(window as any).result);
+ for(const pose of r.results){expect(pose.mirror).toBe(1);expect(pose.alignment,JSON.stringify(pose)).toBeGreaterThan(.999);}
+ expect(r.fallbackFinite).toBe(true);
 });
 
 test('repeated weapon bursts release instances and retain a fixed shared geometry budget',async({page})=>{
