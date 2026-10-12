@@ -30,11 +30,14 @@ describe('shared spell area preview',()=>{
   expect(f.routed.filter(r=>r.id===f.dm).at(-1)!.payload.preview.area.points).toEqual([{x:450,y:250}]);
   f.controller.update(null);expect(f.routed.filter(r=>r.id===f.dm).at(-1)!.payload.preview).toBeNull();
  });
- it('locks the confirmed shape through saves and approval; cancellation or late pointer updates cannot remove it',()=>{
+ it('removes the confirmed aiming overlay immediately while locking out late pointer updates during resolution',()=>{
   const f=fixture();f.controller.update(f.intent);expect(f.controller.begin(f.intent)).toBe(true);
+  expect(f.routed.filter(r=>r.id===f.owner).at(-1)!.payload.preview).toBeNull();
+  expect(f.routed.filter(r=>r.id===f.dm).at(-1)!.payload.preview).toBeNull();
   const count=f.routed.length;f.controller.update(null);f.controller.update({...f.intent,area:{...f.intent.area,points:[{x:900,y:900}]}});
-  expect(f.routed).toHaveLength(count);expect(f.routed.at(-1)!.payload.preview).toMatchObject({resolving:true,area:f.intent.area});
+  expect(f.routed).toHaveLength(count);expect(f.controller.begin(f.intent)).toBe(false);
   f.controller.clear();expect(f.routed.at(-1)!.payload.preview).toBeNull();
+  f.controller.update(f.intent);expect(f.routed.at(-1)!.payload.preview).toMatchObject({resolving:false,area:f.intent.area});
  });
  it('rejects another character, another map, excessive points and malformed coordinates',()=>{
   const f=fixture(),otherCharacter=createCharacter(f.session.id,{name:'Other'}),otherMap=createMap(f.session.id,{name:'Other map'});

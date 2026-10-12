@@ -1,6 +1,24 @@
 import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 
+test('Burning Hands flame footprint matches the targeting cone at different directions and map scales',async({page})=>{
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import {Scene,Vector3} from 'three';import {createSpellImpactEffects} from './client/src/canvas/spellImpactEffects';import {areaPolygon} from './shared/spellAreas';
+ const scene=new Scene(),effects=createSpellImpactEffects(scene),caster={x:137,y:-46},results=[];
+ for(const px of [1,3.8,20])for(const angle of [0,Math.PI/2,-Math.PI/2,.73*Math.PI,-.31*Math.PI]){
+  const event={id:1,tokenId:'area',...caster,diameter:15*px,event:{kind:'pc',refId:'mage',delta:0,effect:'spell-area',spell:'Burning Hands',areaPosition:{mapId:'map',...caster,radiusFt:7.5,end:{x:caster.x+Math.cos(angle)*15*px,y:caster.y+Math.sin(angle)*15*px}}}};
+  effects.sync([event],0);effects.tick(450,px,false,()=>({...caster,visible:true,height:6*px}));const lower=scene.getObjectByName('burning-hands-cone'),upper=scene.getObjectByName('burning-hands-upper-flame');lower.updateMatrixWorld(true);upper.updateMatrixWorld(true);
+  const actual=[new Vector3(0,0,0),new Vector3(1,0,-.5),new Vector3(1,0,.5)].flatMap(p=>{lower.localToWorld(p);return [p.x,p.z]});
+  const start=upper.localToWorld(new Vector3(0,.167,0));
+  results.push({actual,expected:areaPolygon({kind:'cone',sizeFt:15,rangeFt:0,self:true},caster,angle,px),startHeightFt:start.y/px});
+ }
+ window.result=results;effects.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});const results=await page.evaluate(()=>(window as any).result);
+ expect(results).toHaveLength(15);
+ for(const r of results){r.actual.forEach((v:number,i:number)=>expect(v).toBeCloseTo(r.expected[i],6));expect(r.startHeightFt).toBeCloseTo(3.60675,4);}
+});
+
 test('Burning Hands renders a caster-origin full cone in overhead, tilted and reduced views',async({page})=>{
  const errors:string[]=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(e.message));
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`

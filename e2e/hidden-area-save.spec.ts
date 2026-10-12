@@ -78,7 +78,7 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  await chapter('Player: roll Fireball damage once; creature saves stay private');
  const prompt=dm.getByRole('region',{name:'Saving throw needed'});
  await expect(prompt).toBeVisible({timeout:45000});
- for(const view of [dm,player])await expect.poll(async()=>(await spellShapes(view,'resolving')).length).toBe(1);await expect(prompt).toContainText('Fireball');await expect(prompt).toContainText('DEX');
+ for(const view of [dm,player])await expect.poll(async()=>(await spellShapes(view,'resolving')).length).toBe(0);await expect(prompt).toContainText('Fireball');await expect(prompt).toContainText('DEX');
  await expect(player.locator('.roll-reveal-backdrop')).toHaveCount(0,{timeout:10000});
  expect((await snapshot()).monsters.filter(m=>enemies.some(t=>t.refId===m.id)).every(m=>m.curHp===120)).toBe(true);
  expect(hp).toHaveLength(0);expect((await playerSnapshot()).rollLog).toHaveLength(0);
@@ -96,7 +96,7 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  }
  await chapter('DM: grouped saves roll together with each goblin labeled');
  expect(hp).toHaveLength(0);expect(frames.every(f=>!f.saveDice&&f.sides.every((s:number)=>s===6))).toBe(true);expect(reviews).toEqual([]);
- for(const view of [dm,player])expect(await spellShapes(view,'resolving')).toHaveLength(1);
+ for(const view of [dm,player]){expect(await spellShapes(view,'resolving')).toHaveLength(0);expect(await spellShapes(view,'aiming')).toHaveLength(0);};
  const reviewId=await review.getAttribute('data-review-id');await click(dm,review.getByRole('button',{name:'Reject & reroll',exact:true}));
  await expect(review).not.toHaveAttribute('data-review-id',reviewId!,{timeout:45000});
  await chapter('DM: reroll the grouped saves without rerolling Fireball damage');
@@ -130,7 +130,7 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  if(output)await dm.waitForTimeout(2000);await click(dm,review.getByRole('button',{name:'Review entered result',exact:true}));
  await expect(review).toContainText('DM-entered result');await expect(review).toContainText('Save failed');await expect(review).toContainText('Save passed');
  expect(hp).toHaveLength(0);expect((await playerSnapshot()).rollLog).toHaveLength(0);
- for(const view of [dm,player])expect(await spellShapes(view,'resolving')).toHaveLength(1);
+ for(const view of [dm,player]){expect(await spellShapes(view,'resolving')).toHaveLength(0);expect(await spellShapes(view,'aiming')).toHaveLength(0);};
  await chapter('DM: review failed and passed saves; nothing applies until accepted');
  await click(dm,review.getByRole('button',{name:'Apply result',exact:true}));await expect(review).toHaveCount(0);
  for(const view of [dm,player])await expect.poll(async()=>(await spellShapes(view,'resolving')).length).toBe(0);

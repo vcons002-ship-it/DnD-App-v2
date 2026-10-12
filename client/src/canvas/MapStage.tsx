@@ -3027,10 +3027,5 @@ export function MapStage({
  *  Subscribed here so those packets re-render only this layer, not the map. */
 const SharedSpellAreas = memo(function SharedSpellAreas({mapId,hideId,scale,pxPerFoot}:{mapId:string;hideId:string|undefined;scale:number;pxPerFoot:number}) {
   const previews=useStore(s=>s.spellAreaPreviews);
-  const busy=useStore(s=>!!s.liveDice||!!s.rollFx&&!s.rollFx.impactReady);
-  const [resolving,setResolving]=useState<typeof previews>({});
-  useEffect(()=>{setResolving(old=>({...old,...Object.fromEntries(Object.entries(previews).filter(([,p])=>p.resolving&&p.area.mapId===mapId))}));},[previews,mapId]);
-  useEffect(()=>{if(busy)return;const timer=setTimeout(()=>setResolving(old=>Object.fromEntries(Object.entries(old).filter(([id])=>!!previews[id]))),2400);return()=>clearTimeout(timer);},[busy,previews]);
-  useEffect(()=>setResolving({}),[mapId]);
-  return <>{Object.values({...resolving,...previews}).filter(p=>p.area.mapId===mapId&&p.id!==hideId).map(p=><SpellAreaShapes key={p.id} spellName={p.name} previewState={p.resolving?'resolving':'aiming'} scale={scale} spec={p.spec} placement={p.area} caster={p.caster} pxPerFoot={pxPerFoot} targets={[]}/>)}</>;
+  return <>{Object.values(previews).filter(p=>!p.resolving&&p.area.mapId===mapId&&p.id!==hideId).map(p=><SpellAreaShapes key={p.id} spellName={p.name} previewState="aiming" scale={scale} spec={p.spec} placement={p.area} caster={p.caster} pxPerFoot={pxPerFoot} targets={[]}/>)}</>;
 });

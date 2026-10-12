@@ -30,6 +30,7 @@ test('the player aimed-line preview and server damage include a footprint edge, 
   await page.mouse.move(point.x,point.y);await page.mouse.click(point.x,point.y);
   await expect(area).toContainText('1 visible targets');await page.screenshot({path:test.info().outputPath('lightning-footprint-preview.png')});
   await area.getByRole('button',{name:/Confirm area/}).click();
+  await expect(area).toHaveCount(0);await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.spell-area-shape')).length)).toBe(0);
   await expect.poll(async()=>(await snapshot()).monsters.find(m=>m.id===edge.id)!.curHp,{timeout:90000}).toBeLessThan(500);
   const after=await snapshot();expect(after.monsters.find(m=>m.id===outside.id)!.curHp).toBe(500);expect(after.characters.find(c=>c.id===caster.id)!.curHp).toBe(100);expect(after.characters.find(c=>c.id===caster.id)!.spellSlots.L3.used).toBe(1);
  }finally{socket.disconnect();}
@@ -62,6 +63,7 @@ test('Burning Hands cone preview and server damage include a footprint edge, exc
   await page.mouse.move(point.x,point.y);await page.mouse.click(point.x,point.y);
   await expect(area).toContainText('1 visible targets');await page.screenshot({path:test.info().outputPath('burning-hands-preview.png')});
   await area.getByRole('button',{name:/Confirm area/}).click();
+  await expect(area).toHaveCount(0);await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.spell-area-shape')).length)).toBe(0);
   await expect.poll(async()=>(await snapshot()).monsters.find(m=>m.id===edge.id)!.curHp,{timeout:90000}).toBeLessThan(500);
   const after=await snapshot();expect(after.monsters.find(m=>m.id===outside.id)!.curHp).toBe(500);expect(after.characters.find(c=>c.id===caster.id)!.curHp).toBe(100);expect(after.characters.find(c=>c.id===caster.id)!.spellSlots.L1.used).toBe(1);
  }finally{socket.disconnect();}

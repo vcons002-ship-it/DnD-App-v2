@@ -131,3 +131,10 @@ Three draw calls and reduced ember counts keep the transient effect bounded.
 Two-dimensional rendering has an aimed, expanding flame-cone fallback. Per-target
 DEX saves, half damage, fire defenses, Total Cover, and roll completion/skip
 presentation gating remain unchanged. Empty cones still display the cast.
+
+Targeting previews disappear immediately on confirmation for the caster and DM.
+The server still locks the confirmed geometry during saves and hidden-roll
+approval, so late pointer packets cannot change a submitted cast. Persistent
+measurements for ongoing spells are separate from the aiming preview. Burning
+Hands starts lower, near arm level; its horizontal cone matches the map-space
+preview even though elevated flames have perspective parallax in tilted views.

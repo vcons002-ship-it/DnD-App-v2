@@ -8,7 +8,7 @@ export function createBurningHandsGeometry(){
  const rows=32,columns=20;
  for(let i=0;i<=rows;i++)for(let j=0;j<=columns;j++){
   const x=i/rows,v=j/columns,z=(v-.5)*x;
-  vertices.push(x,.007+(1-x)*.2+Math.sin(v*Math.PI)*(.07+.13*x),z);uvs.push(x,v);
+  vertices.push(x,.007+(1-x)*.16+Math.sin(v*Math.PI)*(.07+.13*x),z);uvs.push(x,v);
  }
  for(let i=0;i<rows;i++)for(let j=0;j<columns;j++){
   const a=i*(columns+1)+j,b=a+columns+1;indices.push(a,b,a+1,b,b+1,a+1);
@@ -50,11 +50,11 @@ export function createBurningHandsGeometry(){
    };
    return material;
   });
-  const fronts=materials.map((m,i)=>{const mesh=new Mesh(sheet,m);mesh.name=i?'burning-hands-upper-flame':'burning-hands-cone';mesh.frustumCulled=false;mesh.position.y=i*.025;mesh.scale.y=i?1.45:.5;root.add(mesh);return mesh;});
+  const fronts=materials.map((m,i)=>{const mesh=new Mesh(sheet,m);mesh.name=i?'burning-hands-upper-flame':'burning-hands-cone';mesh.frustumCulled=false;mesh.position.y=i*.015;mesh.scale.y=i?1.35:.5;root.add(mesh);return mesh;});
   const emberMaterial=bright.clone();emberMaterial.color.set('#ffd27b');materials.push(emberMaterial);
   const embers=new InstancedMesh(emberGeometry,emberMaterial,72);embers.name='burning-hands-embers';embers.frustumCulled=false;root.add(embers);
   const seeds=Array.from({length:72},(_,i)=>({u:(i+.5)/72,v:((i*.61803398875)%1)-.5,phase:(i*.41421356237)%1}));
-  const emitterPoints=[new Vector3(.18,.2,0),new Vector3(.55,.13,-.13),new Vector3(.8,.15,.23)];
+  const emitterPoints=[new Vector3(.18,.17,0),new Vector3(.55,.13,-.13),new Vector3(.8,.15,.23)];
   fronts[0].userData.emitterPoint=emitterPoints[0];fronts[1].userData.emitterPoint=emitterPoints[1];embers.userData.emitterPoint=emitterPoints[2];
   return {root,parts:[...fronts,embers],materials,update(t:number,_persistent:boolean,reduced:boolean,_areaScale:number,end?:Vector3){
    const seconds=t*style.duration/1000;clock.value=seconds;quality.value=reduced?0:1;

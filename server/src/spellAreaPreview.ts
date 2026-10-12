@@ -35,7 +35,10 @@ export class SpellAreaPreviewController {
   if(!abilityId)return false;
   const preview=this.validate({...payload,abilityId,castLevel,area:payload.area});if(!preview)return false;
   clearTimeout(this.timer);this.sessionId=getConn(this.id)!.sessionId;this.preview={...preview,resolving:true};
-  broadcastSpellArea(this.io,this.sessionId,this.id,this.preview);return true;
+  // Keep the confirmed geometry internally locked against late pointer packets,
+  // but remove the aiming overlay as soon as the cast is submitted. The spell's
+  // own elevated artwork depicts the result after the dice resolve.
+  broadcastSpellArea(this.io,this.sessionId,this.id,null);return true;
  }
  clear():void {clearTimeout(this.timer);if(this.sessionId)broadcastSpellArea(this.io,this.sessionId,this.id,null);this.preview=null;this.sessionId=undefined;}
 }
