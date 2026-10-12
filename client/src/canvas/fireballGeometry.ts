@@ -1,63 +1,85 @@
-import {Group,Mesh,MeshBasicMaterial,SphereGeometry,TorusGeometry,Vector3} from 'three';
+import {BufferGeometry,DoubleSide,Float32BufferAttribute,Group,Mesh,MeshBasicMaterial,SphereGeometry,Vector3} from 'three';
 import {FIREBALL_FLIGHT_MS,spellLightEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
 
-/** One orb, one area explosion. Coordinates are relative to the actual diameter,
- * so the outer fire front reaches the selected radius on every map scale. */
+/** One connected, expanding fire front. The polar surface folds upward into
+ * turbulent flame tongues; no independently expanding spheres or tiled art. */
 export function createFireballGeometry(){
- const sphere=new SphereGeometry(1,24,16),ring=new TorusGeometry(1,.015,6,48);
+ const sphere=new SphereGeometry(1,24,16),wave=new BufferGeometry();
+ const positions:number[]=[],uvs:number[]=[],indices:number[]=[],segments=128,rows=24;
+ for(let row=0;row<=rows;row++)for(let i=0;i<=segments;i++){
+  const a=i/segments*Math.PI*2,v=row/rows,r=.62+.38*v;
+  positions.push(Math.cos(a)*r,0,Math.sin(a)*r);uvs.push(i/segments,v);
+ }
+ for(let row=0;row<rows;row++)for(let i=0;i<segments;i++){
+  const a=row*(segments+1)+i,b=a+segments+1;indices.push(a,b,a+1,b,b+1,a+1);
+ }
+ wave.setAttribute('position',new Float32BufferAttribute(positions,3));
+ wave.setAttribute('uv',new Float32BufferAttribute(uvs,2));wave.setIndex(indices);
+ wave.computeVertexNormals();
+ const noise=`
+ float fh(vec3 p){p=fract(p*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
+ float fn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+  return mix(mix(mix(fh(i),fh(i+vec3(1,0,0)),f.x),mix(fh(i+vec3(0,1,0)),fh(i+vec3(1,1,0)),f.x),f.y),
+  mix(mix(fh(i+vec3(0,0,1)),fh(i+vec3(1,0,1)),f.x),mix(fh(i+vec3(0,1,1)),fh(i+vec3(1,1,1)),f.x),f.y),f.z);}
+ float fb(vec3 p){return fn(p)*.57+fn(p*2.03+7.1)*.28+fn(p*4.11+13.7)*.15;}
+ `;
  function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,white:MeshBasicMaterial){
   const root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
   const hot=white.clone();hot.color.set('#fff3b1');materials.push(hot);
   const flame=body.clone();flame.color.set('#f46b16');flame.userData.opacityScale=.6;materials.push(flame);
-  // Turbulent fire lives on the expanding lobes rather than reading as smooth
-  // translucent orange balloons. Shared shader/material: no image downloads.
-  const clock={value:0};
-  flame.customProgramCacheKey=()=> 'fireball-turbulence-v1';
-  flame.onBeforeCompile=shader=>{
-   shader.uniforms.fireClock=clock;
-   shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 fireLocal;').replace('#include <begin_vertex>','#include <begin_vertex>\nfireLocal=position;');
+  const surface=body.clone();surface.side=DoubleSide;surface.color.set('#ff702c');surface.userData.opacityScale=1;materials.push(surface);
+  const clock={value:0},growth={value:0};
+  surface.customProgramCacheKey=()=> 'fireball-continuous-wave-v1';
+  surface.onBeforeCompile=shader=>{
+   shader.uniforms.fireClock=clock;shader.uniforms.fireGrowth=growth;
+   shader.vertexShader=shader.vertexShader.replace('#include <common>',`#include <common>
+    varying vec3 fireLocal;varying vec2 fireUv;uniform float fireClock;uniform float fireGrowth;${noise}`)
+    .replace('#include <begin_vertex>',`#include <begin_vertex>
+    fireUv=uv;
+    // Sample around a closed circle so the seam has identical displacement.
+    vec3 radial=vec3(position.x,0.,position.z)/length(position.xz);
+    float n=fb(radial*5.+vec3(0.,-fireClock*2.2,0.));
+    transformed.xz*=1.-.035*(1.-n)*pow(uv.y,4.);
+    float crest=pow(sin(uv.y*3.14159265),1.2);
+    transformed.y=.008+crest*(.075+.22*n)*(.75+.25*fireGrowth);
+    fireLocal=transformed;
+   `);
    shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`#include <common>
-varying vec3 fireLocal;uniform float fireClock;
-float fh(vec3 p){return fract(sin(dot(p,vec3(17.3,41.7,113.5)))*43758.5453);}
-float fn(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
- return mix(mix(mix(fh(i),fh(i+vec3(1,0,0)),f.x),mix(fh(i+vec3(0,1,0)),fh(i+vec3(1,1,0)),f.x),f.y),
- mix(mix(fh(i+vec3(0,0,1)),fh(i+vec3(1,0,1)),f.x),mix(fh(i+vec3(0,1,1)),fh(i+vec3(1,1,1)),f.x),f.y),f.z);}
-`).replace('#include <color_fragment>',`#include <color_fragment>
- vec3 fp=fireLocal*3.2+vec3(0.,-fireClock*1.8,fireClock*.2);
- float f=fn(fp)*.65+fn(fp*2.3)*.35;
- diffuseColor.rgb=mix(vec3(.65,.025,.003),vec3(1.,.78,.14),smoothstep(.24,.76,f));
- diffuseColor.rgb=mix(diffuseColor.rgb,vec3(1.,.96,.68),smoothstep(.73,.91,f));
- diffuseColor.a*=smoothstep(.13,.44,f)*.83;
-`);
+    varying vec3 fireLocal;varying vec2 fireUv;uniform float fireClock;${noise}`)
+    .replace('#include <color_fragment>',`#include <color_fragment>
+    vec3 p=vec3(fireLocal.x*11.,fireUv.y*3.-fireClock*3.4,fireLocal.z*11.);
+    float n=fb(p+fb(p*.55)*1.1);
+    float fine=fn(p*5.2+vec3(0.,-fireClock*2.,0.));
+    // White-hot folds cool to orange and red behind the single advancing edge.
+    float heat=smoothstep(.22,.83,n)*(.62+.38*fireUv.y);
+    vec3 ember=vec3(.32,.012,.002),red=vec3(.95,.055,.004),orange=vec3(1.,.36,.015),yellow=vec3(1.,.85,.26);
+    diffuseColor.rgb=mix(ember,red,smoothstep(.05,.28,heat));
+    diffuseColor.rgb=mix(diffuseColor.rgb,orange,smoothstep(.23,.55,heat));
+    diffuseColor.rgb=mix(diffuseColor.rgb,yellow,smoothstep(.52,.8,heat));
+    diffuseColor.rgb=mix(diffuseColor.rgb,vec3(1.,.97,.72),smoothstep(.79,.98,heat));
+    float edge=smoothstep(0.,.12,fireUv.y)*(1.-smoothstep(.90,1.,fireUv.y));
+    diffuseColor.a*=edge*smoothstep(.15,.52,n)*(.78+.22*fine);
+   `);
   };
   const add=(material:MeshBasicMaterial)=>{const mesh=new Mesh(sphere,material);root.add(mesh);parts.push(mesh);return mesh;};
   const orb=add(flame),core=add(hot),shell=add(bright),trail=Array.from({length:12},()=>add(bright));
-  const clouds=Array.from({length:18},()=>add(flame));
-  const front=new Mesh(ring,bright);front.rotation.x=-Math.PI/2;root.add(front);parts.push(front);
-  const origin=new Vector3(),at=new Vector3(),target=new Vector3(0,.025,0);
-  const path=(u:number)=>at.lerpVectors(origin,target,u).add(new Vector3(0,Math.sin(u*Math.PI)*.045,0));
-  return {root,parts,materials,update(t:number,_persistent:boolean,_reduced:boolean,_areaScale:number,source?:Vector3){
+  const front=new Mesh(wave,surface);front.name='fireball-continuous-front';front.frustumCulled=false;root.add(front);parts.push(front);
+  front.userData.emitterPoints=Array.from({length:3},(_,i)=>new Vector3(Math.cos(i*Math.PI*2/3)*.85,.14,Math.sin(i*Math.PI*2/3)*.85));
+  const origin=new Vector3(),at=new Vector3(),target=new Vector3(0,.025,0),arc=new Vector3();
+  const path=(u:number)=>at.lerpVectors(origin,target,u).add(arc.set(0,Math.sin(u*Math.PI)*.045,0));
+  return {root,parts,materials,update(t:number,_persistent:boolean,reduced:boolean,_areaScale:number,source?:Vector3){
    const age=t*style.duration,flight=age<FIREBALL_FLIGHT_MS;
-   clock.value=age/1000;
-   origin.copy(source??target);
+   clock.value=reduced?0:age/1000;origin.copy(source??target);
    const u=Math.min(1,age/FIREBALL_FLIGHT_MS),q=Math.max(0,(age-FIREBALL_FLIGHT_MS)/(style.duration-FIREBALL_FLIGHT_MS));
    const crest=spellLightEnvelope(age-FIREBALL_FLIGHT_MS,style.duration-FIREBALL_FLIGHT_MS);
    for(const mesh of [orb,core,shell]){mesh.visible=flight;mesh.position.copy(path(u));}
    orb.scale.setScalar(.026*(1+.08*Math.sin(age*.05)));core.scale.setScalar(.015);shell.scale.setScalar(.039);
    trail.forEach((m,i)=>{const v=u-(i+1)*.018;m.visible=flight&&v>=0;m.position.copy(path(Math.max(0,v)));m.scale.setScalar(.018*(1-i/13));});
-   clouds.forEach((m,i)=>{
-    m.visible=!flight;
-    const a=i*2.399963,z=1-2*(i+.5)/clouds.length,r=Math.sqrt(1-z*z);
-    const growth=Math.min(1,q/.23),radius=.30*growth;
-    m.position.set(Math.cos(a)*r*radius,.035+Math.abs(z)*radius*.65,Math.sin(a)*r*radius);
-    const puff=(.13+.025*Math.sin(i*7.3+q*5))*growth*(.55+.45*crest);
-    m.scale.set(puff*(1+.16*Math.sin(i)),puff*(1.2+.2*Math.cos(i)),puff);
-    m.rotation.set(q*.8+i,i*.7,q*.3);
-   });
-   // A low expanding flame front makes the complete 20-foot footprint readable.
-   front.visible=!flight;front.position.y=.022;front.scale.setScalar(.5*Math.min(1,q/.25));
-   flame.opacity=flight?.8:crest*.65;hot.opacity=flight?1:crest*.8;
+   // One outward sweep reaches the actual selected radius, then cools in place.
+   growth.value=1-Math.pow(1-Math.min(1,q/.42),2);
+   front.visible=!flight;front.scale.setScalar(.5*Math.max(.015,growth.value));front.position.y=.016;
+   flame.opacity=flight?.8:0;hot.opacity=flight?1:0;surface.opacity=crest*.95;
   }};
  }
- return {build,dispose(){sphere.dispose();ring.dispose();}};
+ return {build,dispose(){sphere.dispose();wave.dispose();}};
 }
