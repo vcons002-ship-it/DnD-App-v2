@@ -56,7 +56,7 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
 
 export function weaponImpactStyle(event:Pick<HpFxEvent,'weaponAttack'|'delta'>):SpellImpactStyle|undefined{
   const weapon=event.weaponAttack;if(!weapon||event.delta>=0)return;
-  return {kind:`weapon-${weapon.kind}`,color:'#dce6ed',radiusFt:0,strength:0,duration:weapon.critical?1100:950};
+  return {kind:`weapon-${weapon.kind}`,color:'#dce6ed',radiusFt:0,strength:0,duration:weapon.critical?1450:1250};
 }
 
 /** Active spell provenance, never a bare manual Paralyzed condition. The server

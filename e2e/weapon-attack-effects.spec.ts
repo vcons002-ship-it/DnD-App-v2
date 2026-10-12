@@ -10,7 +10,7 @@ test('weapon projectiles arrive before feedback, leave no light sources, and obe
  effects.sync([{id:1,tokenId:'victim',x:0,y:0,diameter:3,event,startAt:plan.events[0].numberStartAt,weaponOnly:true}],1000);
  const read=()=>{const root=scene.children[0];root.updateMatrixWorld(true);const arrow=root.getObjectByName('weapon-projectile'),contact=root.getObjectByName('weapon-contact');return {visible:arrow.visible,x:arrow.getWorldPosition(new Vector3()).x,contact:contact.visible};};
  const pos=()=>({x:0,y:0,visible:true,height:5});const lights=effects.tick(1100,1,false,pos);const early=read();effects.tick(1350,1,false,pos);const late=read();effects.tick(1425,1,false,pos);const impact=read();
- effects.tick(1450,1,false,()=>({x:0,y:0,visible:false}));const hidden=!scene.children[0].visible;effects.tick(2200,1,false,pos);
+ effects.tick(1450,1,false,()=>({x:0,y:0,visible:false}));const hidden=!scene.children[0].visible;effects.tick(2500,1,false,pos);
  window.result={early,late,impact,lights:lights.length,hidden,expired:!effects.active,numberStart:plan.events[0].componentStarts[0],effectStart:plan.events[0].numberStartAt};effects.dispose();
  `}});
  await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});

@@ -35,3 +35,9 @@ regressions.
 Mobile video preview: https://dnd.nic024i.app/uploads/previews/weapon-attacks-20261012/index.html
 
 The page includes controlled close-up replays and a separate real UI combat sequence captured with RTX 5090 AV1 NVENC at 60 fps. Phone playback uses H.264; the original AV1 capture is also linked. HTTP, range requests, and mobile layout/playback were verified.
+
+## Visibility refinement
+
+The sweep is wider with a dark contour for contrast against pale map art. Projectiles are 65% larger, with a thicker shaft and brighter metallic tip. Contact flashes, screen-facing impact rings, and debris are larger; the ordinary effect lasts 1.25 seconds (1.45 on a critical hit). The 420 ms projectile flight and damage timing remain unchanged. Depth testing and hidden-origin handling are retained, with no lights or shadows added.
+
+Updated preview: https://dnd.nic024i.app/uploads/previews/weapon-attacks-visible-20261012/index.html
