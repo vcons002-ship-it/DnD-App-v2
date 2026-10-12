@@ -71,6 +71,7 @@ uniform float enchantedAmber;
 uniform vec3 motePosition;
 uniform float moteRoom;
 uniform bool trayLighting;
+uniform bool tetrahedron;
 uniform float internalLightning;
 uniform float lightningPhase; uniform float lightningSeed;
 float hash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -180,7 +181,9 @@ vec3 polishedGoldSurface(vec3 n,vec3 incoming){
 // Keep the upward result surface readable in the tray while preserving side
 // reflections and polished metal inlays. Model viewers retain studio lighting.
 float traySurfaceReflection(vec3 n){
- return trayLighting?1.-smoothstep(.50,.88,(rotation*n).z)*.88:1.;
+ // A resting d4 has three upward sloping faces with z ~= 1/3. The old
+ // top-face glare threshold never reached those faces.
+ return trayLighting?1.-smoothstep(tetrahedron?.15:.50,tetrahedron?.60:.88,(rotation*n).z)*.88:1.;
 }
 // Keep the frame dark; numeral rims use a brighter copper-bronze for legibility.
 vec3 bronzeSurface(vec3 n,vec3 incoming){
@@ -218,7 +221,10 @@ void main(){
  vec3 ray=refract(incoming,n,1./1.48);float distance=5.;
  for(int j=0;j<20;j++){if(j>=count)break;float denom=dot(planes[j].xyz,ray);if(denom>.0001)distance=min(distance,max(0.,(planes[j].w-dot(planes[j].xyz,pos))/denom));}
  vec3 beyond=studioLight(rotation*ray);
- vec3 through=beyond*exp(-distance*(vec3(1.)-tint)*(style==3?.75:2.4));
+ // The tetrahedron's short optical paths otherwise turn its broad faces
+ // into pale studio-light wedges instead of colored glass/resin.
+ vec3 through=beyond*exp(-distance*(tetrahedron?2.25:1.)*(vec3(1.)-tint)*(style==3?.75:2.4));
+ if(tetrahedron&&(style==0||style==2))through*=mix(vec3(1.),tint,.24);
  if(style==3)through*=vec3(.15,.015,.32);
  float smoke=0.;vec3 energy=vec3(0.),mossColor=vec3(0.);float mossDepth=0.;vec3 amberColor=vec3(0.);float amberWeight=0.,fernDepth=0.;float stepSize=distance/20.;
  if(style==0||style==2||style==3){for(int j=0;j<20;j++){
@@ -697,7 +703,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const makeMaterial=(etching?:THREE.Texture)=>{
     // Draw front gold after transmission so refraction cannot duplicate a bright
     // front numeral into the interior. Only its dark backing enters that pass.
-    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},thinGoldEdge:{value:style===1&&sides===6&&!crit},numeralsOnly:{value:gem},inlayBacking:{value:false},numeralEmphasis:{value:1}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
+    const m=glass?new THREE.ShaderMaterial({defines:gem?{INLAY_ONLY:1}:{},uniforms:{...uniforms,tetrahedron:{value:sides===4},etching:{value:etching??null},engraved:{value:!!etching},metalEdge:{value:(style===2||style===1)&&!etching},thinGoldEdge:{value:style===1&&sides===6&&!crit},numeralsOnly:{value:gem},inlayBacking:{value:false},numeralEmphasis:{value:1}},vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:true,side:THREE.FrontSide,polygonOffset:gem,polygonOffsetFactor:-1,polygonOffsetUnits:-1}):new THREE.MeshPhysicalMaterial({color:crit?'#d5a636':new THREE.Color().setHSL(theme.hue/360,theme.saturation/100,.065),metalness:.72,roughness:.38,clearcoat:.7,clearcoatRoughness:.16,bumpMap:etching,bumpScale:.045,map:etching,metalnessMap:etching,envMapIntensity:.55});
     materials.push(m);return m;
   };
   const edgeGeo=new THREE.BufferGeometry();
@@ -756,6 +762,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     resin.onBeforeCompile=shader=>{
       shader.uniforms.resinEye=uniforms.eye;shader.uniforms.resinTime=uniforms.time;
       shader.uniforms.trayLighting=uniforms.trayLighting;
+      shader.uniforms.resinTetrahedron={value:sides===4};
       shader.uniforms.resinGlow=uniforms.resinGlow;
       shader.uniforms.resinDensity=uniforms.resinDensity;
       shader.uniforms.resinInk=uniforms.resinInk;
@@ -763,9 +770,9 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
       shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
-      shader.fragmentShader='uniform bool trayLighting;\n'+resinCloudDeclarations+resinInkField+'\n'+shader.fragmentShader;
+      shader.fragmentShader='uniform bool trayLighting;\nuniform bool resinTetrahedron;\n'+resinCloudDeclarations+resinInkField+'\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
-        float topReflection=trayLighting?1.-smoothstep(.50,.88,inverseTransformDirection(normal,viewMatrix).z)*.88:1.;
+        float topReflection=trayLighting?1.-smoothstep(resinTetrahedron?.15:.50,resinTetrahedron?.60:.88,inverseTransformDirection(normal,viewMatrix).z)*.88:1.;
         reflectedLight.directSpecular*=topReflection;reflectedLight.indirectSpecular*=topReflection;`);
       shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
     };

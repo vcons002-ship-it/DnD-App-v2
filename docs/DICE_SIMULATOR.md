@@ -11,6 +11,12 @@ and Volume slider use the app's saved sound preferences on that browser.
 Check **Gold dice** before the next toss to roll the polished gold critical
 versions for any character, die type and quantity. `index.html?gold=1` starts
 with gold selected. Values still come from the ordinary live physics rolls.
+After a toss settles, **3D inspector** opens the selected character and die in
+a rotatable close-up. Drag to rotate, pinch/scroll to zoom, switch between tray
+and studio lighting, and use Result to preview an unrolled, low, high or maximum
+face. Gold dice and percentile pairs are supported. Reset view restores the
+camera; Replay effect restarts the maximum animation. Closing frees the
+inspection scene and resumes the tray. The inspector loads only when opened.
 
 The DM's confirmed natural results add soft red illumination inside purple resin,
 behind moving black ink. The ink pigment stays black, even at a maximum.
@@ -48,6 +54,8 @@ of flashing independently; their occasional cadence still varies between dice.
 Internal lightning is crimson at every strength. Escaping lightning has
 connected irregular branches, tapered tips, a traveling leader and return
 stroke, with a hot red core and soft crimson corona in the same single mesh.
+Tetrahedral dice compensate for their shorter glass paths and lower face slopes
+so white light cannot wash out their resin colors in the tray.
 
 After changing production dice art or sounds, rebuild and refresh the published
 bundle:

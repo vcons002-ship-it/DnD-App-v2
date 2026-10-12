@@ -13,7 +13,7 @@ const themes=[diceThemeForClass('Fighter'),diceThemeForClass('Ranger'),diceTheme
 const tray=document.querySelector<HTMLDivElement>('#tray')!;
 const canvas=tray.querySelector('canvas')!,ctx=canvas.getContext('2d')!;
 const status=document.querySelector<HTMLSpanElement>('#status')!;
-const buttons=[...document.querySelectorAll<HTMLButtonElement>('button')];
+const buttons=[...document.querySelectorAll<HTMLButtonElement>('#roll,button[data-sides]')];
 const roller=document.querySelector<HTMLSelectElement>('#roller')!;
 const count=document.querySelector<HTMLInputElement>('#count')!;
 const gold=document.querySelector<HTMLInputElement>('#gold')!;
@@ -30,12 +30,23 @@ let world:ReturnType<typeof createLiveWorld>|undefined;
 let toss:Toss|undefined;
 let sound:ReturnType<typeof createDiceSound>|undefined;
 let labels:HTMLDivElement[]=[],last=performance.now(),done=true;
+let inspecting=false;
+const inspect=document.createElement('button');inspect.textContent='3D inspector';inspect.disabled=true;
+document.querySelector('.controls')!.insertBefore(inspect,status);
+inspect.addEventListener('click',async()=>{
+ if(inspecting||!done)return;
+ inspecting=true;
+ try{
+  const {openDiceInspector}=await import('./inspector');
+  await openDiceInspector({character:Number(roller.value),sides,gold:gold.checked});
+ }finally{inspecting=false;last=performance.now();}
+});
 
 async function roll(next=sides){
  count.max=String(next===100?20:40);
  if(!count.reportValidity())return;
  const quantity=Number(count.value),player=Number(roller.value),current=++epoch;
- sides=next;done=false;tray.dataset.state='preparing';
+ sides=next;done=false;inspect.disabled=true;tray.dataset.state='preparing';
  sound?.stop();sound=undefined;sfxOutput();
  buttons.forEach(b=>{b.disabled=true;if(b.dataset.sides)b.setAttribute('aria-pressed',String(Number(b.dataset.sides)===sides));});
  roller.disabled=count.disabled=gold.disabled=true;
@@ -73,12 +84,12 @@ async function roll(next=sides){
   renderer.setResults(snapshot.values);
   const r=tray.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,1.5);
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
-  renderer.draw(ctx,r.width,r.height,dpr,0,now);
+  if(!inspecting)renderer.draw(ctx,r.width,r.height,dpr,0,now);
   canvas.dataset.trailPoints=String(renderer.trailPointCount());canvas.dataset.trailBranches=String(renderer.trailBranchCount());
   canvas.dataset.rollPower=JSON.stringify(renderer.powerStates().map(p=>({known:p.known,strength:p.strength,maximum:p.maximum,critical:p.critical,dmCharge:p.dmCharge,dmPulseFrequency:p.dmPulseFrequency,goldCharge:p.goldCharge,goldSparkles:p.goldSparkles,leaves:p.leaves,escapingBolts:p.escapingBolts,lightningBursts:p.lightningBursts,broken:p.broken,pools:p.pools})));
   labels.forEach((l,i)=>{const p=renderer!.numberPosition(i);l.hidden=!done||p.x<.05||p.x>.95||p.y<.05||p.y>.88;l.style.left=`${p.x*100}%`;l.style.top=`calc(${p.y*100}% + ${sides===100?25:38}px)`;});
   if(snapshot.done&&!done){
-   done=true;tray.dataset.state='settled';sound?.stop();
+   done=true;inspect.disabled=false;tray.dataset.state='settled';sound?.stop();
    if(sides===20&&snapshot.values.includes(20))playCritical();
    const values=Array.from({length:quantity},(_,i)=>sides===100?(((snapshot.values[i*2]!-1)*10+snapshot.values[i*2+1]!-1)||100):snapshot.values[i]!);
    results.querySelector('.value')!.textContent=String(values.reduce((sum,v)=>sum+v,0));
@@ -95,6 +106,7 @@ async function roll(next=sides){
   if(current!==epoch)return;
   sound?.stop();
   status.textContent=error instanceof Error?error.message:'Could not prepare the dice';
+  inspect.disabled=false;
   buttons.forEach(b=>b.disabled=false);roller.disabled=count.disabled=gold.disabled=false;
  }
 }

@@ -17,7 +17,7 @@ for(const name of ['dice-comparison.html','dice-power.html','dice-models.html'])
 const assets=new Set();
 async function collect(source){
  // Vite imports and its preload dependency arrays both name hashed files.
- const files=[...source.matchAll(/["'](?:\.\/|\/assets\/)?([^"'\s/:]+\.(?:js|css|webp|png))["']/g)].map(match=>match[1]);
+ const files=[...source.matchAll(/["'](?:\.\/|\/?assets\/)?([^"'\s/:]+\.(?:js|css|webp|png))["']/g)].map(match=>match[1]);
  for(const file of files){
   if(assets.has(file))continue;
   const sourcePath=path.join(dist,'assets',file);
@@ -29,7 +29,18 @@ async function collect(source){
 for(const html of pages.values())await collect(html.replaceAll('./assets/','/assets/'));
 if(!assets.size)throw new Error('No built simulator assets found. Build the client first.');
 await mkdir(path.join(destination,'assets'),{recursive:true});
-for(const file of assets)await copyFile(path.join(dist,'assets',file),path.join(destination,'assets',file));
+for(const file of assets){
+ const source=path.join(dist,'assets',file),target=path.join(destination,'assets',file);
+ if(file.endsWith('.js')){
+  // Vite's root-base preload helper also loads lazy CSS/JS. Make it relative
+  // to this preview's asset directory, rather than the installed app's /assets.
+  const code=await readFile(source,'utf8');
+  const published=code.replace(/("modulepreload",[\w$]+=function\(([\w$]+)\)\{return)"\/"\+\2(\})/g,
+   '$1 new URL("../"+$2,import.meta.url).href$3');
+  execFileSync(process.execPath,['--check','--input-type=module'],{input:published});
+  await writeFile(target,published);
+ }else await copyFile(source,target);
+}
 await mkdir(path.join(destination,'art/dice-trays'),{recursive:true});
 for(const theme of ['fighter','ranger','sorcerer','dm'])await copyFile(path.join(dist,`art/dice-trays/${theme}-v1.webp`),path.join(destination,`art/dice-trays/${theme}-v1.webp`));
 // Publish entry pages last. Retain older hashed chunks for already-open pages.
