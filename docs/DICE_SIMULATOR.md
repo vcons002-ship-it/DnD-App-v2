@@ -9,6 +9,12 @@ Druk, Varis, Vanec, or the DM and roll d4 through d100. Each percentile roll use
 two physical dice. Sound begins after a browser gesture, and the Sounds checkbox
 and Volume slider use the app's saved sound preferences on that browser.
 
+The DM's confirmed natural results progressively charge the purple ink with red
+pulses. Higher faces pulse brighter and more frequently, with independent timing
+per die; a maximum keeps a sustained blood-red glow. Reduced-motion mode uses a
+steady tint instead of pulses. This is part of the shared production material,
+so it applies to gameplay trays as well as the simulator when this code is installed.
+
 The linked `dice-power.html` compares low, strong, and maximum sample values.
 `dice-models.html` provides the material inspection page. These are isolated
 previews, so their rolls never modify a campaign or enter its roll log.

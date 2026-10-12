@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {createLightningTiming} from './diceLightningTiming';
 import {createRollPowerState,DRUK_EXPLOSION_DELAY,drukFinaleAge} from './diceRollPower';
+import {dmDiceCharge} from './dmDiceCharge';
 import {createDiceShatterArt} from './diceShatterArt';
 import {createDiceMoteRays} from './diceMoteRays';
 import type {ShatterWorld} from './diceShatterPhysics';
@@ -14,6 +15,7 @@ import type { DiceTheme } from '../../../shared/diceThemes';
 // into its existing 2D canvas; no extra contexts compete with the battlefield.
 let stage: ReturnType<typeof makeStage> | undefined;
 let rangerMoteSequence=0;
+let dmChargeSequence=0;
 function drawDieNumeral(ctx:CanvasRenderingContext2D,text:string,x:number,y:number){
   ctx.fillText(text,x,y);
   if(!text.includes('6'))return;
@@ -532,7 +534,7 @@ uniform float resinTime;
 uniform float resinGlow;
 uniform float resinDensity;
 uniform float resinInk;
-uniform float resinMaximum;
+uniform float resinRedCharge;
 uniform vec4 resinPlanes[20];
 uniform int resinPlaneCount;
 float resinHash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
@@ -574,9 +576,9 @@ const resinCloudTransmission=`
      float opacity=1.-exp(-ink*cloudStep*interior*4.8);
      // Light behind and between dark lobes gives a readable silhouette.
      vec3 lamp=point-vec3(-.18,.2,-.1);
-     float illumination=exp(-dot(lamp,lamp)*2.1)*resinGlow;
-     vec3 pigment=mix(vec3(.002,.0006,.005),vec3(.065,.0006,.002),resinMaximum);
-     vec3 innerLight=mix(vec3(.24,.095,.43),vec3(.38,.006,.010),resinMaximum);
+     float illumination=exp(-dot(lamp,lamp)*2.1)*resinGlow*(1.+resinRedCharge*.65);
+     vec3 pigment=mix(vec3(.002,.0006,.005),vec3(.065,.0006,.002),resinRedCharge);
+     vec3 innerLight=mix(vec3(.24,.095,.43),vec3(.45,.006,.014),resinRedCharge);
      inkLight+=inkTransmission*(pigment*opacity+innerLight*illumination*(1.-opacity)*cloudStep*interior);
      inkTransmission*=1.-opacity;
    }else{
@@ -620,11 +622,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const power=createRollPowerState(sides);
   let powerView=power.advance(0),powerReduced=false,explosionAt:number|null|undefined;
   const shatterAge=(now:number)=>drukFinaleAge(powerView.age,now,explosionAt);
-  const resinMaximum={value:0};
+  const resinRedCharge={value:0},chargeSeed=gem?dmChargeSequence++*2.399963:0;
+  let dmChargeView={charge:0,frequency:0};
   const updatePower=(now:number)=>{
     powerView=power.advance(now);
-    // A color transition stays available with reduced motion, without flashes.
-    resinMaximum.value=powerView.maximum?THREE.MathUtils.smoothstep(powerView.age,0,.35):0;
+    if(gem){
+      dmChargeView=dmDiceCharge(powerView.strength,powerView.known,powerView.maximum,powerView.age,now/1000,chargeSeed,powerReduced);
+      resinRedCharge.value=dmChargeView.charge;
+    }
     uniforms.rollPower.value=powerView.strength;
     uniforms.moltenWarning.value=style===1&&powerView.maximum&&!powerReduced?THREE.MathUtils.smoothstep(shatterAge(now),.1,DRUK_EXPLOSION_DELAY-.03):0;
     uniforms.rollMaximum.value=powerView.maximum&&!powerReduced?1:0;
@@ -738,7 +743,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       shader.uniforms.resinGlow=uniforms.resinGlow;
       shader.uniforms.resinDensity=uniforms.resinDensity;
       shader.uniforms.resinInk=uniforms.resinInk;
-      shader.uniforms.resinMaximum=resinMaximum;
+      shader.uniforms.resinRedCharge=resinRedCharge;
       shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
       shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
@@ -748,7 +753,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
         reflectedLight.directSpecular*=topReflection;reflectedLight.indirectSpecular*=topReflection;`);
       shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
     };
-    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v6';
+    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v7-red-pulses';
     materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
   }
   const shatter=theme.id==='fighter'?createDiceShatterArt(root,source.faces.map(ids=>ids.map(i=>vertices[i])),crit):undefined;
@@ -763,7 +768,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     setExplosionAt(at:number|null|undefined){explosionAt=at;},
     setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
     prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
-    powerState(){return {...powerView,particles:moteRays?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
+    powerState(){return {...powerView,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,particles:moteRays?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.

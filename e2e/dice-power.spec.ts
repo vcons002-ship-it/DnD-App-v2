@@ -107,13 +107,20 @@ test('Druk ordinary high rolls keep visibly hotter cracks than low rolls',async(
  expect(glow.high).toBeGreaterThan(glow.low*1.5+10);
 });
 
-test('DM maximum changes the internal ink to red while ordinary rolls stay purple',async({page},info)=>{
+test('DM high rolls pulse red inside purple resin and a maximum keeps the blood-red ink',async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width:1150,height:1000});await page.goto('/dice-power.html');
  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
  await page.locator('button[data-theme="dm"]').click();await expect(page.locator('#tray')).toHaveAttribute('data-theme','dm');
  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');await page.waitForTimeout(750);
+ await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[1].dmCharge>.65);
+ const charge=JSON.parse((await page.locator('#tray canvas').getAttribute('data-roll-power'))!);
+ expect(charge[0].dmCharge).toBe(0);expect(charge[1].dmPulseFrequency).toBeGreaterThan(1);
+ expect(charge[1].maximum).toBe(false);expect(charge[2].dmCharge).toBe(1);
+ await page.screenshot({path:info.outputPath('dm-high-roll-red-pulse.png')});
+ await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[1].dmCharge<.04);
+ await page.screenshot({path:info.outputPath('dm-high-roll-purple-between-pulses.png')});
  const ink=await page.evaluate(()=>{
   const canvas=document.querySelector<HTMLCanvasElement>('#tray canvas')!,ctx=canvas.getContext('2d')!;
   const red=(x:number)=>{const {data}=ctx.getImageData(canvas.width*x,canvas.height*.35,canvas.width*.18,canvas.height*.3);let count=0;

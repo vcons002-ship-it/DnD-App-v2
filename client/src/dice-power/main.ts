@@ -12,7 +12,7 @@ if(requestedSides&&['4','6','8','10','12','20','100'].includes(requestedSides))s
 let theme=reviewParams.get('character')??'fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
 if(!['fighter','sorcerer','ranger','dm'].includes(theme))theme='fighter';
 focus.checked=reviewParams.get('closeup')==='1';
-descriptions.dm='Active inky clouds curl through purple resin, softly lit from within. A maximum natural result turns the cloud blood red while the gold numerals remain clear.';
+descriptions.dm='Red energy pulses through the purple ink as the natural result rises: higher rolls pulse brighter and more often. A maximum fills the cloud with a sustained blood-red glow while the gold numerals remain clear.';
 async function show(){
  const controls=[...document.querySelectorAll<HTMLButtonElement|HTMLSelectElement|HTMLInputElement>('nav button,nav select,nav input')];
  controls.forEach(c=>c.disabled=true);tray.dataset.state='preparing';
@@ -38,7 +38,7 @@ async function show(){
   const r=tray.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,1.5);
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
   renderer!.draw(ctx,r.width,r.height,dpr,0,now);
-  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,age:p.age,strength:+p.strength.toFixed(2),maximum:p.maximum,particles:p.particles,broken:p.broken,shudder:p.shudder,lavaDrop:p.lavaDrop,fragments:p.fragments,frozenFragments:p.frozenFragments,lava:p.lava,pools:p.pools,melting:p.melting,preservedSurfaces:p.preservedSurfaces,physics:p.physics,mote:p.mote})));
+  canvas.dataset.rollPower=JSON.stringify(renderer!.powerStates().map(p=>({known:p.known,age:p.age,strength:+p.strength.toFixed(2),maximum:p.maximum,dmCharge:p.dmCharge,dmPulseFrequency:p.dmPulseFrequency,particles:p.particles,broken:p.broken,shudder:p.shudder,lavaDrop:p.lavaDrop,fragments:p.fragments,frozenFragments:p.frozenFragments,lava:p.lava,pools:p.pools,melting:p.melting,preservedSurfaces:p.preservedSurfaces,physics:p.physics,mote:p.mote})));
   requestAnimationFrame(draw);
  }
  requestAnimationFrame(draw);
