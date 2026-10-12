@@ -134,7 +134,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
       // The destination can be visible while its caster is behind a wall.
       // Do not reveal that hidden origin through projectile coordinates.
       const source=original.sourcePosition;
-      const event=source&&conn.role!=='dm'&&(!snapshot.tokens.some(t=>!t.sharedSightOnly&&!t.isHidden&&t.kind===original.kind&&t.refId===original.refId)||!visionContains(snapshot.playerVision,source.x,source.y))
+      const event=source&&conn.role!=='dm'&&(!snapshot.tokens.some(t=>!t.sharedSightOnly&&!t.isHidden&&t.kind===original.kind&&t.refId===original.refId)||!visionContains(snapshot.playerVision,source.x,source.y)||(original.weaponAttack&&!snapshot.tokens.some(t=>!t.sharedSightOnly&&!t.isHidden&&t.mapId===source.mapId&&Math.hypot(t.x-source.x,t.y-source.y)<1)))
         ? (({sourcePosition,...rest})=>rest)(original):original;
       const visibleImpact=!event.impact||publicRolls.has(event.impact.id);
       if ((!event.rollId || visibleRolls.has(event.rollId))&&visibleImpact) return event;

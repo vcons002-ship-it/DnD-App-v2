@@ -1,10 +1,10 @@
 import {InstancedMesh,AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3,WebGLRenderTarget,type Camera,type WebGLRenderer} from 'three';
-import {FIREBALL_FLIGHT_MS,spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
+import {FIREBALL_FLIGHT_MS,spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,weaponImpactStyle,type SpellImpactStyle} from '../../../shared/spellImpact';
 import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
 import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeometry';
 
-export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;startAt?:number;persistent?:boolean;fixed?:boolean};
+export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;startAt?:number;persistent?:boolean;fixed?:boolean;weaponOnly?:boolean};
 // A separate color pass lets visible spell geometry rise above terrain fog
 // without lifting any hidden map pixels or invalidating the cached body mask.
 export const SPELL_IMPACT_LAYER=7;
@@ -24,7 +24,7 @@ export function createSpellImpactEffects(scene:Scene){
   const effects=new Map<number|string,Effect>(),seen=new Set<number|string>(),worldPoint=new Vector3();
   const dispose=(effect:Effect)=>{effect.root.removeFromParent();effect.root.traverse(n=>{if(n instanceof InstancedMesh)n.dispose();});effect.materials.forEach(m=>m.dispose());effect.vines.forEach(v=>v.geometry.dispose());effect.bolt?.geometry.dispose();};
   function add(input:SpellImpact,now:number,target=effects){
-    const style=spellImpactStyle(input.event);if(!style)return;
+    const style=input.weaponOnly?weaponImpactStyle(input.event):spellImpactStyle(input.event);if(!style)return;
     const root=new Group();root.name=`spell-impact-${style.kind}`;
     const body=new MeshBasicMaterial({color:style.color,transparent:true,depthWrite:false,toneMapped:false});
     const bright=body.clone();bright.blending=AdditiveBlending;
@@ -60,7 +60,7 @@ export function createSpellImpactEffects(scene:Scene){
       bolt=new Mesh(new TubeGeometry(path,30,.023,5,false),bright);bolt.userData.path=path;root.add(bolt);
     }
     // Drifting points help carry the impact and the mark without emoji glyphs.
-    for(let i=0;i<(['shock','fireball','shimmer','counter','dispel','thorns','haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
+    for(let i=0;i<(style.kind.startsWith('weapon-')?0:['shock','fireball','shimmer','counter','dispel','thorns','haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
       const point=new Mesh(spark,bright);point.userData={angle:i*2.399963,seed:(i%4)/4};root.add(point);sparks.push(point);
     }
     const color=new Color(style.color);
@@ -76,7 +76,8 @@ export function createSpellImpactEffects(scene:Scene){
         const age=now-e.start;if(age<0){e.root.visible=false;continue;}if(!e.input.persistent&&age>=e.style.duration){dispose(e);collection.delete(id);continue;}
         const p=position(e.input.tokenId);e.root.visible=!!p?.visible;if(!p?.visible)continue;
         const size=Math.max(pixelsPerFoot*2,e.input.diameter),height=Math.max(size*.85,p.height??size*1.5);
-        e.root.position.set(p.x,0,p.y);e.root.scale.set(size,['fireball','thorns'].includes(e.style.kind)?size:height/1.2,size);
+        e.root.position.set(p.x,0,p.y);e.root.scale.set(size,(e.style.kind.startsWith('weapon-')||['fireball','thorns'].includes(e.style.kind))?size:height/1.2,size);
+        e.shape.root.userData.bodyHeight=height/size;
         const t=e.input.persistent?age/1000:age/e.style.duration;
         const persistentGlow=reduced?.55:.58+.08*Math.sin(age/900);
         const fade=e.input.persistent?persistentGlow:spellLightEnvelope(age,e.style.duration),emission=e.input.persistent?persistentGlow:spellEmissionEnvelope(age,e.style);
@@ -143,6 +144,7 @@ export function createSpellImpactEffects(scene:Scene){
       return tickEffects(effects,now,pixelsPerFoot,reduced,position);
     },
     faceCamera(camera:Camera){
+      for(const e of effects.values())if(e.input.weaponOnly)e.shape.root.userData.faceCamera?.(camera);
       // Only the active-status glyph faces the viewer, never the body crackle.
       for(const e of effects.values())if(e.style.kind==='shock')for(const m of e.shape.parts.slice(0,2)){
         m.quaternion.copy(camera.quaternion);m.updateMatrixWorld();

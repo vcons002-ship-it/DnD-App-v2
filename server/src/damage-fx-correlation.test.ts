@@ -6,7 +6,7 @@ import { broadcastSnapshots, dropConn, setConn, type IOServer } from './connecti
 import {
   addRollLog, applyDamage, createCharacter, createMap, createMonsterTemplate, createSession,
   createToken, drainHpFx, getMonster, instantiateMonster, listRollLog,
-  setActiveMap, setFogLayer, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,beginPlacedSpellImpact,
+  updateCharacter, setActiveMap, setFogLayer, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,beginPlacedSpellImpact,
 } from './sessions.js';
 
 const sockets: string[] = [];
@@ -74,6 +74,7 @@ describe('exact attack damage-to-reveal correlation', () => {
     expect(getMonster(f.target.id)!.curHp).toBe(200 - hit.pending!.amount);
     expect(drainHpFx(f.session.id)).toEqual([{
       kind: 'monster', refId: f.target.id, delta: -hit.pending!.amount, rollId: damage.id,
+      weaponAttack:{kind:"blunt",critical:false},sourcePosition:{mapId:f.map.id,x:0,y:0},
     }]);
     expect(damage.id).not.toBe(hit.id);
     expect(resolveAttackDamage(f.session.id, 'Striker', hit.id)).toBe(false);
@@ -226,4 +227,29 @@ describe('damage floaters on overkill',()=>{
     applyDamage('pc',target.id,-13);
     expect(drainHpFx(session.id)).toEqual([{kind:'pc',refId:target.id,delta:5}]);
   });
+});
+
+
+describe('physical weapon feedback',()=>{
+ for(const manual of [false,true])for(const [name,kind,damageType,visual] of [
+  ['Greatsword','melee','slashing','slash'],['Warhammer','melee','bludgeoning','blunt'],
+  ['Rapier','melee','piercing','thrust'],['Longbow','ranged','piercing','arrow'],
+  ['Crossbow','ranged','piercing','bolt'],['Sling','ranged','bludgeoning','stone'],
+  ['Thrown dagger','ranged','piercing','thrown'],
+ ] as const)it(`${name} uses ${visual} feedback after damage resolves in manual=${manual}`,()=>{
+  const f=fixture(manual);updateCharacter(f.attacker.id,{weapons:[{name,kind,damageType,damage:'1d6',attackBonus:50}]});
+  const hit=attack(f);if(manual){expect(drainHpFx(f.session.id)).toEqual([]);expect(resolveAttackDamage(f.session.id,'Striker',hit.id)).toBe(true);}
+  const fx=drainHpFx(f.session.id);expect(fx).toHaveLength(1);
+  expect(fx[0]).toMatchObject({weaponAttack:{kind:visual,critical:false},sourcePosition:{mapId:f.map.id,x:0,y:0}});
+  expect(JSON.stringify(fx[0])).not.toContain(name); // No private weapon details in the cosmetic event.
+ });
+ it('withholds the origin of a hidden attacker and all feedback on a hidden victim',()=>{
+  const f=fixture(false);setTokenHidden(f.attackToken.id,true);attack(f);
+  const {dm,player}=views(f);expect(dm.events[0].sourcePosition).toBeDefined();expect(player.events[0].weaponAttack).toBeDefined();expect(player.events[0].sourcePosition).toBeUndefined();
+ });
+ it('does not leak an origin through pending damage offers or animate unrelated manual HP changes',()=>{
+  const f=fixture(true);const hit=attack(f);expect(hit.pending!.weaponFx?.sourcePosition).toBeDefined();
+  const {dm}=views(f);expect(dm.snapshot.rollLog.find(r=>r.id===hit.id)!.pending!.weaponFx).toBeUndefined();
+  applyDamage('monster',f.target.id,3);expect(drainHpFx(f.session.id)[0].weaponAttack).toBeUndefined();
+ });
 });

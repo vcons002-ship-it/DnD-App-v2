@@ -1120,6 +1120,8 @@ export type RollReveal = {
  * refresh, reconnect and server restart without applying a hit twice.
  */
 export type PendingDamage = {
+  /** Server-only cosmetic origin; stripped from outgoing pending offers. */
+  weaponFx?: Pick<HpFxEvent,'weaponAttack'|'sourcePosition'>;
   diceTrigger?:RollReveal['diceTrigger'];
   impact?: HpFxEvent['impact'];
   /** Defended cosmetic components; HP/concentration still resolve once. */
@@ -1962,6 +1964,8 @@ export type JoinAck =
  *  elemental burst on the token — e.g. a flame flash for fire damage. */
 export type HpDamagePart = { amount: number; damageType?: string; spell?: string };
 export type HpFxEvent = {
+  /** Generic physical attack visual, with no weapon identity or combat stats. */
+  weaponAttack?: {kind:'slash'|'blunt'|'thrust'|'arrow'|'bolt'|'stone'|'thrown';critical?:boolean};
   /** Cosmetic shared impact; order identifies separately clicked strikes within a cast. */
   impact?: {id:string;order?:number};
   /** Post-defense parts of this delta, never extra HP applications. */

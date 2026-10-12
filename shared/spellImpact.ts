@@ -1,6 +1,6 @@
 import type {Condition,HpFxEvent} from './types.js';
 
-export type SpellImpactStyle={kind:'shock'|'fireball'|'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
+export type SpellImpactStyle={kind:'weapon-slash'|'weapon-blunt'|'weapon-thrust'|'weapon-arrow'|'weapon-bolt'|'weapon-stone'|'weapon-thrown'|'shock'|'fireball'|'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
 export const LINKED_SPELL_FX=['Dispel Magic','Invisibility','Spike Growth','Counterspell','Shield','Misty Step','Hypnotic Pattern','Pass without Trace','Command','Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
 const colors:Record<string,string>={fire:'#ff702c',cold:'#72cbff',lightning:'#96cfff',thunder:'#b9a7ff',acid:'#b5ed43',poison:'#68d868',necrotic:'#a471df',radiant:'#ffe6a0',force:'#bc9bff',psychic:'#ff79cd'};
 /** Only cosmetic spell identifiers cross the FX channel, never a hidden
@@ -52,6 +52,11 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
   const color=event.delta>0?'#67e596':colors[spellType[name]??event.damageType??'']??(name==='hex'?colors.necrotic:undefined);
   if(!color)return;
   return {kind:'burst',color,radiusFt:/fireball|lightning bolt|cone of cold/.test(name)?22:15,strength:2.6,duration:event.damageType==='lightning'?900:1200};
+}
+
+export function weaponImpactStyle(event:Pick<HpFxEvent,'weaponAttack'|'delta'>):SpellImpactStyle|undefined{
+  const weapon=event.weaponAttack;if(!weapon||event.delta>=0)return;
+  return {kind:`weapon-${weapon.kind}`,color:'#dce6ed',radiusFt:0,strength:0,duration:weapon.critical?1100:950};
 }
 
 /** Active spell provenance, never a bare manual Paralyzed condition. The server
