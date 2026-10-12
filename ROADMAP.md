@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Render visible spell geometry above terrain fog without uncovering the map.
+  Preserve scene depth so foreground figures still occlude particles. Both GPU
+  and fallback sight paths keep hidden targets hidden and reuse the body mask.
+  [Open-space and wall-edge spell recordings](docs/SPELL_FOG_VISIBILITY_2026-10-11.md).
+
 - [x] Prepare held spell geometry, shaders/buffers, bounded lighting clips and
   damage-label payloads during the existing dice reading hold. Keep staged effects
   invisible and reset their animation clock on activation. Skip releases immediately

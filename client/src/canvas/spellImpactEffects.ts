@@ -5,6 +5,9 @@ import type {TorchLight} from './miniatureTorchLighting';
 import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeometry';
 
 export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;startAt?:number;persistent?:boolean;fixed?:boolean};
+// A separate color pass lets visible spell geometry rise above terrain fog
+// without lifting any hidden map pixels or invalidating the cached body mask.
+export const SPELL_IMPACT_LAYER=7;
 type Effect={input:SpellImpact;style:SpellImpactStyle;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
 
 /** Prepare detached geometry during a roll hold; only activation starts its
@@ -61,7 +64,7 @@ export function createSpellImpactEffects(scene:Scene){
     // Darkvision artwork is a transparent ground overlay at order 3. Effects
     // draw afterwards with depth testing intact, so terrain cannot erase the
     // field and a foreground figure still occludes its particles and thorns.
-    root.traverse(node=>{if(node instanceof Mesh)node.renderOrder=5;});
+    root.traverse(node=>{if(node instanceof Mesh){node.renderOrder=5;node.layers.set(SPELL_IMPACT_LAYER);}});
     (target===prepared?preparedScene:scene).add(root);built++;target.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:input.startAt??now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
   }
   function tickEffects(collection:Map<number|string,Effect>,now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
@@ -131,6 +134,15 @@ export function createSpellImpactEffects(scene:Scene){
     tick(now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
       return tickEffects(effects,now,pixelsPerFoot,reduced,position);
     },
+    renderForeground(renderer:WebGLRenderer,camera:Camera){
+      if(![...effects.values()].some(e=>e.root.visible))return;
+      const layers=camera.layers.mask,autoClear=renderer.autoClear,pending=renderer.shadowMap.needsUpdate;
+      try{
+        camera.layers.set(SPELL_IMPACT_LAYER);renderer.autoClear=false;renderer.shadowMap.needsUpdate=false;
+        // Keep the scene's depth: a foreground figure still covers particles.
+        renderer.render(scene,camera);
+      }finally{camera.layers.mask=layers;renderer.autoClear=autoClear;renderer.shadowMap.needsUpdate=pending;}
+    },
     prepare(inputs:readonly SpellImpact[],now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
       const ids=new Set(inputs.map(e=>e.id));
       for(const [id,e] of prepared)if(!ids.has(id)){dispose(e);prepared.delete(id);}
@@ -151,17 +163,17 @@ export function createSpellImpactEffects(scene:Scene){
         warming.add(root);
         void renderer.compileAsync(root,camera,scene).then(()=>{
           if(disposed||prepared.get(e.input.id)!==e)return;
-          const oldTarget=renderer.getRenderTarget(),auto=renderer.autoClear;
+          const oldTarget=renderer.getRenderTarget(),auto=renderer.autoClear,layers=camera.layers.mask;
           const culling=new Map<Mesh,boolean>();
           try{
             root.visible=true;root.traverse(n=>{if(n instanceof Mesh){culling.set(n,n.frustumCulled);n.frustumCulled=false;}});
             // One tiny offscreen pass uploads actual geometry/texture buffers.
             // Other prepared roots remain hidden and never touch the map canvas.
-            renderer.autoClear=true;renderer.setRenderTarget(warmTarget);renderer.render(preparedScene,camera);
+            camera.layers.enable(SPELL_IMPACT_LAYER);renderer.autoClear=true;renderer.setRenderTarget(warmTarget);renderer.render(preparedScene,camera);
             warmed.add(root);gpuWarmCount++;
           }finally{
             root.visible=false;for(const [mesh,value] of culling)mesh.frustumCulled=value;
-            renderer.autoClear=auto;renderer.setRenderTarget(oldTarget);
+            camera.layers.mask=layers;renderer.autoClear=auto;renderer.setRenderTarget(oldTarget);
           }
         }).catch(()=>{/* A skip or unsupported warmup falls back to normal rendering. */});
       }

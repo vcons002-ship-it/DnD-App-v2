@@ -34,7 +34,7 @@ import {measureMistBody,mistBodyInMap,type MistBody} from './miniatureMistBody';
 import { createVanecLightning } from './vanecLightning';
 import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
 import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
-import {createSpellImpactEffects,type SpellImpact} from './spellImpactEffects';
+import {createSpellImpactEffects,SPELL_IMPACT_LAYER,type SpellImpact} from './spellImpactEffects';
 import {createSpellColorOverlay} from './spellColorOverlay';
 import {createLocalLightShadows} from './localLightShadows';
 import {useEnvironmentQuality,recordGraphicsFrame} from '../lib/useEnvironmentQuality';
@@ -232,6 +232,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   key.position.set(-3, 8, 5);
   scene.add(key);
   ambient.layers.enable(4);key.layers.enable(4);
+  ambient.layers.enable(SPELL_IMPACT_LAYER);key.layers.enable(SPELL_IMPACT_LAYER);
   // A small neutral environment keeps metal readable without per-token lights/shadows.
   let pmrem: PMREMGenerator | null = null;
   let room: RoomEnvironment | null = null;
@@ -557,7 +558,14 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
         battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
+        const sightFrame=props.visionCoverFrame?.();
+        // Keep the existing path until the remembered-art texture is ready;
+        // this also covers daylight boards without an environment renderer.
+        const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
+        const deferSpells=!!props.personalVision&&(!useComposite||!!sightFrame?.enabled);
+        if(deferSpells)camera.layers.disable(SPELL_IMPACT_LAYER);else camera.layers.enable(SPELL_IMPACT_LAYER);
         renderer.render(scene, camera);
+        camera.layers.enable(SPELL_IMPACT_LAYER);
         host.dataset.colorDrawCalls=String(renderer.info.render.calls);
         host.dataset.colorTriangles=String(renderer.info.render.triangles);
         host.dataset.loadedModelUrls=JSON.stringify([...instances.values()].map(i=>i.url).sort());
@@ -581,14 +589,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
         archArtStudy?.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
-        const sightFrame=props.visionCoverFrame?.();
-        // Keep the existing path until the remembered-art texture is ready;
-        // this also covers daylight boards without an environment renderer.
-        const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
         if(props.personalVision&&!useComposite)visionLift??=createMiniatureVisionLift(renderer,host,outlineMask.texture);
         timing?.end();visionTiming?.begin();
-        visionLift?.render(!!props.personalVision&&!useComposite);
+        visionLift?.render(!!props.personalVision&&!useComposite,()=>spellImpacts.renderForeground(renderer,camera));
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
+        if(deferSpells&&useComposite)spellImpacts.renderForeground(renderer,camera);
+        host.dataset.spellFogPass=deferSpells?(useComposite?'foreground':'legacy-lift'):'scene';
         visionTiming?.end();
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=visible.has(id);}
         host.dataset.lastRenderedPixelRatio=String(renderer.getPixelRatio());

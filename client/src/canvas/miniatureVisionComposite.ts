@@ -133,7 +133,10 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       }else composite.uniforms.hasMemory.value=0;
       renderer.copyFramebufferToTexture(frame);
       composite.uniforms.cover.value=cover.texture;
-      renderer.render(quadScene,quadCamera);
+      // Preserve model depth for the visible spell color pass after terrain fog.
+      const autoClear=renderer.autoClear;
+      try{renderer.autoClear=false;renderer.render(quadScene,quadCamera);}
+      finally{renderer.autoClear=autoClear;}
     },
     dispose(){host.style.zIndex=originalZ;for(const [id,e] of entries){e.mesh.geometry.dispose();if(id.startsWith('light:'))(e.mesh.material as ShaderMaterial).dispose();}entries.clear();white.dispose();remembered.dispose();rangedMemory.dispose();rangeStencil.dispose();stencil.dispose();lamp.dispose();cover.dispose();frame?.dispose();memory?.dispose();composite.dispose();quadGeometry.dispose();},
   };
