@@ -26,6 +26,10 @@ export function createLinkedSpellGeometry(){
   geometries.push(dagger,auraArc);
   const shell=new SphereGeometry(.55,18,12,0,Math.PI*2,0,Math.PI/2),ring=new TorusGeometry(.48,.014,5,40),wisp=new TorusGeometry(.38,.025,5,26,Math.PI*1.25);
   geometries.push(shell,ring,wisp);
+  const shockPath=new CurvePath<Vector3>();
+  const shockPoints=[new Vector3(.10,.18,0),new Vector3(-.07,.015,0),new Vector3(.035,.015,0),new Vector3(-.10,-.18,0)];
+  for(let i=1;i<shockPoints.length;i++)shockPath.add(new LineCurve3(shockPoints[i-1],shockPoints[i]));
+  const shockGlyph=new TubeGeometry(shockPath,8,.018,5,false);geometries.push(shockGlyph);
   const chainLinks:BufferGeometry[]=[],placement=new Mesh(link);
   const place=()=>{placement.updateMatrix();chainLinks.push(link.clone().applyMatrix4(placement.matrix));};
   for(let row=0;row<3;row++)for(let i=0;i<12;i++){
@@ -41,7 +45,11 @@ export function createLinkedSpellGeometry(){
     if(['shimmer','counter','dispel','thorns'].includes(style.kind))return advanced.build(style,body,bright,white);
     const root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
     const add=(geometry:BufferGeometry,material=bright)=>{const m=new Mesh(geometry,material);root.add(m);parts.push(m);return m;};
-    if(style.kind==='shield'){
+    if(style.kind==='shock'){
+      const glyph=add(shockGlyph);glyph.position.y=1.48;glyph.name='shocking-grasp-active';
+      const rim=add(ring,body);rim.position.y=1.48;rim.scale.setScalar(.48);rim.name='shocking-grasp-status-rim';
+      for(let i=0;i<2;i++){const arc=add(auraArc);arc.userData.index=i;arc.scale.setScalar(.58);}
+    }else if(style.kind==='shield'){
       const surface=body.clone();materials.push(surface);surface.opacity=.12;surface.userData.opacityScale=.15;
       const dome=add(shell,surface);dome.position.y=.46;dome.scale.y=1.5;
       for(let i=0;i<3;i++){const m=add(auraArc);m.userData.index=i;}
@@ -84,6 +92,10 @@ export function createLinkedSpellGeometry(){
       }
     }
     return {root,parts,materials,update(t:number,persistent:boolean,reduced:boolean,areaScale:number,_source?:Vector3){
+      if(style.kind==='shock'){
+        parts.slice(2).forEach((m,i)=>{m.position.y=.45+i*.27;m.rotation.set(Math.PI/2,0,i*2.3+(reduced?0:t*(i?-.9:.7)));m.visible=reduced||Math.sin(t*3+i*2)>.35;});
+        return;
+      }
       if(style.kind==='shield'){
         parts.slice(1).forEach((m,i)=>{m.position.y=.38+i*.28;m.rotation.set(Math.PI/2,i*.35,i*2.1+(reduced?0:t*.4));m.scale.setScalar(.95-i*.13);});return;
       }

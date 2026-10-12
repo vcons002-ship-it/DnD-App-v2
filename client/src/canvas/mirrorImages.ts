@@ -52,5 +52,9 @@ export function createMirrorImages(model:Group,root:Group,renderer:WebGLRenderer
       key=captureKey;
     } finally {renderer.setRenderTarget(oldTarget);renderer.setClearColor(oldColor,oldAlpha);renderer.shadowMap.enabled=oldShadow;target.dispose();}
   }
-  return {update,setVisibilityPass(enabled:boolean){copies.forEach(s=>{s.material=enabled?visibilityMaterial:material;});},dispose(){ghosts.removeFromParent();texture?.dispose();material.dispose();visibilityMaterial.dispose();}};
+  return {update,setVisibilityPass(enabled:boolean,bodySlot=255){
+    // Duplicate silhouettes use their caster's base lighting, just as the figure.
+    if(enabled)visibilityMaterial.color.b=bodySlot/255;
+    copies.forEach(s=>{s.material=enabled?visibilityMaterial:material;});
+  },dispose(){ghosts.removeFromParent();texture?.dispose();material.dispose();visibilityMaterial.dispose();}};
 }

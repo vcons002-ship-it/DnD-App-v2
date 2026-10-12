@@ -7,14 +7,15 @@ import {
  * in its red channel. Shared awareness has its own depth-correct overlay. */
 export function createMiniatureVisibilityMaterial() {
   const material = new ShaderMaterial({
-    uniforms: { personal: { value: 1 }, outlineId: {value: 0} },
-    vertexShader: 'uniform float outlineId; varying float outlineIndex;\n#ifdef USE_INSTANCING\nattribute float instanceOutline;\n#endif\n' + ShaderLib.basic.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\noutlineIndex=outlineId;\n#ifdef USE_INSTANCING\noutlineIndex=instanceOutline;\n#endif'),
-    fragmentShader: 'uniform float personal; varying float outlineIndex; void main(){gl_FragColor=vec4(personal,outlineIndex/255.,1.,1.);}',
+    uniforms: { personal: { value: 1 }, outlineId: {value: 0},bodySlot:{value:0} },
+    vertexShader: 'uniform float outlineId,bodySlot; varying float outlineIndex,gradeIndex;\n#ifdef USE_INSTANCING\nattribute float instanceOutline,instanceBodySlot;\n#endif\n' + ShaderLib.basic.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\noutlineIndex=outlineId;gradeIndex=bodySlot;\n#ifdef USE_INSTANCING\noutlineIndex=instanceOutline;gradeIndex=instanceBodySlot;\n#endif'),
+    fragmentShader: 'uniform float personal; varying float outlineIndex,gradeIndex; void main(){gl_FragColor=vec4(personal,outlineIndex/255.,gradeIndex/255.,1.);}',
     toneMapped: false,
   });
   material.onBeforeRender = (_renderer, _scene, _camera, _geometry, object) => {
     material.uniforms.personal.value = object.layers.isEnabled(4) ? 0 : 1;
     material.uniforms.outlineId.value = object.userData.outlineId ?? 0;
+    material.uniforms.bodySlot.value = object.userData.bodySlot ?? 0;
     material.uniformsNeedUpdate = true;
   };
   return material;

@@ -26,9 +26,12 @@ describe('spell impact identity and lighting',()=>{
    expect(spellImpactStyle({spell:'Call Lightning',damageType:'lightning',delta:-10})).toMatchObject({kind:'bolts',color:'#96cfff'});
    expect(spellImpactStyle({spell:'Ice Storm',delta:-10})?.kind).toBe('storm');
  });
- it('keeps Shocking Grasp transient while its reaction restriction remains a mechanical condition',()=>{
+ it('keeps a Shocking Grasp status marker only while its opportunity attack restriction remains active',()=>{
+  expect(persistentSpellVisual({id:'grasp',label:'No Opportunity Attacks',aura:'red',isConcentration:false,
+    combatEffect:{spell:'Shocking Grasp',casterKind:'pc',casterId:'mage',noOpportunityAttacks:true}})).toBe('Shocking Grasp');
   expect(persistentSpellVisual({id:'grasp',label:'No Opportunity Attacks',aura:'red',isConcentration:false,
     combatEffect:{spell:'Shocking Grasp',casterKind:'pc',casterId:'mage'}})).toBeUndefined();
+  expect(spellImpactStyle({spell:'Shocking Grasp',delta:0})?.kind).toBe('shock');
   expect(spellImpactStyle({spell:'Shocking Grasp',delta:-8,damageType:'lightning'})?.kind).toBe('burst');
  });
  it('Vampiric Touch keeps its red caster aura/healing while Chill Touch retains its own necrotic effect',()=>{

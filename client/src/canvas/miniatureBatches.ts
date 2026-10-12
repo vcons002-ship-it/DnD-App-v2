@@ -6,7 +6,7 @@ type Member={mesh:Mesh;material:MeshBasicMaterial|MeshStandardMaterial;lighting:
 type Bucket={mesh:InstancedMesh;capacity:number;lighting:ReturnType<typeof createMiniatureBatchLighting>|ReturnType<typeof createMiniatureSharedLighting>;members:Mesh[];layers:number};
 
 /** Color and directional shadows use the visible instances. Local point-light
- * shadows use independent proxies; source meshes on layer 7 are never relied on. */
+ * shadows use independent proxies; suppressed sources have no rendering layers. */
 export function createMiniatureBatches(scene:Scene){
   const buckets=new Map<string,Bucket>(),suppressed=new Map<Mesh,number>();
   const meshes=new WeakMap<Group,Mesh[]>();
@@ -44,13 +44,15 @@ export function createMiniatureBatches(scene:Scene){
           // Per-instance affinity IDs share the body-mask pass, not color lighting.
           const geometry=first.mesh.geometry.clone();
           geometry.setAttribute('instanceOutline',new InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(DynamicDrawUsage));
+          geometry.setAttribute('instanceBodySlot',new InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(DynamicDrawUsage));
           geometry.setAttribute('instanceTorchRow',new InstancedBufferAttribute(Float32Array.from({length:capacity},(_,i)=>i),1));
           geometry.setAttribute('instanceGroundPoint',new InstancedBufferAttribute(new Float32Array(capacity*2),2).setUsage(DynamicDrawUsage));
           const mesh=new InstancedMesh(geometry,material,capacity);mesh.name='batched-miniatures';
           mesh.instanceMatrix.setUsage(DynamicDrawUsage);mesh.layers.mask=first.layers;mesh.receiveShadow=first.mesh.receiveShadow;mesh.castShadow=first.mesh.castShadow;mesh.renderOrder=first.mesh.renderOrder;
           bucket={mesh,capacity,lighting,members:[],layers:first.layers};buckets.set(key,bucket);scene.add(mesh);
         }
-        let matrixChanged=bucket.mesh.count!==members.length,colorChanged=false,outlineChanged=false,groundChanged=false;
+        let matrixChanged=bucket.mesh.count!==members.length,colorChanged=false,outlineChanged=false,groundChanged=false,slotChanged=false;
+        const bodySlots=bucket.mesh.geometry.getAttribute('instanceBodySlot') as InstancedBufferAttribute;
         const outlines=bucket.mesh.geometry.getAttribute('instanceOutline') as InstancedBufferAttribute;
         const groundPoints=bucket.mesh.geometry.getAttribute('instanceGroundPoint') as InstancedBufferAttribute;
         bucket.mesh.count=members.length;
@@ -62,6 +64,8 @@ export function createMiniatureBatches(scene:Scene){
           const gx=Math.fround(ground?.x??0),gy=Math.fround(ground?.y??0);
           if(groundPoints.getX(i)!==gx||groundPoints.getY(i)!==gy){groundPoints.setXY(i,gx,gy);groundChanged=true;}
           const outlineId=member.mesh.userData.outlineId??0;
+          const bodySlot=member.mesh.userData.bodySlot??0;
+          if(bodySlots.getX(i)!==bodySlot){bodySlots.setX(i,bodySlot);slotChanged=true;}
           if(outlines.getX(i)!==outlineId){outlines.setX(i,outlineId);outlineChanged=true;}
           // Compare in the GPU buffer's Float32 precision. A fixed absolute
           // epsilon treated stationary fractional map positions as movement,
@@ -71,11 +75,14 @@ export function createMiniatureBatches(scene:Scene){
           }
           const colors=bucket.mesh.instanceColor?.array,color=member.material.color;
           if(!colors||Math.abs(colors[i*3]-color.r)>1e-6||Math.abs(colors[i*3+1]-color.g)>1e-6||Math.abs(colors[i*3+2]-color.b)>1e-6){bucket.mesh.setColorAt(i,color);colorChanged=true;}
-          suppressed.set(member.mesh,member.layers);member.mesh.layers.set(7);
+          // No pass may draw these source meshes a second time. In particular,
+          // the spell foreground pass owns layer 7 and runs above terrain fog.
+          suppressed.set(member.mesh,member.layers);member.mesh.layers.mask=0;
         }
         bucket.members=members.map(m=>m.mesh);
         if(matrixChanged){bucket.mesh.instanceMatrix.needsUpdate=true;bucket.mesh.computeBoundingSphere();}
         if(outlineChanged)outlines.needsUpdate=true;
+        if(slotChanged)bodySlots.needsUpdate=true;
         if(groundChanged)groundPoints.needsUpdate=true;
         if(colorChanged&&bucket.mesh.instanceColor)bucket.mesh.instanceColor.needsUpdate=true;
         bucket.lighting.flush();

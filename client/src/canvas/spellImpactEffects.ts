@@ -60,7 +60,7 @@ export function createSpellImpactEffects(scene:Scene){
       bolt=new Mesh(new TubeGeometry(path,30,.023,5,false),bright);bolt.userData.path=path;root.add(bolt);
     }
     // Drifting points help carry the impact and the mark without emoji glyphs.
-    for(let i=0;i<(['fireball','shimmer','counter','dispel','thorns','haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
+    for(let i=0;i<(['shock','fireball','shimmer','counter','dispel','thorns','haunt','aura','shield','mist','pattern','veil','command'].includes(style.kind)?0:style.kind==='burst'?10:7);i++){
       const point=new Mesh(spark,bright);point.userData={angle:i*2.399963,seed:(i%4)/4};root.add(point);sparks.push(point);
     }
     const color=new Color(style.color);
@@ -137,6 +137,12 @@ export function createSpellImpactEffects(scene:Scene){
     },
     tick(now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
       return tickEffects(effects,now,pixelsPerFoot,reduced,position);
+    },
+    faceCamera(camera:Camera){
+      // Only the active-status glyph faces the viewer, never the body crackle.
+      for(const e of effects.values())if(e.style.kind==='shock')for(const m of e.shape.parts.slice(0,2)){
+        m.quaternion.copy(camera.quaternion);m.updateMatrixWorld();
+      }
     },
     renderForeground(renderer:WebGLRenderer,camera:Camera){
       if(![...effects.values()].some(e=>e.root.visible))return;
