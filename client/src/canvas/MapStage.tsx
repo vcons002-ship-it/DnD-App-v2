@@ -412,6 +412,7 @@ export function MapStage({
   const miniatureCatalogRevision = useMiniatureCatalog();
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
+  const spellAreaLayerRef = useRef<Konva.Layer|null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const groundTokenLayerRef = useRef<Konva.Layer>(null);
   const tokenLayerRef = useRef<Konva.Layer>(null);
@@ -1289,7 +1290,7 @@ export function MapStage({
 
   const readMiniatureNames=useMemo(()=>createMiniatureNameReader(),[]);
   const mapSpellEvent=(event:typeof hpFx[number]):SpellImpact[]=>{
-    if(!spellImpactStyle(event))return [];
+    if(event.suppressSpellVisual||!spellImpactStyle(event))return [];
     if(event.areaPosition){const p=event.areaPosition;if(p.mapId!==snapshot.map?.id)return [];return [{id:event.id,event,startAt:event.numberStartAt,tokenId:`area:${event.id}`,x:p.x,y:p.y,diameter:event.spell==='Dispel Magic'?Math.min(12,p.radiusFt*2)*pxPerFoot:p.radiusFt*2*pxPerFoot,fixed:true}];}
     const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
     if(!token)return [];
@@ -1336,7 +1337,7 @@ export function MapStage({
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const canvases = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current]
+    const canvases = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]
       .filter((layer): layer is Konva.Layer => !!layer)
       .map(layer => installPerspectiveCanvas(layer, size.w, size.h, tiltDegrees, rotationDegrees));
     projectionCanvases.current=canvases;
@@ -1900,7 +1901,7 @@ export function MapStage({
   const handleLayerDragMove = (e: KonvaEventObject<DragEvent>) => {
     if (e.target.getClassName() !== 'Layer') return;
     const position = { x: e.target.x(), y: e.target.y() };
-    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current]) {
+    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
       if (layer) { layer.position(position); layer.draw(); }
     }
     miniatureRef.current?.setView({ ...view, ...position });
@@ -1942,7 +1943,7 @@ export function MapStage({
     const previous=projectionState.current;
     projectionState.current={tilt,rotation};
     for(const canvas of projectionCanvases.current)canvas.update(tilt,rotation);
-    for(const layer of [layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current]){
+    for(const layer of [layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current,spellAreaLayerRef.current]){
       if(!layer)continue;
       if(previous.tilt!==tilt){layer.position({x:nextView.x,y:nextView.y});layer.scale({x:nextView.scale,y:nextView.scale*groundYScale(tilt)});}
       const labels=layer.find('.token-upright-hud');
@@ -2542,8 +2543,6 @@ export function MapStage({
               {renderTokens(true)}
               {/* Shared measuring shapes (persisted) + the live drag preview. */}
               {teleportCast&&teleportActor&&map&&<Group listening={false}><Circle x={teleportActor.x} y={teleportActor.y} radius={30*map.gridSizePx/map.feetPerSquare} stroke="#b39bff" strokeWidth={2/view.scale} dash={[8/view.scale,6/view.scale]}/>{teleportPoint&&<Circle x={teleportPoint.x} y={teleportPoint.y} radius={teleportActor.widthFt*map.gridSizePx/map.feetPerSquare/2} fill="#ae8fff55" stroke={teleportError?'#ef6464':'#d1c0ff'} strokeWidth={2/view.scale}/>}</Group>}
-              {map&&<SharedSpellAreas mapId={map.id} hideId={areaCast?areaSocketId:undefined} scale={view.scale} pxPerFoot={map.gridSizePx/map.feetPerSquare}/>}
-              {areaCast&&areaActor&&map&&<SpellAreaShapes scale={view.scale} spec={areaCast.spec} placement={areaPreview} caster={areaActor} pxPerFoot={map.gridSizePx/map.feetPerSquare} targets={areaTargets.filter(t=>!areaExcluded.includes(t.id))}/>}
               {snapshot.measurements.map((m) => {
                 // An emanation re-centres on its token's live position each frame.
                 let origin = m.origin;
@@ -2726,6 +2725,13 @@ export function MapStage({
             <Layer ref={sharedTokenLayerRef} name="shared-sight-layer" listening={false}
               x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale * groundScaleY}>
               {renderTokens(false, true)}{renderTokens(true, true)}
+            </Layer>
+            <Layer name="spell-area-overlay" listening={false}
+              x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale * groundScaleY}
+              // Targeting is a UI overlay, never a source of terrain visibility.
+              ref={layer=>{spellAreaLayerRef.current=layer;if(layer){const c=layer.getNativeCanvasElement();c.style.zIndex='6';c.style.pointerEvents='none';c.dataset.testid='spell-area-canvas';}}}>
+              {map&&<SharedSpellAreas mapId={map.id} hideId={areaCast?areaSocketId:undefined} scale={view.scale} pxPerFoot={map.gridSizePx/map.feetPerSquare}/>}
+              {areaCast&&areaActor&&map&&<SpellAreaShapes spellName={areaCast.name} scale={view.scale} spec={areaCast.spec} placement={areaPreview} caster={areaActor} pxPerFoot={map.gridSizePx/map.feetPerSquare} previewState="aiming" targets={areaTargets.filter(t=>!areaExcluded.includes(t.id))}/>}
             </Layer>
             <Layer name="hp-number-layer" listening={false} ref={layer=>{
               if(!layer)return;const canvas=layer.getNativeCanvasElement();
@@ -3019,5 +3025,10 @@ export function MapStage({
  *  Subscribed here so those packets re-render only this layer, not the map. */
 const SharedSpellAreas = memo(function SharedSpellAreas({mapId,hideId,scale,pxPerFoot}:{mapId:string;hideId:string|undefined;scale:number;pxPerFoot:number}) {
   const previews=useStore(s=>s.spellAreaPreviews);
-  return <>{Object.values(previews).filter(p=>p.area.mapId===mapId&&p.id!==hideId).map(p=><SpellAreaShapes key={p.id} previewState={p.resolving?'resolving':'aiming'} scale={scale} spec={p.spec} placement={p.area} caster={p.caster} pxPerFoot={pxPerFoot} targets={[]}/>)}</>;
+  const busy=useStore(s=>!!s.liveDice||!!s.rollFx&&!s.rollFx.impactReady);
+  const [resolving,setResolving]=useState<typeof previews>({});
+  useEffect(()=>{setResolving(old=>({...old,...Object.fromEntries(Object.entries(previews).filter(([,p])=>p.resolving&&p.area.mapId===mapId))}));},[previews,mapId]);
+  useEffect(()=>{if(busy)return;const timer=setTimeout(()=>setResolving(old=>Object.fromEntries(Object.entries(old).filter(([id])=>!!previews[id]))),2400);return()=>clearTimeout(timer);},[busy,previews]);
+  useEffect(()=>setResolving({}),[mapId]);
+  return <>{Object.values({...resolving,...previews}).filter(p=>p.area.mapId===mapId&&p.id!==hideId).map(p=><SpellAreaShapes key={p.id} spellName={p.name} previewState={p.resolving?'resolving':'aiming'} scale={scale} spec={p.spec} placement={p.area} caster={p.caster} pxPerFoot={pxPerFoot} targets={[]}/>)}</>;
 });

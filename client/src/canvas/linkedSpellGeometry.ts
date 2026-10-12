@@ -1,4 +1,5 @@
 import {createAdvancedSpellGeometry} from './advancedSpellGeometry';
+import {createFireballGeometry} from './fireballGeometry';
 import {BoxGeometry,ConeGeometry,CurvePath,LineCurve3,TubeGeometry,Group,Mesh,MeshBasicMaterial,SphereGeometry,TorusGeometry,Vector3,type BufferGeometry} from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import type {SpellImpactStyle} from '../../../shared/spellImpact';
@@ -15,6 +16,7 @@ export function lightningStrikePath(){
  * instance; the spell only chooses its shape and motion, never a new art style. */
 export function createLinkedSpellGeometry(){
   const advanced=createAdvancedSpellGeometry();
+  const fireball=createFireballGeometry();
   const link=new TorusGeometry(.047,.009,4,9),crystal=new ConeGeometry(.09,.4,5),
     drop=new SphereGeometry(.075,7,5),blade=new BoxGeometry(.075,.85,.025),guard=new BoxGeometry(.36,.055,.045);
   const geometries:BufferGeometry[]=[link,crystal,drop,blade,guard];
@@ -35,6 +37,7 @@ export function createLinkedSpellGeometry(){
   }
   const chains=mergeGeometries(chainLinks)!;chainLinks.forEach(g=>g.dispose());geometries.push(chains);
   function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,white=bright){
+    if(style.kind==='fireball')return fireball.build(style,body,bright,white);
     if(['shimmer','counter','dispel','thorns'].includes(style.kind))return advanced.build(style,body,bright,white);
     const root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
     const add=(geometry:BufferGeometry,material=bright)=>{const m=new Mesh(geometry,material);root.add(m);parts.push(m);return m;};
@@ -80,7 +83,7 @@ export function createLinkedSpellGeometry(){
         if(['poison','drain'].includes(style.kind))m.scale.set(1.3,2.6,1.3);
       }
     }
-    return {root,parts,materials,update(t:number,persistent:boolean,reduced:boolean,areaScale:number){
+    return {root,parts,materials,update(t:number,persistent:boolean,reduced:boolean,areaScale:number,_source?:Vector3){
       if(style.kind==='shield'){
         parts.slice(1).forEach((m,i)=>{m.position.y=.38+i*.28;m.rotation.set(Math.PI/2,i*.35,i*2.1+(reduced?0:t*.4));m.scale.setScalar(.95-i*.13);});return;
       }
@@ -103,9 +106,9 @@ export function createLinkedSpellGeometry(){
         });return;
       }
       if(style.kind==='bolts'){
-        parts.forEach((m,i)=>{const angle=i*2.399963,r=i===0?0:Math.sqrt(i/13)*.46*(areaScale||2);
+        parts.forEach((m,i)=>{const angle=i*2.399963,r=i===0?0:Math.sqrt(i/13)*.41*(areaScale||1);
           m.position.set(Math.cos(angle)*r,0,Math.sin(angle)*r);m.rotation.y=angle;
-          m.scale.setScalar(.85+(i%3)*.09);
+          m.scale.set(.28,.85+(i%3)*.09,.28);
           m.visible=reduced||t>=(i%4)*.035&&((t+(i%3)*.08)% .26)<.20;
         });return;
       }
@@ -143,5 +146,5 @@ export function createLinkedSpellGeometry(){
       });
     }};
   }
-  return {build,dispose(){advanced.dispose();geometries.forEach(g=>g.dispose());}};
+  return {build,dispose(){advanced.dispose();fireball.dispose();geometries.forEach(g=>g.dispose());}};
 }

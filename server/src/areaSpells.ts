@@ -7,7 +7,7 @@ import type {Character,Monster,SheetAbility,TokenKind} from '../../shared/types.
 import {tokenDistanceFt} from '../../shared/distance.js';
 import {hasLineOfSight} from '../../shared/mapWalls.js';
 import {withDiceSource,usingPhysicalDice} from '../../shared/dice.js';
-import {getMap,getCharacter,getMonster,getSessionById,listTokens,listRollLog,setRollApply,setRollReveal,isDeadEntity,addMeasurement,addRollLog} from './sessions.js';
+import {getMap,getCharacter,getMonster,getSessionById,listTokens,listRollLog,setRollApply,setRollReveal,isDeadEntity,addMeasurement,addRollLog,beginPlacedSpellImpact} from './sessions.js';
 import {resolveForcedSave,areaSaveRequest} from './combat.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 
@@ -47,6 +47,7 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
  if(spec.maxTargets&&targets.length>spec.maxTargets)return false;
  if(advancedSpell(a)==='spike growth')return castSpikeGrowth(sid,roller,kind,caster.id,a,p,level??2);
  const before=new Set(listRollLog(sid).map(r=>r.id));
+ const areaImpact=['Fireball','Call Lightning'].includes(a.name)?beginPlacedSpellImpact(sid,kind,caster.id,a.name):undefined;
  if(!cast(!!spec.ongoing&&!spec.initialEffect))return false;
  const entries=listRollLog(sid).filter(r=>!before.has(r.id)),source=[...entries].reverse().find(r=>r.apply);
  const automated=!!source?.apply&&(!spec.ongoing||spec.initialEffect);
@@ -63,6 +64,7 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
    });
    setRollApply(source.id,undefined);
    if(source.reveal&&!source.reveal.damageMods?.length)setRollReveal(source.id,{...source.reveal,presentedLive:usingPhysicalDice()});
+   if(areaImpact)for(const point of p.points)areaImpact(source.id,{mapId:map.id,...point,radiusFt:spec.sizeFt},{mapId:map.id,x:actor.x,y:actor.y});
  }
  if(!automated||spec.ongoing){
    // An area is useful for utility/ongoing spells too; do not invent an

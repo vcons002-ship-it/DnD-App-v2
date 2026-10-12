@@ -3,6 +3,16 @@ import {prepareHpFeedback,hpNumbers,hpNumberStacks,hpNumberSequence,hpTotalTimel
 import {createSession,createCharacter,applyDamage,drainHpFx,getCharacter,setTempHp} from './sessions.js';
 
 describe('typed floating damage feedback',()=>{
+ it('starts one Fireball projectile immediately and synchronizes every victim at its arrival',()=>{
+  const events=[{id:1,kind:'monster' as const,refId:'a',delta:-20,spell:'Fireball',impact:{id:'cast'}},
+   {id:2,kind:'monster' as const,refId:'b',delta:-10,spell:'Fireball',impact:{id:'cast'}},
+   {id:3,kind:'pc' as const,refId:'caster',delta:0,spell:'Fireball',impact:{id:'cast'},areaPosition:{mapId:'map',x:10,y:20,radiusFt:20}}];
+  const scheduled=scheduleHpFeedback(events,1000).events;
+  expect(scheduled.map(e=>e.numberStartAt)).toEqual([1600,1600,1000]);
+  // Private DM roll IDs are removed before transmission; the visual timing
+  // must still agree without exposing that correlation ID.
+  expect(scheduleHpFeedback(events.map(e=>({...e,impact:undefined,suppressSpellVisual:!e.areaPosition})),1000).events.map(e=>e.numberStartAt)).toEqual([1600,1600,1000]);
+ });
  it('shows one red total per victim for a combined weapon, mark and thorns impact',()=>{
   const events=[{id:1,kind:'monster' as const,refId:'g',rollId:'hit',delta:-13,damageParts:[{amount:9,damageType:'piercing'},{amount:4,damageType:'force',spell:"Hunter's Mark"}]},
     {id:2,kind:'monster' as const,refId:'g',rollId:'hit',delta:-7,damageParts:[{amount:7,damageType:'piercing',spell:'Hail of Thorns'}]},

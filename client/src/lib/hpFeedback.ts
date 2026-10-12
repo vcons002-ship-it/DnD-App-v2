@@ -1,3 +1,4 @@
+import {FIREBALL_FLIGHT_MS} from '../../../shared/spellImpact.js';
 import type {HpFxEvent} from '../../../shared/types.js';
 
 export const HP_NUMBER_HOLD_MS = 2400;
@@ -111,7 +112,8 @@ export function scheduleHpFeedback<T extends ScheduledHpEvent>(events:T[],now:nu
   const scheduled=new Map<number,T&{numberStartAt:number;componentStarts:number[]}>();
   for(const [id,batch] of batches){
     const plan=plans.get(id)??new Map<string,number>();
-    const base=plan.size?Math.min(...plan.values()):Math.max(now,...batch.map(e=>available.get(`${e.kind}:${e.refId}`)??now));
+    const travel=batch.some(e=>e.spell==='Fireball'&&(e.areaPosition||e.suppressSpellVisual))?FIREBALL_FLIGHT_MS:0;
+    const base=plan.size?Math.min(...plan.values()):Math.max(now+travel,...batch.map(e=>available.get(`${e.kind}:${e.refId}`)??now));
     // Later manual AoE applications must not reuse a beat that already played.
     // Keep past individual strike beats intact for cumulative click ordering.
     for(const event of batch)for(const part of hpNumbers(event)){
@@ -128,7 +130,7 @@ export function scheduleHpFeedback<T extends ScheduledHpEvent>(events:T[],now:nu
       const componentStarts=hpNumbers(event).map(n=>plan.get(beatKey(event,n))!);
       // Area-only geometry uses the same beat as its colored damage components.
       const matching=[...plan].find(([key])=>event.spell&&key.toLowerCase().includes(event.spell.toLowerCase()));
-      scheduled.set(event.id,{...event,numberStartAt:componentStarts[0]??matching?.[1]??base,componentStarts});
+      scheduled.set(event.id,{...event,numberStartAt:(componentStarts[0]??matching?.[1]??base)-(event.areaPosition&&event.spell==='Fireball'?travel:0),componentStarts});
     }
     plans.set(id,plan);
     for(const group of hpNumberStacks(batch.map(e=>scheduled.get(e.id)!)))available.set(`${group.event.kind}:${group.event.refId}`,hpStackEnd(group)+HP_NUMBER_GAP_MS);

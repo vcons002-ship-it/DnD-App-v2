@@ -1,6 +1,6 @@
 import type {Condition,HpFxEvent} from './types.js';
 
-export type SpellImpactStyle={kind:'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
+export type SpellImpactStyle={kind:'fireball'|'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
 export const LINKED_SPELL_FX=['Dispel Magic','Invisibility','Spike Growth','Counterspell','Shield','Misty Step','Hypnotic Pattern','Pass without Trace','Command','Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
 const colors:Record<string,string>={fire:'#ff702c',cold:'#72cbff',lightning:'#96cfff',thunder:'#b9a7ff',acid:'#b5ed43',poison:'#68d868',necrotic:'#a471df',radiant:'#ffe6a0',force:'#bc9bff',psychic:'#ff79cd'};
 /** Only cosmetic spell identifiers cross the FX channel, never a hidden
@@ -36,6 +36,7 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
   };
   if(name==='spike growth'&&event.effect==='spell-area')return {kind:'thorns',color:'#9ce76a',radiusFt:7,strength:.18,duration:1700};
   if(partyStyles[name])return partyStyles[name];
+  if(name==='fireball')return {kind:'fireball',color:'#ff702c',radiusFt:22,strength:2.6,duration:2100};
   const form=forms[name];
   if(form)return {kind:form[0],color:name==='vampiric touch'?'#d62c46':event.delta>0?'#67e596':name==='phantasmal killer'?'#b4a4ef':colors[form[1]],radiusFt:/storm|strike|call lightning/.test(name)?22:12,strength:2.1,duration:form[0]==='burst'?1000:form[0]==='aura'?2100:1700};
   if(/ensnaring strike|entangl(?:e|ing|ed)?(?: strike)?/.test(name))return {kind:'vines',color:'#74d95c',radiusFt:9,strength:1.5,duration:1650};
@@ -62,7 +63,7 @@ export function persistentSpellVisual(condition:Condition):string|undefined{
   if(name==='Pass without Trace')return fx.stealthBonus===10?name:undefined;
   if(name==='Command')return name;
   if(fx.spellAction&&!['Flame Blade','Vampiric Touch'].includes(name))return;
-  if(['Hypnotic Pattern','Shield','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal',"Melf's Acid Arrow",'Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp','Flame Blade','Vampiric Touch','Ensnaring Strike','Entangle'].includes(name))return name;
+  if(['Hypnotic Pattern','Shield','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal',"Melf's Acid Arrow",'Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Flame Blade','Vampiric Touch','Ensnaring Strike','Entangle'].includes(name))return name;
 }
 
 /** A quick rise, readable crest, then smooth decay. No rapid strobe. */
@@ -76,6 +77,8 @@ export function spellLightEnvelope(age:number,duration:number){
 
 /** The visible glow and the light it emits share this envelope. Elemental
  * impacts flare quickly; arrows and vines stay luminous as their forms move. */
+export const FIREBALL_FLIGHT_MS=600;
 export function spellEmissionEnvelope(age:number,style:SpellImpactStyle){
+  if(style.kind==='fireball')return age<FIREBALL_FLIGHT_MS?Math.min(1,Math.max(0,age/90))*.42:spellLightEnvelope(age-FIREBALL_FLIGHT_MS,style.duration-FIREBALL_FLIGHT_MS);
   return spellLightEnvelope(age,style.kind==='burst'?Math.min(550,style.duration):style.duration);
 }

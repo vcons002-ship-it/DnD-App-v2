@@ -6,7 +6,7 @@ import { broadcastSnapshots, dropConn, setConn, type IOServer } from './connecti
 import {
   addRollLog, applyDamage, createCharacter, createMap, createMonsterTemplate, createSession,
   createToken, drainHpFx, getMonster, instantiateMonster, listRollLog,
-  setActiveMap, setFogLayer, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,
+  setActiveMap, setFogLayer, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,beginPlacedSpellImpact,
 } from './sessions.js';
 
 const sockets: string[] = [];
@@ -198,6 +198,15 @@ describe('exact attack damage-to-reveal correlation', () => {
     const {player,dm}=views(f);
     expect(player.events).toEqual([]);
     expect(dm.events).toEqual([{kind:'monster',refId:f.target.id,delta:0,spell:"Hunter's Mark"}]);
+  });
+  it('a visible area impact cannot expose the projectile origin of a hidden caster',()=>{
+    const f=fixture(false);setTokenHidden(f.targetToken.id,true);
+    const finish=beginPlacedSpellImpact(f.session.id,'monster',f.target.id,'Fireball');
+    finish('cast',{mapId:f.map.id,x:0,y:0,radiusFt:20},{mapId:f.map.id,x:50,y:50});
+    const {player,dm}=views(f);
+    expect(player.events).toHaveLength(1);expect(player.events[0].areaPosition).toBeDefined();
+    expect(player.events[0].sourcePosition).toBeUndefined();
+    expect(dm.events[0].sourcePosition).toMatchObject({x:50,y:50});
   });
 });
 
