@@ -20,12 +20,17 @@ The linked `dice-power.html` compares low, strong, and maximum sample values.
 `dice-models.html` provides the material inspection page. These are isolated
 previews, so their rolls never modify a campaign or enter its roll log.
 
-Gold bonus critical dice use a separate exterior charge, since their opaque
-metal hides internal effects. Druk gets surface heat and an orange rim, Vanec
-gets red surface lightning, Varis gets a green sheen and escaping maximum rays,
-and the DM gets a red rim pulse. Dark numerals remain clear. The aura is one
-small additive halo per critical die, with no extra lights or bloom passes; it
-switches off when Druk's shell bursts. Use `dice-power.html?gold=1` to compare.
+Gold bonus critical dice sparkle outside the metal, since their opaque faces
+hide internal effects. Higher natural values increase glint count, brightness
+and twinkle frequency, with character-colored tips and warm gold centers.
+Druk keeps surface heat, Vanec surface lightning, and Varis his green sheen and
+escaping maximum rays. Dark numerals remain clear. The glints use one instanced
+draw per critical die, with no enclosing shell, extra lights or bloom passes;
+they switch off when Druk's shell bursts. Reduced motion keeps the glints steady.
+Use `dice-power.html?gold=1` to compare.
+
+Varis' maximum keeps the centered bright mote and escaping beams, but limits
+broad illumination of the resin so its dark green inclusions retain their depth.
 
 After changing production dice art or sounds, rebuild and refresh the published
 bundle:

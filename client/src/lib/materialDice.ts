@@ -4,7 +4,7 @@ import {createRollPowerState,DRUK_EXPLOSION_DELAY,drukFinaleAge} from './diceRol
 import {dmDiceCharge} from './dmDiceCharge';
 import {createDiceShatterArt} from './diceShatterArt';
 import {createDiceMoteRays} from './diceMoteRays';
-import {createGoldDiceAura} from './goldDiceAura';
+import {createGoldDiceSparkles} from './goldDiceSparkles';
 import type {ShatterWorld} from './diceShatterPhysics';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -317,7 +317,7 @@ void main(){
    float travel=max(0.,dot(motePosition-pos,incoming));
    float separation=length(pos+incoming*travel-motePosition);
    float core=exp(-pow(separation/(moteRoom*.15),2.));
-   float halo=exp(-pow(separation/(moteRoom*.44),2.));
+   float halo=exp(-pow(separation/(moteRoom*mix(.44,.34,rollMaximum)),2.));
    // Foreground inclusions veil the emitter as it travels deeper. Keep the
    // light behind the surface polish, rather than painting a white spot over it.
    float foreground=0.;
@@ -330,11 +330,11 @@ void main(){
    energy+=(orb+vec3(.10,.35,.018)*halo*.3)*depthFade*(.18+rollPower*1.85+rollMaximum*.35);
    // The same source illuminates the nearby resin and embedded inclusions.
    float proximity=dot(pos-motePosition,pos-motePosition)/(moteRoom*moteRoom);
-   through+=vec3(.08,.22,.015)*.13/(.3+proximity)*(.2+rollPower*1.8);
+   through+=vec3(.08,.22,.015)*.13/(.3+proximity)*(.2+rollPower*1.8)*mix(1.,.5,rollMaximum);
    // Gentle enclosed shafts continue into the soft escaping light geometry.
    float incidence=max(0.,dot(-normalize(nor),normalize(motePosition-pos)));
    float falloff=1./(1.+proximity*.8);
-   energy+=vec3(.10,.30,.035)*incidence*falloff*depthFade*rollMaximum*(.975+.025*sin(time*1.7));
+   energy+=vec3(.035,.075,.012)*incidence*falloff*depthFade*rollMaximum*(.975+.025*sin(time*1.7));
    if(rollMaximum>.5){
     float chord=5.;
     for(int j=0;j<20;j++){
@@ -359,10 +359,10 @@ void main(){
      // Fade at the emitter and faces so these read as softly lit resin,
      // rather than hard beams or bright spots painted on the shell.
      scatter*=smoothstep(0.,moteRoom*.08,along)*smoothstep(0.,moteRoom*.04,min(viewTravel,chord-viewTravel));
-     shafts+=vec3(.62,.90,.28)*scatter;
+     shafts+=vec3(.20,.55,.05)*scatter;
     }
-    energy+=shafts*depthFade*.9;
-    energy+=vec3(.15,.42,.035)*halo*depthFade*.25;
+    energy+=shafts*depthFade*.45;
+    energy+=vec3(.15,.42,.035)*halo*depthFade*.08;
    }
  }
  through=through*exp(-smoke*1.9)+energy;
@@ -767,8 +767,8 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   }
   const shatter=theme.id==='fighter'?createDiceShatterArt(root,source.faces.map(ids=>ids.map(i=>vertices[i])),crit):undefined;
   const moteRays=style===2?createDiceMoteRays(root,planes.slice(0,faces.length),uniforms.moteRoom.value):undefined;
-  const goldAura=crit?createGoldDiceAura(root,vertices,style):undefined;
-  const updateGoldAura=(now:number)=>goldAura?.update(now,powerView.known,powerView.strength,powerView.maximum,powerReduced,dmChargeView.charge,shatter?.state().broken??false);
+  const goldSparkles=crit?createGoldDiceSparkles(root,vertices,style):undefined;
+  const updateGoldSparkles=(now:number)=>goldSparkles?.update(now,powerView.known,powerView.strength,powerView.maximum,powerReduced,shatter?.state().broken??false);
   let lastValue=-1,lastReadable=false;
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
@@ -779,7 +779,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     setExplosionAt(at:number|null|undefined){explosionAt=at;},
     setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
     prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
-    powerState(){return {...powerView,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldAura:goldAura?.strength()??0,particles:moteRays?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
+    powerState(){return {...powerView,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldCharge:goldSparkles?.strength()??0,goldSparkles:goldSparkles?.count()??0,particles:moteRays?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.
@@ -828,7 +828,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,camera);
-      updateGoldAura(now);
+      updateGoldSparkles(now);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean,percentileValue?:number){
       power.setResult(rolling||((tens||ones)&&percentileValue===undefined)?null:value,percentileValue);
@@ -852,14 +852,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       uniforms.rotation.value.setFromMatrix4(root.matrixWorld);uniforms.time.value=now/1000;updatePower(now);updateLightning(now);updateMote(now);
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,s.camera);
-      updateGoldAura(now);
+      updateGoldSparkles(now);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);
       const shadow=ctx.createRadialGradient(size*.5,size*.88,0,size*.5,size*.88,size*.28);shadow.addColorStop(0,'#0008');shadow.addColorStop(1,'#0000');ctx.fillStyle=shadow;ctx.save();ctx.translate(0,size*.7);ctx.scale(1,.2);ctx.fillRect(0,0,size,size);ctx.restore();
       ctx.drawImage(s.renderer.domElement,0,0,size,size);
     },
-    dispose(){goldAura?.dispose();moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
+    dispose(){goldSparkles?.dispose();moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
   };
 }
 

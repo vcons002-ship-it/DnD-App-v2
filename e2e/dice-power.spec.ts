@@ -139,7 +139,7 @@ test('DM high rolls glow red behind black ink without recoloring its pigment',as
  await page.screenshot({path:info.outputPath('dm-purple-and-blood-red-ink.png')});expect(errors).toEqual([]);
 });
 
-test('gold critical dice carry readable exterior charge for every character',async({page},info)=>{
+test('gold critical dice sparkle more strongly on high and maximum rolls',async({page},info)=>{
  test.setTimeout(90000);
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
@@ -152,18 +152,39 @@ test('gold critical dice carry readable exterior charge for every character',asy
   await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
   await page.waitForFunction(()=>{
    const states=JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!);
-   return states[1]?.goldAura>.15&&states[2]?.goldAura>.5;
+   return states[1]?.goldCharge>.15&&states[2]?.goldCharge>.5;
   });
   const states=JSON.parse((await page.locator('#tray canvas').getAttribute('data-roll-power'))!);
-  expect(states[0].goldAura).toBe(0);expect(states[2].goldAura).toBeGreaterThan(states[1].goldAura);
-  await page.screenshot({path:info.outputPath(`${theme}-gold-exterior-charge.png`)});
+  expect(states[0].goldCharge).toBe(0);expect(states[2].goldCharge).toBeGreaterThan(states[1].goldCharge);
+  expect(states[0].goldSparkles).toBe(0);expect(states[1].goldSparkles).toBeGreaterThan(0);
+  expect(states[2].goldSparkles).toBeGreaterThan(states[1].goldSparkles);
+  await page.screenshot({path:info.outputPath(`${theme}-gold-sparkles.png`)});
   if(theme==='fighter'){
    await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[2].broken);
-   expect(JSON.parse((await page.locator('#tray canvas').getAttribute('data-roll-power'))!)[2].goldAura).toBe(0);
+   expect(JSON.parse((await page.locator('#tray canvas').getAttribute('data-roll-power'))!)[2].goldCharge).toBe(0);
+   expect(JSON.parse((await page.locator('#tray canvas').getAttribute('data-roll-power'))!)[2].goldSparkles).toBe(0);
   }
  }
- await page.setViewportSize({width:430,height:932});await page.screenshot({path:info.outputPath('gold-exterior-charge-mobile.png')});
+ await page.setViewportSize({width:430,height:932});await page.screenshot({path:info.outputPath('gold-sparkles-mobile.png')});
  expect(errors).toEqual([]);
+});
+
+test('Varis maximum retains deep green resin around its bright centered mote',async({page},info)=>{
+ await page.setViewportSize({width:1150,height:1000});await page.goto('/dice-power.html?character=ranger');
+ await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
+ await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[2].age>1.2);
+ const colors=await page.evaluate(()=>{
+  const canvas=document.querySelector<HTMLCanvasElement>('#tray canvas')!,ctx=canvas.getContext('2d')!;
+  const {data}=ctx.getImageData(canvas.width*.695,canvas.height*.44,canvas.width*.065,canvas.height*.1);
+  let deepGreen=0,litGreen=0;
+  for(let i=0;i<data.length;i+=4){const [r,g,b]=data.slice(i,i+3);
+   if(g>r*1.35&&g>b*1.4&&g<135&&r<85)deepGreen++;
+   if(g>170&&g>r*1.2&&g>b*1.5)litGreen++;
+  }
+  return {deepGreen,litGreen};
+ });
+ expect(colors.deepGreen).toBeGreaterThan(80);expect(colors.litGreen).toBeGreaterThan(10);
+ await page.screenshot({path:info.outputPath('varis-maximum-deep-resin.png')});
 });
 
 test('Druk warning visibly grows from cracks to a mostly incandescent shell before the shard burst',async({page},info)=>{
