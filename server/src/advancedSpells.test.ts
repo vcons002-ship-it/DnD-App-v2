@@ -71,6 +71,11 @@ describe('Invisibility',()=>{
  });
 });
 describe('Spike Growth',()=>{
+ it.each([true,false])('counts travel where only the occupied footprint meets its edge (overlap %s)',overlap=>{
+  const f=fixture();moveToken(f.enemy.id,260,overlap?321:326);
+  resolveAbilityRoll(f.s.id,'Vanec',f.now(),spell('Spike Growth'),2,undefined,undefined,undefined,f.area);
+  f.dice(3,()=>moveToken(f.enemy.id,340,overlap?321:326));expect(f.foe().curHp).toBe(overlap?94:100);
+ });
  it('overlapping areas count terrain and damage once',()=>{
   expect(difficultTravel({x:-30,y:0},{x:30,y:0},[{x:0,y:0,radiusFt:20},{x:0,y:0,radiusFt:20}],1)).toBeCloseTo(40);
   const f=fixture(),second=createCharacter(f.s.id,{name:'Other caster',maxHp:20,curHp:20});

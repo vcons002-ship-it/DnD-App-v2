@@ -290,6 +290,25 @@ function GlyphPop({
 }
 
 /** The composed burst for one floater (or null when it should stay plain). */
+function LinearLightning({start,end,width}:{start:{x:number;y:number};end:{x:number;y:number};width:number}){
+  const group=useRef<Konva.Group>(null);
+  const points=useMemo(()=>{
+    const dx=end.x-start.x,dy=end.y-start.y,len=Math.hypot(dx,dy)||1;
+    return Array.from({length:49},(_,i)=>{
+      const t=i/48,jag=i===0||i===48?0:Math.sin(i*4.71)*width*.09;
+      return [start.x+dx*t-dy/len*jag,start.y+dy*t+dx/len*jag];
+    }).flat();
+  },[start.x,start.y,end.x,end.y,width]);
+  useEffect(()=>{
+    if(!group.current)return;
+    const tween=new Konva.Tween({node:group.current,opacity:0,duration:1.3,easing:Konva.Easings.EaseOut});
+    tween.play();return ()=>tween.destroy();
+  },[]);
+  return <Group ref={group} listening={false}>
+    <Line points={points} stroke="#96cfff" strokeWidth={width*.1} opacity={.35} perfectDrawEnabled={false}/>
+    <Line points={points} stroke="#e4f3ff" strokeWidth={width*.035} perfectDrawEnabled={false}/>
+  </Group>;
+}
 function BurstFx({
   spellEffects3D,
   floater,
@@ -304,6 +323,8 @@ function BurstFx({
   const radius = (token.widthFt * pxPerFoot) / 2;
   const { x: cx, y: cy } = token;
   const spell=spellImpactStyle(floater);
+  if(spell?.kind==='lightning-line')return !spellEffects3D&&floater.areaPosition?.end?
+    <LinearLightning start={floater.areaPosition} end={floater.areaPosition.end} width={5*pxPerFoot}/>:null;
   if(spell?.kind==='bolts')return !spellEffects3D?<>
     {Array.from({length:14},(_,i)=>{const a=i*2.399963,r=i===0?0:Math.sqrt(i/13)*(floater.areaWidthFt??10)*pxPerFoot*.46;
       return <LightningBolt key={i} cx={cx+Math.cos(a)*r} cy={cy+Math.sin(a)*r} radius={Math.max(12,radius*.7)}/>;})}

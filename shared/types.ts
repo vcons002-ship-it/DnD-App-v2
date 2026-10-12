@@ -1972,7 +1972,7 @@ export type HpFxEvent = {
   /** Post-defense parts of this delta, never extra HP applications. */
   damageParts?: HpDamagePart[];
   /** Server-selected world-space spell origin, gated like its map location. */
-  areaPosition?: {mapId:string;x:number;y:number;radiusFt:number};
+  areaPosition?: {mapId:string;x:number;y:number;radiusFt:number;end?:{x:number;y:number}};
   /** Cosmetic projectile origin; omitted when the caster is not visible. */
   sourcePosition?: {mapId:string;x:number;y:number};
   /** One placed-area effect replaces this victim's duplicated spell burst. */

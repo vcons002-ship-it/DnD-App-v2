@@ -3,6 +3,7 @@ import {partySpell} from '../../shared/partySpells.js';
 import {shieldAcBonus,spellActionBlockMessage} from '../../shared/spellBuffs.js';
 import {effectiveAc} from '../../shared/modifiers.js';
 import {tokenDistanceFt} from '../../shared/distance.js';
+import {tokenInSpellRadius} from '../../shared/spellAreas.js';
 import {passageWalls} from '../../shared/archGeometry.js';
 import {hasLineOfSight,distanceToWall} from '../../shared/mapWalls.js';
 import {spellSlotOptions,selectSpellSlot} from '../../shared/spellSlotPools.js';
@@ -70,7 +71,7 @@ export function syncPassWithoutTrace(sid:string):boolean {
     for(const recipient of fx.auraRecipients) {
       const target=entity(recipient.kind,recipient.refId),tok=tokens.find(t=>t.kind===recipient.kind&&t.refId===recipient.refId);
       if(!target||target.sessionId!==sid)continue;
-      const active=!!source&&!!tok&&!!map&&Math.hypot(source.x-tok.x,source.y-tok.y)*map.feetPerSquare/map.gridSizePx<=30+1e-6&&hasLineOfSight(source,tok,map.walls);
+      const active=!!source&&!!tok&&!!map&&tokenInSpellRadius(source,tok,30,map.gridSizePx/map.feetPerSquare)&&hasLineOfSight(source,tok,map.walls);
       const existing=target.conditions.find(v=>!v.isConcentration&&v.combatEffect?.castId===fx.castId&&v.combatEffect?.stealthBonus===10);
       if(active&&!existing){setCondition(recipient.kind,recipient.refId,{id:newId(),label:'Pass without Trace',aura:'green',isConcentration:false,combatEffect:{...fx,concentration:true,auraRecipients:undefined,stealthBonus:10}});changed=true;}
       if(!active&&existing){clearCondition(recipient.kind,recipient.refId,existing.id);changed=true;}

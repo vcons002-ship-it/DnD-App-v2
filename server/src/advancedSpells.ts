@@ -60,7 +60,7 @@ export function spikeMovement(previous:Token,next:Token){
   const covered:[number,number][]=[];
   for(const condition of spikeConditions(map.sessionId)){
     const fx=condition.combatEffect!,zone=fx.spikeArea!;if(zone.mapId!==map.id)continue;
-    const interval=spikeInterval(previous,next,zone,zone.radiusFt*px);if(!interval)continue;
+    const interval=spikeInterval(previous,next,zone,(zone.radiusFt+previous.widthFt/2)*px);if(!interval)continue;
     const traveled=subtractIntervals(interval,covered).reduce((n,[lo,hi])=>n+(hi-lo)*Math.max(Math.abs(next.x-previous.x),Math.abs(next.y-previous.y))/px,0);
     covered.push(interval);if(traveled<1e-7)continue;
     const progress=(zone.remainders[previous.id]??0)+traveled,count=Math.floor((progress+1e-6)/5);

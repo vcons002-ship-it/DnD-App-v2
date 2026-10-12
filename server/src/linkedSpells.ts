@@ -1,5 +1,5 @@
 import type {Character,Condition,Monster,SheetAbility,Token,TokenKind} from '../../shared/types.js';
-import type {SpellAreaPlacement} from '../../shared/spellAreas.js';
+import {tokenInSpellRadius,type SpellAreaPlacement} from '../../shared/spellAreas.js';
 import {linkedSpellProfile,linkedSpellRoll,mirrorImageCount,spellKey,type LinkedSpellContext} from '../../shared/linkedSpells.js';
 import {effectiveStats,saveExtra} from '../../shared/modifiers.js';
 import {effectiveDice,spellcastingMod} from '../../shared/spellMath.js';
@@ -149,7 +149,7 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
   const map=getMap(center.mapId)!,seen=new Set<string>();
   const targets=listTokens(center.mapId).filter(t=>{
     const e=entity(t.kind,t.refId),key=`${t.kind}:${t.refId}`;
-    if(!e||('objectKind'in e&&e.objectKind)||seen.has(key)||tokenDistanceFt(t,center,map)>radius+1e-6||!hasLineOfSight(center,t,map.walls))return false;
+    if(!e||('objectKind'in e&&e.objectKind)||seen.has(key)||!tokenInSpellRadius(center,t,radius,map.gridSizePx/map.feetPerSquare)||!hasLineOfSight(center,t,map.walls))return false;
     seen.add(key);return true;
   });
   const requests=targets.map(t=>{const e=entity(t.kind,t.refId)!,labels=e.conditions.map(c=>c.label);return {target:t,c:{stats:effectiveStats(e).scores,level:e.level,isMonster:t.kind==='monster'},ability:save,dc:ctx.dc,

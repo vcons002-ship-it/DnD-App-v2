@@ -242,7 +242,7 @@ export function spellCombatSupport(input: SpellInput): SpellCombatSupport | null
   const authored = ability.source === 'custom' || ability.executionProfile === 'manual' ||
     (!revised && (isEditedUnsafeRoll(ability, key) || !!(ability.roll && spellRevision2024For(ability))));
   const automated = ['Cast record and spell-slot bookkeeping.'];
-  if(spellAreaFor(ability))automated.push('Measured area placement and base-center targeting; supported initial effects use one labelled group of saving throws.');
+  if(spellAreaFor(ability))automated.push('Measured area placement and combat-footprint targeting; supported initial effects use one labelled group of saving throws.');
   const manual: string[] = [];
   if (effective.tags?.some(tag => tag.toLowerCase() === 'concentration')) automated.push('Concentration tracking.');
   const result = (status: SpellCombatSupport['status'], manualCastOnly = false): SpellCombatSupport => ({

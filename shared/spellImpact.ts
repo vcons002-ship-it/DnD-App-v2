@@ -1,6 +1,6 @@
 import type {Condition,HpFxEvent} from './types.js';
 
-export type SpellImpactStyle={kind:`weapon-${NonNullable<HpFxEvent['weaponAttack']>['kind']}`|'shock'|'fireball'|'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
+export type SpellImpactStyle={kind:`weapon-${NonNullable<HpFxEvent['weaponAttack']>['kind']}`|'lightning-line'|'shock'|'fireball'|'shimmer'|'counter'|'dispel'|'thorns'|'shield'|'mist'|'pattern'|'veil'|'command'|'burst'|'bolts'|'arrows'|'vines'|'mark'|'chains'|'shards'|'acid'|'drain'|'aura'|'haunt'|'flame'|'weapon'|'storm'|'meteor'|'poison'|'illusion';color:string;radiusFt:number;strength:number;duration:number;projectiles?:number};
 export const LINKED_SPELL_FX=['Dispel Magic','Invisibility','Spike Growth','Counterspell','Shield','Misty Step','Hypnotic Pattern','Pass without Trace','Command','Mirror Image','Sorcerous Burst','Ice Knife',"Melf's Acid Arrow",'Vampiric Touch','Hold Person','Hold Monster','Phantasmal Killer','Heat Metal','Witch Bolt','Spiritual Weapon','Flame Blade','Call Lightning','Ice Storm','Flame Strike','Meteor Swarm','Guiding Bolt','Ray of Frost','Ray of Sickness','Chill Touch','Shocking Grasp'];
 const colors:Record<string,string>={fire:'#ff702c',cold:'#72cbff',lightning:'#96cfff',thunder:'#b9a7ff',acid:'#b5ed43',poison:'#68d868',necrotic:'#a471df',radiant:'#ffe6a0',force:'#bc9bff',psychic:'#ff79cd'};
 /** Only cosmetic spell identifiers cross the FX channel, never a hidden
@@ -37,6 +37,7 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
   if(name==='spike growth'&&event.effect==='spell-area')return {kind:'thorns',color:'#9ce76a',radiusFt:7,strength:.18,duration:1700};
   if(partyStyles[name])return partyStyles[name];
   if(name==='fireball')return {kind:'fireball',color:'#ff702c',radiusFt:22,strength:2.6,duration:2100};
+  if(name==='lightning bolt'&&event.effect==='spell-area')return {kind:'lightning-line',color:'#96cfff',radiusFt:8,strength:2.6,duration:1300};
   // A small electrical status marker stays while the hit's opportunity-attack
   // restriction is active. The damaging touch remains a brief body crackle.
   if(name==='shocking grasp'&&event.delta===0)return {kind:'shock',color:'#96cfff',radiusFt:3,strength:.08,duration:1000};

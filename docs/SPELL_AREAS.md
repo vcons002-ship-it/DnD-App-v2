@@ -13,7 +13,7 @@ lines. Undo placement removes the last piece. Escape or Cancel spends no slot.
 Out-of-range or covered origins cannot be confirmed.
 
 Confirm once to spend the normal casting resource and resolve supported initial
-effects. The server determines occupants from their base centers, excludes
+effects. The server determines occupants from their circular combat footprints, excludes
 objects/dead creatures, deduplicates multiple tokens referring to one creature,
 and checks Total Cover from each origin. Ordinary areas include allies. Spells
 that permit chosen recipients show checkboxes and enforce their target limit.
@@ -90,3 +90,7 @@ and persistent rotated templates. Browser regressions cover cancellation without
 slot spending, confirmation followed by automatic damage, and physical faces
 matching the logged damage. Optional `linked-spells-video` captures exercise
 the shapes with real server dice in a disposable campaign.
+
+Area inclusion uses the occupied combat diameter (`Token.widthFt`), normally 5 feet for Small/Medium and 10 feet for Large creatures. Any overlap with the exact circle, cone, cube or line counts, including edges and end caps. Cosmetic miniature scaling does not change targeting. Self-origin cones and lines exclude their caster; non-self areas can affect the caster. Doorway clearance is unchanged. Splash damage, Pass without Trace and Spike Growth use the same footprint edge rule.
+
+Lightning Bolt draws one jagged, flickering 100-foot bolt from the caster along the confirmed direction. Its individual victims retain separate save/defense calculations and floating damage feedback. The bolt starts when the roll sequence completes or is skipped; an empty line still displays the cast.

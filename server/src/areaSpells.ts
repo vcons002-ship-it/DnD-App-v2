@@ -2,7 +2,7 @@ import {partySpell} from '../../shared/partySpells.js';
 import {advancedSpell} from '../../shared/advancedSpells.js';
 import {castSpikeGrowth} from './advancedSpells.js';
 import {syncPassWithoutTrace} from './partySpellEffects.js';
-import {spellAreaFor,pointInSpellArea,areaOrigin,type SpellAreaPlacement} from '../../shared/spellAreas.js';
+import {spellAreaFor,tokenInSpellArea,areaExcludesCaster,areaOrigin,type SpellAreaPlacement} from '../../shared/spellAreas.js';
 import type {Character,Monster,SheetAbility,TokenKind} from '../../shared/types.js';
 import {tokenDistanceFt} from '../../shared/distance.js';
 import {hasLineOfSight} from '../../shared/mapWalls.js';
@@ -40,14 +40,14 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
  const targets=listTokens(map.id).filter(t=>{
    const e=t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId),key=`${t.kind}:${t.refId}`;
    if(!e||('objectKind'in e&&e.objectKind)||isDeadEntity(t.kind,e)||seen.has(key)||
-     spec.excludeCaster&&t.kind===kind&&t.refId===caster.id||p.excluded?.includes(t.id)||spec.selective&&p.selected&&!p.selected.includes(t.id)||!pointInSpellArea(spec,p,actor,t,px))return false;
+     areaExcludesCaster(spec)&&t.kind===kind&&t.refId===caster.id||p.excluded?.includes(t.id)||spec.selective&&p.selected&&!p.selected.includes(t.id)||!tokenInSpellArea(spec,p,actor,t,px))return false;
    if(!p.points.some((_,i)=>hasLineOfSight(areaOrigin(spec,p,actor,px,i),t,map.walls)))return false;
    seen.add(key);return true;
  });
  if(spec.maxTargets&&targets.length>spec.maxTargets)return false;
  if(advancedSpell(a)==='spike growth')return castSpikeGrowth(sid,roller,kind,caster.id,a,p,level??2);
  const before=new Set(listRollLog(sid).map(r=>r.id));
- const areaImpact=['Fireball','Call Lightning'].includes(a.name)?beginPlacedSpellImpact(sid,kind,caster.id,a.name):undefined;
+ const areaImpact=['Fireball','Call Lightning','Lightning Bolt'].includes(a.name)?beginPlacedSpellImpact(sid,kind,caster.id,a.name):undefined;
  if(!cast(!!spec.ongoing&&!spec.initialEffect))return false;
  const entries=listRollLog(sid).filter(r=>!before.has(r.id)),source=[...entries].reverse().find(r=>r.apply);
  const automated=!!source?.apply&&(!spec.ongoing||spec.initialEffect);
@@ -64,7 +64,9 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
    });
    setRollApply(source.id,undefined);
    if(source.reveal&&!source.reveal.damageMods?.length)setRollReveal(source.id,{...source.reveal,presentedLive:usingPhysicalDice()});
-   if(areaImpact)for(const point of p.points)areaImpact(source.id,{mapId:map.id,...point,radiusFt:spec.sizeFt},{mapId:map.id,x:actor.x,y:actor.y});
+   if(areaImpact)for(const point of p.points)areaImpact(source.id,a.name==='Lightning Bolt'
+     ?{mapId:map.id,x:actor.x,y:actor.y,radiusFt:(spec.widthFt??5)/2,end:{x:actor.x+Math.cos(p.angle)*spec.sizeFt*px,y:actor.y+Math.sin(p.angle)*spec.sizeFt*px}}
+     :{mapId:map.id,...point,radiusFt:spec.sizeFt},{mapId:map.id,x:actor.x,y:actor.y});
  }
  if(!automated||spec.ongoing){
    // An area is useful for utility/ongoing spells too; do not invent an

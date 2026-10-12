@@ -29,7 +29,7 @@ describe('spell area placement',()=>{
 });
 function setup(name:string){
  const s=createSession('Area spell test'),map=createMap(s.id,{name:'Arena'});setActiveMap(s.id,map.id);
- const c=createCharacter(s.id,{name:'Caster',className:'Wizard',level:17,maxHp:100,stats:{INT:20}});createToken({mapId:map.id,kind:'pc',refId:c.id,x:0,y:0});
+ const c=createCharacter(s.id,{name:'Caster',className:'Wizard',level:17,maxHp:100,stats:{INT:20}});createToken({mapId:map.id,kind:'pc',refId:c.id,x:['Fireball','Ice Storm'].includes(name)?-100:0,y:0});
  const a={...getSpell(name)!,id:'spell'};
  const target=(x:number,y:number,extra:Partial<Parameters<typeof createMonsterTemplate>[1]>={})=>{
   const t=createMonsterTemplate(s.id,{name:'Target',maxHp:500,stats:{DEX:14},...extra}),m=instantiateMonster(t.id)!;
@@ -43,7 +43,7 @@ describe('authoritative area combat',()=>{
   const f=setup(name),one=f.target(200,100),two=f.target(210,100,{resistances:[name==='Fireball'?'fire':'lightning']});
   withDiceSource(sides=>sides.map(s=>s===20?1:4),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,3,undefined,undefined,undefined,f.p)).toBe(true));
   const events=drainHpFx(f.s.id),area=events.filter(e=>e.areaPosition);
-  expect(area).toHaveLength(1);expect(area[0]).toMatchObject({spell:name,delta:0,effect:'spell-area',areaPosition:{mapId:f.map.id,x:200,y:100,radiusFt:name==='Fireball'?20:5},sourcePosition:{mapId:f.map.id,x:0,y:0}});
+  expect(area).toHaveLength(1);expect(area[0]).toMatchObject({spell:name,delta:0,effect:'spell-area',areaPosition:{mapId:f.map.id,x:200,y:100,radiusFt:name==='Fireball'?20:5},sourcePosition:{mapId:f.map.id,x:name==='Fireball'?-100:0,y:0}});
   const damage=events.filter(e=>e.delta<0);expect(damage).toHaveLength(2);
   expect(damage.every(e=>e.suppressSpellVisual&&e.impact?.id===area[0].impact?.id)).toBe(true);
   expect(-damage.find(e=>e.refId===one.m.id)!.delta).toBe(-damage.find(e=>e.refId===two.m.id)!.delta*2);

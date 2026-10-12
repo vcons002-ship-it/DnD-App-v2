@@ -1,6 +1,30 @@
 import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 
+test('Lightning Bolt follows the full aimed line at chest height, renders in both views and expires',async({page})=>{
+ const errors:string[]=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(e.message));
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import {Scene,Vector3,PerspectiveCamera,WebGLRenderer} from 'three';import {createSpellImpactEffects} from './client/src/canvas/spellImpactEffects';
+ const scene=new Scene(),effects=createSpellImpactEffects(scene),event={id:1,tokenId:'area',x:10,y:20,diameter:5,event:{kind:'pc',refId:'mage',delta:0,effect:'spell-area',spell:'Lightning Bolt',areaPosition:{mapId:'map',x:10,y:20,radiusFt:2.5,end:{x:10,y:120}}}};
+ effects.sync([event],0);const lights=effects.tick(200,1,false,()=>({x:10,y:20,visible:true,height:6}));
+ const root=scene.children[0],shape=root.children[1];root.updateMatrixWorld(true);
+ const start=shape.localToWorld(new Vector3(0,0,0)).toArray(),end=shape.localToWorld(new Vector3(1,0,0)).toArray();
+ const camera=new PerspectiveCamera(45,1,.1,300),renderer=new WebGLRenderer({alpha:true,preserveDrawingBuffer:true});renderer.setSize(256,256);document.body.append(renderer.domElement);camera.layers.set(7);
+ const views=[];
+ for(const [x,y,z,reduced] of [[10,145,70,false],[100,110,70,false],[10,145,70,true]]){
+  camera.position.set(x,y,z);camera.lookAt(10,4,70);effects.tick(440,1,reduced,()=>({x:10,y:20,visible:true,height:6}));renderer.render(scene,camera);
+  const gl=renderer.getContext(),pixels=new Uint8Array(256*256*4);gl.readPixels(0,0,256,256,gl.RGBA,gl.UNSIGNED_BYTE,pixels);let colored=0;
+  for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>20)colored++;views.push({colored,error:gl.getError()});
+ }
+ effects.tick(1400,1,false,()=>({x:10,y:20,visible:true,height:6}));window.result={start,end,lights:lights.map(l=>({x:l.x,y:l.y,height:l.height})),parts:shape.children.length,views,expired:!effects.active};effects.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});const r=await page.evaluate(()=>(window as any).result);
+ expect(errors).toEqual([]);expect(r.start[0]).toBeCloseTo(10);expect(r.start[1]).toBeCloseTo(4);expect(r.start[2]).toBeCloseTo(20);
+ expect(r.end[0]).toBeCloseTo(10);expect(r.end[1]).toBeCloseTo(4);expect(r.end[2]).toBeCloseTo(120);expect(r.parts).toBe(3);expect(r.expired).toBe(true);
+ expect(r.lights).toHaveLength(3);expect(r.lights.map((l:any)=>l.y)).toEqual([35,70,105]);
+ for(const view of r.views){expect(view.error).toBe(0);expect(view.colored).toBeGreaterThan(20);}
+});
+
 test('Fireball travels from its caster before one full-radius explosion; Call Lightning strikes stay inside the selected radius',async({page})=>{
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
  import {Scene,Vector3,Box3} from 'three';import {createSpellImpactEffects} from './client/src/canvas/spellImpactEffects';
