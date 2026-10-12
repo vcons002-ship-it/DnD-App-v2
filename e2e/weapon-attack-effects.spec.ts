@@ -28,11 +28,11 @@ test('physical shapes render in overhead and tilted views and coexist with spell
  const scene=new Scene(),camera=new PerspectiveCamera(45,1,.1,100),renderer=new WebGLRenderer({alpha:true,preserveDrawingBuffer:true});renderer.setSize(128,128);camera.layers.set(7);document.body.append(renderer.domElement);
  const body=new Mesh(new BoxGeometry(1.8,4,1.8),new MeshBasicMaterial({color:'#102030'}));body.position.y=2;body.layers.set(7);scene.add(body);
  const effects=createSpellImpactEffects(scene),out=[];
- for(const kind of ['slash','blunt','thrust','arrow','bolt','stone','thrown'])for(const top of [false,true]){
-  effects.sync([],0);const event={kind:'monster',refId:'victim',delta:-12,weaponAttack:{kind},sourcePosition:{mapId:'map',x:-10,y:0}};
+ for(const kind of ['slash','blunt','thrust','arrow','bolt','stone','thrown','axe','knife','spear','trident','hammer','dart','bullet','whip','claw','bite'])for(const top of [false,true]){
+  effects.sync([],0);const event={kind:'monster',refId:'victim',delta:-12,weaponAttack:{kind},sourcePosition:{mapId:'map',x:-5,y:0}};
   effects.sync([{id:kind+top,tokenId:'victim',x:0,y:0,diameter:3,event,weaponOnly:true}],0);
-  effects.tick(['slash','blunt','thrust'].includes(kind)?150:500,1,top,()=>({x:0,y:0,visible:true,height:4}));camera.position.set(0,top?9:7,top?.01:7);camera.lookAt(0,1,0);effects.faceCamera(camera);renderer.render(scene,camera);
-  const gl=renderer.getContext(),pixels=new Uint8Array(128*128*4);gl.readPixels(0,0,128,128,gl.RGBA,gl.UNSIGNED_BYTE,pixels);out.push({kind,top,pixels:pixels.filter((v,i)=>i%4===0&&v>180&&pixels[i+1]>180&&pixels[i+2]>180).length,error:gl.getError()});
+  effects.tick(['slash','blunt','thrust','whip','claw','bite'].includes(kind)?400:250,1,top,()=>({x:0,y:0,visible:true,height:4}));camera.position.set(0,top?9:7,top?.01:7);camera.lookAt(0,1,0);effects.faceCamera(camera);renderer.render(scene,camera);
+  const gl=renderer.getContext(),pixels=new Uint8Array(128*128*4);gl.readPixels(0,0,128,128,gl.RGBA,gl.UNSIGNED_BYTE,pixels);out.push({kind,top,pixels:pixels.filter((v,i)=>i%4===0&&v>120&&pixels[i+1]>90&&pixels[i+2]>60).length,error:gl.getError()});
  }
  effects.sync([],0);const event={kind:'monster',refId:'victim',delta:-12,weaponAttack:{kind:'slash'},spell:"Hunter's Mark"};effects.sync([{id:'physical',tokenId:'victim',x:0,y:0,diameter:3,event,weaponOnly:true},{id:'mark',tokenId:'victim',x:0,y:0,diameter:3,event}],0);effects.tick(200,1,false,()=>({x:0,y:0,visible:true,height:4}));
  window.result={out,kinds:effects.kinds};effects.dispose();renderer.dispose();

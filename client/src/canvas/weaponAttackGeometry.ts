@@ -1,64 +1,98 @@
-import {BufferGeometry,Float32BufferAttribute,Group,Mesh,MeshBasicMaterial,CylinderGeometry,ConeGeometry,BoxGeometry,SphereGeometry,TorusGeometry,DoubleSide,Vector3,type Camera} from 'three';
+import {BufferGeometry,Float32BufferAttribute,Group,Mesh,MeshBasicMaterial,CylinderGeometry,ConeGeometry,BoxGeometry,SphereGeometry,TorusGeometry,Shape,ExtrudeGeometry,DoubleSide,Vector3,type Camera} from 'three';
 import type {SpellImpactStyle} from '../../../shared/spellImpact';
-import {WEAPON_FLIGHT_MS} from '../../../shared/weaponImpact';
+import type {WeaponAttackKind} from '../../../shared/types';
+import {WEAPON_FLIGHT_MS,isWeaponProjectile} from '../../../shared/weaponImpact';
 
-/** Shared, small physical attack meshes. No lights, shadow maps or asset loads. */
+/** Shared physical attack meshes. No lights, shadow maps or asset loads. */
 export function createWeaponAttackGeometry(){
-  const ribbon=new BufferGeometry(),points:number[]=[],uvs:number[]=[],indices:number[]=[];
-  for(let i=0;i<=48;i++){
-    const a=-1.1+i/48*2.2,width=Math.sin(i/48*Math.PI)*.28;
-    for(const r of [1-width,1]){points.push(Math.cos(a)*r,Math.sin(a)*r,0);uvs.push(i/48,r===1?1:0);}
-    if(i<48){const j=i*2;indices.push(j,j+1,j+2,j+1,j+3,j+2);}
+  const geometries:BufferGeometry[]=[];
+  const keep=<T extends BufferGeometry>(g:T)=>{geometries.push(g);return g;};
+  function streak(path:(t:number)=>[number,number],width:number){
+    const points:number[]=[],indices:number[]=[];
+    for(let i=0;i<=48;i++){
+      const t=i/48,[x,y]=path(t),[ax,ay]=path(Math.max(0,t-.01)),[bx,by]=path(Math.min(1,t+.01));
+      const len=Math.hypot(bx-ax,by-ay)||1,w=Math.pow(Math.sin(t*Math.PI),.65)*width;
+      for(const sign of [-1,1])points.push(x-sign*(by-ay)/len*w,y+sign*(bx-ax)/len*w,0);
+      if(i<48){const j=i*2;indices.push(j,j+1,j+2,j+1,j+3,j+2);}
+    }
+    const g=keep(new BufferGeometry());g.setAttribute('position',new Float32BufferAttribute(points,3));g.setIndex(indices);g.computeVertexNormals();return g;
   }
-  ribbon.setAttribute('position',new Float32BufferAttribute(points,3));ribbon.setAttribute('uv',new Float32BufferAttribute(uvs,2));ribbon.setIndex(indices);ribbon.computeVertexNormals();
-  const shaft=new CylinderGeometry(.014,.014,.58,6),head=new ConeGeometry(.05,.15,4),feather=new BoxGeometry(.08,.14,.009),
-    chip=new ConeGeometry(.04,.1,4),orb=new SphereGeometry(.07,8,6),ring=new TorusGeometry(.3,.025,4,40);
-  const geometries=[ribbon,shaft,head,feather,chip,orb,ring],up=new Vector3(0,1,0);
+  // Upper-left to lower-right across the body, rather than orbiting its base.
+  const cut=streak(t=>[-.62+t*1.24,.78-t*1.56+Math.sin(t*Math.PI)*.08],.085);
+  const lash=streak(t=>[-.9+t*1.7,.3*Math.sin(t*Math.PI*2)-.1],.026);
+  const stab=keep(new BufferGeometry());stab.setAttribute('position',new Float32BufferAttribute([-.85,-.04,0,.06,0,0,-.85,.04,0,-.65,0,.015,.08,0,.015,-.65,.014,.015],3));stab.computeVertexNormals();
+  const shaft=keep(new CylinderGeometry(.014,.014,.58,6)),head=keep(new ConeGeometry(.05,.15,4)),feather=keep(new BoxGeometry(.08,.14,.009)),
+    chip=keep(new ConeGeometry(.04,.1,4)),orb=keep(new SphereGeometry(.07,8,6)),ring=keep(new TorusGeometry(.3,.025,4,40)),
+    hammerHead=keep(new BoxGeometry(.34,.16,.14)),knifeBlade=keep(new ConeGeometry(.07,.32,3)),fang=keep(new ConeGeometry(.05,.19,4));
+  const axeShape=new Shape();axeShape.moveTo(-.035,-.09);axeShape.lineTo(.1,-.1);axeShape.quadraticCurveTo(.15,-.15,.28,-.16);axeShape.quadraticCurveTo(.36,0,.28,.16);axeShape.quadraticCurveTo(.15,.15,.1,.1);axeShape.lineTo(-.035,.09);axeShape.closePath();
+  const axeHead=keep(new ExtrudeGeometry(axeShape,{depth:.035,bevelEnabled:false,curveSegments:5})),up=new Vector3(0,1,0),scratch=new Vector3();
   function build(style:SpellImpactStyle,_body:MeshBasicMaterial,_bright:MeshBasicMaterial,_white:MeshBasicMaterial){
-    const root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
+    const kind=style.kind.slice(7) as WeaponAttackKind,root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
     const material=(color:string,opacity=1)=>{const m=new MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,side:DoubleSide,toneMapped:false});m.userData.opacityScale=opacity;m.forceSinglePass=true;materials.push(m);return m;};
-    const steel=material('#ffffff'),dust=material('#d3bea0',.9),wood=material('#bd9568'),metal=material('#e6eef1'),edge=material('#18202b',.85);
+    const steel=material('#ffffff'),dust=material('#d3bea0',.9),wood=material('#bd9568'),metal=material('#c7d5db'),edge=material('#18202b',.85);
     const add=(g:BufferGeometry,m:MeshBasicMaterial,parent=root)=>{const mesh=new Mesh(g,m);parent.add(mesh);parts.push(mesh);return mesh;};
     const impactFace=new Group();root.add(impactFace);
-    const slashEdge=add(ribbon,edge,impactFace);slashEdge.position.z=-.015;
-    const slash=add(ribbon,steel,impactFace);slash.name='weapon-slash-arc';
+    const cuts=new Group();cuts.name='weapon-diagonal-cut';impactFace.add(cuts);
+    const cutCount=kind==='claw'?3:1,cutGeometry=kind==='whip'?lash:cut;
+    for(let i=0;i<cutCount;i++){
+      const shadow=add(cutGeometry,edge,cuts),blade=add(cutGeometry,steel,cuts);
+      shadow.position.set((i-(cutCount-1)/2)*.2,0,-.015);shadow.scale.set(1.04,1.04,1);
+      blade.position.x=shadow.position.x;
+    }
+    const thrust=add(stab,steel,impactFace);thrust.name='weapon-thrust-streak';
+    const jaw=new Group();jaw.name='weapon-bite';impactFace.add(jaw);
+    const teeth=Array.from({length:6},(_,i)=>{const m=add(fang,metal,jaw);m.userData.row=i<3?1:-1;m.position.x=(i%3-1)*.22;m.rotation.z=i<3?Math.PI:0;return m;});
     const flash=add(orb,steel,impactFace);flash.name='weapon-contact';
     const shock=add(ring,dust,impactFace);
-    const chips=Array.from({length:8},(_,i)=>{const m=add(chip,i%2?metal:dust,impactFace);m.userData.index=i;return m;});
-    const projectile=new Group();projectile.name='weapon-projectile';root.add(projectile);
-    projectile.scale.setScalar(1.65);
-    if(style.kind==='weapon-stone'){add(orb,dust,projectile);}else{
-      const stem=add(shaft,wood,projectile);stem.position.y=-.23;
-      const tip=add(head,metal,projectile);tip.position.y=.12;
-      if(style.kind==='weapon-thrown'){stem.scale.y=.55;tip.scale.set(1.8,2,1);}
-      else for(const angle of [0,Math.PI/2]){const f=add(feather,dust,projectile);f.position.y=-.46;f.rotation.y=angle;}
+    const chips=Array.from({length:8},(_,i)=>add(chip,i%2?metal:dust,impactFace));
+    const projectile=new Group();projectile.name='weapon-projectile';root.add(projectile);projectile.scale.setScalar(1.65);
+    const shaftAt=(y:number,length=1)=>{const m=add(shaft,wood,projectile);m.position.y=y;m.scale.y=length;return m;};
+    const tipAt=(x:number,y:number)=>{const m=add(head,metal,projectile);m.position.set(x,y,0);return m;};
+    if(kind==='stone'||kind==='bullet'){
+      const m=add(orb,kind==='bullet'?steel:dust,projectile);m.scale.setScalar(kind==='bullet'?.6:1.2);
+      if(kind==='bullet'){const trace=add(shaft,steel,projectile);trace.scale.set(.55,.8,.55);trace.position.y=-.25;}
+    }else if(kind==='axe'){
+      shaftAt(-.13,1.1);const blade=add(axeHead,metal,projectile);blade.name='weapon-axe-head';blade.position.set(0,.16,-.0175);
+      const rim=add(axeHead,steel,projectile);rim.scale.set(.2,1.02,1.03);rim.position.set(.24,.16,-.018);
+    }else if(kind==='hammer'){
+      shaftAt(-.13,1.1);const m=add(hammerHead,metal,projectile);m.position.y=.17;
+    }else if(kind==='knife'||kind==='thrown'){
+      shaftAt(-.24,.4);const m=add(knifeBlade,metal,projectile);m.position.y=.02;m.scale.z=.25;
+    }else{
+      shaftAt(-.23,kind==='spear'||kind==='trident'?1.5:kind==='dart'||kind==='bolt'?.7:1);
+      tipAt(0,.12);
+      if(kind==='trident')for(const x of [-.12,.12]){tipAt(x,.12);const neck=add(shaft,metal,projectile);neck.position.set(x,-.02,0);neck.scale.y=.35;}
+      if(kind==='trident'){const cross=add(shaft,metal,projectile);cross.position.y=-.09;cross.scale.y=.45;cross.rotation.z=Math.PI/2;}
+      if(['arrow','bolt','dart'].includes(kind))for(const angle of [0,Math.PI/2]){const f=add(feather,dust,projectile);f.position.y=kind==='arrow'?-.46:-.37;f.rotation.y=angle;}
     }
     const destination=new Vector3(0,.7,0),start=new Vector3(),direction=new Vector3(),eye=new Vector3();
     root.userData.faceCamera=(camera:Camera)=>{
-      camera.getWorldPosition(eye);eye.sub(root.getWorldPosition(new Vector3())).normalize();
-      // Contact belongs to the visible surface, never inside the opaque body.
-      // Depth testing still lets a foreground figure cover the attack.
+      camera.getWorldPosition(eye);eye.sub(root.getWorldPosition(scratch)).normalize();
       const height=root.userData.bodyHeight??1.5;
+      // Only contact geometry faces the viewer. Foreground bodies keep occluding it.
       impactFace.position.copy(destination).addScaledVector(eye,height*.62);
       impactFace.quaternion.copy(camera.quaternion);root.updateMatrixWorld(true);
     };
     return {root,parts,materials,update(t:number,_persistent:boolean,reduced:boolean,_areaScale:number,source?:Vector3){
-      destination.y=(root.userData.bodyHeight??1.5)*.58;
-      const ranged=['weapon-arrow','weapon-bolt','weapon-stone','weapon-thrown'].includes(style.kind);
-      const flight=ranged&&source?WEAPON_FLIGHT_MS/style.duration:0;
+      const height=root.userData.bodyHeight??1.5;destination.y=height*.58;
+      const flight=isWeaponProjectile(kind)&&source?WEAPON_FLIGHT_MS/style.duration:0;
       const hit=Math.max(0,(t-flight)/(1-flight)),active=t>=flight;
       start.copy(source??new Vector3(-.7,.8,0));direction.copy(destination).sub(start);
-      slash.visible=active&&(style.kind==='weapon-slash'||style.kind==='weapon-thrust')&&hit<.7;
-      slashEdge.visible=slash.visible;
-      if(slash.visible){slash.position.set(0,0,0);slash.rotation.set(0,0,style.kind==='weapon-thrust'?-.7:-1.2+hit*3.4);slash.scale.setScalar(style.kind==='weapon-thrust'?.75:1);slashEdge.rotation.copy(slash.rotation);slashEdge.scale.copy(slash.scale).multiplyScalar(1.08);}
+      cuts.visible=active&&['slash','claw','whip'].includes(kind)&&hit<.7;
+      const sweep=Math.min(1,.15+hit/.16);
+      cuts.scale.set(sweep,sweep*Math.max(.8,height/1.5),1);cuts.position.set(-.62*(1-sweep),.78*(1-sweep),0);
+      thrust.visible=active&&kind==='thrust'&&hit<.55;
+      const drive=Math.sin(Math.min(1,hit/.38)*Math.PI);thrust.position.set(-.35+drive*.35,0,0);thrust.rotation.z=Math.PI/6;thrust.scale.set(.55+drive*.55,1,1);
+      jaw.visible=active&&kind==='bite'&&hit<.6;
+      teeth.forEach(m=>{m.position.y=m.userData.row*(.1+.28*(1-Math.sin(Math.min(1,hit/.5)*Math.PI)));});
       projectile.visible=flight>0&&t<flight;
       if(projectile.visible){
         const q=Math.min(1,t/flight);projectile.position.copy(start).lerp(destination,q);projectile.position.y+=Math.sin(q*Math.PI)*.16;
         projectile.quaternion.setFromUnitVectors(up,direction.normalize());
-        if(style.kind==='weapon-thrown')projectile.rotateY(q*8);
+        if(['axe','hammer','knife','thrown'].includes(kind))projectile.rotateZ(q*Math.PI*4);
       }
       flash.visible=active&&hit<.3;flash.position.set(0,0,0);flash.scale.setScalar(.4+Math.sin(Math.min(1,hit/.3)*Math.PI)*2.8);
-      shock.visible=active&&(style.kind==='weapon-blunt'||style.kind==='weapon-stone')&&hit<.75;shock.scale.setScalar(.5+hit*2.8);
+      shock.visible=active&&['blunt','stone','hammer','bullet'].includes(kind)&&hit<.75;shock.scale.setScalar(.5+hit*2.8);
       chips.forEach((m,i)=>{m.visible=active&&hit<.8;m.position.set(Math.cos(i*2.399)*hit*.95,Math.sin(i*2.399)*hit*.95-hit*.25,Math.sin(hit*Math.PI)*(.18+i%3*.05));m.rotation.set(hit*i,0,hit*3);m.scale.setScalar(reduced?.85:1.25);});
       for(const m of materials)m.opacity=m.userData.opacityScale*(active?Math.max(0,1-hit*1.1):1);
     }};

@@ -6,7 +6,7 @@ import { broadcastSnapshots, dropConn, setConn, type IOServer } from './connecti
 import {
   addRollLog, applyDamage, createCharacter, createMap, createMonsterTemplate, createSession,
   createToken, drainHpFx, getMonster, instantiateMonster, listRollLog,
-  updateCharacter, setActiveMap, setFogLayer, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,beginPlacedSpellImpact,
+  updateCharacter, moveToken, setActiveMap, setFogLayer, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,beginPlacedSpellImpact,
 } from './sessions.js';
 
 const sockets: string[] = [];
@@ -231,11 +231,25 @@ describe('damage floaters on overkill',()=>{
 
 
 describe('physical weapon feedback',()=>{
+ for(const manual of [false,true])for(const [name,damageType,visual] of [
+  ['Handaxe','slashing','axe'],['Dagger','piercing','knife'],['Javelin','piercing','spear'],
+  ['Trident','piercing','trident'],['Light Hammer','bludgeoning','hammer'],
+ ] as const)it(`${name} keeps melee feedback nearby and uses ${visual} at throwing distance in manual=${manual}`,()=>{
+  const f=fixture(manual);updateCharacter(f.attacker.id,{weapons:[{name,kind:'melee',damageType,range:'thrown 20/60 ft',tags:['thrown'],damage:'1d6',attackBonus:50}]});
+  let hit=attack(f);if(manual)resolveAttackDamage(f.session.id,'Striker',hit.id);
+  expect(drainHpFx(f.session.id)[0].weaponAttack?.kind).toBe(damageType==='slashing'?'slash':damageType==='piercing'?'thrust':'blunt');
+  moveToken(f.targetToken.id,200,0);hit=attack(f);if(manual)resolveAttackDamage(f.session.id,'Striker',hit.id);
+  expect(drainHpFx(f.session.id)[0].weaponAttack?.kind).toBe(visual);
+ });
  for(const manual of [false,true])for(const [name,kind,damageType,visual] of [
   ['Greatsword','melee','slashing','slash'],['Warhammer','melee','bludgeoning','blunt'],
   ['Rapier','melee','piercing','thrust'],['Longbow','ranged','piercing','arrow'],
   ['Crossbow','ranged','piercing','bolt'],['Sling','ranged','bludgeoning','stone'],
-  ['Thrown dagger','ranged','piercing','thrown'],
+  ['Thrown dagger','ranged','piercing','knife'],['Thrown Handaxe','ranged','slashing','axe'],
+  ['Javelin','ranged','piercing','spear'],['Trident','ranged','piercing','trident'],
+  ['Light Hammer','ranged','bludgeoning','hammer'],['Dart','ranged','piercing','dart'],
+  ['Pistol','ranged','piercing','bullet'],['Whip','melee','slashing','whip'],
+  ['Claws','melee','slashing','claw'],['Bite','melee','piercing','bite'],
  ] as const)it(`${name} uses ${visual} feedback after damage resolves in manual=${manual}`,()=>{
   const f=fixture(manual);updateCharacter(f.attacker.id,{weapons:[{name,kind,damageType,damage:'1d6',attackBonus:50}]});
   const hit=attack(f);if(manual){expect(drainHpFx(f.session.id)).toEqual([]);expect(resolveAttackDamage(f.session.id,'Striker',hit.id)).toBe(true);}
