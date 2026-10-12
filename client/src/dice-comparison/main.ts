@@ -16,6 +16,8 @@ const status=document.querySelector<HTMLSpanElement>('#status')!;
 const buttons=[...document.querySelectorAll<HTMLButtonElement>('button')];
 const roller=document.querySelector<HTMLSelectElement>('#roller')!;
 const count=document.querySelector<HTMLInputElement>('#count')!;
+const gold=document.querySelector<HTMLInputElement>('#gold')!;
+gold.checked=new URLSearchParams(location.search).get('gold')==='1';
 const results=document.querySelector<HTMLDivElement>('.results')!;
 const sounds=document.querySelector<HTMLInputElement>('#sounds')!,volume=document.querySelector<HTMLInputElement>('#volume')!;
 sounds.checked=isDiceSfxOn();volume.value=String(Math.round(getSfxVolume()*100));
@@ -36,18 +38,18 @@ async function roll(next=sides){
  sides=next;done=false;tray.dataset.state='preparing';
  sound?.stop();sound=undefined;sfxOutput();
  buttons.forEach(b=>{b.disabled=true;if(b.dataset.sides)b.setAttribute('aria-pressed',String(Number(b.dataset.sides)===sides));});
- roller.disabled=count.disabled=true;
+ roller.disabled=count.disabled=gold.disabled=true;
  status.textContent=`Preparing ${names[player]}'s ${quantity}d${sides}...`;
  renderer?.dispose();renderer=undefined;world=undefined;
  labels.forEach(l=>l.remove());
  results.innerHTML=`<div class="result"><span class="value">?</span><div class="name">${names[player]} - ${quantity}d${sides}</div><div class="material">${materials[player]}</div><div class="individual" aria-label="Individual dice results"></div></div>`;
  try{
- const dice=physicalDice(Array.from({length:quantity},(_,index)=>({sides,value:1,index,set:player})));
+ const dice=physicalDice(Array.from({length:quantity},(_,index)=>({sides,value:1,index,set:player,crit:gold.checked})));
  const nextWorld=createLiveWorld(dice,++seed,'bottom');
  const snapshot=nextWorld.snapshot();
  tray.dataset.dieRadius=String(snapshot.radius);tray.dataset.trayScale=String(snapshot.trayScale);
  const cm=metresPerUnitFor(snapshot.radius)*snapshot.trayScale*100;
- results.querySelector('.material')!.textContent=`${materials[player]} | Tray bed ${(14.4*cm).toFixed(1)} x ${(9.4*cm).toFixed(1)} cm | Fixed 17.6 mm d6 reference`;
+ results.querySelector('.material')!.textContent=`${gold.checked?'Polished gold critical dice | '+materials[player]:materials[player]} | Tray bed ${(14.4*cm).toFixed(1)} x ${(9.4*cm).toFixed(1)} cm | Fixed 17.6 mm d6 reference`;
  toss={radius:snapshot.radius,trayScale:snapshot.trayScale,frames:new Float32Array(snapshot.poses),frameCount:1,step:1,topFaces:dice.map(()=>0),duration:Infinity,settleTimes:[],wallHits:0};
  const art=await loadTrayTexture(themes[player].id);await waitForDiceGraphics(themes[player].id);
  if(current!==epoch){art?.dispose();return;}
@@ -58,9 +60,9 @@ async function roll(next=sides){
  await nextRenderer.prepare(r.width,r.height,Math.min(devicePixelRatio,1.5));
  if(current!==epoch){nextRenderer.dispose();return;}
  renderer=nextRenderer;world=nextWorld;sound=createDiceSound(dice.map(d=>d.sides));last=performance.now();
- tray.dataset.theme=themes[player].id;tray.dataset.soundImpacts='0';
+ tray.dataset.theme=themes[player].id;tray.dataset.gold=String(gold.checked);tray.dataset.soundImpacts='0';
  status.textContent=`${names[player]} rolling ${quantity}d${sides}`;tray.dataset.state='rolling';tray.dataset.sides=String(sides);tray.dataset.roller=names[player];tray.dataset.diceCount=String(dice.length);
- buttons.forEach(b=>b.disabled=false);roller.disabled=count.disabled=false;
+ buttons.forEach(b=>b.disabled=false);roller.disabled=count.disabled=gold.disabled=false;
  function frame(now:number){
   if(current!==epoch||!renderer||!world||!toss)return;
   const previous=world.snapshot(),snapshot=done?previous:world.advance(Math.min(.04,Math.max(.001,(now-last)/1000))*LIVE_DICE_PRESENTATION_RATE);last=now;
@@ -73,7 +75,7 @@ async function roll(next=sides){
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
   renderer.draw(ctx,r.width,r.height,dpr,0,now);
   canvas.dataset.trailPoints=String(renderer.trailPointCount());canvas.dataset.trailBranches=String(renderer.trailBranchCount());
-  canvas.dataset.rollPower=JSON.stringify(renderer.powerStates().map(p=>({known:p.known,strength:p.strength,maximum:p.maximum,dmCharge:p.dmCharge,dmPulseFrequency:p.dmPulseFrequency,broken:p.broken,pools:p.pools})));
+  canvas.dataset.rollPower=JSON.stringify(renderer.powerStates().map(p=>({known:p.known,strength:p.strength,maximum:p.maximum,critical:p.critical,dmCharge:p.dmCharge,dmPulseFrequency:p.dmPulseFrequency,goldCharge:p.goldCharge,goldSparkles:p.goldSparkles,leaves:p.leaves,escapingBolts:p.escapingBolts,lightningBursts:p.lightningBursts,broken:p.broken,pools:p.pools})));
   labels.forEach((l,i)=>{const p=renderer!.numberPosition(i);l.hidden=!done||p.x<.05||p.x>.95||p.y<.05||p.y>.88;l.style.left=`${p.x*100}%`;l.style.top=`calc(${p.y*100}% + ${sides===100?25:38}px)`;});
   if(snapshot.done&&!done){
    done=true;tray.dataset.state='settled';sound?.stop();
@@ -93,7 +95,7 @@ async function roll(next=sides){
   if(current!==epoch)return;
   sound?.stop();
   status.textContent=error instanceof Error?error.message:'Could not prepare the dice';
-  buttons.forEach(b=>b.disabled=false);roller.disabled=count.disabled=false;
+  buttons.forEach(b=>b.disabled=false);roller.disabled=count.disabled=gold.disabled=false;
  }
 }
 buttons.forEach(b=>b.addEventListener('click',()=>void roll(b.dataset.sides?Number(b.dataset.sides):sides)));

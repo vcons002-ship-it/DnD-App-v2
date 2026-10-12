@@ -8,6 +8,9 @@ physics, collision sounds, rolling sounds, and natural-20 cue as the app. Select
 Druk, Varis, Vanec, or the DM and roll d4 through d100. Each percentile roll uses
 two physical dice. Sound begins after a browser gesture, and the Sounds checkbox
 and Volume slider use the app's saved sound preferences on that browser.
+Check **Gold dice** before the next toss to roll the polished gold critical
+versions for any character, die type and quantity. `index.html?gold=1` starts
+with gold selected. Values still come from the ordinary live physics rolls.
 
 The DM's confirmed natural results add soft red illumination inside purple resin,
 behind moving black ink. The ink pigment stays black, even at a maximum.
@@ -31,6 +34,12 @@ Use `dice-power.html?gold=1` to compare.
 
 Varis' maximum keeps the centered bright mote and escaping beams, but limits
 broad illumination of the resin so its dark green inclusions retain their depth.
+It also swirls twelve curved, veined leaves around the die, using the same art
+as the woodland wake. Vanec's maximum adds occasional branching red discharges
+from changing points on its surface, with dark pauses between bolts. Both work
+on ordinary and gold dice, only for confirmed natural maxima, and disable in
+reduced-motion mode. Each effect uses one bounded mesh per applicable die, with
+no additional lights; lightning geometry updates only when a bolt fires.
 
 After changing production dice art or sounds, rebuild and refresh the published
 bundle:

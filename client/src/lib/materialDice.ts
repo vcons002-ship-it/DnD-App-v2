@@ -5,6 +5,8 @@ import {dmDiceCharge} from './dmDiceCharge';
 import {createDiceShatterArt} from './diceShatterArt';
 import {createDiceMoteRays} from './diceMoteRays';
 import {createGoldDiceSparkles} from './goldDiceSparkles';
+import {createDiceLeafSwirl} from './diceLeafSwirl';
+import {createDiceEscapingLightning} from './diceEscapingLightning';
 import type {ShatterWorld} from './diceShatterPhysics';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -767,19 +769,22 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   }
   const shatter=theme.id==='fighter'?createDiceShatterArt(root,source.faces.map(ids=>ids.map(i=>vertices[i])),crit):undefined;
   const moteRays=style===2?createDiceMoteRays(root,planes.slice(0,faces.length),uniforms.moteRoom.value):undefined;
+  const effectRadius=Math.max(...vertices.map(v=>v.length()));
+  const leafSwirl=style===2?createDiceLeafSwirl(root,effectRadius):undefined;
+  const escapingLightning=theme.id==='sorcerer'?createDiceEscapingLightning(root,planes.slice(0,faces.length),effectRadius):undefined;
   const goldSparkles=crit?createGoldDiceSparkles(root,vertices,style):undefined;
   const updateGoldSparkles=(now:number)=>goldSparkles?.update(now,powerView.known,powerView.strength,powerView.maximum,powerReduced,shatter?.state().broken??false);
   let lastValue=-1,lastReadable=false;
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
   return {
     object: root,
-    resetForRoll(){power.reset();powerView=power.advance(performance.now());explosionAt=undefined;shatter?.reset();moteRays?.reset();lightning=createLightningTiming();moteRevision=-1;lastValue=-1;lastReadable=false;},
+    resetForRoll(){power.reset();powerView=power.advance(performance.now());explosionAt=undefined;shatter?.reset();moteRays?.reset();leafSwirl?.reset();escapingLightning?.reset();lightning=createLightningTiming();moteRevision=-1;lastValue=-1;lastReadable=false;},
     setRollResult(value:number|null|undefined,percentileValue?:number){power.setResult(value,percentileValue);},
     setReducedMotion(reduced:boolean){powerReduced=reduced;},
     setExplosionAt(at:number|null|undefined){explosionAt=at;},
     setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
     prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
-    powerState(){return {...powerView,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldCharge:goldSparkles?.strength()??0,goldSparkles:goldSparkles?.count()??0,particles:moteRays?.count()??0,...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
+    powerState(){return {...powerView,critical:crit,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldCharge:goldSparkles?.strength()??0,goldSparkles:goldSparkles?.count()??0,particles:moteRays?.count()??0,...leafSwirl?.state(),...escapingLightning?.state(),...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.
@@ -829,6 +834,8 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,camera);
       updateGoldSparkles(now);
+      leafSwirl?.update(now,powerView.maximum,powerView.age,powerReduced);
+      escapingLightning?.update(now,powerView.maximum,powerView.age,powerReduced);
     },
     draw(ctx:CanvasRenderingContext2D,size:number,dpr:number,angles:V3,value:number,now:number,rolling:boolean,percentileValue?:number){
       power.setResult(rolling||((tens||ones)&&percentileValue===undefined)?null:value,percentileValue);
@@ -853,13 +860,15 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,s.camera);
       updateGoldSparkles(now);
+      leafSwirl?.update(now,powerView.maximum,powerView.age,powerReduced);
+      escapingLightning?.update(now,powerView.maximum,powerView.age,powerReduced);
       const resolution=Math.min(640,Math.ceil(size*dpr));if(s.renderer.domElement.width!==resolution)s.renderer.setSize(resolution,resolution,false);
       s.scene.add(root);s.renderer.render(s.scene,s.camera);s.scene.remove(root);
       ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);
       const shadow=ctx.createRadialGradient(size*.5,size*.88,0,size*.5,size*.88,size*.28);shadow.addColorStop(0,'#0008');shadow.addColorStop(1,'#0000');ctx.fillStyle=shadow;ctx.save();ctx.translate(0,size*.7);ctx.scale(1,.2);ctx.fillRect(0,0,size,size);ctx.restore();
       ctx.drawImage(s.renderer.domElement,0,0,size,size);
     },
-    dispose(){goldSparkles?.dispose();moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
+    dispose(){escapingLightning?.dispose();leafSwirl?.dispose();goldSparkles?.dispose();moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
   };
 }
 

@@ -187,6 +187,31 @@ test('Varis maximum retains deep green resin around its bright centered mote',as
  await page.screenshot({path:info.outputPath('varis-maximum-deep-resin.png')});
 });
 
+test('maximum-only leaves swirl and lightning escapes intermittently on normal and gold dice',async({page},info)=>{
+ test.setTimeout(90000);
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/.test(m.text()))errors.push(m.text());});
+ await page.setViewportSize({width:1150,height:1000});await page.goto('/dice-power.html?character=ranger');
+ await expect(page.locator('#tray')).toHaveAttribute('data-state','ready',{timeout:30000});
+ const states=()=>page.locator('#tray canvas').getAttribute('data-roll-power').then(s=>JSON.parse(s!));
+ for(const gold of [false,true]){
+  await page.getByLabel('Gold critical dice').setChecked(gold);
+  await page.locator('button[data-theme="ranger"]').click();
+  await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');await page.waitForTimeout(800);
+  const leaves=await states();expect(leaves.map((p:any)=>p.leaves)).toEqual([0,0,12]);
+  await page.waitForTimeout(300);expect((await states())[2].leafPosition).not.toEqual(leaves[2].leafPosition);
+  await page.screenshot({path:info.outputPath(`varis-leaf-swirls-${gold?'gold':'resin'}.png`)});
+  await page.locator('button[data-theme="sorcerer"]').click();await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
+  await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[2].escapingBolts>0);
+  const bolts=await states();expect(bolts[0].lightningBursts).toBe(0);expect(bolts[1].lightningBursts).toBe(0);
+  expect(bolts[2].lightningBursts).toBeGreaterThan(0);
+  await page.screenshot({path:info.outputPath(`vanec-escaping-lightning-${gold?'gold':'glass'}.png`)});
+  await page.waitForFunction(()=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[2].escapingBolts===0);
+  await page.waitForFunction(previous=>JSON.parse(document.querySelector('#tray canvas')!.getAttribute('data-roll-power')!)[2].lightningBursts>previous,bolts[2].lightningBursts);
+ }
+ expect(errors).toEqual([]);
+});
+
 test('Druk warning visibly grows from cracks to a mostly incandescent shell before the shard burst',async({page},info)=>{
  await page.goto('/dice-power.html');await expect(page.locator('#tray')).toHaveAttribute('data-state','ready');
  const samples=await page.evaluate(()=>new Promise<{early:number;late:number;highDark:number;highHot:number}>((resolve,reject)=>{
