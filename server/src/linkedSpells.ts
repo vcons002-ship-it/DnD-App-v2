@@ -11,6 +11,7 @@ import {tokenDistanceFt} from '../../shared/distance.js';
 import {hasLineOfSight} from '../../shared/mapWalls.js';
 import {newId} from './db.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
+import {presentLiveCalculation} from './liveRollContext.js';
 import {applyDamageNoted,noteConcentration,resolveForcedSave,resolveAbilityRoll,resolveMonsterSheetAbility,stanceResistances} from './combat.js';
 import {hitEffectSave,turnKey} from './hitFeatures.js';
 import {getCharacter,getMonster,getMap,getToken,getSessionById,listTokens,setCondition,clearCondition,setConcentration,addRollLog,queueSpellImpact,beginPlacedSpellImpact,isDeadEntity,createSpiritualWeapon,moveToken,wallLimitedMove,faceTokenToward} from './sessions.js';
@@ -144,7 +145,7 @@ export function linkedDamageComplete(sid:string,roller:string,ctx:LinkedSpellCon
   if(spellKey(ctx.spell)==='ice knife')resolveSpellArea(sid,roller,ctx,target,5,`${ctx.castLevel+1}d6`,'cold','DEX','none');
 }
 
-/** One shared damage pool and grouped save throw; Ice Knife saves before exploding. */
+/** Show the shared damage pool before the one grouped saving throw. */
 export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext,center:Token,radius:number,expression:string,type:string,save:string,saveDamage:'half'|'none'='half') {
   const map=getMap(center.mapId)!,seen=new Set<string>();
   const targets=listTokens(center.mapId).filter(t=>{
@@ -154,16 +155,14 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
   });
   const requests=targets.map(t=>{const e=entity(t.kind,t.refId)!,labels=e.conditions.map(c=>c.label);return {target:t,c:{stats:effectiveStats(e).scores,level:e.level,isMonster:t.kind==='monster'},ability:save,dc:ctx.dc,
     mode:saveAdvantage(labels,save).state,proficient:e.saveProficiencies.includes(save),extra:saveExtra(e,save).total,autoFail:!!saveAutoFail(labels,save)};});
-  const saveFirst=spellKey(ctx.spell)==='ice knife';
-  const areaImpact=saveFirst?beginPlacedSpellImpact(sid,center.kind,center.refId,ctx.spell):undefined;
+  const areaImpact=spellKey(ctx.spell)==='ice knife'?beginPlacedSpellImpact(sid,center.kind,center.refId,ctx.spell):undefined;
   const rollSaves=()=>rollSaveBatch(requests,`${ctx.spell} — ${save} Saving Throws`);
-  const before=saveFirst?rollSaves():undefined;
   const damage=withDiceMetadata({label:`${ctx.spell} — ${type} Damage`},()=>rollDice(expression))!,impactId=newId();
   const addDamageLog=()=>addRollLog(sid,{roller,label:ctx.spell,expr:expression,total:damage.total,detail:`${ctx.spell} → ${entity(center.kind,center.refId)!.name}: ${damage.detail}.`,
     reveal:{presentedLive:usingPhysicalDice(),kind:'damage',title:`${ctx.spell} — ${type} Damage`,attacker:ctx.spell,target:entity(center.kind,center.refId)!.name,outcome:'none',damage:damage.total,damageType:type,
       damageDice:[{label:type,value:damage.total,faces:damage.rolls,diceExpression:expression}]}},impactId);
-  if(!saveFirst)addDamageLog();
-  const saves=before??rollSaves();
+  addDamageLog();
+  const saves=rollSaves();
   requests.forEach((r,i)=>{
     const e=entity(r.target.kind,r.target.refId)!,out=saves[i],total=out.total+r.extra,pass=!r.autoFail&&total>=ctx.dc;
     const amount=Math.floor((pass?(saveDamage==='none'?0:Math.floor(damage.total/2)):damage.total)*damageMultiplier(type,[...e.resistances,...stanceResistances(r.target.kind,e.id)],e.weaknesses,e.immunities,{magical:true}));
@@ -171,7 +170,7 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
     addRollLog(sid,{roller,label:`${ctx.spell}: ${save} save`,expr:`${save} save`,total,hpNote,hideMods:r.target.kind==='monster'&&('disposition'in e&&e.disposition!=='friendly'),
       detail:`${e.name}: ${save} save ${total} — ${pass?'PASS':'FAIL'}; ${amount} ${type} damage.`,
       reveal:{presentedLive:usingPhysicalDice(),kind:'check',title:`${ctx.spell} — ${save} Saving Throw`,attacker:e.name,target:e.name,outcome:pass?'pass':'fail',d20:out.face,attackTotal:total,toHit:[{label:`${save} save modifiers`,value:total-out.face}],effectOutcome:`${pass?'Save passed':'Save failed'} — ${amount} ${type} damage.`,visibilityTarget:{kind:r.target.kind,refId:e.id}}});
-  });if(saveFirst)addDamageLog();
+  });
   if(areaImpact)areaImpact(impactId,{mapId:map.id,x:center.x,y:center.y,radiusFt:radius},undefined);
   else queueSpellImpact(sid,center.kind,center.refId,ctx.spell,impactId,Math.max(map.feetPerSquare,center.widthFt)+radius*2);
 }
@@ -191,8 +190,10 @@ export function heatMetalDamage(sid:string,roller:string,ctx:LinkedSpellContext,
   const e=entity(target.kind,target.refId)!;
   const dice=withDiceMetadata({label:'Heat Metal — Fire Damage'},()=>rollDice(`${ctx.castLevel}d8`))!,id=newId();
   const amount=Math.floor(dice.total*damageMultiplier('fire',[...e.resistances,...stanceResistances(target.kind,e.id)],e.weaknesses,e.immunities,{magical:true}));
+  const reveal={kind:'damage' as const,title:'Heat Metal — Fire Damage',attacker:'Heat Metal',target:e.name,outcome:'none' as const,damage:amount,damageType:'fire',damageDice:[{label:dice.expr,value:dice.total,faces:dice.rolls,diceExpression:dice.expr}],damageMods:amount!==dice.total?[{label:'Fire defense',value:amount-dice.total}]:[]};
+  const presentedLive=presentLiveCalculation(`heat-metal:${ctx.casterId}:${target.id}`,reveal);
   const hpNote=applyDamageNoted(target.kind,e.id,amount,'fire',{kind:ctx.casterKind,refId:ctx.casterId},false,id,'Heat Metal');noteConcentration(sid,target.kind,e.id,amount);
-  addRollLog(sid,{roller,label:'Heat Metal — Damage',expr:dice.expr,total:amount,hpNote,detail:`Heat Metal → ${e.name}: ${amount} Fire damage.`,reveal:{kind:'damage',title:'Heat Metal — Fire Damage',attacker:'Heat Metal',target:e.name,outcome:'none',damage:amount,damageType:'fire',damageDice:[{label:dice.expr,value:dice.total,faces:dice.rolls,diceExpression:dice.expr}],damageMods:amount!==dice.total?[{label:'Fire defense',value:amount-dice.total}]:[]}},id);
+  addRollLog(sid,{roller,label:'Heat Metal — Damage',expr:dice.expr,total:amount,hpNote,detail:`Heat Metal → ${e.name}: ${amount} Fire damage.`,reveal:{...reveal,presentedLive}},id);
   if(amount>0){
     const pass=hitEffectSave(sid,target,'CON',ctx.dc,'Heat Metal');
     const conc=entity(ctx.casterKind,ctx.casterId)!.conditions.find(c=>c.isConcentration)!;

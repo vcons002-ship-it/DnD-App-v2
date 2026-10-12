@@ -32,9 +32,11 @@ are filtered for each viewer. A player may place an origin only in their own
 current vision and revealed map fog; a confirmed blast can still hit unseen
 bystanders behind that origin when they have no Total Cover.
 
-Ice Knife first resolves its Piercing attack, then nearby creatures make their
-Dexterity saves together, then the shared Cold explosion damage is rolled.
-The save results do not replay after the explosion. The same once-only result
+Ice Knife shows its attack result, Piercing damage on a hit, and shared Cold
+explosion damage before nearby creatures make their Dexterity saves together.
+A miss still rolls the Cold explosion. Completed attack and damage trays do
+not reopen after the saves. Heat Metal also finishes its Fire damage and any
+defense adjustment before its equipment save. The same once-only result
 presentation applies to single-target spell saves, hit riders and recurring
 spell saves; their PASS/FAIL and supported effect explanation appear on the
 live tray rather than on an additional result popup.
