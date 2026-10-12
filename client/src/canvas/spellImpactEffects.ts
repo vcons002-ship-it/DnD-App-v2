@@ -1,5 +1,5 @@
 import {InstancedMesh,AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3,WebGLRenderTarget,type Camera,type WebGLRenderer} from 'three';
-import {spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
+import {FIREBALL_FLIGHT_MS,spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
 import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
 import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeometry';
@@ -108,6 +108,10 @@ export function createSpellImpactEffects(scene:Scene){
         }else if(e.vines.length){
           for(const i of [0,2,4]){const vine=e.vines[i],growth=vine.userData.growth;
             if(growth>.02)samples.push({object:vine,local:vine.userData.curve.getPoint(growth*.85),weight:1/3});}
+        }else if(e.style.kind==='fireball'){
+          const front=e.shape.parts.find(part=>part.name==='fireball-continuous-front');
+          if(front?.visible)for(const local of front.userData.emitterPoints)samples.push({object:front,local,weight:1/3});
+          else if(e.shape.parts[0]?.visible)samples.push({object:e.shape.parts[0],local:new Vector3(),weight:1});
         }else if(e.shape.parts.length){
           for(const i of [0,Math.floor(e.shape.parts.length/2),e.shape.parts.length-1]){
             const part=e.shape.parts[i];if(part.visible)samples.push({object:part,local:part.userData.emitterPoint??new Vector3(),weight:1/3});
@@ -158,9 +162,11 @@ export function createSpellImpactEffects(scene:Scene){
       for(const [id,e] of prepared)if(!ids.has(id)){dispose(e);prepared.delete(id);}
       for(const input of inputs)if(!prepared.has(input.id)&&!effects.has(input.id)&&prepared.size<16){
         add(input,now,prepared);
-        const e=prepared.get(input.id);if(e)e.start=now-e.style.duration*.22;
       }
-      for(const e of prepared.values())e.start=now-e.style.duration*.22;
+      // Warm Fireball's custom surface after impact, not just its basic orb.
+      // Promotion resets the clock, so this pose never advances visible travel.
+      for(const e of prepared.values())e.start=now-(e.style.kind==='fireball'
+        ?FIREBALL_FLIGHT_MS+(e.style.duration-FIREBALL_FLIGHT_MS)*.22:e.style.duration*.22);
       // Pose/sample only the detached scene. These lights are for allocation
       // and clipping preparation, never for the visible illumination field.
       const samples=tickEffects(prepared,now,pixelsPerFoot,reduced,position);

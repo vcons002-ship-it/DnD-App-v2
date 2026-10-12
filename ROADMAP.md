@@ -1,5 +1,11 @@
 # Roadmap & Feature Backlog
 
+- [x] Replace Fireball's separate expanding lobes with one filled, volumetric
+  dome blast with a folded leading flame crest across the selected radius.
+  Preserve projectile travel and damage
+  timing, with illumination following the moving flame front.
+  [Before/after comparison](docs/FIREBALL_WAVE_2026-10-12.md).
+
 - [x] Keep personally visible miniature outlines above terrain fog at wall edges,
   without uncovering hidden terrain. Shocking Grasp has a small electrical status
   marker until the target's next turn, replacing the old lingering vertical bolt.
