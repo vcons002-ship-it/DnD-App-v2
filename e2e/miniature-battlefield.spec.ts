@@ -1893,7 +1893,10 @@ test('DM pinned panels share a column, retain drafts and restore pins', async ({
   await expect(maps.getByRole('button', { name: 'Unpin Maps', exact: true })).toBeVisible();
   expect((await maps.boundingBox())!.height).toBeCloseTo(full.height, 0);
   await maps.getByRole('button', { name: 'Close DM panel', exact: true }).click();
-  await page.getByRole('button', { name: 'Token inspector', exact: true }).click();
+  // The inspector now requires a selection; selecting a token opens it.
+  await expect(page.getByRole('button', { name: 'Token inspector', exact: true })).toBeDisabled();
+  const tokenPoint = (await tokenView(page, setup.ready.tokens[0].id))!;
+  await page.mouse.click(tokenPoint.x, tokenPoint.y);
   const inspector = page.getByRole('complementary', { name: 'Token inspector', exact: true });
   await inspector.getByRole('button', { name: 'Pin Token inspector', exact: true }).click();
   await page.getByRole('button', { name: 'Initiative', exact: true }).click();

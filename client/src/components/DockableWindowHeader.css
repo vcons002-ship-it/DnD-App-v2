@@ -1,0 +1,9 @@
+.window-dock-header { cursor: grab; touch-action: none; user-select: none; }
+.window-dock-header button { cursor: pointer; }
+.window-dock-header:focus-visible { outline: 2px solid #e7ce9a; outline-offset: -3px; }
+[data-dock-dragging="true"] { z-index: 90 !important; will-change: translate; }
+[data-dock-dragging="true"] .window-dock-header { cursor: grabbing; }
+.window-dock-preview { position: fixed; top: 72px; bottom: 16px; width: min(340px, 46vw); pointer-events: none; z-index: 95; border: 2px dashed #d7b775; border-radius: 8px; background: #b9944814; display: grid; align-items: center; justify-items: center; }
+.window-dock-preview.left { left: 10px; }
+.window-dock-preview.right { right: 10px; }
+.window-dock-preview span { color: #f5dfb1; background: #11171ff2; border: 1px solid #b79758; border-radius: 5px; padding: 8px 12px; font: 14px system-ui; text-align: center; }

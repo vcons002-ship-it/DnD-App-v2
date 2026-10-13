@@ -72,6 +72,7 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 - **Manual cover:** independent map/token cover, reveal/hide brush at 1×/3×/5×, and **Cover all** for a DM "curtain".
 - **Draw on the map** (everyone): freehand pen + text labels in per-person colors, with Clear mine/all. The DM can also **paste images (Ctrl+V)** as **scenery decals** — cropped/background-cut in a preview, drawn under the tokens, draggable/resizable, and lockable click-through.
 - Zoom toward the cursor (wheel), **−/+ zoom buttons** and two-finger **pinch-to-zoom** on touch, drag-to-pan, **Fit** to reset; resizable/collapsible side panels with **drag-reorderable sections** (tap ▲/▼ on touch), remembered per session — tuned for **tablet/iPad** use.
+- Drag a **DM window header** or the player's **Combat / Chat header** toward either screen edge to dock left or right. Pinned DM windows move as a column, and drafts and sizes are kept. Touch works too; focus a header and press **Left/Right**, or **Escape** to cancel a drag. Sides are saved in that browser; players can also choose them in **Interface settings**. On phones, DM windows remain full width.
 
 **Tokens**
 - Click-to-place (stays active for dropping several), multi-select with group drag, duplicate, delete, per-token hide-from-players.

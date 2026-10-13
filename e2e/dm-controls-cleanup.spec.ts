@@ -37,6 +37,14 @@ test('character controls, tiled analysis, corner inspector and DM UI scale work 
   const body=(await page.locator('.dm-fantasy > .body').boundingBox())!,before=(await inspector.boundingBox())!;
   expect(Math.abs(before.x+before.width-body.x-body.width+14)).toBeLessThan(3);expect(Math.abs(before.y+before.height-body.y-body.height+14)).toBeLessThan(3);
   await page.getByRole('button',{name:'Resize token inspector height'}).focus();await page.keyboard.press('ArrowUp');await expect.poll(async()=>Math.round((await inspector.boundingBox())!.height)).toBe(Math.round(before.height)+20);
+  const positions=(await snapshot()).tokens;
+  const header=inspector.getByRole('group',{name:'Move Token inspector window',exact:true}),head=(await header.boundingBox())!;
+  await page.mouse.move(head.x+40,head.y+head.height/2);await page.mouse.down();await page.mouse.move(120,head.y+head.height/2,{steps:8});await page.mouse.up();
+  await expect(inspector).toHaveAttribute('data-dock-side','left');
+  expect((await inspector.boundingBox())!.x).toBeCloseTo(body.x+14,0);
+  expect((await inspector.boundingBox())!.height).toBeCloseTo(before.height+20,0);
+  expect((await snapshot()).tokens).toEqual(positions);
+  await header.focus();await header.press('ArrowRight');await expect(inspector).toHaveAttribute('data-dock-side','right');
   await page.getByRole('button',{name:'Close token inspector',exact:true}).click();await expect(inspector).toBeHidden();
   p=await point();await page.mouse.move(p.x,p.y);await page.mouse.down();await page.mouse.move(p.x-45,p.y+25,{steps:10});await page.mouse.up();await expect(inspector).toBeVisible();
   const canvas=(await page.locator('.konvajs-content').first().boundingBox())!;await page.mouse.click(canvas.x+canvas.width*.35,canvas.y+canvas.height*.2);await expect(inspector).toBeHidden();

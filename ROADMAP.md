@@ -128,6 +128,13 @@
   and resize it vertically or horizontally. Campaign > Settings > Interface
   provides a locally saved DM UI scale without changing map zoom.
 
+- [x] Drag DM window headers and player Combat/Chat headers to dock on either
+  screen edge, with a side preview, touch support, keyboard Left/Right and
+  Escape to cancel. Pinned DM columns move together; drafts and sizes survive
+  docking. Sides are browser-local and remembered alongside existing layout
+  preferences. Player chat on the left moves the health HUD to the right.
+  Player Interface settings also offer side selectors and a layout reset.
+
 - [x] Move player lantern controls to Character > Exploration. Hit Dice remain
   in Character > Resources and rest controls instead of the battlefield HUD.
 
