@@ -912,10 +912,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     // ---- Map image tiles (DM composes a larger map from several images) ----
     const px = (v: unknown) => Math.max(-100000, Math.min(100000, Number(v) || 0));
     const dim = (v: unknown) => Math.max(1, Math.min(40000, Number(v) || 0));
-    on('mapImage:add', ({ mapId, imagePath, x, y, w, h }) => {
+    on('mapImage:add', ({ mapId, imagePath, videoPath, x, y, w, h }) => {
       const sid = sessionId();
       if (!sid || !isDm() || !getMap(mapId) || typeof imagePath !== 'string' || !imagePath) return;
-      addMapImage(sid, { mapId, imagePath, x: px(x), y: px(y), w: dim(w), h: dim(h) });
+      addMapImage(sid, { mapId, imagePath, videoPath:typeof videoPath==='string'&&/^\/uploads\/[\w.-]+\.(mp4|webm)$/i.test(videoPath)?videoPath:null, x: px(x), y: px(y), w: dim(w), h: dim(h) });
       afterChange();
     });
     on('mapImage:move', ({ id, x, y }) => {

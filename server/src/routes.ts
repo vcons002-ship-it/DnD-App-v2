@@ -1,3 +1,5 @@
+import {MAP_VIDEO_BYTES,isMapVideo,mapVideoPoster} from './mapMedia.js';
+import sharp from 'sharp';
 import {suggestMapLights,applyLightDraft} from './mapLightDraft.js';
 import {createChatImageRouter} from './chatImages.js';
 import {suggestMapDoors,applyDoorDraft} from './mapDoorDraft.js';
@@ -109,6 +111,21 @@ const upload = multer({
     cb(null, ALLOWED_IMAGE_MIME.has(file.mimetype) && ALLOWED_IMAGE_EXT.has(ext));
   },
 });
+
+const mapUpload=multer({storage:multer.diskStorage({destination:(_req,_file,cb)=>cb(null,config.uploadsDir),filename:(_req,file,cb)=>cb(null,`${newId()}${path.extname(file.originalname).toLowerCase()}`)}),limits:{fileSize:MAP_VIDEO_BYTES,files:1},fileFilter:(_req,file,cb)=>cb(null,isMapVideo(file.originalname,file.mimetype)||(ALLOWED_IMAGE_EXT.has(path.extname(file.originalname).toLowerCase())&&ALLOWED_IMAGE_MIME.has(file.mimetype)))}).single('image');
+const receiveMapMedia=(req:Request,res:Response,next:()=>void)=>mapUpload(req,res,error=>{
+ if(error)return void res.status(400).json({error:error instanceof multer.MulterError&&error.code==='LIMIT_FILE_SIZE'?'Map files must be smaller than 250 MB.':'Could not upload that map file.'});next();
+});
+async function prepareMapMedia(file:Express.Multer.File){
+ if(isMapVideo(file.originalname,file.mimetype)){
+  const poster=path.parse(file.filename).name+'-poster.jpg';
+  try{const dimensions=await mapVideoPoster(file.path,path.join(config.uploadsDir,poster));return {imagePath:`/uploads/${poster}`,videoPath:`/uploads/${file.filename}`,...dimensions};}
+  catch(error){await fs.promises.unlink(file.path).catch(()=>{});await fs.promises.unlink(path.join(config.uploadsDir,poster)).catch(()=>{});throw error;}
+ }
+ if(file.size>25*1024*1024){await fs.promises.unlink(file.path).catch(()=>{});throw Error('Image maps must be smaller than 25 MB.');}
+ const metadata=await sharp(file.path,{limitInputPixels:80_000_000}).metadata();
+ return {imagePath:`/uploads/${file.filename}`,videoPath:null,width:metadata.width!,height:metadata.height!};
+}
 
 /** Verify the DM secret on a REST request (header OR body field). Returns true
  *  when authorized; otherwise writes a 403 and returns false. The secret is
@@ -822,6 +839,13 @@ export function createApiRouter(io: IOServer): Router {
     res.status(204).end();
   });
 
+  // Reuse the same validated video/poster pair for animated map tiles.
+  router.post('/map-media',(req,res,next)=>{if(requireDm(req,res))next();},receiveMapMedia,async(req,res)=>{
+   if(!req.file)return res.status(400).json({error:'Choose an image, MP4 or WebM map.'});
+   try{return res.status(201).json(await prepareMapMedia(req.file));}
+   catch(error){await fs.promises.unlink(req.file.path).catch(()=>{});return res.status(422).json({error:error instanceof Error?error.message:'Could not read that map.'});}
+  });
+
   // DM uploads a custom token icon image; returns its served path.
   router.post('/icons', upload.single('image'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'image required' });
@@ -867,10 +891,10 @@ export function createApiRouter(io: IOServer): Router {
   // DM uploads a map image (multipart) OR links a Google Slides URL. Gated by
   // the DM passphrase when one is configured (this is the one REST route that
   // mutates live session state — every socket-side map mutation is DM-gated).
-  router.post('/sessions/:code/maps', upload.single('image'), (req, res) => {
-    if (!requireDm(req, res)) return;
+  router.post('/sessions/:code/maps', receiveMapMedia, async (req, res) => {
+    if (!requireDm(req, res)){if(req.file)await fs.promises.unlink(req.file.path).catch(()=>{});return;}
     const session = getSessionByCode(String(req.params.code));
-    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (!session){if(req.file)await fs.promises.unlink(req.file.path).catch(()=>{});return res.status(404).json({ error: 'Session not found' });}
 
     const name =
       (typeof req.body?.name === 'string' && req.body.name.trim()) ||
@@ -892,9 +916,12 @@ export function createApiRouter(io: IOServer): Router {
       return res.status(400).json({ error: 'Provide an image file, slidesUrl, or imagePath' });
     }
 
+    let media:{imagePath:string;videoPath:string|null}|undefined;
+    try{if(req.file)media=await prepareMapMedia(req.file);}catch(error){if(req.file)await fs.promises.unlink(req.file.path).catch(()=>{});return res.status(422).json({error:error instanceof Error?error.message:'Could not read that map.'});}
     const map = createMap(session.id, {
       name,
-      imagePath: req.file ? `/uploads/${req.file.filename}` : existingPath,
+      imagePath: media?.imagePath ?? existingPath,
+      videoPath: media?.videoPath ?? null,
       slidesUrl,
     });
 

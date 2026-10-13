@@ -1,17 +1,18 @@
+import {acquireAnimatedMap} from './animatedMapMedia';
 import {lightFalloffGlsl} from '../../../shared/lightFalloff';
 import {exploredTerrainBrightness,HEAVY_DARKVISION_MEMORY_BRIGHTNESS,REGULAR_DARKVISION_TERRAIN_BRIGHTNESS} from '../../../shared/terrainLighting';
-import {Mesh,PlaneGeometry,ShaderMaterial,TextureLoader,Vector2,Scene,type Texture,type Camera,type WebGLRenderer} from 'three';
+import {Mesh,PlaneGeometry,ShaderMaterial,TextureLoader,VideoTexture,Vector2,Scene,type Texture,type Camera,type WebGLRenderer} from 'three';
 import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './environmentVisibility';
 import {torchFieldGlsl,type createBattlefieldLighting} from './battlefieldLighting';
 /** Read original artwork, before the darkness grade removes its useful detail. */
 export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof createEnvironmentVisibility>['uniforms'],lights:ReturnType<typeof createBattlefieldLighting>['fieldUniforms'],grade:ReturnType<typeof createBattlefieldLighting>['terrainGrade'],depth:{texture:Texture;resolution:Vector2},invalidate:()=>void){
- const entries:{mesh:Mesh;memory:Mesh;texture:Texture;material:ShaderMaterial;memoryMaterial:ShaderMaterial}[]=[];let key='',generation=0,memoryKey='';
+ const entries:{mesh:Mesh;memory:Mesh;texture:Texture;material:ShaderMaterial;memoryMaterial:ShaderMaterial;release:()=>void;videoTexture?:VideoTexture}[]=[];let key='',generation=0,memoryKey='';
  const memoryScene=new Scene();let lastCanvas:HTMLCanvasElement|null=null,memoryVersion=0;
  const memoryBrightness={value:.2};
  const clear=()=>{generation++;memoryKey='';
   if(lastCanvas){lastCanvas.getContext('2d')?.clearRect(0,0,lastCanvas.width,lastCanvas.height);lastCanvas.dataset.ready='false';}
-  for(const e of entries){scene.remove(e.mesh);memoryScene.remove(e.memory);e.mesh.geometry.dispose();e.material.dispose();e.memoryMaterial.dispose();e.texture.dispose();}entries.length=0;};
+  for(const e of entries){scene.remove(e.mesh);memoryScene.remove(e.memory);e.mesh.geometry.dispose();e.material.dispose();e.memoryMaterial.dispose();e.texture.dispose();e.videoTexture?.dispose();e.release();}entries.length=0;};
  return {update(settings:EnvironmentPreviewSettings){
   memoryBrightness.value=exploredTerrainBrightness(settings);
   const enabled=!!settings.darkvisionTerrain;
@@ -69,7 +70,19 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
    memoryMaterial.uniforms={...material.uniforms,memoryPass:{value:1}};
    const memory=new Mesh(mesh.geometry,memoryMaterial);memory.copy(mesh,false);memory.material=memoryMaterial;memory.visible=false;memoryScene.add(memory);
    const texture=new TextureLoader().load(tile.url,loaded=>{if(version!==generation){loaded.dispose();return;}material.uniforms.texel.value.set(1/loaded.image.width,1/loaded.image.height);mesh.visible=memory.visible=true;memoryKey='';invalidate();},undefined,()=>{});
-   material.uniforms.art.value=texture;entries.push({mesh,memory,texture,material,memoryMaterial});
+   material.uniforms.art.value=texture;
+   // Memory always reads the poster, never the live animation or scene effects.
+   memoryMaterial.uniforms.art={value:texture};
+   let release=()=>{},videoTexture:VideoTexture|undefined;
+   if(tile.videoPath){
+    const handle=acquireAnimatedMap(tile.videoPath),e=handle.entry;
+    videoTexture=new VideoTexture(e.video);videoTexture.generateMipmaps=false;
+    const refresh=()=>{if(version!==generation)return;material.uniforms.art.value=e.ready&&!e.failed?videoTexture!:texture;invalidate();};
+    const paint=()=>{if(version===generation&&e.ready&&!e.failed)invalidate();};
+    e.listeners.add(refresh);e.frameListeners.add(paint);refresh();
+    release=()=>{e.listeners.delete(refresh);e.frameListeners.delete(paint);handle.release();};
+   }
+   entries.push({mesh,memory,texture,material,memoryMaterial,release,videoTexture});
   }
  },renderMemory(renderer:WebGLRenderer,camera:Camera,canvas:HTMLCanvasElement|null){
   if(!canvas||!entries.length||entries.some(e=>!e.memory.visible))return;

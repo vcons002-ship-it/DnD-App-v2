@@ -159,14 +159,16 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
       // The route is passphrase-gated when one is configured.
       const pass = useStore.getState().dmPassphrase;
       if (pass) body.append('dmPassphrase', pass);
-      await fetch(`/api/sessions/${snapshot.sessionCode}/maps`, {
+      const response=await apiFetch(`/api/sessions/${snapshot.sessionCode}/maps`, {
         method: 'POST',
         body,
       });
+      if(!response.ok){const data=await response.json().catch(()=>null);throw Error(data?.error??'Map upload failed.');}
+      notify('Map added. Animated maps play muted and include a still fallback.');
       setMapName('');
       setSlides('');
       if (fileRef.current) fileRef.current.value = '';
-    } finally {
+    } catch(error){notify(error instanceof Error?error.message:'Map upload failed.');} finally {
       setBusy(false);
     }
   };
@@ -307,9 +309,9 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
           value={mapName}
           onChange={(e) => setMapName(e.target.value)}
         />
-        <input type="file" accept="image/*" ref={fileRef} />
+        <input type="file" accept="image/*,video/mp4,video/webm,.mp4,.webm" ref={fileRef} />
         <button className="btn" disabled={busy} onClick={uploadImage}>
-          Upload image map
+          {busy?'Uploading / preparing map...':'Upload image or animated map'}
         </button>
         <div className="slides-row">
           <input

@@ -824,6 +824,8 @@ export type MapState = {
   name: string;
   /** Server-relative path to an uploaded image, or null when using slidesUrl. */
   imagePath: string | null;
+  /** Muted looping background; imagePath remains its still poster. */
+  videoPath?: string | null;
   slidesUrl: string | null;
   gridSizePx: number;
   feetPerSquare: number;
@@ -941,6 +943,7 @@ export type StateSnapshot = {
 export type MapImage = {
   id: string;
   imagePath: string;
+  videoPath?: string | null;
   x: number;
   y: number;
   w: number;
@@ -1384,6 +1387,7 @@ export type AnnotationMovePayload = { id: string; x: number; y: number };
 export type MapImageAddPayload = {
   mapId: string;
   imagePath: string;
+  videoPath?: string | null;
   x: number;
   y: number;
   w: number;

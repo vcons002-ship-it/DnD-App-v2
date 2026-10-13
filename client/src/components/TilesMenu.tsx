@@ -60,13 +60,13 @@ export function TilesMenu({
           <div className="popover-backdrop" onClick={() => setOpen(false)} />
           <div className="measure-menu tiles-menu" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
             <p className="hint">
-              Add image files and arrange them on the map to build a bigger
+              Add images or muted MP4/WebM videos and arrange them on the map to build a bigger
               battlemap. The grid, fog, and scale span all the tiles.
             </p>
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/mp4,video/webm,.mp4,.webm"
               style={{ display: 'none' }}
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -75,7 +75,7 @@ export function TilesMenu({
               }}
             />
             <button className="btn tiny" onClick={() => fileRef.current?.click()}>
-              ➕ Add image tile
+              ➕ Add map tile
             </button>
             <label className="measure-row" style={{ justifyContent: 'space-between' }}>
               <span>✥ Arrange on map (drag / resize)</span>

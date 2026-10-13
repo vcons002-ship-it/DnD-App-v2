@@ -43,7 +43,7 @@ export function MapEnvironmentControls({map}:{map:MapState}){
         <small>Adds color to the map and figure lighting. Clear day uses original colors with no tint.</small>
         {toggle('heavyDarkness','Heavy darkness')}
         <small>Heavy darkness is nonmagical: Darkvision is grayscale. Regular darkness preserves color. Lantern-lit areas keep their color.</small>
-        <small>Night and Dungeon limit each player to 60 ft around their own token, even with effects off. The DM sees the full map. Fog still applies; painted walls do not block sight.</small>
+        <small>Regular darkness keeps distant dim vision; darkvision improves nearby sight. Heavy darkness limits unlit sight to darkvision range. Visible lights can reveal farther areas. Walls and closed doors block sight, even with effects off. The DM working view remains available.</small>
       </fieldset>
       <fieldset><legend>Weather</legend>
         <label>Weather <select aria-label="Weather" value={settings.weather} onChange={e=>update({weather:e.target.value as MapEnvironment['weather']})}><option value="none">None</option><option value="rain">Rain</option><option value="snow">Snow</option></select></label>

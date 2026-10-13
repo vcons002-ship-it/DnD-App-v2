@@ -41,7 +41,7 @@ export type EnvironmentPreviewSettings = Partial<Pick<MapEnvironment,'lighting'|
   dmVisibility?: boolean;
   walls?: import('../../../shared/mapWalls').MapWall[];
   /** Fallback carriers also illuminate the map when their viewer chooses 2D tokens. */
-  darkvisionTerrain?: {url:string;x:number;y:number;w:number;h:number}[];
+  darkvisionTerrain?: {url:string;videoPath?:string|null;x:number;y:number;w:number;h:number}[];
   darkvisionGrid?: {size:number;x:number;y:number};
   carriedLanterns?: {id:string;x:number;y:number;diameter:number;facing:number}[];
   /** Transparent effects over the existing Konva artwork in the real battlefield. */

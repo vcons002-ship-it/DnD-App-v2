@@ -364,6 +364,8 @@ ensureColumn('maps', 'grid_offset_x', 'grid_offset_x REAL NOT NULL DEFAULT 0');
 ensureColumn('maps', 'grid_offset_y', 'grid_offset_y REAL NOT NULL DEFAULT 0');
 ensureColumn('maps', 'grid_locked', 'grid_locked INTEGER NOT NULL DEFAULT 0');
 ensureColumn('maps', 'grid_hidden', 'grid_hidden INTEGER NOT NULL DEFAULT 0');
+ensureColumn('maps','video_path','video_path TEXT');
+ensureColumn('map_images','video_path','video_path TEXT');
 ensureColumn('maps', 'environment', "environment TEXT NOT NULL DEFAULT '{}'");
 ensureColumn('maps', 'walls', "walls TEXT NOT NULL DEFAULT '[]'");
 // DM-chosen map order. Legacy rows default to 0 and are listed by created_at as
@@ -660,6 +662,7 @@ function readMapEnvironment(value?: string) {
 }
 
 type MapRow = {
+  video_path?: string | null;
   walls?: string;
   environment?: string;
   id: string;
@@ -714,6 +717,7 @@ export function rowToMap(r: MapRow): MapState {
     sessionId: r.session_id,
     name: r.name,
     imagePath: r.image_path,
+    videoPath: r.video_path ?? null,
     slidesUrl: r.slides_url,
     gridSizePx: r.grid_size_px,
     feetPerSquare: r.feet_per_square,
