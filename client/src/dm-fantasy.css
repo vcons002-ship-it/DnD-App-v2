@@ -113,3 +113,7 @@
 .dm-window-content { scrollbar-gutter: stable; }
 
 .dm-selection-box { position: absolute; z-index: 5; pointer-events: none; border: 1px solid #edd093; background: #d3b57224; box-shadow: 0 0 0 1px #18171699; }
+
+/* Narrow screens retain their chosen docking side too. */
+@media (max-width: 999px) { .dm-fantasy .dm-window.side.right { left: auto; right: 14px; } }
+@media (max-width: 600px) { .dm-fantasy .dm-window.side.right { right: 8px; } }

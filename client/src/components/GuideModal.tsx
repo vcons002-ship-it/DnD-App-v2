@@ -9,6 +9,7 @@ const DESKTOP = [
   ROW('Shift / Ctrl-click', 'Add to a multi-selection'),
   ROW('Ctrl-drag (DM)', 'Box-select token bases; hold Shift as well to add to the selection. Esc cancels.'),
   ROW('Pin a DM panel', 'Keep it open; additional panels stack in the same column. Unpin or close to free the space.'),
+  ROW('Drag a window header', 'Dock DM windows or player Combat/Chat left or right. Pinned DM windows move together. Focus the header and use Left/Right, or Esc to cancel a drag.'),
   ROW('Drag a token', 'Move it (DM: anything · player: your PC + friendly creatures)'),
   ROW('Double-click a token', 'Open its read-only details (players)'),
   ROW('Right-click a token', 'Floating action menu + sets it as your Combat-section target'),
@@ -24,6 +25,7 @@ const DESKTOP = [
 ];
 
 const MOBILE = [
+  ROW('Drag a window header', 'Dock DM windows or player Combat/Chat left or right; the highlighted side shows where it will land. DM windows stay full width on phones.'),
   ROW('Tap a token', 'Select it'),
   ROW('Drag a token', 'Move it (your PC + friendly creatures, as a player)'),
   ROW('Hold a token (~½ s)', 'Floating action menu + sets it as your Combat-section target — release keeps it open'),

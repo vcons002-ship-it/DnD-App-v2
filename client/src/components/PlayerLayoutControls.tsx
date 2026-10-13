@@ -13,6 +13,7 @@ export function ChatBubbleIcon() {
 export function PanelResizeHandle({ panel, layout }: { panel: PlayerPanelName; layout: PlayerLayoutController }) {
   const drag = useRef<{ id: number; x: number; y: number; size: PlayerPanelSize; scale: number } | null>(null);
   const label = panel === 'combat' ? 'Resize combat panel' : 'Resize chat and roll log';
+  const direction=layout.side(panel)==='left'?1:-1;
   const vertical = panel === 'combat' ? 1 : -1;
   const start = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
@@ -26,7 +27,7 @@ export function PanelResizeHandle({ panel, layout }: { panel: PlayerPanelName; l
     const current = drag.current;
     if (!current || current.id !== event.pointerId) return;
     layout.setSize(panel, {
-      width: current.size.width - (event.clientX - current.x) / current.scale,
+      width: current.size.width + direction*(event.clientX - current.x) / current.scale,
       height: current.size.height + vertical * (event.clientY - current.y) / current.scale,
     });
   };
@@ -42,7 +43,7 @@ export function PanelResizeHandle({ panel, layout }: { panel: PlayerPanelName; l
     const step = event.shiftKey ? 25 : 10;
     const current = layout.size(panel);
     layout.setSize(panel, {
-      width: current.width + (event.key === 'ArrowLeft' ? step : event.key === 'ArrowRight' ? -step : 0),
+      width: current.width + direction*(event.key==='ArrowRight'?step:event.key==='ArrowLeft'?-step:0),
       height: current.height + vertical * (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0),
     });
   };
@@ -175,12 +176,13 @@ export function PlayerLayoutControls({ layout }: { layout: PlayerLayoutControlle
         const title = panel === 'combat' ? 'Combat' : 'Chat / roll log';
         return <fieldset key={panel}>
           <legend>{title}</legend>
+          <label>Side <select aria-label={`${title} window side`} value={layout.side(panel)} onChange={event=>layout.setSide(panel,event.target.value==='left'?'left':'right')}><option value="left">Left</option><option value="right">Right</option></select></label>
           {(['width', 'height'] as const).map((dimension) => <label key={dimension}>{dimension === 'width' ? 'Width' : 'Height'}
             <DimensionInput label={`${title} ${dimension}`} min={min[dimension]} max={max[dimension]} value={size[dimension]} onCommit={(value) => layout.setSize(panel, { ...size, [dimension]: value })} />
           </label>)}
         </fieldset>;
       })}
-      <p>Drag a panel’s corner to resize, or use its focused handle’s arrow keys. Sizes are before UI scaling; panels stay inside the window.</p>
+      <p>Drag a panel header to dock left or right, and its corner to resize. Focus either handle to use arrow keys. Sizes are before UI scaling; panels stay inside the window.</p>
       <button type="button" className="btn tiny" onClick={layout.reset}>Reset interface layout</button>
       <small>Saved on this browser only. Map scale and campaign data are unchanged.</small>
     </section>}

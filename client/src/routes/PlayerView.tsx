@@ -20,6 +20,7 @@ import { RollRevealOverlay } from '../components/RollRevealOverlay';
 import { AiStatus } from '../components/AiStatus';
 import { TopToolbar } from '../components/TopToolbar';
 import { useSelection } from '../lib/useSelection';
+import {DockableWindowHeader} from '../components/DockableWindowHeader';
 import { usePlayerLayout } from '../lib/usePlayerLayout';
 
 export function PlayerView() {
@@ -112,7 +113,7 @@ export function PlayerView() {
   };
 
   return (
-    <div className={`layout player-fantasy resource-layout-${layout.resourceLayout}${chatOpen ? ' chat-open' : ''}`}
+    <div className={`layout player-fantasy resource-layout-${layout.resourceLayout}${chatOpen ? ' chat-open' : ''}${layout.side('chat')==='left'?' chat-docked-left':''}`}
       style={{ '--player-ui-scale': layout.scale } as CSSProperties}>
       <TopToolbar snapshot={snapshot} />
 
@@ -180,10 +181,10 @@ export function PlayerView() {
 
         <section
           className={`player-combat fantasy-window${combatOpen ? '' : ' collapsed'}`}
-          aria-label="Combat panel"
+          aria-label="Combat panel" data-dock-window data-dock-side={layout.side('combat')}
           style={{ width: layout.size('combat').width, height: combatOpen ? layout.size('combat').height : undefined }}
         >
-          <header className="floating-panel-header">
+          <DockableWindowHeader className="floating-panel-header" label="Combat" side={layout.side('combat')} onDock={side=>layout.setSide('combat',side)}>
             <h2>Combat</h2>
             <small>ROUND {snapshot.round}</small>
             <button
@@ -195,7 +196,7 @@ export function PlayerView() {
             >
               {combatOpen ? '−' : '+'}
             </button>
-          </header>
+          </DockableWindowHeader>
           <div className="floating-panel-content" hidden={!combatOpen}>
             {consoleToken ? (
               <SelectedTokenPanel snapshot={snapshot} token={consoleToken} compactPlayerConsole />
@@ -220,10 +221,10 @@ export function PlayerView() {
         </section>
         <section
           className={`player-chat fantasy-window${chatOpen ? '' : ' collapsed'}`}
-          aria-label="Chat and roll log"
+          aria-label="Chat and roll log" data-dock-window data-dock-side={layout.side('chat')}
           style={chatOpen ? layout.size('chat') : undefined}
         >
-          <header className="floating-panel-header">
+          <DockableWindowHeader className="floating-panel-header" label="Chat and roll log" side={layout.side('chat')} onDock={side=>layout.setSide('chat',side)}>
             {chatOpen && <h2>Chat & roll log</h2>}
             <button
               className="btn tiny player-chat-toggle"
@@ -234,7 +235,7 @@ export function PlayerView() {
             >
               {chatOpen ? '−' : <><ChatBubbleIcon /><span className="player-chat-hint">Chat & roll log</span></>}
             </button>
-          </header>
+          </DockableWindowHeader>
           <div className="floating-panel-content" hidden={!chatOpen}>
             <DicePanel snapshot={snapshot} compact />
           </div>

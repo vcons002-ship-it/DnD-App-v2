@@ -3,11 +3,12 @@ import type { StateSnapshot, Token } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { resolveToken } from '../lib/entities';
 import { safeSetItem } from '../lib/storage';
+import {DockableWindowHeader,type WindowSide} from './DockableWindowHeader';
 import { HudIcon } from './HudIcon';
 
 type Tool = 'maps' | 'spawn' | 'initiative' | 'chat';
 type Panel = Tool | 'inspect';
-type Layout = { open: Panel[]; pinned: Panel[]; anchor: 'left' | 'right' };
+type Layout = { open: Panel[]; pinned: Panel[]; anchor: WindowSide; sides: Partial<Record<Panel,WindowSide>> };
 const tools: { id: Panel; label: string; icon: 'spellbook' | 'party' | 'character' | 'checks' | 'inventory' }[] = [
   { id: 'maps', label: 'Maps', icon: 'spellbook' },
   { id: 'spawn', label: 'Creatures', icon: 'party' },
@@ -15,7 +16,8 @@ const tools: { id: Panel; label: string; icon: 'spellbook' | 'party' | 'characte
   { id: 'chat', label: 'Chat & dice', icon: 'checks' },
   { id: 'inspect', label: 'Token inspector', icon: 'inventory' },
 ];
-const defaultSide = (id: Panel) => id === 'inspect' ? 'right' : 'left';
+const defaultSide = (id: Panel):WindowSide => id === 'inspect' ? 'right' : 'left';
+const panelSide=(layout:Layout,id:Panel):WindowSide=>layout.pinned.includes(id)?layout.anchor:layout.sides[id]??(layout.pinned.length?layout.anchor:defaultSide(id));
 
 /** Stable panel instances preserve drafts even when pinning moves their column. */
 export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSignal, pending,
@@ -39,12 +41,13 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
       const saved = JSON.parse(localStorage.getItem(pinKey) ?? 'null');
       if (saved && Array.isArray(saved.pinned)) {
         const pinned: Panel[] = [...new Set<Panel>(saved.pinned.filter((id: unknown) => tools.some(t => t.id === id)))];
-        if (pinned.length) return { open: pinned, pinned, anchor: saved.anchor === 'right' ? 'right' : 'left' };
+        const sides:Layout['sides']={};for(const {id} of tools)if(saved.sides?.[id]==='left'||saved.sides?.[id]==='right')sides[id]=saved.sides[id];
+        return {open:pinned.length?pinned:snapshot.map?[]:['maps'],pinned,anchor:saved.anchor==='right'?'right':'left',sides};
       }
     } catch { /* Invalid or unavailable storage uses the ordinary workspace. */ }
-    return { open: snapshot.map ? [] : ['maps'], pinned: [], anchor: 'left' };
+    return { open: snapshot.map ? [] : ['maps'], pinned: [], anchor: 'left', sides:{} };
   });
-  useEffect(() => { safeSetItem(pinKey, JSON.stringify({ pinned: layout.pinned, anchor: layout.anchor })); }, [pinKey, layout.pinned, layout.anchor]);
+  useEffect(() => { safeSetItem(pinKey, JSON.stringify({ pinned: layout.pinned, anchor: layout.anchor, sides:layout.sides })); }, [pinKey, layout.pinned, layout.anchor, layout.sides]);
   const [width, setWidth] = useDmPanelWidth(`dnd.dmWorkspaceWidth:${snapshot.sessionCode}`);
   const [inspectorWidth, setInspectorWidth] = useDmPanelWidth(`dnd.dmInspectorWidth:${snapshot.sessionCode}`);
   const [inspectorHeight, setInspectorHeight] = useState(() => {
@@ -60,9 +63,9 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
     if (id === 'inspect' && !hasSelection) return;
     setLayout(current => {
       if (current.open.includes(id)) return current;
-      const keep = [...new Set([...current.pinned, ...current.open.filter(other =>
-        !current.pinned.length && window.innerWidth >= 1000 && defaultSide(other) !== defaultSide(id))])];
-      return { ...current, open: [...keep, id] };
+      const side=current.pinned.length?current.anchor:panelSide(current,id);
+      const keep=[...new Set([...current.pinned,...current.open.filter(other=>window.innerWidth>=1000&&panelSide(current,other)!==side)])];
+      return {...current,open:[...keep,id],sides:{...current.sides,[id]:side}};
     });
   }, [hasSelection]);
   useEffect(() => {
@@ -80,10 +83,24 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
   const toggle = (id: Panel) => layout.open.includes(id) ? close(id) : openPanel(id);
   const pin = (id: Panel) => setLayout(current => ({
     ...current,
-    anchor: current.pinned.length ? current.anchor : defaultSide(id),
+    anchor: current.pinned.length ? current.anchor : panelSide(current,id),
+    sides:{...current.sides,[id]:panelSide(current,id)},
     pinned: current.pinned.includes(id) ? current.pinned.filter(p => p !== id) : [...current.pinned, id],
   }));
-  const sideOf = (id: Panel) => layout.pinned.length ? layout.anchor : defaultSide(id);
+  const sideOf=(id:Panel)=>panelSide(layout,id);
+  const dock=(id:Panel,side:WindowSide)=>{
+    const from=sideOf(id);if(from===side)return;
+    (side==='left'?setWidth:setInspectorWidth)(from==='left'?width:inspectorWidth);
+    setLayout(current=>{
+      const sides={...current.sides,[id]:side};
+      if(current.pinned.includes(id)){
+        // Move the pinned column together, including its currently open companion.
+        for(const panel of current.open)if(panelSide(current,panel)===current.anchor)sides[panel]=side;
+        return {...current,anchor:side,sides};
+      }
+      return {...current,sides};
+    });
+  };
   const content: Record<Panel, ReactNode> = {
     maps: mapsAndCreatures('maps'), spawn: mapsAndCreatures('spawn'), initiative, chat, inspect: inspector,
   };
@@ -101,8 +118,8 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
       const side = sideOf(item.id);
       const column = visibleOpen.filter(id => sideOf(id) === side);
       const pinned = layout.pinned.includes(item.id);
-      const corner = item.id === 'inspect' && !layout.pinned.length;
-      return <aside key={item.id} id={`dm-panel-${item.id}`} data-panel={item.id}
+      const corner = item.id === 'inspect' && !layout.pinned.includes(item.id) && column.length===1;
+      return <aside key={item.id} id={`dm-panel-${item.id}`} data-panel={item.id} data-dock-window data-dock-side={side}
         className={`dm-window ${item.id === 'inspect' ? 'dm-inspector' : 'dm-workspace'} side ${side}${corner ? ' dm-inspector-corner' : ''}`}
         hidden={!visibleOpen.includes(item.id)} aria-label={item.label}
         style={{ width: side === 'left' ? width : inspectorWidth,
@@ -111,7 +128,7 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
         onKeyDown={event => {
           if (event.key === 'Escape' && !pinned && !document.querySelector('dialog[open]')) close(item.id);
         }}>
-        <header className="dm-window-header"><div><small>{item.id === 'inspect' ? 'SELECTED TOKEN' : 'DUNGEON MASTER'}</small>
+        <DockableWindowHeader className="dm-window-header" label={item.label} side={side} onDock={side=>dock(item.id,side)}><div><small>{item.id === 'inspect' ? 'SELECTED TOKEN' : 'DUNGEON MASTER'}</small>
           <h2>{item.id === 'inspect' ? selectionName : item.label}</h2></div>
           <div className="dm-window-actions">
             <button className={`btn dm-pin ${pinned ? 'on' : ''}`} aria-label={`${pinned ? 'Unpin' : 'Pin'} ${item.label}`}
@@ -121,7 +138,7 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
             <button className="btn" aria-label={item.id === 'inspect' ? 'Close token inspector' : 'Close DM panel'}
               title={`Close ${item.label}`} onClick={() => close(item.id)}>&times;</button>
           </div>
-        </header>
+        </DockableWindowHeader>
         <div className="dm-window-content">{content[item.id]}</div>
         <DmResizeHandle width={side === 'left' ? width : inspectorWidth} onWidth={side === 'left' ? setWidth : setInspectorWidth}
           side={side} label={item.id === 'inspect' ? 'Resize token inspector' : 'Resize DM panel'} />

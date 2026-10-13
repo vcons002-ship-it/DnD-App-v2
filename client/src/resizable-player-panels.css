@@ -155,3 +155,16 @@
     max-height: calc(100% - 72px);
   }
 }
+
+/* Side docking retains the top/bottom anchors and reverses the resize edge. */
+.player-fantasy .player-combat[data-dock-side="left"] { left: 60px; right: auto; }
+.player-fantasy .player-chat[data-dock-side="left"] { left: 6px; right: auto; }
+.player-fantasy .player-chat[data-dock-side="left"]:not(.collapsed) > .floating-panel-header { padding-left: 9px; padding-right: 28px; }
+.player-fantasy [data-dock-side="left"] > .player-panel-resize { left: auto; right: 0; }
+.player-fantasy [data-dock-side="left"] > .player-panel-resize svg { transform: scaleX(-1); }
+.player-fantasy [data-dock-side="left"] > .player-panel-resize.combat { cursor: nwse-resize; }
+.player-fantasy [data-dock-side="left"] > .player-panel-resize.chat { cursor: nesw-resize; }
+.player-fantasy.chat-docked-left .player-hud { left: auto; right: 0; }
+.player-fantasy.chat-docked-left .player-chat-hint { left: calc(100% + 8px); right: auto; }
+.player-fantasy .player-layout-options fieldset:not(.resource-layout-picker) { flex-wrap: wrap; }
+.player-fantasy .player-layout-options fieldset label:has(select) { flex-basis: 100%; }

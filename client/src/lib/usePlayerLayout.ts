@@ -1,3 +1,4 @@
+import type {WindowSide} from '../components/DockableWindowHeader';
 import { useCallback, useEffect, useState } from 'react';
 
 export type PlayerPanelName = 'combat' | 'chat';
@@ -6,6 +7,7 @@ export type ResourceLayout = 'compact' | 'concentric';
 type PlayerLayout = {
   resourceLayout: ResourceLayout;
   scale: number;
+  sides: Record<PlayerPanelName,WindowSide>;
   combat: PlayerPanelSize;
   chat: PlayerPanelSize;
 };
@@ -14,6 +16,7 @@ const STORAGE_KEY = 'dnd:player-layout:v1';
 const DEFAULT_LAYOUT: PlayerLayout = {
   resourceLayout: 'concentric',
   scale: 0.85,
+  sides:{combat:'right',chat:'right'},
   combat: { width: 320, height: 410 },
   chat: { width: 420, height: 270 },
 };
@@ -32,6 +35,7 @@ function readLayout(): PlayerLayout {
       resourceLayout: stored?.resourceLayout === 'compact' || stored?.resourceLayout === 'concentric'
         ? stored.resourceLayout : DEFAULT_LAYOUT.resourceLayout,
       scale: clamp(validNumber(stored?.scale, DEFAULT_LAYOUT.scale), 0.7, 1.15),
+      sides:{combat:stored?.sides?.combat==='left'?'left':'right',chat:stored?.sides?.chat==='left'?'left':'right'},
       combat: readSize(stored?.combat, 'combat'),
       chat: readSize(stored?.chat, 'chat'),
     };
@@ -72,14 +76,14 @@ export function usePlayerLayout() {
 
   const limits = useCallback((panel: PlayerPanelName) => {
     const max = {
-      width: Math.max(1, Math.min(MAXIMUM.width, (viewport.width - 16) / layout.scale)),
+      width: Math.max(1, Math.min(MAXIMUM.width, (viewport.width - 16) / layout.scale-(panel==='combat'&&layout.sides.combat==='left'?54:0))),
       height: Math.max(1, Math.min(MAXIMUM.height, (viewport.height - 16) / layout.scale)),
     };
     return {
       min: { width: Math.min(MINIMUM[panel].width, max.width), height: Math.min(MINIMUM[panel].height, max.height) },
       max,
     };
-  }, [viewport, layout.scale]);
+  }, [viewport, layout.scale,layout.sides.combat]);
   const size = (panel: PlayerPanelName): PlayerPanelSize => {
     const { min, max } = limits(panel);
     return {
@@ -102,6 +106,8 @@ export function usePlayerLayout() {
     setResourceLayout: (resourceLayout: ResourceLayout) => setLayout((current) => ({ ...current, resourceLayout })),
     scale: layout.scale,
     setScale: (scale: number) => setLayout((current) => ({ ...current, scale: clamp(validNumber(scale, current.scale), 0.7, 1.15) })),
+    side:(panel:PlayerPanelName)=>layout.sides[panel],
+    setSide:(panel:PlayerPanelName,side:WindowSide)=>setLayout(current=>({...current,sides:{...current.sides,[panel]:side}})),
     bodyRef,
     size,
     setSize,
