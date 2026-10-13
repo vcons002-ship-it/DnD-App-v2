@@ -8,6 +8,7 @@ import {runLiveCommand} from './liveRolls.js';
 import {withDiceSource} from '../../shared/dice.js';
 import {areaPlacementError} from './areaSpells.js';
 import {db} from './db.js';
+import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
 
 describe('spell area placement',()=>{
  it('covers every tagged area spell, preserving hit-centered and individual-choice spells',()=>{
@@ -39,6 +40,51 @@ function setup(name:string){
  return {s,map,c,a,target,p};
 }
 describe('authoritative area combat',()=>{
+ it.each(['Burning Hands','Fireball','Lightning Bolt','Cone of Cold','Thunderwave','Shatter','Ice Storm','Flame Strike','Meteor Swarm','Call Lightning'])('%s finishes every damage tray before grouped saves without replaying a completed screen',async name=>{
+  const f=setup(name),self=spellAreaFor(f.a)!.self;
+  f.target(self?100:200,self?0:100);f.target(self?110:210,self?0:100);
+  // Include a real damage modifier: it must be presented before, not after,
+  // the saves. Mixed-type spells retain their separate defense pools.
+  if(name==='Fireball')f.a.roll={...f.a.roll!,damageBonus:'spellcasting'};
+  const stages:{label:string;sides:number[];calculation:boolean}[]=[];
+  await runLiveCommand(()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,f.a.level,undefined,undefined,undefined,f.p)).toBe(true),frame=>{
+   if(frame.calculation)stages.push({label:frame.calculation.title!,sides:frame.sides,calculation:true});
+  },{label:name,roller:'Caster',className:'Wizard'},async(sides,publish,meta,_seed,info)=>{
+   const label=info?.label??meta.label,values=sides.map(n=>n===20?10:4);stages.push({label,sides,calculation:false});
+   publish({id:String(stages.length),seq:0,label,roller:'Caster',className:'Wizard',sides,radius:1,poses:Array(sides.length*7).fill(0),values,
+    rerolls:sides.map(()=>0),sets:sides.map(()=>0),critical:sides.map(()=>false),percentile:sides.map(()=>null),elapsed:5,done:true} satisfies LiveDiceFrame);
+   return values;
+  });
+  expect(stages.at(-1)!.label).toContain('Saving Throws');
+  const saves=stages.filter(s=>s.label.includes('Saving Throws'));expect(saves).toHaveLength(1);expect(saves[0].sides).toEqual(name==='Meteor Swarm'?[20,20,20]:[20,20]);
+  expect(stages.slice(0,-1).every(s=>s.sides.every(n=>n!==20))).toBe(true);
+  expect(listRollLog(f.s.id).filter(r=>r.reveal&&!r.reveal.presentedLive)).toEqual([]);
+  if(name==='Fireball')expect(stages.some(s=>s.calculation)).toBe(true);
+ });
+ it.each(['Cone of Cold','Thunderwave','Shatter','Flame Strike','Meteor Swarm'])('%s emits its exact field even when empty',name=>{
+  const f=setup(name),spec=spellAreaFor(f.a)!,angle=Math.PI*.37;
+  // The long cone and thunder cube use the actor and angle, not this point.
+  withDiceSource(s=>s.map(()=>4),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,f.a.level,undefined,undefined,undefined,{...f.p,angle})).toBe(true));
+  const area=drainHpFx(f.s.id).filter(e=>e.areaPosition);
+  expect(area).toHaveLength(1);expect(area[0]).toMatchObject({spell:name,effect:'spell-area',delta:0});
+  const p=area[0].areaPosition!;
+  if(spec.kind==='cone'){
+   expect(p.x).toBe(0);expect(p.y).toBe(0);expect(p.radiusFt).toBe(30);
+   expect(p.end!.x).toBeCloseTo(Math.cos(angle)*600);expect(p.end!.y).toBeCloseTo(Math.sin(angle)*600);
+  }else if(spec.kind==='cube'){
+   expect(p.radiusFt).toBe(7.5);expect(p.x).toBeCloseTo(Math.cos(angle)*75);expect(p.y).toBeCloseTo(Math.sin(angle)*75);
+   expect(p.end!.x-p.x).toBeCloseTo(Math.cos(angle)*150);expect(p.end!.y-p.y).toBeCloseTo(Math.sin(angle)*150);
+  }else expect(p).toEqual({mapId:f.map.id,x:200,y:100,radiusFt:spec.sizeFt});
+ });
+ it.each(['Cone of Cold','Thunderwave','Shatter','Flame Strike'])('%s has one field instead of repeated victim artwork',name=>{
+  const f=setup(name),self=spellAreaFor(f.a)!.self;
+  const one=f.target(self?100:200,self?0:100),two=f.target(self?110:210,self?0:100);
+  withDiceSource(s=>s.map(n=>n===20?1:3),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,f.a.level,undefined,undefined,undefined,f.p)).toBe(true));
+  const events=drainHpFx(f.s.id),area=events.filter(e=>e.areaPosition),damage=events.filter(e=>e.delta<0);
+  expect(area).toHaveLength(1);expect(damage).toHaveLength(2);
+  for(const e of damage)expect(e).toMatchObject({suppressSpellVisual:true,impact:{id:area[0].impact!.id}});
+  expect(getMonster(one.m.id)!.curHp).toBeLessThan(500);expect(getMonster(two.m.id)!.curHp).toBeLessThan(500);
+ });
  it.each([0,Math.PI/2,Math.PI*.73])('Burning Hands emits one full caster-origin cone at angle %s',angle=>{
   const f=setup('Burning Hands'),inside=f.target(Math.cos(angle)*100,Math.sin(angle)*100),outside=f.target(-Math.cos(angle)*100,-Math.sin(angle)*100);
   // Self cones use the caster, even when the submitted point differs.
@@ -88,6 +134,9 @@ describe('authoritative area combat',()=>{
   const p={...f.p,points:[...f.p.points,{x:210,y:100}]};
   withDiceSource(sides=>sides.map(s=>s===20?1:2),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,9,undefined,undefined,undefined,p)).toBe(true));
   expect(getMonster(one.m.id)!.curHp).toBe(420);
+  const events=drainHpFx(f.s.id),areas=events.filter(e=>e.areaPosition);
+  expect(areas).toHaveLength(2);expect(areas.map(e=>e.areaPosition)).toEqual(p.points.map(point=>({mapId:f.map.id,...point,radiusFt:40})));
+  expect(events.filter(e=>e.delta<0).every(e=>e.suppressSpellVisual&&e.impact?.id===areas[0].impact?.id)).toBe(true);
  });
  it('does not hit creatures outside the cone or behind a drawn wall',()=>{
   const f=setup('Burning Hands'),near=f.target(100,0),outside=f.target(100,100),blocked=f.target(160,0);

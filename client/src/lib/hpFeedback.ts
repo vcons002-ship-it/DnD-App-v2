@@ -15,7 +15,7 @@ const colors:Record<string,string>={
   lightning:'#fff078',thunder:'#b9b5ff',acid:'#c9f775',poison:'#7ae291',necrotic:'#c49aef',
   radiant:'#ffe8a0',force:'#d1b1ff',psychic:'#ff9ce4',
 };
-export type HpNumber = {delta:number;label:string;color:string;total?:boolean;startAt?:number};
+export type HpNumber = {delta:number;label:string;color:string;total?:boolean;startAt?:number;impactTotal?:boolean};
 export type ScheduledHpEvent=HpFxEvent&{id:number;preparedNumbers?:HpNumber[];numberStartAt?:number;componentStarts?:number[]};
 export const hpImpactId=(event:ScheduledHpEvent)=>event.impact?.id??event.rollId??String(event.id);
 const stackId=(event:ScheduledHpEvent)=>event.delta<0?`${event.kind}:${event.refId}:${hpImpactId(event)}`:`heal:${event.id}`;
@@ -35,7 +35,8 @@ export function hpNumbers(event:HpFxEvent&{preparedNumbers?:HpNumber[]}):HpNumbe
   return [...combined.values()].map(p=>{
     const type=p.damageType?.toLowerCase(),name=type?type[0].toUpperCase()+type.slice(1):'Damage';
     return {delta:-p.amount,label:p.spell?`${p.spell}${type?` · ${type}`:''}`:name,
-      color:p.spell==='Hail of Thorns'?'#b4f47e':colors[type??'']??'#ff8585'};
+      color:p.spell==='Hail of Thorns'?'#b4f47e':colors[type??'']??'#ff8585',
+      ...(p.spell==='Ice Knife'&&type==='cold'?{impactTotal:true}:{})};
   });
 }
 
@@ -78,7 +79,8 @@ export const HP_TOTAL_ARRIVAL_MS = 220;
 export function hpTotalTimeline(numbers:HpNumber[]){
   let delta=0;
   return hpNumberSequence(numbers).filter(item=>item.number.delta<0).map(item=>({
-    delta:delta+=item.number.delta,delayMs:item.delayMs+HP_TOTAL_ARRIVAL_MS,
+    delta:delta+=item.number.delta,delayMs:item.delayMs+(item.number.impactTotal?0:HP_TOTAL_ARRIVAL_MS),
+    ...(item.number.impactTotal?{instant:true}:{}),
   }));
 }
 export function hpFeedbackDuration(numbers:HpNumber[]){
@@ -130,8 +132,13 @@ export function scheduleHpFeedback<T extends ScheduledHpEvent>(events:T[],now:nu
     for(const event of batch){
       const componentStarts=hpNumbers(event).map(n=>plan.get(beatKey(event,n))!);
       // Area-only geometry uses the same beat as its colored damage components.
-      const matching=[...plan].find(([key])=>event.spell&&key.toLowerCase().includes(event.spell.toLowerCase()));
-      scheduled.set(event.id,{...event,numberStartAt:(componentStarts[0]??matching?.[1]??base)-(event.areaPosition&&event.spell==='Fireball'?travel:weaponTravelMs(event)),componentStarts});
+      const iceArea=event.spell==='Ice Knife'&&!!event.areaPosition;
+      const matching=[...plan].find(([key])=>event.spell&&key.toLowerCase().includes(event.spell.toLowerCase())&&(!iceArea||key.endsWith('cold')));
+      // The splash belongs to the cold beat, not the earlier piercing hit.
+      // It still bursts when every creature saves and no cold number exists.
+      const fallback=iceArea&&[...plan.keys()].some(key=>key.endsWith('piercing'))
+        ?base+HP_COMPONENT_HOLD_MS+HP_COMPONENT_FADE_MS+HP_NUMBER_GAP_MS:base;
+      scheduled.set(event.id,{...event,numberStartAt:(componentStarts[0]??matching?.[1]??fallback)-(event.areaPosition&&event.spell==='Fireball'?travel:weaponTravelMs(event)),componentStarts});
     }
     plans.set(id,plan);
     for(const group of hpNumberStacks(batch.map(e=>scheduled.get(e.id)!)))available.set(`${group.event.kind}:${group.event.refId}`,hpStackEnd(group)+HP_NUMBER_GAP_MS);

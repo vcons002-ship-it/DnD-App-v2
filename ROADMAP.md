@@ -583,8 +583,10 @@ included. Status: ☐ todo · ◐ partially done · ☑ done.
 - [x] Keep creature/DM roll bonuses, proficiency, attack/save totals, AC and
   creature HP bookkeeping private; live grouped saves send raw dice and outcomes
   to players while the DM retains full equations. Own PC bonuses remain visible.
-- [x] Ice Knife's grouped explosion saves precede Cold damage in both damage
-  modes. All executable catalogue save spells and recurring/rider save paths
+- [x] Ice Knife finishes Piercing and Cold damage before its grouped explosion
+  saves in both damage modes, without replaying completed trays. Heat Metal
+  finishes its damage calculation before the equipment save. All executable
+  catalogue save spells and recurring/rider save paths
   present results on the live tray once, without later individual save popups.
 
 - [x] Resolve Phantasmal Killer's initial WIS save before damage, show the
@@ -3109,3 +3111,9 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Physical weapon hit effects: slashing/thrust strikes, bludgeoning impacts, and bow/bolt/thrown projectiles, linked to damage reveal completion without exposing hidden origins. See docs/WEAPON_ATTACK_EFFECTS_2026-10-12.md.
 
 - [x] Burning Hands full aimed 15-foot flame cone, shared across its targets with map-scale invariant artwork, reduced effects, and a 2D fallback. Ground-aligned footprints, lower arm-height flame opening, and aiming previews hidden on confirmation in player/DM views. AoE artwork gaps audited in docs/SPELL_AREAS.md.
+
+- [x] Full-area Cone of Cold, Thunderwave, Shatter, Flame Strike and Ice Knife art; Meteor Swarm uses larger Fireballs falling from the sky. Confirmed shapes, grouped saves, typed defenses and roll completion timing are preserved.
+
+- [x] Restore visible typed damage components for Ice Knife and all shared multi-part HP feedback: cache number artwork at full opacity before restoring the animation opacity. Piercing and icy-blue cold numbers rise separately into one red running total; Hail of Thorns sequencing and synchronized AoE remain unchanged. Pixel-level browser tests cover thorns, Ice Knife, Ice Storm and weapon riders.
+
+- [x] Ice Knife now shows a full 5-foot cold burst with a low icy dome, fractured frost field and dispersed shards. Cold amounts across all victims and the main target total synchronize to that impact after the earlier piercing beat, including miss/all-save visuals.

@@ -1,5 +1,5 @@
 import {Data3DTexture,Group,LinearFilter,Mesh,MeshBasicMaterial,RedFormat,RepeatWrapping,SphereGeometry,Vector3} from 'three';
-import {FIREBALL_FLIGHT_MS,spellLightEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
+import {FIREBALL_FLIGHT_MS,METEOR_FLIGHT_MS,spellLightEnvelope,type SpellImpactStyle} from '../../../shared/spellImpact';
 import {createFireballFlameFront} from './fireballFlameFront';
 
 /** One expanding hemisphere filled with fire, not separate puffs or a hollow
@@ -13,6 +13,7 @@ export function createFireballGeometry(){
  noise.unpackAlignment=1;noise.needsUpdate=true;
  const flameFront=createFireballFlameFront();
  function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,white:MeshBasicMaterial){
+  const meteor=style.kind==='meteor-area',flightMs=meteor?METEOR_FLIGHT_MS:FIREBALL_FLIGHT_MS;
   const root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
   const hot=white.clone();hot.color.set('#fff3b1');materials.push(hot);
   const flame=body.clone();flame.color.set('#f46b16');flame.userData.opacityScale=.6;materials.push(flame);
@@ -72,13 +73,14 @@ export function createFireballGeometry(){
   const origin=new Vector3(),at=new Vector3(),target=new Vector3(0,.025,0),arc=new Vector3();
   const path=(u:number)=>at.lerpVectors(origin,target,u).add(arc.set(0,Math.sin(u*Math.PI)*.045,0));
   return {root,parts,materials,update(t:number,_persistent:boolean,reduced:boolean,_areaScale:number,source?:Vector3){
-   const age=t*style.duration,flight=age<FIREBALL_FLIGHT_MS;
-   clock.value=reduced?0:age/1000;quality.value=reduced?16:32;origin.copy(source??target);
-   const u=Math.min(1,age/FIREBALL_FLIGHT_MS),q=Math.max(0,(age-FIREBALL_FLIGHT_MS)/(style.duration-FIREBALL_FLIGHT_MS));
-   const crest=spellLightEnvelope(age-FIREBALL_FLIGHT_MS,style.duration-FIREBALL_FLIGHT_MS);
+   const age=t*style.duration,flight=age<flightMs;
+   clock.value=reduced?0:age/1000;quality.value=reduced?16:32;
+   if(meteor)origin.set(-.18,1.25,.12);else origin.copy(source??target);
+   const u=Math.min(1,age/flightMs),q=Math.max(0,(age-flightMs)/(style.duration-flightMs));
+   const crest=spellLightEnvelope(age-flightMs,style.duration-flightMs);
    for(const mesh of [orb,core,shell]){mesh.visible=flight;mesh.position.copy(path(u));}
-   orb.scale.setScalar(.026*(1+.08*Math.sin(age*.05)));core.scale.setScalar(.015);shell.scale.setScalar(.039);
-   trail.forEach((m,i)=>{const v=u-(i+1)*.018;m.visible=flight&&v>=0;m.position.copy(path(Math.max(0,v)));m.scale.setScalar(.018*(1-i/13));});
+   orb.scale.setScalar((meteor?.065:.026)*(1+.08*Math.sin(age*.05)));core.scale.setScalar(meteor?.04:.015);shell.scale.setScalar(meteor?.085:.039);
+   trail.forEach((m,i)=>{const v=u-(i+1)*.018;m.visible=flight&&v>=0;m.position.copy(path(Math.max(0,v)));m.scale.setScalar((meteor?.045:.018)*(1-i/13));});
    const growth=1-Math.pow(1-Math.min(1,q/.42),2);
    front.visible=!flight;front.scale.setScalar(.5*Math.max(.015,growth));front.position.y=.012;
    crestSurface.mesh.visible=!flight;crestSurface.mesh.scale.copy(front.scale);crestSurface.mesh.position.y=.016;

@@ -6,12 +6,14 @@ import {persistentSpellVisual} from '../../shared/spellImpact.js';
 import {linkedSpellProfile,mirrorImageCount} from '../../shared/linkedSpells.js';
 import {effectiveSpeed,spellActionBlock} from '../../shared/spellBuffs.js';
 import type {SheetAbility} from '../../shared/types.js';
+import type {LiveDiceFrame} from '../../shared/liveDiceTypes.js';
 import {getSpell,getAllSpells} from './spells/srd.js';
 import {resolveAbilityRoll,resolveAttack,resolveForcedSave,resolveAttackDamage,resolveCheck} from './combat.js';
 import {repeatSpell,moveSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,sorcerousBonus} from './linkedSpells.js';
 import {expireTimedSpellEffects,processHitEffects,expireOnCasterTurn} from './hitEffectTurns.js';
 import {runLiveCommand} from './liveRolls.js';
 import {drainHpFx} from './sessions.js';
+import {scheduleHpFeedback,hpNumberStacks} from '../../client/src/lib/hpFeedback.js';
 import {createSession,createMap,setActiveMap,setManualDamage,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,getToken,listTokens,listRollLog,setSheetAbility,setCondition,setCombatRound,setActiveTurn,applyDamage,endConcentration,updateMonster,moveToken} from './sessions.js';
 
 afterEach(()=>vi.restoreAllMocks());
@@ -48,7 +50,42 @@ const monsterHp=(f:ReturnType<typeof setup>)=>getMonster(f.monster.id)!.curHp;
 const casterNow=(f:ReturnType<typeof setup>)=>getCharacter(f.caster.id)!;
 
 describe('2024 linked spell profiles',()=>{
-  it.each([false,true])('Ice Knife resolves its explosion saves once before cold damage (manual damage: %s)',async manual=>{
+  it.each([false,true].flatMap(manual=>[1,15,20].map(face=>({manual,face}))))('Ice Knife never reopens completed trays after saves (manual: $manual, attack: $face)',async({manual,face})=>{
+    const f=setup('Ice Knife');setManualDamage(f.session.id,manual);
+    const timeline:string[]=[];
+    const live=(run:()=>void)=>runLiveCommand(run,frame=>{if(frame.calculation)timeline.push(frame.calculation.title!);},
+      {label:'Ice Knife',roller:'Mage',className:'Wizard'},async(sides,publish,meta,_seed,info)=>{
+        const values=sides.map(s=>s===20?face:4);timeline.push(info?.label??'');
+        publish({id:String(timeline.length),seq:0,label:info?.label??meta.label,roller:'Mage',className:'Wizard',sides,
+          radius:1,poses:Array(sides.length*7).fill(0),values,rerolls:sides.map(()=>0),sets:sides.map(()=>0),
+          critical:sides.map(()=>false),percentile:sides.map(()=>null),elapsed:5,done:true} satisfies LiveDiceFrame);
+        return values;
+      });
+    await live(()=>{expect(f.cast()).toBe(true);});
+    if(manual&&face!==1){const hit=listRollLog(f.session.id).find(r=>r.pending&&!r.pending.done)!;await live(()=>{expect(resolveAttackDamage(f.session.id,'Mage',hit.id)).toBe(true);});}
+    expect(timeline.at(-1)).toContain('DEX Saving Throws');
+    expect(timeline.filter(t=>t==='Ice Knife — Damage Roll')).toHaveLength(face===1?0:1);
+    expect(listRollLog(f.session.id).filter(r=>r.reveal&&!r.reveal.presentedLive)).toEqual([]);
+    const effects=drainHpFx(f.session.id),splash=effects.find(e=>e.areaPosition)!;
+    for(const hit of effects.filter(e=>e.delta<0&&e.damageType==='piercing')){
+      expect(hit.impact).toEqual(splash.impact);expect(hit.suppressSpellVisual).not.toBe(true);
+    }
+  });
+  it('Heat Metal finishes resisted damage in its original tray before the equipment save',async()=>{
+    const f=setup('Heat Metal');updateMonster(f.monster.id,{resistances:['fire']});
+    const stages:string[]=[];
+    await runLiveCommand(()=>{expect(f.cast()).toBe(true);},frame=>{if(frame.calculation){stages.push(frame.calculation.title!);expect(frame.calculation.damageMods).toEqual([{label:'Fire defense',value:-4}]);}},
+      {label:'Heat Metal',roller:'Mage',className:'Wizard'},async(sides,publish,meta,_seed,info)=>{
+        const label=info?.label??meta.label,values=sides.map(s=>s===20?15:4);stages.push(label);
+        publish({id:String(stages.length),seq:0,label,roller:'Mage',className:'Wizard',sides,radius:1,poses:Array(sides.length*7).fill(0),values,
+          rerolls:sides.map(()=>0),sets:sides.map(()=>0),critical:sides.map(()=>false),percentile:sides.map(()=>null),elapsed:5,done:true} satisfies LiveDiceFrame);
+        return values;
+      });
+    expect(stages).toEqual(['Heat Metal — Fire Damage','Heat Metal — Fire Damage','Heat Metal — CON Saving Throw']);
+    expect(listRollLog(f.session.id).filter(r=>r.reveal&&!r.reveal.presentedLive)).toEqual([]);
+    expect(monsterHp(f)).toBe(496);
+  });
+  it.each([false,true])('Ice Knife finishes both damage rolls before its single grouped save (manual damage: %s)',async manual=>{
     const f=setup('Ice Knife');setManualDamage(f.session.id,manual);
     const rolls:{sides:number[];label?:string}[]=[];
     const live=async(run:()=>void)=>runLiveCommand(run,()=>{}, {label:'Ice Knife',roller:'Mage',className:'Wizard'},async(sides,_publish,_meta,_seed,info)=>{
@@ -58,11 +95,12 @@ describe('2024 linked spell profiles',()=>{
     if(manual){const hit=listRollLog(f.session.id).find(r=>r.pending&&!r.pending.done)!;expect(hit).toBeTruthy();await live(()=>{expect(resolveAttackDamage(f.session.id,'Mage',hit.id)).toBe(true);});}
     const savesIndex=rolls.findIndex(r=>r.label?.includes('DEX Saving Throws'));
     const coldIndex=rolls.findIndex(r=>r.label?.includes('cold Damage'));
-    expect(savesIndex).toBeGreaterThan(0);expect(coldIndex).toBe(savesIndex+1);
+    expect(coldIndex).toBe(2);expect(savesIndex).toBe(coldIndex+1);
+    expect(rolls.map(r=>r.sides)).toEqual([[20],[10],[6,6],[20,20]]);
     expect(rolls[savesIndex].sides).toEqual([20,20]);expect(rolls[coldIndex].sides).toEqual([6,6]);
     const checks=listRollLog(f.session.id).filter(r=>r.reveal?.kind==='check');
     expect(checks).toHaveLength(2);expect(checks.every(r=>r.reveal?.presentedLive)).toBe(true);
-    const log=listRollLog(f.session.id);expect(log.findIndex(r=>r.id===checks[1].id)).toBeLessThan(log.findIndex(r=>r.reveal?.title?.includes('cold Damage')));
+    const log=listRollLog(f.session.id);expect(log.findIndex(r=>r.id===checks[0].id)).toBeGreaterThan(log.findIndex(r=>r.reveal?.title?.includes('cold Damage')));
     expect(log.filter(r=>r.reveal&&!r.reveal.presentedLive).some(r=>r.reveal?.kind==='check')).toBe(false);
   });
   it.each(getAllSpells().filter(s=>!spellCombatSupport(s)?.manualCastOnly&&effectiveSheetAbility({...s,id:'catalog'}).roll?.kind==='save').map(s=>s.name))('%s uses the common live save result without a later individual save popup',async name=>{
@@ -182,6 +220,27 @@ describe('linked damage and saving throws',()=>{
     expect(getMonster(f.second.id)!.curHp).toBe(488); // 3d6, failed DEX; casting DC 18
     const logs=listRollLog(f.session.id);expect(logs.some(r=>r.reveal?.title?.includes('cold Damage'))).toBe(true);
     expect(logs.filter(r=>r.reveal?.title?.includes('DEX Saving Throw'))).toHaveLength(2);
+    const events=drainHpFx(f.session.id),areas=events.filter(e=>e.areaPosition);
+    expect(areas).toHaveLength(1);expect(areas[0]).toMatchObject({spell:'Ice Knife',effect:'spell-area',delta:0,areaPosition:{mapId:f.target.mapId,x:f.target.x,y:f.target.y,radiusFt:5}});
+    for(const e of events.filter(e=>e.delta<0&&e.damageType==='cold'))expect(e).toMatchObject({suppressSpellVisual:true,impact:{id:areas[0].impact!.id}});
+    // A successful primary piercing hit still has its own art; only splash
+    // victims share the one cold field.
+    if(face===15){
+      const piercing=events.find(e=>e.damageType==='piercing'&&e.delta<0)!;
+      expect(piercing.suppressSpellVisual).not.toBe(true);
+      expect(piercing.impact).toEqual(areas[0].impact);
+      const scheduled=scheduleHpFeedback(events.map((e,i)=>({...e,id:i})),1000).events;
+      expect(scheduled.find(e=>e.areaPosition)!.numberStartAt).toBe(scheduled.find(e=>e.damageType==='cold'&&e.delta<0)!.numberStartAt);
+      expect(scheduled.find(e=>e.areaPosition)!.numberStartAt).toBeGreaterThan(scheduled.find(e=>e.damageType==='piercing')!.numberStartAt);
+      const totals=hpNumberStacks(scheduled).filter(g=>g.event.refId===f.monster.id);
+      expect(totals).toHaveLength(1);expect(totals[0].numbers.at(-1)!.delta).toBe(-16);
+    }
+  });
+  it('Ice Knife shows one area explosion, not per-victim shard impacts, when everyone saves',()=>{
+    const f=setup('Ice Knife');withDiceSource(s=>s.map(n=>n===20?20:4),()=>f.cast(2));
+    const events=drainHpFx(f.session.id),cold=events.filter(e=>e.damageType==='cold');
+    expect(cold).toHaveLength(2);expect(cold.every(e=>e.delta===0&&e.suppressSpellVisual)).toBe(true);
+    expect(events.filter(e=>e.areaPosition)).toHaveLength(1);
   });
   it.each([true,false])('Ice Knife splash checks the nearby occupied footprint (overlap %s)',overlap=>{
     const f=setup('Ice Knife');moveToken(f.nearby.id,overlap?274:276,100);

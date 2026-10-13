@@ -32,9 +32,13 @@ are filtered for each viewer. A player may place an origin only in their own
 current vision and revealed map fog; a confirmed blast can still hit unseen
 bystanders behind that origin when they have no Total Cover.
 
-Ice Knife first resolves its Piercing attack, then nearby creatures make their
-Dexterity saves together, then the shared Cold explosion damage is rolled.
-The save results do not replay after the explosion. The same once-only result
+Ice Knife shows its attack result, Piercing damage on a hit, and shared Cold
+explosion damage before nearby creatures make their Dexterity saves together.
+A miss still rolls the Cold explosion. The primary hit and splash share one
+map impact clock and accumulated damage total; the splash does not wait for
+the Piercing damage numbers to finish. Completed attack and damage trays do
+not reopen after the saves. Heat Metal also finishes its Fire damage and any
+defense adjustment before its equipment save. The same once-only result
 presentation applies to single-target spell saves, hit riders and recurring
 spell saves; their PASS/FAIL and supported effect explanation appear on the
 live tray rather than on an additional result popup.
@@ -110,15 +114,15 @@ actual server effect dispatch and client geometry, not just a spell's AoE tag.
 
 | Status | Spells | Current presentation |
 | --- | --- | --- |
-| Full confirmed area | Fireball, Lightning Bolt, Call Lightning, Ice Storm, Burning Hands | One authoritative effect fills the confirmed footprint, including empty space. |
+| Full confirmed area | Fireball, Lightning Bolt, Call Lightning, Ice Storm, Burning Hands, Cone of Cold, Thunderwave, Shatter, Flame Strike, Meteor Swarm | One authoritative effect fills the confirmed footprint, including empty space. |
 | Persistent ground area | Spike Growth | Thorn field fills the placed radius while active. |
-| Next damage-art updates | Cone of Cold, Thunderwave, Shatter, Acid Splash, Arms of Hadar, Flame Strike, Circle of Death, Sunbeam, Fire Storm, Sunburst, Meteor Swarm, Weird | Generic bursts or specialized individual-victim effects, rather than one confirmed cone, cube, line or disk. |
+| Next damage-art updates | Acid Splash, Arms of Hadar, Circle of Death, Sunbeam, Fire Storm, Sunburst, Weird | Generic bursts or specialized individual-victim effects, rather than one confirmed cone, cube, line or disk. |
 | Utility/control artwork still partial | Color Spray, Entangle, Faerie Fire, Grease, Sleep, Calm Emotions, Fear, Hypnotic Pattern, Slow, Confusion | Templates and/or individual status effects; no complete confirmed-area cast animation. |
 | Other placed/ongoing areas | Wind Wall, Cloud of Daggers, fog/cloud spells, magical walls and other ongoing catalogue areas | Placement/measurement or specialized ongoing presentation; not a universal full-area art renderer. |
 
 Hit-centered ranger splashes (Hail of Thorns and Lightning Arrow) already have
 specialized arrows/impact art. They use a separate resolution path; they are not
-part of the placed-area dispatcher above. Ice Knife still has a target-sized shard burst rather than a full splash field.
+part of the placed-area dispatcher above. Ice Knife now has one full 5-foot-radius cold explosion after its primary piercing hit or miss, with separate save and damage feedback.
 Conjure Barrage/Volley also use arrow
 art and still need a confirmed-footprint art review. Manual-only catalogue spells
 retain their existing rule-support flags; artwork is not a rules automation claim.
@@ -138,3 +142,33 @@ approval, so late pointer packets cannot change a submitted cast. Persistent
 measurements for ongoing spells are separate from the aiming preview. Burning
 Hands starts lower, near arm level; its horizontal cone matches the map-space
 preview even though elevated flames have perspective parallax in tilted views.
+
+The next six damage-art updates use the confirmed combat footprint: Cone of Cold
+spreads a frost front and crystals along its 60-foot aimed cone; Thunderwave
+fills its oriented 15-foot cube with a pressure front; Shatter sends a resonant
+shockwave across its 10-foot radius; Flame Strike descends as a mixed fire and
+radiant column across its 10-foot cylinder. Meteor Swarm reuses Fireball’s
+volumetric dome and folded flame crest with larger projectiles falling from
+the sky into each selected 40-foot-radius area. Overlapping victims still
+take damage only once. Empty areas still display their cast. Ice Knife uses
+one splash field instead of repeated victim-sized bursts. Typed defenses,
+grouped saves, hidden-roll approval and roll completion/skip timing are
+unchanged. Shared geometry, bounded instancing and reduced particle counts
+keep these cosmetic fields independent of the number of victims.
+
+Multi-part damage uses the shared sequential floating-number renderer: Ice Knife
+shows its piercing hit followed by icy-blue cold splash numbers synchronized
+across splash victims, then keeps one red accumulated total above each head.
+The same renderer covers weapon riders, Hail of Thorns and mixed-type spells
+such as Ice Storm. Number artwork is cached at full opacity before restoring its animation
+opacity, so initially hidden components do not bake transparent glyphs into
+their cache.
+Browser regressions inspect actual painted pixels as well as timing and totals.
+
+Ice Knife separates the piercing hit from one full-radius cold burst. The burst
+uses a low icy dome, a fractured frost field and dispersed crystalline shards
+over its 5-foot radius. Every victim shows one summed icy-blue cold amount at
+that burst; the red running total updates on the same impact. The piercing
+number remains the earlier beat, avoiding simultaneous overlapping damage parts.
+The splash still plays when the attack misses or all creatures save. Five draw
+calls and one bounded shard instance buffer cover the whole area.

@@ -3,6 +3,7 @@ import {createAdvancedSpellGeometry} from './advancedSpellGeometry';
 import {createFireballGeometry} from './fireballGeometry';
 import {createLinearLightningGeometry} from './linearLightningGeometry';
 import {createBurningHandsGeometry} from './burningHandsGeometry';
+import {createAreaImpactGeometry} from './areaImpactGeometry';
 import {createIceStormGeometry} from './iceStormGeometry';
 import {BoxGeometry,ConeGeometry,CurvePath,LineCurve3,TubeGeometry,Group,Mesh,MeshBasicMaterial,SphereGeometry,TorusGeometry,Vector3,type BufferGeometry} from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
@@ -20,7 +21,7 @@ export function lightningStrikePath(){
  * instance; the spell only chooses its shape and motion, never a new art style. */
 export function createLinkedSpellGeometry(){
   const advanced=createAdvancedSpellGeometry(),weapons=createWeaponAttackGeometry();
-  const fireball=createFireballGeometry();
+  const fireball=createFireballGeometry(),areaImpact=createAreaImpactGeometry();
   const linearLightning=createLinearLightningGeometry();
   const iceStorm=createIceStormGeometry(),burningHands=createBurningHandsGeometry();
   const link=new TorusGeometry(.047,.009,4,9),crystal=new ConeGeometry(.09,.4,5),
@@ -48,9 +49,10 @@ export function createLinkedSpellGeometry(){
   const chains=mergeGeometries(chainLinks)!;chainLinks.forEach(g=>g.dispose());geometries.push(chains);
   function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,white=bright){
     if(style.kind.startsWith('weapon-'))return weapons.build(style,body,bright,white);
-    if(style.kind==='fireball')return fireball.build(style,body,bright,white);
+    if(style.kind==='fireball'||style.kind==='meteor-area')return fireball.build(style,body,bright,white);
     if(style.kind==='lightning-line')return linearLightning.build(style,body,bright,white);
-    if(style.kind==='flame-cone')return burningHands.build(style,body,bright,white);
+    if(['thunder-cube','shatter-area','flame-column','ice-splash'].includes(style.kind))return areaImpact.build(style,body,bright,white);
+    if(style.kind==='flame-cone'||style.kind==='frost-cone')return burningHands.build(style,body,bright,white);
     if(style.kind==='ice-storm')return iceStorm.build(style,body,bright,white);
     if(['shimmer','counter','dispel','thorns'].includes(style.kind))return advanced.build(style,body,bright,white);
     const root=new Group(),parts:Mesh[]=[],materials:MeshBasicMaterial[]=[];
@@ -168,5 +170,5 @@ export function createLinkedSpellGeometry(){
       });
     }};
   }
-  return {build,dispose(){advanced.dispose();fireball.dispose();linearLightning.dispose();iceStorm.dispose();burningHands.dispose();weapons.dispose();geometries.forEach(g=>g.dispose());}};
+  return {build,dispose(){advanced.dispose();fireball.dispose();areaImpact.dispose();linearLightning.dispose();iceStorm.dispose();burningHands.dispose();weapons.dispose();geometries.forEach(g=>g.dispose());}};
 }

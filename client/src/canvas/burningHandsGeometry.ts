@@ -17,16 +17,18 @@ export function createBurningHandsGeometry(){
  // Vertex folds can rise beyond the undeformed mesh's bounding sphere.
  const emberGeometry=new SphereGeometry(1,5,4);
  function build(style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,_white:MeshBasicMaterial){
+  const frost=style.kind==='frost-cone';
   const root=new Group(),clock={value:0},reach={value:0},quality={value:1},pose=new Object3D();
   const materials=[0,1].map(layer=>{
    const material=body.clone();material.side=DoubleSide;material.forceSinglePass=true;material.userData.opacityScale=layer?.56:.92;
-   material.customProgramCacheKey=()=>`burning-hands-folded-cone-${layer}`;
+   material.customProgramCacheKey=()=>`elemental-folded-cone-${frost}-${layer}`;
    material.onBeforeCompile=shader=>{
     shader.uniforms.flameClock=clock;shader.uniforms.flameReach=reach;shader.uniforms.flameQuality=quality;
     shader.vertexShader=shader.vertexShader.replace('#include <common>',`#include <common>
      varying vec2 flamePoint;uniform float flameClock;
     `).replace('#include <begin_vertex>',`#include <begin_vertex>
      flamePoint=uv;
+     transformed.y*= ${frost?".26":"1."};
      transformed.y+=uv.x*.032*sin(uv.x*28.-flameClock*14.+uv.y*19.);
     `);
     shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`#include <common>
@@ -45,14 +47,14 @@ export function createBurningHandsGeometry(){
      float heat=clamp(n*.95+(1.-p.x)*.3,0.,1.);
      vec3 fire=mix(vec3(.58,.025,.001),vec3(1.,.23,.007),smoothstep(.15,.62,heat));
      fire=mix(fire,vec3(1.,.81,.23),smoothstep(.62,.94,heat));
-     diffuseColor.rgb=fire;diffuseColor.a*=mask*(.2+.8*tongues);
+     diffuseColor.rgb=${frost?"mix(vec3(.13,.38,.65),vec3(.8,.97,1.),heat)":"fire"};diffuseColor.a*=mask*(.2+.8*tongues);
     `);
    };
    return material;
   });
-  const fronts=materials.map((m,i)=>{const mesh=new Mesh(sheet,m);mesh.name=i?'burning-hands-upper-flame':'burning-hands-cone';mesh.frustumCulled=false;mesh.position.y=i*.015;mesh.scale.y=i?1.35:.5;root.add(mesh);return mesh;});
-  const emberMaterial=bright.clone();emberMaterial.color.set('#ffd27b');materials.push(emberMaterial);
-  const embers=new InstancedMesh(emberGeometry,emberMaterial,72);embers.name='burning-hands-embers';embers.frustumCulled=false;root.add(embers);
+  const fronts=materials.map((m,i)=>{const mesh=new Mesh(sheet,m);mesh.name=frost?(i?'cone-of-cold-upper-frost':'cone-of-cold-cone'):(i?'burning-hands-upper-flame':'burning-hands-cone');mesh.frustumCulled=false;mesh.position.y=i*.015;mesh.scale.y=i?1.35:.5;root.add(mesh);return mesh;});
+  const emberMaterial=bright.clone();emberMaterial.color.set(frost?'#e4faff':'#ffd27b');materials.push(emberMaterial);
+  const embers=new InstancedMesh(emberGeometry,emberMaterial,72);embers.name=frost?'cone-of-cold-crystals':'burning-hands-embers';embers.frustumCulled=false;root.add(embers);
   const seeds=Array.from({length:72},(_,i)=>({u:(i+.5)/72,v:((i*.61803398875)%1)-.5,phase:(i*.41421356237)%1}));
   const emitterPoints=[new Vector3(.18,.17,0),new Vector3(.55,.13,-.13),new Vector3(.8,.15,.23)];
   fronts[0].userData.emitterPoint=emitterPoints[0];fronts[1].userData.emitterPoint=emitterPoints[1];embers.userData.emitterPoint=emitterPoints[2];
@@ -66,7 +68,7 @@ export function createBurningHandsGeometry(){
    embers.count=reduced?24:72;
    for(let i=0;i<embers.count;i++){
     const s=seeds[reduced?i*3:i],u=(seconds*1.8+s.phase)%1,x=u*reach.value;
-    const scale=t<.8?.0035*(1-u):0;
+    const scale=t<.8?(frost?.0045:.0035)*(1-u):0;
     pose.position.set(x,.025+Math.sin(u*Math.PI)*(.1+s.u*.1),s.v*x*.95);
     pose.scale.set(scale,scale*.7,scale);pose.updateMatrix();embers.setMatrixAt(i,pose.matrix);
    }

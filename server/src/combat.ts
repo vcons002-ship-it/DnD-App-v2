@@ -1347,7 +1347,7 @@ export function resolveAttackDamage(
     },
     hideMods: hidesMods(p.attacker.kind, p.attacker.refId),
   }, damageRollId);
-  if(p.spellLink&&linkedTarget)linkedDamageComplete(sessionId,roller,p.spellLink,linkedTarget,p.spellDamageAmount??p.amount);
+  if(p.spellLink&&linkedTarget)linkedDamageComplete(sessionId,roller,p.spellLink,linkedTarget,p.spellDamageAmount??p.amount,impactRollId??damageRollId);
   return true;
 }
 
@@ -1893,9 +1893,19 @@ export function resolveTargetedSpellAttack(opts: {
   const attackTotal = face + opts.attackBonus;
   const hit = opts.liveResume?.fixed.hit ?? (face === 20 || (!fumble && attackTotal >= t.ac));
   const crit = opts.liveResume?.fixed.crit ?? (hit && (face === 20 || !!autoCrit));
+  // Ice Knife continues into an area damage pool and saves. Finish each
+  // original tray before the next dice request rather than replaying its
+  // combined attack/damage log when the entire command commits.
+  const linkedArea=!!opts.linked&&spellKey(opts.linked.spell)==='ice knife';
+  const attackPresented=!!(linkedArea&&!opts.liveResume&&presentLiveCalculation(
+    `spell-attack:${opts.attacker?.refId}:${opts.title}:${tt!.id}`,{
+      kind:'attack',title:`${opts.title} — Attack Roll`,attacker:opts.roller,target:t.name,
+      d20:face,attackTotal,toHit:opts.toHitSteps??[{label:'spell',value:opts.attackBonus}],
+      outcome:fumble?'fumble':crit?'crit':hit?'hit':'miss',
+    }));
   if(hit&&!opts.liveResume&&attackerToken&&mirrorIntercept(opts.sessionId,attackerToken,tt!,opts.roller)) {
     consumeHitAdvantage(tt!);
-    addRollLog(opts.sessionId,{roller:opts.roller,label:'Attack',expr:opts.title,total:attackTotal,detail:`${opts.title} → ${t.name}: Mirror Image duplicate destroyed; no damage.`,reveal:{kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:'hit',effectOutcome:'Duplicate destroyed — no damage to the caster.'}});
+    addRollLog(opts.sessionId,{roller:opts.roller,label:'Attack',expr:opts.title,total:attackTotal,detail:`${opts.title} → ${t.name}: Mirror Image duplicate destroyed; no damage.`,reveal:{presentedLive:attackPresented,kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:'hit',effectOutcome:'Duplicate destroyed — no damage to the caster.'}});
     if(opts.linked&&spellKey(opts.linked.spell)==='ice knife')linkedDamageComplete(opts.sessionId,opts.roller,opts.linked,tt!,0);
     return true;
   }
@@ -1905,7 +1915,7 @@ export function resolveTargetedSpellAttack(opts: {
     addRollLog(opts.sessionId,{roller:opts.roller,label:'Attack',expr:opts.title,total:attackTotal,
       detail:`${opts.title} \u2192 ${t.name}: ${d20detail} = ${attackTotal} \u2014 ${crit?'CRIT':'HIT'} \u2014 roll damage`,
       hideMods:hidesMods(opts.attacker.kind,opts.attacker.refId),
-      reveal:{kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:crit?'crit':'hit'},
+      reveal:{presentedLive:attackPresented,kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:crit?'crit':'hit'},
       pending:{shield,spellLink:opts.linked,target:{kind:t.kind,refId:t.refId,name:t.name},attacker:opts.attacker,weapon:opts.title,amount:0,crit,dice:[],mods:[],owner:opts.attacker.kind==='pc'?opts.attacker.refId:undefined,sourceRollId:opts.sourceRollId,
         live:{kind:'spell',args:[opts],fixed:{face,detail:d20detail,hit,crit}}}
     },attackRollId);return true;
@@ -1965,6 +1975,12 @@ export function resolveTargetedSpellAttack(opts: {
   }
   const diceTrigger=opts.orb&&hit&&opts.orb.leapsUsed<opts.orb.slotLevel?matchingDiceTrigger(spellDamageFaces):undefined;
   const deferDamage = (!!opts.liveResume || !!getSessionById(opts.sessionId)?.manualDamage) && hit && applied > 0 && !!opts.attacker;
+  const damagePresented=!!(linkedArea&&hit&&first&&presentLiveCalculation(
+    `spell-damage:${opts.attacker?.refId}:${opts.title}:${tt!.id}`,{
+      kind:'damage',title:`${opts.title} — Damage Roll`,attacker:opts.roller,target:t.name,
+      outcome:crit?'crit':'hit',damageDice:revealDice,damageMods:revealMods,
+      damage:applied,damageType:opts.damageType,
+    }));
   consumeHitAdvantage(tt!);
   if (applied > 0 && !deferDamage) {
     hpNote = applyDamageNoted(t.kind, t.refId, applied, opts.damageType, opts.attacker, crit, attackRollId, opts.title, hitDamageParts,opts.impact);
@@ -1985,6 +2001,7 @@ export function resolveTargetedSpellAttack(opts: {
     description: opts.description,
     hpNote,
     reveal: {
+      presentedLive:linkedArea&&(!!opts.liveResume||attackPresented)&&(!hit||!first||damagePresented),
       kind: 'attack',
       d20: face,
       toHit:
@@ -2016,7 +2033,7 @@ export function resolveTargetedSpellAttack(opts: {
     hideMods: opts.attacker ? hidesMods(opts.attacker.kind, opts.attacker.refId) : false,
     ...(deferDamage && opts.attacker ? {
       pending: {
-        spellLink:opts.linked, spellDamageAmount,
+        spellLink:opts.linked, spellDamageAmount, damagePresented,
         ...(opts.impact?{impact:opts.impact}:{}),
         ...(opts.sourceRollId ? { sourceRollId: opts.sourceRollId } : {}),
         target: { kind: t.kind, refId: t.refId, name: t.name },
@@ -2039,7 +2056,7 @@ export function resolveTargetedSpellAttack(opts: {
       const id=newId(),hpNote=applyDamageNoted(t.kind,t.refId,amount,'acid',opts.attacker,false,id,opts.title);noteConcentration(opts.sessionId,t.kind,t.refId,amount);
       addRollLog(opts.sessionId,{roller:opts.roller,label:'Acid Arrow — Miss Splash',expr:splash.expr,total:amount,hpNote,detail:`${t.name}: missed arrow splashes for ${amount} Acid damage; no delayed damage.`,reveal:{kind:'damage',title:'Acid Arrow — Miss Splash',attacker:opts.roller,target:t.name,outcome:'none',damage:amount,damageType:'acid',damageDice:[{label:splash.expr,value:splash.total,faces:splash.rolls,diceExpression:splash.expr}],damageMods:[{label:'Half on a miss and Acid defense',value:amount-splash.total}]}},id);
     }
-    if(!deferDamage)linkedDamageComplete(opts.sessionId,opts.roller,opts.linked,tt!,spellDamageAmount);
+    if(!deferDamage)linkedDamageComplete(opts.sessionId,opts.roller,opts.linked,tt!,spellDamageAmount,attackRollId);
   }
   if (!hit && attackerToken && !opts.originTokenId && /\bmelee(?: spell| weapon)? attack\b/i.test(opts.description ?? ''))
     createRiposteOpportunity(opts.sessionId, tt!, attackerToken);
