@@ -1,5 +1,6 @@
 import { markSpell } from '../../../shared/hitFeatures';
 import type { Condition, SheetAbility } from '../../../shared/types';
+import {confirmAction} from './dialogs';
 
 /** Icon per rollable kind, so a button reads attack vs save vs damage vs heal. */
 export const ROLL_ICON: Record<string, string> = {
@@ -29,10 +30,10 @@ export const isConcentration = (a: SheetAbility): boolean =>
 
 /** Warn before starting a NEW concentration while another is already running —
  *  5e lets you keep only one, so casting ends the old. Returns false to abort. */
-export function confirmConcentration(
+export async function confirmConcentration(
   caster: { name: string; conditions: Condition[] },
   a: SheetAbility,
-): boolean {
+): Promise<boolean> {
   if (!castsConcentration(a)) return true;
   const existing = caster.conditions.find(
     (c) => c.isConcentration && c.label !== `Concentration: ${a.name}`,
@@ -40,8 +41,6 @@ export function confirmConcentration(
   if (!existing) return true;
   const prev =
     existing.label.replace(/^Concentration:\s*/i, '').trim() || 'another spell';
-  return window.confirm(
-    `${caster.name} is already concentrating on ${prev}. ` +
-      `Casting ${a.name} will end that concentration. Continue?`,
-  );
+  return confirmAction({title:'Replace concentration?',acceptLabel:`Cast ${a.name}`,message:
+    `${caster.name} is concentrating on ${prev}. Casting ${a.name} will end ${prev}. Cancel to keep the current spell.`});
 }

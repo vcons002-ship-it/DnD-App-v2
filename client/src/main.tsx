@@ -7,6 +7,7 @@ import { DmDataRoute } from './routes/DmDataRoute';
 import { DmLibraryRoute } from './routes/DmLibraryRoute';
 import { PlayerRoute } from './routes/PlayerRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AppDialog } from './components/AppDialog';
 import './styles.css';
 
 registerAssetCache();
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <ErrorBoundary>
+        <AppDialog />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/dm" element={<DmRoute />} />

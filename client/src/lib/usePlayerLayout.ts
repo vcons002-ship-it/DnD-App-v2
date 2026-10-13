@@ -55,7 +55,7 @@ function readSize(stored: Partial<PlayerPanelSize> | undefined, panel: PlayerPan
  * Dimensions are unscaled CSS pixels. Viewport clamps affect only presentation,
  * so temporarily narrowing the window does not erase a player's preferred size.
  */
-export function usePlayerLayout() {
+export function usePlayerLayout(expanded={combat:true,chat:false}) {
   const [layout, setLayout] = useState(readLayout);
   const [body, bodyRef] = useState<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight - 50 });
@@ -101,6 +101,24 @@ export function usePlayerLayout() {
       },
     }));
   };
+  const displaySize=(panel:PlayerPanelName):PlayerPanelSize=>{
+    const combat=size('combat'),chat=size('chat'),scale=layout.scale;
+    const chatWidth=expanded.chat?chat.width:38;
+    const combatX=layout.sides.combat==='left'?60*scale:viewport.width-(combat.width+6)*scale;
+    const chatX=layout.sides.chat==='left'?6*scale:viewport.width-(chatWidth+6)*scale;
+    const overlap=Math.min(combatX+combat.width*scale,chatX+chatWidth*scale)>Math.max(combatX,chatX);
+    const top=viewport.width<=1000?66:6;
+    if(!overlap)return panel==='combat'?{...combat,height:Math.min(combat.height,Math.max(1,viewport.height/scale-top-8))}:chat;
+    const available=Math.max(1,viewport.height/scale-top-6-8);
+    const wanted={combat:expanded.combat?combat.height:42,chat:expanded.chat?chat.height:38};
+    const minimum={combat:expanded.combat?Math.min(160,wanted.combat):42,chat:expanded.chat?Math.min(170,wanted.chat):38};
+    const sum=wanted.combat+wanted.chat;
+    if(sum<=available)return panel==='combat'?combat:chat;
+    const minSum=minimum.combat+minimum.chat;
+    const spare=Math.max(0,available-minSum),demand=sum-minSum;
+    const height=available<minSum?minimum[panel]*available/minSum:minimum[panel]+(demand?spare*(wanted[panel]-minimum[panel])/demand:0);
+    return {...(panel==='combat'?combat:chat),height};
+  };
   return {
     resourceLayout: layout.resourceLayout,
     setResourceLayout: (resourceLayout: ResourceLayout) => setLayout((current) => ({ ...current, resourceLayout })),
@@ -110,6 +128,7 @@ export function usePlayerLayout() {
     setSide:(panel:PlayerPanelName,side:WindowSide)=>setLayout(current=>({...current,sides:{...current.sides,[panel]:side}})),
     bodyRef,
     size,
+    displaySize,
     setSize,
     limits,
     reset: () => setLayout(DEFAULT_LAYOUT),

@@ -42,6 +42,7 @@ tools/*
 
 # Playwright e2e output
 test-results/
+test-results-recovery/
 playwright-report/
 blob-report/
 .playwright/

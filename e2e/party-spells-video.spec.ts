@@ -1,3 +1,4 @@
+import {acceptConcentration} from './themed-dialogs';
 import {test,expect,type Locator} from '@playwright/test';
 import {io} from 'socket.io-client';
 import {readFileSync,writeFileSync} from 'node:fs';
@@ -30,7 +31,7 @@ test('five repaired spells on 3D miniatures in regular darkness',async({browser,
  // its six-second out-of-combat expiry. The fixture's attacks are real rolls.
  socket.emit('initiative:set',{tokenId:enemy.id,initiative:20});socket.emit('initiative:set',{tokenId:actor.id,initiative:10});socket.emit('initiative:setRound',{round:1});socket.emit('initiative:next');await state();
  const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1600,height:1000}}),page=await context.newPage();
- page.setDefaultTimeout(30000);page.on('dialog',d=>d.accept());const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ page.setDefaultTimeout(30000);await acceptConcentration(page);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  const layer=page.getByTestId('miniature-layer'),combat=page.locator('.compact-player-combat');
  const click=async(l:Locator)=>{await l.scrollIntoViewIfNeeded();const b=await l.boundingBox();expect(b).toBeTruthy();await page.mouse.move(b!.x+b!.width/2,b!.y+b!.height/2,{steps:16});await page.waitForTimeout(350);await l.click();};
  const point=async(id:string,x:number,y:number)=>page.evaluate(({id,x,y})=>{

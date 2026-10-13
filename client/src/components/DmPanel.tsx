@@ -1,3 +1,4 @@
+import {confirmAction,showNotice} from '../lib/dialogs';
 import { useEffect, useRef, useState } from 'react';
 import type {
   CreatureTemplate,
@@ -175,7 +176,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
     if (!file) return;
     const reason = unsupportedImageReason(file);
     if (reason) {
-      window.alert(reason);
+      void showNotice({title:'Image not supported',message:reason});
       if (fileRef.current) fileRef.current.value = '';
       return;
     }
@@ -201,7 +202,7 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
     try {
       const { path, error } = await comfyGenerate(mapPrompt, 'map');
       if (!path) {
-        window.alert(error || 'Map generation failed — is ComfyUI running with a checkpoint loaded?');
+        await showNotice({title:'Map generation failed',message:error || 'Map generation failed. Check the configured image service and try again.'});
         return;
       }
       const fd = new FormData();
@@ -285,11 +286,10 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
               <button
                 className="btn tiny danger"
                 title="Delete this map (removes its tokens)"
-                onClick={() => {
+                onClick={async () => {
                   if (
-                    confirm(
-                      `Delete map "${m.name}"? Its token placements will be removed. This cannot be undone.`,
-                    )
+                    await confirmAction({title:'Delete map?',acceptLabel:'Delete map',danger:true,
+                      message:`Delete map "${m.name}"? Its token placements will be removed. This cannot be undone.`})
                   )
                     deleteMap(m.id);
                 }}
@@ -407,8 +407,8 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
               <button
                 className="btn tiny"
                 title="Unlock: clear this character's owner so a different player (e.g. a new device) can claim it"
-                onClick={() => {
-                  if (window.confirm(`Unlock ${c.name} so any player can claim it?`))
+                onClick={async () => {
+                  if (await confirmAction({title:'Unlock character ownership?',acceptLabel:'Unlock character',message:`Unlock ${c.name} so any player can claim it?`}))
                     unlockCharacter(c.id);
                 }}
               >
@@ -422,11 +422,10 @@ export function DmPanel({ snapshot, pending, onPickSpawn, section }: Props) {
                   ? 'Remove from the spawn list (blocked while a player is in the session)'
                   : 'Remove this character from the spawn list'
               }
-              onClick={() => {
+              onClick={async () => {
                 if (
-                  window.confirm(
-                    `Remove ${c.name} from the spawn list? This deletes the character and any of its tokens.`,
-                  )
+                  await confirmAction({title:'Delete character?',acceptLabel:'Delete character',danger:true,
+                    message:`Remove ${c.name} from the spawn list? This deletes the character and any of its tokens.`})
                 )
                   deleteCharacter(c.id);
               }}

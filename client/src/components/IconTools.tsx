@@ -1,3 +1,4 @@
+import {showNotice} from '../lib/dialogs';
 import { useState } from 'react';
 import { unsupportedImageReason } from '../lib/images';
 import { useComfyAvailable, comfyGenerate, type ComfyKind } from '../lib/comfy';
@@ -44,7 +45,7 @@ export function IconTools({ onApply, note, comfyKind = 'token' }: Props) {
     if (!file) return;
     const reason = unsupportedImageReason(file);
     if (reason) {
-      window.alert(reason);
+      void showNotice({title:'Image not supported',message:reason});
       e.target.value = '';
       return;
     }

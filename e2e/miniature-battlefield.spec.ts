@@ -1,3 +1,4 @@
+import {acceptConcentration} from './themed-dialogs';
 import {wallsFromYellowMask} from '../server/src/wallMask';
 import {getSpell} from '../server/src/spells/srd';
 import sharp from 'sharp';
@@ -3329,7 +3330,7 @@ test('spell impacts light a heavy dungeon after dice and keep hunter spell ident
  // terrain flashes and Low samples the terrain field instead (tested separately).
  await page.addInitScript(()=>localStorage.setItem('dnd-environment-quality','high'));
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});
- page.on('dialog',d=>d.accept());
+ await acceptConcentration(page);
  const f=await fixture(page,request,await cornerDemoMap()),[druk,varis,vanec]=f.ready.tokens;
  f.socket.emit('map:setGrid',{mapId:f.mapId,gridSizePx:50,feetPerSquare:5,widthFt:150,locked:false,hidden:false});
  // Druk observes from just outside the 5 ft damage burst, within its emitted

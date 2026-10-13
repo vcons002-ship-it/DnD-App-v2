@@ -1,3 +1,4 @@
+import {confirmAction} from '../lib/dialogs';
 import { hitFeature, markSpell } from '../../../shared/hitFeatures';
 import { RechargeChip } from './RechargeChip';
 import { isOnHitManeuver } from '../../../shared/maneuvers';
@@ -201,13 +202,12 @@ export function CharacterSpells({
     const hit = current[a.name.trim().toLowerCase()];
     return hit && isOutdated(a, hit) ? hit : null;
   };
-  const updateToCurrentRules = (a: SheetAbility, hit: Partial<SheetAbility>) => {
-    const ok = window.confirm(
+  const updateToCurrentRules = async (a: SheetAbility, hit: Partial<SheetAbility>) => {
+    const ok = await confirmAction({title:'Update spell rules?',acceptLabel:'Update this entry',message:
       `Update "${a.name}" to the current rules version?\n\n` +
         'This replaces its rules text and mechanics (dice, toggles, counters) ' +
         'with the current definition. If it is a toggle, it comes back switched ' +
-        'OFF. Only this entry changes.',
-    );
+        'OFF. Only this entry changes.'});
     if (ok) setSheetAbility(kind, character.id, applyRulesUpdate(a, hit));
   };
   // Collapsible spell GROUPS (Cantrips / Level N / Other) — default open
@@ -397,7 +397,7 @@ export function CharacterSpells({
     notify(`Summon requested — drag ${a.summon?.name?.trim() || a.name} into place after it appears.`);
   };
 
-  const doRoll = (a: SheetAbility) => {
+  const doRoll = async (a: SheetAbility) => {
     if (actionBlock) { explainBlock(); return; }
     const level = upcastable(a) ? levelFor(a) : undefined;
     const execution = effectiveSheetAbility(a, level);
@@ -405,7 +405,7 @@ export function CharacterSpells({
       notify('Choose a target in the Combat panel to cast this spell.');
       return;
     }
-    if (!confirmConcentration(character, a)) return;
+    if (!await confirmConcentration(character, a)) return;
     rollAbility({
       kind,
       refId: character.id,

@@ -1,3 +1,4 @@
+import {confirmAction} from '../lib/dialogs';
 import { rollLogDetail } from '../../../shared/rollBreakdown';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { StateSnapshot } from '../../../shared/types';
@@ -366,8 +367,8 @@ export function DicePanel({
         {isDm && snapshot.rollLog.length > 0 && (
           <button
             className="btn tiny danger"
-            onClick={() => {
-              if (window.confirm('Clear the roll log for everyone?')) clearRollLog();
+            onClick={async () => {
+              if (await confirmAction({title:'Clear shared roll log?',acceptLabel:'Clear rolls',danger:true,message:'Remove all roll entries for everyone? Chat messages will be kept.'})) clearRollLog();
             }}
             title="Remove all roll entries from the shared log (chat is kept)"
           >

@@ -120,7 +120,7 @@ export function DamagePrompt() {
           const levels=spellSlotOptions(ch,a.level??1).filter(o=>o.remaining>0);
           return <span key={a.id}>
             <button className="btn tiny" onClick={()=>spell?setFeaturePicker(featurePicker===a.id?undefined:a.id):combatHitFeature(rollId,a.id)}>{a.name}</button>
-            {spell&&featurePicker===a.id&&levels.map(o=><button className="btn tiny" key={o.key} onClick={()=>{if(hitFeature(a)!=='ensnaring strike'||confirmConcentration(ch,{...a,tags:['concentration']})) combatHitFeature(rollId,a.id,o.level,o.pool);}}>{o.label}</button>)}
+            {spell&&featurePicker===a.id&&levels.map(o=><button className="btn tiny" key={o.key} onClick={async()=>{if(hitFeature(a)!=='ensnaring strike'||await confirmConcentration(ch,{...a,tags:['concentration']})) combatHitFeature(rollId,a.id,o.level,o.pool);}}>{o.label}</button>)}
           </span>;
         })}
       </div>}

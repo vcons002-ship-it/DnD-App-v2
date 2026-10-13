@@ -1,3 +1,4 @@
+import {acceptConcentration} from './themed-dialogs';
 import {test,expect,type Page,type Locator} from '@playwright/test';
 import {io} from 'socket.io-client';
 import {readFileSync,writeFileSync} from 'node:fs';
@@ -35,7 +36,7 @@ for(const actor of ['Varis','Druk','Vanec'])test(`party abilities walkthrough ${
  const page=await context.newPage();page.setDefaultTimeout(16000);
  const errors:string[]=[],chapters:any[]=[],evidence:any[]=[];
  page.on('pageerror',e=>errors.push(e.message));
- page.on('dialog',async d=>{evidence.push({dialog:d.message()});await page.waitForTimeout(900);await d.accept();});
+ await acceptConcentration(page,async message=>{evidence.push({dialog:message});await page.waitForTimeout(900);});
  let currentStep='',chapterId=0;
  await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.claim-row').filter({hasText:actor}).click();
  await expect(page.getByTestId('player-hud')).toBeVisible();await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();

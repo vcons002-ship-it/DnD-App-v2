@@ -9,6 +9,7 @@ const DESKTOP = [
   ROW('Shift / Ctrl-click', 'Add to a multi-selection'),
   ROW('Ctrl-drag (DM)', 'Box-select token bases; hold Shift as well to add to the selection. Esc cancels.'),
   ROW('Pin a DM panel', 'Keep it open; additional panels stack in the same column. Unpin or close to free the space.'),
+  ROW('Campaign > window controls (DM)', 'Close unpinned windows keeps pinned panels. Reset window layout restores default sides, sizes and pins without losing drafts.'),
   ROW('Drag a window header', 'Dock DM windows or player Combat/Chat left or right. Pinned DM windows move together. Focus the header and use Left/Right, or Esc to cancel a drag.'),
   ROW('Drag a token', 'Move it (DM: anything · player: your PC + friendly creatures)'),
   ROW('Double-click a token', 'Open its read-only details (players)'),
@@ -25,6 +26,7 @@ const DESKTOP = [
 ];
 
 const MOBILE = [
+  ROW('Combat and Chat', 'Panels share available height when they would overlap. Their saved sizes return on a larger screen.'),
   ROW('Drag a window header', 'Dock DM windows or player Combat/Chat left or right; the highlighted side shows where it will land. DM windows stay full width on phones.'),
   ROW('Tap a token', 'Select it'),
   ROW('Drag a token', 'Move it (your PC + friendly creatures, as a player)'),

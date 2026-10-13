@@ -86,13 +86,13 @@ export function AbilityButtons({
   const [chosenCommand,setChosenCommand]=useState('Halt');
   const [customWord,setCustomWord]=useState('');
 
-  const cast = (a: SheetAbility, word?:string,ids?:string[],dispelTarget?:AbilityRollPayload['dispelTarget']) => {
+  const cast = async (a: SheetAbility, word?:string,ids?:string[],dispelTarget?:AbilityRollPayload['dispelTarget']) => {
     if(advancedSpell(a)==='dispel magic'&&!dispelTarget){setDispelAbility(a);setDispelChoice(targetTokenId??snapshot?.tokens.find(t=>t.kind===kind&&t.refId===caster.id)?.id??'');return;}
     if(advancedSpell(a)==='invisibility'&&!ids){
       setInvisAbility(a);const me=snapshot?.tokens.find(t=>t.kind===kind&&t.refId===caster.id);setInvisTargets(me?[me.id]:[]);return;
     }
     if(isCommandSpell(a)&&!word){setCommandAbility(a);setChosenCommand('Halt');return;}
-    if (!confirmConcentration(caster, a)) return;
+    if (!await confirmConcentration(caster, a)) return;
     const level = upcastable(a) ? castLevel[a.id] ?? spellBaseLevel(a) : undefined;
     const execution = effectiveSheetAbility(a, level);
     const manualCast = spellCombatSupport(a)?.manualCastOnly;

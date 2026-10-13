@@ -36,7 +36,7 @@ export function PlayerView() {
   const [placing, setPlacing] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [combatOpen, setCombatOpen] = useState(true);
-  const layout = usePlayerLayout();
+  const layout = usePlayerLayout({combat:combatOpen,chat:chatOpen});
   const [preview, setPreview] = useState(false);
   useEffect(() => {
     const request = new AbortController();
@@ -182,7 +182,7 @@ export function PlayerView() {
         <section
           className={`player-combat fantasy-window${combatOpen ? '' : ' collapsed'}`}
           aria-label="Combat panel" data-dock-window data-dock-side={layout.side('combat')}
-          style={{ width: layout.size('combat').width, height: combatOpen ? layout.size('combat').height : undefined }}
+          style={{ width: layout.displaySize('combat').width, height: combatOpen ? layout.displaySize('combat').height : undefined }}
         >
           <DockableWindowHeader className="floating-panel-header" label="Combat" side={layout.side('combat')} onDock={side=>layout.setSide('combat',side)}>
             <h2>Combat</h2>
@@ -222,7 +222,7 @@ export function PlayerView() {
         <section
           className={`player-chat fantasy-window${chatOpen ? '' : ' collapsed'}`}
           aria-label="Chat and roll log" data-dock-window data-dock-side={layout.side('chat')}
-          style={chatOpen ? layout.size('chat') : undefined}
+          style={chatOpen ? layout.displaySize('chat') : undefined}
         >
           <DockableWindowHeader className="floating-panel-header" label="Chat and roll log" side={layout.side('chat')} onDock={side=>layout.setSide('chat',side)}>
             {chatOpen && <h2>Chat & roll log</h2>}
