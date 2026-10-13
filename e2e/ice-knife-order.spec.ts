@@ -13,7 +13,7 @@ test('Ice Knife shows damage before saves and never reopens completed trays',asy
  const state=async():Promise<StateSnapshot>=>{const r=await admin.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.ok).toBe(true);return r.snapshot;};
  const first=await state(),caster=first.characters.find(c=>c.name==='Vanec')!,names=['Ice Knife'];
  const catalog=(await(await request.get('/api/spells/all')).json()).results as SheetAbility[];
- admin.emit('character:update',{characterId:caster.id,className:'Sorcerer',level:17,maxHp:5000,curHp:5000,armorClass:14,stats:{STR:10,DEX:14,CON:14,INT:10,WIS:10,CHA:18},conditions:[],sheetAbilities:names.map((name,i)=>({...catalog.find(a=>a.name===name)!,id:'demo-'+i,source:'srd',sourceClass:'sorcerer',roll:catalog.find(a=>a.name===name)!.roll?{...catalog.find(a=>a.name===name)!.roll,dc:15}:undefined})),spellSlots:{L1:{max:8,used:0},L2:{max:8,used:0},L5:{max:8,used:0},L9:{max:8,used:0}}});
+ admin.emit('character:update',{characterId:caster.id,className:'Sorcerer',level:17,maxHp:5000,curHp:5000,armorClass:14,stats:{STR:10,DEX:14,CON:14,INT:10,WIS:10,CHA:18},conditions:[],sheetAbilities:names.map((name,i)=>({...catalog.find(a=>a.name===name)!,id:'demo-'+i,source:'srd',sourceClass:'sorcerer',roll:catalog.find(a=>a.name===name)!.roll?{...catalog.find(a=>a.name===name)!.roll,dc:30}:undefined})),spellSlots:{L1:{max:8,used:0},L2:{max:8,used:0},L5:{max:8,used:0},L9:{max:8,used:0}}});
  const map=await(await request.post(`/api/sessions/${code}/maps`,{headers:{'x-dm-passphrase':DM_SECRET},multipart:{name:'Open courtyard',image:{name:'courtyard.png',mimeType:'image/png',buffer:readFileSync('assets/environment-preview/courtyard.png')}}})).json();
  admin.emit('map:setActive',{mapId:map.id});admin.emit('map:setGrid',{mapId:map.id,gridSizePx:64,feetPerSquare:5,widthFt:95,locked:false});
  for(const layer of ['map','tokens'])admin.emit('fog:setLayer',{mapId:map.id,layer,enabled:false});
@@ -21,7 +21,7 @@ test('Ice Knife shows damage before saves and never reopens completed trays',asy
  admin.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dusk',lightLevel:.78,weather:'none',particles:'none',mist:false,mapShadows:false,shadows:false,lights:[]}});
  admin.emit('token:spawn',{mapId:map.id,kind:'pc',refId:caster.id,x:420,y:650});
  for(const [name,modelType,x,y] of [['Bugbear','bugbear',550,610],['Goblin','goblin',620,588],['Skeleton','skeleton',850,720]] as const){
-  admin.emit('monster:create',{name,modelType,maxHp:5000,curHp:5000,armorClass:12,creatureType:name==='Bugbear'?'Medium humanoid':'Medium humanoid',disposition:'enemy',stats:{STR:10,DEX:14,CON:14,INT:10,WIS:10,CHA:10}});
+  admin.emit('monster:create',{name,modelType,maxHp:5000,curHp:5000,armorClass:12,creatureType:name==='Bugbear'?'Medium humanoid':'Medium humanoid',disposition:'enemy',stats:{STR:10,DEX:1,CON:14,INT:10,WIS:10,CHA:10}});
   const template=(await state()).monsterTemplates.find(m=>m.name===name)!;admin.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x,y});
  }
  const ready=await state(),actor=ready.tokens.find(t=>t.refId===caster.id)!,foes=ready.tokens.filter(t=>t.kind==='monster');
@@ -44,6 +44,13 @@ test('Ice Knife shows damage before saves and never reopens completed trays',asy
   for(const name of names){
    chapters.push({title:name,time:(Date.now()-start)/1000});console.log('SHOWCASE',name);
    const before=await state(),hp=Object.fromEntries(before.monsters.map(m=>[m.id,m.curHp]));
+   await page.evaluate(()=>{
+    (window as any).__hpSamples=[];
+    (window as any).__hpSampling=setInterval(()=>{
+     const nodes=((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('.hp-floater-number'));
+     if(nodes.length)(window as any).__hpSamples.push({time:performance.now(),wall:Date.now(),nodes:nodes.map((n:any)=>({text:n.text(),color:n.fill(),total:n.hasName('hp-floater-total'),opacity:n.getParent().getAbsoluteOpacity(),pixels:(()=>{if(n.getParent().getAbsoluteOpacity()<.5)return 0;const r=n.getClientRect(),canvas=n.getLayer().getNativeCanvasElement(),x=Math.max(0,Math.floor(r.x)),y=Math.max(0,Math.floor(r.y)),w=Math.min(canvas.width-x,Math.ceil(r.width)),h=Math.min(canvas.height-y,Math.ceil(r.height));if(w<=0||h<=0)return 0;const data=canvas.getContext('2d').getImageData(x,y,w,h).data,color=n.fill(),rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));let count=0;for(let i=0;i<data.length;i+=4)if(data[i+3]>180&&rgb.every((v,j)=>Math.abs(data[i+j]-v)<20))count++;return count;})(),x:n.getAbsolutePosition().x,y:n.getAbsolutePosition().y,targetX:n.getAttr('targetMapX')}))});
+    },40);
+   });
    await click(combat.getByRole('button',{name:new RegExp(name)}).first());
    const targetsText='Target: Bugbear';
    await page.mouse.move(260,160,{steps:15});
@@ -58,7 +65,7 @@ test('Ice Knife shows damage before saves and never reopens completed trays',asy
     expect(hit.impact).toEqual(splash.impact);expect(hit.suppressSpellVisual).not.toBe(true);
     await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-spell-impact-kinds',/shards/);
    }
-   await page.waitForTimeout(400);await page.screenshot({path:out+'/ice-knife-effect.png'});await page.waitForTimeout(5500);
+   await page.waitForTimeout(400);await page.screenshot({path:out+'/ice-knife-effect.png'});await page.waitForTimeout(1200);await page.screenshot({path:out+'/ice-knife-cold-numbers.png'});await page.waitForTimeout(4300);
    await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0);
    const rolls=committed!.rollLog.slice(before.rollLog.length);
    expect(rolls.filter(r=>r.reveal&&!r.reveal.presentedLive)).toEqual([]);
@@ -67,12 +74,18 @@ test('Ice Knife shows damage before saves and never reopens completed trays',asy
    const attack=stages[0].values[0];
    expect(stages.map(s=>s.sides)).toEqual(attack===1?[[20],[6,6],[20,20]]:attack===20?[[20],[10,10],[6,6],[20,20]]:[[20],[10],[6,6],[20,20]]);
    if(attack!==1)expect(stages[1].calculation.title).toBe('Ice Knife — Damage Roll');
-   evidence.push({name,targetsText,before:hp,after:Object.fromEntries(committed!.monsters.map(m=>[m.id,m.curHp])),rolls:committed!.rollLog.slice(before.rollLog.length)});
+   const samples=await page.evaluate(()=>{clearInterval((window as any).__hpSampling);return (window as any).__hpSamples;});
+   for(const effect of effects.filter(e=>e.delta<0)){
+    const targetX=foes.find(t=>t.refId===effect.refId)!.x,color=effect.damageType==='cold'?'#8fe4ff':'#ff9987';
+    expect(samples.some((s:any)=>s.nodes.some((n:any)=>!n.total&&n.targetX===targetX&&n.text==='\u2212'+(-effect.delta)&&n.color===color&&n.pixels>10)),effect.damageType+' component paints on the map').toBe(true);
+   }
+   for(const target of foes){const amount=effects.filter(e=>e.refId===target.refId&&e.delta<0).reduce((sum,e)=>sum-e.delta,0);if(amount)expect(samples.some((s:any)=>s.nodes.some((n:any)=>n.total&&n.targetX===target.x&&n.text==='\u2212'+amount&&n.pixels>10)),'red total equals applied HP').toBe(true);}
+   evidence.push({samples,name,targetsText,before:hp,after:Object.fromEntries(committed!.monsters.map(m=>[m.id,m.curHp])),rolls:committed!.rollLog.slice(before.rollLog.length)});
 
   }
   expect(errors).toEqual([]);
  }finally{
-  if(capture)writeFileSync(out+'/capture.json',JSON.stringify(await capture.stop(),null,2));writeFileSync(out+'/chapters.json',JSON.stringify(chapters,null,2));writeFileSync(out+'/evidence.json',JSON.stringify({sourceCommit:'Full area spell feature branch',errors,evidence,frames,fx},null,2));await context.close();admin.disconnect();
+  if(capture)writeFileSync(out+'/capture.json',JSON.stringify(await capture.stop(),null,2));writeFileSync(out+'/chapters.json',JSON.stringify(chapters,null,2));writeFileSync(out+'/evidence.json',JSON.stringify({sourceCommit:'Full area spell feature branch',captureStartedAt:start,errors,evidence,frames,fx},null,2));await context.close();admin.disconnect();
  }
 });
 

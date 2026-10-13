@@ -428,6 +428,15 @@ function BurstFx({
 
 /** Colored numbers float above their creature, hold, then gently fade. */
 type HeadPosition=(id:string)=>{x:number;y:number}|undefined;
+function cacheNumberArtwork(text:Konva.Text,group:Konva.Group){
+  // Konva's stroke/shadow buffer includes ancestor opacity even when caching
+  // the Text itself. Rasterize at full opacity, then restore the animation's
+  // opacity synchronously, before the canvas paints its next frame.
+  const opacity=group.opacity();
+  group.opacity(1);
+  try{text.clearCache();text.cache({pixelRatio:Konva.pixelRatio});}
+  finally{group.opacity(opacity);}
+}
 function FloaterText({number,position,fontSize,rise,startAt,holdMs,fadeMs,targetX,tokenId,headPosition}:{number:HpNumber;position:{x:number;y:number};fontSize:number;rise:number;startAt:number;holdMs:number;fadeMs:number;targetX:number;tokenId:string;headPosition:HeadPosition}) {
   const anchor=useRef<Konva.Group>(null);
   const group=useRef<Konva.Group>(null);
@@ -436,7 +445,7 @@ function FloaterText({number,position,fontSize,rise,startAt,holdMs,fadeMs,target
     const node=group.current;if(!node)return;
     // Stroke and shadow are static artwork. Rasterize once at the canvas's
     // native resolution, then move/fade that image instead of repainting glyphs.
-    text.current?.cache({pixelRatio:Konva.pixelRatio});
+    if(text.current)cacheNumberArtwork(text.current,node);
     // Use the shared impact clock for position and opacity. Timer-started
     // tweens extend their lifetimes after a busy frame and can overlap the
     // next scheduled component; one animation needs no delayed callbacks.
@@ -452,7 +461,7 @@ function FloaterText({number,position,fontSize,rise,startAt,holdMs,fadeMs,target
     },node.getLayer());
     animation.start();
     return()=>{animation.stop();text.current?.clearCache();};
-  },[]);
+  },[startAt,holdMs,fadeMs,rise,fontSize,tokenId,headPosition,number.delta,number.color]);
   const width=fontSize*3;
   return <Group ref={anchor} x={position.x} y={position.y+fontSize*1.3} listening={false}><Group ref={group} opacity={0} listening={false}>
     <Text ref={text} name={`hp-floater-number ${number.total?'hp-floater-total':number.delta<0?'hp-floater-component':'hp-floater-heal'}`} targetMapX={targetX} text={`${number.delta>0?'+':'\u2212'}${Math.abs(number.delta)}`}
@@ -483,7 +492,7 @@ function RunningTotal({numbers,position,fontSize,startAt,targetX,tokenId,headPos
         amount=before+(item.delta-before)*(1-(1-progress)**3);
       }
       const shown=Math.ceil(-amount),value=`\u2212${shown}`;
-      if(value!==previousText){label.text(value);label.clearCache();label.cache({pixelRatio:Konva.pixelRatio});previousText=value;changed=true;}
+      if(value!==previousText){label.text(value);cacheNumberArtwork(label,node);previousText=value;changed=true;}
       const opacity=elapsed<milestones[0].delayMs-220?0:elapsed<=last.delayMs+HP_TOTAL_HOLD_MS?1:Math.max(0,1-(elapsed-last.delayMs-HP_TOTAL_HOLD_MS)/HP_NUMBER_FADE_MS);
       if(node.opacity()!==opacity){node.opacity(opacity);changed=true;}
       if(elapsed>last.delayMs+HP_TOTAL_HOLD_MS+HP_NUMBER_FADE_MS)animation.stop();

@@ -3113,3 +3113,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Burning Hands full aimed 15-foot flame cone, shared across its targets with map-scale invariant artwork, reduced effects, and a 2D fallback. Ground-aligned footprints, lower arm-height flame opening, and aiming previews hidden on confirmation in player/DM views. AoE artwork gaps audited in docs/SPELL_AREAS.md.
 
 - [x] Full-area Cone of Cold, Thunderwave, Shatter, Flame Strike and Ice Knife art; Meteor Swarm uses larger Fireballs falling from the sky. Confirmed shapes, grouped saves, typed defenses and roll completion timing are preserved.
+
+- [x] Restore visible typed damage components for Ice Knife and all shared multi-part HP feedback: cache number artwork at full opacity before restoring the animation opacity. Piercing and icy-blue cold numbers rise separately into one red running total; Hail of Thorns sequencing and synchronized AoE remain unchanged. Pixel-level browser tests cover thorns, Ice Knife, Ice Storm and weapon riders.

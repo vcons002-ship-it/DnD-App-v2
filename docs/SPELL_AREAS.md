@@ -155,3 +155,12 @@ one splash field instead of repeated victim-sized bursts. Typed defenses,
 grouped saves, hidden-roll approval and roll completion/skip timing are
 unchanged. Shared geometry, bounded instancing and reduced particle counts
 keep these cosmetic fields independent of the number of victims.
+
+Multi-part damage uses the shared sequential floating-number renderer: Ice Knife
+shows its piercing hit followed by icy-blue cold splash numbers synchronized
+across splash victims, then keeps one red accumulated total above each head.
+The same renderer covers weapon riders, Hail of Thorns and mixed-type spells
+such as Ice Storm. Number artwork is cached at full opacity before restoring its animation
+opacity, so initially hidden components do not bake transparent glyphs into
+their cache.
+Browser regressions inspect actual painted pixels as well as timing and totals.
