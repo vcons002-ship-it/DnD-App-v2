@@ -474,7 +474,7 @@ function FloaterText({number,position,fontSize,rise,startAt,holdMs,fadeMs,target
 function RunningTotal({numbers,position,fontSize,startAt,targetX,tokenId,headPosition}:{numbers:HpNumber[];position:{x:number;y:number};fontSize:number;startAt:number;targetX:number;tokenId:string;headPosition:HeadPosition}){
   const anchor=useRef<Konva.Group>(null),group=useRef<Konva.Group>(null),text=useRef<Konva.Text>(null);
   const timeline=hpTotalTimeline(numbers);
-  const timingKey=timeline.map(t=>`${t.delayMs}:${t.delta}`).join(',');
+  const timingKey=timeline.map(t=>`${t.delayMs}:${t.delta}:${!!t.instant}`).join(',');
   useEffect(()=>{
     const node=group.current,label=text.current;if(!node||!label)return;
     const milestones=hpTotalTimeline(numbers),last=milestones.at(-1);if(!last)return;
@@ -488,7 +488,7 @@ function RunningTotal({numbers,position,fontSize,startAt,targetX,tokenId,headPos
       for(let i=0;i<milestones.length;i++){
         const item=milestones[i];if(elapsed<item.delayMs)break;
         const before=i?milestones[i-1].delta:0;
-        const progress=Math.min(1,(elapsed-item.delayMs)/180);
+        const progress=item.instant?1:Math.min(1,(elapsed-item.delayMs)/180);
         amount=before+(item.delta-before)*(1-(1-progress)**3);
       }
       const shown=Math.ceil(-amount),value=`\u2212${shown}`;
@@ -523,7 +523,7 @@ export const HpNumberLayer=memo(function HpNumberLayer({floaters,tokens,pxPerFoo
     const radius=token.widthFt*pxPerFoot*view.scale/2;
     const position={x:anchor.x,y:anchor.y-Math.min(64,radius)-fontSize*.4},startAt=hpStackStart(numbers,f.numberStartAt??performance.now());
     return <Group key={id} listening={false}>
-      {hpNumberSequence(numbers).map(({number,delayMs,holdMs,fadeMs},i)=><FloaterText key={i} number={number} position={position} fontSize={fontSize} rise={fontSize*1.3}
+      {hpNumberSequence(numbers).map(({number,delayMs,holdMs,fadeMs},i)=><FloaterText key={i} number={number} position={position} fontSize={fontSize} rise={fontSize*(number.impactTotal?.35:1.3)}
         startAt={startAt+delayMs} holdMs={holdMs} fadeMs={fadeMs} targetX={token.x} tokenId={token.id} headPosition={headPosition}/>)}
       <RunningTotal numbers={numbers} position={position} fontSize={fontSize} startAt={startAt} targetX={token.x} tokenId={token.id} headPosition={headPosition}/>
     </Group>;

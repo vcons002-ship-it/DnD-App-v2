@@ -15,7 +15,7 @@ test('damage numbers keep their scheduled order across a blocked frame and late 
  const event={id:1,kind:'monster',refId:'enemy',delta:-18,damageParts:[{amount:8,damageType:'slashing'},{amount:4,damageType:'force',spell:"Hunter's Mark"},{amount:6,damageType:'piercing',spell:'Hail of Thorns'}],numberStartAt:500,componentStarts:[500,1940,3380]};
  let head={x:300,y:180};const props={floaters:[event],tokens:[token],pxPerFoot:10,gridSizePx:50,view:{x:0,y:0,scale:1},width:600,height:400,tilt:45,rotation:0,headPosition:()=>head};
  const tree=()=>React.createElement(Stage,{width:600,height:400},React.createElement(Layer,null,React.createElement(HpNumberLayer,props)));
- const read=t=>{now=t;Konva.Animation._runFrames();Konva.Animation._runFrames();return Konva.stages[0].find('.hp-floater-number').filter(n=>n.getParent().getAbsoluteOpacity()>.01).map(n=>({text:n.text(),total:n.hasName('hp-floater-total'),y:n.getParent().y()}));};
+ const read=t=>{now=t;Konva.Animation._runFrames();Konva.Animation._runFrames();return Konva.stages[0].find('.hp-floater-number').filter(n=>n.getParent().getAbsoluteOpacity()>.01).map(n=>({text:n.text(),total:n.hasName('hp-floater-total'),y:n.getParent().y(),absoluteY:n.getAbsolutePosition().y}));};
  const pixels=(color)=>{const layer=Konva.stages.filter(Boolean)[0].getLayers()[0];layer.draw();const data=layer.getCanvas().getContext().getImageData(0,0,600,400).data;
  const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));let count=0;for(let i=0;i<data.length;i+=4)if(data[i+3]>180&&rgb.every((v,j)=>Math.abs(data[i+j]-v)<20))count++;return count;};
  flushSync(()=>root.render(tree()));const first=read(500),firstPixels=pixels('#ff7185'),mid=read(800),afterStall=read(2000),markPixels=pixels('#d1b1ff'),third=read(3420),thornsPixels=pixels('#b4f47e'),ended=read(4900);
@@ -39,7 +39,7 @@ test('damage numbers keep their scheduled order across a blocked frame and late 
   if(!breakdowns.length)lateRoot.unmount();now=1000;const next=createRoot(container),floaters=scheduleHpFeedback(events,now).events;
   const group=hpNumberStacks(floaters)[0],start=hpStackStart(group.numbers,now),sequence=hpNumberSequence(group.numbers);
   flushSync(()=>next.render(React.createElement(Stage,{width:600,height:400},React.createElement(Layer,null,React.createElement(HpNumberLayer,{...props,floaters})))));
-  const parts=sequence.map(item=>{const nodes=read(start+item.delayMs+400);return {delay:item.delayMs,color:item.number.color,visiblePixels:pixels(item.number.color),nodes};});
+  const parts=sequence.map(item=>{const atImpact=read(start+item.delayMs),nodes=read(start+item.delayMs+400);return {atImpact,delay:item.delayMs,color:item.number.color,visiblePixels:pixels(item.number.color),nodes};});
   const end=read(start+sequence.at(-1).delayMs+500);breakdowns.push({name,parts,end});
   next.unmount();
  }
@@ -52,6 +52,8 @@ test('damage numbers keep their scheduled order across a blocked frame and late 
   for(const part of example.parts)expect(part.visiblePixels,example.name+' '+part.color).toBeGreaterThan(10);
   expect(example.end.some((n:any)=>n.total&&n.text==='\u221214')).toBe(true);
  }
+ expect(r.breakdowns[0].parts[1].atImpact.some((n:any)=>n.total&&n.text==='\u221214'),'Ice Knife total updates at the cold impact without an arrival delay').toBe(true);
+ const coldPair=r.breakdowns[0].parts[1].nodes;expect(coldPair.find((n:any)=>!n.total).absoluteY-coldPair.find((n:any)=>n.total).absoluteY,'The blue cold sum stays separated below the red accumulated total').toBeGreaterThan(20);
  expect(r.breakdowns[0].parts[1].color).toBe('#8fe4ff');expect(r.breakdowns[1].parts[1].color).toBe('#8fe4ff');
  expect(r.firstPixels,'Weapon damage actually paints colored pixels').toBeGreaterThan(10);
  expect(r.markPixels,'The second damage component is visible').toBeGreaterThan(10);

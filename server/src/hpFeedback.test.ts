@@ -3,6 +3,24 @@ import {prepareHpFeedback,hpNumbers,hpNumberStacks,hpNumberSequence,hpTotalTimel
 import {createSession,createCharacter,applyDamage,drainHpFx,getCharacter,setTempHp} from './sessions.js';
 
 describe('typed floating damage feedback',()=>{
+ it.each([true,false])('syncs Ice Knife cold amounts and accumulated totals to one area burst (hit %s)',hit=>{
+  const events=[...(hit?[{id:1,kind:'monster' as const,refId:'main',delta:-8,damageType:'piercing',spell:'Ice Knife',impact:{id:'knife'}}]:[]),
+   ...['main','neighbor'].map((refId,i)=>({id:i+2,kind:'monster' as const,refId,delta:-6,damageType:'cold',spell:'Ice Knife',impact:{id:'knife'}})),
+   {id:4,kind:'monster' as const,refId:'main',delta:0,spell:'Ice Knife',effect:'spell-area' as const,areaPosition:{mapId:'map',x:100,y:100,radiusFt:5},impact:{id:'knife'}}];
+  const scheduled=scheduleHpFeedback(events,1000).events,burst=scheduled.find(e=>e.areaPosition)!;
+  expect(burst.numberStartAt).toBe(hit?2440:1000);
+  expect(scheduled.filter(e=>e.damageType==='cold').every(e=>e.numberStartAt===burst.numberStartAt)).toBe(true);
+  for(const group of hpNumberStacks(scheduled)){
+   const last=hpTotalTimeline(group.numbers).at(-1)!;
+   expect(last.instant).toBe(true);expect(hpStackStart(group.numbers,0)+last.delayMs).toBe(burst.numberStartAt);
+   expect(last.delta).toBe(group.event.refId==='main'&&hit?-14:-6);
+  }
+ });
+ it('still bursts after the piercing hit if all Ice Knife targets avoid cold damage',()=>{
+  const events=[{id:1,kind:'monster' as const,refId:'main',delta:-8,damageType:'piercing',spell:'Ice Knife',impact:{id:'knife'}},
+   {id:2,kind:'monster' as const,refId:'main',delta:0,spell:'Ice Knife',areaPosition:{mapId:'map',x:100,y:100,radiusFt:5},impact:{id:'knife'}}];
+  expect(scheduleHpFeedback(events,1000).events[1].numberStartAt).toBe(2440);
+ });
  it('starts one Fireball projectile immediately and synchronizes every victim at its arrival',()=>{
   const events=[{id:1,kind:'monster' as const,refId:'a',delta:-20,spell:'Fireball',impact:{id:'cast'}},
    {id:2,kind:'monster' as const,refId:'b',delta:-10,spell:'Fireball',impact:{id:'cast'}},

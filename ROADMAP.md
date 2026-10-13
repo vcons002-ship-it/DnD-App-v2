@@ -3115,3 +3115,5 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Full-area Cone of Cold, Thunderwave, Shatter, Flame Strike and Ice Knife art; Meteor Swarm uses larger Fireballs falling from the sky. Confirmed shapes, grouped saves, typed defenses and roll completion timing are preserved.
 
 - [x] Restore visible typed damage components for Ice Knife and all shared multi-part HP feedback: cache number artwork at full opacity before restoring the animation opacity. Piercing and icy-blue cold numbers rise separately into one red running total; Hail of Thorns sequencing and synchronized AoE remain unchanged. Pixel-level browser tests cover thorns, Ice Knife, Ice Storm and weapon riders.
+
+- [x] Ice Knife now shows a full 5-foot cold burst with a low icy dome, fractured frost field and dispersed shards. Cold amounts across all victims and the main target total synchronize to that impact after the earlier piercing beat, including miss/all-save visuals.

@@ -164,3 +164,11 @@ such as Ice Storm. Number artwork is cached at full opacity before restoring its
 opacity, so initially hidden components do not bake transparent glyphs into
 their cache.
 Browser regressions inspect actual painted pixels as well as timing and totals.
+
+Ice Knife separates the piercing hit from one full-radius cold burst. The burst
+uses a low icy dome, a fractured frost field and dispersed crystalline shards
+over its 5-foot radius. Every victim shows one summed icy-blue cold amount at
+that burst; the red running total updates on the same impact. The piercing
+number remains the earlier beat, avoiding simultaneous overlapping damage parts.
+The splash still plays when the attack misses or all creatures save. Five draw
+calls and one bounded shard instance buffer cover the whole area.

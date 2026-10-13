@@ -230,10 +230,17 @@ describe('linked damage and saving throws',()=>{
       expect(piercing.suppressSpellVisual).not.toBe(true);
       expect(piercing.impact).toEqual(areas[0].impact);
       const scheduled=scheduleHpFeedback(events.map((e,i)=>({...e,id:i})),1000).events;
-      expect(scheduled.find(e=>e.areaPosition)!.numberStartAt).toBe(scheduled.find(e=>e.damageType==='piercing')!.numberStartAt);
+      expect(scheduled.find(e=>e.areaPosition)!.numberStartAt).toBe(scheduled.find(e=>e.damageType==='cold'&&e.delta<0)!.numberStartAt);
+      expect(scheduled.find(e=>e.areaPosition)!.numberStartAt).toBeGreaterThan(scheduled.find(e=>e.damageType==='piercing')!.numberStartAt);
       const totals=hpNumberStacks(scheduled).filter(g=>g.event.refId===f.monster.id);
       expect(totals).toHaveLength(1);expect(totals[0].numbers.at(-1)!.delta).toBe(-16);
     }
+  });
+  it('Ice Knife shows one area explosion, not per-victim shard impacts, when everyone saves',()=>{
+    const f=setup('Ice Knife');withDiceSource(s=>s.map(n=>n===20?20:4),()=>f.cast(2));
+    const events=drainHpFx(f.session.id),cold=events.filter(e=>e.damageType==='cold');
+    expect(cold).toHaveLength(2);expect(cold.every(e=>e.delta===0&&e.suppressSpellVisual)).toBe(true);
+    expect(events.filter(e=>e.areaPosition)).toHaveLength(1);
   });
   it.each([true,false])('Ice Knife splash checks the nearby occupied footprint (overlap %s)',overlap=>{
     const f=setup('Ice Knife');moveToken(f.nearby.id,overlap?274:276,100);

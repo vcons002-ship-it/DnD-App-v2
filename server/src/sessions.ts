@@ -3455,7 +3455,7 @@ export function checkpointHpFx(){const saved=hpFxQueue.slice();return ()=>{hpFxQ
 export function beginPlacedSpellImpact(sessionId:string,kind:TokenKind,refId:string,spell:string,leadingRollId?:string){
   const before=new Set(hpFxQueue);
   return (rollId:string,areaPosition:NonNullable<HpFxEvent['areaPosition']>,sourcePosition:HpFxEvent['sourcePosition'])=>{
-    for(const e of hpFxQueue)if(e.sessionId===sessionId&&e.spell===spell&&e.delta<0){
+    for(const e of hpFxQueue)if(e.sessionId===sessionId&&e.spell===spell&&(e.delta<0||e.delta===0&&e.damageType)){
       // A hit-centered spell can keep the primary hit's art while joining it
       // to the splash's clock and accumulated damage total.
       if(!before.has(e)){e.suppressSpellVisual=true;e.impact={id:rollId};}

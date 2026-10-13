@@ -1,5 +1,7 @@
 import {describe,it,expect,vi,afterEach} from 'vitest';
 import {spellImpactName,spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,persistentSpellVisual,LINKED_SPELL_FX} from '../../shared/spellImpact.js';
+import {MeshBasicMaterial,InstancedMesh,Object3D} from 'three';
+import {createAreaImpactGeometry} from '../../client/src/canvas/areaImpactGeometry.js';
 import {spellEmissionIrradiance,lightIrradiance} from '../../shared/lightFalloff.js';
 import {createSession,createMap,setActiveMap,createCharacter,createMonsterTemplate,instantiateMonster,createToken,drainHpFx,listRollLog,getMonster} from './sessions.js';
 import {resolveAbilityRoll,resolveForcedSave} from './combat.js';
@@ -7,6 +9,19 @@ import {getSpell} from './spells/srd.js';
 afterEach(()=>vi.restoreAllMocks());
 
 describe('spell impact identity and lighting',()=>{
+ it('Ice Knife shows its complete footprint and dispersed shards from the burst, with bounded draw calls',()=>{
+  const factory=createAreaImpactGeometry(),body=new MeshBasicMaterial(),bright=new MeshBasicMaterial(),white=new MeshBasicMaterial();
+  const shape=factory.build(spellImpactStyle({spell:'Ice Knife',delta:0,effect:'spell-area'})!,body,bright,white);
+  shape.update(.01,false,false,0);
+  const field=shape.parts.find(p=>p.name==='ice-splash-field')!,front=shape.parts.find(p=>p.name==='ice-splash-front')!,dome=shape.parts.find(p=>p.name==='ice-splash-dome')!;
+  expect(field.scale.x).toBe(1);expect(front.scale.x).toBe(1);expect(dome.visible).toBe(true);
+  const shards=shape.parts.find(p=>p.name==='ice-splash-splinters') as InstancedMesh,pose=new Object3D(),radii:number[]=[];
+  for(let i=0;i<shards.count;i++){shards.getMatrixAt(i,pose.matrix);pose.matrix.decompose(pose.position,pose.quaternion,pose.scale);radii.push(Math.hypot(pose.position.x,pose.position.z));}
+  expect(Math.max(...radii)).toBeGreaterThan(.4);expect(Math.max(...radii)).toBeLessThan(.5);
+  expect(shape.parts).toHaveLength(5);expect(shards.count).toBe(64);
+  shape.update(.6,false,true,0);expect(shards.count).toBe(20);expect(dome.visible).toBe(false);
+  shape.materials.forEach(m=>m.dispose());body.dispose();bright.dispose();white.dispose();factory.dispose();
+ });
  it.each([['Cone of Cold','frost-cone'],['Thunderwave','thunder-cube'],['Shatter','shatter-area'],['Flame Strike','flame-column'],['Ice Knife','ice-splash'],['Meteor Swarm','meteor-area']])('%s uses a full-field visual only for the confirmed area', (spell,kind)=>{
   expect(spellImpactName(spell)).toBe(spell);
   expect(spellImpactStyle({spell,delta:0,effect:'spell-area'})?.kind).toBe(kind);
