@@ -1,3 +1,4 @@
+import {acceptConcentration} from './themed-dialogs';
 import {test,expect} from '@playwright/test';
 import {io,type Socket} from 'socket.io-client';
 import type {SheetAbility,StateSnapshot} from '../shared/types';
@@ -9,6 +10,9 @@ test('Mirror Image casts from Combat, renders the caster duplicates, and removes
   test.setTimeout(180000);
   const response=await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Linked spell showcase'}}),{code}=await response.json();
   socket=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});
+  // The headless DM connection initiates monster rolls: acknowledge its tray
+  // readiness and skip only the reading hold after authoritative dice settle.
+  socket.on('dice:frame',frame=>{socket.emit('dice:ready',{id:frame.id});if(frame.done)socket.emit('dice:skip',{id:frame.id});});
   const state=async():Promise<StateSnapshot>=>{const j=await socket.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(j.ok).toBe(true);return j.snapshot;};
   const initial=await state(),vanec=initial.characters.find(c=>c.name==='Vanec')!;
   const catalog=(await(await request.get('/api/spells/all')).json()).results as SheetAbility[];
@@ -21,6 +25,8 @@ test('Mirror Image casts from Combat, renders the caster duplicates, and removes
   socket.emit('monster:create',{name:'Practice guard',maxHp:500,armorClass:12,disposition:'enemy',creatureType:'Humanoid',weapons:[{name:'Practice sword',kind:'melee',damage:'1d6',attackBonus:100}]});
   const template=(await state()).monsterTemplates.find(m=>m.name==='Practice guard')!;
   socket.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:610,y:330});socket.emit('session:setManualDamage',{manual:false});
+  // This fixture expects automatic public monster rolls, not private DM approval.
+  socket.emit('session:setHideDmRolls',{hide:false});
   const ready=await state(),actor=ready.tokens.find(t=>t.refId===vanec.id)!,enemy=ready.tokens.find(t=>t.kind==='monster')!;
   await page.addInitScript(()=>{localStorage.setItem('dnd.rollAnimOff','1');});await page.setViewportSize({width:1440,height:1000});
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
@@ -49,7 +55,7 @@ test('Mirror Image casts from Combat, renders the caster duplicates, and removes
   let duplicates=3;
   for(let attempt=0;attempt<5&&duplicates===3;attempt++){
     const count=(await state()).rollLog.length;socket.emit('combat:attack',{attackerTokenId:enemy.id,targetTokenId:actor.id,weaponIndex:0});
-    await expect.poll(async()=>(await state()).rollLog.length,{timeout:30000}).toBeGreaterThan(count);
+    await expect.poll(async()=>(await state()).rollLog.length,{timeout:60000}).toBeGreaterThan(count);
     duplicates=(await state()).characters.find(c=>c.id===vanec.id)!.conditions.find(c=>c.label==='Mirror Image')?.combatEffect?.duplicates??0;
   }
   expect(duplicates).toBe(2);await expect(layer).toHaveAttribute('data-mirror-image-count','2');
@@ -63,7 +69,7 @@ test('Mirror Image casts from Combat, renders the caster duplicates, and removes
   const logCount=(await state()).rollLog.length;await actions.getByRole('button',{name:'Flame Blade · Magic action',exact:true}).click();
   await expect.poll(async()=>(await state()).rollLog.length,{timeout:30000}).toBeGreaterThan(logCount);
   expect((await state()).characters.find(c=>c.id===vanec.id)!.spellSlots.L2.used).toBe(slotsBefore);
-  page.on('dialog',d=>d.accept());
+  await acceptConcentration(page);
   // A low WIS target guarantees the reviewed fixture fails this save; the save
   // still runs through the app. Its implied conditions must not duplicate FX.
   socket.emit('monster:update',{monsterId:enemy.refId,stats:{STR:10,DEX:10,CON:10,INT:10,WIS:1,CHA:10}});

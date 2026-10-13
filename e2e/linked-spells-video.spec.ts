@@ -1,3 +1,4 @@
+import {acceptConcentration} from './themed-dialogs';
 import {test,expect,type Locator} from '@playwright/test';
 import {io} from 'socket.io-client';
 import {readFileSync,writeFileSync} from 'node:fs';
@@ -63,7 +64,7 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
       if(samples.length<40000)samples.push({ms:now-last,dice:tray?.getAttribute('data-theme')??null,material:tray?.getAttribute('data-material')??null});last=now;requestAnimationFrame(sample);
     };requestAnimationFrame(sample);
   });
-  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
+  page.on('pageerror',e=>errors.push(e.message));await acceptConcentration(page);
   let started=Date.now(),current='';
   let av1:Awaited<ReturnType<typeof startAv1Capture>>|undefined;
   const chapter=async(title:string,note:string)=>{current=title;chapters.push({title,note,time:(Date.now()-started)/1000});console.log(group,title);await page.waitForTimeout(600);};

@@ -86,10 +86,10 @@ export function useAbilityToggles(
     patchStance(a, { targetId: next });
   };
 
-  const toggleStance = (a: SheetAbility, defaultMarkId?: string) => {
+  const toggleStance = async (a: SheetAbility, defaultMarkId?: string) => {
     const goingActive = !a.stance?.active;
     // Activating a concentration stance starts concentration — warn if another is up.
-    if (goingActive && !confirmConcentration(character, a)) return;
+    if (goingActive && !await confirmConcentration(character, a)) return;
     const stance = { ...a.stance!, active: goingActive };
     // A marking stance defaults to the current target when first switched on.
     if (goingActive && stance.targeted && !stance.targetId)

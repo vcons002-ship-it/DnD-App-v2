@@ -79,12 +79,12 @@ export function CombatSection({
   const summonLevel = (a: (typeof caster.sheetAbilities)[number]) => summonLevels[a.id] ?? spellBaseLevel(a);
   // Summon-tagged spells/abilities get a ✋ Summon button right here in the console.
   const summonAbilities = caster.sheetAbilities.filter(a=>!spellCombatSupport(a)?.manualCastOnly).map(a=>effectiveSheetAbility(a)).filter((a) => a.summon);
-  const castSummon = (a: (typeof summonAbilities)[number]) => {
+  const castSummon = async (a: (typeof summonAbilities)[number]) => {
     if (!summonMap) {
       notify('No active map to summon onto.');
       return;
     }
-    if (!confirmConcentration(caster, a)) return;
+    if (!await confirmConcentration(caster, a)) return;
     const g = summonMap.gridSizePx || 50;
     const spectral=a.name.toLowerCase()==='spiritual weapon';
     const anchor=spectral?snapshot.tokens.find(t=>t.id===effectiveTargetId)??attacker:undefined;

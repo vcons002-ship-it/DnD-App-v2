@@ -5,6 +5,7 @@ import { resolveToken } from '../lib/entities';
 import { safeSetItem } from '../lib/storage';
 import {DockableWindowHeader,type WindowSide} from './DockableWindowHeader';
 import { HudIcon } from './HudIcon';
+import {createPortal} from 'react-dom';
 
 type Tool = 'maps' | 'spawn' | 'initiative' | 'chat';
 type Panel = Tool | 'inspect';
@@ -88,6 +89,13 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
     pinned: current.pinned.includes(id) ? current.pinned.filter(p => p !== id) : [...current.pinned, id],
   }));
   const sideOf=(id:Panel)=>panelSide(layout,id);
+  const [layoutMenu,setLayoutMenu]=useState<HTMLElement|null>(null);
+  useEffect(()=>{setLayoutMenu(document.querySelector<HTMLElement>('.dm-campaign-menu .topbar-actions'));},[]);
+  const resetLayout=()=>{
+    setLayout({open:hasSelection?['inspect']:snapshot.map?[]:['maps'],pinned:[],anchor:'left',sides:{}});
+    setWidth(360);setInspectorWidth(360);setInspectorHeight(440);
+    safeSetItem(`dnd.dmInspectorHeight:${snapshot.sessionCode}`,'440');
+  };
   const dock=(id:Panel,side:WindowSide)=>{
     const from=sideOf(id);if(from===side)return;
     (side==='left'?setWidth:setInspectorWidth)(from==='left'?width:inspectorWidth);
@@ -106,6 +114,10 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
   };
 
   return <>
+    {layoutMenu&&createPortal(<>
+      <button className="btn tiny" disabled={!visibleOpen.some(id=>!layout.pinned.includes(id))} onClick={()=>setLayout(current=>({...current,open:current.open.filter(id=>current.pinned.includes(id))}))}>Close unpinned windows</button>
+      <button className="btn tiny" onClick={resetLayout} title="Restore default window sides and sizes and clear pins. Drafts are kept.">Reset window layout</button>
+    </>,layoutMenu)}
     <nav className="dm-tool-rail" aria-label="DM tools">
       {tools.map(item => <button key={item.id} id={`dm-tool-${item.id}`} className={`dm-tool ${visibleOpen.includes(item.id) ? 'on' : ''}`}
         disabled={item.id === 'inspect' && !hasSelection}

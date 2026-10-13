@@ -1,3 +1,4 @@
+import {confirmAction} from '../lib/dialogs';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { SessionSummary } from '../../../shared/types';
@@ -93,9 +94,8 @@ export function DmRoute() {
 
   const removeSession = async (s: SessionSummary) => {
     if (
-      !window.confirm(
-        `Delete session "${s.name}" (${s.code}) and ALL its maps, tokens and data?\nThis cannot be undone.`,
-      )
+      !await confirmAction({title:'Delete campaign?',acceptLabel:'Delete campaign',danger:true,
+        message:`Delete session "${s.name}" (${s.code}) and ALL its maps, tokens and data?\nThis cannot be undone.`})
     )
       return;
     setRowErr(null);

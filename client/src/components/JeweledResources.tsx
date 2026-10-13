@@ -1,3 +1,4 @@
+import {confirmAction} from '../lib/dialogs';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Character } from '../../../shared/types';
@@ -206,11 +207,10 @@ function AdjustCounter({
         <button
           type="button"
           className="btn danger tiny"
-          onClick={() => {
+          onClick={async () => {
             if (
-              window.confirm(
-                `Remove the ${name} tracker? This does not remove spells or abilities.`,
-              )
+              await confirmAction({title:'Remove resource tracker?',acceptLabel:'Remove tracker',danger:true,
+                message:`Remove the ${name} tracker? This does not remove spells or abilities.`})
             ) {
               setResource({
                 characterId: character.id,

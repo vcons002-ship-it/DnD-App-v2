@@ -73,6 +73,8 @@ Prefer to do it by hand? Follow **Setup** and **Run** below.
 - **Draw on the map** (everyone): freehand pen + text labels in per-person colors, with Clear mine/all. The DM can also **paste images (Ctrl+V)** as **scenery decals** — cropped/background-cut in a preview, drawn under the tokens, draggable/resizable, and lockable click-through.
 - Zoom toward the cursor (wheel), **−/+ zoom buttons** and two-finger **pinch-to-zoom** on touch, drag-to-pan, **Fit** to reset; resizable/collapsible side panels with **drag-reorderable sections** (tap ▲/▼ on touch), remembered per session — tuned for **tablet/iPad** use.
 - Drag a **DM window header** or the player's **Combat / Chat header** toward either screen edge to dock left or right. Pinned DM windows move as a column, and drafts and sizes are kept. Touch works too; focus a header and press **Left/Right**, or **Escape** to cancel a drag. Sides are saved in that browser; players can also choose them in **Interface settings**. On phones, DM windows remain full width.
+- Combat and Chat automatically share height when they would overlap; their preferred sizes return when the screen has room. DMs can use **Campaign > Close unpinned windows** to keep only pinned panels, or **Campaign > Reset window layout** to restore default sides, sizes and pins while keeping drafts.
+- Confirmation and error prompts use the app theme, including map-label entry and replacing concentration. **Cancel / Escape** leaves the action unapplied; destructive prompts focus Cancel first. No spell slot is spent before concentration replacement is confirmed.
 
 **Tokens**
 - Click-to-place (stays active for dropping several), multi-select with group drag, duplicate, delete, per-token hide-from-players.

@@ -21,7 +21,7 @@ export function PanelResizeHandle({ panel, layout }: { panel: PlayerPanelName; l
     event.stopPropagation();
     event.currentTarget.focus();
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, size: layout.size(panel), scale: layout.scale };
+    drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, size: layout.displaySize(panel), scale: layout.scale };
   };
   const move = (event: PointerEvent<HTMLButtonElement>) => {
     const current = drag.current;

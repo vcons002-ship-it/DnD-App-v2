@@ -1,3 +1,4 @@
+import {confirmAction} from '../lib/dialogs';
 import { useEffect, useMemo, useState } from 'react';
 import type { CreatureTemplate, Monster } from '../../../shared/types';
 import { useStore } from '../state/socket';
@@ -162,9 +163,8 @@ export function DmLibraryView() {
   /** Remove a creature from the CROSS-CAMPAIGN library (not just this session). */
   const deleteFromLibrary = async (t: CreatureTemplate) => {
     if (
-      !confirm(
-        `Delete "${t.name}" from your saved library?\n\nThis removes it from EVERY campaign, not just this session. Creatures already added to a session are unaffected.`,
-      )
+      !await confirmAction({title:'Delete library creature?',acceptLabel:'Delete from library',danger:true,
+        message:`Delete "${t.name}" from your saved library?\n\nThis removes it from EVERY campaign, not just this session. Creatures already added to a session are unaffected.`})
     )
       return;
     setBusy(true);
@@ -329,8 +329,8 @@ export function DmLibraryView() {
                   </button>
                   <button
                     className="btn tiny red"
-                    onClick={() => {
-                      if (confirm(`Remove "${selectedTemplate.name}" from this session?`)) {
+                    onClick={async () => {
+                      if (await confirmAction({title:'Remove session creature?',acceptLabel:'Remove creature',danger:true,message:`Remove "${selectedTemplate.name}" from this session?`})) {
                         deleteMonster(selectedTemplate.id);
                         setPickedId(null);
                       }

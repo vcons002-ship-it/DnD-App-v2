@@ -1,0 +1,13 @@
+.app-dialog { color-scheme: dark; color: #eee7d8; background: linear-gradient(135deg,#25252b,#11171e); border: 1px solid #b69a64; border-radius: 9px; box-shadow: 0 18px 70px #000b,inset 0 0 0 3px #d2b37415; width: 430px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); box-sizing: border-box; padding: 20px; overflow: auto; font: 15px/1.6 'Segoe UI',system-ui,sans-serif; }
+.app-dialog::backdrop { background: #05080bc9; }
+.app-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.app-dialog h2 { font: 600 21px/1.35 'Cinzel HUD',Georgia,serif; margin: 0; color: #eed7a9; }
+.app-dialog p { white-space: pre-line; margin: 18px 0; overflow-wrap: anywhere; }
+.app-dialog label { display: grid; gap: 6px; }
+.app-dialog input { width: 100%; box-sizing: border-box; min-height: 42px; border: 1px solid #806d4c; border-radius: 4px; padding: 8px; background: #0e141b; color: #eee7d8; font: inherit; }
+.app-dialog footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.app-dialog .btn { font: inherit; min-height: 40px; padding: 7px 14px; color: #eee7d8; background: #292b32; border: 1px solid #806d4c; border-radius: 4px; }
+.app-dialog header .btn { min-height: 32px; padding: 0 9px; }
+.app-dialog .primary { background: #51442b; border-color: #c1a36b; }
+.app-dialog .danger { color: #ffd7d2; background: #522e30; border-color: #ae625c; }
+.app-dialog :focus-visible { outline: 2px solid #e6c887; outline-offset: 2px; }

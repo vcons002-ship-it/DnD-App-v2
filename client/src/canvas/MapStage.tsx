@@ -1,3 +1,4 @@
+import {requestText} from '../lib/dialogs';
 import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
 import {mirrorImageCount} from '../../../shared/linkedSpells';
 import {tokenInSpellArea,areaExcludesCaster,areaOrigin,type SpellAreaPlacement} from '../../../shared/spellAreas';
@@ -1517,7 +1518,7 @@ export function MapStage({
     }
   };
 
-  const handleMouseDown = (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
+  const handleMouseDown = async (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
     if(teleportCast&&(!('button'in e.evt)||e.evt.button===0)){const p=pointerToImage(stage);if(p)setTeleportPoint(p);return;}
@@ -1593,8 +1594,9 @@ export function MapStage({
     if (annotate === 'text') {
       const pos = pointerToImage(stage);
       if (pos) {
-        const text = window.prompt('Label text:')?.trim();
-        if (text) addAnnotation({ kind: 'text', x: pos.x, y: pos.y, text, color: annoColor });
+        const mapId=map?.id;
+        const text = (await requestText({title:'Add map label',message:'Enter the text to place at the chosen map location.',acceptLabel:'Add label'}))?.trim();
+        if (text&&mapId===useStore.getState().snapshot?.map?.id) addAnnotation({ kind: 'text', x: pos.x, y: pos.y, text, color: annoColor });
       }
       return;
     }

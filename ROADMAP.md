@@ -135,6 +135,17 @@
   preferences. Player chat on the left moves the health HUD to the right.
   Player Interface settings also offer side selectors and a layout reset.
 
+- [x] Player Combat and Chat fit their shared vertical space when they would
+  overlap, including opposing docks on narrow screens. Preferred dimensions
+  remain saved and return when space is available. Campaign offers Close
+  unpinned windows and Reset window layout for DM panels without losing drafts.
+- [x] Replace browser confirm/alert/prompt dialogs with accessible themed
+  confirmation, notice and text-entry prompts. Deletions, ownership changes,
+  resource removal, rules updates, concentration replacement, image errors and
+  annotation labels keep their existing actions behind explicit buttons.
+  Escape cancels, focus returns to the source control, and destructive actions
+  focus Cancel first. Concentration awaits confirmation before spending slots.
+
 - [x] Move player lantern controls to Character > Exploration. Hit Dice remain
   in Character > Resources and rest controls instead of the battlefield HUD.
 
