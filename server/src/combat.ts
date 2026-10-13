@@ -1347,7 +1347,7 @@ export function resolveAttackDamage(
     },
     hideMods: hidesMods(p.attacker.kind, p.attacker.refId),
   }, damageRollId);
-  if(p.spellLink&&linkedTarget)linkedDamageComplete(sessionId,roller,p.spellLink,linkedTarget,p.spellDamageAmount??p.amount);
+  if(p.spellLink&&linkedTarget)linkedDamageComplete(sessionId,roller,p.spellLink,linkedTarget,p.spellDamageAmount??p.amount,impactRollId??damageRollId);
   return true;
 }
 
@@ -2056,7 +2056,7 @@ export function resolveTargetedSpellAttack(opts: {
       const id=newId(),hpNote=applyDamageNoted(t.kind,t.refId,amount,'acid',opts.attacker,false,id,opts.title);noteConcentration(opts.sessionId,t.kind,t.refId,amount);
       addRollLog(opts.sessionId,{roller:opts.roller,label:'Acid Arrow — Miss Splash',expr:splash.expr,total:amount,hpNote,detail:`${t.name}: missed arrow splashes for ${amount} Acid damage; no delayed damage.`,reveal:{kind:'damage',title:'Acid Arrow — Miss Splash',attacker:opts.roller,target:t.name,outcome:'none',damage:amount,damageType:'acid',damageDice:[{label:splash.expr,value:splash.total,faces:splash.rolls,diceExpression:splash.expr}],damageMods:[{label:'Half on a miss and Acid defense',value:amount-splash.total}]}},id);
     }
-    if(!deferDamage)linkedDamageComplete(opts.sessionId,opts.roller,opts.linked,tt!,spellDamageAmount);
+    if(!deferDamage)linkedDamageComplete(opts.sessionId,opts.roller,opts.linked,tt!,spellDamageAmount,attackRollId);
   }
   if (!hit && attackerToken && !opts.originTokenId && /\bmelee(?: spell| weapon)? attack\b/i.test(opts.description ?? ''))
     createRiposteOpportunity(opts.sessionId, tt!, attackerToken);

@@ -13,6 +13,7 @@ import {repeatSpell,moveSpiritualWeapon,spiritualWeaponPlacementError,spiritualW
 import {expireTimedSpellEffects,processHitEffects,expireOnCasterTurn} from './hitEffectTurns.js';
 import {runLiveCommand} from './liveRolls.js';
 import {drainHpFx} from './sessions.js';
+import {scheduleHpFeedback,hpNumberStacks} from '../../client/src/lib/hpFeedback.js';
 import {createSession,createMap,setActiveMap,setManualDamage,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getCharacter,getMonster,getToken,listTokens,listRollLog,setSheetAbility,setCondition,setCombatRound,setActiveTurn,applyDamage,endConcentration,updateMonster,moveToken} from './sessions.js';
 
 afterEach(()=>vi.restoreAllMocks());
@@ -65,6 +66,10 @@ describe('2024 linked spell profiles',()=>{
     expect(timeline.at(-1)).toContain('DEX Saving Throws');
     expect(timeline.filter(t=>t==='Ice Knife — Damage Roll')).toHaveLength(face===1?0:1);
     expect(listRollLog(f.session.id).filter(r=>r.reveal&&!r.reveal.presentedLive)).toEqual([]);
+    const effects=drainHpFx(f.session.id),splash=effects.find(e=>e.areaPosition)!;
+    for(const hit of effects.filter(e=>e.delta<0&&e.damageType==='piercing')){
+      expect(hit.impact).toEqual(splash.impact);expect(hit.suppressSpellVisual).not.toBe(true);
+    }
   });
   it('Heat Metal finishes resisted damage in its original tray before the equipment save',async()=>{
     const f=setup('Heat Metal');updateMonster(f.monster.id,{resistances:['fire']});
@@ -220,7 +225,15 @@ describe('linked damage and saving throws',()=>{
     for(const e of events.filter(e=>e.delta<0&&e.damageType==='cold'))expect(e).toMatchObject({suppressSpellVisual:true,impact:{id:areas[0].impact!.id}});
     // A successful primary piercing hit still has its own art; only splash
     // victims share the one cold field.
-    if(face===15)expect(events.find(e=>e.damageType==='piercing'&&e.delta<0)?.suppressSpellVisual).not.toBe(true);
+    if(face===15){
+      const piercing=events.find(e=>e.damageType==='piercing'&&e.delta<0)!;
+      expect(piercing.suppressSpellVisual).not.toBe(true);
+      expect(piercing.impact).toEqual(areas[0].impact);
+      const scheduled=scheduleHpFeedback(events.map((e,i)=>({...e,id:i})),1000).events;
+      expect(scheduled.find(e=>e.areaPosition)!.numberStartAt).toBe(scheduled.find(e=>e.damageType==='piercing')!.numberStartAt);
+      const totals=hpNumberStacks(scheduled).filter(g=>g.event.refId===f.monster.id);
+      expect(totals).toHaveLength(1);expect(totals[0].numbers.at(-1)!.delta).toBe(-16);
+    }
   });
   it.each([true,false])('Ice Knife splash checks the nearby occupied footprint (overlap %s)',overlap=>{
     const f=setup('Ice Knife');moveToken(f.nearby.id,overlap?274:276,100);

@@ -52,7 +52,13 @@ test('Ice Knife shows damage before saves and never reopens completed trays',asy
     const current=await state();if(current.rollLog.length>before.rollLog.length&&current.monsters.some(m=>m.curHp<hp[m.id])){committed=current;break;}await page.waitForTimeout(180);
    }
    expect(committed,name+' resolves damage through the live workflow').toBeTruthy();
-   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-spell-impact-kinds',/ice-splash/,{timeout:45000});await page.waitForTimeout(400);await page.screenshot({path:out+'/ice-knife-effect.png'});await page.waitForTimeout(5500);
+   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-spell-impact-kinds',/ice-splash/,{timeout:45000});
+   const effects=fx.flatMap(packet=>packet.events),splash=effects.find(e=>e.spell==='Ice Knife'&&e.areaPosition)!;
+   for(const hit of effects.filter(e=>e.spell==='Ice Knife'&&e.delta<0&&e.damageType==='piercing')){
+    expect(hit.impact).toEqual(splash.impact);expect(hit.suppressSpellVisual).not.toBe(true);
+    await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-spell-impact-kinds',/shards/);
+   }
+   await page.waitForTimeout(400);await page.screenshot({path:out+'/ice-knife-effect.png'});await page.waitForTimeout(5500);
    await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0);
    const rolls=committed!.rollLog.slice(before.rollLog.length);
    expect(rolls.filter(r=>r.reveal&&!r.reveal.presentedLive)).toEqual([]);

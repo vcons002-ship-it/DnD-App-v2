@@ -133,7 +133,7 @@ export function linkedHit(ctx:LinkedSpellContext,target:Token,visualRollId?:stri
   if(key==="melf's acid arrow")spellCondition(ctx,target.kind,target.refId,ctx.spell,{visualRollId,phase:'end',dice:`${ctx.castLevel}d4`,damageType:'acid',once:true});
 }
 
-export function linkedDamageComplete(sid:string,roller:string,ctx:LinkedSpellContext,target:Token,amount:number) {
+export function linkedDamageComplete(sid:string,roller:string,ctx:LinkedSpellContext,target:Token,amount:number,primaryRollId?:string) {
   if(spellKey(ctx.spell)==='vampiric touch'&&amount>0){
     const caster=entity(ctx.casterKind,ctx.casterId)!;
     const heal=Math.floor(amount/2),id=newId();
@@ -142,11 +142,11 @@ export function linkedDamageComplete(sid:string,roller:string,ctx:LinkedSpellCon
       detail:`${caster.name} regains ${heal} HP from ${amount} Necrotic damage dealt.`,
       reveal:{kind:'damage',title:'Vampiric Touch — Healing',attacker:caster.name,target:caster.name,outcome:'none',damage:heal,damageMods:[{label:'Half Necrotic damage dealt',value:heal}]}} ,id);
   }
-  if(spellKey(ctx.spell)==='ice knife')resolveSpellArea(sid,roller,ctx,target,5,`${ctx.castLevel+1}d6`,'cold','DEX','none');
+  if(spellKey(ctx.spell)==='ice knife')resolveSpellArea(sid,roller,ctx,target,5,`${ctx.castLevel+1}d6`,'cold','DEX','none',primaryRollId);
 }
 
 /** Show the shared damage pool before the one grouped saving throw. */
-export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext,center:Token,radius:number,expression:string,type:string,save:string,saveDamage:'half'|'none'='half') {
+export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext,center:Token,radius:number,expression:string,type:string,save:string,saveDamage:'half'|'none'='half',primaryRollId?:string) {
   const map=getMap(center.mapId)!,seen=new Set<string>();
   const targets=listTokens(center.mapId).filter(t=>{
     const e=entity(t.kind,t.refId),key=`${t.kind}:${t.refId}`;
@@ -155,7 +155,7 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
   });
   const requests=targets.map(t=>{const e=entity(t.kind,t.refId)!,labels=e.conditions.map(c=>c.label);return {target:t,c:{stats:effectiveStats(e).scores,level:e.level,isMonster:t.kind==='monster'},ability:save,dc:ctx.dc,
     mode:saveAdvantage(labels,save).state,proficient:e.saveProficiencies.includes(save),extra:saveExtra(e,save).total,autoFail:!!saveAutoFail(labels,save)};});
-  const areaImpact=spellKey(ctx.spell)==='ice knife'?beginPlacedSpellImpact(sid,center.kind,center.refId,ctx.spell):undefined;
+  const areaImpact=spellKey(ctx.spell)==='ice knife'?beginPlacedSpellImpact(sid,center.kind,center.refId,ctx.spell,primaryRollId):undefined;
   const rollSaves=()=>rollSaveBatch(requests,`${ctx.spell} — ${save} Saving Throws`);
   const damage=withDiceMetadata({label:`${ctx.spell} — ${type} Damage`},()=>rollDice(expression))!,impactId=newId();
   const addDamageLog=()=>addRollLog(sid,{roller,label:ctx.spell,expr:expression,total:damage.total,detail:`${ctx.spell} → ${entity(center.kind,center.refId)!.name}: ${damage.detail}.`,

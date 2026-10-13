@@ -34,7 +34,9 @@ bystanders behind that origin when they have no Total Cover.
 
 Ice Knife shows its attack result, Piercing damage on a hit, and shared Cold
 explosion damage before nearby creatures make their Dexterity saves together.
-A miss still rolls the Cold explosion. Completed attack and damage trays do
+A miss still rolls the Cold explosion. The primary hit and splash share one
+map impact clock and accumulated damage total; the splash does not wait for
+the Piercing damage numbers to finish. Completed attack and damage trays do
 not reopen after the saves. Heat Metal also finishes its Fire damage and any
 defense adjustment before its equipment save. The same once-only result
 presentation applies to single-target spell saves, hit riders and recurring
