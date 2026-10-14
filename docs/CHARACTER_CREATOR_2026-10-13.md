@@ -2,7 +2,7 @@
 
 The player character-selection screen now offers **Create a character** alongside
 the existing quick form and saved-character library. It opens a responsive
-charcoal-and-gold dialog with five steps and a live character preview.
+charcoal-and-gold dialog with six steps and a live character preview.
 
 1. **Identity:** name, race (species) near the top, and one of the twelve core classes.
 2. **Abilities:** recommended standard array with score swapping, 27-point buy,
@@ -14,7 +14,8 @@ charcoal-and-gold dialog with five steps and a live character preview.
 4. **Spells:** useful suggested cantrips and first-level spells, searchable and
    replaceable. Wizards choose six spellbook spells and prepare four. Rangers also
    get the catalog's always-prepared Hunter's Mark.
-5. **Review:** inspect the sheet and choose **Create & play**. Creation claims the
+5. **Appearance:** describe the hero and optionally enable personal token crafting.
+6. **Review:** inspect the sheet and choose **Create & play** or **Create & craft token**. Creation claims the
    character for that player; token placement uses the existing Place token flow.
 
 ## Scope
@@ -78,8 +79,8 @@ selection screen and keeps choices after a connection failure.
 - The demonstration uses Windows Graphics Capture with RTX 5090 NVENC AV1;
   a separate H.264 copy supports mobile playback.
 
-Final checks: typecheck and production build passed; 203 regression files / 2,183
-tests passed, including 21 creator tests; all five real-browser creator scenarios
+Final checks: typecheck and production build passed; 205 regression files / 2,188
+tests passed, including 21 creator tests; all six real-browser creator scenarios
 passed. The production build retains its existing large-chunk warnings.
 
 [Desktop preview](https://dnd.nic024i.app/uploads/previews/character-creator-20261013/creator-desktop.png)
@@ -89,3 +90,38 @@ passed. The production build retains its existing large-chunk warnings.
 [Manual rolls and Roll all video](https://dnd.nic024i.app/uploads/previews/character-creator-stats-20261014/stat-rolls-mobile.mp4)
 · [Rolled scores](https://dnd.nic024i.app/uploads/previews/character-creator-stats-20261014/creator-rolled-stats.png)
 · [Race selection](https://dnd.nic024i.app/uploads/previews/character-creator-stats-20261014/creator-desktop.png)
+
+## Personal token crafting (14 October update)
+
+The optional Appearance step gathers up to 600 characters describing the hero.
+The server combines that description with the saved species/race, class, weapons,
+and clothing/armor inventory. It snapshots the brief when the job is queued;
+retries and later sheet edits do not silently change the reference art.
+
+**Create & craft token** creates/claims the character immediately and submits a
+character-specific job to the existing durable asset queue. The production path
+prefers the configured Gemini image API, retaining the established ComfyUI backup
+and connection retries. It generates a 2K four-view turnaround, then passes its
+front/back/left/right references through the existing Hunyuan shape and verified
+multi-view texture workflow. Geometry reduction, texture compression, base fitting,
+validation, and publication are the same stages used for creature models.
+
+The front reference is published as playable 2D art before 3D reconstruction.
+On completion, the generated model is automatically attached by character/model
+ID, rather than matching the character name. Catalog and character updates reach
+players and DMs; map preload and sizing controls resolve the custom model too.
+Existing campaign miniatures are unchanged. Personal bindings and descriptions
+survive saved-library export/import and server restarts.
+
+The editable character sheet includes **Personal token & miniature**, with
+progress, appearance editing, new crafting, and retries. Only the owning player
+or DM can access a character's job or request a craft. The DM can resume a paused
+queue there; players can retry their own job without changing shared queue controls.
+Failure leaves the character and any completed 2D art usable.
+
+Verification covers queueing from the real browser, ownership gates, immutable
+briefs, distinct models for same-named heroes, 2D publication before 3D, model
+attachment, failure/retry, restart recovery, catalog resolution, and library
+persistence. Production completion/attachment tests use a controlled producer;
+this implementation pass did not spend an image request or generate a new live
+Hunyuan model. Browser tests deliberately use offline AI/3D endpoints.

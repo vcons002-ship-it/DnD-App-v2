@@ -8,6 +8,9 @@
 - [x] Add manually clicked 4d6-drop-lowest ability rolls to the character creator,
   with optional simultaneous Roll all, durable partial sets, server validation,
   score swapping, and a prominent Race (species) choice in Identity.
+- [x] Add optional personal token crafting to character creation: appearance,
+  species/class/equipment briefs, Gemini-first four-view art, the existing
+  2D-to-3D queue, automatic character model binding, and owned status/retry controls.
 
 - [x] Replace Fireball's separate expanding lobes with one filled, volumetric
   dome blast with a folded leading flame crest across the selected radius.

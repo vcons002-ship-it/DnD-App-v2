@@ -43,6 +43,8 @@ test('a player creates, claims, and places a battle-ready fighter through the gu
     await page.waitForTimeout(1200);await guide.getByRole('button',{name:'Next →',exact:true}).click();
     await expect(guide.getByText('This class has no spellcasting at level one.',{exact:false})).toBeVisible();
     await guide.getByRole('button',{name:'Next →',exact:true}).click();
+    await expect(guide.getByRole('heading',{name:'A hero you can picture'})).toBeVisible();
+    await guide.getByRole('button',{name:'Next →',exact:true}).click();
     await expect(guide.getByRole('heading',{name:'Rowan, your story begins'})).toBeVisible();
     await page.waitForTimeout(1800);
     await guide.getByRole('button',{name:'Create & play',exact:true}).click();
@@ -78,6 +80,7 @@ test('mobile wizard draft survives closing; spells produce the right prepared sp
   await expect(guide.getByRole('heading',{name:'Choose your first magic'})).toBeVisible();
   await expect(guide.locator('.creator-spells [aria-pressed=true]')).toHaveCount(9);
   await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  await guide.getByRole('button',{name:'Next →',exact:true}).click();
   const overflow=await guide.evaluate(el=>el.scrollWidth>el.clientWidth);expect(overflow).toBe(false);
   await page.screenshot({path:path.join(evidence,'creator-mobile-review.png')});
   await guide.getByRole('button',{name:'Create & play',exact:true}).click();await expect(guide).not.toBeVisible();
@@ -101,7 +104,7 @@ test('desktop identity and review keep the preview and navigation visible',async
   await guide.getByLabel('Character name',{exact:true}).fill('Rowan Ashford');
   await expect(guide.getByRole('button',{name:'Next →',exact:true})).toBeEnabled();
   await page.screenshot({path:path.join(evidence,'creator-desktop.png')});
-  for(let i=0;i<4;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  for(let i=0;i<5;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
   await page.screenshot({path:path.join(evidence,'creator-desktop-review.png')});
   await guide.getByRole('button',{name:'Close character creator'}).click();
   await expect(page.locator('.creator-launch')).toBeFocused();
@@ -149,8 +152,34 @@ test('player manually rolls abilities, can roll all 24 dice, and creates a chara
   const totals=await guide.locator('.creator-roll-results strong').allTextContents();
   expect([...scores].sort()).toEqual(totals.map(Number).sort());
   await page.screenshot({path:path.join(evidence,'creator-rolled-stats.png')});
-  for(let i=0;i<3;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  for(let i=0;i<4;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
   await guide.getByRole('button',{name:'Create & play',exact:true}).click();await expect(guide).not.toBeVisible();
   const hero=(await f.snapshot()).characters.find(c=>c.name==='Chance')!;
   expect(hero.claimedBy).toBeTruthy();expect(hero.stats.STR).toBe(scores[0]+2);expect(hero.stats.CON).toBe(scores[2]+1);
+});
+
+test('appearance crafting creates a playable hero and exposes only their own job',async({page,request})=>{
+  mkdirSync(evidence,{recursive:true});await page.setViewportSize({width:1500,height:980});const f=await campaign(request);
+  await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();
+  await page.locator('.creator-launch').click();const guide=page.getByRole('dialog',{name:'Bring your hero to life'});
+  await guide.getByLabel('Character name',{exact:true}).fill('Sable');
+  await guide.getByRole('button',{name:'Orc',exact:true}).click();
+  for(let i=0;i<4;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  await guide.getByRole('checkbox',{name:/Craft token art/}).check();
+  await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  await expect(guide.getByRole('alert')).toContainText('appearance');
+  await guide.getByLabel('Your hero’s appearance',{exact:true}).fill('A tall orc with dark green skin, black braids, brown eyes and a red sash.');
+  await page.screenshot({path:path.join(evidence,'creator-token-appearance.png')});
+  await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  await guide.getByRole('button',{name:'Create & craft token',exact:true}).click();await expect(guide).not.toBeVisible();
+  await page.getByLabel('Character',{exact:true}).click();
+  await expect(page.locator('.hero-token-crafting')).toContainText(/Crafting in progress|Crafting needs attention/,{timeout:10000});
+  const c=(await f.snapshot()).characters.find(c=>c.name==='Sable')!;
+  expect(c.claimedBy).toBeTruthy();expect(c.modelType).toMatch(/^hero-sable-/);expect(c.appearance).toContain('black braids');expect(c.weapons.length).toBeGreaterThan(0);
+  const ownJob=await f.socket.timeout(5000).emitWithAck('character:tokenCraftStatus',{characterId:c.id});
+  expect(ownJob.ok).toBe(true);expect(ownJob.job.sourceCharacterId).toBe(c.id);expect(ownJob.job.artBrief).toContain('Species/race: Orc. Class: Fighter');expect(ownJob.job.artBrief).toContain('Greatsword');
+  const stranger=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(stranger);
+  await stranger.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player',playerId:'stranger-crafting-test'});
+  const denied=await stranger.timeout(5000).emitWithAck('character:tokenCraftStatus',{characterId:c.id});expect(denied.ok).toBe(false);expect(denied.job).toBeUndefined();
+  const refused=await stranger.timeout(5000).emitWithAck('character:craftToken',{characterId:c.id,appearance:'Tampered'});expect(refused.ok).toBe(false);
 });

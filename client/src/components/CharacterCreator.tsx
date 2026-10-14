@@ -6,7 +6,7 @@ import { SKILLS,abilityMod,type AbilityKey } from '../../../shared/skills';
 import { useStore } from '../state/socket';
 import './character-creator.css';
 
-const STEPS=['Identity','Abilities','Equipment & skills','Spells','Ready to play'];
+const STEPS=['Identity','Abilities','Equipment & skills','Spells','Appearance','Ready to play'];
 const sign=(n:number)=>n>=0?`+${n}`:String(n);
 function initial():CreatorChoices {return {requestId:crypto.randomUUID(),name:'',species:'Human',className:'fighter',method:'array',scores:suggestedScores('fighter'),background:'Adventurer',boosts:{STR:2,CON:1},originFeat:'Tough',humanFeat:'Alert',backgroundSkills:['Insight','Survival'],skills:['Athletics','Perception'],extraSkills:['Persuasion'],kitId:'greatsword',features:{fightingStyle:['Great Weapon Fighting'],masteries:['Greatsword','Javelin','Longsword']},cantrips:[],spells:[],prepared:[]};}
 
@@ -55,7 +55,7 @@ export function CharacterCreator({onCreated}:{onCreated:(id:string)=>void}) {
   const selectMany=(list:string[],name:string,count:number)=>list.includes(name)?list.filter(s=>s!==name):list.length<count?[...list,name]:list;
   const go=(next:number)=>{if(next>step){const invalid=creatorError(choices,step,catalog??undefined);if(invalid){setError(invalid);return;}}
     setStep(next);setError('');setSearch('');content.current?.scrollTo({top:0});};
-  const finish=async()=>{for(let s=0;s<4;s++){const invalid=creatorError(choices,s,catalog??undefined);if(invalid){setStep(s);setError(invalid);return;}}
+  const finish=async()=>{for(let s=0;s<5;s++){const invalid=creatorError(choices,s,catalog??undefined);if(invalid){setStep(s);setError(invalid);return;}}
     setBusy(true);setError('');const result=await create(choices);setBusy(false);
     if(result.ok){setOpen(false);onCreated(result.characterId);setChoices(initial());setStatDraft(undefined);pendingRoll.current=null;setStep(0);}else setError(result.error);
   };
@@ -101,15 +101,22 @@ export function CharacterCreator({onCreated}:{onCreated:(id:string)=>void}) {
             {choices.className==='wizard'&&skillsGroup('Prepared today',choices.spells,choices.prepared,preview.progression.preparedSpells,prepared=>patch({prepared}))}
             {choices.className==='ranger'&&<p className="creator-note">Hunter’s Mark is added as an always-prepared spell.</p>}
           </>}
-          {step===4&&<><p className="creator-eyebrow">05 / Ready to play</p><h3>{choices.name}, your story begins</h3><p className="creator-copy">Review your level-one sheet. Creating it selects this character for you; place your token when you are ready.</p>
+          {step===4&&<><p className="creator-eyebrow">05 / Appearance</p><h3>A hero you can picture</h3><p className="creator-copy">Describe your hero’s build, face, hair, clothing, colors, and any distinctive details. We’ll include their {choices.species} heritage, {cls.title} class, and selected equipment.</p>
+            <label className="creator-label">Your hero’s appearance<textarea maxLength={600} rows={6} value={choices.tokenCrafting?.appearance??''} onChange={e=>patch({tokenCrafting:{enabled:choices.tokenCrafting?.enabled??false,appearance:e.target.value}})} placeholder="A tall orc with dark green skin, warm brown eyes, braided black hair, weathered chainmail, and a deep red sash…"/></label>
+            <label className="creator-craft-toggle"><input type="checkbox" checked={choices.tokenCrafting?.enabled??false} onChange={e=>patch({tokenCrafting:{enabled:e.target.checked,appearance:choices.tokenCrafting?.appearance??''}})}/><span><strong>Craft token art & a 3D miniature</strong><small>Generation runs in the background. You can start playing immediately; your miniature appears when ready.</small></span></label>
+            <p className="creator-note">Uses the configured Gemini image generator for four matching views, then the existing 2D-to-3D workflow. Equipment stays simple and consistent. You can check progress or retry from your character sheet.</p>
+          </>}
+          {step===5&&<><p className="creator-eyebrow">06 / Ready to play</p><h3>{choices.name}, your story begins</h3><p className="creator-copy">Review your level-one sheet. Creating it selects this character for you; place your token when you are ready.</p>
             <div className="creator-vitals"><div><strong>{preview.hp}</strong><span>Hit points</span></div><div><strong>{preview.ac}</strong><span>Armor class</span></div><div><strong>+2</strong><span>Proficiency</span></div></div>
             <dl className="creator-review"><dt>Identity</dt><dd>{choices.species} {cls.title} · {choices.background}</dd><dt>Weapons</dt><dd>{preview.kit.weapons.join(', ')}</dd><dt>Skills</dt><dd>{[...choices.backgroundSkills,...choices.skills,...choices.extraSkills].join(', ')}</dd><dt>Origin feats</dt><dd>{[choices.originFeat,...(choices.species==='Human'?[choices.humanFeat]:[])].join(', ')}</dd><dt>Features</dt><dd>{preview.progression.features.join(', ')}{Object.values(choices.features).flat().length>0&&` · ${Object.values(choices.features).flat().join(', ')}`}</dd><dt>Magic</dt><dd>{[...choices.cantrips,...choices.spells,...(choices.className==='ranger'?["Hunter's Mark"]:[])].join(', ')||'No spells at this level'}</dd></dl>
             <p className="creator-note">Species traits are included. Choose any ancestry or lineage details with your DM on the character sheet. Level-ups use the existing 2024 guide.</p>
+            {choices.tokenCrafting?.appearance&&<p className="creator-copy"><strong>Appearance:</strong> {choices.tokenCrafting.appearance}</p>}
+            {choices.tokenCrafting?.enabled&&<p className="creator-note">Your personal token art and 3D miniature will be crafted after you create the character.</p>}
           </>}
         </div>
         <aside className="creator-preview" aria-label="Character preview" style={{'--class-color':cls.color} as CSSProperties}><div className="creator-emblem" aria-hidden="true">{cls.symbol}</div><p className="creator-eyebrow">Your hero</p><h3>{choices.name.trim()||'An unwritten legend'}</h3><p>{choices.species} {cls.title}</p><span className="creator-level">LEVEL ONE</span><div className="creator-vitals"><div><strong>{preview.hp}</strong><span>Hit points</span></div><div><strong>{preview.ac}</strong><span>Armor class</span></div><div><strong>+2</strong><span>Proficiency</span></div></div><div className="creator-mini-stats">{CREATOR_ABILITIES.map(a=><div key={a}><small>{a}</small><strong>{preview.stats[a]}</strong></div>)}</div><p className="creator-preview-story">{cls.summary}</p><small>Hit die: d{preview.hitDie} · Speed: 30 ft</small></aside>
       </div>
-      <footer className="creator-footer"><div aria-live="polite">{error?<p className="creator-error" role="alert">{error}</p>:<span>{loading?'Loading character options…':'Your draft stays here if you close this window.'}</span>}</div><div><button className="btn" disabled={busy} onClick={()=>step?go(step-1):setOpen(false)}>{step?'Back':'Close'}</button>{step<4?<button className="btn creator-next" disabled={busy||loading||!catalog} onClick={()=>go(step+1)}>Next →</button>:<button className="btn creator-next" disabled={busy||status!=='connected'} onClick={finish}>{busy?'Creating…':'Create & play'}</button>}</div></footer>
+      <footer className="creator-footer"><div aria-live="polite">{error?<p className="creator-error" role="alert">{error}</p>:<span>{loading?'Loading character options…':'Your draft stays here if you close this window.'}</span>}</div><div><button className="btn" disabled={busy} onClick={()=>step?go(step-1):setOpen(false)}>{step?'Back':'Close'}</button>{step<5?<button className="btn creator-next" disabled={busy||loading||!catalog} onClick={()=>go(step+1)}>Next →</button>:<button className="btn creator-next" disabled={busy||status!=='connected'} onClick={finish}>{busy?'Creating…':choices.tokenCrafting?.enabled?'Create & craft token':'Create & play'}</button>}</div></footer>
     </dialog>,document.body)}
   </>;
 }

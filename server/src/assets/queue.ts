@@ -2,10 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { MONSTER_MODEL_TYPES } from '../../../shared/monsterAppearance.js';
-import { creatureArtBrief, productionFamily, type AssetCreature, type AssetJob, type ProducedMiniature } from '../../../shared/assetProduction.js';
+import { creatureArtBrief, heroArtBrief, productionFamily, type AssetCreature, type AssetJob, type ProducedMiniature } from '../../../shared/assetProduction.js';
+import type { Character } from '../../../shared/types.js';
 
 type State = { paused: boolean; jobs: AssetJob[]; models: ProducedMiniature[] };
-type Producer = (job: AssetJob, progress: (stage: string) => void) => Promise<ProducedMiniature>;
+type Producer = (job: AssetJob, progress: (stage: string) => void, referenceArt: (url:string)=>void) => Promise<ProducedMiniature>;
 
 /** Durable, deduplicated queue. No timers or GPU jobs run until explicitly started. */
 export class AssetQueue {
@@ -14,6 +15,9 @@ export class AssetQueue {
   private started = false;
   /** Called after a model is published (the public catalog changed). */
   onCatalogChange: () => void = () => {};
+  onReferenceArt:(job:AssetJob,url:string)=>void=()=>{};
+  onModelReady:(job:AssetJob,model:ProducedMiniature)=>void=()=>{};
+  onCharacterChange:(sessionId:string)=>void=()=>{};
   constructor(private file: string, private produce: Producer, private notice: (message: string) => void = () => {}) {
     this.state = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { paused: false, jobs: [], models: [] };
     for (const job of this.state.jobs) if (job.state === 'running') {
@@ -49,6 +53,15 @@ export class AssetQueue {
     void this.drain(); return { ...job };
   }
   pause(paused: boolean) { this.state.paused = paused; this.save(); if (!paused) void this.drain(); }
+  enqueueCharacter(hero:Character,appearance:string,initial=false):AssetJob|undefined {
+    const previous=this.state.jobs.filter(j=>j.sourceCharacterId===hero.id).at(-1);
+    if(previous&&(initial||['queued','running'].includes(previous.state)))return {...previous};
+    if(this.state.jobs.filter(j=>j.state!=='ready').length>=100)return;
+    const slug=hero.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,20)||'adventurer';
+    const job:AssetJob={id:randomUUID(),family:`hero-${slug}-${randomUUID().slice(0,8)}`,subjectFamily:hero.race.toLowerCase(),
+      sourceCharacterId:hero.id,artBrief:heroArtBrief(hero,appearance),state:'queued',stage:'Waiting',attempts:0,updatedAt:new Date().toISOString()};
+    this.state.jobs.push(job);this.save();this.announce('Character token crafting queued. The character remains playable.');void this.drain();return {...job};
+  }
   retry(id: string): boolean {
     const job = this.state.jobs.find(j => j.id === id);
     if (!job || job.state !== 'failed') return false;
@@ -67,10 +80,15 @@ export class AssetQueue {
           const model = await this.produce({ ...job }, stage => {
             job.stage = stage; job.updatedAt = new Date().toISOString(); this.save();
             this.announce(`3D ${job.family}: ${stage}.`);
+          },url=>{
+            if(!url.startsWith('/uploads/miniatures/'))return;
+            job.tokenIcon=url;this.save();
+            try{this.onReferenceArt({...job},url);}catch{/* recovered on restart */}
           });
           if (model.id !== job.family || !model.url.startsWith('/uploads/miniatures/') || !(model.bytes > 0) || !(model.triangles > 0)) throw Error('Model publication validation failed.');
           this.state.models = [...this.state.models.filter(m => m.id !== model.id), model];
           job.state = 'ready'; job.stage = 'Ready'; delete job.error;
+          try{this.onModelReady({...job},model);}catch{/* recovered on restart */}
           try { this.onCatalogChange(); } catch { /* a listener cannot break the queue */ }
           this.announce(`3D ${job.family}: ready. Matching tokens will load the model automatically.`);
         } catch (error) {

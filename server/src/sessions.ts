@@ -2312,6 +2312,8 @@ export type CharacterInput = {
   spellSlots?: Character['spellSlots'];
   resources?: Character['resources'];
   icon?: string;
+  modelType?:string;
+  appearance?:string;
 };
 
 /** Create a player character (DM or a player may add one). */
@@ -2389,6 +2391,8 @@ export function createCharacter(
     JSON.stringify(portableLeveling(opts.leveling) ?? {}),
     opts.icon ?? '',
   );
+  if(opts.modelType||opts.appearance)db.prepare('UPDATE characters SET model_type=?,appearance=? WHERE id=?')
+    .run(typeof opts.modelType==='string'&&/^[a-z0-9-]{1,48}$/.test(opts.modelType)?opts.modelType:'',typeof opts.appearance==='string'?opts.appearance.slice(0,600):'',id);
   return getCharacter(id)!;
 }
 

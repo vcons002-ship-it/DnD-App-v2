@@ -552,6 +552,10 @@ ensureColumn('characters', 'kill_count', 'kill_count INTEGER NOT NULL DEFAULT 0'
 ensureColumn('characters', 'hit_dice_used', 'hit_dice_used INTEGER NOT NULL DEFAULT 0');
 ensureColumn('characters', 'hit_dice_used_by_die', "hit_dice_used_by_die TEXT NOT NULL DEFAULT '{}' ");
 ensureColumn('characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
+ensureColumn('characters', 'model_type', "model_type TEXT NOT NULL DEFAULT ''");
+ensureColumn('characters', 'appearance', "appearance TEXT NOT NULL DEFAULT ''");
+ensureColumn('library_characters', 'model_type', "model_type TEXT NOT NULL DEFAULT ''");
+ensureColumn('library_characters', 'appearance', "appearance TEXT NOT NULL DEFAULT ''");
 // Character templates retain completed progression, never a session's pending grant.
 ensureColumn('library_characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
 // Durable per-browser id of whoever first saved a library entry. Lets a player
@@ -789,6 +793,7 @@ export function rowToToken(r: TokenRow): Token {
 }
 
 type CharacterRow = {
+  model_type?:string; appearance?:string;
   id: string;
   session_id: string;
   name: string;
@@ -875,6 +880,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     hitDiceUsed: r.hit_dice_used ?? 0,
     hitDiceUsedByDie: parseJsonColumn(r.hit_dice_used_by_die, {}, 'characters.hit_dice_used_by_die ' + r.id),
     icon: r.icon ?? '',
+    modelType:r.model_type||undefined,appearance:r.appearance||undefined,
   };
 }
 

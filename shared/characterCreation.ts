@@ -68,6 +68,7 @@ export type CreatorChoices = {
   background:string; boosts:Partial<Record<AbilityKey,number>>; originFeat:string; humanFeat?:string;
   backgroundSkills:string[]; skills:string[]; extraSkills:string[];
   kitId:string; features:Record<string,string[]>; cantrips:string[]; spells:string[]; prepared:string[];
+  tokenCrafting?:{enabled:boolean;appearance:string};
 };
 export type CreatorCatalog = {spells:SheetAbility[]; choices:Partial<Record<CoreClass,LevelUpFeatureChoice[]>>;traits:Record<string,SheetAbility[]>};
 export type CreatorResult = {ok:true;characterId:string}|{ok:false;error:string};
@@ -115,6 +116,10 @@ export function creatorPreview(c:CreatorChoices) {
 export function creatorError(c:CreatorChoices,step:number,catalog?:CreatorCatalog):string|null {
   if(!c||!CORE_CLASSES_2024.includes(c.className)||!CREATOR_SPECIES.includes(c.species as typeof CREATOR_SPECIES[number]))return 'Choose a class and species.';
   if(step===0)return c.name.trim().length>=1&&c.name.trim().length<=60?null:'Give your character a name (up to 60 characters).';
+  if(step===4){
+    if(c.tokenCrafting&&(typeof c.tokenCrafting.enabled!=='boolean'||typeof c.tokenCrafting.appearance!=='string'||c.tokenCrafting.appearance.length>600||c.tokenCrafting.enabled&&!c.tokenCrafting.appearance.trim()))return 'Describe your hero’s appearance in 1–600 characters to craft their token.';
+    return null;
+  }
   if(!CREATOR_ABILITIES.every(a=>Number.isInteger(c.scores?.[a])&&c.scores[a]>=(c.method==='roll'?3:8)&&c.scores[a]<=(c.method==='roll'?18:15)))return c.method==='roll'?'Rolled ability scores must be between 3 and 18.':'Base ability scores must be between 8 and 15.';
   if(c.method==='array'&&JSON.stringify(Object.values(c.scores).sort((a,b)=>b-a))!==JSON.stringify(STANDARD_ARRAY))return 'Use each standard-array score once.';
   if(c.method==='points'&&pointCost(c.scores)>27)return 'Spend no more than 27 ability points.';

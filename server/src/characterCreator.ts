@@ -47,7 +47,7 @@ export function characterCreatorCatalog():CreatorCatalog {
 }
 export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
   const catalog=characterCreatorCatalog();
-  for(const step of [0,1,2,3]){const error=creatorError(c,step,catalog);if(error)throw new Error(error);}
+  for(const step of [0,1,2,3,4]){const error=creatorError(c,step,catalog);if(error)throw new Error(error);}
   const {stats,hp,ac,kit}=creatorPreview(c), cls=CLASS_IDENTITY[c.className],progression=classProgression2024(c.className,1,'',stats)!;
   const model={...shell(c.className),stats};
   const abilities:SheetAbility[]=progression.features.map(name=>{
@@ -89,6 +89,7 @@ export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
   const resources=Object.fromEntries(Object.entries(progression.resourceMaxima).map(([key,max])=>[key,{max,used:0}]));
   for(const a of abilities)if(a.useCounter&&!resources[a.useCounter.name])resources[a.useCounter.name]={max:a.useCounter.max,used:0};
   return {name:c.name.trim(),race:c.species,className:cls.title,level:1,maxHp:hp,armorClass:ac,speed:c.species==='Goliath'?'35 ft':'30 ft',stats,weapons,resources,
+    appearance:c.tokenCrafting?.appearance?.trim(),
     resistances:c.species==='Dwarf'?['poison']:[],
     proficientSkills:[...c.backgroundSkills,...c.skills,...c.extraSkills],saveProficiencies:cls.saves,modifiers,sheetAbilities:abilities,
     items:equipment.map(name=>({id:newId(),name,qty:1,note:'Starter equipment',equipped:/armor|mail|Shield/.test(name)})),

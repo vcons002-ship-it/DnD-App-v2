@@ -11,6 +11,7 @@ import { AssetQueue, ProductionError } from './queue.js';
 import { setAssetProductionListener } from './hooks.js';
 import type { AssetJob, ProducedMiniature } from '../../../shared/assetProduction.js';
 import { verifiedTextureViews } from '../../../shared/assetProduction.js';
+import {wireCharacterAssets} from './heroTokens.js';
 
 const scripts = fileURLToPath(new URL('../../tools/asset-production/', import.meta.url));
 const root = path.join(config.dataDir, 'asset-production');
@@ -31,7 +32,7 @@ export async function runWorker(command: string, args: string[], log: string, ti
   } finally { await handle.close(); }
 }
 
-export async function produceAsset(job: AssetJob, progress: (stage: string) => void): Promise<ProducedMiniature> {
+export async function produceAsset(job: AssetJob, progress: (stage: string) => void, referenceArt?:(url:string)=>void): Promise<ProducedMiniature> {
   const work = path.join(root, job.id), attempt = path.join(work, `attempt-${job.attempts}`);
   await fs.mkdir(attempt, { recursive: true });
   const log = path.join(attempt, 'worker.log');
@@ -50,7 +51,9 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
   if (!ready) {
     progress('Generating four reference views');
     const subject = job.subjectFamily ?? job.family;
-    const anatomy = subject === 'owlbear'
+    const anatomy = job.sourceCharacterId
+      ? 'A player character. Follow the supplied species, class, appearance and equipment. No generic monster-family substitutions.'
+      : subject === 'owlbear'
       ? 'A wild owlbear: a bulky four-legged bear body with an owl head, beak, feathers and large claws. Animal anatomy, no clothing, armor or weapons.'
       : subject === 'brown-bear'
       ? 'A realistic brown bear standing on all four paws, alert with its mouth open. Animal anatomy, no clothing, armor or weapons.'
@@ -70,6 +73,14 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
       receipt.push({ view, width, height, sha256: createHash('sha256').update(png).digest('hex') });
     }
     await fs.writeFile(path.join(refs, 'views.json'), JSON.stringify({ prompt, source: result.path, views: receipt }, null, 2));
+  }
+  if(job.sourceCharacterId){
+    progress('Publishing character reference art');
+    const front=await fs.readFile(path.join(refs,'front.png'));
+    const filename=`${job.family}-front-${createHash('sha256').update(front).digest('hex').slice(0,12)}.png`;
+    const artDir=path.join(config.uploadsDir,'miniatures');await fs.mkdir(artDir,{recursive:true});
+    await fs.writeFile(path.join(artDir,filename),await sharp(front).resize({width:768,withoutEnlargement:true}).png().toBuffer());
+    referenceArt?.(`/uploads/miniatures/${filename}`);
   }
   progress('Building textured multi-view model');
   const generation = path.join(attempt, 'generation');
@@ -105,7 +116,10 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
 }
 
 let queue: AssetQueue | undefined;
-export function assetQueue() { return queue ??= new AssetQueue(path.join(root, 'queue.json'), produceAsset, reportAi); }
+export function assetQueue() {
+  if(!queue){queue=new AssetQueue(path.join(root,'queue.json'),produceAsset,reportAi);wireCharacterAssets(queue);}
+  return queue;
+}
 export function startAssetProduction() {
   const worker = assetQueue();
   setAssetProductionListener(creature => { worker.enqueue(creature); });

@@ -261,6 +261,7 @@ export function deleteLibraryCreature(name: string): void {
 // ---- Cross-session character library ----
 
 type LibCharacterRow = {
+  model_type?:string;appearance?:string;
   id: string;
   name: string;
   race: string;
@@ -291,6 +292,7 @@ type LibCharacterRow = {
 
 function rowToLibraryCharacter(r: LibCharacterRow): LibraryCharacter {
   return {
+    modelType:r.model_type||undefined,appearance:r.appearance||undefined,
     name: r.name,
     race: r.race,
     className: r.class_name,
@@ -412,6 +414,9 @@ export function saveLibraryCharacter(
     Date.now(),
     owner,
   );
+  db.prepare('UPDATE library_characters SET model_type=?,appearance=? WHERE id=?').run(
+    typeof input.modelType==='string'&&/^[a-z0-9-]{1,48}$/.test(input.modelType)?input.modelType:'',
+    typeof input.appearance==='string'?input.appearance.slice(0,600):'',id);
   return { saved: getLibraryCharacter(name)! };
 }
 
