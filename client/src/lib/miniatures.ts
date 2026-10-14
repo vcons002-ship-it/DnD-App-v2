@@ -94,8 +94,10 @@ export function miniaturePreloadDefinitions(families:readonly string[]):Miniatur
   return [...definitions.values()];
 }
 export function resolveMiniature(name: string, kind: TokenKind, appearance: MonsterAppearance = {}, creatureId = ''): MiniatureDefinition | null {
+  if(kind==='pc'&&appearance.modelType)return generated[appearance.modelType]??MINIATURES[appearance.modelType]??null;
   // Objects use their semantic kind, independent of creature matching and generation.
   if (kind === 'monster' && appearance.objectKind) {
+    if(appearance.modelType&&generated[appearance.modelType])return generated[appearance.modelType];
     if(appearance.modelType==='spiritual-weapon')return SPIRITUAL_WEAPON;
     return MINIATURES[`object-${appearance.objectKind}`] ?? null;
   }

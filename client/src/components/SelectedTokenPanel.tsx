@@ -448,7 +448,7 @@ export function SelectedTokenPanel({
       node: (
         <div className="dm-token-actions">
           <CarriedLanternControl token={token}/>
-          {resolveMiniature(d.name, token.kind, monsterEntity) && <MiniatureSizeControl token={token} />}
+          {resolveMiniature(d.name, token.kind, monsterEntity??character) && <MiniatureSizeControl token={token} />}
           <h4>Token icon</h4>
           <IconTools
             onApply={(icon) => setTokensIcon(iconTargets, icon)}
@@ -526,7 +526,7 @@ export function SelectedTokenPanel({
         onTemp={(amt) => setTempHp(token.kind, token.refId, amt)}
       />
 
-      {!resolveMiniature(d.name, token.kind, monsterEntity) && <div className="size-row">
+      {!resolveMiniature(d.name, token.kind, monsterEntity??character) && <div className="size-row">
         <span>Size</span>
         <button
           className="btn"

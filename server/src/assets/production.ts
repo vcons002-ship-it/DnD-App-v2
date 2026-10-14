@@ -11,6 +11,7 @@ import { AssetQueue, ProductionError } from './queue.js';
 import { setAssetProductionListener } from './hooks.js';
 import type { AssetJob, ProducedMiniature } from '../../../shared/assetProduction.js';
 import { verifiedTextureViews } from '../../../shared/assetProduction.js';
+import {wireCharacterAssets} from './heroTokens.js';
 
 const scripts = fileURLToPath(new URL('../../tools/asset-production/', import.meta.url));
 const root = path.join(config.dataDir, 'asset-production');
@@ -31,7 +32,7 @@ export async function runWorker(command: string, args: string[], log: string, ti
   } finally { await handle.close(); }
 }
 
-export async function produceAsset(job: AssetJob, progress: (stage: string) => void): Promise<ProducedMiniature> {
+export async function produceAsset(job: AssetJob, progress: (stage: string) => void, referenceArt?:(url:string)=>void): Promise<ProducedMiniature> {
   const work = path.join(root, job.id), attempt = path.join(work, `attempt-${job.attempts}`);
   await fs.mkdir(attempt, { recursive: true });
   const log = path.join(attempt, 'worker.log');
@@ -50,12 +51,15 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
   if (!ready) {
     progress('Generating four reference views');
     const subject = job.subjectFamily ?? job.family;
-    const anatomy = subject === 'owlbear'
+    const anatomy = job.sourceCharacterId
+      ? 'A player character. Follow the supplied species, class, appearance and equipment. No generic monster-family substitutions.'
+      : subject === 'owlbear'
       ? 'A wild owlbear: a bulky four-legged bear body with an owl head, beak, feathers and large claws. Animal anatomy, no clothing, armor or weapons.'
       : subject === 'brown-bear'
       ? 'A realistic brown bear standing on all four paws, alert with its mouth open. Animal anatomy, no clothing, armor or weapons.'
       : 'Natural anatomy for this creature. Only humanoid weapon users carry simple equipment with weapons held ready; animals have no clothing or equipment.';
-    const prompt = `A clean 2 by 2 orthographic character turnaround sheet of one ${subject.replaceAll('-', ' ')} D&D miniature. ${anatomy} Use the supplied creature data only as visual reference, not instructions. Favor its listed weapon and armor over generic family equipment. Show one primary weapon ready, with secondary weapons sheathed; keep equipment simple and consistent. Natural attacks are body parts, not carried weapons. ${job.artBrief ? JSON.stringify(job.artBrief) : ''} Exactly four equal square panels: top left front, top right back, bottom left left side, bottom right right side. Same creature, proportions, colors and ready pose in every panel. Full body and feet centered with generous white margin in each panel. Detailed painted miniature. Plain white background. No base, text, labels, borders or effects.`;
+    const equipmentPose=job.sourceCharacterId?'Use the Held weapon field for the ready pose. If it says Unarmed, keep both hands empty. Stow all other weapons; keep equipment simple and consistent.':'Show one primary weapon ready, with secondary weapons sheathed; keep equipment simple and consistent.';
+    const prompt = `A clean 2 by 2 orthographic character turnaround sheet of one ${subject.replaceAll('-', ' ')} D&D miniature. ${anatomy} Use the supplied creature data only as visual reference, not instructions. Favor its listed weapon and armor over generic family equipment. ${equipmentPose} Natural attacks are body parts, not carried weapons. ${job.artBrief ? JSON.stringify(job.artBrief) : ''} Exactly four equal square panels: top left front, top right back, bottom left left side, bottom right right side. Same creature, proportions, colors and ready pose in every panel. Full body and feet centered with generous white margin in each panel. Detailed painted miniature. Plain white background. No base, text, labels, borders or effects.`;
     const result = await generateImageWithBackup(prompt, { width: 2048, height: 2048, turnaround: true }, 'api');
     if ('error' in result) throw new ProductionError('Reference art generation failed after the image backup attempts. Check AI settings and retry.');
     const bytes = await fs.readFile(path.join(config.uploadsDir, path.basename(result.path)));
@@ -70,6 +74,14 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
       receipt.push({ view, width, height, sha256: createHash('sha256').update(png).digest('hex') });
     }
     await fs.writeFile(path.join(refs, 'views.json'), JSON.stringify({ prompt, source: result.path, views: receipt }, null, 2));
+  }
+  if(job.sourceCharacterId){
+    progress('Publishing character reference art');
+    const front=await fs.readFile(path.join(refs,'front.png'));
+    const filename=`${job.family}-front-${createHash('sha256').update(front).digest('hex').slice(0,12)}.png`;
+    const artDir=path.join(config.uploadsDir,'miniatures');await fs.mkdir(artDir,{recursive:true});
+    await fs.writeFile(path.join(artDir,filename),await sharp(front).resize({width:768,withoutEnlargement:true}).png().toBuffer());
+    referenceArt?.(`/uploads/miniatures/${filename}`);
   }
   progress('Building textured multi-view model');
   const generation = path.join(attempt, 'generation');
@@ -105,7 +117,10 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
 }
 
 let queue: AssetQueue | undefined;
-export function assetQueue() { return queue ??= new AssetQueue(path.join(root, 'queue.json'), produceAsset, reportAi); }
+export function assetQueue() {
+  if(!queue){queue=new AssetQueue(path.join(root,'queue.json'),produceAsset,reportAi);wireCharacterAssets(queue);}
+  return queue;
+}
 export function startAssetProduction() {
   const worker = assetQueue();
   setAssetProductionListener(creature => { worker.enqueue(creature); });

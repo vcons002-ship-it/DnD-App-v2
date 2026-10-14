@@ -324,6 +324,10 @@ type Store = {
   claimCharacter: (characterId: string) => void;
   unlockCharacter: (characterId: string) => void;
   createCharacter: (input: CharacterCreatePayload) => void;
+  createGuidedCharacter: (input: import('../../../shared/characterCreation').CreatorChoices) => Promise<import('../../../shared/characterCreation').CreatorResult>;
+  rollCreatorStats: (input: import('../../../shared/characterCreation').CreatorStatRollRequest) => Promise<import('../../../shared/characterCreation').CreatorStatRollResult>;
+  craftCharacterToken:(characterId:string,appearance:string,retry?:boolean,heldWeapon?:string)=>Promise<{ok:true;job:import('../../../shared/assetProduction').AssetJob}|{ok:false;error:string}>;
+  characterTokenStatus:(characterId:string)=>Promise<{ok:true;job:import('../../../shared/assetProduction').AssetJob|null;paused:boolean}|{ok:false;error:string}>;
   updateCharacter: (payload: CharacterUpdatePayload) => void;
   aiFillCharacter: (characterId: string) => void;
   aiCreateCharacter: (description: string) => void;
@@ -1211,6 +1215,28 @@ export const useStore = create<Store>((set, get) => ({
   unlockCharacter: (characterId) =>
     get().socket?.emit('character:unlock', { characterId }),
   createCharacter: (input) => get().socket?.emit('character:create', input),
+  craftCharacterToken:async(characterId,appearance,retry,heldWeapon)=>{
+    const socket=get().socket;if(!socket?.connected)return {ok:false,error:'Reconnect before crafting your token.'};
+    try{return await socket.timeout(12000).emitWithAck('character:craftToken',{characterId,appearance,retry,heldWeapon});}
+    catch{return {ok:false,error:'No response was received. Check token status before retrying.'};}
+  },
+  characterTokenStatus:async(characterId)=>{
+    const socket=get().socket;if(!socket?.connected)return {ok:false,error:'Reconnect to check token crafting.'};
+    try{return await socket.timeout(10000).emitWithAck('character:tokenCraftStatus',{characterId});}
+    catch{return {ok:false,error:'Token crafting status is temporarily unavailable.'};}
+  },
+  rollCreatorStats: async (input) => {
+    const socket=get().socket;
+    if(!socket?.connected)return {ok:false,error:'Reconnect before rolling stats. Your draft has been kept.'};
+    try{return await socket.timeout(180000).emitWithAck('character:rollStats',input);}
+    catch{return {ok:false,error:'The stat roll response was not received. Retry to recover the same roll safely.'};}
+  },
+  createGuidedCharacter: async (input) => {
+    const socket=get().socket;
+    if(!socket?.connected)return {ok:false,error:'Reconnect to the session to create your character. Your choices have been kept.'};
+    try{return await socket.timeout(12000).emitWithAck('character:createGuided',input);}
+    catch{return {ok:false,error:'The response was not received. Retry to recover your character safely; your choices have been kept.'};}
+  },
   updateCharacter: (payload) => get().socket?.emit('character:update', payload),
   aiFillCharacter: (characterId) => {
     set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });

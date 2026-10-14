@@ -10,6 +10,7 @@ import {suggestMapGeometry,applyGeometryDraft,geometrySource} from './mapGeometr
 import {getMap} from './sessions.js';
 import { Router } from 'express';
 import { assetQueue } from './assets/production.js';
+import {createModelUploadRouter} from './assets/modelUpload.js';
 import { requestCreatureAsset } from './assets/hooks.js';
 import { getMonster } from './sessions.js';
 import { generateImageWithBackup } from './ai/imageGateway.js';
@@ -53,6 +54,7 @@ import {
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import { searchRaceTraits, getRaceTrait } from './races/srd.js';
+import { characterCreatorCatalog } from './characterCreator.js';
 import { lookupSpellAI } from './spells/gemini.js';
 import { searchMasteries, getMastery } from './masteries/srd.js';
 import { searchManeuvers, getManeuver } from './maneuvers/srd.js';
@@ -305,6 +307,7 @@ export function createApiRouter(io: IOServer): Router {
     res.setHeader('Cache-Control', 'no-store');
     res.json({ models: assetQueue().snapshot().models });
   });
+  router.use('/assets/upload',createModelUploadRouter(io,assetQueue,isDmRequest));
   router.get('/assets/jobs', (req, res) => {
     if (!requireDm(req, res)) return;
     res.setHeader('Cache-Control', 'no-store');
@@ -646,6 +649,8 @@ export function createApiRouter(io: IOServer): Router {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
     res.json({ results: searchWeapons(q) });
   });
+
+  router.get('/character-creator/catalog', (_req,res) => res.json(characterCreatorCatalog()));
 
   // Common creature natural attacks (Bite, Claw…) for the creature attack picker.
   router.get('/attacks', (req, res) => {

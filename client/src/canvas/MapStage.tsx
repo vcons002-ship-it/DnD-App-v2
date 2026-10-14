@@ -1265,7 +1265,7 @@ export function MapStage({
   // Prepare map art before a door opens. Only role-filtered tokens below can
   // create an instance; this deduplicated art list contains no hidden positions.
   const preloadMiniatures = useMemo(() => [...(use3dTokens || use3dMonsters ? [DEATH_SKULL] : []), ...(use3dTokens ? snapshot.characters.flatMap(character => {
-    const definition = miniatureForQuality(resolveMiniature(character.name, 'pc'),graphics.modelQuality);
+    const definition = miniatureForQuality(resolveMiniature(character.name, 'pc',character),graphics.modelQuality);
     return definition ? [definition] : [];
   }) : []), ...(use3dMonsters?miniaturePreloadDefinitions(snapshot.miniaturePreloadFamilies??[]):[])], [snapshot.characters, snapshot.miniaturePreloadFamilies, use3dTokens, use3dMonsters, graphics.modelQuality, miniatureCatalogRevision]);
 
@@ -1279,7 +1279,8 @@ export function MapStage({
     if ((token.isHidden && !isDm) || hiddenGhosts.has(token.id)) return [];
     const monster = token.kind === 'monster' ? snapshot.monsters.find(m => m.id === token.refId) : undefined;
     const display = resolveToken(snapshot, token), dead = display.dead === true;
-    const definition = dead ? DEATH_SKULL : miniatureForQuality(resolveMiniature(display.name, token.kind, monster, token.refId),graphics.modelQuality);
+    const appearance=monster??snapshot.characters.find(c=>c.id===token.refId);
+    const definition = dead ? DEATH_SKULL : miniatureForQuality(resolveMiniature(display.name, token.kind, appearance, token.refId),graphics.modelQuality);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
       mirrorImages:dead ? 0 : mirrorImageCount(display.conditions),

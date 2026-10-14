@@ -77,6 +77,7 @@ export function CharacterItems({
           <input
             type="number"
             min={0}
+            step={0.01}
             className="purse-input"
             value={character.gold}
             onChange={(e) =>

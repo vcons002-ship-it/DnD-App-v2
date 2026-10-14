@@ -4,6 +4,7 @@ import { ConditionPicker } from './ConditionPicker';
 import { NewCharacterForm } from './NewCharacterForm';
 import { LibraryCharacterPicker } from './LibraryCharacterPicker';
 import { CharacterSheet } from './CharacterSheet';
+import { CharacterCreator } from './CharacterCreator';
 
 type Props = {
   snapshot: StateSnapshot;
@@ -66,6 +67,7 @@ export function PlayerPanel({
             <p className="muted">No characters in this session yet.</p>
           )}
           <div className="new-char-wrap">
+            <CharacterCreator onCreated={onClaim} />
             <NewCharacterForm />
             <LibraryCharacterPicker claim />
           </div>

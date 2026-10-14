@@ -1,4 +1,8 @@
 import {resetExploration} from './exploration.js';
+import {createGuidedCharacter,rollCreatorStats} from './characterCreator.js';
+import {CORE_CLASSES_2024} from '../../shared/characterProgression.js';
+import {assetQueue} from './assets/production.js';
+import {craftHeroToken} from './assets/heroTokens.js';
 import {SpellAreaPreviewController} from './spellAreaPreview.js';
 import {setRollPending,setRollSmite} from './sessions.js';
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
@@ -379,6 +383,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const timer=setTimeout(()=>commandDispatch.get('spell:counterspell')?.({castId:held.id,continueCast:true}),Math.max(0,held.expiresAt-Date.now())+150);timer.unref();
     });
     const liveEvents=new Set(['spell:counterspell','spell:shield','spell:repeat','dice:roll','ability:roll','death:roll','skill:roll','save:roll','check:roll','save:resolve','combat:attack','combat:damage','combat:smite','combat:maneuver','combat:hitFeature','combat:orbLeap','combat:riposte','combat:save','trap:disarm','object:interact','item:use','hitDice:spend','character:levelRollHp','initiative:start','initiative:rollMine','initiative:rollAll','initiative:rollMissing','initiative:next','initiative:endTurn']);
+    liveEvents.add('character:rollStats');
     const on = ((event: string, handler: (...args: unknown[]) => void) => {
       const wrapped=(...args:unknown[]) => {
         const failed=(err:unknown)=>{if(areaCommand)areaPreview.clear();console.error(`[socket:${event}]`,err);socket.emit('error',{code:'HANDLER_ERROR',message:err instanceof UnsupportedPhysicalDice?err.message:'The action could not complete. No unfinished roll was applied.'});};
@@ -427,6 +432,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             if(event==='death:roll')meta.label='Death Saving Throw';
             else if(event==='hitDice:spend')meta.label='Hit Dice';
             else if(event==='character:levelRollHp')meta.label='Level-up Hit Point Increase';
+            else if(event==='character:rollStats'){
+              meta.label=Number.isInteger(payload?.index)?`${['STR','DEX','CON','INT','WIS','CHA'][payload.index]} starting score — 4d6, drop lowest`:'All starting ability scores — 24d6, drop lowest per group';
+              meta.className=CORE_CLASSES_2024.includes(payload?.className)?payload.className:'';
+              meta.attacker=typeof payload?.name==='string'?payload.name.trim().slice(0,60)||'New character':'New character';
+            }
             else if(ability?.roll?.kind==='heal')meta.label=`${ability.name} — Healing Roll`;
             else if(ability?.roll&&['save','damage'].includes(ability.roll.kind))meta.label=`${ability.name} — Damage Roll`;
             const riposte=event==='combat:riposte'?listRipostes(sid).find(o=>o.id===payload?.opportunityId):undefined;
@@ -1323,6 +1333,52 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!isDm() || getCharacter(characterId)?.sessionId !== sessionId()) return;
       setCharacterOwner(characterId, null);
       afterChange();
+    });
+
+    on('character:rollStats', (p,ack) => {
+      if(typeof ack!=='function')return;
+      const sid=sessionId(),pid=commandConnection()?.playerId;
+      if(!sid||!isDm()&&!pid){ack({ok:false,error:'Join the session before rolling stats.'});return;}
+      if(!p||typeof p.rollId!=='string'||!/^[\w-]{16,80}$/.test(p.rollId)||!CORE_CLASSES_2024.includes(p.className)||p.index!==undefined&&(!Number.isInteger(p.index)||p.index<0||p.index>5)){
+        ack({ok:false,error:'Choose your class before rolling stats.'});return;
+      }
+      const rolled=rollCreatorStats(sid,isDm()?'dm':pid!,p);
+      afterRollCommit(()=>ack({ok:true,roll:rolled}));
+      afterChange();
+    });
+
+    on('character:tokenCraftStatus', (p,ack)=>{
+      if(typeof ack!=='function')return;
+      const c=typeof p?.characterId==='string'?getCharacter(p.characterId):null;
+      if(!c||c.sessionId!==sessionId()||!isDm()&&c.claimedBy!==socket.id){ack({ok:false,error:'Choose your own character to view token crafting.'});return;}
+      const state=assetQueue().snapshot();ack({ok:true,job:state.jobs.filter(j=>j.sourceCharacterId===c.id).at(-1)??null,paused:state.paused});
+    });
+    on('character:craftToken',(p,ack)=>{
+      if(typeof ack!=='function')return;
+      const c=typeof p?.characterId==='string'?getCharacter(p.characterId):null;
+      if(!c||c.sessionId!==sessionId()||!isDm()&&c.claimedBy!==socket.id){ack({ok:false,error:'Choose your own character to craft their token.'});return;}
+      try{
+        const queue=assetQueue(),previous=queue.snapshot().jobs.filter(j=>j.sourceCharacterId===c.id).at(-1);
+        if(p.retry){if(!previous||!queue.retry(previous.id))throw new Error('There is no failed token craft to retry.');ack({ok:true,job:queue.snapshot().jobs.find(j=>j.id===previous.id)!});}
+        else ack({ok:true,job:craftHeroToken(queue,c,p.appearance,false,p.heldWeapon)});
+        afterChange();
+      }catch(e){ack({ok:false,error:e instanceof Error?e.message:'Token crafting could not start. Your character is still playable.'});}
+    });
+
+    on('character:createGuided', (p, ack) => {
+      if(typeof ack!=='function')return;
+      const sid=sessionId(),pid=commandConnection()?.playerId;
+      if(!sid||!isDm()&&!pid){ack({ok:false,error:'Join the session before creating a character.'});return;}
+      try {
+        const created=createGuidedCharacter(sid,isDm()?'dm':pid!,p);
+        if(!isDm()) {claimCharacter(created.id,socket.id,pid!);clearOwnershipElsewhere(sid,pid!,created.id);}
+        if(p.tokenCrafting?.enabled){
+          try{craftHeroToken(assetQueue(),created,p.tokenCrafting.appearance,true,p.tokenCrafting.heldWeapon);}
+          catch(e){socket.emit('notice',{message:e instanceof Error?e.message:'Your character is saved. Start token crafting from the character sheet.'});}
+        }
+        afterChange();
+        ack({ok:true,characterId:created.id});
+      }catch(error){ack({ok:false,error:error instanceof Error?error.message:'Your character could not be created. Your choices have been kept.'});}
     });
 
     on('character:create', (p) => {

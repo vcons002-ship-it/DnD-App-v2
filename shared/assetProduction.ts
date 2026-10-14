@@ -1,5 +1,5 @@
 import { MONSTER_MODEL_TYPES, normalizeModelType, resolveMonsterModelType, type MonsterAppearance } from './monsterAppearance.js';
-import type { Monster } from './types.js';
+import type { Monster, Character } from './types.js';
 
 export type AssetCreature = MonsterAppearance & Partial<Pick<Monster, 'id' | 'weapons' | 'actions' | 'abilities' | 'sheetAbilities'>>;
 export function verifiedTextureViews(receipt: { multiview_texture_verified?: boolean; texture_view_count?: number; texture_reference_views?: string[]; texture_policy?: string }, views: readonly string[]): boolean {
@@ -17,6 +17,15 @@ export function creatureArtBrief(creature: AssetCreature, notes = ''): string {
     `Attacks: ${(creature.actions ?? []).slice(0, 8).map(a => clean(`${a.name}: ${a.description}`)).join('; ') || 'unspecified'}.`,
     `Armor/clothing evidence: ${armor.slice(0, 4).map(clean).join('; ') || 'unspecified; do not infer worn armor from AC'}.`,
     notes.trim() ? `DM appearance notes: ${clean(notes.trim())}` : '',
+  ].filter(Boolean).join('\n');
+}
+export function heroArtBrief(hero:Pick<Character,'name'|'race'|'className'|'weapons'|'items'>,appearance:string,heldWeapon?:string):string {
+  const clean=(s:string)=>s.replace(/[\r\n]+/g,' ').slice(0,600);
+  return [`Hero: ${clean(hero.name)}. Species/race: ${clean(hero.race)}. Class: ${clean(hero.className)}.`,
+    `Appearance: ${clean(appearance)}.`,
+    heldWeapon?`Held weapon: ${clean(heldWeapon)}. ${heldWeapon==='Unarmed'?'Empty hands; all equipment stowed.':'Hold only this weapon ready. All other weapons are stowed, not held.'}`:'',
+    `Weapons: ${hero.weapons.slice(0,8).map(w=>clean(w.name)).join(', ')}.`,
+    `Clothing and equipment: ${hero.items.filter(i=>/armor|armour|mail|shirt|shield|robe|focus|symbol/i.test(i.name)).slice(0,8).map(i=>clean(i.name)).join(', ')||'use the appearance description'}.`
   ].filter(Boolean).join('\n');
 }
 
@@ -37,6 +46,7 @@ export type ProducedMiniature = {
   bytes: number; triangles: number; sha256: string;
 };
 export type AssetJob = {
+  sourceCharacterId?:string; sourceModelType?:string; tokenIcon?:string;
   sourceMonsterId?: string; artBrief?: string; subjectFamily?: string;
   id: string; family: string; state: 'queued' | 'running' | 'failed' | 'ready';
   stage: string; attempts: number; updatedAt: string; error?: string;

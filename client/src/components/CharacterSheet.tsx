@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { Character, Token } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import { CharacterTokenCrafting } from './CharacterTokenCrafting';
 import { StatBlock, ActionsTraitsView } from './StatBlock';
 import { CharacterSkills } from './CharacterSkills';
 import { CharacterModifiers } from './CharacterModifiers';
@@ -56,7 +57,8 @@ export function CharacterSheet({
 
   return (
     <div className="char-sheet">
-      {editable && miniatureToken !== undefined && resolveMiniature(character.name, 'pc') &&
+      {editable&&<CharacterTokenCrafting character={character}/>}
+      {editable && miniatureToken !== undefined && resolveMiniature(character.name, 'pc',character) &&
         <MiniatureSizeControl token={miniatureToken} />}
       <CharacterLevelUp character={character} editable={editable} />
       {editable && offList && (
