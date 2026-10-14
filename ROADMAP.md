@@ -1,7 +1,7 @@
 # Roadmap & Feature Backlog
 
 - [x] Add a guided level-one character creator to the player character-selection
-  screen, with class/species cards, standard-array and point-buy help, curated
+  screen, with class/species cards, standard-array and point-buy help, 2024 class starting
   equipment, skills, spells, live HP/AC preview, and safe server creation/claiming.
   Keep the quick form and saved-character library available.
   [Scope and verification](docs/CHARACTER_CREATOR_2026-10-13.md).
@@ -11,6 +11,13 @@
 - [x] Add optional personal token crafting to character creation: appearance,
   species/class/equipment briefs, Gemini-first four-view art, the existing
   2D-to-3D queue, automatic character model binding, and owned status/retry controls.
+
+- [x] Use published 2024 class equipment packages, inventory quantities, armor
+  and gold alternatives before personal token crafting. Let the player select
+  the held weapon on Appearance and snapshot it into the four-view art brief.
+- [x] Allow self-contained GLB uploads for a player's claimed character and DM
+  character/creature uploads, with floor/base fitting, geometry budgets, durable
+  catalog binding and protection against older crafting jobs replacing uploads.
 
 - [x] Replace Fireball's separate expanding lobes with one filled, volumetric
   dome blast with a folded leading flame crest across the selected radius.

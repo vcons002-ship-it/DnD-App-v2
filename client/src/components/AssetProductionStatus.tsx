@@ -4,6 +4,7 @@ import { productionFamily, type AssetJob } from '../../../shared/assetProduction
 import { apiFetch } from '../lib/api';
 import { resolveMiniature, useMiniatureCatalog } from '../lib/miniatures';
 import { useStore } from '../state/socket';
+import {ModelUploadControl} from './ModelUploadControl';
 
 /** Private job names/status never go to the player catalog or player UI. */
 export function AssetProductionStatus({ monster, initiallyExpanded=false }: { monster: Monster; initiallyExpanded?: boolean }) {
@@ -26,7 +27,7 @@ export function AssetProductionStatus({ monster, initiallyExpanded=false }: { mo
   useEffect(() => { void refresh(); const timer = setInterval(() => { void refresh(); }, 5000); return () => clearInterval(timer); }, [refresh]);
   useEffect(() => { setNotes(''); }, [monster.id]);
   const family = productionFamily(monster);
-  if (role !== 'dm' || monster.objectKind) return null;
+  if (role !== 'dm') return null;
   const model = resolveMiniature(monster.name, 'monster', monster);
   const custom = state?.jobs.filter(j => j.sourceMonsterId === monster.id).at(-1);
   const job = custom ?? state?.jobs.find(j => j.family === family);
@@ -43,7 +44,7 @@ export function AssetProductionStatus({ monster, initiallyExpanded=false }: { mo
     <small>{job ? `3D ${job.state}: ${job.stage}` : model ? '3D model ready' : '2D placeholder · no 3D model yet'}{state?.paused ? ' · Queue paused' : ''}</small>
     {job?.error && <small>{job.error}</small>}
     {error && <small role="alert">{error}</small>}
-    <div>
+    {!monster.objectKind&&<><div>
       {!model && !job && family && <button disabled={busy} onClick={() => void action('/api/assets/queue', { monsterId: monster.id })}>Create 3D model</button>}
       {custom?.state === 'ready' && monster.modelType !== custom.family && <button onClick={() => updateMonster({ monsterId: monster.id, modelType: custom.family })}>Use this model</button>}
       {job?.state === 'failed' && <button disabled={busy} onClick={() => void action(`/api/assets/jobs/${job.id}/retry`, {})}>Retry 3D</button>}
@@ -54,6 +55,7 @@ export function AssetProductionStatus({ monster, initiallyExpanded=false }: { mo
       <small>Uses this token’s weapons, attacks, and armor details. Keeps the current model until you choose Use this model.</small>
       <label>Appearance notes (optional)<textarea aria-label="3D appearance notes" maxLength={600} value={notes} onChange={e => setNotes(e.target.value)} placeholder="For example: chainmail, crossbow held ready, sword sheathed" /></label>
       <button disabled={busy || !!(custom && ['queued', 'running'].includes(custom.state))} onClick={() => void action('/api/assets/queue', { monsterId: monster.id, newModel: true, notes })}>Generate new 3D model</button>
-    </details>
+    </details></>}
+    <ModelUploadControl key={monster.id} kind="monster" id={monster.id}/>
   </div>;
 }

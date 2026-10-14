@@ -36,6 +36,11 @@ const lastSent = new Map<string, StateSnapshot>();
 // Connection-scoped credentials never enter shared snapshots or image URLs.
 const mediaTokens=new Map<string,string>();
 export const chatAccessToken=(socketId:string):string|undefined=>mediaTokens.get(socketId);
+export function mediaSocketId(token:string):string|undefined {
+  if(!/^[a-f0-9]{64}$/.test(token))return undefined;
+  for(const [id,key] of mediaTokens)if(key===token)return id;
+  return undefined;
+}
 export function chatMediaConnection(token:string):Conn|undefined {
   if(!/^[a-f0-9]{64}$/.test(token))return undefined;
   for(const [id,key] of mediaTokens)if(key===token)return conns.get(id);

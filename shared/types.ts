@@ -1838,7 +1838,7 @@ export interface ClientToServerEvents {
   'character:create': (payload: CharacterCreatePayload) => void;
   'character:createGuided': (payload: import('./characterCreation.js').CreatorChoices, ack: (result: import('./characterCreation.js').CreatorResult) => void) => void;
   'character:rollStats': (payload: import('./characterCreation.js').CreatorStatRollRequest, ack: (result: import('./characterCreation.js').CreatorStatRollResult) => void) => void;
-  'character:craftToken': (payload:{characterId:string;appearance:string;retry?:boolean},ack:(result:{ok:true;job:import('./assetProduction.js').AssetJob}|{ok:false;error:string})=>void)=>void;
+  'character:craftToken': (payload:{characterId:string;appearance:string;heldWeapon?:string;retry?:boolean},ack:(result:{ok:true;job:import('./assetProduction.js').AssetJob}|{ok:false;error:string})=>void)=>void;
   'character:tokenCraftStatus': (payload:{characterId:string},ack:(result:{ok:true;job:import('./assetProduction.js').AssetJob|null;paused:boolean}|{ok:false;error:string})=>void)=>void;
   'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;

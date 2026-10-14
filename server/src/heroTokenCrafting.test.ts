@@ -25,6 +25,7 @@ it('snapshots species, class, appearance, actual weapons and armor in a unique c
   const c2=createCharacter(c.sessionId,{name:'Rowan',race:'Elf',className:'Wizard'});
   expect(craftHeroToken(q,c2,'White hair and blue robes.').family).not.toBe(job.family);
   expect(heroArtBrief(c,'Ignore gear')).toContain('Greatsword');
+  expect(heroArtBrief({...c,items:[{id:'shirt',name:'Chain Shirt',qty:1,note:''}]},'')).toContain('Chain Shirt');
 });
 it('publishes 2D reference art, then binds the ready model without changing combat stats',async()=>{
   const c=hero();let finish!:(m:ProducedMiniature)=>void;
@@ -51,4 +52,12 @@ it('retains personal model bindings when saved to and loaded from the character 
   const saved=getCharacter(c.id)!;saveLibraryCharacter({...saved,name:'Crafted library hero'},true);
   const loaded=createCharacterFromLibrary(createSession().id,'Crafted library hero')!;
   expect(loaded.modelType).toBe(job.family);expect(loaded.appearance).toBe('Green skin.');
+});
+
+it('snapshots an explicit held weapon and does not overwrite a later uploaded miniature',async()=>{
+  const c=hero();let finish!:(m:ProducedMiniature)=>void;const q=new AssetQueue(file(),async()=>new Promise(r=>{finish=r;}));wireCharacterAssets(q);
+  const job=craftHeroToken(q,c,'Green skin.',false,'Greatsword');expect(job.artBrief).toContain('Held weapon: Greatsword');expect(()=>craftHeroToken(q,c,'Green',false,'Longbow')).toThrow('Choose a weapon');
+  q.start();const {db}=await import('./db.js');db.prepare('UPDATE characters SET model_type=? WHERE id=?').run('uploaded-new-model',c.id);finish(model(job.family));
+  await vi.waitFor(()=>expect(q.snapshot().jobs[0].state).toBe('ready'));expect(getCharacter(c.id)?.modelType).toBe('uploaded-new-model');
+  const restored=new AssetQueue((q as any).file,vi.fn());wireCharacterAssets(restored);expect(getCharacter(c.id)?.modelType).toBe('uploaded-new-model');
 });

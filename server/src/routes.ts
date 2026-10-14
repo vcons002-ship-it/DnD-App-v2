@@ -10,6 +10,7 @@ import {suggestMapGeometry,applyGeometryDraft,geometrySource} from './mapGeometr
 import {getMap} from './sessions.js';
 import { Router } from 'express';
 import { assetQueue } from './assets/production.js';
+import {createModelUploadRouter} from './assets/modelUpload.js';
 import { requestCreatureAsset } from './assets/hooks.js';
 import { getMonster } from './sessions.js';
 import { generateImageWithBackup } from './ai/imageGateway.js';
@@ -306,6 +307,7 @@ export function createApiRouter(io: IOServer): Router {
     res.setHeader('Cache-Control', 'no-store');
     res.json({ models: assetQueue().snapshot().models });
   });
+  router.use('/assets/upload',createModelUploadRouter(io,assetQueue,isDmRequest));
   router.get('/assets/jobs', (req, res) => {
     if (!requireDm(req, res)) return;
     res.setHeader('Cache-Control', 'no-store');

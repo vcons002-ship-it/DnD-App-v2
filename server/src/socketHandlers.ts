@@ -1360,7 +1360,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       try{
         const queue=assetQueue(),previous=queue.snapshot().jobs.filter(j=>j.sourceCharacterId===c.id).at(-1);
         if(p.retry){if(!previous||!queue.retry(previous.id))throw new Error('There is no failed token craft to retry.');ack({ok:true,job:queue.snapshot().jobs.find(j=>j.id===previous.id)!});}
-        else ack({ok:true,job:craftHeroToken(queue,c,p.appearance)});
+        else ack({ok:true,job:craftHeroToken(queue,c,p.appearance,false,p.heldWeapon)});
         afterChange();
       }catch(e){ack({ok:false,error:e instanceof Error?e.message:'Token crafting could not start. Your character is still playable.'});}
     });
@@ -1373,7 +1373,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         const created=createGuidedCharacter(sid,isDm()?'dm':pid!,p);
         if(!isDm()) {claimCharacter(created.id,socket.id,pid!);clearOwnershipElsewhere(sid,pid!,created.id);}
         if(p.tokenCrafting?.enabled){
-          try{craftHeroToken(assetQueue(),created,p.tokenCrafting.appearance,true);}
+          try{craftHeroToken(assetQueue(),created,p.tokenCrafting.appearance,true,p.tokenCrafting.heldWeapon);}
           catch(e){socket.emit('notice',{message:e instanceof Error?e.message:'Your character is saved. Start token crafting from the character sheet.'});}
         }
         afterChange();

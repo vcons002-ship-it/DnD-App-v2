@@ -61,6 +61,20 @@ describe('guided character creation',()=>{
     expect(made.items.length).toBeGreaterThan(0);expect(made.resources['Heroic Inspiration']?.max).toBe(1);
     for(const [key,max] of Object.entries(creatorPreview(c).progression.spellSlots))expect(made.spellSlots[key]?.max).toBe(max);
   });
+  it('uses the 2024 packages, quantities, class gold and background gold alternative',()=>{
+    const fighter=createGuidedCharacter(createSession().id,'a',choices());
+    expect(fighter.weapons.map(w=>w.name)).toEqual(['Greatsword','Flail','Javelin']);expect(fighter.items.find(i=>i.name==='Javelin')?.qty).toBe(8);expect(fighter.gold).toBe(54);
+    const ranger=buildStarterCharacter(choices('ranger'));expect(ranger.items?.find(i=>i.name==='Arrows')?.qty).toBe(20);expect(ranger.items?.some(i=>i.name==='Studded Leather Armor')).toBe(true);
+    const cleric=buildStarterCharacter(choices('cleric'));expect(cleric.items?.some(i=>i.name==='Chain Shirt')).toBe(true);
+    const cash=createGuidedCharacter(createSession().id,'a',{...choices(),kitId:'gold'});expect(cash.gold).toBe(205);expect(cash.items).toEqual([]);expect(cash.weapons).toEqual([]);
+  });
+  it('validates the selected held weapon before creation and resets invalid equipment choices',()=>{
+    const c=choices(),cat=characterCreatorCatalog();
+    expect(creatorError({...c,tokenCrafting:{enabled:true,appearance:'Green orc',heldWeapon:'Longbow'}},4,cat)).toContain('Choose which');
+    expect(creatorError({...c,tokenCrafting:{enabled:true,appearance:'Green orc',heldWeapon:'Flail'}},4,cat)).toBeNull();
+    expect(creatorError({...c,kitId:'gold',tokenCrafting:{enabled:true,appearance:'Green orc',heldWeapon:'Flail'}},4,cat)).toContain('Choose which');
+    expect(creatorError({...c,kitId:'gold',tokenCrafting:{enabled:true,appearance:'Green orc',heldWeapon:'Unarmed'}},4,cat)).toBeNull();
+  });
   it('returns the same character after a lost acknowledgement',()=>{
     const s=createSession(),c=choices();const first=createGuidedCharacter(s.id,'a',c);
     expect(createGuidedCharacter(s.id,'a',c).id).toBe(first.id);

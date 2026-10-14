@@ -19,13 +19,14 @@ export function creatureArtBrief(creature: AssetCreature, notes = ''): string {
     notes.trim() ? `DM appearance notes: ${clean(notes.trim())}` : '',
   ].filter(Boolean).join('\n');
 }
-export function heroArtBrief(hero:Pick<Character,'name'|'race'|'className'|'weapons'|'items'>,appearance:string):string {
+export function heroArtBrief(hero:Pick<Character,'name'|'race'|'className'|'weapons'|'items'>,appearance:string,heldWeapon?:string):string {
   const clean=(s:string)=>s.replace(/[\r\n]+/g,' ').slice(0,600);
   return [`Hero: ${clean(hero.name)}. Species/race: ${clean(hero.race)}. Class: ${clean(hero.className)}.`,
     `Appearance: ${clean(appearance)}.`,
+    heldWeapon?`Held weapon: ${clean(heldWeapon)}. ${heldWeapon==='Unarmed'?'Empty hands; all equipment stowed.':'Hold only this weapon ready. All other weapons are stowed, not held.'}`:'',
     `Weapons: ${hero.weapons.slice(0,8).map(w=>clean(w.name)).join(', ')}.`,
-    `Clothing and equipment: ${hero.items.filter(i=>/armor|armour|mail|shield|robe|focus|symbol/i.test(i.name)).slice(0,8).map(i=>clean(i.name)).join(', ')||'use the appearance description'}.`
-  ].join('\n');
+    `Clothing and equipment: ${hero.items.filter(i=>/armor|armour|mail|shirt|shield|robe|focus|symbol/i.test(i.name)).slice(0,8).map(i=>clean(i.name)).join(', ')||'use the appearance description'}.`
+  ].filter(Boolean).join('\n');
 }
 
 /** One reusable physical family; colors and encounter numbering never create jobs. */
@@ -45,7 +46,7 @@ export type ProducedMiniature = {
   bytes: number; triangles: number; sha256: string;
 };
 export type AssetJob = {
-  sourceCharacterId?:string; tokenIcon?:string;
+  sourceCharacterId?:string; sourceModelType?:string; tokenIcon?:string;
   sourceMonsterId?: string; artBrief?: string; subjectFamily?: string;
   id: string; family: string; state: 'queued' | 'running' | 'failed' | 'ready';
   stage: string; attempts: number; updatedAt: string; error?: string;

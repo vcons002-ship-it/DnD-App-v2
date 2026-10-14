@@ -1,6 +1,5 @@
-/** Level-one starter sheets. Choices are validated again on the server.
- * Ability generation follows the 2024 Free Rules; custom origins remain
- * explicit so these starter kits do not masquerade as PHB equipment packages. */
+/** Level-one sheets with 2024 class starting packages and the 50-GP
+ * background alternative. Choices are validated again on the server. */
 import { CORE_CLASSES_2024, classProgression2024, type CoreClass } from './characterProgression.js';
 import { abilityMod, SKILLS, type AbilityKey } from './skills.js';
 import type { LevelUpFeatureChoice } from './levelingTypes.js';
@@ -45,30 +44,16 @@ export const CLASS_IDENTITY: Record<CoreClass,{title:string;symbol:string;color:
   wizard: {title:'Wizard',symbol:'✺',color:'#8eaed1',summary:'Build a spellbook and bend the world through study.',priority:['INT','CON','DEX','WIS','CHA','STR'],saves:['INT','WIS'],skills:['Arcana','History','Insight','Investigation','Medicine','Religion'],skillCount:2},
 };
 
-export type StarterKit = {id:string;name:string;description:string;weapons:string[];armor:'none'|'leather'|'scale'|'chain';shield?:boolean;items:string[]};
-const kit = (id:string,name:string,description:string,weapons:string[],armor:StarterKit['armor'],shield=false):StarterKit => ({id,name,description,weapons,armor,shield,items:["Explorer's pack",...(weapons.some(w=>/bow/.test(w))?['20 arrows']:[]),...(weapons.some(w=>/Crossbow/.test(w))?['20 bolts']:[])]});
-export const STARTER_KITS: Record<CoreClass,StarterKit[]> = {
-  barbarian:[kit('axe','Axe & javelins','Greataxe, javelins, and unarmored defense.',['Greataxe','Javelin'],'none'),kit('guard','Wild guardian','Battleaxe, shield, and unarmored defense.',['Battleaxe','Javelin'],'none',true)],
-  bard:[kit('duelist','Traveling duelist','Rapier, dagger, leather armor, and a lute.',['Rapier','Dagger'],'leather')],
-  cleric:[kit('guard','Temple guardian','Mace, shield, scale mail, and a holy symbol.',['Mace'],'scale',true)],
-  druid:[kit('wanderer','Wild wanderer','Quarterstaff, leather armor, shield, and a druidic focus.',['Quarterstaff'],'leather',true)],
-  fighter:[kit('greatsword','Greatsword vanguard','Greatsword, javelins, and chain mail.',['Greatsword','Javelin'],'chain'),kit('guardian','Shield guardian','Longsword, shield, and chain mail.',['Longsword','Javelin'],'chain',true),kit('archer','Archer','Longbow, shortsword, and leather armor.',['Longbow','Shortsword'],'leather')],
-  monk:[kit('staff','Staff & fists','Quarterstaff, darts, and unarmored defense.',['Quarterstaff','Dart'],'none')],
-  paladin:[kit('guardian','Oath guardian','Longsword, shield, chain mail, and a holy symbol.',['Longsword','Javelin'],'chain',true),kit('greatsword','Oath vanguard','Greatsword, javelins, chain mail, and a holy symbol.',['Greatsword','Javelin'],'chain')],
-  ranger:[kit('archer','Woodland archer','Longbow, shortsword, and leather armor.',['Longbow','Shortsword'],'leather'),kit('blades','Twin blades','Two shortswords and scale mail.',['Shortsword','Shortsword'],'scale')],
-  rogue:[kit('scout','Quiet scout','Shortbow, dagger, and leather armor.',['Shortbow','Dagger'],'leather'),kit('duelist','Quick duelist','Rapier, dagger, and leather armor.',['Rapier','Dagger'],'leather')],
-  sorcerer:[kit('focus','Arcane spark','Quarterstaff, dagger, and an arcane focus.',['Quarterstaff','Dagger'],'none')],
-  warlock:[kit('pact','Pact wanderer','Light crossbow, dagger, leather armor, and an arcane focus.',['Light Crossbow','Dagger'],'leather')],
-  wizard:[kit('scholar','Arcane scholar','Quarterstaff, dagger, spellbook, and an arcane focus.',['Quarterstaff','Dagger'],'none')],
-};
+export {STARTER_KITS,type StarterKit} from './startingEquipment2024.js';
+import {STARTER_KITS,INSTRUMENTS,ARTISAN_TOOLS,BACKGROUND_STARTING_GOLD} from './startingEquipment2024.js';
 
 export type CreatorChoices = {
   requestId:string; name:string; species:string; className:CoreClass;
   method:'array'|'points'|'roll'; scores:Record<AbilityKey,number>; rolled?:CreatorStatRoll;
   background:string; boosts:Partial<Record<AbilityKey,number>>; originFeat:string; humanFeat?:string;
   backgroundSkills:string[]; skills:string[]; extraSkills:string[];
-  kitId:string; features:Record<string,string[]>; cantrips:string[]; spells:string[]; prepared:string[];
-  tokenCrafting?:{enabled:boolean;appearance:string};
+  kitId:string; equipmentTool?:string; features:Record<string,string[]>; cantrips:string[]; spells:string[]; prepared:string[];
+  tokenCrafting?:{enabled:boolean;appearance:string;heldWeapon?:string};
 };
 export type CreatorCatalog = {spells:SheetAbility[]; choices:Partial<Record<CoreClass,LevelUpFeatureChoice[]>>;traits:Record<string,SheetAbility[]>};
 export type CreatorResult = {ok:true;characterId:string}|{ok:false;error:string};
@@ -103,20 +88,24 @@ export const pointCost = (scores:Record<AbilityKey,number>) => CREATOR_ABILITIES
 export function creatorStats(c:CreatorChoices):Record<AbilityKey,number> {
   return Object.fromEntries(CREATOR_ABILITIES.map(a=>[a,c.scores[a]+(c.boosts[a]??0)])) as Record<AbilityKey,number>;
 }
+export function creatorHeldWeapons(c:CreatorChoices):string[]{
+  return [...(STARTER_KITS[c.className].find(k=>k.id===c.kitId)?.weapons??[]),'Unarmed'];
+}
 export function creatorPreview(c:CreatorChoices) {
   const stats=creatorStats(c), p=classProgression2024(c.className,1)!, k=STARTER_KITS[c.className].find(k=>k.id===c.kitId)??STARTER_KITS[c.className][0];
   const dex=abilityMod(stats.DEX), con=abilityMod(stats.CON), wis=abilityMod(stats.WIS);
-  let ac=k.armor==='chain'?16:k.armor==='scale'?14+Math.min(2,dex):k.armor==='leather'?11+dex:10+dex;
+  let ac=k.armor==='chain'?16:k.armor==='shirt'?13+Math.min(2,dex):k.armor==='studded'?12+dex:k.armor==='leather'?11+dex:10+dex;
   if(k.armor==='none'&&c.className==='barbarian')ac+=con;
   if(k.armor==='none'&&c.className==='monk')ac+=wis;
   const toughness=c.originFeat==='Tough'||c.species==='Human'&&c.humanFeat==='Tough';
   const defense=c.features.fightingStyle?.includes('Defense')&&k.armor!=='none'?1:0;
-  return {stats,hp:Math.max(1,p.hitDie+con)+(toughness?2:0)+(c.species==='Dwarf'?1:0),ac:ac+(k.shield?2:0)+defense,hitDie:p.hitDie,kit:k,progression:p};
+  return {stats,hp:Math.max(1,p.hitDie+con)+(toughness?2:0)+(c.species==='Dwarf'?1:0),ac:ac+(k.shield?2:0)+defense,gold:k.gold+BACKGROUND_STARTING_GOLD,hitDie:p.hitDie,kit:k,progression:p};
 }
 export function creatorError(c:CreatorChoices,step:number,catalog?:CreatorCatalog):string|null {
   if(!c||!CORE_CLASSES_2024.includes(c.className)||!CREATOR_SPECIES.includes(c.species as typeof CREATOR_SPECIES[number]))return 'Choose a class and species.';
   if(step===0)return c.name.trim().length>=1&&c.name.trim().length<=60?null:'Give your character a name (up to 60 characters).';
   if(step===4){
+    if(c.tokenCrafting?.enabled&&!creatorHeldWeapons(c).includes(c.tokenCrafting.heldWeapon??''))return 'Choose which equipped weapon your token will hold, or choose Unarmed.';
     if(c.tokenCrafting&&(typeof c.tokenCrafting.enabled!=='boolean'||typeof c.tokenCrafting.appearance!=='string'||c.tokenCrafting.appearance.length>600||c.tokenCrafting.enabled&&!c.tokenCrafting.appearance.trim()))return 'Describe your hero’s appearance in 1–600 characters to craft their token.';
     return null;
   }
@@ -137,6 +126,7 @@ export function creatorError(c:CreatorChoices,step:number,catalog?:CreatorCatalo
   const extras=(c.species==='Human'?1:0)+(c.originFeat==='Skilled'||c.species==='Human'&&c.humanFeat==='Skilled'?3:0);
   if(!uniqueValid(c.extraSkills,all.filter(s=>![...c.backgroundSkills,...c.skills].includes(s)),extras))return `Choose ${extras} additional skill${extras===1?'':'s'}.`;
   if(!STARTER_KITS[c.className].some(k=>k.id===c.kitId))return 'Choose a starting loadout.';
+  if(c.equipmentTool!==undefined&&!(c.className==='bard'?INSTRUMENTS:c.className==='monk'?[...ARTISAN_TOOLS,...INSTRUMENTS]:[]).includes(c.equipmentTool))return 'Choose a valid starting instrument or tool.';
   if(!catalog)return 'The character catalog is still loading.';
   const featureKeys=new Set((catalog.choices[c.className]??[]).map(f=>f.key));
   if(!c.features||Object.entries(c.features).some(([key,names])=>!Array.isArray(names)||names.length>0&&!featureKeys.has(key)))return 'A selected feature does not belong to this class.';

@@ -326,7 +326,7 @@ type Store = {
   createCharacter: (input: CharacterCreatePayload) => void;
   createGuidedCharacter: (input: import('../../../shared/characterCreation').CreatorChoices) => Promise<import('../../../shared/characterCreation').CreatorResult>;
   rollCreatorStats: (input: import('../../../shared/characterCreation').CreatorStatRollRequest) => Promise<import('../../../shared/characterCreation').CreatorStatRollResult>;
-  craftCharacterToken:(characterId:string,appearance:string,retry?:boolean)=>Promise<{ok:true;job:import('../../../shared/assetProduction').AssetJob}|{ok:false;error:string}>;
+  craftCharacterToken:(characterId:string,appearance:string,retry?:boolean,heldWeapon?:string)=>Promise<{ok:true;job:import('../../../shared/assetProduction').AssetJob}|{ok:false;error:string}>;
   characterTokenStatus:(characterId:string)=>Promise<{ok:true;job:import('../../../shared/assetProduction').AssetJob|null;paused:boolean}|{ok:false;error:string}>;
   updateCharacter: (payload: CharacterUpdatePayload) => void;
   aiFillCharacter: (characterId: string) => void;
@@ -1215,9 +1215,9 @@ export const useStore = create<Store>((set, get) => ({
   unlockCharacter: (characterId) =>
     get().socket?.emit('character:unlock', { characterId }),
   createCharacter: (input) => get().socket?.emit('character:create', input),
-  craftCharacterToken:async(characterId,appearance,retry)=>{
+  craftCharacterToken:async(characterId,appearance,retry,heldWeapon)=>{
     const socket=get().socket;if(!socket?.connected)return {ok:false,error:'Reconnect before crafting your token.'};
-    try{return await socket.timeout(12000).emitWithAck('character:craftToken',{characterId,appearance,retry});}
+    try{return await socket.timeout(12000).emitWithAck('character:craftToken',{characterId,appearance,retry,heldWeapon});}
     catch{return {ok:false,error:'No response was received. Check token status before retrying.'};}
   },
   characterTokenStatus:async(characterId)=>{

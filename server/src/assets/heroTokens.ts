@@ -9,6 +9,7 @@ export function wireCharacterAssets(queue:AssetQueue) {
   const apply=(job:AssetJob,icon?:string,modelType?:string)=>{
     if(!job.sourceCharacterId)return;
     const c=getCharacter(job.sourceCharacterId);if(!c)return;
+    if(c.modelType&&c.modelType!==job.family&&c.modelType!==job.sourceModelType)return;
     if(icon)db.prepare('UPDATE characters SET icon=? WHERE id=?').run(icon,c.id);
     if(modelType)db.prepare('UPDATE characters SET model_type=? WHERE id=?').run(modelType,c.id);
     queue.onCharacterChange(c.sessionId);
@@ -22,11 +23,12 @@ export function wireCharacterAssets(queue:AssetQueue) {
     if(job.state==='ready')apply(job,undefined,job.family);
   }
 }
-export function craftHeroToken(queue:AssetQueue,hero:Character,appearance:string,initial=false):AssetJob {
+export function craftHeroToken(queue:AssetQueue,hero:Character,appearance:string,initial=false,heldWeapon?:string):AssetJob {
   if(typeof appearance!=='string'||!appearance.trim()||appearance.length>600)throw new Error('Describe your hero’s appearance in 1–600 characters.');
+  if(heldWeapon!==undefined&&heldWeapon!=='Unarmed'&&!hero.weapons.some(w=>w.name===heldWeapon))throw new Error('Choose a weapon from your character sheet, or Unarmed.');
   const previous=queue.snapshot().jobs.filter(j=>j.sourceCharacterId===hero.id).at(-1);
   if(previous&&(initial||['queued','running'].includes(previous.state)))return previous;
-  const job=queue.enqueueCharacter(hero,appearance.trim(),initial);
+  const job=queue.enqueueCharacter(hero,appearance.trim(),initial,heldWeapon);
   if(!job)throw new Error('The token-crafting queue is full. Your character is saved; try crafting from the character sheet later.');
   db.prepare('UPDATE characters SET appearance=? WHERE id=?').run(appearance.trim(),hero.id);
   // Keep an existing miniature during deliberate regeneration.

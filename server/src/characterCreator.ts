@@ -1,3 +1,4 @@
+import {ARTISAN_TOOLS,BACKGROUND_STARTING_GOLD} from '../../shared/startingEquipment2024.js';
 import { db,newId } from './db.js';
 import { createCharacter,getCharacter,type CharacterInput } from './sessions.js';
 import { creatorError,creatorPreview,CLASS_IDENTITY,CREATOR_SPECIES,ORIGIN_FEATS,type CreatorCatalog,type CreatorChoices } from '../../shared/characterCreation.js';
@@ -84,15 +85,14 @@ export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
   const weapons=kit.weapons.map(name=>{const w=getWeapon(name)!;return {name:w.name,kind:w.kind,damage:w.damage,versatileDamage:w.versatileDamage,damageType:w.damageType,range:w.range,tags:weaponTags(w),diceOnly:true};});
   if(c.className==='monk')weapons.push({name:'Unarmed Strike',kind:'melee',damage:'1d6',versatileDamage:undefined,damageType:'bludgeoning',range:'5 ft',tags:['unarmed','finesse'],diceOnly:true});
   // Armor is a saved baseline, following the app's existing equipment model.
-  const equipment=[...kit.items,...(kit.armor!=='none'?[{leather:'Leather armor',scale:'Scale mail',chain:'Chain mail'}[kit.armor]]:[]),...(kit.shield?['Shield']:[]),
-    ...(c.className==='bard'?['Lute']:['cleric','paladin'].includes(c.className)?['Holy symbol']:c.className==='druid'?['Druidic focus']:['sorcerer','warlock','wizard'].includes(c.className)?['Arcane focus']:[]),...(c.className==='wizard'?['Spellbook']:[]),...(c.className==='rogue'?["Thieves' tools"]:[])];
+  const equipment=kit.items.map(i=>({...i,name:i.name==='Musical Instrument'?(c.equipmentTool??'Lute'):i.name==='Chosen Tool'?(c.equipmentTool??ARTISAN_TOOLS[3]):i.name}));
   const resources=Object.fromEntries(Object.entries(progression.resourceMaxima).map(([key,max])=>[key,{max,used:0}]));
   for(const a of abilities)if(a.useCounter&&!resources[a.useCounter.name])resources[a.useCounter.name]={max:a.useCounter.max,used:0};
-  return {name:c.name.trim(),race:c.species,className:cls.title,level:1,maxHp:hp,armorClass:ac,speed:c.species==='Goliath'?'35 ft':'30 ft',stats,weapons,resources,
+  return {name:c.name.trim(),race:c.species,className:cls.title,level:1,maxHp:hp,armorClass:ac,gold:kit.gold+BACKGROUND_STARTING_GOLD,speed:c.species==='Goliath'?'35 ft':'30 ft',stats,weapons,resources,
     appearance:c.tokenCrafting?.appearance?.trim(),
     resistances:c.species==='Dwarf'?['poison']:[],
     proficientSkills:[...c.backgroundSkills,...c.skills,...c.extraSkills],saveProficiencies:cls.saves,modifiers,sheetAbilities:abilities,
-    items:equipment.map(name=>({id:newId(),name,qty:1,note:'Starter equipment',equipped:/armor|mail|Shield/.test(name)})),
+    items:equipment.map(i=>({id:newId(),...i,note:'2024 class starting equipment',equipped:/armor|shirt|mail|shield/i.test(i.name)})),
     leveling:{rules:'2024',classes:[{className:c.className,level:1}],history:[]}};
 }
 export function createGuidedCharacter(sessionId:string,ownerKey:string,input:unknown):Character {

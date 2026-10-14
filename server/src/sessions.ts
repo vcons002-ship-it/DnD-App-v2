@@ -2304,6 +2304,7 @@ export type CharacterInput = {
   saveProficiencies?: string[];
   modifiers?: Character['modifiers'];
   items?: Character['items'];
+  gold?:number;
   sheetAbilities?: Character['sheetAbilities'];
   /** Completed progression may travel with a saved sheet; pending grants may not. */
   leveling?: Character['leveling'];
@@ -2393,6 +2394,7 @@ export function createCharacter(
   );
   if(opts.modelType||opts.appearance)db.prepare('UPDATE characters SET model_type=?,appearance=? WHERE id=?')
     .run(typeof opts.modelType==='string'&&/^[a-z0-9-]{1,48}$/.test(opts.modelType)?opts.modelType:'',typeof opts.appearance==='string'?opts.appearance.slice(0,600):'',id);
+  if(opts.gold!==undefined)db.prepare('UPDATE characters SET gold=? WHERE id=?').run(Number.isFinite(opts.gold)?Math.max(0,Math.round(opts.gold)):0,id);
   return getCharacter(id)!;
 }
 

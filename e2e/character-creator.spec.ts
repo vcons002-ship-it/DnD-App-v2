@@ -39,7 +39,7 @@ test('a player creates, claims, and places a battle-ready fighter through the gu
     await expect(guide.getByLabel('CON base score')).toHaveValue('15'); // swapping, not duplicating
     await page.waitForTimeout(1000);await guide.getByRole('button',{name:'Next →',exact:true}).click();
     await expect(guide.getByRole('heading',{name:'Ready for the road'})).toBeVisible();
-    await guide.getByRole('button',{name:/Shield guardian/}).click();
+    await guide.getByRole('button',{name:/Greatsword & chain mail/}).click();
     await page.waitForTimeout(1200);await guide.getByRole('button',{name:'Next →',exact:true}).click();
     await expect(guide.getByText('This class has no spellcasting at level one.',{exact:false})).toBeVisible();
     await guide.getByRole('button',{name:'Next →',exact:true}).click();
@@ -54,15 +54,27 @@ test('a player creates, claims, and places a battle-ready fighter through the gu
   }finally{if(capture)await capture.stop();}
   await page.getByLabel('Character',{exact:true}).click();
   const snap=await f.snapshot(),hero=snap.characters.find(c=>c.name==='Rowan')!;
-  expect(hero.claimedBy).toBeTruthy();expect(hero.ownerId).toBeTruthy();expect(hero.armorClass).toBe(18);
+  expect(hero.claimedBy).toBeTruthy();expect(hero.ownerId).toBeTruthy();expect(hero.armorClass).toBe(16);
   expect(hero.stats.STR).toBe(16);expect(hero.stats.CON).toBe(16);expect(hero.maxHp).toBe(15);
-  expect(hero.weapons[0].name).toBe('Longsword');expect(hero.weapons[0].diceOnly).toBe(true);
+  expect(hero.weapons[0].name).toBe('Greatsword');expect(hero.weapons[0].diceOnly).toBe(true);
   expect(hero.sheetAbilities.some(s=>s.name==='Greatsword Mastery')).toBe(true);
   await page.screenshot({path:path.join(evidence,'created-character.png')});
+  await page.locator('.hero-token-crafting > summary').click();
+  await page.locator('.model-upload-control > summary').click();
+  await page.getByLabel('3D model file',{exact:true}).setInputFiles(path.resolve('client/public/miniatures/varis-battlefield-f7cc36107994.glb'));
+  await page.getByRole('checkbox',{name:'Model already has a circular base'}).check();
+  await page.getByRole('button',{name:'Upload & use miniature',exact:true}).click();
+  await expect(page.locator('.model-upload-control')).toContainText('Miniature ready',{timeout:60000});
+  await expect.poll(async()=> (await f.snapshot()).characters.find(c=>c.id===hero.id)?.modelType).toMatch(/^uploaded-/);
+  await page.screenshot({path:path.join(evidence,'character-model-upload.png')});
   await page.getByRole('dialog').filter({hasText:'Character record'}).getByRole('button',{name:/Close/}).click();
   await page.getByRole('button',{name:/Place.*token/}).click();
   await page.locator('.konvajs-content').first().click({position:{x:400,y:300}});
   await expect.poll(async()=> (await f.snapshot()).tokens.some(t=>t.refId===hero.id)).toBe(true);
+  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-loaded-model-urls',/uploaded-/,{timeout:30000});
+  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
+  await page.waitForTimeout(700);
+  await page.screenshot({path:path.join(evidence,'uploaded-model-on-map.png')});
 });
 
 test('mobile wizard draft survives closing; spells produce the right prepared spellbook',async({page,request})=>{
@@ -165,6 +177,7 @@ test('appearance crafting creates a playable hero and exposes only their own job
   await guide.getByLabel('Character name',{exact:true}).fill('Sable');
   await guide.getByRole('button',{name:'Orc',exact:true}).click();
   for(let i=0;i<4;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  await guide.getByLabel('Weapon held by your token',{exact:true}).selectOption('Flail');
   await guide.getByRole('checkbox',{name:/Craft token art/}).check();
   await guide.getByRole('button',{name:'Next →',exact:true}).click();
   await expect(guide.getByRole('alert')).toContainText('appearance');
@@ -177,7 +190,7 @@ test('appearance crafting creates a playable hero and exposes only their own job
   const c=(await f.snapshot()).characters.find(c=>c.name==='Sable')!;
   expect(c.claimedBy).toBeTruthy();expect(c.modelType).toMatch(/^hero-sable-/);expect(c.appearance).toContain('black braids');expect(c.weapons.length).toBeGreaterThan(0);
   const ownJob=await f.socket.timeout(5000).emitWithAck('character:tokenCraftStatus',{characterId:c.id});
-  expect(ownJob.ok).toBe(true);expect(ownJob.job.sourceCharacterId).toBe(c.id);expect(ownJob.job.artBrief).toContain('Species/race: Orc. Class: Fighter');expect(ownJob.job.artBrief).toContain('Greatsword');
+  expect(ownJob.ok).toBe(true);expect(ownJob.job.sourceCharacterId).toBe(c.id);expect(ownJob.job.artBrief).toContain('Species/race: Orc. Class: Fighter');expect(ownJob.job.artBrief).toContain('Greatsword');expect(ownJob.job.artBrief).toContain('Held weapon: Flail');
   const stranger=io(`http://localhost:${PORT}`,{transports:['websocket'],forceNew:true});sockets.push(stranger);
   await stranger.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player',playerId:'stranger-crafting-test'});
   const denied=await stranger.timeout(5000).emitWithAck('character:tokenCraftStatus',{characterId:c.id});expect(denied.ok).toBe(false);expect(denied.job).toBeUndefined();
