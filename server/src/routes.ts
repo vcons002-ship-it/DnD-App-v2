@@ -53,6 +53,7 @@ import {
 import { searchSpells, getSpell, getAllSpells } from './spells/srd.js';
 import { searchFeatures, getFeature } from './features/srd.js';
 import { searchRaceTraits, getRaceTrait } from './races/srd.js';
+import { characterCreatorCatalog } from './characterCreator.js';
 import { lookupSpellAI } from './spells/gemini.js';
 import { searchMasteries, getMastery } from './masteries/srd.js';
 import { searchManeuvers, getManeuver } from './maneuvers/srd.js';
@@ -646,6 +647,8 @@ export function createApiRouter(io: IOServer): Router {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
     res.json({ results: searchWeapons(q) });
   });
+
+  router.get('/character-creator/catalog', (_req,res) => res.json(characterCreatorCatalog()));
 
   // Common creature natural attacks (Bite, Claw…) for the creature attack picker.
   router.get('/attacks', (req, res) => {

@@ -1,4 +1,5 @@
 import {resetExploration} from './exploration.js';
+import {createGuidedCharacter} from './characterCreator.js';
 import {SpellAreaPreviewController} from './spellAreaPreview.js';
 import {setRollPending,setRollSmite} from './sessions.js';
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
@@ -1323,6 +1324,18 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if (!isDm() || getCharacter(characterId)?.sessionId !== sessionId()) return;
       setCharacterOwner(characterId, null);
       afterChange();
+    });
+
+    on('character:createGuided', (p, ack) => {
+      if(typeof ack!=='function')return;
+      const sid=sessionId(),pid=commandConnection()?.playerId;
+      if(!sid||!isDm()&&!pid){ack({ok:false,error:'Join the session before creating a character.'});return;}
+      try {
+        const created=createGuidedCharacter(sid,isDm()?'dm':pid!,p);
+        if(!isDm()) {claimCharacter(created.id,socket.id,pid!);clearOwnershipElsewhere(sid,pid!,created.id);}
+        afterChange();
+        ack({ok:true,characterId:created.id});
+      }catch(error){ack({ok:false,error:error instanceof Error?error.message:'Your character could not be created. Your choices have been kept.'});}
     });
 
     on('character:create', (p) => {

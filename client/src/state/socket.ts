@@ -324,6 +324,7 @@ type Store = {
   claimCharacter: (characterId: string) => void;
   unlockCharacter: (characterId: string) => void;
   createCharacter: (input: CharacterCreatePayload) => void;
+  createGuidedCharacter: (input: import('../../../shared/characterCreation').CreatorChoices) => Promise<import('../../../shared/characterCreation').CreatorResult>;
   updateCharacter: (payload: CharacterUpdatePayload) => void;
   aiFillCharacter: (characterId: string) => void;
   aiCreateCharacter: (description: string) => void;
@@ -1211,6 +1212,12 @@ export const useStore = create<Store>((set, get) => ({
   unlockCharacter: (characterId) =>
     get().socket?.emit('character:unlock', { characterId }),
   createCharacter: (input) => get().socket?.emit('character:create', input),
+  createGuidedCharacter: async (input) => {
+    const socket=get().socket;
+    if(!socket?.connected)return {ok:false,error:'Reconnect to the session to create your character. Your choices have been kept.'};
+    try{return await socket.timeout(12000).emitWithAck('character:createGuided',input);}
+    catch{return {ok:false,error:'The response was not received. Retry to recover your character safely; your choices have been kept.'};}
+  },
   updateCharacter: (payload) => get().socket?.emit('character:update', payload),
   aiFillCharacter: (characterId) => {
     set({ aiBusy: true, toast: { id: Date.now(), message: '✨ Asking AI…' } });

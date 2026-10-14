@@ -1,0 +1,90 @@
+import { db,newId } from './db.js';
+import { createCharacter,getCharacter,type CharacterInput } from './sessions.js';
+import { creatorError,creatorPreview,CLASS_IDENTITY,CREATOR_SPECIES,ORIGIN_FEATS,type CreatorCatalog,type CreatorChoices } from '../../shared/characterCreation.js';
+import { CORE_CLASSES_2024,classProgression2024 } from '../../shared/characterProgression.js';
+import type { Character,SheetAbility } from '../../shared/types.js';
+import { featureChoices2024,levelingFeature,selectedFeatureAbility,LEVELING_FEATS } from './levelingCatalog.js';
+import { getFeature } from './features/srd.js';
+import { getAllSpells,getSpell } from './spells/srd.js';
+import { traitsForRace } from './races/srd.js';
+import { getWeapon,weaponTags,searchWeapons } from './weapons/srd.js';
+import { getMastery } from './masteries/srd.js';
+
+// A lost acknowledgement can be retried safely, including after a server restart.
+db.exec(`CREATE TABLE IF NOT EXISTS character_creation_requests (
+  session_id TEXT NOT NULL, owner_key TEXT NOT NULL, request_id TEXT NOT NULL,
+  character_id TEXT NOT NULL, PRIMARY KEY(session_id,owner_key,request_id))`);
+
+const shell=(className:string):Character=>({className,subclass:'',level:1,stats:{},sheetAbilities:[],modifiers:[],proficientSkills:[]} as unknown as Character);
+export function characterCreatorCatalog():CreatorCatalog {
+  return {spells:getAllSpells().filter(s=>s.type==='spell'&&(s.level===0||s.level===1)).map(s=>({...s,id:'',source:'srd'})),
+    choices:Object.fromEntries(CORE_CLASSES_2024.map(c=>{
+      const p=classProgression2024(c,1)!,choices=featureChoices2024(shell(c),p);
+      if(p.features.includes('Weapon Mastery'))choices.push({key:'masteries',label:'Weapon masteries',count:c==='fighter'?3:2,
+        options:searchWeapons('',100).filter(w=>c!=='rogue'||w.category==='simple'||w.properties.some(p=>['finesse','light'].includes(p))).map(w=>({name:w.name,description:`${w.mastery} mastery for ${w.name}.`}))});
+      return [c,choices];
+    })),
+    traits:Object.fromEntries(CREATOR_SPECIES.map(r=>[r,traitsForRace(r).filter(t=>t.edition==='2024').map(t=>({...t,id:'',source:'srd'}))]))};
+}
+export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
+  const catalog=characterCreatorCatalog();
+  for(const step of [0,1,2,3]){const error=creatorError(c,step,catalog);if(error)throw new Error(error);}
+  const {stats,hp,ac,kit}=creatorPreview(c), cls=CLASS_IDENTITY[c.className],progression=classProgression2024(c.className,1,'',stats)!;
+  const model={...shell(c.className),stats};
+  const abilities:SheetAbility[]=progression.features.map(name=>{
+    const base=getFeature(name)??getSpell(name);
+    return {...levelingFeature(name,model,progression),...(base??{}),id:newId(),source:'srd',sourceClass:c.className,
+      ...(base?.useCounter?{useCounter:{...base.useCounter,max:progression.resourceMaxima[base.useCounter.name]??base.useCounter.max}}:{})};
+  });
+  const modifiers:Character['modifiers']=[];
+  for(const [key,names] of Object.entries(c.features)) {
+    // Never accept arbitrary feature text or unknown choice keys from a client.
+    const choice=catalog.choices[c.className]?.find(f=>f.key===key);
+    if(!choice||key==='orderCantrip'||choice.when&&!c.features[choice.when.key]?.includes(choice.when.option))continue;
+    for(const name of names){abilities.push({...(key==='masteries'?getMastery(`${name} Mastery`)!:selectedFeatureAbility(key,name,model)),id:newId(),source:'srd'});
+      if(key==='expertise')modifiers.push({id:newId(),source:`Expertise: ${name} (2024 level-up)`,target:{kind:'skill',skill:name},value:2});
+      if(key==='order'&&['Thaumaturge','Magician'].includes(name))for(const skill of name==='Thaumaturge'?['Arcana','Religion']:['Arcana','Nature'])
+        modifiers.push({id:newId(),source:`${cls.title} ${name} (2024 level-up)`,target:{kind:'skill',skill},value:Math.max(1,Math.floor((stats.WIS-10)/2))});
+    }
+  }
+  for(const name of [c.originFeat,...(c.species==='Human'?[c.humanFeat!]:[])]) {
+    if(!ORIGIN_FEATS.includes(name as typeof ORIGIN_FEATS[number]))continue;
+    const feat=LEVELING_FEATS.find(f=>f.name===name)!;
+    abilities.push({...getFeature(name),id:newId(),name,type:'ability',source:'srd',tags:['feat','origin','2024'],description:feat.description});
+    if(name==='Alert')modifiers.push({id:newId(),source:'Alert',target:{kind:'initiative'},value:2});
+  }
+  abilities.push(...catalog.traits[c.species].map(t=>({...t,id:newId()})));
+  abilities.push({id:newId(),name:`Background: ${c.background.trim()}`,type:'ability',source:'custom',school:'Custom background',
+    description:`${c.backgroundSkills.join(', ')} proficiency. ${c.originFeat} origin feat. Ability increases: ${Object.entries(c.boosts).filter(([,v])=>v).map(([a,v])=>`${a} +${v}`).join(', ')}.`,tags:['background','2024']});
+  const always=c.className==='ranger'?[catalog.spells.find(s=>/^hunter.s mark$/i.test(s.name))!.name]:[];
+  for(const name of [...new Set([...c.cantrips,...c.spells,...always])]) {
+    const s=getSpell(name)!;
+    abilities.push({...s,id:newId(),source:'srd',sourceClass:c.className,prepared:s.level===0||c.prepared.includes(name)||always.includes(name),
+      ...(always.includes(name)?{tags:[...(s.tags??[]),'always-prepared']}:{})});
+  }
+  const weapons=kit.weapons.map(name=>{const w=getWeapon(name)!;return {name:w.name,kind:w.kind,damage:w.damage,versatileDamage:w.versatileDamage,damageType:w.damageType,range:w.range,tags:weaponTags(w),diceOnly:true};});
+  if(c.className==='monk')weapons.push({name:'Unarmed Strike',kind:'melee',damage:'1d6',versatileDamage:undefined,damageType:'bludgeoning',range:'5 ft',tags:['unarmed','finesse'],diceOnly:true});
+  // Armor is a saved baseline, following the app's existing equipment model.
+  const equipment=[...kit.items,...(kit.armor!=='none'?[{leather:'Leather armor',scale:'Scale mail',chain:'Chain mail'}[kit.armor]]:[]),...(kit.shield?['Shield']:[]),
+    ...(c.className==='bard'?['Lute']:['cleric','paladin'].includes(c.className)?['Holy symbol']:c.className==='druid'?['Druidic focus']:['sorcerer','warlock','wizard'].includes(c.className)?['Arcane focus']:[]),...(c.className==='wizard'?['Spellbook']:[]),...(c.className==='rogue'?["Thieves' tools"]:[])];
+  const resources=Object.fromEntries(Object.entries(progression.resourceMaxima).map(([key,max])=>[key,{max,used:0}]));
+  for(const a of abilities)if(a.useCounter&&!resources[a.useCounter.name])resources[a.useCounter.name]={max:a.useCounter.max,used:0};
+  return {name:c.name.trim(),race:c.species,className:cls.title,level:1,maxHp:hp,armorClass:ac,speed:c.species==='Goliath'?'35 ft':'30 ft',stats,weapons,resources,
+    resistances:c.species==='Dwarf'?['poison']:[],
+    proficientSkills:[...c.backgroundSkills,...c.skills,...c.extraSkills],saveProficiencies:cls.saves,modifiers,sheetAbilities:abilities,
+    items:equipment.map(name=>({id:newId(),name,qty:1,note:'Starter equipment',equipped:/armor|mail|Shield/.test(name)})),
+    leveling:{rules:'2024',classes:[{className:c.className,level:1}],history:[]}};
+}
+export function createGuidedCharacter(sessionId:string,ownerKey:string,input:unknown):Character {
+  const c=input as CreatorChoices;
+  if(!c||typeof c.requestId!=='string'||!/^[\w-]{16,80}$/.test(c.requestId))throw new Error('Reopen the creator and try again.');
+  return db.transaction(()=>{
+    const previous=db.prepare('SELECT character_id FROM character_creation_requests WHERE session_id=? AND owner_key=? AND request_id=?').get(sessionId,ownerKey,c.requestId) as {character_id:string}|undefined;
+    if(previous){const character=getCharacter(previous.character_id);if(character)return character;throw new Error('That character was removed. Start a new character.');}
+    let opts:CharacterInput;
+    try{opts=buildStarterCharacter(c);}catch(error){throw new Error(error instanceof Error?error.message:'Check your character choices.');}
+    const created=createCharacter(sessionId,opts);
+    db.prepare('INSERT INTO character_creation_requests VALUES(?,?,?,?)').run(sessionId,ownerKey,c.requestId,created.id);
+    return created;
+  })();
+}

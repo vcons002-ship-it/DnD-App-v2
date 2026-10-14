@@ -1,5 +1,11 @@
 # Roadmap & Feature Backlog
 
+- [x] Add a guided level-one character creator to the player character-selection
+  screen, with class/species cards, standard-array and point-buy help, curated
+  equipment, skills, spells, live HP/AC preview, and safe server creation/claiming.
+  Keep the quick form and saved-character library available.
+  [Scope and verification](docs/CHARACTER_CREATOR_2026-10-13.md).
+
 - [x] Replace Fireball's separate expanding lobes with one filled, volumetric
   dome blast with a folded leading flame crest across the selected radius.
   Preserve projectile travel and damage

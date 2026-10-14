@@ -1832,6 +1832,7 @@ export interface ClientToServerEvents {
   'character:claim': (payload: ClaimCharacterPayload) => void;
   'character:unlock': (payload: ClaimCharacterPayload) => void;
   'character:create': (payload: CharacterCreatePayload) => void;
+  'character:createGuided': (payload: import('./characterCreation.js').CreatorChoices, ack: (result: import('./characterCreation.js').CreatorResult) => void) => void;
   'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;
   'character:levelGrant': (payload: { characterId: string }, ack?: (result: LevelUpResult<Character>) => void) => void;
