@@ -268,7 +268,7 @@ type Store = {
   openDecalPopup: (id: string | null) => void;
   setDecalPopup: (id: string, popup: import('../../../shared/types').MapPopup | null) => void;
   /** Map image tiles (compose a larger map from several images). */
-  addMapImage: (payload: { mapId: string; imagePath: string; x: number; y: number; w: number; h: number }) => void;
+  addMapImage: (payload: { mapId: string; imagePath: string; videoPath?: string | null; x: number; y: number; w: number; h: number }) => void;
   moveMapImage: (id: string, x: number, y: number) => void;
   resizeMapImage: (id: string, x: number, y: number, w: number, h: number) => void;
   reorderMapImage: (id: string, to: 'front' | 'back') => void;

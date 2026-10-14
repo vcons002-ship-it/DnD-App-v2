@@ -81,6 +81,18 @@ export function useMiniatureCatalog() {
   return current;
 }
 export function miniatureFamilies() { return [...new Set([...monsters.models.map(m => m.id), ...Object.keys(generated)])]; }
+/** Prepare every art variant of a requested family, independently of the number
+ * or variant of concealed tokens. Assets never create a token/hit region. */
+export function miniaturePreloadDefinitions(families:readonly string[]):MiniatureDefinition[]{
+  const definitions=new Map<string,MiniatureDefinition>();
+  for(const family of families){
+    for(const id of new Set([family,...monsterVariantIds(family)])){
+      const model=id==='spiritual-weapon'?SPIRITUAL_WEAPON:MINIATURES[id]??generated[id];
+      if(model)definitions.set(model.url,model);
+    }
+  }
+  return [...definitions.values()];
+}
 export function resolveMiniature(name: string, kind: TokenKind, appearance: MonsterAppearance = {}, creatureId = ''): MiniatureDefinition | null {
   // Objects use their semantic kind, independent of creature matching and generation.
   if (kind === 'monster' && appearance.objectKind) {

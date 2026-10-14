@@ -3135,3 +3135,13 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Restore visible typed damage components for Ice Knife and all shared multi-part HP feedback: cache number artwork at full opacity before restoring the animation opacity. Piercing and icy-blue cold numbers rise separately into one red running total; Hail of Thorns sequencing and synchronized AoE remain unchanged. Pixel-level browser tests cover thorns, Ice Knife, Ice Storm and weapon riders.
 
 - [x] Ice Knife now shows a full 5-foot cold burst with a low icy dome, fractured frost field and dispersed shards. Cold amounts across all victims and the main target total synchronize to that impact after the earlier piercing beat, including miss/all-save visuals.
+
+## Animated battle maps (2026-10-13)
+
+- [x] MP4/WebM map and tile upload with a server-generated still poster.
+- [x] Muted looping playback, per-viewer still toggle, shared decoder and cached seeking.
+- [x] Existing fog, exploration, personal darkness and combat integration; remembered terrain stays still.
+- [x] Saved map/tile metadata and backwards-compatible schema.
+- [x] Unit and real-browser coverage; opt-in paired performance and AV1 gameplay recording.
+
+See [Animated maps](docs/ANIMATED_MAPS.md).

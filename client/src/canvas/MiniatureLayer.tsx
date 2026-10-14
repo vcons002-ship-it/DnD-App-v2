@@ -284,11 +284,16 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const batchingEnabled=new URLSearchParams(location.search).get('batching')!=='off';
   const measurements=new Map<string,{anchor:Vector3;body?:MistBody}>();
   const playerAssetUrls=new Set<string>();
+  const backgroundAssetUrls=new Set<string>();
+  const warmedAssets=new Set<string>();
+  const preloadQueue=new Map<string,MiniatureDefinition>();
+  let preloadTimer:ReturnType<typeof setTimeout>|undefined;
+  let preloadRunning=false;
   function evictRetiredPlayerAssets(){
     const keep=new Set([...(props.preloadDefinitions??[]).map(d=>miniatureForLod(d,'battlefield').url),...props.tokens.map(t=>t.definition.url),...[...instances.values()].map(i=>i.url),...loading.values()]);
-    for(const url of playerAssetUrls){
+    for(const url of new Set([...playerAssetUrls,...backgroundAssetUrls])){
       if(keep.has(url)||!assets.has(url))continue;
-      const promise=assets.get(url)!;assets.delete(url);measurements.delete(url);
+      const promise=assets.get(url)!;assets.delete(url);measurements.delete(url);warmedAssets.delete(url);backgroundAssetUrls.delete(url);
       void promise.then(asset=>{if(asset)disposeAsset(asset);});
     }
     host.dataset.cachedModelAssets=String(assets.size);
@@ -791,6 +796,47 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           .then(async (response) => response.ok ? await response.json() as FxManifest : null).catch(() => null));
       }
   };
+  const publishPreloads=()=>{
+    const urls=(props.preloadDefinitions??[]).map(d=>miniatureForLod(d,'battlefield').url);
+    host.dataset.preloadModelCount=String(new Set(urls).size);
+    host.dataset.preloadReadyCount=String(new Set(urls.filter(url=>warmedAssets.has(url))).size);
+    host.dataset.preloadedModelUrls=JSON.stringify(urls.filter(url=>warmedAssets.has(url)));
+  };
+  const queuePreloads=(definitions:readonly MiniatureDefinition[])=>{
+    const wanted=new Set(definitions.map(d=>d.url));
+    for(const url of preloadQueue.keys())if(!wanted.has(url))preloadQueue.delete(url);
+    for(const definition of definitions)if(!warmedAssets.has(definition.url)&&!failedAssets.has(definition.url))preloadQueue.set(definition.url,definition);
+    publishPreloads();
+    const advance=async()=>{
+      preloadTimer=undefined;
+      if(disposed||failed||preloadRunning)return;
+      // Visible figures get first use of the network and decoder. Background
+      // work is serial so a crowded map doesn't flood a phone with GLB decodes.
+      if(loading.size){preloadTimer=setTimeout(()=>void advance(),100);return;}
+      const definition=preloadQueue.values().next().value as MiniatureDefinition|undefined;
+      if(!definition)return;
+      preloadQueue.delete(definition.url);preloadRunning=true;backgroundAssetUrls.add(definition.url);
+      try{
+        loadDefinition(definition);
+        const asset=await assets.get(definition.url);
+        if(asset&&!disposed&&assets.has(definition.url)){
+          // Download/parse alone still leaves the first texture upload for the
+          // reveal frame. Upload now without adding any figure to the scene.
+          const textures=new Set<Texture>();
+          asset.scene.traverse(node=>{if(node instanceof Mesh)for(const material of Array.isArray(node.material)?node.material:[node.material]){
+            for(const value of Object.values(material))if(value instanceof Texture)textures.add(value);
+          }});
+          for(const texture of textures)renderer.initTexture(texture);
+          warmedAssets.add(definition.url);
+        }
+      }catch(error){if(!disposed)console.warn('Miniature background preparation failed',error);}
+      finally{
+        preloadRunning=false;
+        if(!disposed){publishPreloads();evictRetiredPlayerAssets();preloadTimer=setTimeout(()=>void advance(),75);}
+      }
+    };
+    if(!preloadRunning&&!preloadTimer&&preloadQueue.size)preloadTimer=setTimeout(()=>void advance(),150);
+  };
   const raisedStudy=import.meta.env.VITE_COURTYARD_STUDY==='1'&&new URLSearchParams(location.search).get('raisedWalls')==='1'
     ?createRaisedMapStudy(scene,host,invalidate):null;
   const archArtLayer=createArchArtLayer(renderer,outlineMask.texture,host,invalidate);
@@ -997,7 +1043,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         }
       });
     }
-    for (const definition of next.preloadDefinitions ?? []) loadDefinition(miniatureForLod(definition,'battlefield'));
+    queuePreloads((next.preloadDefinitions??[]).map(d=>miniatureForLod(d,'battlefield')));
     evictRetiredPlayerAssets();
     invalidate();
   };
@@ -1008,6 +1054,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     disposed = true;
     batches.dispose();
     if(lodTimer)clearTimeout(lodTimer);
+    if(preloadTimer)clearTimeout(preloadTimer);
+    preloadQueue.clear();
     abort.abort();
     cancelBattlefieldFrame(frame);
     renderer.domElement.removeEventListener('webglcontextlost', contextLost);

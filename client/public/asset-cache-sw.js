@@ -4,7 +4,7 @@ const checked=new Set(),pending=new Map();
 function eligible(url){
  return url.origin===self.location.origin &&
   (/^\/(miniatures|art|fonts|assets)\//.test(url.pathname)||/^\/uploads\//.test(url.pathname)) &&
-  /\.(glb|gltf|bin|ktx2?|png|jpe?g|webp|avif|gif|svg|woff2?|ttf|ogg|wav|mp3|json|js|css)$/i.test(url.pathname) &&
+  /\.(glb|gltf|bin|ktx2?|png|jpe?g|webp|avif|gif|svg|woff2?|ttf|ogg|wav|mp3|mp4|webm|json|js|css)$/i.test(url.pathname) &&
   (!url.pathname.endsWith('.json')||url.pathname.startsWith('/miniatures/'));
 }
 self.addEventListener('install',()=>self.skipWaiting());
@@ -26,7 +26,31 @@ function refresh(cache,request,cached){
 }
 self.addEventListener('fetch',event=>{
  const request=event.request,url=new URL(request.url);
- if(request.method!=='GET'||request.headers.has('range')||!eligible(url))return;
+ if(request.method!=='GET'||!eligible(url))return;
+ if(/\.(mp4|webm)$/i.test(url.pathname)){
+  const full=new Request(request.url,{credentials:request.credentials});
+  event.respondWith((async()=>{
+   const cache=await caches.open(CACHE),cached=await cache.match(full);
+   if(!cached){
+    // Preserve progressive playback. Cache one complete response in the
+    // background, never a partial 206 as though it were the entire movie.
+    const fill=refresh(cache,full,null).catch(()=>null);
+    event.waitUntil(fill);
+    return request.headers.has('range')?fetch(request):((await fill)||fetch(request));
+   }
+   const range=request.headers.get('range');if(!range)return cached;
+   const match=/^bytes=(\d*)-(\d*)$/.exec(range);
+   if(!match||(!match[1]&&!match[2]))return fetch(request);
+   const blob=await cached.blob(),size=blob.size;
+   const start=match[1]?Number(match[1]):Math.max(0,size-Number(match[2]));
+   const end=match[1]?(match[2]?Math.min(Number(match[2]),size-1):size-1):size-1;
+   if(start>=size||end<start)return new Response(null,{status:416,headers:{'Content-Range':`bytes */${size}`}});
+   const headers=new Headers(cached.headers);headers.set('Content-Range',`bytes ${start}-${end}/${size}`);headers.set('Content-Length',String(end-start+1));headers.set('Accept-Ranges','bytes');
+   return new Response(blob.slice(start,end+1),{status:206,headers});
+  })().catch(()=>fetch(request)));
+  return;
+ }
+ if(request.headers.has('range'))return;
  event.respondWith((async()=>{
   const cache=await caches.open(CACHE),cached=await cache.match(request);
   if(cached){

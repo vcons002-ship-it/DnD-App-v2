@@ -1,3 +1,6 @@
+import {apiFetch} from '../lib/api';
+import {MapArtwork} from './MapArtwork';
+import {useMapAnimation} from '../lib/useMapAnimation';
 import {requestText} from '../lib/dialogs';
 import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
 import {mirrorImageCount} from '../../../shared/linkedSpells';
@@ -22,7 +25,7 @@ import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance
 import { productionFamily } from '../../../shared/assetProduction';
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Stage, Layer, Group, Image as KonvaImage, Line, Rect, Shape, Circle, Text, Label, Tag, Path } from 'react-konva';
+import { Stage, Layer, Group, Line, Rect, Shape, Circle, Text, Label, Tag, Path } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import type Konva from 'konva';
@@ -36,7 +39,7 @@ import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, 
 import { useBoxSelection } from './useBoxSelection';
 import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
-import { resolveMiniature, miniatureForQuality, useMiniatureCatalog } from '../lib/miniatures';
+import { resolveMiniature, miniatureForQuality, miniaturePreloadDefinitions, useMiniatureCatalog } from '../lib/miniatures';
 import { HpFxLayer, HpNumberLayer } from './HpFx';
 import {weaponTravelMs} from '../../../shared/weaponImpact';
 import {spellImpactStyle,weaponImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
@@ -265,6 +268,8 @@ function MeasureShape({
  *  for the DM while a map tool is active or decals are locked). */
 function DecalImage({
   url,
+  videoPath,
+  onPlaybackError,
   x,
   y,
   width,
@@ -281,6 +286,8 @@ function DecalImage({
   onEditShop,
 }: {
   url: string;
+  videoPath?: string | null;
+  onPlaybackError?:()=>void;
   x: number;
   y: number;
   width: number;
@@ -320,8 +327,10 @@ function DecalImage({
   };
   return (
     <>
-      <KonvaImage
-        image={img}
+      <MapArtwork
+        url={url}
+        videoPath={videoPath}
+        onPlaybackError={onPlaybackError}
         x={x}
         y={y}
         width={w}
@@ -427,7 +436,7 @@ export function MapStage({
   const visionRef=useRef<PlayerVisionHandle>(null);
   // Both fog layers off in daylight need no SVG light/sight masks. Keep
   // darkness grading/range and server wall movement/targeting rules intact.
-  const renderPlayerVision=!!snapshot.playerVision&&(!snapshot.playerVision.daylight||usesTokenVision(snapshot.map));
+  const renderPlayerVision=!!snapshot.playerVision&&(!snapshot.playerVision.daylight||usesMapVision(snapshot.map)||usesTokenVision(snapshot.map));
   const memoryTerrainCanvas=useCallback(()=>visionRef.current?.memoryCanvas()??null,[]);
   const visionCoverFrame=useCallback(()=>visionRef.current?.cover(),[]);
   const presentation=useRef(new TokenPresentation()).current;
@@ -643,6 +652,8 @@ export function MapStage({
   // and every tile; the grid, fog, and scale all span this box. For a legacy
   // single-image map the box is just (0,0)→(baseW,baseH), unchanged.
   const tiles = snapshot.mapImages;
+  const mapAnimation=useMapAnimation();
+  const animateMap=mapAnimation.enabled;
   const baseW = image?.naturalWidth ?? 0;
   const baseH = image?.naturalHeight ?? 0;
   const extX0 = Math.min(0, ...tiles.map((t) => t.x));
@@ -876,12 +887,12 @@ export function MapStage({
     const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden&&!t.sharedSightOnly).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
     if(!map || (!saved.enabled&&!carriedLanterns.length) || map.slidesUrl)return undefined;
     const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
-    return {...settings,dmVisibility:isDm&&!dmSceneLighting,...(snapshot.playerVision&&!snapshot.playerVision.daylight?{darkvisionTerrain:[...(map.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],darkvisionGrid:{size:map.gridHidden?0:grid,x:map.gridOffsetX??0,y:map.gridOffsetY??0}}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
+    return {...settings,dmVisibility:isDm&&!dmSceneLighting,...(snapshot.playerVision&&!snapshot.playerVision.daylight?{darkvisionTerrain:[...(map.imagePath&&baseW&&baseH?[{url:map.imagePath,videoPath:animateMap?map.videoPath:undefined,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,videoPath:animateMap?t.videoPath:undefined,x:t.x,y:t.y,w:t.w,h:t.h}))],darkvisionGrid:{size:map.gridHidden?0:grid,x:map.gridOffsetX??0,y:map.gridOffsetY??0}}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
       walls:map.walls,lights:[...settings.lights,...(snapshot.playerVision?.lights??[]).filter(l=>!settings.lights.some(s=>s.id===l.id)&&!carriedLanterns.some(c=>c.id===l.id)).map(l=>({id:l.id,x:l.x,y:l.y,radiusFt:l.radius/pxPerFoot,heightFt:l.height/pxPerFoot,intensity:l.strength,color:'warm' as const,flicker:false,visibleTorch:false}))],
       ...(environmentQuality==='off'?{mist:false,weather:'none' as const,particles:'none' as const,lightning:false,groundWetness:0,shadows:false}:{}),
       scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:graphics.mistQuality,particleScale:graphics.particleScale,mapShadowSize:graphics.mapShadowSize,
       fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
-  },[map?.walls,map?.environment,map?.imagePath,map?.gridHidden,map?.gridOffsetX,map?.gridOffsetY,baseW,baseH,tiles,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,graphics.resolved,extX0,extY0,imgW,imgH,pxPerFoot,isDm,dmSceneLighting,mapFogEnabled,grid,map?.mapFogRevealed]);
+  },[animateMap,map?.videoPath,map?.walls,map?.environment,map?.imagePath,map?.gridHidden,map?.gridOffsetX,map?.gridOffsetY,baseW,baseH,tiles,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,graphics.resolved,extX0,extY0,imgW,imgH,pxPerFoot,isDm,dmSceneLighting,mapFogEnabled,grid,map?.mapFogRevealed]);
 
 
   // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
@@ -1251,11 +1262,12 @@ export function MapStage({
     paint();return ()=>cancelAnimationFrame(frame);
   },[snapshot,readyMiniatures,presentation,tokenVisibleAtPosition]);
 
-  // The public party roster contains names, not hidden token positions.
+  // Prepare map art before a door opens. Only role-filtered tokens below can
+  // create an instance; this deduplicated art list contains no hidden positions.
   const preloadMiniatures = useMemo(() => [...(use3dTokens || use3dMonsters ? [DEATH_SKULL] : []), ...(use3dTokens ? snapshot.characters.flatMap(character => {
     const definition = miniatureForQuality(resolveMiniature(character.name, 'pc'),graphics.modelQuality);
     return definition ? [definition] : [];
-  }) : [])], [snapshot.characters, use3dTokens, use3dMonsters, graphics.modelQuality]);
+  }) : []), ...(use3dMonsters?miniaturePreloadDefinitions(snapshot.miniaturePreloadFamilies??[]):[])], [snapshot.characters, snapshot.miniaturePreloadFamilies, use3dTokens, use3dMonsters, graphics.modelQuality, miniatureCatalogRevision]);
 
   // Content-stable so TokenShape's memo isn't defeated by each snapshot's fresh arrays.
   const terrainZones=useContentStable(useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]));
@@ -1871,24 +1883,12 @@ export function MapStage({
   // if huge so it isn't unwieldy. Enters arrange mode so it can be nudged.
   const addTileFromFile = async (file: File) => {
     if (!map) return;
-    const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
-      const im = new Image();
-      im.onload = () => resolve({ w: im.naturalWidth, h: im.naturalHeight });
-      im.onerror = reject;
-      im.src = URL.createObjectURL(file);
-    }).catch(() => null);
-    if (!dims) {
-      notify('Could not read that image file.');
-      return;
-    }
-    const fd = new FormData();
-    fd.append('image', file);
-    const res = await fetch('/api/icons', { method: 'POST', body: fd }).catch(() => null);
-    if (!res || !res.ok) {
-      notify('Could not upload that tile image.');
-      return;
-    }
-    const { icon } = (await res.json()) as { icon: string };
+    const fd=new FormData();fd.append('image',file);
+    notify('Uploading / preparing map tile...');
+    const res=await apiFetch('/api/map-media',{method:'POST',body:fd}).catch(()=>null);
+    if(!res||!res.ok){const data=await res?.json().catch(()=>null);notify(data?.error??'Could not upload that map tile.');return;}
+    const {imagePath:icon,videoPath,width,height}=await res.json();
+    const dims={w:width,h:height};
     // Clamp a giant upload so it's not many times the existing map.
     const cap = Math.max(imgW, 2000);
     const sc = dims.w > cap ? cap / dims.w : 1;
@@ -1896,7 +1896,7 @@ export function MapStage({
     const h = dims.h * sc;
     // Land it butted to the current right edge (the DM then drags it anywhere).
     // The scale is grid-based, so this just ADDS area — no rescale needed.
-    addMapImage({ mapId: map.id, imagePath: icon, x: extX1, y: extY0, w, h });
+    addMapImage({ mapId: map.id, imagePath: icon, videoPath, x: extX1, y: extY0, w, h });
     setTilesMode(true);
   };
 
@@ -2110,6 +2110,7 @@ export function MapStage({
               <button ref={rotationLabel} className="btn tiny" hidden={Math.abs(rotationDegrees%360)<.01} aria-label="Reset battlefield rotation" title="Reset the map's rotation. Hold right mouse button and drag empty space to rotate freely."
                 onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,0)}>Reset rotation</button>
             </div>
+            {(map?.videoPath||tiles.some(t=>t.videoPath))&&<button className={`btn tiny ${animateMap?'on':''}`} aria-label="Toggle map animation" aria-pressed={animateMap} title="Animate the map in your view, or use its still image for better performance" onClick={()=>mapAnimation.setEnabled(!mapAnimation.enabled)}>Map animation: {animateMap?'On':'Off'}</button>}
             {([
               { label: 'Players', kind: 'player', enabled: use3dTokens, set: setUse3dTokens, key: tokenPreferenceKey },
               { label: 'Monsters', kind: 'monster', enabled: use3dMonsters, set: setUse3dMonsters, key: monsterPreferenceKey },
@@ -2387,13 +2388,15 @@ export function MapStage({
                 fill={CANVAS_BG}
               />
               {/* Base image at the origin, at its own natural size. */}
-              {image && <KonvaImage image={image} width={baseW} height={baseH} />}
+              {image && map?.imagePath && <MapArtwork url={map.imagePath} videoPath={animateMap?map.videoPath:undefined} onPlaybackError={()=>notify('Animated map could not play; its still image is being used. Try an MP4 (H.264) or WebM video.')} width={baseW} height={baseH} />}
               {/* Extra image tiles (bottom-to-top by z). DM drags/resizes them in
                   arrange mode; otherwise they're inert map background. */}
               {tiles.map((t) => (
                 <DecalImage
                   key={t.id}
                   url={t.imagePath}
+                  videoPath={animateMap?t.videoPath:undefined}
+                  onPlaybackError={()=>notify('An animated tile could not play; its still image is being used.')}
                   x={t.x}
                   y={t.y}
                   width={t.w}

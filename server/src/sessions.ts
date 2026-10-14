@@ -257,7 +257,7 @@ export function getMap(mapId: string): MapState | null {
 
 export function createMap(
   sessionId: string,
-  opts: { name: string; imagePath?: string | null; slidesUrl?: string | null },
+  opts: { name: string; imagePath?: string | null; videoPath?: string | null; slidesUrl?: string | null },
 ): MapState {
   const id = newId();
   // A new map goes to the END of the DM's ordered list.
@@ -268,13 +268,14 @@ export function createMap(
         .get(sessionId) as { n: number | null }
     ).n ?? 0) + 1;
   db.prepare(
-    `INSERT INTO maps (id, session_id, name, image_path, slides_url, sort_order, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO maps (id, session_id, name, image_path, video_path, slides_url, sort_order, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
     opts.name,
     opts.imagePath ?? null,
+    opts.videoPath ?? null,
     opts.slidesUrl ?? null,
     nextOrder,
     Date.now(),
@@ -2155,6 +2156,7 @@ export function setAnnotationPopup(id: string, popup: Annotation['popup'] | null
 // ---- Map image tiles (compose a larger map from several images) ----
 
 type MapImageRow = {
+  video_path?: string | null;
   id: string;
   map_id: string;
   image_path: string;
@@ -2168,6 +2170,7 @@ type MapImageRow = {
 const rowToMapImage = (r: MapImageRow): MapImage => ({
   id: r.id,
   imagePath: r.image_path,
+  videoPath: r.video_path ?? null,
   x: r.x,
   y: r.y,
   w: r.w,
@@ -2187,7 +2190,7 @@ export function listMapImages(mapId: string): MapImage[] {
 /** Place a new image tile on a map; it lands on top of the existing stack. */
 export function addMapImage(
   sessionId: string,
-  input: { mapId: string; imagePath: string; x: number; y: number; w: number; h: number },
+  input: { mapId: string; imagePath: string; videoPath?: string | null; x: number; y: number; w: number; h: number },
 ): MapImage {
   const id = newId();
   const topZ =
@@ -2195,13 +2198,14 @@ export function addMapImage(
       z: number | null;
     }).z ?? 0;
   db.prepare(
-    `INSERT INTO map_images (id, session_id, map_id, image_path, x, y, w, h, z, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO map_images (id, session_id, map_id, image_path, video_path, x, y, w, h, z, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     sessionId,
     input.mapId,
     input.imagePath,
+    input.videoPath ?? null,
     input.x,
     input.y,
     Math.max(1, input.w),

@@ -824,6 +824,8 @@ export type MapState = {
   name: string;
   /** Server-relative path to an uploaded image, or null when using slidesUrl. */
   imagePath: string | null;
+  /** Muted looping background; imagePath remains its still poster. */
+  videoPath?: string | null;
   slidesUrl: string | null;
   gridSizePx: number;
   feetPerSquare: number;
@@ -881,6 +883,9 @@ export type RiposteOpportunity = {
 };
 
 export type StateSnapshot = {
+  /** Asset-only family list for background preparation; no token IDs, counts,
+   * positions, creature names or statistics. Token visibility stays role-shaped. */
+  miniaturePreloadFamilies?: string[];
   /** Requested DM-only, read-only union of party sight. Never sent to players. */
   partyView?: Pick<StateSnapshot,'map'|'tokens'|'monsters'|'playerVision'|'exploredTerrain'>;
   /** Shared party exploration, saved per map; current sight remains personal. */
@@ -941,6 +946,7 @@ export type StateSnapshot = {
 export type MapImage = {
   id: string;
   imagePath: string;
+  videoPath?: string | null;
   x: number;
   y: number;
   w: number;
@@ -1384,6 +1390,7 @@ export type AnnotationMovePayload = { id: string; x: number; y: number };
 export type MapImageAddPayload = {
   mapId: string;
   imagePath: string;
+  videoPath?: string | null;
   x: number;
   y: number;
   w: number;
