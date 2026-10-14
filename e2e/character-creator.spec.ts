@@ -106,3 +106,51 @@ test('desktop identity and review keep the preview and navigation visible',async
   await guide.getByRole('button',{name:'Close character creator'}).click();
   await expect(page.locator('.creator-launch')).toBeFocused();
 });
+
+test('player manually rolls abilities, can roll all 24 dice, and creates a character',async({page,request})=>{
+  test.setTimeout(180000);mkdirSync(evidence,{recursive:true});
+  await page.setViewportSize({width:1500,height:980});const f=await campaign(request);
+  await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();
+  await page.locator('.creator-launch').click();const guide=page.getByRole('dialog',{name:'Bring your hero to life'});
+  await expect(guide.getByRole('group',{name:'Choose your race (species)'})).toBeVisible();
+  await guide.getByLabel('Character name',{exact:true}).fill('Chance');
+  await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  await guide.getByRole('button',{name:'Roll for stats',exact:true}).click();
+  await page.evaluate(()=>{document.title='Character Stat Rolls AV1';});
+  const capture=process.env.CREATOR_CAPTURE?await startAv1Capture(page,path.join(evidence,'stat-rolls-av1.mp4'),{title:'Character Stat Rolls AV1',width:1500,height:1066}):null;
+  const dieCounts=new Set<number>();f.socket.on('dice:frame',frame=>{if(frame?.sides)dieCounts.add(frame.sides.length);});
+  try{
+    for(const stat of ['STR','DEX']){
+      await guide.getByRole('button',{name:`Roll ${stat}`,exact:true}).click();
+      await expect(guide).not.toBeVisible();await expect(page.locator('.dice-tray-canvas')).toBeVisible({timeout:20000});
+      await expect(guide).toBeVisible({timeout:60000});
+    }
+    await expect(guide.getByRole('button',{name:'Roll CON',exact:true})).toBeEnabled();
+    await expect(guide.getByRole('button',{name:'Roll STR',exact:true})).toHaveCount(0);
+    await page.waitForTimeout(800); // no automatic next roll
+    await expect(guide).toBeVisible();
+    await guide.getByRole('button',{name:'Roll all (new set)',exact:true}).click();
+    await expect(guide).not.toBeVisible();
+    await expect(page.locator('.dice-tray-canvas')).toBeVisible({timeout:20000});
+    await expect(guide).toBeVisible({timeout:90000});
+    await expect(guide.locator('.creator-roll-results>div')).toHaveCount(6);
+    expect(dieCounts.has(4)).toBe(true);expect(dieCounts.has(24)).toBe(true);
+    await page.waitForTimeout(1300);
+  }finally{if(capture){
+    // Graphics Capture can wait for a final frame when a modal is static.
+    // Keep the window repainting during recorder shutdown, then cancel it.
+    await guide.evaluate(el=>{(el as any).__captureFinish=el.animate([{opacity:1},{opacity:.99},{opacity:1}],{duration:2000,iterations:10});});
+    try{await capture.stop();}finally{await guide.evaluate(el=>(el as any).__captureFinish?.cancel());}
+  }}
+  const old=await guide.getByLabel('STR base score').inputValue();
+  const values=await guide.getByLabel('STR base score').locator('option').evaluateAll(els=>els.map(el=>(el as HTMLOptionElement).value));
+  if(values.length>1){const other=values.find(n=>n!==old)!;await guide.getByLabel('STR base score').selectOption(other);}
+  const scores=await Promise.all(['STR','DEX','CON','INT','WIS','CHA'].map(async a=>Number(await guide.getByLabel(`${a} base score`).inputValue())));
+  const totals=await guide.locator('.creator-roll-results strong').allTextContents();
+  expect([...scores].sort()).toEqual(totals.map(Number).sort());
+  await page.screenshot({path:path.join(evidence,'creator-rolled-stats.png')});
+  for(let i=0;i<3;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  await guide.getByRole('button',{name:'Create & play',exact:true}).click();await expect(guide).not.toBeVisible();
+  const hero=(await f.snapshot()).characters.find(c=>c.name==='Chance')!;
+  expect(hero.claimedBy).toBeTruthy();expect(hero.stats.STR).toBe(scores[0]+2);expect(hero.stats.CON).toBe(scores[2]+1);
+});

@@ -64,13 +64,36 @@ export const STARTER_KITS: Record<CoreClass,StarterKit[]> = {
 
 export type CreatorChoices = {
   requestId:string; name:string; species:string; className:CoreClass;
-  method:'array'|'points'; scores:Record<AbilityKey,number>;
+  method:'array'|'points'|'roll'; scores:Record<AbilityKey,number>; rolled?:CreatorStatRoll;
   background:string; boosts:Partial<Record<AbilityKey,number>>; originFeat:string; humanFeat?:string;
   backgroundSkills:string[]; skills:string[]; extraSkills:string[];
   kitId:string; features:Record<string,string[]>; cantrips:string[]; spells:string[]; prepared:string[];
 };
 export type CreatorCatalog = {spells:SheetAbility[]; choices:Partial<Record<CoreClass,LevelUpFeatureChoice[]>>;traits:Record<string,SheetAbility[]>};
 export type CreatorResult = {ok:true;characterId:string}|{ok:false;error:string};
+export type CreatorStatGroup = {faces:number[];dropped:number;total:number};
+export type CreatorStatRoll = {id:string;groups:CreatorStatGroup[];scores:number[]};
+export type CreatorStatDraft = {id:string;groups:(CreatorStatGroup|null)[];scores:(number|null)[]};
+export type CreatorStatRollRequest = {rollId:string;className:CoreClass;name:string;index?:number};
+export type CreatorStatRollResult = {ok:true;roll:CreatorStatDraft}|{ok:false;error:string};
+export function statGroupFromFaces(faces:number[]):CreatorStatGroup {
+  if(faces.length!==4||faces.some(f=>!Number.isInteger(f)||f<1||f>6))throw new Error('Each stat needs four six-sided dice.');
+  const dropped=faces.indexOf(Math.min(...faces));
+  return {faces,dropped,total:faces.reduce((n,f)=>n+f,0)-faces[dropped]};
+}
+export function completeStatRoll(draft:CreatorStatDraft):CreatorStatRoll|undefined {
+  if(draft.groups.length!==6||draft.groups.some(g=>!g)||draft.scores.length!==6||draft.scores.some(s=>s===null))return undefined;
+  return {id:draft.id,groups:draft.groups as CreatorStatGroup[],scores:draft.scores as number[]};
+}
+export function statRollFromFaces(id:string,faces:number[]):CreatorStatRoll {
+  if(faces.length!==24||faces.some(f=>!Number.isInteger(f)||f<1||f>6))throw new Error('Stat rolls need 24 six-sided dice.');
+  const groups=Array.from({length:6},(_,i)=>statGroupFromFaces(faces.slice(i*4,i*4+4)));
+  return {id,groups,scores:groups.map(g=>g.total)};
+}
+export function assignRolledScores(className:CoreClass,scores:number[]):Record<AbilityKey,number> {
+  const ordered=[...scores].sort((a,b)=>b-a);
+  return Object.fromEntries(CLASS_IDENTITY[className].priority.map((a,i)=>[a,ordered[i]])) as Record<AbilityKey,number>;
+}
 
 export function suggestedScores(className:CoreClass):Record<AbilityKey,number> {
   return Object.fromEntries(CLASS_IDENTITY[className].priority.map((a,i)=>[a,STANDARD_ARRAY[i]])) as Record<AbilityKey,number>;
@@ -92,10 +115,11 @@ export function creatorPreview(c:CreatorChoices) {
 export function creatorError(c:CreatorChoices,step:number,catalog?:CreatorCatalog):string|null {
   if(!c||!CORE_CLASSES_2024.includes(c.className)||!CREATOR_SPECIES.includes(c.species as typeof CREATOR_SPECIES[number]))return 'Choose a class and species.';
   if(step===0)return c.name.trim().length>=1&&c.name.trim().length<=60?null:'Give your character a name (up to 60 characters).';
-  if(!CREATOR_ABILITIES.every(a=>Number.isInteger(c.scores?.[a])&&c.scores[a]>=8&&c.scores[a]<=15))return 'Base ability scores must be between 8 and 15.';
+  if(!CREATOR_ABILITIES.every(a=>Number.isInteger(c.scores?.[a])&&c.scores[a]>=(c.method==='roll'?3:8)&&c.scores[a]<=(c.method==='roll'?18:15)))return c.method==='roll'?'Rolled ability scores must be between 3 and 18.':'Base ability scores must be between 8 and 15.';
   if(c.method==='array'&&JSON.stringify(Object.values(c.scores).sort((a,b)=>b-a))!==JSON.stringify(STANDARD_ARRAY))return 'Use each standard-array score once.';
   if(c.method==='points'&&pointCost(c.scores)>27)return 'Spend no more than 27 ability points.';
-  if(!['array','points'].includes(c.method))return 'Choose an ability-score method.';
+  if(c.method==='roll'&&(!c.rolled||c.rolled.scores.length!==6||JSON.stringify(CREATOR_ABILITIES.map(a=>c.scores[a]).sort((a,b)=>b-a))!==JSON.stringify([...c.rolled.scores].sort((a,b)=>b-a))))return 'Roll your six scores, then use each score once.';
+  if(!['array','points','roll'].includes(c.method))return 'Choose an ability-score method.';
   const boosts=Object.entries(c.boosts??{});
   if(boosts.some(([a,n])=>!CREATOR_ABILITIES.includes(a as AbilityKey)||!Number.isInteger(n)||n<0||n>2)||boosts.reduce((n,[,v])=>n+v,0)!==3)return 'Choose +2 and +1 to different abilities, or three +1 increases.';
   if(!c.background?.trim()||c.background.length>60)return 'Name your background.';

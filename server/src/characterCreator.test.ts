@@ -1,8 +1,9 @@
 import { describe,it,expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { createSession,getCharacter } from './sessions.js';
-import { buildStarterCharacter,characterCreatorCatalog,createGuidedCharacter } from './characterCreator.js';
-import { CLASS_IDENTITY,STARTER_KITS,suggestedScores,creatorError,creatorPreview,type CreatorChoices } from '../../shared/characterCreation.js';
+import { buildStarterCharacter,characterCreatorCatalog,createGuidedCharacter,rollCreatorStats } from './characterCreator.js';
+import {withDiceSource} from '../../shared/dice.js';
+import { CLASS_IDENTITY,STARTER_KITS,suggestedScores,creatorError,creatorPreview,statRollFromFaces,assignRolledScores,completeStatRoll,type CreatorChoices } from '../../shared/characterCreation.js';
 import { CORE_CLASSES_2024,type CoreClass } from '../../shared/characterProgression.js';
 import { SKILLS } from '../../shared/skills.js';
 import { grantLevelUp,getLevelUpPlan,applyLevelUp } from './leveling.js';
@@ -20,6 +21,34 @@ function choices(className:CoreClass='fighter'):CreatorChoices {
   return c;
 }
 describe('guided character creation',()=>{
+  it('drops exactly one lowest die per group, including ties and range extremes',()=>{
+    const r=statRollFromFaces('test',[1,1,1,1,6,6,6,6,2,5,3,4,6,1,4,3,2,2,2,2,5,3,5,3]);
+    expect(r.scores).toEqual([3,18,12,13,6,13]);expect(r.groups.map(g=>g.dropped)).toEqual([0,0,0,1,0,1]);
+    expect(()=>statRollFromFaces('test',Array(24).fill(7))).toThrow();
+  });
+  it('saves authoritative stats and safely recovers the same roll without rolling again',()=>{
+    const s=createSession(),request={rollId:randomUUID(),className:'fighter' as const,name:'Hero'};
+    const rolled=withDiceSource(()=>Array(24).fill(6),()=>rollCreatorStats(s.id,'a',request));
+    expect(rolled.scores).toEqual(Array(6).fill(18));
+    const recovered=withDiceSource(()=>{throw new Error('should not roll twice');},()=>rollCreatorStats(s.id,'a',request));
+    expect(recovered).toEqual(rolled);
+    const complete=completeStatRoll(rolled)!;
+    const input={...choices(),method:'roll' as const,rolled:complete,scores:assignRolledScores('fighter',complete.scores)};
+    expect(createGuidedCharacter(s.id,'a',input).stats.STR).toBe(20);
+    expect(()=>createGuidedCharacter(s.id,'b',{...input,requestId:randomUUID()})).toThrow('this session');
+    const altered={...input,requestId:randomUUID(),scores:{...input.scores,STR:17},rolled:{...rolled,scores:[17,18,18,18,18,18]}};
+    expect(()=>createGuidedCharacter(s.id,'a',altered)).toThrow('each score once');
+  });
+  it('rolls one ability per request, preserves prior scores, and never advances itself',()=>{
+    const s=createSession(),request={rollId:randomUUID(),className:'fighter' as const,name:'Hero'},counts:number[]=[];
+    let draft=withDiceSource(sides=>{counts.push(sides.length);return [6,5,4,1];},()=>rollCreatorStats(s.id,'a',{...request,index:0}));
+    expect(draft.scores).toEqual([15,null,null,null,null,null]);expect(completeStatRoll(draft)).toBeUndefined();
+    const retry=withDiceSource(()=>{throw new Error('already rolled');},()=>rollCreatorStats(s.id,'a',{...request,index:0}));expect(retry).toEqual(draft);
+    for(let index=1;index<6;index++)draft=withDiceSource(sides=>{counts.push(sides.length);return [2,2,2,2];},()=>rollCreatorStats(s.id,'a',{...request,index}));
+    expect(counts).toEqual([4,4,4,4,4,4]);expect(completeStatRoll(draft)?.scores).toEqual([15,6,6,6,6,6]);
+    const c=choices(),rolled=completeStatRoll(draft)!;
+    expect(createGuidedCharacter(s.id,'a',{...c,method:'roll',rolled,scores:assignRolledScores('fighter',rolled.scores)}).stats.STR).toBe(17);
+  });
   it.each(CORE_CLASSES_2024)('builds a playable level-one %s with a validated sheet',className=>{
     const c=choices(className),cat=characterCreatorCatalog();
     for(let step=0;step<4;step++)expect(creatorError(c,step,cat)).toBeNull();

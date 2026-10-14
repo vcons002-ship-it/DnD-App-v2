@@ -5,6 +5,9 @@
   equipment, skills, spells, live HP/AC preview, and safe server creation/claiming.
   Keep the quick form and saved-character library available.
   [Scope and verification](docs/CHARACTER_CREATOR_2026-10-13.md).
+- [x] Add manually clicked 4d6-drop-lowest ability rolls to the character creator,
+  with optional simultaneous Roll all, durable partial sets, server validation,
+  score swapping, and a prominent Race (species) choice in Identity.
 
 - [x] Replace Fireball's separate expanding lobes with one filled, volumetric
   dome blast with a folded leading flame crest across the selected radius.

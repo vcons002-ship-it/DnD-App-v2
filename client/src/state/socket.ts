@@ -325,6 +325,7 @@ type Store = {
   unlockCharacter: (characterId: string) => void;
   createCharacter: (input: CharacterCreatePayload) => void;
   createGuidedCharacter: (input: import('../../../shared/characterCreation').CreatorChoices) => Promise<import('../../../shared/characterCreation').CreatorResult>;
+  rollCreatorStats: (input: import('../../../shared/characterCreation').CreatorStatRollRequest) => Promise<import('../../../shared/characterCreation').CreatorStatRollResult>;
   updateCharacter: (payload: CharacterUpdatePayload) => void;
   aiFillCharacter: (characterId: string) => void;
   aiCreateCharacter: (description: string) => void;
@@ -1212,6 +1213,12 @@ export const useStore = create<Store>((set, get) => ({
   unlockCharacter: (characterId) =>
     get().socket?.emit('character:unlock', { characterId }),
   createCharacter: (input) => get().socket?.emit('character:create', input),
+  rollCreatorStats: async (input) => {
+    const socket=get().socket;
+    if(!socket?.connected)return {ok:false,error:'Reconnect before rolling stats. Your draft has been kept.'};
+    try{return await socket.timeout(180000).emitWithAck('character:rollStats',input);}
+    catch{return {ok:false,error:'The stat roll response was not received. Retry to recover the same roll safely.'};}
+  },
   createGuidedCharacter: async (input) => {
     const socket=get().socket;
     if(!socket?.connected)return {ok:false,error:'Reconnect to the session to create your character. Your choices have been kept.'};

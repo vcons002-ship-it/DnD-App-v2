@@ -1,7 +1,7 @@
 import { useEffect,useRef,useState,useId,type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { CORE_CLASSES_2024,type CoreClass } from '../../../shared/characterProgression';
-import { CLASS_IDENTITY,CREATOR_SPECIES,CREATOR_ABILITIES,ORIGIN_FEATS,STANDARD_ARRAY,STARTER_KITS,creatorPreview,creatorError,pointCost,suggestedScores,suggestedMagic,type CreatorChoices,type CreatorCatalog } from '../../../shared/characterCreation';
+import { CLASS_IDENTITY,CREATOR_SPECIES,CREATOR_ABILITIES,ORIGIN_FEATS,STANDARD_ARRAY,STARTER_KITS,creatorPreview,creatorError,pointCost,suggestedScores,suggestedMagic,assignRolledScores,completeStatRoll,type CreatorStatDraft,type CreatorStatRollRequest,type CreatorChoices,type CreatorCatalog } from '../../../shared/characterCreation';
 import { SKILLS,abilityMod,type AbilityKey } from '../../../shared/skills';
 import { useStore } from '../state/socket';
 import './character-creator.css';
@@ -14,9 +14,11 @@ function initial():CreatorChoices {return {requestId:crypto.randomUUID(),name:''
 export function CharacterCreator({onCreated}:{onCreated:(id:string)=>void}) {
   const [open,setOpen]=useState(false),[choices,setChoices]=useState<CreatorChoices>(initial),[step,setStep]=useState(0);
   const [catalog,setCatalog]=useState<CreatorCatalog|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(false),[search,setSearch]=useState('');
+  const [rolling,setRolling]=useState(false),[statDraft,setStatDraft]=useState<CreatorStatDraft>(),pendingRoll=useRef<CreatorStatRollRequest|null>(null);
   const dialog=useRef<HTMLDialogElement>(null),content=useRef<HTMLDivElement>(null),headingId=useId();
   const create=useStore(s=>s.createGuidedCharacter),status=useStore(s=>s.status);
-  useEffect(()=>{if(open)dialog.current?.showModal();else dialog.current?.close();},[open]);
+  const rollStats=useStore(s=>s.rollCreatorStats);
+  useEffect(()=>{if(open&&!rolling)dialog.current?.showModal();else dialog.current?.close();},[open,rolling]);
   useEffect(()=>{content.current?.scrollTo({top:0});dialog.current?.querySelector('.creator-body')?.scrollTo({top:0});},[step]);
   useEffect(()=>{if(!open||catalog)return;const controller=new AbortController();setLoading(true);
     fetch('/api/character-creator/catalog',{signal:controller.signal}).then(r=>{if(!r.ok)throw new Error();return r.json();}).then(setCatalog).catch(e=>{if(e.name!=='AbortError')setError('The character options could not load. Close and reopen the creator to retry.');}).finally(()=>setLoading(false));
@@ -35,19 +37,27 @@ export function CharacterCreator({onCreated}:{onCreated:(id:string)=>void}) {
     }
     const skills=def.skills.filter(s=>!bg.includes(s)).slice(0,def.skillCount);
     if(className==='rogue')features.expertise=skills.slice(0,2);
-    patch({className,scores:suggestedScores(className),method:'array',boosts:{[def.priority[0]]:2,[def.priority[1]]:1},kitId:STARTER_KITS[className][0].id,skills,features,
+    patch({className,scores:choices.method==='roll'&&choices.rolled?assignRolledScores(className,choices.rolled.scores):suggestedScores(className),method:choices.method==='roll'&&choices.rolled?'roll':'array',boosts:{[def.priority[0]]:2,[def.priority[1]]:1},kitId:STARTER_KITS[className][0].id,skills,features,
       extraSkills:SKILLS.map(s=>s.name).filter(s=>![...bg,...skills].includes(s)).slice(0,extraCount),
       spells:selected,prepared:selected.slice(0,p.preparedSpells),cantrips:suggestedMagic(className,spells,0,p.cantrips)});
   };
   const extraCount=(choices.species==='Human'?1:0)+(choices.originFeat==='Skilled'||choices.humanFeat==='Skilled'&&choices.species==='Human'?3:0);
   const bonusCantrip=choices.features.order?.some(n=>['Thaumaturge','Magician'].includes(n))?1:0;
   const spellCount=choices.className==='wizard'?6:preview.progression.preparedSpells;
+  const generateStats=async(index?:number)=>{
+    pendingRoll.current??={rollId:index===undefined?crypto.randomUUID():statDraft?.id??crypto.randomUUID(),className:choices.className,name:choices.name,index};setError('');setRolling(true);
+    const result=await rollStats(pendingRoll.current);
+    if(result.ok){pendingRoll.current=null;setStatDraft(result.roll);const complete=completeStatRoll(result.roll);
+      patch({method:'roll',rolled:complete,scores:Object.fromEntries(CREATOR_ABILITIES.map((a,i)=>[a,result.roll.scores[i]??choices.scores[a]])) as Record<AbilityKey,number>});
+    }else setError(result.error);
+    setRolling(false);
+  };
   const selectMany=(list:string[],name:string,count:number)=>list.includes(name)?list.filter(s=>s!==name):list.length<count?[...list,name]:list;
   const go=(next:number)=>{if(next>step){const invalid=creatorError(choices,step,catalog??undefined);if(invalid){setError(invalid);return;}}
     setStep(next);setError('');setSearch('');content.current?.scrollTo({top:0});};
   const finish=async()=>{for(let s=0;s<4;s++){const invalid=creatorError(choices,s,catalog??undefined);if(invalid){setStep(s);setError(invalid);return;}}
     setBusy(true);setError('');const result=await create(choices);setBusy(false);
-    if(result.ok){setOpen(false);onCreated(result.characterId);setChoices(initial());setStep(0);}else setError(result.error);
+    if(result.ok){setOpen(false);onCreated(result.characterId);setChoices(initial());setStatDraft(undefined);pendingRoll.current=null;setStep(0);}else setError(result.error);
   };
   const skillsGroup=(label:string,list:string[],selected:string[],count:number,onChange:(next:string[])=>void)=><fieldset className="creator-fieldset"><legend>{label} <span>{selected.length} / {count}</span></legend>
     <div className="creator-chips">{list.map(name=><button type="button" key={name} aria-pressed={selected.includes(name)} disabled={!selected.includes(name)&&selected.length>=count} onClick={()=>onChange(selectMany(selected,name,count))}>{name}</button>)}</div></fieldset>;
@@ -60,14 +70,18 @@ export function CharacterCreator({onCreated}:{onCreated:(id:string)=>void}) {
         <div className="creator-content" ref={content}>
           {step===0&&<><p className="creator-eyebrow">01 / Identity</p><h3>Who will you become?</h3><p className="creator-copy">Choose what calls to you. Your class shapes how you fight; your species brings its own traits.</p>
             <label className="creator-label">Character name<input autoFocus maxLength={60} placeholder="Your name will become a legend…" value={choices.name} onChange={e=>patch({name:e.target.value})}/></label>
-            <fieldset className="creator-fieldset"><legend>Choose your class</legend><div className="creator-class-grid">{CORE_CLASSES_2024.map(c=>{const d=CLASS_IDENTITY[c];return <button key={c} style={{'--class-color':d.color} as CSSProperties} className="creator-class-card" aria-pressed={c===choices.className} onClick={()=>changeClass(c)}><span className="creator-class-symbol" aria-hidden="true">{d.symbol}</span><strong>{d.title}</strong><small>{d.summary}</small></button>;})}</div></fieldset>
-            <fieldset className="creator-fieldset"><legend>Choose your species</legend><div className="creator-chips">{CREATOR_SPECIES.map(s=><button key={s} aria-pressed={s===choices.species} onClick={()=>patch({species:s,extraSkills:[]})}>{s}</button>)}</div>
+            <fieldset className="creator-fieldset"><legend>Choose your race (species)</legend><div className="creator-chips">{CREATOR_SPECIES.map(s=><button key={s} aria-pressed={s===choices.species} onClick={()=>patch({species:s,extraSkills:[]})}>{s}</button>)}</div>
               {catalog&&<ul className="creator-traits">{catalog.traits[choices.species]?.map(t=><li key={t.name}><strong>{t.name}</strong> <span>{t.meta}</span></li>)}</ul>}
-            </fieldset></>}
+            </fieldset>
+            <fieldset className="creator-fieldset"><legend>Choose your class</legend><div className="creator-class-grid">{CORE_CLASSES_2024.map(c=>{const d=CLASS_IDENTITY[c];return <button key={c} style={{'--class-color':d.color} as CSSProperties} className="creator-class-card" aria-pressed={c===choices.className} onClick={()=>changeClass(c)}><span className="creator-class-symbol" aria-hidden="true">{d.symbol}</span><strong>{d.title}</strong><small>{d.summary}</small></button>;})}</div></fieldset></>}
           {step===1&&<><p className="creator-eyebrow">02 / Abilities</p><h3>Find your strengths</h3><p className="creator-copy">Start with suggested scores, or shape them yourself. Background increases are included in the gold totals.</p>
-            <div className="creator-segment"><button aria-pressed={choices.method==='array'} onClick={()=>patch({method:'array',scores:suggestedScores(choices.className)})}>Standard array</button><button aria-pressed={choices.method==='points'} onClick={()=>patch({method:'points',scores:Object.fromEntries(CREATOR_ABILITIES.map(a=>[a,8])) as Record<AbilityKey,number>})}>27-point buy</button></div>
-            <p className="creator-copy">{choices.method==='points'?`${27-pointCost(choices.scores)} points remaining`:'15 · 14 · 13 · 12 · 10 · 8 — each score used once'}</p>
-            <div className="creator-stat-grid">{CREATOR_ABILITIES.map(a=><label key={a} className="creator-stat"><strong>{a}</strong><select aria-label={`${a} base score`} value={choices.scores[a]} onChange={e=>{const n=Number(e.target.value),scores={...choices.scores};if(choices.method==='array'){const other=CREATOR_ABILITIES.find(b=>scores[b]===n);if(other)scores[other]=scores[a];}scores[a]=n;patch({scores});}}>{(choices.method==='array'?STANDARD_ARRAY:[8,9,10,11,12,13,14,15]).map(n=><option key={n} value={n}>{n}</option>)}</select><span className="creator-final-score">{preview.stats[a]}</span><small>{sign(abilityMod(preview.stats[a]))} modifier</small></label>)}</div>
+            <div className="creator-segment"><button aria-pressed={choices.method==='array'} onClick={()=>patch({method:'array',scores:suggestedScores(choices.className)})}>Standard array</button><button aria-pressed={choices.method==='points'} onClick={()=>patch({method:'points',scores:Object.fromEntries(CREATOR_ABILITIES.map(a=>[a,8])) as Record<AbilityKey,number>})}>27-point buy</button><button aria-pressed={choices.method==='roll'} onClick={()=>patch({method:'roll',scores:choices.rolled?assignRolledScores(choices.className,choices.rolled.scores):choices.scores})}>Roll for stats</button></div>
+            <p className="creator-copy">{choices.method==='points'?`${27-pointCost(choices.scores)} points remaining`:choices.method==='roll'?'Click each ability to roll 4d6 and drop the lowest. Roll all tosses all 24 dice together. You can swap the six scores afterward.':'15 · 14 · 13 · 12 · 10 · 8 — each score used once'}</p>
+            {choices.method==='roll'&&<><div className="creator-segment"><button className="btn creator-next" disabled={status!=='connected'} onClick={()=>generateStats()}>{pendingRoll.current?'Recover stat roll':statDraft?'Roll all (new set)':'Roll all'}</button>
+              {choices.rolled&&<button onClick={()=>patch({scores:assignRolledScores(choices.className,choices.rolled!.scores)})}>Suggest assignment</button>}
+            </div><div className="creator-roll-results" aria-label="Rolled ability scores">{CREATOR_ABILITIES.map((a,i)=>{const g=statDraft?.groups[i];return <div key={a}><small>{a}</small>{g?<><div>{g.faces.map((f,j)=><span key={j} className={j===g.dropped?'dropped':''} aria-label={j===g.dropped?`${f}, dropped`:String(f)}>{f}</span>)}</div><strong>{g.total}</strong></>:<><strong>—</strong><button className="btn" disabled={status!=='connected'||!!pendingRoll.current} onClick={()=>generateStats(i)}>Roll {a}</button></>}</div>;})}</div>
+            </>}
+            <div className="creator-stat-grid">{CREATOR_ABILITIES.map(a=><label key={a} className="creator-stat"><strong>{a}</strong><select aria-label={`${a} base score`} disabled={choices.method==='roll'&&!choices.rolled} value={choices.scores[a]} onChange={e=>{const n=Number(e.target.value),scores={...choices.scores};if(choices.method!=='points'){const other=CREATOR_ABILITIES.find(b=>b!==a&&scores[b]===n);if(other)scores[other]=scores[a];}scores[a]=n;patch({scores});}}>{(choices.method==='array'?STANDARD_ARRAY:choices.method==='roll'?[...new Set(choices.rolled?.scores??Object.values(choices.scores))].sort((a,b)=>b-a):[8,9,10,11,12,13,14,15]).map(n=><option key={n} value={n}>{n}</option>)}</select><span className="creator-final-score">{preview.stats[a]}</span><small>{sign(abilityMod(preview.stats[a]))} modifier</small></label>)}</div>
             <label className="creator-label">Background<input value={choices.background} maxLength={60} onChange={e=>patch({background:e.target.value})}/></label><p className="creator-copy">Build a custom origin with your DM: two skills, one origin feat, and +2/+1 or three +1 ability increases.</p>
             <div className="creator-boosts">{CREATOR_ABILITIES.map(a=><label key={a}>{a}<select aria-label={`${a} background increase`} value={choices.boosts[a]??0} onChange={e=>patch({boosts:{...choices.boosts,[a]:Number(e.target.value)}})}>{[0,1,2].map(n=><option key={n} value={n}>+{n}</option>)}</select></label>)}</div>
             <label className="creator-label">Origin feat<select value={choices.originFeat} onChange={e=>patch({originFeat:e.target.value,extraSkills:[]})}>{ORIGIN_FEATS.map(n=><option key={n}>{n}</option>)}</select></label>

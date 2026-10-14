@@ -4,8 +4,9 @@ The player character-selection screen now offers **Create a character** alongsid
 the existing quick form and saved-character library. It opens a responsive
 charcoal-and-gold dialog with five steps and a live character preview.
 
-1. **Identity:** name, one of the twelve core classes, and one of ten species.
-2. **Abilities:** recommended standard array with score swapping, or 27-point buy;
+1. **Identity:** name, race (species) near the top, and one of the twelve core classes.
+2. **Abilities:** recommended standard array with score swapping, 27-point buy,
+   or manual 4d6-drop-lowest rolls;
    a named custom background, +2/+1 or three +1 increases, and origin feats.
 3. **Equipment & skills:** curated class loadouts, two background skills, class
    skill selections, additional Human/Skilled proficiencies, and class choices
@@ -26,6 +27,25 @@ curated starter kits rather than official starting-equipment packages. Ancestry,
 lineage, language, and other situational details can be completed with the DM on
 the sheet. The creator retains existing combat support for class features; it
 does not add new automation for every invocation or fighting style.
+
+## Rolled stats (14 October update)
+
+**Roll for stats** exposes six separate **Roll STR**, **Roll DEX**, etc. buttons.
+Each click tosses four dice through the existing live server-physics tray and
+returns to the creator. Nothing automatically advances to the next ability.
+The result cards strike out exactly one lowest die, including tied-lowest rolls.
+Each completed ability is retained as the player rolls the others.
+
+**Roll all** is an option at the top. It tosses 24 dice simultaneously and groups
+them into six sets of four. Choosing it after individual rolls starts a new set,
+as the button explicitly says. Completed scores can be swapped between abilities,
+or arranged with **Suggest assignment**. Background bonuses are added afterward.
+
+The server durably stores partial and completed sets, scoped to session and
+player. Retrying a lost response recovers the same ability without rolling it
+again. Creation checks all six submitted scores against that stored pool; client
+supplied dice faces cannot replace it. Base rolled scores can be 3–18, rather
+than the 8–15 limit used for point buy/standard-array assignment.
 
 Ability generation and first-level HP follow the
 [official 2024 character-creation rules](https://www.dndbeyond.com/sources/dnd/br-2024/creating-a-character).
@@ -58,10 +78,14 @@ selection screen and keeps choices after a connection failure.
 - The demonstration uses Windows Graphics Capture with RTX 5090 NVENC AV1;
   a separate H.264 copy supports mobile playback.
 
-Final checks: typecheck and production build passed; 203 regression files / 2,180
-tests passed, including 18 creator tests; all four real-browser creator scenarios
+Final checks: typecheck and production build passed; 203 regression files / 2,183
+tests passed, including 21 creator tests; all five real-browser creator scenarios
 passed. The production build retains its existing large-chunk warnings.
 
 [Desktop preview](https://dnd.nic024i.app/uploads/previews/character-creator-20261013/creator-desktop.png)
 · [Mobile review](https://dnd.nic024i.app/uploads/previews/character-creator-20261013/creator-mobile-review.png)
 · [Short walkthrough](https://dnd.nic024i.app/uploads/previews/character-creator-20261013/character-creator-mobile.mp4)
+
+[Manual rolls and Roll all video](https://dnd.nic024i.app/uploads/previews/character-creator-stats-20261014/stat-rolls-mobile.mp4)
+· [Rolled scores](https://dnd.nic024i.app/uploads/previews/character-creator-stats-20261014/creator-rolled-stats.png)
+· [Race selection](https://dnd.nic024i.app/uploads/previews/character-creator-stats-20261014/creator-desktop.png)

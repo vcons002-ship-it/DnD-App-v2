@@ -5,3 +5,5 @@ dialog.character-creator{width:min(1120px,calc(100vw - 32px));height:min(860px,c
 @media(prefers-reduced-motion:reduce){.character-creator *{scroll-behavior:auto}}
 .creator-steps button span{font-size:12px}
 .creator-content,.creator-preview,.creator-body{scrollbar-width:thin;scrollbar-color:#776746 #141b23}
+
+.creator-segment{flex-wrap:wrap}.creator-roll-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}.creator-roll-results>div{border:1px solid #655632;border-radius:7px;background:#1b222c;text-align:center;padding:12px 8px}.creator-roll-results small{color:#a79d82;font-size:11px}.creator-roll-results strong{display:block;color:#edcb83;font-size:25px;margin-top:8px}.creator-roll-results span{display:inline-grid;place-items:center;width:27px;height:27px;margin:8px 2px 0;background:#2c3542;border:1px solid #7c7160;border-radius:4px;color:#efdfbc}.creator-roll-results .dropped{text-decoration:line-through;color:#837c73;background:#161b22;border-color:#3e4145;opacity:.65}@media(max-width:600px){.creator-roll-results{grid-template-columns:repeat(2,minmax(0,1fr))}}

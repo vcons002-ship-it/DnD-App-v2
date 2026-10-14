@@ -9,11 +9,30 @@ import { getAllSpells,getSpell } from './spells/srd.js';
 import { traitsForRace } from './races/srd.js';
 import { getWeapon,weaponTags,searchWeapons } from './weapons/srd.js';
 import { getMastery } from './masteries/srd.js';
+import {rollDice} from '../../shared/dice.js';
+import {statRollFromFaces,statGroupFromFaces,completeStatRoll,type CreatorStatDraft,type CreatorStatRollRequest} from '../../shared/characterCreation.js';
 
 // A lost acknowledgement can be retried safely, including after a server restart.
 db.exec(`CREATE TABLE IF NOT EXISTS character_creation_requests (
   session_id TEXT NOT NULL, owner_key TEXT NOT NULL, request_id TEXT NOT NULL,
   character_id TEXT NOT NULL, PRIMARY KEY(session_id,owner_key,request_id))`);
+db.exec(`CREATE TABLE IF NOT EXISTS character_stat_rolls (
+  session_id TEXT NOT NULL, owner_key TEXT NOT NULL, roll_id TEXT NOT NULL,
+  result TEXT NOT NULL, PRIMARY KEY(session_id,owner_key,roll_id))`);
+export function savedCreatorStatRoll(sessionId:string,ownerKey:string,rollId:string):CreatorStatDraft|undefined {
+  const row=db.prepare('SELECT result FROM character_stat_rolls WHERE session_id=? AND owner_key=? AND roll_id=?').get(sessionId,ownerKey,rollId) as {result:string}|undefined;
+  return row?JSON.parse(row.result):undefined;
+}
+export function rollCreatorStats(sessionId:string,ownerKey:string,request:CreatorStatRollRequest):CreatorStatDraft {
+  const saved=savedCreatorStatRoll(sessionId,ownerKey,request.rollId);
+  if(request.index===undefined&&saved)return saved;
+  if(request.index!==undefined&&saved?.groups[request.index])return saved;
+  const result:CreatorStatDraft=request.index===undefined?statRollFromFaces(request.rollId,rollDice('24d6')!.rolls)
+    :saved??{id:request.rollId,groups:Array(6).fill(null),scores:Array(6).fill(null)};
+  if(request.index!==undefined){const group=statGroupFromFaces(rollDice('4d6')!.rolls);result.groups[request.index]=group;result.scores[request.index]=group.total;}
+  db.prepare('INSERT INTO character_stat_rolls VALUES(?,?,?,?) ON CONFLICT(session_id,owner_key,roll_id) DO UPDATE SET result=excluded.result').run(sessionId,ownerKey,request.rollId,JSON.stringify(result));
+  return result;
+}
 
 const shell=(className:string):Character=>({className,subclass:'',level:1,stats:{},sheetAbilities:[],modifiers:[],proficientSkills:[]} as unknown as Character);
 export function characterCreatorCatalog():CreatorCatalog {
@@ -82,6 +101,13 @@ export function createGuidedCharacter(sessionId:string,ownerKey:string,input:unk
     const previous=db.prepare('SELECT character_id FROM character_creation_requests WHERE session_id=? AND owner_key=? AND request_id=?').get(sessionId,ownerKey,c.requestId) as {character_id:string}|undefined;
     if(previous){const character=getCharacter(previous.character_id);if(character)return character;throw new Error('That character was removed. Start a new character.');}
     let opts:CharacterInput;
+    if(c.method==='roll') {
+      const rolled=typeof c.rolled?.id==='string'?savedCreatorStatRoll(sessionId,ownerKey,c.rolled.id):undefined;
+      if(!rolled)throw new Error('Roll your starting stats in this session before creating the character.');
+      const complete=completeStatRoll(rolled);
+      if(!complete)throw new Error('Roll all six starting ability scores before creating the character.');
+      c.rolled=complete; // Stored server faces are the only authority for the pool.
+    }
     try{opts=buildStarterCharacter(c);}catch(error){throw new Error(error instanceof Error?error.message:'Check your character choices.');}
     const created=createCharacter(sessionId,opts);
     db.prepare('INSERT INTO character_creation_requests VALUES(?,?,?,?)').run(sessionId,ownerKey,c.requestId,created.id);
