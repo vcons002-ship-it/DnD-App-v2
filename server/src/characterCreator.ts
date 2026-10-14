@@ -1,4 +1,3 @@
-import {ARTISAN_TOOLS,BACKGROUND_STARTING_GOLD} from '../../shared/startingEquipment2024.js';
 import { db,newId } from './db.js';
 import { createCharacter,getCharacter,type CharacterInput } from './sessions.js';
 import { creatorError,creatorPreview,CLASS_IDENTITY,CREATOR_SPECIES,ORIGIN_FEATS,type CreatorCatalog,type CreatorChoices } from '../../shared/characterCreation.js';
@@ -49,11 +48,14 @@ export function characterCreatorCatalog():CreatorCatalog {
 export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
   const catalog=characterCreatorCatalog();
   for(const step of [0,1,2,3,4]){const error=creatorError(c,step,catalog);if(error)throw new Error(error);}
-  const {stats,hp,ac,kit}=creatorPreview(c), cls=CLASS_IDENTITY[c.className],progression=classProgression2024(c.className,1,'',stats)!;
+  const {stats,hp,ac,equipment,gold,speed}=creatorPreview(c), cls=CLASS_IDENTITY[c.className],progression=classProgression2024(c.className,1,'',stats)!;
   const model={...shell(c.className),stats};
   const abilities:SheetAbility[]=progression.features.map(name=>{
-    const base=getFeature(name)??getSpell(name);
-    return {...levelingFeature(name,model,progression),...(base??{}),id:newId(),source:'srd',sourceClass:c.className,
+    // The legacy Lay on Hands definition carries a level-five example pool.
+    // New 2024 sheets use the leveling definition and one level-sized counter.
+    const label=/^lay on hands$/i.test(name)?'Lay on Hands':name;
+    const base=label==='Lay on Hands'?undefined:getFeature(name)??getSpell(name);
+    return {...levelingFeature(label,model,progression),...(base??{}),id:newId(),source:'srd',sourceClass:c.className,
       ...(base?.useCounter?{useCounter:{...base.useCounter,max:progression.resourceMaxima[base.useCounter.name]??base.useCounter.max}}:{})};
   });
   const modifiers:Character['modifiers']=[];
@@ -82,17 +84,16 @@ export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
     abilities.push({...s,id:newId(),source:'srd',sourceClass:c.className,prepared:s.level===0||c.prepared.includes(name)||always.includes(name),
       ...(always.includes(name)?{tags:[...(s.tags??[]),'always-prepared']}:{})});
   }
-  const weapons=kit.weapons.map(name=>{const w=getWeapon(name)!;return {name:w.name,kind:w.kind,damage:w.damage,versatileDamage:w.versatileDamage,damageType:w.damageType,range:w.range,tags:weaponTags(w),diceOnly:true};});
+  const weapons=equipment.weapons.map(name=>{const w=getWeapon(name)!;return {name:w.name,kind:w.kind,damage:w.damage,versatileDamage:w.versatileDamage,damageType:w.damageType,range:w.range,tags:weaponTags(w),diceOnly:true};});
   if(c.className==='monk')weapons.push({name:'Unarmed Strike',kind:'melee',damage:'1d6',versatileDamage:undefined,damageType:'bludgeoning',range:'5 ft',tags:['unarmed','finesse'],diceOnly:true});
   // Armor is a saved baseline, following the app's existing equipment model.
-  const equipment=kit.items.map(i=>({...i,name:i.name==='Musical Instrument'?(c.equipmentTool??'Lute'):i.name==='Chosen Tool'?(c.equipmentTool??ARTISAN_TOOLS[3]):i.name}));
   const resources=Object.fromEntries(Object.entries(progression.resourceMaxima).map(([key,max])=>[key,{max,used:0}]));
   for(const a of abilities)if(a.useCounter&&!resources[a.useCounter.name])resources[a.useCounter.name]={max:a.useCounter.max,used:0};
-  return {name:c.name.trim(),race:c.species,className:cls.title,level:1,maxHp:hp,armorClass:ac,gold:kit.gold+BACKGROUND_STARTING_GOLD,speed:c.species==='Goliath'?'35 ft':'30 ft',stats,weapons,resources,
+  return {name:c.name.trim(),race:c.species,className:cls.title,level:1,maxHp:hp,armorClass:ac,gold,speed:`${speed} ft`,stats,weapons,resources,
     appearance:c.tokenCrafting?.appearance?.trim(),
     resistances:c.species==='Dwarf'?['poison']:[],
     proficientSkills:[...c.backgroundSkills,...c.skills,...c.extraSkills],saveProficiencies:cls.saves,modifiers,sheetAbilities:abilities,
-    items:equipment.map(i=>({id:newId(),...i,note:'2024 class starting equipment',equipped:/armor|shirt|mail|shield/i.test(i.name)})),
+    items:equipment.items.map(i=>({id:newId(),...i,note:`2024 starting equipment${i.name===equipment.wornArmor?.name&&equipment.wornArmor.stealthDisadvantage?' · Disadvantage on Stealth checks':''}`,equipped:i.name===equipment.wornArmor?.name||i.name==='Shield'&&equipment.shield})),
     leveling:{rules:'2024',classes:[{className:c.className,level:1}],history:[]}};
 }
 export function createGuidedCharacter(sessionId:string,ownerKey:string,input:unknown):Character {

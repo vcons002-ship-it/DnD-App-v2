@@ -1,12 +1,14 @@
 import { describe,it,expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { createSession,getCharacter } from './sessions.js';
+import { createSession,getCharacter,updateCharacter } from './sessions.js';
 import { buildStarterCharacter,characterCreatorCatalog,createGuidedCharacter,rollCreatorStats } from './characterCreator.js';
 import {withDiceSource} from '../../shared/dice.js';
 import { CLASS_IDENTITY,STARTER_KITS,suggestedScores,creatorError,creatorPreview,statRollFromFaces,assignRolledScores,completeStatRoll,type CreatorChoices } from '../../shared/characterCreation.js';
 import { CORE_CLASSES_2024,type CoreClass } from '../../shared/characterProgression.js';
 import { SKILLS } from '../../shared/skills.js';
 import { grantLevelUp,getLevelUpPlan,applyLevelUp } from './leveling.js';
+import {CREATOR_EQUIPMENT} from '../../shared/equipmentCatalog2024.js';
+import {getWeapon} from './weapons/srd.js';
 
 function choices(className:CoreClass='fighter'):CreatorChoices {
   const cat=characterCreatorCatalog(),cls=CLASS_IDENTITY[className],stats=suggestedScores(className);
@@ -21,6 +23,48 @@ function choices(className:CoreClass='fighter'):CreatorChoices {
   return c;
 }
 describe('guided character creation',()=>{
+  it('creates the gold-route Paladin completely in the creator, including Maul, armor, inventory and magic',()=>{
+    const c={...choices('paladin'),kitId:'gold',purchases:[{id:'maul',qty:1},{id:'chain-mail',qty:1},{id:'holy-symbol-amulet',qty:1},{id:'explorer-s-pack',qty:1}],wornArmor:'chain-mail',spells:['Bless','Cure Wounds'],prepared:['Bless','Cure Wounds'],tokenCrafting:{enabled:true,appearance:'Human in chain mail with a two-handed mace.',heldWeapon:'Maul'}};
+    const made=createGuidedCharacter(createSession().id,'paladin-player',c);
+    expect(made.gold).toBe(100);expect(made.armorClass).toBe(16);
+    expect(made.weapons).toEqual([expect.objectContaining({name:'Maul',damage:'2d6',damageType:'bludgeoning',diceOnly:true})]);
+    expect(made.items.map(i=>i.name)).toEqual(['Maul','Chain Mail','Holy Symbol (Amulet)',"Explorer's Pack"]);
+    expect(made.items.filter(i=>i.equipped).map(i=>i.name)).toEqual(['Chain Mail']);
+    expect(made.sheetAbilities.filter(s=>s.type==='spell'&&s.level===1).map(s=>[s.name,s.prepared])).toEqual([['Bless',true],['Cure Wounds',true]]);
+    expect(made.spellSlots.L1).toEqual(expect.objectContaining({max:2,used:0}));
+    expect(Object.keys(made.resources).filter(n=>/Lay on Hands/i.test(n))).toEqual(['Lay on Hands']);
+    expect(made.resources['Lay on Hands']).toEqual(expect.objectContaining({max:5,used:0}));
+  });
+  it('rejects overspending, tampered prices, unknown items, invalid quantities and untrained equipment',()=>{
+    const c={...choices('paladin'),kitId:'gold'};
+    for(const purchases of [[{id:'plate-armor',qty:1}],[{id:'plate-armor',qty:1,costCp:1}],[{id:'fake-armor',qty:1}],[{id:'maul',qty:-1}],[{id:'maul',qty:1.5}],[{id:'maul',qty:1},{id:'maul',qty:1}]])expect(()=>buildStarterCharacter({...c,purchases})).toThrow();
+    expect(()=>buildStarterCharacter({...choices('wizard'),kitId:'gold',purchases:[{id:'maul',qty:1}]})).toThrow('trained');
+    expect(()=>buildStarterCharacter({...c,wornArmor:'chain-mail'})).toThrow('inventory');
+    expect(()=>buildStarterCharacter({...c,equippedShield:true})).toThrow('shield');
+  });
+  it('uses copper-precise prices, ammunition bundles, deduplicated attacks and worn armor only',()=>{
+    const c={...choices('fighter'),purchases:[{id:'javelin',qty:2},{id:'arrows',qty:2},{id:'torch',qty:3},{id:'leather-armor',qty:1}]};
+    const made=buildStarterCharacter(c);
+    expect(made.gold).toBe(40.97);expect(made.armorClass).toBe(16);
+    expect(made.weapons?.filter(w=>w.name==='Javelin')).toHaveLength(1);
+    expect(made.items?.find(i=>i.name==='Javelin')?.qty).toBe(10);expect(made.items?.find(i=>i.name==='Arrows')?.qty).toBe(40);
+    expect(made.items?.find(i=>i.name==='Leather Armor')?.equipped).toBe(false);
+    const saved=createGuidedCharacter(createSession().id,'a',c);expect(saved.gold).toBe(40.97);
+    updateCharacter(saved.id,{gold:39.97});expect(getCharacter(saved.id)?.gold).toBe(39.97);
+    expect(buildStarterCharacter({...c,wornArmor:'none'}).armorClass).toBe(11);
+    expect(buildStarterCharacter({...choices('paladin'),scores:{...choices('paladin').scores,STR:10,DEX:15},boosts:{CHA:2,CON:1}}).speed).toBe('20 ft');
+  });
+  it('has canonical weapon attacks for every priced weapon and staff focus',()=>{
+    expect(new Set(CREATOR_EQUIPMENT.map(i=>i.id)).size).toBe(CREATOR_EQUIPMENT.length);
+    for(const i of CREATOR_EQUIPMENT){expect(Number.isInteger(i.costCp)&&i.costCp>0).toBe(true);if(i.weaponName)expect(getWeapon(i.weaponName),i.name).not.toBeNull();}
+  });
+  it('keeps shield AC separate from a two-handed miniature pose',()=>{
+    const c={...choices('paladin'),purchases:[{id:'maul',qty:1}],tokenCrafting:{enabled:true,appearance:'Armored human.',heldWeapon:'Maul'}};
+    expect(()=>buildStarterCharacter(c)).toThrow('Stow your shield');
+    expect(buildStarterCharacter({...c,equippedShield:false}).armorClass).toBe(16);
+    const lowDex={...choices('paladin'),scores:{...choices('paladin').scores,DEX:8,INT:10}};
+    expect(buildStarterCharacter(lowDex).armorClass).toBe(18);
+  });
   it('drops exactly one lowest die per group, including ties and range extremes',()=>{
     const r=statRollFromFaces('test',[1,1,1,1,6,6,6,6,2,5,3,4,6,1,4,3,2,2,2,2,5,3,5,3]);
     expect(r.scores).toEqual([3,18,12,13,6,13]);expect(r.groups.map(g=>g.dropped)).toEqual([0,0,0,1,0,1]);

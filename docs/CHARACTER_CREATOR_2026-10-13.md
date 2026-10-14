@@ -8,7 +8,8 @@ charcoal-and-gold dialog with six steps and a live character preview.
 2. **Abilities:** recommended standard array with score swapping, 27-point buy,
    or manual 4d6-drop-lowest rolls;
    a named custom background, +2/+1 or three +1 increases, and origin feats.
-3. **Equipment & skills:** 2024 class equipment packages or their gold alternative, two background skills, class
+3. **Equipment & skills:** 2024 class equipment packages or their gold alternative,
+   priced equipment purchases, worn armor and shield, two background skills, class
    skill selections, additional Human/Skilled proficiencies, and class choices
    including orders, expertise, fighting styles, invocations, and weapon masteries.
 4. **Spells:** useful suggested cantrips and first-level spells, searchable and
@@ -136,13 +137,23 @@ All twelve core classes offer their published equipment package and gold alterna
 Fighter also has its second package. Weapons appear once per attack type; carried
 quantities (such as eight javelins or twenty arrows) are saved in inventory. The
 correct armor, packs, focuses, class gold and background gold are saved before
-crafting. Bard and Monk packages expose their instrument/tool choice. Gold-only
-class choices add no invented equipment; gear can be added on the sheet before a
-later armed-token craft. Custom-background traits remain the creator's existing
+crafting. Bard and Monk packages expose their instrument/tool choice. The creator
+now has a searchable **Buy starting equipment** list for spending class or background
+gold before creation, using published 2024 prices calculated in integer copper.
+It saves quantities, remaining gold and one canonical attack per weapon type.
+Worn armor and an equipped shield determine the starting AC; armor Strength
+requirements adjust the starting speed, and Stealth disadvantage is noted on
+the armor's inventory entry. Weapons and armor are limited to class training,
+including Protector/Warden choices. These are baseline sheet values, as in the
+existing equipment system; later equipment edits remain on the sheet.
+Stow an equipped shield before choosing a two-handed weapon for token crafting.
+Fractional GP from copper/silver-priced purchases survive creation and purse edits.
+The full inventory, armor, remaining gold and chosen spells appear in Review.
+Custom-background traits remain the creator's existing
 custom choices; this update does not add every published background.
 
 Appearance requires a **Weapon held by your token** choice when crafting is on.
-Only weapons from the selected package, plus Unarmed, are offered. Class/loadout
+Weapons from the selected package and purchases, plus Unarmed, are offered. Class/loadout
 changes clear that choice. The server validates it and snapshots it into the
 image-generation brief, explicitly stowing the other weapons. Sheet regeneration
 has the same choice based on the current weapons. Combat still offers all weapons;

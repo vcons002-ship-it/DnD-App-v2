@@ -16,6 +16,42 @@ async function campaign(request:APIRequestContext){
   const snapshot=async():Promise<StateSnapshot>=>{const ack=await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(ack.ok).toBe(true);return ack.snapshot;};
   await snapshot();return {code,socket,snapshot};
 }
+test('Paladin purchases gear and chooses spells before creating or crafting the character',async({page,request})=>{
+  mkdirSync(evidence,{recursive:true});await page.setViewportSize({width:1500,height:980});const f=await campaign(request);
+  await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.creator-launch').click();
+  const guide=page.getByRole('dialog',{name:'Bring your hero to life'}),next=()=>guide.getByRole('button',{name:/^Next/}).click();
+  await guide.getByLabel('Character name',{exact:true}).fill('Aldric');await guide.getByRole('button',{name:/Paladin.*Stand for your oath/}).click();await next();await next();
+  await guide.getByRole('button',{name:/Gold alternative/}).click();
+  for(const name of ['Maul','Chain Mail','Holy Symbol (Amulet)',"Explorer's Pack"]){await guide.getByLabel('Search equipment').fill(name);await guide.getByRole('button',{name:`Buy ${name}`,exact:true}).click();}
+  await expect(guide.locator('.creator-budget')).toContainText('100 GP remaining');await expect(guide.getByLabel('Worn armor')).toHaveValue('chain-mail');
+  await page.screenshot({path:path.join(evidence,'paladin-equipment.png')});await next();
+  await expect(guide.locator('.creator-spells button[aria-pressed=true]')).toHaveCount(2);
+  await guide.getByRole('button',{name:/^Bless\b/}).click();await guide.getByRole('button',{name:/^Heroism\b/}).click();
+  await page.screenshot({path:path.join(evidence,'paladin-spells.png')});await next();
+  await guide.getByLabel('Your hero’s appearance',{exact:true}).fill('Human Paladin in chain mail, holding a two-handed flanged mace.');
+  await guide.getByLabel('Weapon held by your token',{exact:true}).selectOption('Maul');
+  await guide.getByRole('checkbox',{name:/Craft token art/}).check();await next();
+  await expect(guide.locator('.creator-review')).toContainText('Maul');await expect(guide.locator('.creator-review')).toContainText('Heroism');
+  await expect(guide.getByRole('button',{name:'Create & craft token',exact:true})).toBeEnabled();
+  // Check crafting availability without running a paid generation in regression tests.
+  await guide.getByRole('button',{name:/^Back/}).click();await guide.getByRole('checkbox',{name:/Craft token art/}).uncheck();await next();
+  await guide.getByRole('button',{name:'Create & play',exact:true}).click();await expect(guide).not.toBeVisible();
+  const hero=(await f.snapshot()).characters.find(c=>c.name==='Aldric')!;
+  expect(hero.gold).toBe(100);expect(hero.armorClass).toBe(16);expect(hero.weapons.map(w=>w.name)).toEqual(['Maul']);
+  expect(hero.items.map(i=>i.name)).toEqual(['Maul','Chain Mail','Holy Symbol (Amulet)',"Explorer's Pack"]);
+  expect(hero.sheetAbilities.filter(s=>s.type==='spell'&&s.level===1&&s.prepared).map(s=>s.name)).toEqual(['Cure Wounds','Heroism']);
+  await page.getByLabel('Character',{exact:true}).click();await page.screenshot({path:path.join(evidence,'paladin-created.png')});
+});
+
+test('mobile equipment shopping stays usable and switching loadouts clears the old purchases',async({page,request})=>{
+  await page.setViewportSize({width:390,height:844});const f=await campaign(request);await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.creator-launch').click();
+  const guide=page.getByRole('dialog',{name:'Bring your hero to life'});await guide.getByLabel('Character name',{exact:true}).fill('Mobile hero');
+  await guide.getByRole('button',{name:/^Next/}).click();await guide.getByRole('button',{name:/^Next/}).click();await guide.getByRole('button',{name:/Gold alternative/}).click();
+  await guide.getByLabel('Search equipment').fill('Maul');await guide.getByRole('button',{name:'Buy Maul',exact:true}).click();
+  expect(await guide.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);await page.screenshot({path:path.join(evidence,'equipment-mobile.png')});
+  await guide.getByRole('button',{name:/Greatsword & chain mail/}).click();await expect(guide.locator('.creator-cart')).toHaveCount(0);
+  await expect(guide.locator('.creator-budget')).toContainText('54 GP remaining');
+});
 test('a player creates, claims, and places a battle-ready fighter through the guided option',async({page,request})=>{
   test.setTimeout(120000);mkdirSync(evidence,{recursive:true});
   await page.setViewportSize({width:1500,height:980});

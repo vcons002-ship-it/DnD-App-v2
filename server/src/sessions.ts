@@ -2394,7 +2394,7 @@ export function createCharacter(
   );
   if(opts.modelType||opts.appearance)db.prepare('UPDATE characters SET model_type=?,appearance=? WHERE id=?')
     .run(typeof opts.modelType==='string'&&/^[a-z0-9-]{1,48}$/.test(opts.modelType)?opts.modelType:'',typeof opts.appearance==='string'?opts.appearance.slice(0,600):'',id);
-  if(opts.gold!==undefined)db.prepare('UPDATE characters SET gold=? WHERE id=?').run(Number.isFinite(opts.gold)?Math.max(0,Math.round(opts.gold)):0,id);
+  if(opts.gold!==undefined)db.prepare('UPDATE characters SET gold=? WHERE id=?').run(Number.isFinite(opts.gold)?Math.max(0,Math.round(opts.gold*100)/100):0,id);
   return getCharacter(id)!;
 }
 
@@ -2904,7 +2904,7 @@ export function updateCharacter(
   if (patch.items !== undefined)
     put('items', JSON.stringify(sanitizeItems(patch.items, newId)));
   if (patch.gold !== undefined)
-    put('gold', Number.isFinite(patch.gold) ? Math.max(0, Math.round(patch.gold)) : 0);
+    put('gold', Number.isFinite(patch.gold) ? Math.max(0, Math.round(patch.gold*100)/100) : 0);
   if (patch.sheetAbilities !== undefined)
     put('sheet_abilities', JSON.stringify(patch.sheetAbilities));
   if ((patch.leveling !== undefined || syncedSoleClass) && nextLeveling) put('leveling', JSON.stringify(nextLeveling));

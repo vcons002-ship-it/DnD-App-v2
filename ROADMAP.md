@@ -18,6 +18,10 @@
 - [x] Allow self-contained GLB uploads for a player's claimed character and DM
   character/creature uploads, with floor/base fitting, geometry budgets, durable
   catalog binding and protection against older crafting jobs replacing uploads.
+- [x] Purchase 2024 starting equipment inside the character creator, with priced
+  search, quantities, remaining gold, worn armor/shield choices, automatic weapon
+  attacks and inventory, and purchased held weapons available before token crafting.
+  Keep class-filtered starting spell and prepared-spell choices in the same flow.
 
 - [x] Replace Fireball's separate expanding lobes with one filled, volumetric
   dome blast with a folded leading flame crest across the selected radius.

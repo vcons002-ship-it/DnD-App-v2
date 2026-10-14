@@ -4,6 +4,7 @@ import { CORE_CLASSES_2024, classProgression2024, type CoreClass } from './chara
 import { abilityMod, SKILLS, type AbilityKey } from './skills.js';
 import type { LevelUpFeatureChoice } from './levelingTypes.js';
 import type { SheetAbility } from './types.js';
+import {CREATOR_EQUIPMENT,type CreatorEquipmentItem} from './equipmentCatalog2024.js';
 
 export const CREATOR_ABILITIES: AbilityKey[] = ['STR','DEX','CON','INT','WIS','CHA'];
 export const STANDARD_ARRAY = [15,14,13,12,10,8];
@@ -52,7 +53,8 @@ export type CreatorChoices = {
   method:'array'|'points'|'roll'; scores:Record<AbilityKey,number>; rolled?:CreatorStatRoll;
   background:string; boosts:Partial<Record<AbilityKey,number>>; originFeat:string; humanFeat?:string;
   backgroundSkills:string[]; skills:string[]; extraSkills:string[];
-  kitId:string; equipmentTool?:string; features:Record<string,string[]>; cantrips:string[]; spells:string[]; prepared:string[];
+  kitId:string; equipmentTool?:string; purchases?:{id:string;qty:number}[]; wornArmor?:string; equippedShield?:boolean;
+  features:Record<string,string[]>; cantrips:string[]; spells:string[]; prepared:string[];
   tokenCrafting?:{enabled:boolean;appearance:string;heldWeapon?:string};
 };
 export type CreatorCatalog = {spells:SheetAbility[]; choices:Partial<Record<CoreClass,LevelUpFeatureChoice[]>>;traits:Record<string,SheetAbility[]>};
@@ -88,24 +90,65 @@ export const pointCost = (scores:Record<AbilityKey,number>) => CREATOR_ABILITIES
 export function creatorStats(c:CreatorChoices):Record<AbilityKey,number> {
   return Object.fromEntries(CREATOR_ABILITIES.map(a=>[a,c.scores[a]+(c.boosts[a]??0)])) as Record<AbilityKey,number>;
 }
-export function creatorHeldWeapons(c:CreatorChoices):string[]{
-  return [...(STARTER_KITS[c.className].find(k=>k.id===c.kitId)?.weapons??[]),'Unarmed'];
+export function creatorEquipmentAllowed(c:CreatorChoices,item:CreatorEquipmentItem):boolean {
+  if(item.category==='weapon'){
+    if(item.weaponCategory==='simple')return true;
+    if(['barbarian','fighter','paladin','ranger'].includes(c.className)||c.features.order?.some(n=>['Protector','Warden'].includes(n)))return true;
+    if(c.className==='bard')return !!item.description?.includes('Finesse');
+    if(c.className==='monk')return !!item.description?.includes('Light');
+    if(c.className==='rogue')return /Finesse|Light/.test(item.description??'');
+    // A Blade pact makes its bonded melee weapon proficient, not every weapon.
+    if(c.className==='warlock'&&c.features.invocations?.includes('Pact of the Blade'))return !/Crossbow|Longbow|Blowgun|Musket|Pistol/.test(item.name);
+    return false;
+  }
+  if(item.category==='shield')return ['barbarian','cleric','druid','fighter','paladin','ranger'].includes(c.className);
+  if(item.category!=='armor')return true;
+  if(item.armorTraining==='heavy')return ['fighter','paladin'].includes(c.className)||c.className==='cleric'&&!!c.features.order?.includes('Protector');
+  if(item.armorTraining==='medium')return ['barbarian','cleric','fighter','paladin','ranger'].includes(c.className)||c.className==='druid'&&!!c.features.order?.includes('Warden');
+  return !['monk','sorcerer','wizard'].includes(c.className);
 }
+/** The same purchased inventory, prices and worn equipment drive UI and server. */
+export function creatorEquipment(c:CreatorChoices){
+  const kit=STARTER_KITS[c.className].find(k=>k.id===c.kitId)??STARTER_KITS[c.className][0];
+  const items=new Map<string,number>();
+  for(const i of kit.items){const name=i.name==='Musical Instrument'?(c.equipmentTool??'Lute'):i.name==='Chosen Tool'?(c.equipmentTool??ARTISAN_TOOLS[3]):i.name;items.set(name,(items.get(name)??0)+i.qty);}
+  let spentCp=0;const weapons=new Set(kit.weapons);
+  for(const p of Array.isArray(c.purchases)?c.purchases:[]){const item=CREATOR_EQUIPMENT.find(i=>i.id===p.id);if(!item)continue;spentCp+=item.costCp*p.qty;items.set(item.name,(items.get(item.name)??0)+p.qty*item.quantity);if(item.weaponName)weapons.add(item.weaponName);}
+  const armors=CREATOR_EQUIPMENT.filter(i=>i.category==='armor'&&items.has(i.name));
+  const defaultArmor=armors.find(i=>kit.items.some(k=>k.name===i.name));
+  const wornArmor=c.wornArmor===undefined?defaultArmor:armors.find(i=>i.id===c.wornArmor);
+  const shield=(c.equippedShield??!!kit.shield)&&items.has('Shield');
+  return {kit,items:[...items].map(([name,qty])=>({name,qty})),weapons:[...weapons],armors,wornArmor,shield,spentCp,budgetCp:(kit.gold+BACKGROUND_STARTING_GOLD)*100,gold:((kit.gold+BACKGROUND_STARTING_GOLD)*100-spentCp)/100};
+}
+export function creatorPurchaseError(c:CreatorChoices):string|null {
+  if(c.purchases!==undefined&&(!Array.isArray(c.purchases)||c.purchases.length>64))return 'Choose up to 64 different equipment items.';
+  const ids=new Set<string>();
+  for(const p of c.purchases??[]){const item=p&&CREATOR_EQUIPMENT.find(i=>i.id===p.id);if(!item||!Number.isInteger(p.qty)||p.qty<1||p.qty>99||ids.has(p.id))return 'Choose valid equipment and quantities from the equipment list.';ids.add(p.id);if(!creatorEquipmentAllowed(c,item))return 'Choose weapons and armor your class is trained to use.';}
+  const e=creatorEquipment(c);
+  if(e.spentCp>e.budgetCp)return 'Your equipment costs more than your starting gold. Remove an item or reduce its quantity.';
+  if(c.wornArmor!==undefined&&c.wornArmor!=='none'&&!e.armors.some(i=>i.id===c.wornArmor))return 'Choose worn armor from your starting inventory.';
+  if(c.equippedShield!==undefined&&typeof c.equippedShield!=='boolean'||c.equippedShield&&!e.items.some(i=>i.name==='Shield'))return 'Add a shield to your inventory before equipping it.';
+  return null;
+}
+export function creatorHeldWeapons(c:CreatorChoices):string[]{return [...creatorEquipment(c).weapons,'Unarmed'];}
 export function creatorPreview(c:CreatorChoices) {
-  const stats=creatorStats(c), p=classProgression2024(c.className,1)!, k=STARTER_KITS[c.className].find(k=>k.id===c.kitId)??STARTER_KITS[c.className][0];
+  const stats=creatorStats(c), p=classProgression2024(c.className,1)!, e=creatorEquipment(c),k=e.kit;
   const dex=abilityMod(stats.DEX), con=abilityMod(stats.CON), wis=abilityMod(stats.WIS);
-  let ac=k.armor==='chain'?16:k.armor==='shirt'?13+Math.min(2,dex):k.armor==='studded'?12+dex:k.armor==='leather'?11+dex:10+dex;
-  if(k.armor==='none'&&c.className==='barbarian')ac+=con;
-  if(k.armor==='none'&&c.className==='monk')ac+=wis;
+  let ac=e.wornArmor?e.wornArmor.acBase!+(e.wornArmor.dexCap===0?0:Math.min(e.wornArmor.dexCap!,dex)):10+dex;
+  if(!e.wornArmor&&c.className==='barbarian')ac+=con;
+  if(!e.wornArmor&&!e.shield&&c.className==='monk')ac+=wis;
   const toughness=c.originFeat==='Tough'||c.species==='Human'&&c.humanFeat==='Tough';
-  const defense=c.features.fightingStyle?.includes('Defense')&&k.armor!=='none'?1:0;
-  return {stats,hp:Math.max(1,p.hitDie+con)+(toughness?2:0)+(c.species==='Dwarf'?1:0),ac:ac+(k.shield?2:0)+defense,gold:k.gold+BACKGROUND_STARTING_GOLD,hitDie:p.hitDie,kit:k,progression:p};
+  const defense=c.features.fightingStyle?.includes('Defense')&&e.wornArmor?1:0;
+  const speed=(c.species==='Goliath'?35:30)-(e.wornArmor?.strengthMin&&stats.STR<e.wornArmor.strengthMin?10:0);
+  return {stats,hp:Math.max(1,p.hitDie+con)+(toughness?2:0)+(c.species==='Dwarf'?1:0),ac:ac+(e.shield?2:0)+defense,gold:e.gold,hitDie:p.hitDie,kit:k,equipment:e,speed,progression:p};
 }
 export function creatorError(c:CreatorChoices,step:number,catalog?:CreatorCatalog):string|null {
   if(!c||!CORE_CLASSES_2024.includes(c.className)||!CREATOR_SPECIES.includes(c.species as typeof CREATOR_SPECIES[number]))return 'Choose a class and species.';
   if(step===0)return c.name.trim().length>=1&&c.name.trim().length<=60?null:'Give your character a name (up to 60 characters).';
   if(step===4){
+    const purchaseError=creatorPurchaseError(c);if(purchaseError)return purchaseError;
     if(c.tokenCrafting?.enabled&&!creatorHeldWeapons(c).includes(c.tokenCrafting.heldWeapon??''))return 'Choose which equipped weapon your token will hold, or choose Unarmed.';
+    if(c.tokenCrafting?.enabled&&creatorEquipment(c).shield&&CREATOR_EQUIPMENT.some(i=>i.weaponName===c.tokenCrafting?.heldWeapon&&i.description?.includes('Two-Handed')))return 'Stow your shield in Equipment & skills before choosing a two-handed held weapon.';
     if(c.tokenCrafting&&(typeof c.tokenCrafting.enabled!=='boolean'||typeof c.tokenCrafting.appearance!=='string'||c.tokenCrafting.appearance.length>600||c.tokenCrafting.enabled&&!c.tokenCrafting.appearance.trim()))return 'Describe your hero’s appearance in 1–600 characters to craft their token.';
     return null;
   }
@@ -126,6 +169,7 @@ export function creatorError(c:CreatorChoices,step:number,catalog?:CreatorCatalo
   const extras=(c.species==='Human'?1:0)+(c.originFeat==='Skilled'||c.species==='Human'&&c.humanFeat==='Skilled'?3:0);
   if(!uniqueValid(c.extraSkills,all.filter(s=>![...c.backgroundSkills,...c.skills].includes(s)),extras))return `Choose ${extras} additional skill${extras===1?'':'s'}.`;
   if(!STARTER_KITS[c.className].some(k=>k.id===c.kitId))return 'Choose a starting loadout.';
+  const purchaseError=creatorPurchaseError(c);if(purchaseError)return purchaseError;
   if(c.equipmentTool!==undefined&&!(c.className==='bard'?INSTRUMENTS:c.className==='monk'?[...ARTISAN_TOOLS,...INSTRUMENTS]:[]).includes(c.equipmentTool))return 'Choose a valid starting instrument or tool.';
   if(!catalog)return 'The character catalog is still loading.';
   const featureKeys=new Set((catalog.choices[c.className]??[]).map(f=>f.key));
