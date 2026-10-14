@@ -883,6 +883,9 @@ export type RiposteOpportunity = {
 };
 
 export type StateSnapshot = {
+  /** Asset-only family list for background preparation; no token IDs, counts,
+   * positions, creature names or statistics. Token visibility stays role-shaped. */
+  miniaturePreloadFamilies?: string[];
   /** Requested DM-only, read-only union of party sight. Never sent to players. */
   partyView?: Pick<StateSnapshot,'map'|'tokens'|'monsters'|'playerVision'|'exploredTerrain'>;
   /** Shared party exploration, saved per map; current sight remains personal. */

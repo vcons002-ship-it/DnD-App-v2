@@ -95,3 +95,24 @@ Final validation: typecheck/build, 2,161 unit tests and six browser/gameplay
 cases passed. The two-minute recording is live Windows Graphics Capture,
 NVIDIA NVENC AV1 (1600 x 1084), with an H.264 playback copy. All 6,626 master
 frames were checked for the previous grey-flash defect; zero were found.
+
+## Background miniature preparation
+
+The server supplies a deduplicated list of art families used on the selected
+map. This is an asset list, not a hidden token list: it has no instance IDs,
+counts, names, positions or creature statistics. Family names themselves are
+available in the browser preload metadata. The client prepares all public art
+variants of those families before they are revealed. It does not download the
+entire creature catalog.
+
+Visible figures load first. A serial background queue then downloads/parses each
+remaining model, prepares its base and uploads its textures, without inserting
+any concealed figure into the scene. Existing visibility filtering still owns
+figures, labels and hit regions. Repeated tokens share the same asset. Retired
+background assets are released when the selected map changes; normal browser
+asset caching avoids downloading them again.
+
+A door opened before background preparation finishes can still show an initial
+load; door interaction never waits for the queue. The door regression deliberately
+adds 700 ms to each cold goblin model request and checks that all variants are
+prepared while the door is closed, with no new download when it opens.

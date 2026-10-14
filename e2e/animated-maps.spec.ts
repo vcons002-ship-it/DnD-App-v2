@@ -33,6 +33,13 @@ test('animated map upload, fog, darkness, tiles, fallback and cached seeking wor
   const video=page.getByTestId('animated-map-video');await expect(video).toHaveCount(1);await expect.poll(()=>video.evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
   await expect(page.getByTestId('player-vision')).toHaveAttribute('data-wall-count','1');
   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1',{timeout:60000});
+  // Concealed creatures' art is ready before the passage opens, while their
+  // figures/hit regions remain absent. All three public goblin variants warm
+  // regardless of how many goblins are placed behind the wall.
+  const layer=page.getByTestId('miniature-layer');
+  await expect.poll(async()=>JSON.parse(await layer.getAttribute('data-preloaded-model-urls')??'[]').filter((url:string)=>/goblin/.test(url)).length,{timeout:60000}).toBe(3);
+  await expect(layer).toHaveAttribute('data-miniature-count','1');
+  const goblinRequests:string[]=[];page.on('request',r=>{if(/goblin.*\.glb/.test(r.url()))goblinRequests.push(r.url());});
   socket.emit('fog:setVision',{mapId:map.id,layer:'tokens',enabled:false});await snap();
   await expect(page.getByTestId('automatic-map-fog')).toBeVisible(); // Map concealment is independent of token concealment.
   socket.emit('fog:setVision',{mapId:map.id,layer:'tokens',enabled:true});await snap();
@@ -45,6 +52,8 @@ test('animated map upload, fog, darkness, tiles, fallback and cached seeking wor
   }
   socket.emit('map:editWalls',{mapId:map.id,removeId:'barrier'});await snap();
   await expect(page.getByTestId('player-vision')).toHaveAttribute('data-wall-count','0');
+  await expect(layer).toHaveAttribute('data-miniature-count','2');
+  expect(goblinRequests).toEqual([]); // Reveal needs no new model download.
   await expect.poll(async()=>Number(await page.getByTestId('player-vision').getAttribute('data-explored-regions'))).toBeGreaterThan(0);
   await page.getByRole('button',{name:'Toggle map animation'}).click();await expect(video).toHaveCount(0);
   await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('Image')).some((n:any)=>n.image()?.tagName==='VIDEO'))).toBe(false);
@@ -69,7 +78,9 @@ test('DM can upload an animated map from the Maps panel',async({page,request})=>
  expect(spawnSync(ffmpeg!,['-v','error','-f','lavfi','-i','color=c=darkgreen:size=160x90:rate=10','-t','0.3','-c:v','libx264','-pix_fmt','yuv420p','-y',file],{windowsHide:true}).status).toBe(0);
  const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Animated upload UI'}})).json();
  await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
- if(!await page.getByPlaceholder('Map name (optional)',{exact:true}).isVisible())await page.getByRole('button',{name:'Maps',exact:true}).click();
+  // An empty campaign opens Maps on mount. Wait for that mount rather than
+  // racing it with a toggle that can immediately close the new panel.
+  await expect(page.getByPlaceholder('Map name (optional)',{exact:true})).toBeVisible();
  await page.getByPlaceholder('Map name (optional)',{exact:true}).fill('UI animated map');
  await page.locator('input[type=file][accept*="video/mp4"]').setInputFiles(file);
  await page.getByRole('button',{name:'Upload image or animated map',exact:true}).click();

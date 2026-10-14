@@ -59,6 +59,19 @@ const spawnInstance = (
 import type { Monster, MonsterPublic } from '../../shared/types.js';
 
 describe('creature roll redaction + player AOE visibility', () => {
+  it('prepares deduplicated map art without publishing concealed tokens or creature sheets',()=>{
+    const s=createSession('Background miniature art'),map=createMap(s.id,{name:'Active room'}),other=createMap(s.id,{name:'Other room'});setActiveMap(s.id,map.id);
+    for(let i=0;i<3;i++){
+      const m=instantiateMonster(createMonsterTemplate(s.id,{name:'Secret sentry',modelType:'goblin',maxHp:40}).id)!;
+      const token=createToken({mapId:map.id,kind:'monster',refId:m.id,x:50+i*25,y:80});setTokenHidden(token.id,true);
+    }
+    const otherMonster=spawnInstance(s.id,'Wolf',15);createToken({mapId:other.id,kind:'monster',refId:otherMonster.id,x:50,y:50});
+    const unknown=spawnInstance(s.id,'Secret disguised king',90);const hidden=createToken({mapId:map.id,kind:'monster',refId:unknown.id,x:50,y:50});setTokenHidden(hidden.id,true);
+    const player=buildSnapshot(s.id,'player')!;
+    expect(player.miniaturePreloadFamilies).toEqual(['goblin']);
+    expect(player.tokens).toEqual([]);expect(player.monsters).toEqual([]);
+    expect(buildSnapshot(s.id,'dm',other.id)!.miniaturePreloadFamilies).toEqual(['wolf']);
+  });
   it('hides creature saves initiated by a player while sharing accepted damage and outcome',()=>{
     const s=createSession('Player Fireball private saves'),map=createMap(s.id,{name:'Arena'});setActiveMap(s.id,map.id);
     const goblin=spawnInstance(s.id,'Goblin',40);createToken({mapId:map.id,kind:'monster',refId:goblin.id,x:75,y:75});

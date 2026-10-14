@@ -563,6 +563,12 @@ export function createSnapshotBuilder(
       sessionCode: session.code,
       sessionName: session.name,
       map,
+      miniaturePreloadFamilies:[...new Set(data.tokens.flatMap(t=>{
+        if(t.kind!=='monster')return [];
+        const m=monById.get(t.refId);if(!m)return [];
+        const family=m.objectKind?(m.modelType==='spiritual-weapon'?'spiritual-weapon':`object-${m.objectKind}`):resolveMonsterModelType(m).replace(/ +/g,'-');
+        return family&&family!=='none'?[family]:[];
+      }).filter(Boolean))].sort(),
       activeMapId,
       activeTurnTokenId: session.activeTurnTokenId,
       round: session.combatRound,

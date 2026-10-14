@@ -39,7 +39,7 @@ import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, 
 import { useBoxSelection } from './useBoxSelection';
 import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
-import { resolveMiniature, miniatureForQuality, useMiniatureCatalog } from '../lib/miniatures';
+import { resolveMiniature, miniatureForQuality, miniaturePreloadDefinitions, useMiniatureCatalog } from '../lib/miniatures';
 import { HpFxLayer, HpNumberLayer } from './HpFx';
 import {weaponTravelMs} from '../../../shared/weaponImpact';
 import {spellImpactStyle,weaponImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
@@ -1262,11 +1262,12 @@ export function MapStage({
     paint();return ()=>cancelAnimationFrame(frame);
   },[snapshot,readyMiniatures,presentation,tokenVisibleAtPosition]);
 
-  // The public party roster contains names, not hidden token positions.
+  // Prepare map art before a door opens. Only role-filtered tokens below can
+  // create an instance; this deduplicated art list contains no hidden positions.
   const preloadMiniatures = useMemo(() => [...(use3dTokens || use3dMonsters ? [DEATH_SKULL] : []), ...(use3dTokens ? snapshot.characters.flatMap(character => {
     const definition = miniatureForQuality(resolveMiniature(character.name, 'pc'),graphics.modelQuality);
     return definition ? [definition] : [];
-  }) : [])], [snapshot.characters, use3dTokens, use3dMonsters, graphics.modelQuality]);
+  }) : []), ...(use3dMonsters?miniaturePreloadDefinitions(snapshot.miniaturePreloadFamilies??[]):[])], [snapshot.characters, snapshot.miniaturePreloadFamilies, use3dTokens, use3dMonsters, graphics.modelQuality, miniatureCatalogRevision]);
 
   // Content-stable so TokenShape's memo isn't defeated by each snapshot's fresh arrays.
   const terrainZones=useContentStable(useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]));
