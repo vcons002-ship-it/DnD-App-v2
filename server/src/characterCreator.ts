@@ -12,25 +12,32 @@ import { getMastery } from './masteries/srd.js';
 import {rollDice} from '../../shared/dice.js';
 import {statRollFromFaces,statGroupFromFaces,completeStatRoll,type CreatorStatDraft,type CreatorStatRollRequest} from '../../shared/characterCreation.js';
 
-// A lost acknowledgement can be retried safely, including after a server restart.
-db.exec(`CREATE TABLE IF NOT EXISTS character_creation_requests (
-  session_id TEXT NOT NULL, owner_key TEXT NOT NULL, request_id TEXT NOT NULL,
-  character_id TEXT NOT NULL, PRIMARY KEY(session_id,owner_key,request_id))`);
-db.exec(`CREATE TABLE IF NOT EXISTS character_stat_rolls (
-  session_id TEXT NOT NULL, owner_key TEXT NOT NULL, roll_id TEXT NOT NULL,
-  result TEXT NOT NULL, PRIMARY KEY(session_id,owner_key,roll_id))`);
+// Tables (character_creation_requests, character_stat_rolls) live in db.ts.
 export function savedCreatorStatRoll(sessionId:string,ownerKey:string,rollId:string):CreatorStatDraft|undefined {
   const row=db.prepare('SELECT result FROM character_stat_rolls WHERE session_id=? AND owner_key=? AND roll_id=?').get(sessionId,ownerKey,rollId) as {result:string}|undefined;
   return row?JSON.parse(row.result):undefined;
 }
-export function rollCreatorStats(sessionId:string,ownerKey:string,request:CreatorStatRollRequest):CreatorStatDraft {
-  const saved=savedCreatorStatRoll(sessionId,ownerKey,request.rollId);
+/** Each player gets one fresh set beyond their first unspent stat roll (the
+ *  creator's "Roll all (new set)"). Past that, asking for another returns the
+ *  latest set (`kept`), so a player can't re-roll until the numbers look good.
+ *  Spending a roll on a character frees the next one. The DM is not limited. */
+export const OPEN_STAT_ROLLS_PER_PLAYER=2;
+export function rollCreatorStats(sessionId:string,ownerKey:string,request:CreatorStatRollRequest):CreatorStatDraft&{kept?:boolean} {
+  let saved=savedCreatorStatRoll(sessionId,ownerKey,request.rollId);
+  if(!saved&&ownerKey!=='dm'){
+    const unspent=db.prepare('SELECT roll_id FROM character_stat_rolls WHERE session_id=? AND owner_key=? AND used_by IS NULL ORDER BY rowid DESC').all(sessionId,ownerKey) as {roll_id:string}[];
+    const open=unspent.length>=OPEN_STAT_ROLLS_PER_PLAYER?unspent[0]:undefined;
+    if(open){
+      request={...request,rollId:open.roll_id};saved=savedCreatorStatRoll(sessionId,ownerKey,open.roll_id)!;
+      if(request.index===undefined||saved.groups[request.index])return {...saved,kept:true};
+    }
+  }
   if(request.index===undefined&&saved)return saved;
   if(request.index!==undefined&&saved?.groups[request.index])return saved;
   const result:CreatorStatDraft=request.index===undefined?statRollFromFaces(request.rollId,rollDice('24d6')!.rolls)
     :saved??{id:request.rollId,groups:Array(6).fill(null),scores:Array(6).fill(null)};
   if(request.index!==undefined){const group=statGroupFromFaces(rollDice('4d6')!.rolls);result.groups[request.index]=group;result.scores[request.index]=group.total;}
-  db.prepare('INSERT INTO character_stat_rolls VALUES(?,?,?,?) ON CONFLICT(session_id,owner_key,roll_id) DO UPDATE SET result=excluded.result').run(sessionId,ownerKey,request.rollId,JSON.stringify(result));
+  db.prepare('INSERT INTO character_stat_rolls (session_id,owner_key,roll_id,result) VALUES(?,?,?,?) ON CONFLICT(session_id,owner_key,roll_id) DO UPDATE SET result=excluded.result').run(sessionId,ownerKey,request.rollId,JSON.stringify(result));
   return result;
 }
 
@@ -111,8 +118,13 @@ export function createGuidedCharacter(sessionId:string,ownerKey:string,input:unk
       c.rolled=complete; // Stored server faces are the only authority for the pool.
     }
     try{opts=buildStarterCharacter(c);}catch(error){throw new Error(error instanceof Error?error.message:'Check your character choices.');}
+    if(c.method==='roll'){
+      const spent=db.prepare('SELECT used_by FROM character_stat_rolls WHERE session_id=? AND owner_key=? AND roll_id=?').get(sessionId,ownerKey,c.rolled!.id) as {used_by:string|null}|undefined;
+      if(spent?.used_by)throw new Error('Those rolled stats already belong to another character. Roll again for this one.');
+    }
     const created=createCharacter(sessionId,opts);
     db.prepare('INSERT INTO character_creation_requests VALUES(?,?,?,?)').run(sessionId,ownerKey,c.requestId,created.id);
+    if(c.method==='roll')db.prepare('UPDATE character_stat_rolls SET used_by=? WHERE session_id=? AND owner_key=? AND roll_id=?').run(created.id,sessionId,ownerKey,c.rolled!.id);
     return created;
   })();
 }

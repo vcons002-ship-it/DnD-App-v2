@@ -420,6 +420,9 @@ export function changeSessionCode(sessionId: string, rawCode: string): string {
  */
 export function deleteSession(sessionId: string): void {
   db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+  // No foreign key on the character-creator tables: clear them explicitly.
+  db.prepare('DELETE FROM character_creation_requests WHERE session_id = ?').run(sessionId);
+  db.prepare('DELETE FROM character_stat_rolls WHERE session_id = ?').run(sessionId);
 }
 
 export function setActiveMap(sessionId: string, mapId: string): void {

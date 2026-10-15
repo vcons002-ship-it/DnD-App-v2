@@ -1,6 +1,20 @@
 /* Persistent, same-origin visual-asset cache. Never caches API or campaign state. */
 const CACHE='dnd-visual-assets-v1';
-const checked=new Set(),pending=new Map();
+const checked=new Set(),pending=new Map(),filling=new Set();
+// Map videos can be large: cache only complete files up to this size, and keep
+// only the newest few, so the cache can't grow without bound on a player's disk.
+const MAX_VIDEO_BYTES=64*1024*1024,MAX_VIDEOS=6;
+const isVideo=url=>/\.(mp4|webm)$/i.test(url.pathname);
+async function trimVideos(cache){
+ const videos=(await cache.keys()).filter(r=>isVideo(new URL(r.url)));
+ for(const old of videos.slice(0,Math.max(0,videos.length-MAX_VIDEOS)))await cache.delete(old);
+}
+/** Full byte size when `response` carries the WHOLE file (200, or a 206 for bytes 0-end), else 0. */
+function completeSize(response){
+ if(response.status===200)return Number(response.headers.get('content-length'))||0;
+ const m=/^bytes 0-(\d+)\/(\d+)$/.exec(response.headers.get('content-range')||'');
+ return m&&Number(m[1])===Number(m[2])-1?Number(m[2]):0;
+}
 function eligible(url){
  return url.origin===self.location.origin &&
   (/^\/(miniatures|art|fonts|assets)\//.test(url.pathname)||/^\/uploads\//.test(url.pathname)) &&
@@ -32,11 +46,20 @@ self.addEventListener('fetch',event=>{
   event.respondWith((async()=>{
    const cache=await caches.open(CACHE),cached=await cache.match(full);
    if(!cached){
-    // Preserve progressive playback. Cache one complete response in the
-    // background, never a partial 206 as though it were the entire movie.
-    const fill=refresh(cache,full,null).catch(()=>null);
-    event.waitUntil(fill);
-    return request.headers.has('range')?fetch(request):((await fill)||fetch(request));
+    // Stream the network response straight to the player (progressive
+    // playback, one download). When it carries the whole file, a tee keeps a
+    // copy for the cache as the same bytes arrive — never a second download,
+    // never a partial 206 stored as though it were the entire movie.
+    const response=await fetch(request),size=completeSize(response);
+    if(!response.body||!response.ok||!size||size>MAX_VIDEO_BYTES||filling.has(full.url)||
+       !/^video\//.test(response.headers.get('content-type')||''))return response;
+    filling.add(full.url);
+    const [play,keep]=response.body.tee();
+    const headers=new Headers(response.headers);headers.delete('content-range');headers.set('content-length',String(size));
+    event.waitUntil(cache.put(full,new Response(keep,{status:200,headers}))
+     .then(()=>trimVideos(cache)).catch(()=>{/* quota/aborted: playback already has its stream */})
+     .finally(()=>filling.delete(full.url)));
+    return new Response(play,{status:response.status,statusText:response.statusText,headers:response.headers});
    }
    const range=request.headers.get('range');if(!range)return cached;
    const match=/^bytes=(\d*)-(\d*)$/.exec(range);

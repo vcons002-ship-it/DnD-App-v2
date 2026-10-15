@@ -50,6 +50,7 @@ export function CharacterCreator({onCreated}:{onCreated:(id:string)=>void}) {
     pendingRoll.current??={rollId:index===undefined?crypto.randomUUID():statDraft?.id??crypto.randomUUID(),className:choices.className,name:choices.name,index};setError('');setRolling(true);
     const result=await rollStats(pendingRoll.current);
     if(result.ok){pendingRoll.current=null;setStatDraft(result.roll);const complete=completeStatRoll(result.roll);
+      if(result.roll.kept)setError('You already rolled a new set. These stats stay until you use them on a character.');
       patch({method:'roll',rolled:complete,scores:Object.fromEntries(CREATOR_ABILITIES.map((a,i)=>[a,result.roll.scores[i]??choices.scores[a]])) as Record<AbilityKey,number>});
     }else setError(result.error);
     setRolling(false);

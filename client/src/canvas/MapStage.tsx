@@ -1264,10 +1264,12 @@ export function MapStage({
 
   // Prepare map art before a door opens. Only role-filtered tokens below can
   // create an instance; this deduplicated art list contains no hidden positions.
-  const preloadMiniatures = useMemo(() => [...(use3dTokens || use3dMonsters ? [DEATH_SKULL] : []), ...(use3dTokens ? snapshot.characters.flatMap(character => {
+  // Content-stable: each snapshot rebuilds these arrays, which would otherwise
+  // hand MiniatureLayer a "new" preload list on every update.
+  const preloadMiniatures = useContentStable(useMemo(() => [...(use3dTokens || use3dMonsters ? [DEATH_SKULL] : []), ...(use3dTokens ? snapshot.characters.flatMap(character => {
     const definition = miniatureForQuality(resolveMiniature(character.name, 'pc',character),graphics.modelQuality);
     return definition ? [definition] : [];
-  }) : []), ...(use3dMonsters?miniaturePreloadDefinitions(snapshot.miniaturePreloadFamilies??[]):[])], [snapshot.characters, snapshot.miniaturePreloadFamilies, use3dTokens, use3dMonsters, graphics.modelQuality, miniatureCatalogRevision]);
+  }) : []), ...(use3dMonsters?miniaturePreloadDefinitions(snapshot.miniaturePreloadFamilies??[]):[])], [snapshot.characters, snapshot.miniaturePreloadFamilies, use3dTokens, use3dMonsters, graphics.modelQuality, miniatureCatalogRevision]));
 
   // Content-stable so TokenShape's memo isn't defeated by each snapshot's fresh arrays.
   const terrainZones=useContentStable(useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]));

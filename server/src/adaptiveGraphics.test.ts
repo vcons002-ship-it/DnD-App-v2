@@ -6,18 +6,30 @@ import {visionLit,visionContains,type PlayerVision} from '../../shared/playerVis
 import type {MapWall} from '../../shared/mapWalls.js';
 
 describe('sustained automatic rendering budgets',()=>{
-  it('ignores idle/loading gaps and lowers one tier only after sustained slow rendering',()=>{
+  /** Feed frames whose interval depends on the current tier, from t0 to t1. */
+  const run=(auto:ReturnType<typeof createAdaptiveGraphics>,t0:number,t1:number,frame:(tier:string)=>number)=>{
+    for(let t=t0;t<t1;t+=frame(auto.tier))auto.sample(t,true);
+  };
+  it('ignores idle/loading gaps and lowers one tier only after sustained slow rendering that the drop fixes',()=>{
     const auto=createAdaptiveGraphics('high');
     for(let t=100;t<10000;t+=50)auto.sample(t,false);
     expect(auto.tier).toBe('high');
-    for(let t=10000;t<14000;t+=33)auto.sample(t,true);
+    const cost=(tier:string)=>tier==='high'?33:20; // high is too heavy for this machine
+    run(auto,10000,14000,cost);
     expect(auto.tier).toBe('high');
-    for(let t=14000;t<18000;t+=33)auto.sample(t,true);
+    run(auto,14000,18000,cost);
     expect(auto.tier).toBe('balanced');
-    for(let t=18000;t<32000;t+=33)auto.sample(t,true);
+    run(auto,18000,60000,cost);
+    expect(auto.tier).toBe('balanced'); // the drop helped, so it sticks
+  });
+  it('restores quality when the display, not the renderer, caps frames at 30 Hz',()=>{
+    const auto=createAdaptiveGraphics('high');
+    run(auto,100,10000,()=>33.4);
     expect(auto.tier).toBe('balanced');
-    for(let t=32000;t<52000;t+=33)auto.sample(t,true);
-    expect(auto.tier).toBe('low');
+    run(auto,10000,20000,()=>33.4);
+    expect(auto.tier).toBe('high'); // balanced was no faster: put high back
+    run(auto,20000,200000,()=>33.4);
+    expect(auto.tier).toBe('high'); // and steady 30 Hz is no longer "slow"
   });
   it('recovers gradually after a stable minute and never overrides explicit presets',()=>{
     const auto=createAdaptiveGraphics('low');
@@ -27,12 +39,35 @@ describe('sustained automatic rendering budgets',()=>{
     expect(graphicsBudget('off',1440,auto.tier).resolved).toBe('off');
     expect(graphicsBudget('auto',1440,auto.tier).resolved).toBe('balanced');
   });
-  it('does not count background-tab time as a minute of fast rendering',()=>{
+  it('recovers on a 50 Hz display too',()=>{
+    const auto=createAdaptiveGraphics('low');
+    run(auto,100,70000,()=>20);
+    expect(auto.tier).toBe('balanced');
+  });
+  it('counts only time actually spent rendering toward recovery, without resetting on pauses',()=>{
     const auto=createAdaptiveGraphics('low');
     for(let t=100;t<30000;t+=16.67)auto.sample(t,true);
-    auto.sample(150000,true);
-    for(let t=150017;t<180000;t+=16.67)auto.sample(t,true);
-    expect(auto.tier).toBe('low');
+    auto.sample(150000,true); // a long background-tab gap counts for nothing
+    for(let t=150017;t<170000;t+=16.67)auto.sample(t,true);
+    expect(auto.tier).toBe('low'); // ~50 s of real fast rendering so far
+    for(let t=170000;t<185000;t+=16.67)auto.sample(t,true);
+    expect(auto.tier).toBe('balanced');
+  });
+  it('does not bounce back into a tier that just failed',()=>{
+    const auto=createAdaptiveGraphics('balanced');
+    // Fast enough at balanced to climb, but high itself is too heavy.
+    const cost=(tier:string)=>tier==='high'?33:16.67;
+    run(auto,100,70000,cost);
+    expect(auto.tier).toBe('high');
+    run(auto,70000,110000,cost);
+    expect(auto.tier).toBe('balanced');
+    const climbs:number[]=[];
+    for(let t=110000;t<110000+40*60000;t+=cost(auto.tier))if(auto.sample(t,true)==='high')climbs.push(t);
+    // One retry after the 10-minute back-off; it fails again, so the next wait
+    // doubles to 20 minutes instead of bouncing every 2.5 minutes.
+    expect(climbs).toHaveLength(2);
+    expect(climbs[0]).toBeGreaterThan(90000+10*60000-1000);
+    expect(climbs[1]-climbs[0]).toBeGreaterThan(20*60000);
   });
 });
 

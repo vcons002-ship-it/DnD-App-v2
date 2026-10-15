@@ -61,3 +61,26 @@ it('snapshots an explicit held weapon and does not overwrite a later uploaded mi
   await vi.waitFor(()=>expect(q.snapshot().jobs[0].state).toBe('ready'));expect(getCharacter(c.id)?.modelType).toBe('uploaded-new-model');
   const restored=new AssetQueue((q as any).file,vi.fn());wireCharacterAssets(restored);expect(getCharacter(c.id)?.modelType).toBe('uploaded-new-model');
 });
+
+it('does not put crafted art back over an icon the player chose later, after a restart',async()=>{
+  const c=hero();
+  const q=new AssetQueue(file(),async(job,_p,reference)=>{reference(`/uploads/miniatures/${job.family}.png`);return model(job.family);});
+  wireCharacterAssets(q);const job=craftHeroToken(q,c,'Green skin.');q.start();
+  await vi.waitFor(()=>expect(q.snapshot().jobs[0].state).toBe('ready'));
+  expect(getCharacter(c.id)?.icon).toBe(`/uploads/miniatures/${job.family}.png`);
+  expect(q.snapshot().jobs[0].iconApplied).toBe(true);
+  const {db}=await import('./db.js');db.prepare('UPDATE characters SET icon=? WHERE id=?').run('🐉',c.id);
+  wireCharacterAssets(new AssetQueue((q as any).file,vi.fn()));
+  expect(getCharacter(c.id)?.icon).toBe('🐉');
+});
+it('limits each player to a few paid hero-token crafts a day; the DM is not limited',async()=>{
+  const {HERO_CRAFTS_PER_DAY}=await import('./assets/heroTokens.js');
+  const q=new AssetQueue(file(),vi.fn()),s=createSession();
+  const fresh=(i:number)=>createCharacter(s.id,{name:`Alt ${i}`,race:'Elf',className:'Wizard'});
+  const me={dm:false,playerId:'player-quota-1'};
+  for(let i=0;i<HERO_CRAFTS_PER_DAY;i++)craftHeroToken(q,fresh(i),'Blue robes.',false,undefined,me);
+  expect(()=>craftHeroToken(q,fresh(99),'Blue robes.',false,undefined,me)).toThrow(/a day per player/);
+  expect(()=>craftHeroToken(q,fresh(98),'Blue robes.',false,undefined,{dm:false,playerId:'someone-else'})).not.toThrow();
+  expect(()=>craftHeroToken(q,fresh(97),'Blue robes.',false,undefined,{dm:true})).not.toThrow();
+  expect(()=>craftHeroToken(q,fresh(96),'Blue robes.',false,undefined,{dm:false,playerId:null})).toThrow(/a day per player/);
+});

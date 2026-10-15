@@ -896,7 +896,10 @@ export function createApiRouter(io: IOServer): Router {
   // DM uploads a map image (multipart) OR links a Google Slides URL. Gated by
   // the DM passphrase when one is configured (this is the one REST route that
   // mutates live session state — every socket-side map mutation is DM-gated).
-  router.post('/sessions/:code/maps', receiveMapMedia, async (req, res) => {
+  // The DM secret (x-dm-passphrase header) is checked BEFORE multer stores the
+  // body, like /map-media: otherwise anyone could stream a 250 MB file to disk
+  // and only then be refused.
+  router.post('/sessions/:code/maps', (req, res, next) => { if (requireDm(req, res)) next(); }, receiveMapMedia, async (req, res) => {
     if (!requireDm(req, res)){if(req.file)await fs.promises.unlink(req.file.path).catch(()=>{});return;}
     const session = getSessionByCode(String(req.params.code));
     if (!session){if(req.file)await fs.promises.unlink(req.file.path).catch(()=>{});return res.status(404).json({ error: 'Session not found' });}

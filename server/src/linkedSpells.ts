@@ -150,7 +150,8 @@ export function resolveSpellArea(sid:string,roller:string,ctx:LinkedSpellContext
   const map=getMap(center.mapId)!,seen=new Set<string>();
   const targets=listTokens(center.mapId).filter(t=>{
     const e=entity(t.kind,t.refId),key=`${t.kind}:${t.refId}`;
-    if(!e||('objectKind'in e&&e.objectKind)||seen.has(key)||!tokenInSpellRadius(center,t,radius,map.gridSizePx/map.feetPerSquare)||!hasLineOfSight(center,t,map.walls))return false;
+    // The dead don't roll saves (same rule as placed areas); a PC dying at 0 HP still does.
+    if(!e||('objectKind'in e&&e.objectKind)||isDeadEntity(t.kind,e)||seen.has(key)||!tokenInSpellRadius(center,t,radius,map.gridSizePx/map.feetPerSquare)||!hasLineOfSight(center,t,map.walls))return false;
     seen.add(key);return true;
   });
   const requests=targets.map(t=>{const e=entity(t.kind,t.refId)!,labels=e.conditions.map(c=>c.label);return {target:t,c:{stats:effectiveStats(e).scores,level:e.level,isMonster:t.kind==='monster'},ability:save,dc:ctx.dc,

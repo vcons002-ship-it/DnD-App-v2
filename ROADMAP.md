@@ -3168,3 +3168,22 @@ Smaller refinements on top of the shipped Phase 2 work.
 - [x] Unit and real-browser coverage; opt-in paired performance and AV1 gameplay recording.
 
 See [Animated maps](docs/ANIMATED_MAPS.md).
+
+## Review fixes - October 2026 (PRs #123–#145)
+
+- [x] Line, cone and cube spell art (Lightning Bolt, Burning Hands, Cone of
+  Cold, Thunderwave) reaches players only while the caster is visible to them.
+- [x] Map uploads check the DM secret before the file is stored.
+- [x] A new uploaded model replaces the character's or creature's previous
+  upload (deleted once unused); players may give at most 20 characters per
+  campaign an uploaded model. Hero-token crafting (paid image API) is limited to
+  3 per player per day; the DM is not limited. Finished token art is applied
+  once and no longer overwrites a later icon choice after a restart.
+- [x] Map videos are cached from the playback stream itself (no second
+  download, no waiting on the cache), up to 64 MB each, newest 6 kept.
+- [x] Auto graphics quality checks that a drop helped (30 Hz displays keep their
+  quality), recovers on 50 Hz displays and across pauses, and backs off from a
+  tier that failed soon after it was reached.
+- [x] Ice Knife's burst skips dead creatures. Starting-stat rolls allow one new
+  set; after that the latest set is kept until spent on a character. Deleting a
+  session clears its character-creator records.

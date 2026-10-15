@@ -376,3 +376,12 @@ describe('repeat actions and hit riders',()=>{
     expireOnCasterTurn(f.session.id,f.actor);expect(victim().conditions.some(c=>c.combatEffect?.attackDisadvantage)).toBe(false);expect(victim().conditions.some(c=>c.combatEffect?.spell==='Heat Metal')).toBe(true);
   });
 });
+
+it('Ice Knife’s burst skips creatures that are already dead',async()=>{
+  const f=setup('Ice Knife');const {db}=await import('./db.js');
+  db.prepare('UPDATE monsters SET cur_hp=0 WHERE id=?').run(f.second.id);
+  withDiceSource(s=>s.map(n=>Math.min(n,15)),()=>f.cast(1));
+  const saves=listRollLog(f.session.id).filter(e=>e.label==='Ice Knife: DEX save').map(e=>e.detail);
+  expect(saves.some(d=>d.startsWith(`${getMonster(f.monster.id)!.name}:`))).toBe(true);
+  expect(saves.some(d=>d.startsWith(`${getMonster(f.second.id)!.name}:`))).toBe(false);
+});

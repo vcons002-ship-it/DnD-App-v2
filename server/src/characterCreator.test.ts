@@ -83,6 +83,24 @@ describe('guided character creation',()=>{
     const altered={...input,requestId:randomUUID(),scores:{...input.scores,STR:17},rolled:{...rolled,scores:[17,18,18,18,18,18]}};
     expect(()=>createGuidedCharacter(s.id,'a',altered)).toThrow('each score once');
   });
+  it('allows one new set, then keeps the latest roll so re-rolling can’t shop for better stats',()=>{
+    const s=createSession(),request=()=>({rollId:randomUUID(),className:'fighter' as const,name:'Hero'});
+    withDiceSource(()=>Array(24).fill(2),()=>rollCreatorStats(s.id,'p1',request()));
+    const first=withDiceSource(()=>Array(24).fill(3),()=>rollCreatorStats(s.id,'p1',request())); // "Roll all (new set)"
+    expect(first.kept).toBeUndefined();expect(first.scores).toEqual(Array(6).fill(9));
+    const again=withDiceSource(()=>{throw new Error('must not roll again');},()=>rollCreatorStats(s.id,'p1',request()));
+    expect(again).toMatchObject({id:first.id,scores:first.scores,kept:true});
+    // Another player, and the DM, are unaffected.
+    expect(withDiceSource(()=>Array(24).fill(6),()=>rollCreatorStats(s.id,'p2',request())).scores).toEqual(Array(6).fill(18));
+    expect(withDiceSource(()=>Array(24).fill(6),()=>rollCreatorStats(s.id,'dm',request())).kept).toBeUndefined();
+    // Spending the roll on a character frees the next one, and it can't be spent twice.
+    const complete=completeStatRoll(first)!;
+    const input={...choices(),method:'roll' as const,rolled:complete,scores:assignRolledScores('fighter',complete.scores)};
+    createGuidedCharacter(s.id,'p1',input);
+    expect(()=>createGuidedCharacter(s.id,'p1',{...input,requestId:randomUUID()})).toThrow('already belong');
+    const next=withDiceSource(()=>Array(24).fill(5),()=>rollCreatorStats(s.id,'p1',request()));
+    expect(next.id).not.toBe(first.id);expect(next.kept).toBeUndefined();expect(next.scores).toEqual(Array(6).fill(15));
+  });
   it('rolls one ability per request, preserves prior scores, and never advances itself',()=>{
     const s=createSession(),request={rollId:randomUUID(),className:'fighter' as const,name:'Hero'},counts:number[]=[];
     let draft=withDiceSource(sides=>{counts.push(sides.length);return [6,5,4,1];},()=>rollCreatorStats(s.id,'a',{...request,index:0}));

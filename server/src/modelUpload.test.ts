@@ -66,3 +66,31 @@ it('allows DM creature and character uploads, rejects player creature uploads an
   expect((await upload('monster',m.id,headers)).status).toBe(200);expect(getMonster(m.id)?.modelType).toMatch(/^uploaded-/);
   expect((await upload('character',c.id,headers)).status).toBe(200);
 });
+it('replaces a character’s previous upload instead of piling up files, unless something else still uses it',async()=>{
+  const fs=await import('node:fs');const {db}=await import('./db.js');
+  const s=createSession(),a=player(s.id),c=createCharacter(s.id,{name:'Re-uploader'});claimCharacter(c.id,a.id);
+  const auth={Authorization:`Bearer ${a.token}`};
+  type Model=import('../../shared/assetProduction.js').ProducedMiniature;
+  const first=(await (await upload('character',c.id,auth)).json() as {model:Model}).model;
+  const file=(m:Model)=>path.join(config.uploadsDir,'miniatures',path.basename(m.url));
+  expect(fs.existsSync(file(first))).toBe(true);
+  const second=(await (await upload('character',c.id,auth)).json() as {model:Model}).model;
+  expect(fs.existsSync(file(first))).toBe(false);
+  expect(queue.snapshot().models.some(m=>m.id===first.id)).toBe(false);
+  expect(queue.snapshot().models.some(m=>m.id===second.id)).toBe(true);
+  // A model a creature (or library entry) also uses survives the replacement.
+  const m=createMonsterTemplate(s.id,{name:'Copycat',maxHp:5});db.prepare('UPDATE monsters SET model_type=? WHERE id=?').run(second.id,m.id);
+  await upload('character',c.id,auth);
+  expect(fs.existsSync(file(second))).toBe(true);
+  expect(queue.snapshot().models.some(x=>x.id===second.id)).toBe(true);
+});
+it('caps player-uploaded models per campaign; the DM is not limited',async()=>{
+  const {db}=await import('./db.js');const {PLAYER_UPLOADED_MODELS_PER_SESSION}=await import('./assets/modelUpload.js');
+  const s=createSession(),a=player(s.id),c=createCharacter(s.id,{name:'Late uploader'});claimCharacter(c.id,a.id);
+  for(let i=0;i<PLAYER_UPLOADED_MODELS_PER_SESSION;i++){
+    const other=createCharacter(s.id,{name:`Uploaded ${i}`});db.prepare('UPDATE characters SET model_type=? WHERE id=?').run(`uploaded-cap${i}`,other.id);
+  }
+  const refused=await upload('character',c.id,{Authorization:`Bearer ${a.token}`});
+  expect(refused.status).toBe(400);expect((await refused.json() as {error:string}).error).toMatch(/Ask the DM/);
+  expect((await upload('character',c.id,{'x-dm-passphrase':config.dmPassphrase})).status).toBe(200);
+});
