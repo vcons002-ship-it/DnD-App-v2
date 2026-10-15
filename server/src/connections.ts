@@ -103,6 +103,21 @@ export function broadcastSpellCast(io: IOServer, sessionId: string, kind: Token[
   }
 }
 
+/** Points spread over an area's footprint: a circle's centre and two rings, or
+ *  a line/cone/cube's axis (start → `end`) and both edges (`radiusFt` is the
+ *  half-width at the far end). Enough to tell whether any part is in view. */
+export function areaSamplePoints(area:{x:number;y:number;radiusFt:number;end?:{x:number;y:number}},pxPerFoot:number):{x:number;y:number}[] {
+  const r=area.radiusFt*pxPerFoot,points=[{x:area.x,y:area.y}];
+  if(area.end){
+    const dx=area.end.x-area.x,dy=area.end.y-area.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len;
+    for(let i=1;i<=10;i++){const t=i/10,cx=area.x+dx*t,cy=area.y+dy*t;
+      for(const side of [-1,-.5,0,.5,1])points.push({x:cx+nx*r*side,y:cy+ny*r*side});}
+    return points;
+  }
+  for(const ring of [.5,.95])for(let i=0;i<12;i++){const a=i/12*Math.PI*2;points.push({x:area.x+Math.cos(a)*r*ring,y:area.y+Math.sin(a)*r*ring});}
+  return points;
+}
+
 /**
  * Re-send a freshly role-shaped snapshot to every connected client in a session.
  * Each client is shaped individually (DM vs player, and the DM's selected map),
@@ -132,14 +147,13 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
     lastSent.set(socketId, snapshot);
     const visibleRolls = new Set(snapshot.rollLog.filter((roll) => roll.reveal).map((roll) => roll.id));
     const publicRolls = new Set(snapshot.rollLog.filter(roll=>!roll.outcomeOnly).map(roll=>roll.id));
-    // Line/cone/cube art (the area events with an `end`) is anchored on the
-    // caster's own square, so it would pinpoint a hidden or unseen caster:
-    // players get it only while that caster's token is visible to them.
-    const casterShown = (e: (typeof hpFx)[number]) =>
-      snapshot.tokens.some((t) => !t.sharedSightOnly && !t.isHidden && t.kind === e.kind && t.refId === e.refId) &&
-      (!e.sourcePosition || visionContains(snapshot.playerVision, e.sourcePosition.x, e.sourcePosition.y));
+    // Area art goes to a player when ANY part of the area is visible to them
+    // (vision and revealed map fog); their client clips it to the visible
+    // pixels. A hidden caster's spell still shows where it reaches open view.
+    const revealed = snapshot.map?.mapFogEnabled ? new Set(snapshot.map.mapFogRevealed) : null, grid = snapshot.map?.gridSizePx ?? 50;
     const visible = hpFx.filter((e) => e.areaPosition
-      ? (conn.role==='dm'||!e.areaPosition.end||casterShown(e)) && snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||visionContains(snapshot.playerVision,e.areaPosition.x,e.areaPosition.y)) && (conn.role==='dm'||(!snapshot.map.mapFogEnabled||snapshot.map.mapFogRevealed.includes(`${Math.floor(e.areaPosition.x/snapshot.map.gridSizePx)},${Math.floor(e.areaPosition.y/snapshot.map.gridSizePx)}`)))
+      ? snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||areaSamplePoints(e.areaPosition,grid/snapshot.map.feetPerSquare).some(p=>
+          visionContains(snapshot.playerVision,p.x,p.y)&&(!revealed||revealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`))))
       : snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),
     ).map((original) => {
       // The destination can be visible while its caster is behind a wall.

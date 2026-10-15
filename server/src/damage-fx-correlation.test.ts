@@ -6,7 +6,7 @@ import { broadcastSnapshots, dropConn, setConn, type IOServer } from './connecti
 import {
   addRollLog, applyDamage, createCharacter, createMap, createMonsterTemplate, createSession,
   createToken, drainHpFx, getMonster, instantiateMonster, listRollLog,
-  updateCharacter, moveToken, setActiveMap, setFogLayer, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,beginPlacedSpellImpact,
+  updateCharacter, moveToken, setActiveMap, setFogLayer, setFogRevealed, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,beginPlacedSpellImpact,
 } from './sessions.js';
 
 const sockets: string[] = [];
@@ -209,18 +209,27 @@ describe('exact attack damage-to-reveal correlation', () => {
     expect(player.events[0].sourcePosition).toBeUndefined();
     expect(dm.events[0].sourcePosition).toMatchObject({x:50,y:50});
   });
-  it('line, cone and cube art anchored on a hidden caster never reaches players',()=>{
+  it('a hidden caster’s line art still reaches players where it crosses their view',()=>{
     const f=fixture(false);setTokenHidden(f.targetToken.id,true);
     // Lightning Bolt's art starts on the caster's own square (areaPosition = caster).
-    const bolt=()=>beginPlacedSpellImpact(f.session.id,'monster',f.target.id,'Lightning Bolt')
+    beginPlacedSpellImpact(f.session.id,'monster',f.target.id,'Lightning Bolt')
       ('cast',{mapId:f.map.id,x:50,y:50,radiusFt:2.5,end:{x:650,y:50}},{mapId:f.map.id,x:50,y:50});
-    bolt();
-    let {player,dm}=views(f);
-    expect(player.events).toEqual([]);
-    expect(dm.events).toHaveLength(1);
-    setTokenHidden(f.targetToken.id,false);bolt();
-    ({player}=views(f));
+    const {player,dm}=views(f);
     expect(player.events).toHaveLength(1);expect(player.events[0].areaPosition?.end).toBeDefined();
+    expect(player.events[0].sourcePosition).toBeUndefined(); // the hidden origin is still not pinpointed
+    expect(dm.events[0].sourcePosition).toMatchObject({x:50,y:50});
+  });
+  it('area art reaches players when any part of it is revealed, and not when all of it is fogged',()=>{
+    const f=fixture(false);setFogLayer(f.map.id,'map',true);
+    const fireball=()=>beginPlacedSpellImpact(f.session.id,'monster',f.target.id,'Fireball')
+      ('cast',{mapId:f.map.id,x:500,y:500,radiusFt:20},{mapId:f.map.id,x:500,y:500});
+    // Grid 50 px at 5 ft: a 20-ft radius spans 200 px. Only a cell at its rim is revealed.
+    setFogRevealed(f.map.id,'map',['13,10']);
+    fireball();
+    expect(views(f).player.events).toHaveLength(1);
+    setFogRevealed(f.map.id,'map',['0,0']);
+    fireball();
+    expect(views(f).player.events).toEqual([]);
   });
 });
 

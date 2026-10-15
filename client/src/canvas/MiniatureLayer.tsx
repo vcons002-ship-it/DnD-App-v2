@@ -16,6 +16,7 @@ import {
   Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
   Box3, Sprite, SpriteMaterial, CanvasTexture, PlaneGeometry, Scene, Texture, DepthTexture, Matrix4, Vector3, WebGLRenderer, PerspectiveCamera, WebGLRenderTarget,
+  DataTexture, NearestFilter, RGBAFormat,
 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -77,6 +78,8 @@ type Props = {
   footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
   preparedSpellImpacts?: SpellImpact[];
+  /** A player's map fog: spell art is clipped to revealed cells. Bounds in map pixels. */
+  spellFog?: {grid:number;revealed:readonly string[];x0:number;y0:number;x1:number;y1:number};
   onPrepareVisionLights?: (lights:import('../../../shared/playerVision').VisionLight[])=>void;
   memoryTerrainCanvas?: ()=>HTMLCanvasElement|null;
   visionCoverFrame?: ()=>VisionCoverFrame|undefined;
@@ -277,6 +280,23 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   const abort = new AbortController();
   let props = initial,sourceProps=initial;
+  // Revealed map-fog cells as a texture for clipping spell art (players only).
+  let lastSpellFog:Props['spellFog']|null=null,spellFogTexture:DataTexture|null=null;
+  const syncSpellFog=()=>{
+    const fog=props.spellFog;if(fog===lastSpellFog)return;lastSpellFog=fog;
+    spellFogTexture?.dispose();spellFogTexture=null;
+    if(!fog||!(fog.grid>0)){spellImpacts.setFogClip(null);return;}
+    const originX=Math.floor(fog.x0/fog.grid),originY=Math.floor(fog.y0/fog.grid);
+    const cols=Math.max(1,Math.min(4096,Math.ceil(fog.x1/fog.grid)-originX)),rows=Math.max(1,Math.min(4096,Math.ceil(fog.y1/fog.grid)-originY));
+    const data=new Uint8Array(cols*rows*4);
+    for(const key of fog.revealed){
+      const [cx,cy]=key.split(',').map(Number),i=cx-originX,j=cy-originY;
+      if(Number.isInteger(i)&&Number.isInteger(j)&&i>=0&&j>=0&&i<cols&&j<rows)data[(j*cols+i)*4]=255;
+    }
+    spellFogTexture=new DataTexture(data,cols,rows,RGBAFormat);
+    spellFogTexture.magFilter=spellFogTexture.minFilter=NearestFilter;spellFogTexture.needsUpdate=true;
+    spellImpacts.setFogClip({texture:spellFogTexture,originX,originY,cols,rows,grid:fog.grid});
+  };
   const lodLevels=new Map<string,MiniatureLod>();
   let lodTimer:ReturnType<typeof setTimeout>|undefined;
   let tokenById=new Map(initial.tokens.map(t=>[t.id,t]));
@@ -429,6 +449,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const t=reducedMotion.matches?1:Math.min(1,(now-fade.start)/850),ease=t*t*(3-2*t);fade.value=fade.from+(fade.to-fade.from)*ease;
         instance.materials.forEach((m,i)=>{if(t<1&&!m.transparent){m.transparent=true;m.needsUpdate=true;}m.opacity=instance.originalOpacity[i]*fade.value;});
       }
+      syncSpellFog();
       const staged=props.preparedSpellImpacts??[];
       const preparedLights=spellImpacts.prepare(staged,now,props.environmentPreview?.pixelsPerFoot??12.8,reducedMotion.matches,id=>{
         const impact=staged.find(e=>e.tokenId===id);if(!impact)return;
@@ -606,7 +627,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
         if(!props.personalVision||useComposite){
           silhouette.render(renderer,outlineRects);
-          if(deferSpells&&useComposite)spellImpacts.renderForeground(renderer,camera);
+          if(deferSpells&&useComposite){
+            // Drawn above terrain fog, so clip to the live sight cover here.
+            spellImpacts.setCoverClip(sightFrame?.enabled&&visionComposite?visionComposite.cover:null);
+            spellImpacts.renderForeground(renderer,camera);
+            spellImpacts.setCoverClip(null);
+          }
         }
         host.dataset.spellFogPass=deferSpells?(useComposite?'foreground':'legacy-lift'):'scene';
         visionTiming?.end();
@@ -1068,7 +1094,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     raisedStudy?.dispose();
     archArtStudy?.dispose();
     archArtLayer.dispose();
-    spellImpacts.dispose();spellColor.dispose();
+    spellImpacts.dispose();spellColor.dispose();spellFogTexture?.dispose();
     footprints.dispose();
     clearPreview();previewMaterial.dispose();
     names.dispose();props.onRenderedNames?.(new Set());
