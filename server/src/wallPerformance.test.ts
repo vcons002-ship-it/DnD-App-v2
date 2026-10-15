@@ -7,7 +7,9 @@ import {editMapWalls} from './mapWalls.js';
 import {exportSession,importSession} from './backup.js';
 import {db} from './db.js';
 import {contourWallMask} from './wallMaskContours.js';
-import {pointInRing,compactWallPoints,wallContours} from '../../shared/wallGeometry.js';
+import {pointInRing,compactWallPoints,wallContours,insideWallGeometry,wallBoundarySegments} from '../../shared/wallGeometry.js';
+import {sightWalls} from '../../shared/windowGeometry.js';
+import {passageWalls} from '../../shared/archGeometry.js';
 
 it('removes redundant straight vertices, preserving real bends and backtracking',()=>{
  const p=(x:number,y=0)=>({x,y});
@@ -63,6 +65,40 @@ it('matches exhaustive rays through dense, crossed, collinear and corner-touchin
   const actual=closestWallHit(origin,dx,dy,walls,radius,(o,x,y,w)=>exhaustive(o.x,o.y,x,y,[w],Infinity));
   expect(actual).toBeCloseTo(expected,7);
  }
+});
+it('answers line of sight exactly like the linear scan, for every wall kind',()=>{
+ let seed=4242;
+ const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296),r=(n:number)=>Math.round(random()*n);
+ // The pre-index implementation, rays through the exhaustive oracle above.
+ const linear=(a:{x:number;y:number},b:{x:number;y:number},input:MapWall[])=>{
+  const walls=sightWalls(passageWalls(input)),dx=b.x-a.x,dy=b.y-a.y,distance=Math.hypot(dx,dy);
+  if(distance<1e-7)return true;
+  if(walls.some(w=>!(w.door&&w.open)&&(insideWallGeometry(a,w)||insideWallGeometry(b,w))))return false;
+  const edges=walls.filter(w=>!w.door||!w.open).flatMap(w=>wallBoundarySegments(w).map(({a,b})=>({id:w.id,ax:a.x,ay:a.y,bx:b.x,by:b.y})));
+  return exhaustive(a.x,a.y,dx/distance,dy/distance,edges,Infinity)>=distance-1e-7;
+ };
+ const walls:MapWall[]=Array.from({length:72},(_,i)=>{
+  const ax=r(2000),ay=r(2000),bx=ax+r(300)-150,by=ay+r(300)-150,box={ax:Math.min(ax,bx),ay:Math.min(ay,by),bx:Math.max(ax,bx),by:Math.max(ay,by)};
+  switch(i%6){
+   case 0:return {id:`seg-${i}`,ax,ay,bx,by,...(i%12?{}:{door:true,open:i%24===0})};
+   case 1:return {id:`rect-${i}`,kind:'rectangle' as const,...box,...(i%4===1?{rotation:r(90)}:{})};
+   case 2:return {id:`ring-${i}`,kind:'circle' as const,...box,thickness:4+r(20)};
+   case 3:return {id:`poly-${i}`,kind:'polygon' as const,...box,points:[{x:box.ax,y:box.ay},{x:box.bx,y:box.ay},{x:box.bx,y:box.by},{x:box.ax,y:box.by}],
+    holes:[[{x:box.ax+(box.bx-box.ax)*.3,y:box.ay+(box.by-box.ay)*.3},{x:box.ax+(box.bx-box.ax)*.7,y:box.ay+(box.by-box.ay)*.3},{x:box.ax+(box.bx-box.ax)*.7,y:box.ay+(box.by-box.ay)*.7}]]};
+   case 4:return {id:`path-${i}`,kind:'path' as const,ax,ay,bx,by,thickness:r(16),points:[{x:ax,y:ay},{x:(ax+bx)/2+r(60)-30,y:(ay+by)/2},{x:bx,y:by}]};
+   default:return {id:`win-${i}`,kind:'rectangle' as const,...box,window:true};
+  }
+ });
+ // Sample points on solid walls' own corners and edges as well as anywhere.
+ const corners=walls.filter(w=>w.kind==='rectangle'&&!w.window).flatMap(w=>[{x:w.ax,y:w.ay},{x:w.bx,y:w.by},{x:w.ax,y:(w.ay+w.by)/2}]);
+ const point=()=>random()<.25?corners[r(corners.length-1)]:{x:r(2400)-200,y:r(2400)-200};
+ let blocked=0;
+ for(let i=0;i<1500;i++){
+  const a=point(),b=random()<.3?point():{x:a.x+r(400)-200,y:a.y+r(400)-200},expected=linear(a,b,walls);
+  if(!expected)blocked++;
+  expect(hasLineOfSight(a,b,walls)).toBe(expected);
+ }
+ expect(blocked).toBeGreaterThan(300);expect(blocked).toBeLessThan(1200);
 });
 it('preserves distant blockers, narrow gaps and open doors above 512 edges',()=>{
  const filler=benchmarkLayout(4096,'rooms').map(w=>({...w,ay:w.ay+10000,by:w.by+10000}));

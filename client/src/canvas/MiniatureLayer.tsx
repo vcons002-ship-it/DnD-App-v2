@@ -282,8 +282,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let props = initial,sourceProps=initial;
   // Revealed map-fog cells as a texture for clipping spell art (players only).
   let lastSpellFog:Props['spellFog']|null=null,spellFogTexture:DataTexture|null=null;
+  // Every snapshot brings a fresh revealed-cell array, so compare contents and
+  // only build while spell art is drawing.
+  const sameSpellFog=(a:Props['spellFog']|null,b:Props['spellFog'])=>a===b||!!a&&!!b&&a.grid===b.grid&&a.x0===b.x0&&a.y0===b.y0&&a.x1===b.x1&&a.y1===b.y1&&
+    a.revealed.length===b.revealed.length&&a.revealed.every((key,i)=>key===b.revealed[i]);
   const syncSpellFog=()=>{
-    const fog=props.spellFog;if(fog===lastSpellFog)return;lastSpellFog=fog;
+    const fog=props.spellFog;if(sameSpellFog(lastSpellFog,fog)){lastSpellFog=fog;return;}lastSpellFog=fog;
     spellFogTexture?.dispose();spellFogTexture=null;
     if(!fog||!(fog.grid>0)){spellImpacts.setFogClip(null);return;}
     const originX=Math.floor(fog.x0/fog.grid),originY=Math.floor(fog.y0/fog.grid);
@@ -449,8 +453,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const t=reducedMotion.matches?1:Math.min(1,(now-fade.start)/850),ease=t*t*(3-2*t);fade.value=fade.from+(fade.to-fade.from)*ease;
         instance.materials.forEach((m,i)=>{if(t<1&&!m.transparent){m.transparent=true;m.needsUpdate=true;}m.opacity=instance.originalOpacity[i]*fade.value;});
       }
-      syncSpellFog();
       const staged=props.preparedSpellImpacts??[];
+      if(staged.length||spellImpacts.active)syncSpellFog();
       const preparedLights=spellImpacts.prepare(staged,now,props.environmentPreview?.pixelsPerFoot??12.8,reducedMotion.matches,id=>{
         const impact=staged.find(e=>e.tokenId===id);if(!impact)return;
         const instance=instances.get(id),x=impact.fixed?impact.x:instance?.root.position.x??impact.x,y=impact.fixed?impact.y:instance?.root.position.z??impact.y;

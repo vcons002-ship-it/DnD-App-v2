@@ -153,7 +153,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
     const revealed = snapshot.map?.mapFogEnabled ? new Set(snapshot.map.mapFogRevealed) : null, grid = snapshot.map?.gridSizePx ?? 50;
     const visible = hpFx.filter((e) => e.areaPosition
       ? snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||areaSamplePoints(e.areaPosition,grid/snapshot.map.feetPerSquare).some(p=>
-          visionContains(snapshot.playerVision,p.x,p.y)&&(!revealed||revealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`))))
+          (!revealed||revealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`))&&visionContains(snapshot.playerVision,p.x,p.y)))
       : snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),
     ).map((original) => {
       // The destination can be visible while its caster is behind a wall.

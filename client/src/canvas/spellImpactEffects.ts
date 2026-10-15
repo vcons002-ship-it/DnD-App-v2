@@ -45,11 +45,13 @@ export function createSpellImpactEffects(scene:Scene){
         #endif
         vSpellGround=(modelMatrix*spellGround).xz;`);
       shader.fragmentShader='varying vec2 vSpellGround;uniform sampler2D spellCover,spellFog;uniform vec2 spellCoverSize,spellFogOrigin,spellFogCells;uniform float spellUseCover,spellUseFog,spellFogGrid;\n'
-        +shader.fragmentShader.replace('#include <dithering_fragment>',`#include <dithering_fragment>
+        // Tested first, so a hidden pixel skips the effect's own shading.
+        +shader.fragmentShader.replace('void main() {',`void main() {
         float spellSeen=1.;
         if(spellUseCover>.5)spellSeen*=texture2D(spellCover,gl_FragCoord.xy/spellCoverSize).r;
         if(spellUseFog>.5){vec2 cell=floor(vSpellGround/spellFogGrid)-spellFogOrigin;
           spellSeen*=(cell.x<0.||cell.y<0.||cell.x>=spellFogCells.x||cell.y>=spellFogCells.y)?0.:texture2D(spellFog,(cell+.5)/spellFogCells).r;}
+        if(spellSeen<=0.)discard;`).replace('#include <dithering_fragment>',`#include <dithering_fragment>
         gl_FragColor.a*=spellSeen;`);
     };
     m.customProgramCacheKey=()=>'spell-view-clip';
