@@ -47,6 +47,10 @@ export type ProducedMiniature = {
 };
 export type AssetJob = {
   sourceCharacterId?:string; sourceModelType?:string; tokenIcon?:string;
+  /** Player id (or 'dm') that asked for a hero token, and when — for the daily quota. */
+  requestedBy?:string; requestedAt?:string;
+  /** The finished token art has been put on the character once; a restart must not repeat it. */
+  iconApplied?:boolean;
   sourceMonsterId?: string; artBrief?: string; subjectFamily?: string;
   id: string; family: string; state: 'queued' | 'running' | 'failed' | 'ready';
   stage: string; attempts: number; updatedAt: string; error?: string;

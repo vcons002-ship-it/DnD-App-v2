@@ -53,17 +53,30 @@ export class AssetQueue {
     void this.drain(); return { ...job };
   }
   pause(paused: boolean) { this.state.paused = paused; this.save(); if (!paused) void this.drain(); }
-  enqueueCharacter(hero:Character,appearance:string,initial=false,heldWeapon?:string):AssetJob|undefined {
+  enqueueCharacter(hero:Character,appearance:string,initial=false,heldWeapon?:string,requestedBy?:string):AssetJob|undefined {
     const previous=this.state.jobs.filter(j=>j.sourceCharacterId===hero.id).at(-1);
     if(previous&&(initial||['queued','running'].includes(previous.state)))return {...previous};
     if(this.state.jobs.filter(j=>j.state!=='ready').length>=100)return;
     const slug=hero.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,20)||'adventurer';
     const job:AssetJob={id:randomUUID(),family:`hero-${slug}-${randomUUID().slice(0,8)}`,subjectFamily:hero.race.toLowerCase(),
-      sourceCharacterId:hero.id,sourceModelType:hero.modelType,artBrief:heroArtBrief(hero,appearance,heldWeapon),state:'queued',stage:'Waiting',attempts:0,updatedAt:new Date().toISOString()};
+      sourceCharacterId:hero.id,sourceModelType:hero.modelType,artBrief:heroArtBrief(hero,appearance,heldWeapon),state:'queued',stage:'Waiting',attempts:0,updatedAt:new Date().toISOString(),
+      ...(requestedBy?{requestedBy,requestedAt:new Date().toISOString()}:{})};
     this.state.jobs.push(job);this.save();this.announce('Character token crafting queued. The character remains playable.');void this.drain();return {...job};
   }
   publishImported(model:ProducedMiniature){
     this.state.models.push(model);this.save();try{this.onCatalogChange();}catch{/* next catalog fetch recovers */}
+  }
+  /** Drop a model from the public catalog (e.g. a replaced upload); returns it. */
+  removeModel(id:string):ProducedMiniature|undefined{
+    const model=this.state.models.find(m=>m.id===id);if(!model)return;
+    this.state.models=this.state.models.filter(m=>m.id!==id);this.save();
+    try{this.onCatalogChange();}catch{/* next catalog fetch recovers */}
+    return model;
+  }
+  /** Record that a job's finished token art was applied to its character. */
+  markIconApplied(jobId:string){
+    const job=this.state.jobs.find(j=>j.id===jobId);if(!job||job.iconApplied)return;
+    job.iconApplied=true;this.save();
   }
   retry(id: string): boolean {
     const job = this.state.jobs.find(j => j.id === id);

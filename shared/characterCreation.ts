@@ -63,7 +63,8 @@ export type CreatorStatGroup = {faces:number[];dropped:number;total:number};
 export type CreatorStatRoll = {id:string;groups:CreatorStatGroup[];scores:number[]};
 export type CreatorStatDraft = {id:string;groups:(CreatorStatGroup|null)[];scores:(number|null)[]};
 export type CreatorStatRollRequest = {rollId:string;className:CoreClass;name:string;index?:number};
-export type CreatorStatRollResult = {ok:true;roll:CreatorStatDraft}|{ok:false;error:string};
+/** `kept`: the player already had an unspent roll, which is returned instead of new dice. */
+export type CreatorStatRollResult = {ok:true;roll:CreatorStatDraft&{kept?:boolean}}|{ok:false;error:string};
 export function statGroupFromFaces(faces:number[]):CreatorStatGroup {
   if(faces.length!==4||faces.some(f=>!Number.isInteger(f)||f<1||f>6))throw new Error('Each stat needs four six-sided dice.');
   const dropped=faces.indexOf(Math.min(...faces));

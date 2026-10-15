@@ -132,8 +132,14 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
     lastSent.set(socketId, snapshot);
     const visibleRolls = new Set(snapshot.rollLog.filter((roll) => roll.reveal).map((roll) => roll.id));
     const publicRolls = new Set(snapshot.rollLog.filter(roll=>!roll.outcomeOnly).map(roll=>roll.id));
+    // Line/cone/cube art (the area events with an `end`) is anchored on the
+    // caster's own square, so it would pinpoint a hidden or unseen caster:
+    // players get it only while that caster's token is visible to them.
+    const casterShown = (e: (typeof hpFx)[number]) =>
+      snapshot.tokens.some((t) => !t.sharedSightOnly && !t.isHidden && t.kind === e.kind && t.refId === e.refId) &&
+      (!e.sourcePosition || visionContains(snapshot.playerVision, e.sourcePosition.x, e.sourcePosition.y));
     const visible = hpFx.filter((e) => e.areaPosition
-      ? snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||visionContains(snapshot.playerVision,e.areaPosition.x,e.areaPosition.y)) && (conn.role==='dm'||(!snapshot.map.mapFogEnabled||snapshot.map.mapFogRevealed.includes(`${Math.floor(e.areaPosition.x/snapshot.map.gridSizePx)},${Math.floor(e.areaPosition.y/snapshot.map.gridSizePx)}`)))
+      ? (conn.role==='dm'||!e.areaPosition.end||casterShown(e)) && snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||visionContains(snapshot.playerVision,e.areaPosition.x,e.areaPosition.y)) && (conn.role==='dm'||(!snapshot.map.mapFogEnabled||snapshot.map.mapFogRevealed.includes(`${Math.floor(e.areaPosition.x/snapshot.map.gridSizePx)},${Math.floor(e.areaPosition.y/snapshot.map.gridSizePx)}`)))
       : snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),
     ).map((original) => {
       // The destination can be visible while its caster is behind a wall.

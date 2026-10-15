@@ -565,6 +565,22 @@ ensureColumn('library_characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '
 ensureColumn('library_characters', 'owner_player_id', 'owner_player_id TEXT');
 ensureColumn('library_items', 'owner_player_id', 'owner_player_id TEXT');
 
+// Guided character creation: a lost acknowledgement can be retried safely
+// (request ids), and starting-stat rolls are stored server-side so the dice,
+// not the client, decide the pool. Both are per-session (cleared with it).
+db.exec(`CREATE TABLE IF NOT EXISTS character_creation_requests (
+  session_id TEXT NOT NULL, owner_key TEXT NOT NULL, request_id TEXT NOT NULL,
+  character_id TEXT NOT NULL, PRIMARY KEY(session_id,owner_key,request_id))`);
+db.exec(`CREATE TABLE IF NOT EXISTS character_stat_rolls (
+  session_id TEXT NOT NULL, owner_key TEXT NOT NULL, roll_id TEXT NOT NULL,
+  result TEXT NOT NULL, PRIMARY KEY(session_id,owner_key,roll_id))`);
+// The character a stat roll was spent on: one unused roll per player at a
+// time, so re-rolling until the numbers look good isn't possible.
+// Rolls saved before this column existed can't be traced to a character: treat
+// them as spent (runs once, only when the column is first added).
+if (ensureColumn('character_stat_rolls', 'used_by', 'used_by TEXT'))
+  db.prepare("UPDATE character_stat_rolls SET used_by = 'before-tracking' WHERE used_by IS NULL").run();
+
 // Merge legacy free-text monster `actions` into the SINGLE rollable system
 // (sheet_abilities): weapon-like actions ("+4 to hit, 1d6+2 slashing") become
 // rollable weapons when the monster has none, and the rest keep/scrape a

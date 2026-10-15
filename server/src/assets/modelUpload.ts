@@ -16,6 +16,12 @@ import type {ProducedMiniature} from '../../../shared/assetProduction.js';
 import type {AssetQueue} from './queue.js';
 
 export const MODEL_UPLOAD_BYTES=25*1024*1024;
+/** Characters per session that players may give an uploaded model (the DM is
+ *  not limited). With replacement below, each character holds at most one. */
+export const PLAYER_UPLOADED_MODELS_PER_SESSION=20;
+const MODEL_TABLES=['characters','monsters','library_characters','library_creatures'] as const;
+/** Does any character, creature or library entry still use this model family? */
+const modelFamilyInUse=(family:string):boolean=>MODEL_TABLES.some(t=>!!db.prepare(`SELECT 1 FROM ${t} WHERE model_type=? LIMIT 1`).get(family));
 export type ModelUploadOptions={upAxis:'y'|'z';hasBase:boolean};
 /** Validate the container before decoding. No remote buffers, images or URLs. */
 export function inspectUploadContainer(data:Uint8Array){
@@ -109,6 +115,12 @@ export async function prepareUploadedModel(data:Uint8Array,options:ModelUploadOp
   if(output.length>12*1024*1024)throw new Error('The prepared model exceeds 12 MB. Compress embedded textures before uploading.');
   return {data:output,triangles};
 }
+/** DM by secret header, or by a DM connection's media token. */
+function uploaderIsDm(req:Request,isDm:(req:Request)=>boolean):boolean{
+  if(isDm(req))return true;
+  const bearer=req.get('authorization')??'';
+  return chatMediaConnection(bearer.startsWith('Bearer ')?bearer.slice(7):'')?.role==='dm';
+}
 export function canUploadModel(req:Request,kind:string,id:string,isDm:(req:Request)=>boolean):boolean{
   const subject=kind==='character'?getCharacter(id):kind==='monster'?getMonster(id):null;
   if(!subject)return false;
@@ -133,13 +145,25 @@ export function createModelUploadRouter(io:IOServer,queue:()=>AssetQueue,isDm:(r
         if(!['y','z'].includes(req.body.upAxis)||!['true','false'].includes(req.body.hasBase))throw new Error('Choose the model orientation and base option.');
         const prepared=await prepareUploadedModel(req.file.buffer,{upAxis:req.body.upAxis,hasBase:req.body.hasBase==='true'});
         if(!canUploadModel(req,kind,id,isDm)){res.status(403).json({error:'Your character selection changed. Select it and upload again.'});return;}
+        const table=kind==='character'?'characters':'monsters';
+        const previous=(db.prepare(`SELECT model_type FROM ${table} WHERE id=?`).get(id) as {model_type?:string}|undefined)?.model_type??'';
+        if(kind==='character'&&!uploaderIsDm(req,isDm)){
+          const others=(db.prepare("SELECT COUNT(*) AS n FROM characters WHERE session_id=? AND id<>? AND model_type LIKE 'uploaded-%'").get(getCharacter(id)!.sessionId,id) as {n:number}).n;
+          if(others>=PLAYER_UPLOADED_MODELS_PER_SESSION)throw new Error(`This campaign already has ${PLAYER_UPLOADED_MODELS_PER_SESSION} player-uploaded models. Ask the DM to upload this one.`);
+        }
         const family=`uploaded-${randomUUID().slice(0,8)}`,sha256=createHash('sha256').update(prepared.data).digest('hex');
         const dir=path.join(config.uploadsDir,'miniatures');await fs.mkdir(dir,{recursive:true});
         const filename=`${family}-${sha256.slice(0,12)}.glb`;saved=path.join(dir,filename);await fs.writeFile(saved,prepared.data);
         if(!canUploadModel(req,kind,id,isDm))throw new Error('Your character selection changed. Select it and upload again.');
         const model:ProducedMiniature={id:family,url:`/uploads/miniatures/${filename}`,baseDiameter:1,baseCenter:[0,0,0],bytes:prepared.data.length,triangles:prepared.triangles,sha256};
         queue().publishImported(model);
-        db.prepare(`UPDATE ${kind==='character'?'characters':'monsters'} SET model_type=? WHERE id=?`).run(family,id);
+        db.prepare(`UPDATE ${table} SET model_type=? WHERE id=?`).run(family,id);
+        // The upload this one replaces is deleted once nothing else uses it, so
+        // repeated uploads can't pile up 12 MB files on the host's disk.
+        if(previous.startsWith('uploaded-')&&!modelFamilyInUse(previous)){
+          const old=queue().removeModel(previous);
+          if(old)await fs.unlink(path.join(dir,path.basename(old.url))).catch(()=>{});
+        }
         const subject=kind==='character'?getCharacter(id)!:getMonster(id)!;
         broadcastSnapshots(io,subject.sessionId);saved=undefined;res.json({model});
       }catch(e){if(saved)await fs.unlink(saved).catch(()=>{});res.status(400).json({error:e instanceof Error&&!(e as any).code?e.message:'The model could not be prepared. Export a static GLB with embedded textures.'});}
