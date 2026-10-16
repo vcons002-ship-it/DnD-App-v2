@@ -1,5 +1,5 @@
-﻿/** Surface-only material path: layered mineral/metal textures and reflected
- * studio light. No volume march, extra lights or extra body draw calls. */
+﻿/** Metal inlays above class resin, plus the opaque gold critical variant.
+ * Noncritical bodies use the physical refractive volume in classDiceResin. */
 export const classDiceShader=/* glsl */`
 uniform float classArt;
 uniform vec3 classDark;

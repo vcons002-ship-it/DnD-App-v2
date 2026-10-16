@@ -3247,3 +3247,8 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
   settlement owns the celebration once, before modifiers; discarded twenties
   do not trigger it, and check/save outcomes remain unchanged. Reduced motion
   retains the message without particles or movement.
+
+- [x] Replaced the ten new class dice's opaque bodies with translucent refractive
+  resin and class-specific moving interior fields. Numbers retain opaque metal
+  inlays and dark inward backings. Approved character/DM materials and gold
+  variants remain intact; reduced motion freezes the new volume animation.

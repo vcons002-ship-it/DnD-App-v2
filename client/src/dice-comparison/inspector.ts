@@ -78,6 +78,8 @@ export function openDiceInspector(initial:{character:number;sides:number;gold:bo
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     handles.forEach(h=>{h.setReducedMotion(reduced);h.updatePose(camera,now);});
     stage.renderer.setSize(w,h,false);stage.renderer.render(scene,camera);ctx.drawImage(stage.renderer.domElement,0,0,w,h);
+    view.dataset.resin=JSON.stringify(handles.map(h=>h.powerState().resin));
+    view.dataset.power=JSON.stringify(handles.map(h=>({known:h.powerState().known,strength:h.powerState().strength,maximum:h.powerState().maximum})));
     view.dataset.camera=camera.position.toArray().map(v=>v.toFixed(3)).join(',');
    }
    last=now;frame=requestAnimationFrame(draw);
