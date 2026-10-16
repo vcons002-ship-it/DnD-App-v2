@@ -133,6 +133,26 @@ test('Fireball travels from its caster before one full-radius explosion; Call Li
  expect(r.count).toBe(14);expect(r.minRadius).toBe(0);expect(r.maxRadius).toBeGreaterThan(4);expect(r.maxRadius).toBeLessThan(5);
 });
 
+test('Fireball retains its volume and flame-crest shaders together with fog clipping',async({page})=>{
+ const errors:string[]=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(e.message));
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`
+ import {Scene,PerspectiveCamera,WebGLRenderer,DataTexture,RedFormat,UnsignedByteType} from 'three';import {createSpellImpactEffects} from './client/src/canvas/spellImpactEffects';
+ const scene=new Scene(),camera=new PerspectiveCamera(45,1,.1,100),renderer=new WebGLRenderer({alpha:true,preserveDrawingBuffer:true});renderer.setSize(256,256);document.body.append(renderer.domElement);camera.layers.set(7);camera.position.set(0,12,12);camera.lookAt(0,0,0);
+ const effects=createSpellImpactEffects(scene);effects.sync([{id:1,tokenId:'area',x:0,y:0,diameter:10,event:{kind:'pc',refId:'mage',delta:0,spell:'Fireball',areaPosition:{mapId:'map',x:0,y:0,radiusFt:5}}}],0);
+ effects.tick(1120,1,false,()=>({x:0,y:0,visible:true,height:5}));renderer.render(scene,camera);
+ const gl=renderer.getContext(),pixels=new Uint8Array(256*256*4);gl.readPixels(0,0,256,256,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+ const colors=new Set();for(let y=95;y<155;y++)for(let x=95;x<155;x++){const i=(y*256+x)*4;if(pixels[i+3]>50)colors.add(pixels.slice(i,i+3).join(','));}
+ const programs=renderer.info.programs.map(p=>({key:p.cacheKey,noise:!!p.getUniforms().map.fireNoise,clip:!!p.getUniforms().map.spellUseCover}));
+ // Reuse the real effect materials; a black cover must still hide the restored art.
+ const cover=new DataTexture(new Uint8Array([0]),1,1,RedFormat,UnsignedByteType);cover.needsUpdate=true;effects.setCoverClip({texture:cover,width:256,height:256});renderer.render(scene,camera);gl.readPixels(0,0,256,256,gl.RGBA,gl.UNSIGNED_BYTE,pixels);let hidden=0;for(let i=3;i<pixels.length;i+=4)hidden+=pixels[i];
+ window.result={programs,colors:colors.size,hidden,error:gl.getError()};effects.dispose();cover.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});
+ const r=await page.evaluate(()=>(window as any).result);expect(errors).toEqual([]);expect(r.error).toBe(0);
+ for(const key of ['fireball-volume-dome-v1','fireball-combined-flame-front-v1'])expect(r.programs.some((p:any)=>p.key.includes(key)&&p.noise&&p.clip),key).toBe(true);
+ expect(r.colors).toBeGreaterThan(40);expect(r.hidden).toBe(0);
+});
+
 test('Fireball renders a filled dome from overhead and oblique views without shader errors',async({page})=>{
  const errors:string[]=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(e.message));
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',stdin:{resolveDir:process.cwd(),contents:`

@@ -23,7 +23,8 @@ test('six updated spell fields render in tilted, overhead and reduced views with
  `}});
  await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});const results=await page.evaluate(()=>(window as any).result);
  expect(errors).toEqual([]);expect(results).toHaveLength(18);
- for(const r of results){expect(r.error,r.spell).toBe(0);expect(r.colored,r.spell).toBeGreaterThan(50);expect(r.calls).toBeLessThanOrEqual(r.spell==='Meteor Swarm'?17:4);}
+ // Ice Knife's projectile remains alongside its splash (five draws on Main too).
+ for(const r of results){expect(r.error,r.spell).toBe(0);expect(r.colored,r.spell).toBeGreaterThan(50);expect(r.calls,r.spell).toBeLessThanOrEqual(r.spell==='Meteor Swarm'?17:r.spell==='Ice Knife'?5:4);}
  for(const name of ['Thunderwave','Shatter','Flame Strike','Ice Knife']){
   const r=results.filter((v:any)=>v.spell===name);expect(r.map((v:any)=>v.count)).toEqual([64,64,20]);
   expect(r[0].scale[0]).toBeCloseTo(name==='Thunderwave'?15:name==='Ice Knife'?10:20);

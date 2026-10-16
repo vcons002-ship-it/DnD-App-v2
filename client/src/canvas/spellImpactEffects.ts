@@ -36,7 +36,11 @@ export function createSpellImpactEffects(scene:Scene){
   const clipped=new WeakSet<MeshBasicMaterial|MeshStandardMaterial>();
   const clipToView=(m:MeshBasicMaterial|MeshStandardMaterial)=>{
     if(clipped.has(m))return;clipped.add(m);
-    m.onBeforeCompile=shader=>{
+    // Visibility wraps the effect's own shader. Replacing it erases custom
+    // flame/noise/lightning details even when fog clipping is disabled.
+    const effectCompile=m.onBeforeCompile,effectKey=m.customProgramCacheKey();
+    m.onBeforeCompile=(shader,renderer)=>{
+      effectCompile.call(m,shader,renderer);
       Object.assign(shader.uniforms,clip);
       shader.vertexShader='varying vec2 vSpellGround;\n'+shader.vertexShader.replace('#include <project_vertex>',`#include <project_vertex>
         vec4 spellGround=vec4(transformed,1.);
@@ -54,7 +58,7 @@ export function createSpellImpactEffects(scene:Scene){
         if(spellSeen<=0.)discard;`).replace('#include <dithering_fragment>',`#include <dithering_fragment>
         gl_FragColor.a*=spellSeen;`);
     };
-    m.customProgramCacheKey=()=>'spell-view-clip';
+    m.customProgramCacheKey=()=>`${effectKey}:spell-view-clip-v1`;
   };
   const dispose=(effect:Effect)=>{effect.root.removeFromParent();effect.root.traverse(n=>{if(n instanceof InstancedMesh)n.dispose();});effect.materials.forEach(m=>m.dispose());effect.vines.forEach(v=>v.geometry.dispose());effect.bolt?.geometry.dispose();};
   function add(input:SpellImpact,now:number,target=effects){

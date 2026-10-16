@@ -164,6 +164,20 @@ describe('authoritative area combat',()=>{
   withDiceSource(sides=>sides.map(n=>n===20?1:4),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,3,undefined,undefined,undefined,f.p)).toBe(true));
   expect(getMonster(target.m.id)!.curHp).toBe(open?468:500);
  });
+ it.each([false,true])('Thunderwave checks a corner from its caster, not the cube center (live dice=%s)',async live=>{
+  const f=setup('Thunderwave'),blocked=f.target(100,0),exposed=f.target(100,60),outside=f.target(220,0);
+  // The cube center at (75,0) is beyond the wall. The caster at (0,0)
+  // cannot reach blocked, but has a clear diagonal past the corner to exposed.
+  editMapWalls(f.s.id,f.map.id,{add:{id:'corner',ax:50,ay:-100,bx:50,by:20}});
+  editMapWalls(f.s.id,f.map.id,{add:{id:'return',ax:50,ay:-100,bx:150,by:-100}});
+  const cast=()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,1,undefined,undefined,undefined,f.p)).toBe(true);
+  if(live)await runLiveCommand(cast,()=>{}, {label:'Thunderwave',roller:'Caster',className:'Wizard'},async sides=>sides.map(n=>n===20?1:4));
+  else withDiceSource(sides=>sides.map(n=>n===20?1:4),cast);
+  expect(getMonster(blocked.m.id)!.curHp).toBe(500);
+  expect(getMonster(exposed.m.id)!.curHp).toBe(492);
+  expect(getMonster(outside.m.id)!.curHp).toBe(500);
+  expect(listRollLog(f.s.id).filter(r=>r.reveal?.visibilityTarget?.refId===blocked.m.id)).toEqual([]);
+ });
  it('still blocks a directly targeted spell when the caster-to-target path crosses a wall',()=>{
   const f=setup('Fireball'),target=f.target(200,200);
   editMapWalls(f.s.id,f.map.id,{add:{id:'corner',ax:20,ay:100,bx:100,by:100}});

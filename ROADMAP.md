@@ -1,5 +1,16 @@
 # Roadmap & Feature Backlog
 
+- [x] Close completed player damage trays on the normal reading clock while
+  unseen/private saves resolve; show a neutral Calculating status without hidden
+  creature details. Prepare invisible save trays through the DM connection.
+  Thunderwave checks total cover from the caster, matching its targeting preview.
+
+- [x] Preserve each spell material's custom shader and program identity when
+  adding personal-vision/fog clipping, restoring flame volume, lightning pulses,
+  frost facets and other custom shading across all ten affected spell recipes.
+  GPU regression coverage checks the actual compiled shader details in overhead,
+  tilted and reduced-quality views, alongside fog and personal-vision clipping.
+
 - [x] Synchronize retained miniature body transforms with moving lanterns and
   mist; shape Lightning Bolt's pulsing light along the beam; use placed spell
   origins for area-damage cover checks, including unseen creatures around corners.

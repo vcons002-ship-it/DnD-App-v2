@@ -2015,6 +2015,8 @@ export interface ServerToClientEvents {
   'dice:hiddenReview': (review:HiddenRollReview|null)=>void;
   'dice:frame': (frame:import('./liveDiceTypes.js').LiveDiceFrame)=>void;
   'dice:finished': (payload:{id:string})=>void;
+  /** Neutral progress only; no hidden targets, rolls or outcomes. */
+  'dice:resolving': (payload:{id:string;active:boolean})=>void;
   'fx:initiative': (payload: { mapId: string }) => void;
   /** The party just finished a rest — a banner for everyone. */
   'fx:rest': (payload: { kind: 'short' | 'long' }) => void;

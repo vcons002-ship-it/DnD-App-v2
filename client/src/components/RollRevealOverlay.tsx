@@ -185,6 +185,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
     return()=>{cancelled=true;clearTimeout(timer);};
   },[preparationRoll,preloadContext,preloadThemes,reducedMotion]);
   const liveDice = useStore(s=>s.liveDice);
+  const resolvingDice = useStore(s=>s.resolvingDice);
   const rollFx = useStore((s) => s.rollFx);
   const intermediate=!!liveDice?.calculation;
   const visibleRollFx=liveDice?.calculation?{id:liveDice.seq,rollId:liveDice.id,reveal:liveDice.calculation,tray:liveDice}:rollFx;
@@ -247,7 +248,9 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const lift = ownLevelUpRoll && !!document.querySelector('dialog[data-level-up][open]');
   // Approval stays inside the mounted tray; no modal or canvas visibility swap.
   const presented=<RollOverlayPresence content={content} reduced={reducedMotion} clearImmediately={showingMapImpact||skippedLiveDice}/>;
-  return lift ? <LevelUpRollLayer key="lift" player={player}>{presented}</LevelUpRollLayer> : presented;
+  return <>{lift ? <LevelUpRollLayer key="lift" player={player}>{presented}</LevelUpRollLayer> : presented}
+    {resolvingDice&&!tray&&<div className="spell-calculating" role="status" aria-live="polite"><span aria-hidden="true"/>Calculating…</div>}
+  </>;
 });
 
 /** Fade the final card out without dropping a frame between consecutive rolls.
