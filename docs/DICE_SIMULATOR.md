@@ -74,3 +74,31 @@ source commit and publication time; publish from a clean, committed checkout.
 Verification: `e2e/dice-simulator.spec.ts` checks all four character themes,
 real Web Audio source starts, collision events, totals, percentile dice, mute,
 volume, and phone layout. `e2e/dice-power.spec.ts` checks their strength effects.
+
+
+## Remaining class dice and grouped saves (16 Oct 2026)
+
+The roller, its 3D inspector, and the low/strong/maximum comparison now include
+Barbarian (bloodstone/iron), Bard (peacock opal), Cleric (alabaster/gold),
+Druid (malachite/copper), Monk (river jade), Paladin (midnight enamel/gold),
+Rogue (nightstone/silver), Warlock (labradorite/witchfire), Wizard (lapis/gold),
+and Artificer (brushed bronze/steel). Existing Fighter, Ranger, Sorcerer and DM
+materials retain their approved renderer paths. Mineral textures continue across
+faces, use studio reflections and recessed number inlays, and respond to the
+confirmed natural face. Each added class has a bounded maximum effect; reduced
+motion suppresses external particles. No additional lights, shadow casters or
+bloom passes are introduced. This first art pass is available for visual review.
+
+Grouped saves keep one shared tray. Each physical die carries the saving
+character's class art when that character is claimed by a connected player.
+Creatures, unclaimed characters and DM-controlled characters use purple DM dice.
+Advantage/disadvantage dice preserve the same owner. Artwork is included in the
+renderer reuse key; changing owners cannot accidentally reuse an old material.
+Hidden-save filtering removes the corresponding art with the hidden die's pose,
+value and label. Existing modifier/DC privacy and save outcome math are unchanged.
+The same owner rule also applies to individual targeted saving throws and
+initiative batches. Gold creation dice remain a separate appearance override.
+
+Validation: 2,241 unit tests passed. A live Fireball in a disposable session
+rendered Fighter, Ranger and DM dice together, with independent labels and
+PASS/FAIL outcomes. Browser regression: e2e/grouped-save-dice-art.spec.ts.

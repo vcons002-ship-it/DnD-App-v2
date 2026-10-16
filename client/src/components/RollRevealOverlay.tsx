@@ -1,7 +1,8 @@
+import {NaturalTwentyCelebration} from './NaturalTwentyCelebration';
 import {HiddenRollReview} from './HiddenRollReview';
 import {diceTriggerForTray} from '../lib/rollTrayPresentation';
 import {dicePreloadPlan} from '../lib/dicePreloadPlan';
-import {physicalRollTimeline,liveNaturalCritical} from '../lib/diceFinaleTiming';
+import {physicalRollTimeline,liveNaturalCritical,liveNaturalTwenty} from '../lib/diceFinaleTiming';
 import {DICE_TRIGGER_HOLD_MS} from '../../../shared/diceTriggers';
 import {LiveDiceOverlay} from './LiveDiceOverlay';
 import {ROLL_MODIFIER_STEP_MS,ROLL_TOTAL_TWEEN_MS,hasDrukMaximum} from '../../../shared/dicePresentationTiming';
@@ -314,6 +315,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
   const isBurst = reveal?.kind === 'damage' || isDice;
   const naturalTwenty = hasNaturalTwenty(reveal);
   const earlyCritical=!!rollFx.tray&&liveNaturalCritical(rollFx.tray);
+  const earlyNaturalTwenty=!!rollFx.tray&&liveNaturalTwenty(rollFx.tray);
 
   const [stage, setStage] = useState<Stage>({
     phase: 'rolling',
@@ -369,7 +371,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
       at(complete,()=>{
         if(!intermediate)useStore.getState().prepareRollBackground(rollFx.rollId);
         setStage(p=>({...p,phase:isBurst?'damage':'outcome'}));
-        if(earlyCritical){} // The live tray already announced the natural 20.
+        if(earlyCritical||earlyNaturalTwenty){} // The live tray already announced the natural 20.
         else if(naturalTwenty||reveal.outcome==='crit')playCritical();
         else if(reveal.outcome==='miss'||reveal.outcome==='fumble'||reveal.outcome==='fail')playMiss();
         else if(isCheck||isDice)playSkill();else playHit();
@@ -382,7 +384,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
       return cleanup;
     }
     if (staticReveal) {
-      if(reveal.physical&&!earlyCritical){if(naturalTwenty||reveal.outcome==='crit')playCritical();else if(reveal.outcome==='miss'||reveal.outcome==='fumble'||reveal.outcome==='fail')playMiss();else if(isCheck||isDice)playSkill();else playHit();}
+      if(reveal.physical&&!earlyCritical&&!earlyNaturalTwenty){if(naturalTwenty||reveal.outcome==='crit')playCritical();else if(reveal.outcome==='miss'||reveal.outcome==='fumble'||reveal.outcome==='fail')playMiss();else if(isCheck||isDice)playSkill();else playHit();}
       setStage({ phase: 'damage', dieFace: reveal.d20 ?? 0, toHitShown: toHit.length, diceLocked: visualDiceCount, diceStopping: visualDiceCount, modsShown: localMods.length });
       if(!intermediate){const hold=reveal.diceTrigger?DICE_TRIGGER_HOLD_MS:0;at(hold, () => releaseImpact(rollFx.rollId));at(hold+resultHoldMs, dismiss);}
       return cleanup;
@@ -515,7 +517,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
           <strong>{reveal.damage !== undefined ? reveal.damage : reveal.attackTotal}</strong>
           <span>{reveal.damage !== undefined ? isDice ? /healing/i.test(reveal.title??'')?'healing':'total' : `${reveal.damageType ?? ''} damage` : isCheck ? /save|saving throw/i.test(reveal.title??'')?'Save total':'Check total' : 'Attack total'}</span>
         </div>}
-        {showNaturalTwenty && <div className="natural-twenty" role="status" aria-label="Natural 20 celebration">Nat 20!</div>}
+        {showNaturalTwenty&&!inlineTray&&<NaturalTwentyCelebration/>}
         {/* The live tray owns the dice. This child only adds arithmetic/outcomes. */}
         {!isBurst && !inlineDamage && (staticReveal || stage.phase !== 'damage') && (
           <div className={`roll-reveal-tohit${comparison?.kind === 'd20' ? ' rr-tohit-compared' : ''}`}>

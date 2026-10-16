@@ -4,6 +4,7 @@ import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
 import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeometry';
 import {LINEAR_LIGHTNING_HEIGHT_FT} from './linearLightningGeometry';
+import {spellMistImpulse,type SpellMistImpulse} from './spellMist';
 
 export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diameter:number;event:HpFxEvent;startAt?:number;persistent?:boolean;fixed?:boolean;weaponOnly?:boolean};
 // A separate color pass lets visible spell geometry rise above terrain fog
@@ -13,7 +14,7 @@ export const SPELL_IMPACT_LAYER=7;
 export type SpellFogClip={texture:Texture;originX:number;originY:number;cols:number;rows:number;grid:number};
 /** The GPU vision cover (red = currently visible), in screen space. */
 export type SpellCoverClip={texture:Texture;width:number;height:number};
-type Effect={input:SpellImpact;style:SpellImpactStyle;reveals:boolean;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
+type Effect={input:SpellImpact;style:SpellImpactStyle;reveals:boolean;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;mist?:SpellMistImpulse|null;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
 
 /** Prepare detached geometry during a roll hold; only activation starts its
  * visible lifetime and feeds illumination. Preparation never emits scene light. */
@@ -200,6 +201,14 @@ export function createSpellImpactEffects(scene:Scene){
     },
     tick(now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
       return tickEffects(effects,now,pixelsPerFoot,reduced,position);
+    },
+    mistImpulses(now:number,seconds:number,pixelsPerFoot:number){
+      const result:SpellMistImpulse[]=[];
+      for(const e of effects.values())if(e.root.visible&&!e.input.persistent&&!e.input.weaponOnly){
+        if(e.mist===undefined)e.mist=spellMistImpulse({...e.input,x:e.root.position.x,y:e.root.position.z},e.style.kind,pixelsPerFoot,seconds-(now-e.start)/1000);
+        if(e.mist)result.push(e.mist);
+      }
+      return result;
     },
     faceCamera(camera:Camera){
       for(const e of effects.values())if(e.input.weaponOnly)e.shape.root.userData.faceCamera?.(camera);

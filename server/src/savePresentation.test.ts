@@ -67,7 +67,10 @@ describe('save and healing presentation',()=>{
    const rolls=withDiceSource((sides,info)=>{seen.push({sides,info});return [3,17,4,18];},()=>rollSaveBatch([{...request,mode:'adv'},{...request,target:{kind:'monster',refId:'two'},mode:'dis'}],'Hail of Thorns — DEX Saving Throws'));
    expect(seen).toHaveLength(1);expect(seen[0].sides).toEqual([20,20,20,20]);expect(rolls.map(r=>r.face)).toEqual([17,4]);
    const frame:LiveDiceFrame={id:'save',seq:0,label:seen[0].info.label!,roller:'Varis',className:'Ranger',sides:[20,20,20,20],radius:1,poses:Array.from({length:28},(_,i)=>i),values:[3,17,4,18],rerolls:[0,0,0,0],sets:[0,0,0,0],critical:[false,false,false,false],percentile:[null,null,null,null],elapsed:5,done:true};
+   frame.diceArt=[{className:'Fighter',dmDice:false},{className:'Fighter',dmDice:false},{className:'',dmDice:true},{className:'',dmDice:true}];
    const filtered=shapeSaveFrame(frame,seen[0].info.saveDice!,t=>t.refId==='two'?'G1':undefined)!;
+   expect(filtered.diceArt).toEqual([{className:'',dmDice:true},{className:'',dmDice:true}]);
+   expect(JSON.stringify(filtered)).not.toContain('Fighter');
    expect(filtered.sides).toEqual([20,20]);expect(filtered.values).toEqual([4,18]);expect(filtered.poses).toEqual(frame.poses.slice(14));
    expect(filtered.saveDice?.map(d=>d.label)).toEqual(['G1','G1']);expect(filtered.saveDice?.map(d=>d.group)).toEqual(['0','0']);
    expect(JSON.stringify(filtered)).not.toContain('refId');expect(filtered.dieOffset).toBeUndefined();

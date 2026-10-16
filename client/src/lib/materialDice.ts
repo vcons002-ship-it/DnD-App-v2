@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import {classDiceArt} from '../../../shared/classDiceArt';
+import {classDiceShader} from './classDiceShader';
+import {createClassDicePowerArt} from './classDicePowerArt';
 import {createLightningTiming,type LightningFrame} from './diceLightningTiming';
 import {createRollPowerState,DRUK_EXPLOSION_DELAY,drukFinaleAge} from './diceRollPower';
 import {dmDiceCharge} from './dmDiceCharge';
@@ -193,6 +196,7 @@ vec3 bronzeSurface(vec3 n,vec3 incoming){
  vec3 environment=studioLight(rotation*reflect(incoming,n));
  return pow(environment+vec3(.16),vec3(1.5))*f*1.15+vec3(.012,.005,.002);
 }
+${classDiceShader}
 void main(){
  vec3 n=normalize(nor);vec3 incoming=normalize(pos-eye);
  // Keep gold to a narrow central band on Druk's rounded d6 shoulders.
@@ -216,6 +220,12 @@ void main(){
  float dx=texture2D(etching,tex+vec2(.004,0)).r-texture2D(etching,tex-vec2(.004,0)).r;
  float dy=texture2D(etching,tex+vec2(0,.004)).r-texture2D(etching,tex-vec2(0,.004)).r;
  n=normalize(n-tangent*dx*.24-bitangent*dy*.24);
+ }
+ if(classArt>.5){
+  gl_FragColor=vec4(classDiceSurface(pos,n,incoming,cut),1.);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+  return;
  }
  #ifndef INLAY_ONLY
  vec3 ray=refract(incoming,n,1./1.48);float distance=5.;
@@ -507,7 +517,7 @@ void main(){
      color=mix(color,inlay,(1.-cut)*edgeGold);
    }
  }
- // Only bonus critical dice become solid polished gold; ordinary dice keep their class material.
+ // Bonus critical dice and creator ability dice share polished gold; normal class dice keep their material.
  if(critical>.5){
    vec3 gold=vec3(.95,.58,.12);
    vec3 environment=studioLight(rotation*reflect(incoming,n));
@@ -630,12 +640,14 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     return {c,n,u,v,inset,radius};
   });
   const root=new THREE.Group();
+  const classSpec=classDiceArt(theme.id);
+  const gold=crit||theme.id==='gold-roll';
   const dm=theme.id.startsWith('dm-');
   const gem=dm&&!crit;
-  const glass=dm||['sorcerer','fighter','ranger'].includes(theme.id);
+  const glass=!!classSpec||gold||dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:crit?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={classArt:{value:classSpec?.id??0},classDark:{value:new THREE.Color(classSpec?.dark??'#000000')},classLight:{value:new THREE.Color(classSpec?.light??'#ffffff')},classInlay:{value:new THREE.Color(classSpec?.inlay??'#ffffff')},classEnergy:{value:new THREE.Color(classSpec?.energy??'#000000')},classRoughness:{value:classSpec?.roughness??.2},classMetal:{value:classSpec?.metal??0},eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:gold?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const power=createRollPowerState(sides);
   let powerView=power.advance(0),powerReduced=false,explosionAt:number|null|undefined;
   const shatterAge=(now:number)=>drukFinaleAge(powerView.age,now,explosionAt);
@@ -784,7 +796,8 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const effectRadius=Math.max(...vertices.map(v=>v.length()));
   const leafSwirl=style===2?createDiceLeafSwirl(root,effectRadius):undefined;
   const escapingLightning=theme.id==='sorcerer'?createDiceEscapingLightning(root,planes.slice(0,faces.length),effectRadius):undefined;
-  const goldSparkles=crit?createGoldDiceSparkles(root,vertices,style):undefined;
+  const classPowerArt=classSpec?createClassDicePowerArt(root,classSpec,effectRadius):undefined;
+  const goldSparkles=gold?createGoldDiceSparkles(root,vertices,style):undefined;
   const updateGoldSparkles=(now:number)=>goldSparkles?.update(now,powerView.known,powerView.strength,powerView.maximum,powerReduced,shatter?.state().broken??false);
   let lastValue=-1,lastReadable=false;
   const inverseWorld=new THREE.Matrix4(),poseRotation=new THREE.Matrix4();
@@ -796,7 +809,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     setExplosionAt(at:number|null|undefined){explosionAt=at;},
     setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
     prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
-    powerState(){return {...powerView,critical:crit,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldCharge:goldSparkles?.strength()??0,goldSparkles:goldSparkles?.count()??0,particles:moteRays?.count()??0,...leafSwirl?.state(),...escapingLightning?.state(),...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
+    powerState(){return {...powerView,classArt:classSpec?.name,classParticles:classPowerArt?.count()??0,critical:crit,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldCharge:goldSparkles?.strength()??0,goldSparkles:goldSparkles?.count()??0,particles:moteRays?.count()??0,...leafSwirl?.state(),...escapingLightning?.state(),...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.
@@ -846,6 +859,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       moteRays?.update(now,powerView.maximum,powerView.age,uniforms.motePosition.value,powerReduced);
       shatter?.update(now,powerView.maximum,shatterAge(now),powerReduced,camera);
       updateGoldSparkles(now);
+      classPowerArt?.update(now,powerView.known,powerView.strength,powerView.maximum,powerReduced,camera);
       leafSwirl?.update(now,powerView.maximum,powerView.age,powerReduced);
       escapingLightning?.update(now,powerView.maximum,powerView.age,powerReduced,lightningFrame);
     },
@@ -880,7 +894,7 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       const shadow=ctx.createRadialGradient(size*.5,size*.88,0,size*.5,size*.88,size*.28);shadow.addColorStop(0,'#0008');shadow.addColorStop(1,'#0000');ctx.fillStyle=shadow;ctx.save();ctx.translate(0,size*.7);ctx.scale(1,.2);ctx.fillRect(0,0,size,size);ctx.restore();
       ctx.drawImage(s.renderer.domElement,0,0,size,size);
     },
-    dispose(){escapingLightning?.dispose();leafSwirl?.dispose();goldSparkles?.dispose();moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
+    dispose(){classPowerArt?.dispose();escapingLightning?.dispose();leafSwirl?.dispose();goldSparkles?.dispose();moteRays?.dispose();shatter?.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());s.scene.remove(root);},
   };
 }
 

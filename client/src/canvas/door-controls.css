@@ -1,0 +1,13 @@
+.nearby-door-controls {
+  position:absolute;top:76px;left:12px;z-index:7;
+  width:min(248px,calc(100% - 24px));max-height:calc(100% - 100px);
+  display:flex;flex-direction:column;overflow:hidden;border:1px solid #aa8550;
+  border-radius:8px;background:#161b23f5;box-shadow:0 4px 18px #0006;
+  color:#f1dfbb;font-size:13px;
+}
+.nearby-door-controls > header {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:6px 8px;border-bottom:1px solid #aa855044;}
+.nearby-door-controls > header button {min-width:36px;min-height:36px;font-size:22px;line-height:1;}
+.nearby-door-list {overflow:auto;overscroll-behavior:contain;padding:8px;display:grid;gap:10px;}
+.nearby-door + .nearby-door {border-top:1px solid #aa855044;padding-top:8px;}
+.nearby-door-controls .object-controls {margin-top:4px;}
+.nearby-door-controls .object-interact {margin-top:6px;}

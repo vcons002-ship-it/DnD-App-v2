@@ -2,10 +2,8 @@ import './inspector.css';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {createMaterialDie,getDiceStage,type MaterialDieHandle} from '../lib/materialDice';
-import {diceThemeForClass,diceThemeForRoll} from '../../../shared/diceThemes';
+import {diceReviewNames as names,diceReviewThemes as themes} from '../lib/diceReviewCatalog';
 
-const names=['Druk','Varis','Vanec','DM'];
-const themes=[diceThemeForClass('Fighter'),diceThemeForClass('Ranger'),diceThemeForClass('Sorcerer'),diceThemeForRoll('',true)];
 
 /** Lazy inspector shares the app's material renderer; it never rolls campaign dice. */
 export function openDiceInspector(initial:{character:number;sides:number;gold:boolean}){

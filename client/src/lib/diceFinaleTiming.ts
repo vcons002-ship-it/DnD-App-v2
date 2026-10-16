@@ -8,6 +8,11 @@ export function liveNaturalCritical(frame:LiveDiceFrame){
  if(!frame.done||frame.saveDice||!/(?:spell )?attack roll$/i.test(frame.label.trim()))return false;
  return frame.sides.some((side,i)=>side===20&&frame.values[i]===20&&(!frame.mode||frame.kept!==undefined&&frame.sets[i]===frame.kept));
 }
+/** A natural 20 celebrates the kept face, not an adjusted total or attack crit. */
+export function liveNaturalTwenty(frame:LiveDiceFrame){
+ if(!frame.done||frame.saveDice||/(?:spell )?attack roll$/i.test(frame.label.trim()))return false;
+ return frame.sides.some((side,i)=>side===20&&frame.values[i]===20&&(!frame.mode||frame.kept!==undefined&&frame.sets[i]===frame.kept));
+}
 export function physicalRollTimeline(reveal:RollReveal,inlineTray:boolean,drukMaximum=false){
  const burst=reveal.kind==='damage'||reveal.kind==='dice';
  const attackDamage=inlineTray&&!burst&&!!reveal.damageDice?.length;

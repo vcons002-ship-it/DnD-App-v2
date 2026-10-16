@@ -71,12 +71,32 @@ export function CombatMoments() {
       detail: `${name} · Round ${snapshot.round}`, kind: 'turn'}]);
   }, [snapshot, socket?.id]);
 
+  // Starting an action consumes the invitation, even before the server's first
+  // dice frame. A hidden roll must not leave an old turn announcement queued.
+  useEffect(()=>{
+    if(!socket)return;
+    const acted=(event:string)=>{
+      if(/^(?:combat:|ability:roll$|spell:(?:repeat|shield|counterspell)$|skill:roll$|save:(?:roll|resolve)$|check:roll$|dice:roll$|death:roll$|token:move$|object:interact$|trap:disarm$|item:use$)/.test(event))
+        setQueue(q=>q.some(v=>v.kind==='turn')?q.filter(v=>v.kind!=='turn'):q);
+    };
+    socket.onAnyOutgoing(acted);
+    return()=>{socket.offAnyOutgoing(acted);};
+  },[socket]);
+  // If a displayed turn is interrupted by a roll, retire it rather than
+  // restarting its animation/sound when the tray closes. New turns queued
+  // during someone else's roll can still announce when that roll finishes.
+  useEffect(()=>{
+    if(!liveDice&&!rollFx)return;
+    const shown=presented.current;
+    setQueue(q=>q.some(v=>v.kind==='turn'&&v.id===shown)
+      ?q.filter(v=>v.kind!=='turn'||v.id!==shown):q);
+  },[liveDice?.id,rollFx?.id]);
   const banner = liveDice || rollFx ? undefined : queue[0];
   useEffect(() => {
     if (!banner) return;
     presented.current = banner.id;
     (banner.kind === 'initiative' ? playInitiative : banner.kind === 'rest' ? playRest : playYourTurn)();
-    const timer = window.setTimeout(() => setQueue(q => q.slice(1)), banner.kind === 'turn' ? 5400 : 4600);
+    const timer = window.setTimeout(() => setQueue(q => q.filter(v=>v.id!==banner.id)), banner.kind === 'turn' ? 5400 : 4600);
     return () => clearTimeout(timer);
   }, [banner?.id]);
   useEffect(() => {

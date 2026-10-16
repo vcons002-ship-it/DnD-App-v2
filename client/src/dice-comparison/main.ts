@@ -1,5 +1,5 @@
 import {createTrayRenderer,loadTrayTexture,preloadDiceGraphics,waitForDiceGraphics} from '../lib/diceTrayRenderer';
-import {diceThemeForClass,diceThemeForRoll} from '../../../shared/diceThemes';
+import {diceReviewNames as names,diceReviewMaterials as materials,diceReviewThemes as themes} from '../lib/diceReviewCatalog';
 import {createLiveWorld} from '../../../shared/liveDicePhysics';
 import {LIVE_DICE_PRESENTATION_RATE} from '../../../shared/liveDiceTypes';
 import {physicalDice,type Toss} from '../../../shared/diceTrayTypes';
@@ -7,14 +7,12 @@ import {metresPerUnitFor} from '../../../shared/diceImpacts';
 import {createDiceSound,rollingSpeeds} from '../lib/diceSfx';
 import {getSfxVolume,isDiceSfxOn,setSfxMuted,setDiceSfxOn,setSfxVolume,sfxOutput,playCritical} from '../lib/sfx';
 
-const names=['Druk','Varis','Vanec','DM'];
-const materials=['Molten obsidian & gold','Forest resin, wood & bronze | Woodland wake','Red glass, lightning & silver','Purple resin, flowing ink & gold'];
-const themes=[diceThemeForClass('Fighter'),diceThemeForClass('Ranger'),diceThemeForClass('Sorcerer'),diceThemeForRoll('',true)];
 const tray=document.querySelector<HTMLDivElement>('#tray')!;
 const canvas=tray.querySelector('canvas')!,ctx=canvas.getContext('2d')!;
 const status=document.querySelector<HTMLSpanElement>('#status')!;
 const buttons=[...document.querySelectorAll<HTMLButtonElement>('#roll,button[data-sides]')];
 const roller=document.querySelector<HTMLSelectElement>('#roller')!;
+roller.innerHTML=names.map((name,i)=>`<option value="${i}">${name}</option>`).join('');
 const count=document.querySelector<HTMLInputElement>('#count')!;
 const gold=document.querySelector<HTMLInputElement>('#gold')!;
 gold.checked=new URLSearchParams(location.search).get('gold')==='1';
@@ -97,7 +95,7 @@ async function roll(next=sides){
    status.textContent=`${names[player]}'s ${quantity}d${sides} settled`;
    // Warm the other characters only after the toss, keeping shader preparation
    // out of the live physics animation. Interrupted warmups retry next roll.
-   for(const theme of themes)void preloadDiceGraphics(theme,()=>done);
+   void preloadDiceGraphics(themes[player],()=>done);
   }
   requestAnimationFrame(frame);
  }

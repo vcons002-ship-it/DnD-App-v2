@@ -8,7 +8,7 @@ export function shapeSaveFrame(frame:LiveDiceFrame,saves:SaveDieInfo[],labelFor:
  const groups=new Map<string,string>();
  const {dieOffset,...base}=frame;
  const pick=<T>(values:T[])=>entries.map(e=>values[e.i]);
- return {...base,sides:pick(frame.sides),sets:pick(frame.sets),critical:pick(frame.critical),percentile:pick(frame.percentile),values:pick(frame.values),rerolls:pick(frame.rerolls),
+ return {...base,...(frame.diceArt?{diceArt:pick(frame.diceArt)}:{}),sides:pick(frame.sides),sets:pick(frame.sets),critical:pick(frame.critical),percentile:pick(frame.percentile),values:pick(frame.values),rerolls:pick(frame.rerolls),
    poses:entries.flatMap(e=>frame.poses.slice(e.i*7,e.i*7+7)),target:undefined,
    saveDice:entries.map(({save,label})=>{
      if(!groups.has(save.group))groups.set(save.group,String(groups.size));

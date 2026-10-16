@@ -9,6 +9,7 @@ import {tokenDistanceFt} from '../../../shared/distance';
 import {SpellAreaShapes} from './SpellAreaShapes';
 import {DEATH_SKULL} from '../lib/miniatures';
 import {ObjectControls} from '../components/ObjectControls';
+import './door-controls.css';
 import { activeHasteCondition, speedIsZero, walkingSpeedFeet } from '../../../shared/spellBuffs';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
 import {TokenPresentation} from './tokenPresentation';
@@ -442,6 +443,7 @@ export function MapStage({
   const presentation=useRef(new TokenPresentation()).current;
   // Retain the simpler flash experiment for repeatable measurements only.
   const spellColorOverlay=new URLSearchParams(window.location.search).get('spellColorOverlay')==='1';
+  const spellMist=new URLSearchParams(window.location.search).get('spellMist')!=='off';
   const visionSpellLights=useRef(false);
   const visionLightTime=useRef(0);
   const handleVisionLights=useCallback((lights:import('../../../shared/playerVision').VisionLight[])=>{
@@ -773,6 +775,8 @@ export function MapStage({
   const [fogBrush, setFogBrush] = useState<'off' | 'reveal' | 'hide'>('off');
   const [wallTool,setWallTool]=useState<WallTool>('off');
   const [doorWallId,setDoorWallId]=useState<string|null>(null),[selectedDoor,setSelectedDoor]=useState<string|null>(null);
+  const [dismissedDoors,setDismissedDoors]=useState<string[]>([]);
+  const openDoorControls=(id:string)=>{setDismissedDoors(old=>old.filter(key=>key!==id));setSelectedDoor(id);};
   const [wallSnap,setWallSnap]=useState(false);
   const [wallAnchor,setWallAnchor]=useState<Pt|null>(null),[wallPointer,setWallPointer]=useState<Pt|null>(null);
   const [wallThickness,setWallThickness]=useState(1);
@@ -824,7 +828,7 @@ export function MapStage({
     const ox=map?.gridOffsetX??0,oy=map?.gridOffsetY??0;
     return wallSnap?{x:Math.round((p.x-ox)/grid)*grid+ox,y:Math.round((p.y-oy)/grid)*grid+oy}:p;
   };
-  useEffect(()=>{setWallTool('off');setWallAnchor(null);setWallPointer(null);setSelectedDoor(null);setDoorWallId(null);},[map?.id]);
+  useEffect(()=>{setWallTool('off');setWallAnchor(null);setWallPointer(null);setSelectedDoor(null);setDismissedDoors([]);setDoorWallId(null);},[map?.id,mySocketId]);
   useEffect(()=>{
     if(!wallActive)return;
     const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape'){cancelWallStroke();if(!wallAnchor&&!wallGesture.current)setWallTool('off');}};
@@ -1217,6 +1221,14 @@ export function MapStage({
   const doors=(map?.walls??[]).filter(w=>w.door);
   const doorVisible=(door:typeof doors[number])=>isDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
   const nearbyDoors=doors.filter(d=>doorVisible(d)&&(isDm?d.id===selectedDoor:snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
+  const nearbyDoorKey=nearbyDoors.map(d=>d.id).sort().join('|');
+  useEffect(()=>{
+    // Leaving a door's reach clears its dismissal; snapshots and camera changes do not.
+    const ids=new Set(nearbyDoorKey.split('|'));
+    setDismissedDoors(old=>{const next=old.filter(id=>ids.has(id));return next.length===old.length?old:next;});
+  },[nearbyDoorKey]);
+  const activeDoorControls=nearbyDoors.filter(d=>!dismissedDoors.includes(d.id));
+  const dismissDoorControls=()=>{setDismissedDoors(old=>[...new Set([...old,...nearbyDoors.map(d=>d.id)])]);if(isDm)setSelectedDoor(null);};
   const operateDoor=(id:string,open:boolean)=>{if(map)useStore.getState().socket?.emit('map:setDoor',{mapId:map.id,doorId:id,open});};
   const miniatureVisibleAt = useMemo(() => {
     const ownerId = useStore.getState().socket?.id;
@@ -2325,7 +2337,7 @@ export function MapStage({
                         setScaleMode((s) => !s);
                       }}
                     />
-                    <WallMenu map={map} doors={doors} onDoor={id=>setSelectedDoor(id)} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap}
+                    <WallMenu map={map} doors={doors} onDoor={openDoorControls} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap}
                       onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
                       onFinish={cancelWallStroke}
                       onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>
@@ -2709,7 +2721,7 @@ export function MapStage({
                 }else{
                   faces=wallBoundarySegments(d).map(({a,b})=>[a.x,a.y,b.x,b.y]);
                 }
-                const activate=()=>{if(isDm)setSelectedDoor(d.id);else if(!nearbyDoors.some(door=>door.id===d.id))notify('Move your character’s footprint within 5 ft of this door’s approach area to open it or pick its lock.');};
+                const activate=()=>{if(isDm||nearbyDoors.some(door=>door.id===d.id))openDoorControls(d.id);else notify('Move your character’s footprint within 5 ft of this door’s approach area to open it or pick its lock.');};
                 return <Group key={d.id} name="wall-door-marker" doorId={d.id} doorState={label} doorPreview={previewed} opacity={hidden ? .45 : 1} listening={!wallActive}
                   onMouseDown={e=>{e.cancelBubble=true;}} onTouchStart={e=>{e.cancelBubble=true;}} onClick={e=>{e.cancelBubble=true;activate();}} onTap={e=>{e.cancelBubble=true;activate();}}>
                   <Line name="door-approach-area" points={wallVertices(doorInteractionArea(d,pxPerFoot)).flatMap(p=>[p.x,p.y])} closed listening={false}
@@ -2763,7 +2775,7 @@ export function MapStage({
             </Layer>
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer preparedSpellImpacts={preparedSpellImpacts} spellColorOverlay={spellColorOverlay} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
+            <MiniatureLayer preparedSpellImpacts={preparedSpellImpacts} spellColorOverlay={spellColorOverlay} spellMist={spellMist} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} spellFog={spellFog} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas} visionCoverFrame={visionCoverFrame}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?lights=>visionRef.current?.prepareLights(lights):undefined} />
@@ -2771,13 +2783,13 @@ export function MapStage({
           {renderPlayerVision&&snapshot.playerVision&&<PlayerVisionOverlay spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>}
           {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
-          {!wallActive&&nearbyDoors.length>0&&!doorDragPreview&&<div data-testid="door-controls" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,display:'flex',gap:8,padding:8,background:'#161b23ee',border:'1px solid #aa8550',borderRadius:6}}>
-            {nearbyDoors.map(d=>{const token=snapshot.tokens.find(t=>t.id===d.tokenId);return <div key={d.id}>
+          {!wallActive&&activeDoorControls.length>0&&!doorDragPreview&&<section data-testid="door-controls" className="nearby-door-controls" role="region" aria-label="Door controls">
+            <header><strong>Door controls</strong><button className="btn tiny" aria-label="Close door controls" title="Close — click a nearby door or leave and return to reopen" onClick={dismissDoorControls}>×</button></header>
+            <div className="nearby-door-list">{activeDoorControls.map(d=>{const token=snapshot.tokens.find(t=>t.id===d.tokenId);return <div className="nearby-door" key={d.id}>
               <strong>Door {doors.indexOf(d)+1}</strong>
-              {token?<><ObjectControls snapshot={snapshot} token={token} editable={isDm}/>{isDm&&<button className="btn tiny" onClick={()=>onSelectToken(token)}>Door details</button>}</>:<button className="btn" onClick={()=>operateDoor(d.id,!d.open)}>{d.open?'Close':'Open'} door</button>}
-            </div>;})}
-            {isDm&&<button className="btn tiny" onClick={()=>setSelectedDoor(null)}>Dismiss</button>}
-          </div>}
+              {token?<><ObjectControls snapshot={snapshot} token={token} editable={isDm} compact/>{isDm&&<button className="btn tiny" onClick={()=>onSelectToken(token)}>Door details</button>}</>:<button className="btn" onClick={()=>operateDoor(d.id,!d.open)}>{d.open?'Close':'Open'} door</button>}
+            </div>;})}</div>
+          </section>}
           {wallActive&&<div data-testid="wall-drawing-hint" style={{position:'absolute',bottom:88,left:'50%',transform:'translateX(-50%)',zIndex:5,background:'#161b23ee',color:'#ffe5b3',padding:'8px 12px',border:'1px solid #aa8550',borderRadius:6,fontSize:13,display:'flex',gap:10,alignItems:'center',maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}}>
             <span>{wallTool==='erase-area'?'Drag a rectangle to erase only that section. Doors are kept.':wallTool==='rectangle'?'Drag across the wall’s length and thickness':wallTool==='door'?'Drag along a wall to cut a door opening':wallTool==='draw'?'Drag a line at any angle':wallTool==='circle'?'Drag from the room center to its wall':wallTool==='freehand'?'Hold and trace the wall; release to save':wallTool==='edit'?'Click to select · Shift/Ctrl-click to add · Ctrl-drag a box · Delete to remove · Ctrl+Z to undo':'Click a wall to delete the entire piece'}</span>
             {['draw','circle','freehand'].includes(wallTool)&&<label>Thickness <input aria-label="Wall thickness in feet" type="number" min={.1} max={20} step={.25} value={wallThickness} onChange={e=>setWallThickness(Math.max(.1,Math.min(20,Number(e.target.value)||.1)))} style={{width:55}}/> ft</label>}

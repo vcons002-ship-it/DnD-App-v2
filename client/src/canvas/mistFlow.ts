@@ -1,4 +1,5 @@
 import {DataTexture, LinearFilter, RedFormat, RGBAFormat} from 'three';
+import {rasterSpellMist,MAX_SPELL_MIST_IMPULSES,type SpellMistImpulse} from './spellMist.js';
 type FlowSettings={mapWidth:number;mapHeight:number;mistInteraction?:boolean;scenery:boolean;props?:readonly {x:number;y:number;size:number}[]};
 type ContactToken={id:string;x:number;y:number;diameter:number;visible:boolean;
   body?:{x:number;y:number;radiusX:number;radiusY:number;height?:number;facing:number}};
@@ -17,6 +18,8 @@ export function createMistFlow() {
   heightTexture.minFilter=heightTexture.magFilter=LinearFilter;heightTexture.generateMipmaps=false;
   let mapWidth=1216,mapHeight=832,enabled=true,obstacleKey='',time=0,lastUpload=-1;
   let obstacles=0;
+  const spells=new Map<string|number,SpellMistImpulse>();
+  let spellEnabled=false,spellSamples=0,spellUpdateMs=0;
   const previous=new Map<string,{x:number;y:number;bodyX:number;bodyY:number;time:number}>();
   const lifetime=6;
   const wakes:{id:string;x:number;y:number;length:number;radius:number;front:number;height:number;born:number;dx:number;dy:number;energy:number}[]=[];
@@ -57,7 +60,15 @@ export function createMistFlow() {
     texture,heightTexture,
     get heightScale(){return Math.max(mapWidth,mapHeight);},
     update:rebuild,
-    reset(){previous.clear();wakes.length=0;lastUpload=-1;},
+    reset(){previous.clear();wakes.length=0;spells.clear();lastUpload=-1;},
+    setSpells(inputs:readonly SpellMistImpulse[],active:boolean){
+      if(!active){if(spells.size||spellEnabled){spells.clear();lastUpload=-1;}spellEnabled=false;return;}
+      spellEnabled=true;
+      for(const input of inputs)if(!spells.has(input.id)&&time-input.born<input.duration){
+        spells.set(input.id,input);
+        if(spells.size>MAX_SPELL_MIST_IMPULSES)spells.delete(spells.keys().next().value!);
+      }
+    },
     setTokens(tokens:readonly ContactToken[]){
       const visible=new Set(tokens.filter(t=>t.visible).map(t=>t.id));
       for(let i=wakes.length-1;i>=0;i--)if(!visible.has(wakes[i].id))wakes.splice(i,1);
@@ -97,10 +108,12 @@ export function createMistFlow() {
     tick(seconds:number){
       // Zero explicitly freezes reduced-motion previews. A stale render clock
       // must never erase world-space history during camera interaction.
-      if(seconds===0){wakes.length=0;lastUpload=-1;}
+      if(seconds===0){wakes.length=0;spells.clear();lastUpload=-1;}
       else if(seconds<time)return;
       time=seconds;
       if(!enabled)wakes.length=0;
+      if(!enabled)spells.clear();
+      for(const [id,s]of spells)if(seconds-s.born>=s.duration)spells.delete(id);
       for(let i=wakes.length-1;i>=0;i--)if(seconds-wakes[i].born>lifetime)wakes.splice(i,1);
       if(lastUpload>=0&&seconds-lastUpload<1/15)return;
       lastUpload=seconds;data.set(base);heights.fill(0);pushX.fill(0);pushY.fill(0);pushWeight.fill(0);
@@ -172,12 +185,14 @@ export function createMistFlow() {
         });
 
       }
+      spellSamples=0;spellUpdateMs=0;
+      if(spellEnabled&&spells.size){const started=performance.now();spellSamples=rasterSpellMist([...spells.values()],seconds,{width,height,mapWidth,mapHeight,data,heights,pushX,pushY,pushWeight});spellUpdateMs=performance.now()-started;}
       for(let p=0;p<pushWeight.length;p++)if(pushWeight[p]>0){
         const i=p*4;data[i]=clamp(data[i]+pushX[p]*2);data[i+1]=clamp(data[i+1]+pushY[p]*2);
       }
       texture.needsUpdate=true;heightTexture.needsUpdate=true;
     },
-    get state(){return {wakes:wakes.length,obstacles,enabled,time,oldestWakeAge:wakes.length?time-wakes[0].born:0};},
-    dispose(){texture.dispose();heightTexture.dispose();previous.clear();wakes.length=0;},
+    get state(){return {wakes:wakes.length,obstacles,enabled,time,oldestWakeAge:wakes.length?time-wakes[0].born:0,spellImpulses:spells.size,spellEnabled,spellSamples,spellUpdateMs};},
+    dispose(){texture.dispose();heightTexture.dispose();previous.clear();wakes.length=0;spells.clear();},
   };
 }
