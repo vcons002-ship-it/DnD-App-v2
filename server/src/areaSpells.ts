@@ -36,12 +36,13 @@ export function areaPlacementError(sid:string,kind:TokenKind,id:string,a:SheetAb
 export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caster:Character|Monster,a:SheetAbility,level:number|undefined,p:SpellAreaPlacement,cast:(placementOnly:boolean)=>boolean):boolean{
  if(areaPlacementError(sid,kind,caster.id,a,level,p))return false;
  const spec=spellAreaFor(a,level)!,map=getMap(p.mapId)!,actor=listTokens(map.id).find(t=>t.kind===kind&&t.refId===caster.id)!,px=map.gridSizePx/map.feetPerSquare;
+ const saveArea={mapId:map.id,origins:p.points.map((_,i)=>areaOrigin(spec,p,actor,px,i))};
  const seen=new Set<string>();
  const targets=listTokens(map.id).filter(t=>{
    const e=t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId),key=`${t.kind}:${t.refId}`;
    if(!e||('objectKind'in e&&e.objectKind)||isDeadEntity(t.kind,e)||seen.has(key)||
      areaExcludesCaster(spec)&&t.kind===kind&&t.refId===caster.id||p.excluded?.includes(t.id)||spec.selective&&p.selected&&!p.selected.includes(t.id)||!tokenInSpellArea(spec,p,actor,t,px))return false;
-   if(!p.points.some((_,i)=>hasLineOfSight(areaOrigin(spec,p,actor,px,i),t,map.walls)))return false;
+   if(!saveArea.origins.some(origin=>hasLineOfSight(origin,t,map.walls)))return false;
    seen.add(key);return true;
  });
  if(spec.maxTargets&&targets.length>spec.maxTargets)return false;
@@ -59,8 +60,8 @@ export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caste
    const live=usingPhysicalDice();
    targets.forEach((t,i)=>{
      const out=saves[i];
-     if(out)withDiceSource(()=>out.faces,()=>resolveForcedSave(sid,source.id,t.id,undefined,undefined,live));
-     else resolveForcedSave(sid,source.id,t.id,undefined,undefined,usingPhysicalDice());
+     if(out)withDiceSource(()=>out.faces,()=>resolveForcedSave(sid,source.id,t.id,undefined,undefined,live,saveArea));
+     else resolveForcedSave(sid,source.id,t.id,undefined,undefined,usingPhysicalDice(),saveArea);
    });
    setRollApply(source.id,undefined);
    if(source.reveal&&!source.reveal.damageMods?.length)setRollReveal(source.id,{...source.reveal,presentedLive:usingPhysicalDice()});
