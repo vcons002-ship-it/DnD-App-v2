@@ -3171,8 +3171,18 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
 
 ## Review fixes - October 2026 (PRs #123–#145)
 
-- [x] Line, cone and cube spell art (Lightning Bolt, Burning Hands, Cone of
-  Cold, Thunderwave) reaches players only while the caster is visible to them.
+- [x] Spell area art is clipped per pixel to what each player can see (live
+  vision cover and revealed map fog), and is sent whenever any part of the area
+  is in view. A hidden caster's spell shows where it reaches open ground; the
+  projectile origin of an unseen caster stays hidden. The 2D (no-WebGL)
+  fallback keeps the anchor-point rule. Hidden spell pixels are discarded
+  before the effect shades them; the fog-cell texture is built only while
+  spell art is drawing, and only when the revealed cells change.
+- [x] Line of sight is about 10× faster (same answers, checked against the
+  linear scan for every wall kind): per-wall-list geometry is cached, the
+  inside-wall test is skipped outside each wall's bounds, and rays walk the
+  wall spatial index. Vision checks test distances before casting rays, so
+  heavy darkness rarely casts any.
 - [x] Map uploads check the DM secret before the file is stored.
 - [x] A new uploaded model replaces the character's or creature's previous
   upload (deleted once unused); players may give at most 20 characters per

@@ -557,6 +557,11 @@ live outside the bundled static catalog and must be backed up with uploads.
   brings them into view (`MapStage` `focusRequest`) — only on a turn CHANGE.
 - **The big `DamagePrompt` belongs to the roller** — the DM's map ignores a
   player's hit (the log button remains the DM's override).
+- **No reveal lag beats hiding asset names from DevTools.** Player snapshots list
+  `miniaturePreloadFamilies` for every monster on the map, hidden ones included,
+  so a revealed creature's 3D model is already loaded. Players are trusted not to
+  inspect network/snapshot data; don't strip it as a "leak". Hidden positions,
+  stats and on-screen cues stay gated in `visibility.ts` as usual.
 
 ## Gotchas for edits
 

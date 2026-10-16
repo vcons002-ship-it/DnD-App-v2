@@ -1226,7 +1226,9 @@ export function MapStage({
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
-      if(!token&&(id.startsWith('area:')||id.startsWith('spike-area:')))return isDm || fogVisionContains(presentation.personalVision(),x,y,true)&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(x/grid)},${Math.floor(y/grid)}`));
+      // Area art is pixel-clipped to the player's sight and revealed fog in the 3D layer,
+      // so it plays wherever any part of it is in view (the server already checked).
+      if(!token&&(id.startsWith('area:')||id.startsWith('spike-area:')))return true;
       return !!token && (token.sharedSightOnly ? (token.kind==='pc' || (token.revealedOnly?fogVisionContains(presentation.personalVision(),x,y,false)&&tokenVisibleAt({...token,role:snapshot.role,mapFog:mapFogEnabled?mapRevealed:null,tokenFog:tokenFogEnabled?tokenRevealed:null,grid,x,y}):fogVisionContains(presentation.partyVision(),x,y,usesTokenVision(snapshot.map)))) :
         (token.owned || fogVisionContains(presentation.personalVision(),x,y,usesTokenVision(snapshot.map))) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
@@ -1271,6 +1273,14 @@ export function MapStage({
     return definition ? [definition] : [];
   }) : []), ...(use3dMonsters?miniaturePreloadDefinitions(snapshot.miniaturePreloadFamilies??[]):[])], [snapshot.characters, snapshot.miniaturePreloadFamilies, use3dTokens, use3dMonsters, graphics.modelQuality, miniatureCatalogRevision]));
 
+  // A player's map fog, so the 3D layer clips spell art to revealed cells.
+  const spellFog=useMemo(()=>!isDm&&mapFogEnabled&&map?{grid,revealed:map.mapFogRevealed,x0:extX0,y0:extY0,x1:extX1,y1:extY1}:undefined,
+    [isDm,mapFogEnabled,map?.mapFogRevealed,grid,extX0,extY0,extX1,extY1]);
+  // The 2D fallback (no WebGL) can't clip pixels: it keeps the old rule and
+  // draws area art only when the area's anchor point is visible.
+  const hpFx2d=useMemo(()=>isDm||!miniaturesUnavailable?hpFx:hpFx.filter(f=>!f.areaPosition||
+    fogVisionContains(presentation.personalVision(),f.areaPosition.x,f.areaPosition.y,true)&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(f.areaPosition.x/grid)},${Math.floor(f.areaPosition.y/grid)}`))),
+    [hpFx,isDm,miniaturesUnavailable,mapFogEnabled,mapRevealed,grid,presentation]);
   // Content-stable so TokenShape's memo isn't defeated by each snapshot's fresh arrays.
   const terrainZones=useContentStable(useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]));
   const movementWalls=useContentStable(map?.walls);
@@ -2723,7 +2733,7 @@ export function MapStage({
               {/* Floating ±X damage/heal numbers — topmost, click-through. */}
               <HpFxLayer
                 spellEffects3D={!miniaturesUnavailable}
-                floaters={hpFx}
+                floaters={hpFx2d}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
               />
@@ -2754,7 +2764,7 @@ export function MapStage({
           </Stage>
           {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
             <MiniatureLayer preparedSpellImpacts={preparedSpellImpacts} spellColorOverlay={spellColorOverlay} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
-              environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas} visionCoverFrame={visionCoverFrame}
+              environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} spellFog={spellFog} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas} visionCoverFrame={visionCoverFrame}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?lights=>visionRef.current?.prepareLights(lights):undefined} />
           </Suspense></MiniatureFallback>}

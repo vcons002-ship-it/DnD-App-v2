@@ -24,8 +24,11 @@ export function visionContains(vision:PlayerVision|undefined|null,x:number,y:num
 /** Fog switches control wall concealment, never the heavy-darkness range. */
 export function fogVisionContains(vision:PlayerVision|undefined|null,x:number,y:number,wallFog:boolean):boolean{
  if(!vision)return true;
- const point={x,y};
- const visibleOrigins=vision.origins.filter(o=>!wallFog||hasLineOfSight(o,point,vision.walls));
+ const point={x,y},seen=(o:VisionPoint)=>!wallFog||hasLineOfSight(o,point,vision.walls);
+ // Same answer, cheapest tests first: distances before any wall ray cast.
+ if(!vision.heavy)return vision.origins.some(seen);
+ if(!vision.origins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6))return visionLit(vision,x,y)&&vision.origins.some(seen);
+ const visibleOrigins=vision.origins.filter(seen);
  return visibleOrigins.length>0&&(!vision.heavy||visibleOrigins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6)||visionLit(vision,x,y));
 }
 export function visionHasDarkvision(vision:PlayerVision|undefined|null,x:number,y:number):boolean{

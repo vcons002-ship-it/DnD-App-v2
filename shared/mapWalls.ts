@@ -1,5 +1,5 @@
 /** Opaque, infinitely tall sight barriers in map pixels. Gaps remain open doorways. */
-import {wallBoundarySegments,insideWallGeometry,segmentDistance,pointInRing} from './wallGeometry.js';
+import {wallBoundarySegments,insideWallGeometry,segmentDistance,pointInRing,wallContours} from './wallGeometry.js';
 import {closestWallHit,visitWallCrossings} from './wallSpatialIndex.js';
 import {sightWalls} from './windowGeometry.js';
 import {passageWalls} from './archGeometry.js';
@@ -96,12 +96,31 @@ function rayHit(o: WallPoint, dx: number, dy: number, wall: MapWall): number {
   return t >= -EPS && u >= -EPS && u <= 1+EPS ? Math.max(0,t) : Infinity;
 }
 
+/** Per wall list: the sight geometry, its edges, and each solid wall's outer
+ * bounds (padded past rounding), outside which a point can't be inside it. */
+type SightGeometry={edges:MapWall[];solid:{wall:MapWall;minX:number;minY:number;maxX:number;maxY:number}[]};
+const sightCache=new WeakMap<readonly MapWall[],SightGeometry>();
+function sightGeometry(input:readonly MapWall[]):SightGeometry{
+  const cached=sightCache.get(input);if(cached)return cached;
+  const walls=sightWalls(passageWalls(input));
+  const solid=walls.filter(w=>!(w.door&&w.open)).flatMap(wall=>{
+    const outer=wallContours(wall)[0];if(!outer?.length)return [];
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    for(const p of outer){minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);}
+    const pad=1e-6*(1+Math.max(Math.abs(minX),Math.abs(minY),Math.abs(maxX),Math.abs(maxY)));
+    return [{wall,minX:minX-pad,minY:minY-pad,maxX:maxX+pad,maxY:maxY+pad}];
+  });
+  const geometry={edges:wallEdges(walls),solid};sightCache.set(input,geometry);return geometry;
+}
 export function hasLineOfSight(a: WallPoint, b: WallPoint, walls: readonly MapWall[] = []): boolean {
-  walls=sightWalls(passageWalls(walls));
+  if(!walls.length)return true;
+  const {edges,solid}=sightGeometry(walls);
   const dx=b.x-a.x,dy=b.y-a.y, distance=Math.hypot(dx,dy);
   if (distance < EPS) return true;
-  if(walls.some(w=>insideWall(a,w)||insideWall(b,w)))return false;
-  return !wallEdges(walls).some(w => rayHit(a,dx/distance,dy/distance,w) < distance-EPS);
+  const inside=(p:WallPoint,s:SightGeometry['solid'][number])=>p.x>=s.minX&&p.x<=s.maxX&&p.y>=s.minY&&p.y<=s.maxY&&insideWallGeometry(p,s.wall);
+  if(solid.some(s=>inside(a,s)||inside(b,s)))return false;
+  // The bounding-volume walk returns the nearest hit below the limit, else the limit.
+  return closestWallHit(a,dx/distance,dy/distance,edges,distance-EPS,rayHit) >= distance-EPS;
 }
 
 export function distanceToWall(p: WallPoint, w: MapWall): number {

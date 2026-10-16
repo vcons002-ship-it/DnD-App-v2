@@ -154,6 +154,8 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       }
       if(changed)bodyGrades.needsUpdate=true;
     },
+    /** This frame's screen-space visibility (red = in sight), for clipping spell art. */
+    get cover(){return {texture:cover.texture,width:cover.width,height:cover.height};},
     render(enabled:boolean,next:VisionCoverFrame|undefined,camera:Camera){
       const grading=enabled&&!!next?.grade&&!next.grade.daylight;
       const fog=enabled&&!!next?.enabled;

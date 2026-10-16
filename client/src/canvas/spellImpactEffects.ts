@@ -1,4 +1,4 @@
-import {InstancedMesh,AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector3,WebGLRenderTarget,type Camera,type WebGLRenderer} from 'three';
+import {InstancedMesh,AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector2,Vector3,WebGLRenderTarget,type Camera,type Texture,type WebGLRenderer} from 'three';
 import {FIREBALL_FLIGHT_MS,METEOR_FLIGHT_MS,spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,weaponImpactStyle,type SpellImpactStyle} from '../../../shared/spellImpact';
 import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
@@ -9,6 +9,10 @@ export type SpellImpact={id:number|string;tokenId:string;x:number;y:number;diame
 // A separate color pass lets visible spell geometry rise above terrain fog
 // without lifting any hidden map pixels or invalidating the cached body mask.
 export const SPELL_IMPACT_LAYER=7;
+/** Map-fog cells as a texture (1 = revealed), in ground space: cell (originX+i, originY+j) is texel (i, j). */
+export type SpellFogClip={texture:Texture;originX:number;originY:number;cols:number;rows:number;grid:number};
+/** The GPU vision cover (red = currently visible), in screen space. */
+export type SpellCoverClip={texture:Texture;width:number;height:number};
 type Effect={input:SpellImpact;style:SpellImpactStyle;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
 
 /** Prepare detached geometry during a roll hold; only activation starts its
@@ -23,6 +27,35 @@ export function createSpellImpactEffects(scene:Scene){
   const prepared=new Map<number|string,Effect>(),preparedScene=new Scene(),warmTarget=new WebGLRenderTarget(8,8),warming=new WeakSet<Group>(),warmed=new WeakSet<Group>();
   let disposed=false,built=0,promoted=0,gpuWarmCount=0;
   const effects=new Map<number|string,Effect>(),seen=new Set<number|string>(),worldPoint=new Vector3();
+  // A player sees only the part of a spell inside their view: every effect
+  // material fades out where the vision cover (screen space) or the map-fog
+  // cell mask (by the fragment's ground position) marks the pixel hidden.
+  // Uniform objects are shared, so one update reaches every effect.
+  const clip={spellCover:{value:null as Texture|null},spellCoverSize:{value:new Vector2(1,1)},spellUseCover:{value:0},
+    spellFog:{value:null as Texture|null},spellFogOrigin:{value:new Vector2()},spellFogCells:{value:new Vector2(1,1)},spellFogGrid:{value:50},spellUseFog:{value:0}};
+  const clipped=new WeakSet<MeshBasicMaterial|MeshStandardMaterial>();
+  const clipToView=(m:MeshBasicMaterial|MeshStandardMaterial)=>{
+    if(clipped.has(m))return;clipped.add(m);
+    m.onBeforeCompile=shader=>{
+      Object.assign(shader.uniforms,clip);
+      shader.vertexShader='varying vec2 vSpellGround;\n'+shader.vertexShader.replace('#include <project_vertex>',`#include <project_vertex>
+        vec4 spellGround=vec4(transformed,1.);
+        #ifdef USE_INSTANCING
+        spellGround=instanceMatrix*spellGround;
+        #endif
+        vSpellGround=(modelMatrix*spellGround).xz;`);
+      shader.fragmentShader='varying vec2 vSpellGround;uniform sampler2D spellCover,spellFog;uniform vec2 spellCoverSize,spellFogOrigin,spellFogCells;uniform float spellUseCover,spellUseFog,spellFogGrid;\n'
+        // Tested first, so a hidden pixel skips the effect's own shading.
+        +shader.fragmentShader.replace('void main() {',`void main() {
+        float spellSeen=1.;
+        if(spellUseCover>.5)spellSeen*=texture2D(spellCover,gl_FragCoord.xy/spellCoverSize).r;
+        if(spellUseFog>.5){vec2 cell=floor(vSpellGround/spellFogGrid)-spellFogOrigin;
+          spellSeen*=(cell.x<0.||cell.y<0.||cell.x>=spellFogCells.x||cell.y>=spellFogCells.y)?0.:texture2D(spellFog,(cell+.5)/spellFogCells).r;}
+        if(spellSeen<=0.)discard;`).replace('#include <dithering_fragment>',`#include <dithering_fragment>
+        gl_FragColor.a*=spellSeen;`);
+    };
+    m.customProgramCacheKey=()=>'spell-view-clip';
+  };
   const dispose=(effect:Effect)=>{effect.root.removeFromParent();effect.root.traverse(n=>{if(n instanceof InstancedMesh)n.dispose();});effect.materials.forEach(m=>m.dispose());effect.vines.forEach(v=>v.geometry.dispose());effect.bolt?.geometry.dispose();};
   function add(input:SpellImpact,now:number,target=effects){
     const style=input.weaponOnly?weaponImpactStyle(input.event):spellImpactStyle(input.event);if(!style)return;
@@ -69,6 +102,7 @@ export function createSpellImpactEffects(scene:Scene){
     // draw afterwards with depth testing intact, so terrain cannot erase the
     // field and a foreground figure still occludes its particles and thorns.
     root.traverse(node=>{if(node instanceof Mesh){node.renderOrder=5;node.layers.set(SPELL_IMPACT_LAYER);}});
+    [body,bright,haloMaterial,white,...shape.materials].forEach(clipToView);
     (target===prepared?preparedScene:scene).add(root);built++;target.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:input.startAt??now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
   }
   function tickEffects(collection:Map<number|string,Effect>,now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
@@ -132,6 +166,16 @@ export function createSpellImpactEffects(scene:Scene){
       return lights;
   }
   return {
+    /** Clip to the player's live sight (null: no vision fog on this pass). */
+    setCoverClip(cover:SpellCoverClip|null){
+      clip.spellUseCover.value=cover?1:0;clip.spellCover.value=cover?.texture??null;
+      if(cover)clip.spellCoverSize.value.set(cover.width,cover.height);
+    },
+    /** Clip to revealed map-fog cells (null: no map fog for this viewer). */
+    setFogClip(fog:SpellFogClip|null){
+      clip.spellUseFog.value=fog?1:0;clip.spellFog.value=fog?.texture??null;
+      if(fog){clip.spellFogOrigin.value.set(fog.originX,fog.originY);clip.spellFogCells.value.set(fog.cols,fog.rows);clip.spellFogGrid.value=fog.grid;}
+    },
     sync(inputs:readonly SpellImpact[],now:number){
       const ids=new Set(inputs.map(e=>e.id));for(const id of seen)if(!ids.has(id))seen.delete(id);
       for(const [id,e] of effects)if(!ids.has(id)){dispose(e);effects.delete(id);}
