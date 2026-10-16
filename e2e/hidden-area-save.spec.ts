@@ -80,6 +80,7 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  await expect(prompt).toBeVisible({timeout:45000});
  for(const view of [dm,player])await expect.poll(async()=>(await spellShapes(view,'resolving')).length).toBe(0);await expect(prompt).toContainText('Fireball');await expect(prompt).toContainText('DEX');
  await expect(player.locator('.roll-reveal-backdrop')).toHaveCount(0,{timeout:10000});
+ await expect(player.getByRole('status').filter({hasText:'Calculating'})).toBeVisible();
  expect((await snapshot()).monsters.filter(m=>enemies.some(t=>t.refId===m.id)).every(m=>m.curHp===120)).toBe(true);
  expect(hp).toHaveLength(0);expect((await playerSnapshot()).rollLog).toHaveLength(0);
  await chapter('DM: automatic prompt names all three creatures and their DEX saves');
@@ -135,6 +136,7 @@ test('a player area spell hands hidden grouped creature saves to the DM before r
  await click(dm,review.getByRole('button',{name:'Apply result',exact:true}));await expect(review).toHaveCount(0);
  for(const view of [dm,player])await expect.poll(async()=>(await spellShapes(view,'resolving')).length).toBe(0);
  await expect.poll(()=>hp.length,{timeout:15000}).toBeGreaterThanOrEqual(3);
+ await expect(player.getByRole('status').filter({hasText:'Calculating'})).toHaveCount(0);
  const resolved=await snapshot(),visible=await playerSnapshot();
  const cast=resolved.rollLog.find(r=>r.label==='Fireball')!,saves=resolved.rollLog.filter(r=>r.label==='DEX save');
  expect(saves).toHaveLength(3);expect(saves.every(s=>s.dmOnly)).toBe(true);

@@ -1,6 +1,10 @@
 .physics-dice-tray{position:relative;width:100%;min-width:0;margin:10px 0;}
 .roll-overlay-presence{position:fixed;inset:0;z-index:60;pointer-events:none;animation:roll-overlay-enter 180ms ease-out;}
 .roll-overlay-presence.is-leaving{opacity:0;transition:opacity 180ms ease-out;}
+.spell-calculating{position:fixed;top:100px;left:50%;transform:translateX(-50%);z-index:61;display:flex;align-items:center;gap:10px;padding:12px 22px;border:1px solid #b69a60;border-radius:9px;background:#10131bef;color:#f6e2b2;font:600 20px/1.4 system-ui;box-shadow:0 5px 25px #0008;pointer-events:none;}
+.spell-calculating span{width:16px;height:16px;border:2px solid #b69a6044;border-top-color:#f6e2b2;border-radius:50%;animation:spell-calculating-spin 1s linear infinite;}
+@keyframes spell-calculating-spin{to{transform:rotate(360deg);}}
+@media(prefers-reduced-motion:reduce){.spell-calculating span{animation:none;}}
 .roll-overlay-presence.is-leaving .roll-reveal{pointer-events:none;}
 .roll-overlay-presence .roll-reveal:has(.physics-dice-tray){animation:none;transform-origin:center;}
 .dice-tray-transition{position:absolute;left:0;top:0;width:100%;aspect-ratio:15.2/10.2;border-radius:14px;opacity:0;pointer-events:none;z-index:3;}

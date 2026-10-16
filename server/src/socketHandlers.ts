@@ -456,14 +456,32 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             const privateRoll=isDm()&&!!getSessionById(sid)?.hideDmRolls;
             const delegateSaves=!isDm()&&!!getSessionById(sid)?.hideDmRolls;
             let saveController:PrivateController|undefined,currentPrivateSave=false;
-            const configureDice=delegateSaves?(info:import('../../shared/dice.js').PhysicalDiceInfo)=>{
-              currentPrivateSave=!!info.saveDice?.some(d=>d.target.kind==='monster')||!!info.target&&info.target.kind==='monster'&&/sav(?:e|ing)/i.test(info.label??'');
+            const saveLabelFor=(id:string,target:import('../../shared/dice.js').SaveDieInfo['target'])=>{
+              const key=`save:${id}:${target.kind}:${target.refId}`;
+              if(!targetLabels.has(key)){
+                const conn=getConn(id)!,view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
+                const token=view?.tokens.find(t=>!t.sharedSightOnly&&t.kind===target.kind&&t.refId===target.refId);
+                targetLabels.set(key,token?(token.kind==='monster'&&token.revealTag&&token.revealTag!=='U'?token.revealTag:liveRollTarget(view!,[target])):undefined);
+              }
+              return targetLabels.get(key);
+            };
+            const configureDice=(info:import('../../shared/dice.js').PhysicalDiceInfo)=>{
+              currentPrivateSave=delegateSaves&&(!!info.saveDice?.some(d=>d.target.kind==='monster')||!!info.target&&info.target.kind==='monster'&&/sav(?:e|ing)/i.test(info.label??''));
+              // Never await a graphics-ready acknowledgement from a caster who
+              // cannot receive this save tray. A connected DM prepares it; a
+              // headless session can resolve without a graphics gate.
+              const hiddenSave=info.saveDice?.length?info.saveDice.every(d=>saveLabelFor(socket.id,d.target)===undefined)
+                :!!info.target&&/sav(?:e|ing)/i.test(info.label??'')&&saveLabelFor(socket.id,info.target)===undefined;
+              if(!currentPrivateSave&&!isDm()&&hiddenSave){
+                saveController??=[...privateControllers].reverse().find(([id])=>{const c=getConn(id);return c?.sessionId===sid&&c.role==='dm'&&io.sockets.sockets.has(id);})?.[1];
+                return {ready:saveController?.ready??(async()=>{})};
+              }
               if(!currentPrivateSave)return {};
               // Prefer the DM's newest connected window over an older idle tab.
               saveController??=[...privateControllers].reverse().find(([id])=>{const c=getConn(id);return c?.sessionId===sid&&c.role==='dm'&&io.sockets.sockets.has(id);})?.[1];
               if(!saveController)throw new UnsupportedPhysicalDice('A connected DM is needed to roll these hidden creature saves. Nothing was applied.');
               return {ready:saveController.ready,waitForPresentation:saveController.waitForPresentation,requireSaveStart:true};
-            }:undefined;
+            };
             const sourceToken=payload?.attackerTokenId?getToken(payload.attackerTokenId):undefined;
             const sources=[sourceToken,abilityOwner&&{kind:payload.kind,refId:abilityOwner.id},pending?.attacker,
               payload?.tokenId?getToken(payload.tokenId):undefined].filter(Boolean);
@@ -482,6 +500,18 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
               return audienceCache.get(id)!;
             });
             const lastDelivered=new Map<string,string>();
+            const resolving=new Set<string>(),resolutionId=newId();
+            const awaitingResolution=(id:string)=>{
+              const last=lastDelivered.get(id);
+              if(last){io.to(id).emit('dice:finished',{id:last});lastDelivered.delete(id);}
+              // The caster also waits for control spells with no damage tray.
+              // Other viewers must have seen a roll from this cast first.
+              // No creature names, counts, dice or save outcomes are sent.
+              if(last||resolving.has(id)||id===socket.id){
+                if(!resolving.has(id))io.to(id).emit('dice:resolving',{id:resolutionId,active:true});
+                resolving.add(id);
+              }
+            };
             skipDicePresentation=false;activeDiceId=undefined;
             try{
               await runLiveCommand(()=>{
@@ -491,19 +521,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                 activeCommandConnection=commandConn;
                 try{runHandler();}finally{socket.emit=emit;activeCommandConnection=undefined;}
               },(frame,info)=>{
-               if(currentPrivateSave)for(const [id,lastId] of lastDelivered){if(getConn(id)?.role!=='dm'){io.to(id).emit('dice:finished',{id:lastId});lastDelivered.delete(id);}}
+               if(currentPrivateSave)for(const id of lastDelivered.keys()){if(getConn(id)?.role!=='dm')awaitingResolution(id);}
                for(const id of audience()){
                 if(currentPrivateSave&&getConn(id)?.role!=='dm')continue;
                 if(info?.saveDice){
-                  const shaped=shapeSaveFrame(frame,info.saveDice,target=>{
-                    const key=`save:${id}:${target.kind}:${target.refId}`;
-                    if(!targetLabels.has(key)){
-                      const conn=getConn(id)!,view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
-                      const token=view?.tokens.find(t=>!t.sharedSightOnly&&t.kind===target.kind&&t.refId===target.refId);
-                      targetLabels.set(key,token?(token.kind==='monster'&&token.revealTag&&token.revealTag!=='U'?token.revealTag:liveRollTarget(view!,[target])):undefined);
-                    }
-                    return targetLabels.get(key);
-                  },{hideModifiersFor:target=>getConn(id)?.role!=='dm'&&(target.kind==='monster'||isDm()),
+                  const shaped=shapeSaveFrame(frame,info.saveDice,target=>saveLabelFor(id,target),{hideModifiersFor:target=>getConn(id)?.role!=='dm'&&(target.kind==='monster'||isDm()),
                     // A player's own spell/maneuver DC is public to that player;
                     // creature and encounter DCs remain private regardless of faces.
                     hideDc:getConn(id)?.role!=='dm'&&(isDm()||dmDice||!actor||!!sourceEntry&&sourceEntry.roller!==roller),
@@ -515,7 +537,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                       }
                       return targetLabels.get(key);
                     }});
-                  if(shaped){io.to(id).emit('dice:frame',{...shaped,attacker:attackerFor(id)});lastDelivered.set(id,frame.id);}
+                  if(shaped){
+                    if(resolving.delete(id))io.to(id).emit('dice:resolving',{id:resolutionId,active:false});
+                    io.to(id).emit('dice:frame',{...shaped,attacker:attackerFor(id)});lastDelivered.set(id,frame.id);
+                  }else awaitingResolution(id);
                   continue;
                 }
                 const labelKey=`${id}:${info?.target?.refId??''}`;
@@ -523,19 +548,19 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
                   const conn=getConn(id)!;
                   const view=buildSnapshot(sid,conn.role,conn.viewMapId,id,conn.playerId);
                   if(info?.target&&conn.role!=='dm'&&!view?.tokens.some(t=>!t.sharedSightOnly&&t.kind===info.target!.kind&&t.refId===info.target!.refId)){
-                    targetLabels.set(labelKey,undefined);continue;
+                    targetLabels.set(labelKey,undefined);awaitingResolution(id);continue;
                   }
                   targetLabels.set(labelKey,(view?liveRollTarget(view,info?.target?[info.target]:targetRefs):undefined)??(payload?.area?'Placed spell area':ability?.roll&&['save','damage'].includes(ability.roll.kind)?'Targets not selected':undefined));
                 }
                 // An automatic area save must not expose an unseen bystander.
-                if(info?.target&&!targetLabels.get(labelKey)&&getConn(id)?.role!=='dm')continue;
+                if(info?.target&&!targetLabels.get(labelKey)&&getConn(id)?.role!=='dm'){awaitingResolution(id);continue;}
                 const target=targetLabels.get(labelKey);
                 const calculation=frame.calculation?{...frame.calculation,target}:undefined;
                 const safeCalculation=calculation&&getConn(id)?.role!=='dm'&&(frame.dmDice||isDm())
                   ?redactCreatureMods({id:frame.id,roller:frame.roller,label:frame.label,expr:'',total:0,detail:'',createdAt:0,reveal:calculation},true).reveal:calculation;
                 io.to(id).emit('dice:frame',{...frame,attacker:attackerFor(id),target,calculation:safeCalculation});lastDelivered.set(id,frame.id);
-              }},{...meta,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual,cancelKind)}:delegateSaves?{configureDice,review:async(results,dice,manual)=>saveController?saveController.review(sid,meta.label,results.filter(r=>r.reveal?.kind==='check'),dice,manual,cancelKind):true}:{})});
-            }finally{if(areaCommand)areaPreview.clear();for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});if(privateRoll)socket.emit('dice:hiddenReview',null);saveController?.finished();activeDiceId=undefined;skipDicePresentation=false;}
+              }},{...meta,configureDice,...(privateRoll?{deferFacing:true,requireSaveStart:true,review:(results:import('../../shared/types.js').HiddenRollResult[],dice:import('../../shared/types.js').HiddenRollDice[],manual:boolean)=>reviewHidden(sid,meta.label,results,dice,manual,cancelKind)}:delegateSaves?{configureDice,review:async(results,dice,manual)=>saveController?saveController.review(sid,meta.label,results.filter(r=>r.reveal?.kind==='check'),dice,manual,cancelKind):true}:{})});
+            }finally{if(areaCommand)areaPreview.clear();for(const [id,lastId] of lastDelivered)io.to(id).emit('dice:finished',{id:lastId});for(const id of resolving)io.to(id).emit('dice:resolving',{id:resolutionId,active:false});if(privateRoll)socket.emit('dice:hiddenReview',null);saveController?.finished();activeDiceId=undefined;skipDicePresentation=false;}
           },failed);
           return;
         }

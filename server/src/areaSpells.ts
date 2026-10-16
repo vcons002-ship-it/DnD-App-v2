@@ -36,7 +36,9 @@ export function areaPlacementError(sid:string,kind:TokenKind,id:string,a:SheetAb
 export function resolvePlacedSpell(sid:string,roller:string,kind:TokenKind,caster:Character|Monster,a:SheetAbility,level:number|undefined,p:SpellAreaPlacement,cast:(placementOnly:boolean)=>boolean):boolean{
  if(areaPlacementError(sid,kind,caster.id,a,level,p))return false;
  const spec=spellAreaFor(a,level)!,map=getMap(p.mapId)!,actor=listTokens(map.id).find(t=>t.kind===kind&&t.refId===caster.id)!,px=map.gridSizePx/map.feetPerSquare;
- const saveArea={mapId:map.id,origins:p.points.map((_,i)=>areaOrigin(spec,p,actor,px,i))};
+ // Self cubes use their center for drawing/occupancy, but their energy
+ // originates at the caster on the near face, not beyond a protecting corner.
+ const saveArea={mapId:map.id,origins:p.points.map((_,i)=>spec.self?{x:actor.x,y:actor.y}:areaOrigin(spec,p,actor,px,i))};
  const seen=new Set<string>();
  const targets=listTokens(map.id).filter(t=>{
    const e=t.kind==='pc'?getCharacter(t.refId):getMonster(t.refId),key=`${t.kind}:${t.refId}`;

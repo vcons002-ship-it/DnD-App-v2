@@ -93,6 +93,7 @@ type Store = {
   hiddenRollSubmitting:boolean;
   confirmHiddenRoll:(decision:boolean|import('../../../shared/types').HiddenRollDecision)=>void;
   liveDice: LiveDiceFrame | null;
+  resolvingDice: string | null;
   skippedLiveDiceId: string | null;
   skipLiveDice: () => void;
   teleportCast:AbilityRollPayload|null;
@@ -529,6 +530,7 @@ export const useStore = create<Store>((set, get) => ({
     state.socket.emit('dice:confirmHidden',{id:state.hiddenRollReview.id,decision:typeof decision==='boolean'?{action:decision?'apply':'discard'}:decision});
   },
   liveDice: null,
+  resolvingDice: null,
   skippedLiveDiceId: null,
   skipLiveDice: () => {
     const frame = get().liveDice;
@@ -784,7 +786,7 @@ export const useStore = create<Store>((set, get) => ({
     }
     set({
       status: 'connecting',
-      areaCast:null,spellAreaPreviews:{},teleportCast:null,liveDice:null,skippedLiveDiceId:null,
+      areaCast:null,spellAreaPreviews:{},teleportCast:null,liveDice:null,resolvingDice:null,skippedLiveDiceId:null,
       error: null,
       dmPassphrase: dmPassphrase ?? null,
       chatAccessToken: null,
@@ -864,6 +866,10 @@ export const useStore = create<Store>((set, get) => ({
       if(get().liveDice?.id===id)set({liveDice:null});
       if(get().skippedLiveDiceId===id)set({skippedLiveDiceId:null});
       completedLiveTrays.clear();
+    });
+    socket.on('dice:resolving',({id,active})=>{
+      if(active)set({resolvingDice:id});
+      else if(get().resolvingDice===id)set({resolvingDice:null});
     });
     socket.on('fx:initiative', ({mapId}) => set({initiativeFx: {id: Date.now(), mapId}}));
     socket.on('fx:rest', ({kind}) => set({restFx: {id: Date.now(), kind}}));
@@ -1098,7 +1104,7 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('disconnect', (reason) => {
       set({hiddenRollReview:null,hiddenRollSubmitting:false});
       completedLiveTrays.clear();
-      set({liveDice:null, skippedLiveDiceId:null, areaCast:null,spellAreaPreviews:{},teleportCast:null, chatAccessToken: null});
+      set({liveDice:null,resolvingDice:null, skippedLiveDiceId:null, areaCast:null,spellAreaPreviews:{},teleportCast:null, chatAccessToken: null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });
@@ -1119,7 +1125,7 @@ export const useStore = create<Store>((set, get) => ({
     get().socket?.disconnect();
     heldHpFx.clear();set({preparedHpFx:[]});
     clearQueuedHpFx();
-    queuedRollFx.length=0;set({ liveDice:null, skippedLiveDiceId:null, socket: null, status: 'idle', snapshot: null, chatAccessToken: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
+    queuedRollFx.length=0;set({ liveDice:null,resolvingDice:null, skippedLiveDiceId:null, socket: null, status: 'idle', snapshot: null, chatAccessToken: null, weaponAttackOptions: {}, rollFx: null, hpFx: [], hurtFx: null });
   },
 
   selectMap: (mapId) => {

@@ -709,7 +709,7 @@ export function MapStage({
     const e=resolveToken(snapshot,t);
     return !t.sharedSightOnly&&!e.dead&&!(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.objectKind)&&
       !(areaExcludesCaster(areaCast.spec)&&t.id===areaActor.id)&&tokenInSpellArea(areaCast.spec,areaPreview,areaActor,t,map.gridSizePx/map.feetPerSquare)&&
-      areaPreview.points.some((_,i)=>hasLineOfSight(areaOrigin(areaCast.spec,areaPreview,areaActor,map.gridSizePx/map.feetPerSquare,i),t,map.walls));
+      areaPreview.points.some((_,i)=>hasLineOfSight(areaCast.spec.self?areaActor:areaOrigin(areaCast.spec,areaPreview,areaActor,map.gridSizePx/map.feetPerSquare,i),t,map.walls));
   }):[];
   // Send the latest geometry at most every 70 ms while the pointer is moving.
   const areaShareTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
