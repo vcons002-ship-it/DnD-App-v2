@@ -138,7 +138,7 @@ export function createSpellImpactEffects(scene:Scene){
         // Three samples place the cosmetic overlay around the animated geometry.
         // No source is placed at the target center, and hidden geometry emits none.
         e.root.updateMatrixWorld(true);
-        const samples:{object:Group|Mesh;local:Vector3;weight:number}[]=[];
+        const samples:{object:Group|Mesh;local:Vector3;weight:number;beam?:{from:Vector3;to:Vector3}}[]=[];
         if(e.arrows.length){
           const indices=e.arrows.length===1?[0]:[0,Math.floor(e.arrows.length/2),e.arrows.length-1];
           for(const i of indices){const arrow=e.arrows[i];if(arrow?.visible)samples.push({object:arrow,local:new Vector3(0,.2,0),weight:1/indices.length});}
@@ -150,10 +150,11 @@ export function createSpellImpactEffects(scene:Scene){
           if(front?.visible)for(const local of front.userData.emitterPoints)samples.push({object:front,local,weight:1/3});
           else if(e.shape.parts[0]?.visible)samples.push({object:e.shape.parts[0],local:new Vector3(),weight:1});
         }else if(e.style.kind==='lightning-line'&&e.shape.parts[1]){
-          // The whole channel the return stroke has reached glows, about every 12 ft.
+          // Connected line emitters follow the advancing channel. The distance
+          // to each segment produces a continuous lane, rather than round pools.
           const area=e.input.event.areaPosition,length=area?.end?Math.hypot(area.end.x-area.x,area.end.y-area.y):0;
           const count=Math.max(3,Math.min(12,Math.ceil(length/(pixelsPerFoot*12)))),front=e.shape.root.userData.boltFront?.value??1;
-          for(let i=0;i<count;i++){const u=(i+.5)/count;if(u<=front)samples.push({object:e.shape.parts[1],local:new Vector3(u,0,0),weight:1/3});}
+          for(let i=0;i<count;i++){const a=i/count,b=Math.min((i+1)/count,front);if(b>a)samples.push({object:e.shape.parts[1],local:new Vector3((a+b)/2,0,0),weight:1/3,beam:{from:new Vector3(a,0,0),to:new Vector3(b,0,0)}});}
         }else if(e.shape.parts.length){
           for(const i of [0,Math.floor(e.shape.parts.length/2),e.shape.parts.length-1]){
             const part=e.shape.parts[i];if(part.visible)samples.push({object:part,local:part.userData.emitterPoint??new Vector3(),weight:1/3});
@@ -161,11 +162,13 @@ export function createSpellImpactEffects(scene:Scene){
         }else if(e.bolt){
           for(const u of [.18,.5,.86])samples.push({object:e.bolt,local:e.bolt.userData.path.getPoint(u),weight:1/3});
         }else for(const i of [0,3,6])samples.push({object:e.sparks[i],local:new Vector3(),weight:1/3});
+        const lightPulse=e.style.kind==='lightning-line'?(e.shape.root.userData.boltPulse?.value??1):1;
         if(emission>.002&&e.style.strength>0&&!reduced)for(let i=0;i<samples.length&&lights.length<24;i++){
           const sample=samples[i];worldPoint.copy(sample.local).applyMatrix4(sample.object.matrixWorld);
+          const from=sample.beam?.from.applyMatrix4(sample.object.matrixWorld),to=sample.beam?.to.applyMatrix4(sample.object.matrixWorld);
           const hue=e.style.kind==='pattern'&&sample.object instanceof Mesh?(sample.object.material as MeshBasicMaterial).color:undefined;
           lights.push({id:`spell-${id}-${i}`,x:worldPoint.x,y:worldPoint.z,height:Math.max(0,worldPoint.y),radius:e.style.radiusFt*pixelsPerFoot,
-            strength:e.style.strength*emission*sample.weight*(e.input.persistent?.45:2),color:hue?new Vector3(hue.r,hue.g,hue.b):e.color,visibleTorch:false,transient:true,...(e.reveals?{revealsTerrain:true}:{})});
+            strength:e.style.strength*emission*lightPulse*sample.weight*(e.input.persistent?.45:2),color:hue?new Vector3(hue.r,hue.g,hue.b):e.color,visibleTorch:false,transient:true,...(from&&to?{beam:{ax:from.x,ay:from.z,bx:to.x,by:to.z}}:{}),...(e.reveals?{revealsTerrain:true}:{})});
         }
       }
       return lights;

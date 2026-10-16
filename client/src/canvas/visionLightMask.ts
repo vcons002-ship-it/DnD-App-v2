@@ -38,12 +38,12 @@ export function createVisionLightMask(group:SVGGElement,defs:SVGGElement,id:stri
     }
     entry.profile=profile;changed=true;
    }
-   const geometry=[projection.key,light.x,light.y,light.radius].join(':');
+   const geometry=[projection.key,light.x,light.y,light.radius,JSON.stringify(light.beam)].join(':');
    if(entry.geometry!==geometry){entry.shapes=[];entry.geometry=geometry;geometryUpdates++;changed=true;}
    // Project only bands that actually paint. Bright centers and dark tails
    // frequently omit bands; leave their geometry lazy for later flicker frames.
    for(let index=0;index<48;index++)if(entry.alphas[index]&&!entry.shapes[index]){
-    const radius=light.radius*LIGHT_SPILL_MULTIPLIER*(48-index)/48,ellipse=projection.ellipse(light.x,light.y,radius);
+    const radius=light.radius*LIGHT_SPILL_MULTIPLIER*(48-index)/48,ellipse=light.beam?undefined:projection.ellipse(light.x,light.y,radius);
     entry.shapes[index]=ellipse?
      `<ellipse cx="${ellipse.cx.toFixed(2)}" cy="${ellipse.cy.toFixed(2)}" rx="${ellipse.rx.toFixed(2)}" ry="${ellipse.ry.toFixed(2)}" transform="rotate(${ellipse.rotation.toFixed(4)} ${ellipse.cx.toFixed(2)} ${ellipse.cy.toFixed(2)})"`:
      `<path d="${projection.circle(light,radius)}"`;

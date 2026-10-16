@@ -63,14 +63,16 @@ test('Lightning Bolt follows the full aimed line at waist height, renders in bot
   const gl=renderer.getContext(),pixels=new Uint8Array(256*256*4);gl.readPixels(0,0,256,256,gl.RGBA,gl.UNSIGNED_BYTE,pixels);let colored=0;
   for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>20)colored++;views.push({colored,error:gl.getError()});
  }
- effects.tick(1400,1,false,()=>({x:10,y:20,visible:true,height:6}));window.result={start,end,scales,lights:lights.map(l=>({x:l.x,y:l.y,height:l.height})),parts:shape.children.length,views,expired:!effects.active};effects.dispose();renderer.dispose();
+ effects.tick(1400,1,false,()=>({x:10,y:20,visible:true,height:6}));window.result={start,end,scales,lights:lights.map(l=>({x:l.x,y:l.y,height:l.height,beam:l.beam})),parts:shape.children.length,views,expired:!effects.active};effects.dispose();renderer.dispose();
  `}});
  await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});const r=await page.evaluate(()=>(window as any).result);
  expect(errors).toEqual([]);expect(r.start[0]).toBeCloseTo(10);expect(r.start[1]).toBeCloseTo(2.5);expect(r.start[2]).toBeCloseTo(20);
  expect(r.end[0]).toBeCloseTo(10);expect(r.end[1]).toBeCloseTo(2.5);expect(r.end[2]).toBeCloseTo(120);expect(r.parts).toBe(3);expect(r.expired).toBe(true);
- // A light about every 12 ft along the 100 ft line, up to the return stroke
- // (77% of the way at 200 of 1300 ms): 7 of its 9 evenly spaced points.
- expect(r.lights.map((l:any)=>l.y)).toEqual(Array.from({length:7},(_,i)=>expect.closeTo(20+100*(i+.5)/9,6)));
+ // Seven connected segments cover exactly the reached part of the stroke.
+ expect(r.lights).toHaveLength(7);
+ expect(r.lights[0].beam.ay).toBeCloseTo(20);
+ expect(r.lights.at(-1).beam.by).toBeCloseTo(20+100*(200/1300/.2));
+ for(let i=1;i<r.lights.length;i++)expect(r.lights[i].beam.ay).toBeCloseTo(r.lights[i-1].beam.by);
  for(const light of r.lights)expect(light.x).toBeCloseTo(10);
  for(const light of r.lights)expect(light.height).toBeCloseTo(2.5);
  for(const scale of r.scales){expect(scale.height/scale.px).toBeCloseTo(2.5);for(const height of scale.lightHeights)expect(height/scale.px).toBeCloseTo(2.5);}

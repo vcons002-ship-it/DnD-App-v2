@@ -1,5 +1,6 @@
 import {forwardRef,useEffect,useId,useImperativeHandle,useLayoutEffect,useRef} from 'react';
 import type {VisionLight,PlayerVision} from '../../../shared/playerVision';
+import {lightBeamOutline,type LightBeam} from '../../../shared/lightFalloff';
 import {groundYScale,groundPerspectiveCss,perspectiveSlope,type BattlefieldView} from './miniatureProjection';
 import type {ExploredTerrain} from '../../../shared/exploration';
 import {wallVisibilityPolygon,SIGHT_EXTENT,type WallPoint} from '../../../shared/mapWalls';
@@ -87,12 +88,12 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    const result=poly.length?'M'+poly.map(p=>`${(width/2+p.x/p.w).toFixed(2)},${(height/2+p.y/p.w).toFixed(2)}`).join('L')+'Z':'';
    projectedPolygons.current.set(vertices,{camera:projectionKey,path:result});return result;
   };
-  const path=(point:{id:string;x:number;y:number},radius:number,actual=false,occlude=false)=>{
+  const path=(point:{id:string;x:number;y:number;beam?:LightBeam},radius:number,actual=false,occlude=false)=>{
    const p=actual?point:state.current.presentation?.position(point.id)??live.current.get(point.id)??point;
    if(occlude)return project(polygon({...p,id:point.id},radius));
-   const slot=point.id+':'+radius,key=[projectionKey,p.x,p.y].join(':');activeKeys.add('circle:'+slot);
+   const slot=point.id+':'+radius,key=[projectionKey,p.x,p.y,JSON.stringify(point.beam)].join(':');activeKeys.add('circle:'+slot);
    const cached=circlePaths.current.get(slot);if(cached?.key===key)return cached.path;
-   const result=project(circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius})));
+   const result=project(point.beam?lightBeamOutline(point.beam,radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius})));
    circlePaths.current.set(slot,{key,path:result});return result;
   };
   const sourceLights=renderedLights.current??vision.lights;

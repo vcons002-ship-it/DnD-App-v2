@@ -1,10 +1,10 @@
-import {CARRIED_LANTERN_LIGHT_HEIGHT_FT} from './lightFalloff.js';
+import {CARRIED_LANTERN_LIGHT_HEIGHT_FT,type LightBeam} from './lightFalloff.js';
 import {lightIrradiance,lightColorCoverage,spellEmissionIrradiance} from './lightFalloff.js';
 import {tokenVisibleAt} from './fog.js';
 import {hasLineOfSight,type MapWall} from './mapWalls.js';
 import type {MapState,Token} from './types.js';
 export type VisionPoint={id:string;x:number;y:number};
-export type VisionLight=VisionPoint&{radius:number;height:number;strength:number;transient?:boolean};
+export type VisionLight=VisionPoint&{radius:number;height:number;strength:number;transient?:boolean;beam?:LightBeam};
 /** Same ground irradiance and coverage as battlefieldLighting torch-field shader. */
 export function lightCoverage(distance:number,light:Pick<VisionLight,'radius'|'height'|'strength'|'transient'>){
  return lightColorCoverage((light.transient?spellEmissionIrradiance:lightIrradiance)(Math.hypot(distance,light.height),light.radius,light.strength));

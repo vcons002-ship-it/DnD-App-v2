@@ -37,7 +37,7 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
   if(name==='spike growth'&&event.effect==='spell-area')return {kind:'thorns',color:'#9ce76a',radiusFt:7,strength:.18,duration:1700};
   if(partyStyles[name])return partyStyles[name];
   if(name==='fireball')return {kind:'fireball',color:'#ff702c',radiusFt:22,strength:2.6,duration:2100};
-  if(name==='lightning bolt'&&event.effect==='spell-area')return {kind:'lightning-line',color:'#96cfff',radiusFt:8,strength:2.6,duration:1300};
+  if(name==='lightning bolt'&&event.effect==='spell-area')return {kind:'lightning-line',color:'#96cfff',radiusFt:7,strength:2.6,duration:1300};
   if(name==='burning hands'&&event.effect==='spell-area')return {kind:'flame-cone',color:'#ff782b',radiusFt:10,strength:2.2,duration:1750};
   if(name==='ice storm'&&event.effect==='spell-area')return {kind:'ice-storm',color:'#9bd8f4',radiusFt:22,strength:1.8,duration:2400};
   if(event.effect==='spell-area'){

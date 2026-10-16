@@ -1,6 +1,34 @@
 import {test,expect} from '@playwright/test';
 import {build} from 'esbuild';
 
+test('beam ground light stays continuous along its length, narrow across it, and clipped by walls',async({page})=>{
+ const errors:string[]=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',define:{'import.meta.env':'{}'},stdin:{resolveDir:process.cwd(),contents:`
+ import * as T from 'three';
+ import {createBattlefieldLighting} from './client/src/canvas/battlefieldLighting';
+ import {createEnvironmentVisibility} from './client/src/canvas/environmentVisibility';
+ import {createLocalLightShadows} from './client/src/canvas/localLightShadows';
+ const renderer=new T.WebGLRenderer(),scene=new T.Scene(),sun=new T.DirectionalLight(),ambient=new T.HemisphereLight();
+ const visibility=createEnvironmentVisibility();visibility.update({mapWidth:100,mapHeight:100});
+ const depth=new T.DataTexture(new Uint8Array([255,255,255,255]),1,1);depth.needsUpdate=true;
+ const shadows=createLocalLightShadows(renderer),lighting=createBattlefieldLighting(scene,sun,ambient,visibility.uniforms,{texture:depth,resolution:new T.Vector2(100,100)},shadows.uniforms);
+ lighting.setTransient([{id:'beam',x:50,y:50,height:2.5,radius:7,strength:1,color:new T.Vector3(1,1,1),visibleTorch:false,transient:true,beam:{ax:10,ay:50,bx:90,by:50}}]);
+ const uniforms={...lighting.fieldUniforms,uv:{value:new T.Vector2()}},readScene=new T.Scene(),target=new T.WebGLRenderTarget(1,1),camera=new T.OrthographicCamera(-1,1,1,-1,.1,2);camera.position.z=1;
+ const material=new T.ShaderMaterial({uniforms,vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:'uniform sampler2D torchField;uniform vec2 uv;void main(){gl_FragColor=vec4(texture2D(torchField,uv).rgb,1.);}'});readScene.add(new T.Mesh(new T.PlaneGeometry(2,2),material));
+ const sample=(x,y)=>{uniforms.uv.value.set(x/100,y/100);renderer.setRenderTarget(target);renderer.render(readScene,camera);const p=new Uint8Array(4);renderer.readRenderTargetPixels(target,0,0,1,1,p);renderer.setRenderTarget(null);return p[0];};
+ const settings={enabled:true,mapWidth:100,mapHeight:100,pixelsPerFoot:1,lighting:'dungeon',lights:[],walls:[]};
+ lighting.update(settings);lighting.renderField(renderer);const strip=[20,35,50,65,80].map(x=>sample(x,50)),outside=sample(50,60);
+ const wall={id:'wall',kind:'rectangle',ax:60,ay:0,bx:61,by:100};
+ lighting.update({...settings,walls:[wall]});lighting.renderField(renderer);const closed=[sample(40,50),sample(75,50)];
+ lighting.update({...settings,walls:[{...wall,door:true,open:true}]});lighting.renderField(renderer);const open=sample(75,50);
+ window.beamResult={strip,outside,closed,open,error:renderer.getContext().getError()};lighting.dispose();shadows.dispose();visibility.dispose();renderer.dispose();
+ `}});
+ await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});const r=await page.evaluate(()=>(window as any).beamResult);
+ expect(errors).toEqual([]);expect(r.error).toBe(0);for(const value of r.strip)expect(value).toBeGreaterThan(200);
+ expect(Math.max(...r.strip)-Math.min(...r.strip)).toBeLessThan(3);expect(r.outside).toBeLessThan(5);
+ expect(r.closed[0]).toBeGreaterThan(200);expect(r.closed[1]).toBeLessThan(5);expect(r.open).toBeGreaterThan(200);
+});
+
 test('Experimental ground-only spells exclude direct spell lights, directional mode restores them, and Low avoids source sight checks',async({page})=>{
  const bundle=await build({write:false,bundle:true,format:'iife',platform:'browser',define:{'import.meta.env':'{}'},stdin:{resolveDir:process.cwd(),contents:`
  import {DataTexture,Group,PerspectiveCamera,Vector3,Vector4} from 'three';
