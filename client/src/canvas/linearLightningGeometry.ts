@@ -14,6 +14,8 @@ export function createLinearLightningGeometry(){
  const geometries=[.072,.025,.009].map(radius=>new TubeGeometry(path,144,radius,5,false));
  function build(_style:SpellImpactStyle,body:MeshBasicMaterial,bright:MeshBasicMaterial,white:MeshBasicMaterial){
   const root=new Group(),parts:Mesh[]=[],front={value:0},pulse={value:1};
+  // Spell light follows the return stroke along the channel.
+  root.userData.boltFront=front;
   const materials=[body,bright,white].map((source,i)=>{
    const material=source.clone();material.userData.opacityScale=i===0?.18:1;
    material.customProgramCacheKey=()=>`linear-lightning-${i}`;

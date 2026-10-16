@@ -68,7 +68,10 @@ test('Lightning Bolt follows the full aimed line at waist height, renders in bot
  await page.goto('about:blank');await page.addScriptTag({content:bundle.outputFiles[0].text});const r=await page.evaluate(()=>(window as any).result);
  expect(errors).toEqual([]);expect(r.start[0]).toBeCloseTo(10);expect(r.start[1]).toBeCloseTo(2.5);expect(r.start[2]).toBeCloseTo(20);
  expect(r.end[0]).toBeCloseTo(10);expect(r.end[1]).toBeCloseTo(2.5);expect(r.end[2]).toBeCloseTo(120);expect(r.parts).toBe(3);expect(r.expired).toBe(true);
- expect(r.lights).toHaveLength(3);expect(r.lights.map((l:any)=>l.y)).toEqual([35,70,105]);
+ // A light about every 12 ft along the 100 ft line, up to the return stroke
+ // (77% of the way at 200 of 1300 ms): 7 of its 9 evenly spaced points.
+ expect(r.lights.map((l:any)=>l.y)).toEqual(Array.from({length:7},(_,i)=>expect.closeTo(20+100*(i+.5)/9,6)));
+ for(const light of r.lights)expect(light.x).toBeCloseTo(10);
  for(const light of r.lights)expect(light.height).toBeCloseTo(2.5);
  for(const scale of r.scales){expect(scale.height/scale.px).toBeCloseTo(2.5);for(const height of scale.lightHeights)expect(height/scale.px).toBeCloseTo(2.5);}
  for(const view of r.views){expect(view.error).toBe(0);expect(view.colored).toBeGreaterThan(20);}

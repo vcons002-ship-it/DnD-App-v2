@@ -31,6 +31,11 @@ export function fogVisionContains(vision:PlayerVision|undefined|null,x:number,y:
  const visibleOrigins=vision.origins.filter(seen);
  return visibleOrigins.length>0&&(!vision.heavy||visibleOrigins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6)||visionLit(vision,x,y));
 }
+/** In any origin's line of sight, however dark: a spell's own flash lights it. */
+export function visionInSight(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
+ if(!vision)return true;
+ const point={x,y};return vision.origins.some(o=>hasLineOfSight(o,point,vision.walls));
+}
 export function visionHasDarkvision(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
  return !!vision?.origins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6);
 }

@@ -7,7 +7,9 @@ import {
   addRollLog, applyDamage, createCharacter, createMap, createMonsterTemplate, createSession,
   createToken, drainHpFx, getMonster, instantiateMonster, listRollLog,
   updateCharacter, moveToken, setActiveMap, setFogLayer, setFogRevealed, setHideDmRolls, setManualDamage, setTokenHidden,queueSpellImpact,beginPlacedSpellImpact,
+  claimCharacter, updateMapEnvironment,
 } from './sessions.js';
+import { editMapWalls } from './mapWalls.js';
 
 const sockets: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); sockets.splice(0).forEach(dropConn); });
@@ -218,6 +220,20 @@ describe('exact attack damage-to-reveal correlation', () => {
     expect(player.events).toHaveLength(1);expect(player.events[0].areaPosition?.end).toBeDefined();
     expect(player.events[0].sourcePosition).toBeUndefined(); // the hidden origin is still not pinpointed
     expect(dm.events[0].sourcePosition).toMatchObject({x:50,y:50});
+  });
+  it('a flashing spell in magical darkness reaches players with line of sight; cold spells and walls still hide it',()=>{
+    const f=fixture(false);
+    updateMapEnvironment(f.session.id,f.map.id,{enabled:true,lighting:'dungeon',heavyDarkness:true,lights:[]});
+    claimCharacter(f.attacker.id,`${f.session.id}-player`); // the PC at (0,0): 60 ft darkvision = 600 px
+    const cast=(spell:string)=>beginPlacedSpellImpact(f.session.id,'monster',f.target.id,spell)
+      ('cast',{mapId:f.map.id,x:1500,y:0,radiusFt:20},{mapId:f.map.id,x:1500,y:0});
+    cast('Fireball');
+    expect(views(f).player.events.map(e=>e.spell)).toEqual(['Fireball']);
+    cast('Ice Storm');
+    expect(views(f).player.events).toEqual([]);
+    expect(editMapWalls(f.session.id,f.map.id,{add:{id:'wall',ax:1000,ay:-3000,bx:1000,by:3000}})).toBeNull();
+    cast('Fireball');
+    expect(views(f).player.events).toEqual([]);
   });
   it('area art reaches players when any part of it is revealed, and not when all of it is fogged',()=>{
     const f=fixture(false);setFogLayer(f.map.id,'map',true);

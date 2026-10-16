@@ -557,6 +557,14 @@ live outside the bundled static catalog and must be backed up with uploads.
   brings them into view (`MapStage` `focusRequest`) — only on a turn CHANGE.
 - **The big `DamagePrompt` belongs to the roller** — the DM's map ignores a
   player's hit (the log button remains the DM's override).
+- **Flashing area spells light terrain, never creatures.** Fire/lightning/radiant
+  areas (`spellAreaFlashes`: Fireball, Lightning Bolt, Burning Hands, Flame Strike,
+  Meteor Swarm, Call Lightning) light the ground while they animate; in magical
+  darkness the GPU cover shows that terrain inside the player's line of sight,
+  following the animation (`SpellFlash`, reusing the ground light's wall-clipped
+  splats). Client-only: tokens stay server-shaped, DM fog and exploration are
+  untouched; the server sends such a spell on line of sight alone. Other spell
+  light stays cosmetic.
 - **No reveal lag beats hiding asset names from DevTools.** Player snapshots list
   `miniaturePreloadFamilies` for every monster on the map, hidden ones included,
   so a revealed creature's 3D model is already loaded. Players are trusted not to

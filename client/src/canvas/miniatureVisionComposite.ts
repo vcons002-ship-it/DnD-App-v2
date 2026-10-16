@@ -13,7 +13,7 @@ import type {WallPoint} from '../../../shared/mapWalls';
 import type {ExploredTerrain} from '../../../shared/exploration';
 
 /** The same live polygons used by the SVG terrain cover. Cosmetic spell light
- * is deliberately excluded: it must never reveal an unseen room. */
+ * is deliberately excluded: it must never reveal an unseen room (see SpellFlash). */
 export type VisionCoverFrame = {
   enabled: boolean;
   origins: WallPoint[][];
@@ -25,6 +25,11 @@ export type VisionCoverFrame = {
   memoryRange?: WallPoint[][];
   grade?: {heavy:boolean;daylight:boolean;near:WallPoint[][]};
 };
+
+/** A flashing area spell's light for this frame and its wall-clipped reach.
+ * Inside the viewer's line of sight it shows terrain for as long as it shines.
+ * Only the cover changes: tokens, exploration and DM fog stay server-shaped. */
+export type SpellFlash = {source: VisionLight; polygon: WallPoint[]};
 
 /** Composite terrain visibility and personal bodies on the existing canvas.
  * No second color canvas, Canvas2D scene copy, or framebuffer restore pass.
@@ -62,6 +67,39 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
         gl_FragColor=vec4(a,0.,0.,a);
       }`,
   });
+  // Flash reach, limited to sight like a lamp, at the glow's own falloff.
+  const flashLamp = new ShaderMaterial({...blend,side:DoubleSide,depthTest:false,depthWrite:false,toneMapped:false,
+    stencilWrite:true,stencilRef:1,stencilFunc:EqualStencilFunc,
+    stencilFail:KeepStencilOp,stencilZFail:KeepStencilOp,stencilZPass:KeepStencilOp,
+    uniforms:{source:{value:new Float32Array(4)},strength:{value:0}},
+    vertexShader:'varying vec2 world; void main(){world=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:`${lightFalloffGlsl}
+      uniform vec4 source;uniform float strength;varying vec2 world;
+      void main(){
+        float a=lightColorCoverage(spellEmissionIrradiance(length(vec3(world-source.xz,source.y)),source.w,strength));
+        gl_FragColor=vec4(a,0.,0.,a);
+      }`,
+  });
+  const flashEntries:{mesh:Mesh<BufferGeometry,ShaderMaterial>;points?:WallPoint[]}[]=[];
+  let flashCount=0;
+  const syncFlashes=(flashes:readonly SpellFlash[])=>{
+    flashes.forEach(({source,polygon},i)=>{
+      let entry=flashEntries[i];
+      if(!entry){const mesh=new Mesh(new BufferGeometry(),flashLamp.clone());mesh.frustumCulled=false;mesh.renderOrder=3;coverScene.add(mesh);entry=flashEntries[i]={mesh};}
+      entry.mesh.visible=polygon.length>=3;
+      if(entry.points!==polygon){
+        // Wall-clipped reach is star-shaped around its light: a fan covers it.
+        const count=polygon.length*3;let points=entry.mesh.geometry.getAttribute('position') as Float32BufferAttribute|undefined;
+        if(!points||points.count<count){entry.mesh.geometry.dispose();entry.mesh.geometry=new BufferGeometry();
+          points=new Float32BufferAttribute(new Float32Array(2**Math.ceil(Math.log2(Math.max(3,count)))*3),3);entry.mesh.geometry.setAttribute('position',points);}
+        polygon.forEach((p,j)=>{const q=polygon[(j+1)%polygon.length],v=j*3;points!.setXYZ(v,source.x,0,source.y);points!.setXYZ(v+1,p.x,0,p.y);points!.setXYZ(v+2,q.x,0,q.y);});
+        points.needsUpdate=true;entry.mesh.geometry.setDrawRange(0,count);entry.points=polygon;
+      }
+      const m=entry.mesh.material;m.uniforms.source.value.set([source.x,source.height,source.y,source.radius]);m.uniforms.strength.value=source.strength;
+    });
+    for(let i=flashes.length;i<flashEntries.length;i++)flashEntries[i].mesh.visible=false;
+    flashCount=flashes.length;
+  };
   const entries = new Map<string,{mesh:Mesh;points:WallPoint[]}>();
   const quadScene = new Scene(), quadCamera = new OrthographicCamera(-1,1,1,-1,0,1);
   let frame:FramebufferTexture|undefined, previous:VisionCoverFrame|undefined, cameraKey='';
@@ -156,7 +194,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
     },
     /** This frame's screen-space visibility (red = in sight), for clipping spell art. */
     get cover(){return {texture:cover.texture,width:cover.width,height:cover.height};},
-    render(enabled:boolean,next:VisionCoverFrame|undefined,camera:Camera){
+    render(enabled:boolean,next:VisionCoverFrame|undefined,camera:Camera,flashes:readonly SpellFlash[]=[]){
       const grading=enabled&&!!next?.grade&&!next.grade.daylight;
       const fog=enabled&&!!next?.enabled;
       enabled=fog||grading;
@@ -172,14 +210,15 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       const {width,height}=renderer.domElement;
       if(!frame||frame.image.width!==width||frame.image.height!==height){frame?.dispose();frame=new FramebufferTexture(width,height);composite.uniforms.frame.value=frame;cover.setSize(width,height);previous=undefined;}
       const key=camera.projectionMatrix.elements.join(',')+':'+camera.matrixWorld.elements.join(',');
-      if(previous!==next||cameraKey!==key){
-        sync(next);const target=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate;
+      // A flash changes every frame it shines, and once more when it ends.
+      if(previous!==next||cameraKey!==key||flashes.length||flashCount){
+        sync(next);syncFlashes(flashes);const target=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate;
         renderer.shadowMap.needsUpdate=false;
         try{renderer.setRenderTarget(cover);renderer.clear(true,true,true);renderer.render(coverScene,camera);}
         finally{renderer.setRenderTarget(target);renderer.shadowMap.needsUpdate=pending;}
         previous=next;cameraKey=key;updates++;
       }
-      host.dataset.visionCoverUpdates=String(updates);
+      host.dataset.visionCoverUpdates=String(updates);host.dataset.visionSpellFlashes=String(flashCount);
       if(next.memory&&next.memory.dataset.ready==='true'){
         if(memoryCanvas!==next.memory){memory?.dispose();memoryCanvas=next.memory;memory=new CanvasTexture(memoryCanvas);composite.uniforms.memory.value=memory;memoryVersion='';}
         const version=next.memory.dataset.version??'ready';
@@ -197,6 +236,6 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       try{renderer.autoClear=false;renderer.render(quadScene,quadCamera);}
       finally{renderer.autoClear=autoClear;}
     },
-    dispose(){host.style.zIndex=originalZ;if(host.parentElement)delete host.parentElement.dataset.gpuVisionGrade;for(const [id,e] of entries){e.mesh.geometry.dispose();if(id.startsWith('light:'))(e.mesh.material as ShaderMaterial).dispose();}entries.clear();white.dispose();near.dispose();remembered.dispose();rangedMemory.dispose();rangeStencil.dispose();stencil.dispose();lamp.dispose();cover.dispose();frame?.dispose();memory?.dispose();bodyGrades.dispose();composite.dispose();quadGeometry.dispose();},
+    dispose(){host.style.zIndex=originalZ;if(host.parentElement)delete host.parentElement.dataset.gpuVisionGrade;for(const [id,e] of entries){e.mesh.geometry.dispose();if(id.startsWith('light:'))(e.mesh.material as ShaderMaterial).dispose();}entries.clear();white.dispose();near.dispose();remembered.dispose();rangedMemory.dispose();rangeStencil.dispose();stencil.dispose();lamp.dispose();flashLamp.dispose();for(const e of flashEntries){e.mesh.geometry.dispose();e.mesh.material.dispose();}flashEntries.length=0;cover.dispose();frame?.dispose();memory?.dispose();bodyGrades.dispose();composite.dispose();quadGeometry.dispose();},
   };
 }

@@ -68,6 +68,15 @@ export function spellImpactStyle(event:Pick<HpFxEvent,'spell'|'damageType'|'delt
   return {kind:'burst',color,radiusFt:/fireball|lightning bolt|cone of cold/.test(name)?22:15,strength:2.6,duration:event.damageType==='lightning'?900:1200};
 }
 
+/** Placed area spells whose fire, lightning or radiance lights the ground while
+ * they animate. That light reveals terrain in a player's line of sight, even
+ * in magical darkness; it never reveals creatures, walls' far sides or DM fog. */
+const FLASH_AREA_KINDS=new Set<SpellImpactStyle['kind']>(['fireball','lightning-line','flame-cone','flame-column','meteor-area','bolts']);
+export function spellAreaFlashes(event:Pick<HpFxEvent,'spell'|'damageType'|'delta'|'effect'|'areaPosition'>):boolean{
+  if(event.effect!=='spell-area'||!event.areaPosition)return false;
+  const kind=spellImpactStyle(event)?.kind;return !!kind&&FLASH_AREA_KINDS.has(kind);
+}
+
 export function weaponImpactStyle(event:Pick<HpFxEvent,'weaponAttack'|'delta'>):SpellImpactStyle|undefined{
   const weapon=event.weaponAttack;if(!weapon||event.delta>=0)return;
   return {kind:`weapon-${weapon.kind}`,color:'#dce6ed',radiusFt:0,strength:0,duration:weapon.critical?1450:1250};

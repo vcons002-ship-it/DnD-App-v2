@@ -109,6 +109,21 @@ it('preserves distant blockers, narrow gaps and open doors above 512 edges',()=>
  expect(wallVisibilityPolygon(a,closed,800).every(p=>p.x<=700+1e-4)).toBe(true);
  expect(wallVisibilityPolygon(a,open,800).some(p=>p.x>1200&&Math.abs(p.y-400)<.1)).toBe(true);
 });
+it('keeps light-sized polygons exact while skipping corners beyond their reach',()=>{
+ const walls=benchmarkLayout(2048,'rooms'),radius=300;
+ let checked=0,blocked=0;
+ for(let o=0;o<24;o++){
+  const origin={x:60+(o*397)%3000,y:70+(o*613)%3000},polygon=wallVisibilityPolygon(origin,walls,radius);
+  if(polygon.length<3||polygon.every(p=>p.x===origin.x&&p.y===origin.y))continue;
+  for(let i=0;i<200;i++){
+   // Inside the 96-ray arc's chords, where only walls decide visibility.
+   const a=(i*.61803398875%1)*Math.PI*2,d=4+(i*37%Math.floor(radius*.98-4)),p={x:origin.x+Math.cos(a)*d,y:origin.y+Math.sin(a)*d};
+   const visible=hasLineOfSight(origin,p,walls);if(!visible)blocked++;checked++;
+   expect(pointInRing(p,polygon)).toBe(visible);
+  }
+ }
+ expect(checked).toBeGreaterThan(2000);expect(blocked).toBeGreaterThan(checked*.05);
+});
 it('compacts rendered straight boundaries without changing which points are visible',()=>{
  const walls=benchmarkLayout(2048,'rooms'),origin={x:80,y:85},radius=8000,polygon=wallVisibilityPolygon(origin,walls,radius);
  expect(polygon.length).toBeLessThan(1000);

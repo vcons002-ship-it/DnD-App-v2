@@ -1,5 +1,5 @@
 import {InstancedMesh,AdditiveBlending,CanvasTexture,CatmullRomCurve3,Color,ConeGeometry,CylinderGeometry,DoubleSide,Group,Mesh,MeshBasicMaterial,MeshStandardMaterial,PlaneGeometry,Scene,SphereGeometry,TubeGeometry,Vector2,Vector3,WebGLRenderTarget,type Camera,type Texture,type WebGLRenderer} from 'three';
-import {FIREBALL_FLIGHT_MS,METEOR_FLIGHT_MS,spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,weaponImpactStyle,type SpellImpactStyle} from '../../../shared/spellImpact';
+import {FIREBALL_FLIGHT_MS,METEOR_FLIGHT_MS,spellAreaFlashes,spellImpactStyle,spellLightEnvelope,spellEmissionEnvelope,weaponImpactStyle,type SpellImpactStyle} from '../../../shared/spellImpact';
 import type {HpFxEvent} from '../../../shared/types';
 import type {TorchLight} from './miniatureTorchLighting';
 import {createLinkedSpellGeometry,lightningStrikePath} from './linkedSpellGeometry';
@@ -13,7 +13,7 @@ export const SPELL_IMPACT_LAYER=7;
 export type SpellFogClip={texture:Texture;originX:number;originY:number;cols:number;rows:number;grid:number};
 /** The GPU vision cover (red = currently visible), in screen space. */
 export type SpellCoverClip={texture:Texture;width:number;height:number};
-type Effect={input:SpellImpact;style:SpellImpactStyle;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
+type Effect={input:SpellImpact;style:SpellImpactStyle;reveals:boolean;color:Vector3;start:number;root:Group;materials:(MeshBasicMaterial|MeshStandardMaterial)[];arrows:Group[];vines:Mesh[];sparks:Mesh[];bolt?:Mesh;halo:Mesh;shape:ReturnType<ReturnType<typeof createLinkedSpellGeometry>['build']>};
 
 /** Prepare detached geometry during a roll hold; only activation starts its
  * visible lifetime and feeds illumination. Preparation never emits scene light. */
@@ -103,7 +103,7 @@ export function createSpellImpactEffects(scene:Scene){
     // field and a foreground figure still occludes its particles and thorns.
     root.traverse(node=>{if(node instanceof Mesh){node.renderOrder=5;node.layers.set(SPELL_IMPACT_LAYER);}});
     [body,bright,haloMaterial,white,...shape.materials].forEach(clipToView);
-    (target===prepared?preparedScene:scene).add(root);built++;target.set(input.id,{input,style,color:new Vector3(color.r,color.g,color.b),start:input.startAt??now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
+    (target===prepared?preparedScene:scene).add(root);built++;target.set(input.id,{input,style,reveals:!input.persistent&&!input.weaponOnly&&spellAreaFlashes(input.event),color:new Vector3(color.r,color.g,color.b),start:input.startAt??now,root,materials:[body,bright,haloMaterial,white,...shape.materials],arrows,vines,sparks,bolt,halo,shape});
   }
   function tickEffects(collection:Map<number|string,Effect>,now:number,pixelsPerFoot:number,reduced:boolean,position:(id:string)=>{x:number;y:number;visible:boolean;height?:number}|undefined){
       const lights:TorchLight[]=[];
@@ -149,6 +149,11 @@ export function createSpellImpactEffects(scene:Scene){
           const front=e.shape.parts.find(part=>part.name==='fireball-continuous-front');
           if(front?.visible)for(const local of front.userData.emitterPoints)samples.push({object:front,local,weight:1/3});
           else if(e.shape.parts[0]?.visible)samples.push({object:e.shape.parts[0],local:new Vector3(),weight:1});
+        }else if(e.style.kind==='lightning-line'&&e.shape.parts[1]){
+          // The whole channel the return stroke has reached glows, about every 12 ft.
+          const area=e.input.event.areaPosition,length=area?.end?Math.hypot(area.end.x-area.x,area.end.y-area.y):0;
+          const count=Math.max(3,Math.min(12,Math.ceil(length/(pixelsPerFoot*12)))),front=e.shape.root.userData.boltFront?.value??1;
+          for(let i=0;i<count;i++){const u=(i+.5)/count;if(u<=front)samples.push({object:e.shape.parts[1],local:new Vector3(u,0,0),weight:1/3});}
         }else if(e.shape.parts.length){
           for(const i of [0,Math.floor(e.shape.parts.length/2),e.shape.parts.length-1]){
             const part=e.shape.parts[i];if(part.visible)samples.push({object:part,local:part.userData.emitterPoint??new Vector3(),weight:1/3});
@@ -160,7 +165,7 @@ export function createSpellImpactEffects(scene:Scene){
           const sample=samples[i];worldPoint.copy(sample.local).applyMatrix4(sample.object.matrixWorld);
           const hue=e.style.kind==='pattern'&&sample.object instanceof Mesh?(sample.object.material as MeshBasicMaterial).color:undefined;
           lights.push({id:`spell-${id}-${i}`,x:worldPoint.x,y:worldPoint.z,height:Math.max(0,worldPoint.y),radius:e.style.radiusFt*pixelsPerFoot,
-            strength:e.style.strength*emission*sample.weight*(e.input.persistent?.45:2),color:hue?new Vector3(hue.r,hue.g,hue.b):e.color,visibleTorch:false,transient:true});
+            strength:e.style.strength*emission*sample.weight*(e.input.persistent?.45:2),color:hue?new Vector3(hue.r,hue.g,hue.b):e.color,visibleTorch:false,transient:true,...(e.reveals?{revealsTerrain:true}:{})});
         }
       }
       return lights;
