@@ -1,9 +1,9 @@
 import {describe,it,expect} from 'vitest';
 import {spellAreaFor,pointInSpellArea,type SpellAreaPlacement} from '../../shared/spellAreas.js';
 import {getAllSpells,getSpell} from './spells/srd.js';
-import {createSession,createMap,setActiveMap,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getMonster,listRollLog,listMeasurements,setCondition,getCharacter,drainHpFx} from './sessions.js';
+import {createSession,createMap,setActiveMap,createCharacter,createToken,createMonsterTemplate,instantiateMonster,getMonster,listRollLog,listMeasurements,setCondition,setTokenHidden,getCharacter,drainHpFx} from './sessions.js';
 import {editMapWalls} from './mapWalls.js';
-import {resolveAbilityRoll} from './combat.js';
+import {resolveAbilityRoll,resolveForcedSave} from './combat.js';
 import {runLiveCommand} from './liveRolls.js';
 import {withDiceSource} from '../../shared/dice.js';
 import {areaPlacementError} from './areaSpells.js';
@@ -143,6 +143,42 @@ describe('authoritative area combat',()=>{
   editMapWalls(f.s.id,f.map.id,{add:{id:'wall',ax:130,ay:-30,bx:130,by:30}});
   withDiceSource(sides=>sides.map(s=>s===20?1:3),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,1,undefined,undefined,undefined,{...f.p,points:[{x:0,y:0}]})).toBe(true));
   expect(getMonster(near.m.id)!.curHp).toBe(491);expect(getMonster(outside.m.id)!.curHp).toBe(500);expect(getMonster(blocked.m.id)!.curHp).toBe(500);
+ });
+ it.each([false,true])('Fireball damages an unseen creature around a corner from its explosion center (live dice=%s)',async live=>{
+  const f=setup('Fireball'),target=f.target(200,200);
+  setTokenHidden(target.token.id,true);
+  setCondition('monster',target.m.id,{id:'invisible',label:'Invisible',aura:'green',isConcentration:false});
+  // The caster can reach the center at (200,100). Only the caster-to-victim
+  // diagonal crosses this wall; the explosion-to-victim path is clear.
+  editMapWalls(f.s.id,f.map.id,{add:{id:'corner',ax:20,ay:100,bx:100,by:100}});
+  const cast=()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,3,undefined,undefined,undefined,f.p)).toBe(true);
+  if(live)await runLiveCommand(cast,()=>{}, {label:'Fireball',roller:'Caster',className:'Wizard'},async sides=>sides.map(n=>n===20?1:4));
+  else withDiceSource(sides=>sides.map(n=>n===20?1:4),cast);
+  expect(getMonster(target.m.id)!.curHp).toBe(468);
+  expect(drainHpFx(f.s.id)).toContainEqual(expect.objectContaining({refId:target.m.id,delta:-32}));
+ });
+ it.each([false,true])('Fireball respects a door between its center and victim (open=%s)',open=>{
+  const f=setup('Fireball'),target=f.target(200,200);
+  // The caster-to-victim diagonal misses this door; only the blast crosses it.
+  editMapWalls(f.s.id,f.map.id,{add:{id:'blast-door',ax:180,ay:150,bx:220,by:150,door:true,open}});
+  withDiceSource(sides=>sides.map(n=>n===20?1:4),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,3,undefined,undefined,undefined,f.p)).toBe(true));
+  expect(getMonster(target.m.id)!.curHp).toBe(open?468:500);
+ });
+ it('still blocks a directly targeted spell when the caster-to-target path crosses a wall',()=>{
+  const f=setup('Fireball'),target=f.target(200,200);
+  editMapWalls(f.s.id,f.map.id,{add:{id:'corner',ax:20,ay:100,bx:100,by:100}});
+  withDiceSource(()=>{throw new Error('A blocked targeted spell must not roll');},()=>
+   expect(resolveAbilityRoll(f.s.id,'Caster',f.c,{...getSpell('Ray of Frost')!,id:'ray'},0,undefined,target.token.id)).toBe(false));
+  expect(getMonster(target.m.id)!.curHp).toBe(500);expect(listRollLog(f.s.id)).toEqual([]);
+ });
+ it('keeps caster cover checks for manual damage applications without a placed area',()=>{
+  const f=setup('Fireball'),target=f.target(200,200);
+  editMapWalls(f.s.id,f.map.id,{add:{id:'corner',ax:20,ay:100,bx:100,by:100}});
+  withDiceSource(sides=>sides.map(()=>4),()=>expect(resolveAbilityRoll(f.s.id,'Caster',f.c,f.a,3)).toBe(true));
+  const source=listRollLog(f.s.id).find(r=>r.apply)!;
+  expect(source.apply).toBeTruthy();
+  withDiceSource(()=>{throw new Error('A blocked manual target must not roll a save');},()=>resolveForcedSave(f.s.id,source.id,target.token.id));
+  expect(getMonster(target.m.id)!.curHp).toBe(500);
  });
  it('refuses forged placements before any dice or HP changes',()=>{
   const f=setup('Fireball');

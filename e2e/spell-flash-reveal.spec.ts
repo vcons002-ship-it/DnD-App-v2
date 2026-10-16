@@ -14,6 +14,8 @@ test('flashing area spells light their animation where it is, and only while it 
  // A 100 ft bolt: its light reaches only as far as the return stroke has travelled.
  effects.sync([area(1,'Lightning Bolt',{mapId:'m',x:0,y:0,radiusFt:2.5,end:{x:1000,y:0}})],0);
  const early=revealing(effects.tick(130,ppf,false,at(0,0))),full=revealing(effects.tick(500,ppf,false,at(0,0)));
+ const strength=t=>revealing(effects.tick(t,ppf,false,at(0,0))).reduce((n,l)=>n+l.strength,0);
+ const dim=strength(340),strike=strength(450);
  const over=revealing(effects.tick(1400,ppf,false,at(0,0)));effects.sync([],1400);
  // A Fireball's light travels with the ball, then bursts at the target.
  effects.sync([area(2,'Fireball',{mapId:'m',x:0,y:0,radiusFt:20},{sourcePosition:{mapId:'m',x:-600,y:0}})],0);
@@ -23,7 +25,7 @@ test('flashing area spells light their animation where it is, and only while it 
  effects.sync([area(3,'Ice Storm',{mapId:'m',x:0,y:0,radiusFt:20}),area(4,'Thunderwave',{mapId:'m',x:300,y:0,radiusFt:7.5,end:{x:450,y:0}})],0);
  const cold=effects.tick(600,ppf,false,at(0,0));
  const xs=lights=>lights.map(l=>Math.round(l.x));
- window.flash={early:xs(early),full:xs(full),over:over.length,flight:flight.map(l=>({count:l.length,x:l.length?l.reduce((s,p)=>s+p.x,0)/l.length:null})),
+ window.flash={dim,strike,early:xs(early),full:xs(full),over:over.length,flight:flight.map(l=>({count:l.length,x:l.length?l.reduce((s,p)=>s+p.x,0)/l.length:null})),
   burst:burst.length,burstSpread:burst.length?Math.max(...burst.map(l=>Math.hypot(l.x,l.y))):null,coldLights:cold.length,coldRevealing:revealing(cold).length};
  effects.dispose();`);
  await page.goto('about:blank');await page.addScriptTag({content:script});
@@ -32,6 +34,7 @@ test('flashing area spells light their animation where it is, and only while it 
  expect(r.full.length).toBe(9);expect(Math.min(...r.full)).toBeLessThan(80);expect(Math.max(...r.full)).toBeGreaterThan(920);
  expect(r.early.length).toBeGreaterThan(0);expect(Math.max(...r.early)).toBeLessThanOrEqual(520);
  expect(r.over).toBe(0);
+ expect(r.strike).toBeGreaterThan(r.dim*4);
  // Lit throughout the flight, moving toward the target.
  for(const f of r.flight)expect(f.count).toBeGreaterThan(0);
  expect(r.flight[0].x).toBeLessThan(r.flight[1].x);expect(r.flight[1].x).toBeLessThan(r.flight[2].x);
@@ -57,7 +60,7 @@ test('a spell flash shows terrain only inside line of sight, only while it shine
  // Darkvision around the PC at the left; a wall at x=60 ends the line of sight.
  const cover={enabled:true,origins:[rect(0,40,20,20)],sight:[rect(0,0,60,100)],lights:[],explored:[],memory:null,keepRevealed:false,grade:{heavy:true,daylight:false,near:[]}};
  const circle=(x,y,r)=>Array.from({length:48},(_,i)=>({x:x+Math.cos(i*Math.PI/24)*r,y:y+Math.sin(i*Math.PI/24)*r}));
- const flash=[{source:{id:'fireball',x:55,y:50,height:3,radius:15,strength:4,transient:true},polygon:circle(55,50,27)}];
+ const flash=[{source:{id:'lightning',x:35,y:50,height:3,radius:8,strength:4,transient:true,beam:{ax:15,ay:50,bx:55,by:50}},polygon:circle(35,50,47)}];
  const frame=flashes=>{renderer.render(scene,camera);compositor.render(true,cover,camera,flashes);const gl=renderer.getContext(),p=new Uint8Array(size*size*4);gl.readPixels(0,0,size,size,gl.RGBA,gl.UNSIGNED_BYTE,p);return p;};
  const pixel=(p,x,z)=>{const v=new T.Vector3(x,0,z).project(camera),px=Math.floor((v.x+1)/2*size),py=Math.floor((v.y+1)/2*size),i=(py*size+px)*4;return [p[i],p[i+1],p[i+2]];};
  const dark=frame([]),lit=frame(flash),after=frame([]);

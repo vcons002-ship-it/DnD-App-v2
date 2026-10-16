@@ -5,7 +5,7 @@ import {
   OneFactor, OneMinusSrcColorFactor, OneMinusSrcAlphaFactor, ShaderMaterial, ShapeUtils, Vector2, WebGLRenderTarget,
   Matrix4,Vector4,type Camera, type Texture, type WebGLRenderer,
 } from 'three';
-import {lightFalloffGlsl,lightColorCoverage,lightIrradiance,spellEmissionIrradiance} from '../../../shared/lightFalloff';
+import {lightFalloffGlsl,lightColorCoverage,lightIrradiance,spellEmissionIrradiance,lightSourceDistance,lightBeamExtent} from '../../../shared/lightFalloff';
 import {createLightSightCache} from '../../../shared/lightSightCache';
 import {HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
 import type {VisionLight} from '../../../shared/playerVision';
@@ -71,12 +71,12 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
   const flashLamp = new ShaderMaterial({...blend,side:DoubleSide,depthTest:false,depthWrite:false,toneMapped:false,
     stencilWrite:true,stencilRef:1,stencilFunc:EqualStencilFunc,
     stencilFail:KeepStencilOp,stencilZFail:KeepStencilOp,stencilZPass:KeepStencilOp,
-    uniforms:{source:{value:new Float32Array(4)},strength:{value:0}},
+    uniforms:{source:{value:new Float32Array(4)},beam:{value:new Float32Array(4)},strength:{value:0}},
     vertexShader:'varying vec2 world; void main(){world=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
     fragmentShader:`${lightFalloffGlsl}
-      uniform vec4 source;uniform float strength;varying vec2 world;
+      uniform vec4 source,beam;uniform float strength;varying vec2 world;
       void main(){
-        float a=lightColorCoverage(spellEmissionIrradiance(length(vec3(world-source.xz,source.y)),source.w,strength));
+        float a=lightColorCoverage(spellEmissionIrradiance(lightSegmentDistance(vec3(world.x,0.,world.y),beam,source.y),source.w,strength));
         gl_FragColor=vec4(a,0.,0.,a);
       }`,
   });
@@ -96,6 +96,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
         points.needsUpdate=true;entry.mesh.geometry.setDrawRange(0,count);entry.points=polygon;
       }
       const m=entry.mesh.material;m.uniforms.source.value.set([source.x,source.height,source.y,source.radius]);m.uniforms.strength.value=source.strength;
+      const b=source.beam;m.uniforms.beam.value.set([b?.ax??source.x,b?.ay??source.y,b?.bx??source.x,b?.by??source.y]);
     });
     for(let i=flashes.length;i<flashEntries.length;i++)flashEntries[i].mesh.visible=false;
     flashCount=flashes.length;
@@ -186,7 +187,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
         const covered=(poly:WallPoint[])=>{let yes=cache!.polygons.get(poly);if(yes===undefined){yes=inside(p,poly);cache!.polygons.set(poly,yes);}return yes;};
         for(const {source,polygon} of next.lights)if(covered(polygon))irradiance+=lightIrradiance(Math.hypot(p.x-source.x,p.y-source.y,source.height),source.radius,source.strength);
         let sight=flashSight.get(p.slot);if(!sight){sight=createLightSightCache();flashSight.set(p.slot,sight);}
-        for(const source of flashes)if(Math.hypot(p.x-source.x,p.y-source.y)<source.radius*1.5&&sight.visible(source.id,source,p,walls))irradiance+=spellEmissionIrradiance(Math.hypot(p.x-source.x,p.y-source.y,source.height),source.radius,source.strength);
+        for(const source of flashes)if(Math.hypot(p.x-source.x,p.y-source.y)<source.radius*1.5+lightBeamExtent(source)&&sight.visible(source.id,source,p,walls))irradiance+=spellEmissionIrradiance(lightSourceDistance(source,p.x,p.y),source.radius,source.strength);
         const offset=p.slot*4,unlit=next.grade.daylight?0:Math.round((1-lightColorCoverage(irradiance))*255),near=next.grade.near.some(covered)?255:0;
         if(gradeBytes[offset]!==unlit||gradeBytes[offset+1]!==near){gradeBytes[offset]=unlit;gradeBytes[offset+1]=near;changed=true;}
       }

@@ -1,4 +1,4 @@
-import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
+import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER,lightBeamExtent} from '../../../shared/lightFalloff';
 import {wallVisibilityPolygon,type WallPoint} from '../../../shared/mapWalls';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {
@@ -19,7 +19,7 @@ import {mapLightColorHex} from '../../../shared/mapEnvironment';
 const palettes={day:{color:0x1c2230,opacity:0,...NEUTRAL_MINIATURE_LIGHTING},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
 const lightningColor=new Color(0xd7e7ff);
 /** How far a spell light's wall-clipped ground splat reaches. */
-export const spellLightReach=(light:{radius:number})=>light.radius*LIGHT_SPILL_MULTIPLIER*1.2;
+export const spellLightReach=(light:{radius:number;x?:number;y?:number;beam?:TorchLight['beam']})=>light.radius*LIGHT_SPILL_MULTIPLIER*1.2+lightBeamExtent({x:light.x??0,y:light.y??0,beam:light.beam});
 export type CarriedLanternLight={id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight:number;facing:number};
 export const torchFieldGlsl=`
   uniform sampler2D torchField;
@@ -92,14 +92,15 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   const quad=new PlaneGeometry(2,2),fieldGeometry=new InstancedBufferGeometry();
   fieldGeometry.index=quad.index;fieldGeometry.attributes=quad.attributes;
   const wallGeometryMode={value:0};
-  const wallSource={value:new Vector4()},wallRadiance={value:new Vector4()},wallShadowSlot={value:-1};
-  const fieldMaterial=new ShaderMaterial({uniforms:{...fieldUniforms,...shadowUniforms,wallGeometryMode,wallSource,wallRadiance,wallShadowSlot},transparent:true,blending:CustomBlending,blendSrc:OneFactor,blendDst:OneFactor,depthTest:false,depthWrite:false,toneMapped:false,
-    vertexShader:`attribute vec4 source;attribute vec4 radiance;attribute float shadowSlot;uniform float wallGeometryMode;uniform vec4 wallSource,wallRadiance;uniform float wallShadowSlot;uniform vec4 torchBounds;varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
-      void main(){sourceShadow=wallGeometryMode>.5?wallShadowSlot:shadowSlot;lightSource=wallGeometryMode>.5?wallSource:source;lightRadiance=wallGeometryMode>.5?wallRadiance:radiance;world=wallGeometryMode>.5?position.xy:source.xz+position.xy*source.w*${LIGHT_SPILL_MULTIPLIER.toFixed(1)};
+  const wallSource={value:new Vector4()},wallRadiance={value:new Vector4()},wallBeam={value:new Vector4()},wallShadowSlot={value:-1};
+  const uploadBeam=(light:TorchLight)=>{const b=light.beam;wallBeam.value.set(b?.ax??light.x,b?.ay??light.y,b?.bx??light.x,b?.by??light.y);};
+  const fieldMaterial=new ShaderMaterial({uniforms:{...fieldUniforms,...shadowUniforms,wallGeometryMode,wallSource,wallRadiance,wallBeam,wallShadowSlot},transparent:true,blending:CustomBlending,blendSrc:OneFactor,blendDst:OneFactor,depthTest:false,depthWrite:false,toneMapped:false,
+    vertexShader:`attribute vec4 source;attribute vec4 radiance;attribute vec4 beam;attribute float shadowSlot;uniform float wallGeometryMode;uniform vec4 wallSource,wallRadiance,wallBeam;uniform float wallShadowSlot;uniform vec4 torchBounds;varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying vec4 lightBeam;varying float sourceShadow;
+      void main(){sourceShadow=wallGeometryMode>.5?wallShadowSlot:shadowSlot;lightSource=wallGeometryMode>.5?wallSource:source;lightRadiance=wallGeometryMode>.5?wallRadiance:radiance;lightBeam=wallGeometryMode>.5?wallBeam:beam;float extent=max(length(lightBeam.xy-lightSource.xz),length(lightBeam.zw-lightSource.xz));world=wallGeometryMode>.5?position.xy:source.xz+position.xy*(source.w*${LIGHT_SPILL_MULTIPLIER.toFixed(1)}+extent);
         gl_Position=vec4((world-torchBounds.xy)/torchBounds.zw*2.-1.,0.,1.);}`,
     fragmentShader:`${lightFalloffGlsl}${localShadowGlsl}
- varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying float sourceShadow;
-      void main(){float d=length(vec3(world-lightSource.xz,lightSource.y));float radius=lightSource.w;
+ varying vec2 world;varying vec4 lightSource;varying vec4 lightRadiance;varying vec4 lightBeam;varying float sourceShadow;
+      void main(){float d=lightSegmentDistance(vec3(world.x,0.,world.y),lightBeam,lightSource.y);float radius=lightSource.w;
         float irradiance=sourceShadow<-1.5?spellEmissionIrradiance(d,radius,lightRadiance.w):lightIrradiance(d,radius,lightRadiance.w);
         float visible=localLightVisibility(sourceShadow,vec3(world.x,.1,world.y),${localCreatureShadowStrength});
         float blocked=(1.-visible)*irradiance*max(lightRadiance.r,max(lightRadiance.g,lightRadiance.b));
@@ -126,7 +127,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       const radius=radiusFor(l),cacheKey=`${wallKey}:${l.x},${l.y},${radius}`;
       let entry=wallLights.get(l.id);
       if(!entry&&preparedWallLights.has(l.id)){entry=preparedWallLights.get(l.id)!;preparedWallLights.delete(l.id);wallLights.set(l.id,entry);wallSplats.add(entry.mesh);
-        const current=entry;entry.mesh.onBeforeRender=()=>{const source=current.light;wallSource.value.set(source.x,source.height,source.y,source.radius);wallRadiance.value.set(source.color.x,source.color.y,source.color.z,source.strength);wallShadowSlot.value=source.transient?-2:source.shadowSlot??-1;fieldMaterial.uniformsNeedUpdate=true;};
+        const current=entry;entry.mesh.onBeforeRender=()=>{const source=current.light;wallSource.value.set(source.x,source.height,source.y,source.radius);wallRadiance.value.set(source.color.x,source.color.y,source.color.z,source.strength);uploadBeam(source);wallShadowSlot.value=source.transient?-2:source.shadowSlot??-1;fieldMaterial.uniformsNeedUpdate=true;};
       }
       if(!entry){
         const mesh=new Mesh(new BufferGeometry(),fieldMaterial);mesh.frustumCulled=false;
@@ -136,6 +137,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
           const source=current.light;
           wallSource.value.set(source.x,source.height,source.y,source.radius);
           wallRadiance.value.set(source.color.x,source.color.y,source.color.z,source.strength);
+          uploadBeam(source);
           wallShadowSlot.value=source.transient?-2:source.shadowSlot??-1;
           // The meshes share one program. Upload source uniforms on every draw,
           // including consecutive sources with the same material.
@@ -182,7 +184,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
   const glow=new MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85,depthWrite:false,toneMapped:false});
   const fixtureColor=new Color(),warmLanternColor=new Color(0xffc768);
   let capacity=0,shafts:InstancedMesh,cups:InstancedMesh,flames:InstancedMesh,frames:InstancedMesh,windows:InstancedMesh,handles:InstancedMesh;
-  let sourceAttribute:InstancedBufferAttribute,radianceAttribute:InstancedBufferAttribute,shadowAttribute:InstancedBufferAttribute;
+  let sourceAttribute:InstancedBufferAttribute,radianceAttribute:InstancedBufferAttribute,beamAttribute:InstancedBufferAttribute,shadowAttribute:InstancedBufferAttribute;
   const matrix=new Matrix4();
   function ensureCapacity(count:number){
     if(capacity>=Math.max(1,count))return;
@@ -198,6 +200,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     sourceAttribute=new InstancedBufferAttribute(new Float32Array(capacity*4),4).setUsage(DynamicDrawUsage);
     radianceAttribute=new InstancedBufferAttribute(new Float32Array(capacity*4),4).setUsage(DynamicDrawUsage);
     fieldGeometry.setAttribute('source',sourceAttribute);fieldGeometry.setAttribute('radiance',radianceAttribute);
+    beamAttribute=new InstancedBufferAttribute(new Float32Array(capacity*4),4).setUsage(DynamicDrawUsage);fieldGeometry.setAttribute('beam',beamAttribute);
     shadowAttribute=new InstancedBufferAttribute(new Float32Array(capacity),1).setUsage(DynamicDrawUsage);fieldGeometry.setAttribute('shadowSlot',shadowAttribute);
   }
   let settings:EnvironmentPreviewSettings,carried:CarriedLanternLight[]=[],lights:TorchLight[]=[],transient:TorchLight[]=[],time=0;
@@ -228,6 +231,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     lights.forEach((light,i)=>{
       sourceAttribute.setXYZW(i,light.x,light.height,light.y,light.radius);
       radianceAttribute.setXYZW(i,light.color.x,light.color.y,light.color.z,light.strength);
+      const b=light.beam;beamAttribute.setXYZW(i,b?.ax??light.x,b?.ay??light.y,b?.bx??light.x,b?.by??light.y);
       if(light.carried||(light.visibleTorch&&light.fixture==='lantern')){
         const size=ppf*(light.carried?.8:1.2),angle=light.facing??0,c=Math.cos(angle),s=Math.sin(angle);
         const part=(mesh:InstancedMesh,index:number,x:number,y:number,z:number,w:number,h:number,d:number)=>{
@@ -251,7 +255,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       flames.setColorAt(visible,new Color().setRGB(light.color.x,light.color.y,light.color.z));
       visible++;
     });
-    fieldGeometry.instanceCount=lights.length;sourceAttribute.needsUpdate=true;radianceAttribute.needsUpdate=true;updateWallField();
+    fieldGeometry.instanceCount=lights.length;sourceAttribute.needsUpdate=true;radianceAttribute.needsUpdate=true;beamAttribute.needsUpdate=true;updateWallField();
     for(const mesh of [shafts,cups,flames]){mesh.count=visible;mesh.visible=plane.visible;mesh.instanceMatrix.needsUpdate=true;}
     frames.count=lanterns*6;windows.count=handles.count=lanterns;
     for(const mesh of [frames,windows,handles]){mesh.visible=plane.visible;mesh.instanceMatrix.needsUpdate=true;}
@@ -298,7 +302,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
         polygon.forEach((p,i)=>{const q=polygon[(i+1)%polygon.length],v=i*3;points.setXYZ(v,light.x,light.y,0);points.setXYZ(v+1,p.x,p.y,0);points.setXYZ(v+2,q.x,q.y,0);});
         geometry.setAttribute('position',points);geometry.setDrawRange(0,count);const mesh=new Mesh(geometry,fieldMaterial);mesh.frustumCulled=false;
         preparedWallLights.set(light.id,{mesh,key:`${key}:${light.x},${light.y},${radius}`,light,vertices:count,polygon});preparedGeometryCount++;upload=true;
-        mesh.onBeforeRender=()=>{wallSource.value.set(light.x,light.height,light.y,light.radius);wallRadiance.value.set(light.color.x,light.color.y,light.color.z,light.strength);wallShadowSlot.value=-2;fieldMaterial.uniformsNeedUpdate=true;};
+        mesh.onBeforeRender=()=>{wallSource.value.set(light.x,light.height,light.y,light.radius);wallRadiance.value.set(light.color.x,light.color.y,light.color.z,light.strength);uploadBeam(light);wallShadowSlot.value=-2;fieldMaterial.uniformsNeedUpdate=true;};
         preparationScene.add(mesh);
       }
       if(upload&&renderer){const previous=renderer.getRenderTarget();try{renderer.setRenderTarget(preparationTarget);renderer.clear();renderer.render(preparationScene,fieldCamera);}finally{renderer.setRenderTarget(previous);preparationScene.clear();}}

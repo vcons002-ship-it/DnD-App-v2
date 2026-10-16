@@ -244,12 +244,18 @@ export function spellControlTargetError(sessionId: string, ability: SheetAbility
     return 'Hold Person only affects Humanoids.';
 }
 
-export function spellApplyTargetError(sessionId: string, entry: RollEntry, tokenId: string): string | undefined {
+/** Server-computed origins for an already validated placed spell, never a
+ * client-provided override of direct targeting or visibility checks. */
+type PlacedAreaSave = {mapId:string;origins:readonly {x:number;y:number}[]};
+
+export function spellApplyTargetError(sessionId: string, entry: RollEntry, tokenId: string, area?:PlacedAreaSave): string | undefined {
   const apply = entry.apply, effect = apply?.effect;
   const origin=apply?.attack?.attacker??(effect?{kind:effect.casterKind,refId:effect.casterId}:apply?.owner?{kind:'pc' as const,refId:apply.owner}:undefined);
   const destination=spellTarget(sessionId,tokenId);
   const source=origin&&destination&&listTokens(destination.mapId).find(t=>t.kind===origin.kind&&t.refId===origin.refId);
-  if(source&&destination&&!hasLineOfSight(source,destination,getMap(destination.mapId)?.walls))return 'A wall or closed door blocks this target.';
+  if(area){
+    if(!destination||area.mapId!==destination.mapId||!area.origins.some(p=>hasLineOfSight(p,destination,getMap(destination.mapId)?.walls)))return 'A wall or closed door blocks this target.';
+  }else if(source&&destination&&!hasLineOfSight(source,destination,getMap(destination.mapId)?.walls))return 'A wall or closed door blocks this target.';
   if (apply?.healing) {
     const token = spellTarget(sessionId, tokenId);
     if (!token || (token.kind === 'monster' && getMonster(token.refId)?.objectKind))
@@ -1551,6 +1557,7 @@ export function resolveForcedSave(
   advantage?: Advantage,
   instanceIndex?: number,
   presentedLive=false,
+  area?:PlacedAreaSave,
 ): void {
   const src = getRollEntry(rollId, sessionId);
   const apply = src?.apply;
@@ -1559,7 +1566,7 @@ export function resolveForcedSave(
   if (!tok) return;
   const r = resolve(tok);
   if (!r) return;
-  if (spellApplyTargetError(sessionId, src!, tokenId)) return;
+  if (spellApplyTargetError(sessionId, src!, tokenId,area)) return;
   if(apply.effect?.spell==='Hypnotic Pattern'&&(r.conditionLabels.some(c=>c.toLowerCase()==='blinded')||r.immunities.some(c=>/\bcharmed\b/i.test(c))))return;
   if (apply.healing) {
     const consumed = apply.consumedTargets ?? [];

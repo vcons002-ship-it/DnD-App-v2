@@ -1,4 +1,4 @@
-import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
+import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER,nearestLightPoint,type LightBeam} from '../../../shared/lightFalloff';
 import {Box3, DataTexture, Mesh, MeshStandardMaterial, Vector2, Vector3, Vector4, type Camera, type Group, type Material, type Object3D, type Texture} from 'three';
 import type {MiniatureDefinition} from '../lib/miniatures';
 import {type MapWall} from '../../../shared/mapWalls';
@@ -12,7 +12,7 @@ type GroundField={torchField:{value:Texture};torchBounds:{value:Vector4}};
 const emptyGroundField=new DataTexture(new Uint8Array(4),1,1);emptyGroundField.needsUpdate=true;
 export type TorchLight = {id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight?:number;radius:number;strength:number;nominalRadius?:number;nominalStrength?:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number;transient?:boolean;
   /** A flashing area spell's light: shows terrain in the viewer's line of sight. */
-  revealsTerrain?:boolean};
+  revealsTerrain?:boolean;beam?:LightBeam};
 
 /** Each figure gets its strongest nearby sources, independent of the map's light count. */
 export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms']){
@@ -84,7 +84,8 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
     // selection entirely, including its ray checks and eight-light shader loop.
     if(mode!=='ground')for(const light of lights){
       if(mode==='spells-ground'&&light.transient)continue;
-      const d2=(light.x-root.position.x)**2+(light.y-root.position.z)**2;
+      const nearest=nearestLightPoint(light,root.position.x,root.position.z);
+      const d2=(nearest.x-root.position.x)**2+(nearest.y-root.position.z)**2;
       if(d2>(light.radius*LIGHT_SPILL_MULTIPLIER)**2)continue;
       if(!sight.visible(light.id,light,{x:root.position.x,y:root.position.z},walls))continue;
       const score=light.strength*light.radius**2/Math.max(1,d2+light.height**2*.25);
@@ -95,7 +96,8 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
     chosen.sort((a,b)=>a.light.id.localeCompare(b.light.id));
     signature=JSON.stringify([mode,uniforms.torchGroundEnabled.value,darkvision,chosen.map(c=>c.light.id)]);
     chosen.forEach(({light},i)=>{
-      point.set(light.x,light.height,light.y).applyMatrix4(camera.matrixWorldInverse);
+      const nearest=nearestLightPoint(light,root.position.x,root.position.z);
+      point.set(nearest.x,light.height,nearest.y).applyMatrix4(camera.matrixWorldInverse);
       uniforms.torchPositions.value[i].set(point.x,point.y,point.z,light.radius);
       uniforms.torchColors.value[i].copy(light.color).multiplyScalar(light.strength);
       uniforms.torchShadowSlots.value[i]=light.transient?-2:light.shadowSlot??-1;

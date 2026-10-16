@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Synchronize retained miniature body transforms with moving lanterns and
+  mist; shape Lightning Bolt's pulsing light along the beam; use placed spell
+  origins for area-damage cover checks, including unseen creatures around corners.
+  [Behavior and validation](docs/MOVEMENT_LIGHTNING_AREA_FIXES_2026-10-16.md).
+
 - [x] Add a guided level-one character creator to the player character-selection
   screen, with class/species cards, standard-array and point-buy help, 2024 class starting
   equipment, skills, spells, live HP/AC preview, and safe server creation/claiming.
