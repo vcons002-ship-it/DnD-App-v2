@@ -112,13 +112,13 @@ function sightGeometry(input:readonly MapWall[]):SightGeometry{
   });
   const geometry={edges:wallEdges(walls),solid};sightCache.set(input,geometry);return geometry;
 }
+const insideSolid=(p:WallPoint,s:SightGeometry['solid'][number])=>p.x>=s.minX&&p.x<=s.maxX&&p.y>=s.minY&&p.y<=s.maxY&&insideWallGeometry(p,s.wall);
 export function hasLineOfSight(a: WallPoint, b: WallPoint, walls: readonly MapWall[] = []): boolean {
   if(!walls.length)return true;
   const {edges,solid}=sightGeometry(walls);
   const dx=b.x-a.x,dy=b.y-a.y, distance=Math.hypot(dx,dy);
   if (distance < EPS) return true;
-  const inside=(p:WallPoint,s:SightGeometry['solid'][number])=>p.x>=s.minX&&p.x<=s.maxX&&p.y>=s.minY&&p.y<=s.maxY&&insideWallGeometry(p,s.wall);
-  if(solid.some(s=>inside(a,s)||inside(b,s)))return false;
+  if(solid.some(s=>insideSolid(a,s)||insideSolid(b,s)))return false;
   // The bounding-volume walk returns the nearest hit below the limit, else the limit.
   return closestWallHit(a,dx/distance,dy/distance,edges,distance-EPS,rayHit) >= distance-EPS;
 }
@@ -133,13 +133,24 @@ export function distanceToWall(p: WallPoint, w: MapWall): number {
 /** Rays just either side of each corner preserve narrow doors and crisp wall shadows.
  * Cache per source in callers: camera changes and flame flicker need no new ray casts. */
 export function wallVisibilityPolygon(origin: WallPoint, walls: readonly MapWall[], radius: number): WallPoint[] {
-  walls=sightWalls(passageWalls(walls));
-  if(walls.some(w=>insideWall(origin,w)))return [origin,origin,origin];
-  const edges=wallEdges(walls);
-  const angles=Array.from({length:96},(_,i)=>i*Math.PI/48);
+  const {edges,solid}=sightGeometry(walls);
+  if(solid.some(s=>insideSolid(origin,s)))return [origin,origin,origin];
+  const angles=Array.from({length:96},(_,i)=>i*Math.PI/48),reach=(radius+1)**2;
   for (const {x,y} of wallCorners(edges)) {
+    // Rays stop at the radius, so a corner beyond it can't shape the result.
+    const d2=(x-origin.x)**2+(y-origin.y)**2;if(d2>reach)continue;
     const a=Math.atan2(y-origin.y,x-origin.x);
     angles.push(a-1e-7,a,a+1e-7);
+    // Beside a very near corner the 1e-7 rays fall inside the hit tolerance;
+    // two slightly wider ones keep the wedge past it (finite reach only).
+    if(radius<SIGHT_EXTENT){const wide=Math.max(1e-6,1e-3/Math.sqrt(d2||1));angles.push(a-wide,a+wide);}
+  }
+  // Where an edge crosses the radius the outline turns from wall to arc.
+  for(const e of edges){
+    const dx=e.bx-e.ax,dy=e.by-e.ay,fx=e.ax-origin.x,fy=e.ay-origin.y,A=dx*dx+dy*dy;if(A<EPS)continue;
+    const B=fx*dx+fy*dy,disc=B*B-A*(fx*fx+fy*fy-radius*radius);if(disc<=0)continue;
+    for(const t of [(-B-Math.sqrt(disc))/A,(-B+Math.sqrt(disc))/A])
+      if(t>0&&t<1){const a=Math.atan2(fy+t*dy,fx+t*dx);angles.push(a-1e-7,a,a+1e-7);}
   }
   const sorted=angles.map(a=>(a+Math.PI*2)%(Math.PI*2)).sort((a,b)=>a-b);
   const points:{point:WallPoint;wall?:MapWall}[]=[];

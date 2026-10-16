@@ -26,7 +26,8 @@ import { facingAfterMove } from '../../../shared/tokenFacing';
 import { createMiniatureNameLayer } from './miniatureNameLayer';
 import {createMiniatureMaskCache} from './miniatureMaskCache';
 import { createMiniatureVisibilityMaterial, createMiniatureVisionLift } from './miniatureVisionLift';
-import {createMiniatureVisionComposite,type VisionCoverFrame} from './miniatureVisionComposite';
+import {createMiniatureVisionComposite,type SpellFlash,type VisionCoverFrame} from './miniatureVisionComposite';
+import {spellLightReach} from './battlefieldLighting';
 import type { MiniatureNameLabel } from './miniatureNameLabels';
 import { prepareMiniatureBase } from './miniatureBaseMaterial';
 import { createBattlefieldEnvironment, type EnvironmentPreviewSettings } from './battlefieldEnvironment';
@@ -70,6 +71,8 @@ export type MiniatureToken = {
   definition: MiniatureDefinition;
 };
 const EMPTY_WALLS:import('../../../shared/mapWalls').MapWall[]=[];
+const NO_FLASHES:SpellFlash[]=[];
+const FLASH_CIRCLE=Array.from({length:48},(_,i)=>({x:Math.cos(i*Math.PI/24),y:Math.sin(i*Math.PI/24)}));
 type Props = {
   rollBackground?: boolean;
   rollBackgroundPrepared?: boolean;
@@ -628,7 +631,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // rather than letting a wall boundary erase heads/shoulders' outlines.
         const foreground=()=>{silhouette.render(renderer,outlineRects);spellImpacts.renderForeground(renderer,camera);};
         visionLift?.render(!!props.personalVision&&!useComposite,foreground);
-        visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera);
+        // Flashing spells light terrain in sight. Outside magical darkness all
+        // of it is visible already, so only heavy darkness needs the reach.
+        const flashes=useComposite&&sightFrame?.enabled&&sightFrame.grade?.heavy?impactLights.filter(l=>l.revealsTerrain).map(l=>({source:l,
+          polygon:battlefield?.lighting.wallPolygon(l.id)??FLASH_CIRCLE.map(v=>({x:l.x+v.x*spellLightReach(l),y:l.y+v.y*spellLightReach(l)}))})):NO_FLASHES;
+        visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera,flashes);
         if(!props.personalVision||useComposite){
           silhouette.render(renderer,outlineRects);
           if(deferSpells&&useComposite){

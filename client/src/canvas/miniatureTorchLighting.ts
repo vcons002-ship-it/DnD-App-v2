@@ -10,7 +10,9 @@ export type MiniatureLightMode='directional'|'spells-ground'|'ground';
 type GroundField={torchField:{value:Texture};torchBounds:{value:Vector4}};
 // Valid sampler while no environment is mounted or the shared-sight pass is unlit.
 const emptyGroundField=new DataTexture(new Uint8Array(4),1,1);emptyGroundField.needsUpdate=true;
-export type TorchLight = {id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight?:number;radius:number;strength:number;nominalRadius?:number;nominalStrength?:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number;transient?:boolean};
+export type TorchLight = {id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight?:number;radius:number;strength:number;nominalRadius?:number;nominalStrength?:number;color:Vector3;visibleTorch:boolean;fixture?:'torch'|'lantern';carried?:boolean;facing?:number;shadowSlot?:number;transient?:boolean;
+  /** A flashing area spell's light: shows terrain in the viewer's line of sight. */
+  revealsTerrain?:boolean};
 
 /** Each figure gets its strongest nearby sources, independent of the map's light count. */
 export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof createLocalLightShadows>['uniforms']){

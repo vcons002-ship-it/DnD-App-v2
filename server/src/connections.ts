@@ -1,4 +1,5 @@
-import {visionContains} from '../../shared/playerVision.js';
+import {visionContains,visionInSight} from '../../shared/playerVision.js';
+import {spellAreaFlashes} from '../../shared/spellImpact.js';
 import {fogVisionContains,usesTokenVision} from '../../shared/playerVision.js';
 import {randomBytes} from 'node:crypto';
 import {isLiveCommand,afterRollCommit} from './liveRollContext.js';
@@ -150,12 +151,16 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
     // Area art goes to a player when ANY part of the area is visible to them
     // (vision and revealed map fog); their client clips it to the visible
     // pixels. A hidden caster's spell still shows where it reaches open view.
+    // A flashing spell lights itself, so line of sight is enough in darkness.
     const revealed = snapshot.map?.mapFogEnabled ? new Set(snapshot.map.mapFogRevealed) : null, grid = snapshot.map?.gridSizePx ?? 50;
-    const visible = hpFx.filter((e) => e.areaPosition
-      ? snapshot.map?.id===e.areaPosition.mapId && (conn.role==='dm'||areaSamplePoints(e.areaPosition,grid/snapshot.map.feetPerSquare).some(p=>
-          (!revealed||revealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`))&&visionContains(snapshot.playerVision,p.x,p.y)))
-      : snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId),
-    ).map((original) => {
+    const visible = hpFx.filter((e) => {
+      if (!e.areaPosition) return snapshot.tokens.some((t) => !t.sharedSightOnly && t.kind === e.kind && t.refId === e.refId);
+      if (snapshot.map?.id !== e.areaPosition.mapId) return false;
+      if (conn.role === 'dm') return true;
+      const sees = spellAreaFlashes(e) ? visionInSight : visionContains;
+      return areaSamplePoints(e.areaPosition, grid / snapshot.map.feetPerSquare).some((p) =>
+        (!revealed || revealed.has(`${Math.floor(p.x / grid)},${Math.floor(p.y / grid)}`)) && sees(snapshot.playerVision, p.x, p.y));
+    }).map((original) => {
       // The destination can be visible while its caster is behind a wall.
       // Do not reveal that hidden origin through projectile coordinates.
       const source=original.sourcePosition;

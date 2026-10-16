@@ -151,7 +151,8 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);
   for(const slot of circlePaths.current.keys())if(!activeKeys.has('circle:'+slot))circlePaths.current.delete(slot);
   // Cosmetic flashes restore color only inside already-visible terrain. They
-  // never enter the sight-cover mask or authorize/persist exploration.
+  // never enter this cover or authorize/persist exploration. A flashing area
+  // spell's reach joins the GPU cover alone, inside sight (see SpellFlash).
   const filter=vision.daylight?'none':vision.heavy?`grayscale(${HEAVY_DARKVISION_DESATURATION})`:'grayscale(.88) brightness(.78)';
   shade.current.style.backdropFilter=filter;
   shade.current.style.setProperty('-webkit-backdrop-filter',filter);

@@ -1,5 +1,5 @@
 import {lightFalloffGlsl,LIGHT_SPILL_MULTIPLIER} from '../../../shared/lightFalloff';
-import {wallVisibilityPolygon} from '../../../shared/mapWalls';
+import {wallVisibilityPolygon,type WallPoint} from '../../../shared/mapWalls';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {
   AdditiveBlending, CustomBlending, OneFactor, BoxGeometry, BufferGeometry, Float32BufferAttribute, Color, ConeGeometry, CylinderGeometry, DynamicDrawUsage, HalfFloatType, InstancedBufferAttribute,
@@ -18,6 +18,8 @@ import {mapLightColorHex} from '../../../shared/mapEnvironment';
 
 const palettes={day:{color:0x1c2230,opacity:0,...NEUTRAL_MINIATURE_LIGHTING},dusk:{color:0x351c2b,opacity:.32,ambient:.8,key:1.65,reflection:.65},night:{color:0x0a142b,opacity:.73,ambient:.30,key:.42,reflection:.20},dungeon:{color:0x100e18,opacity:.84,ambient:.16,key:.15,reflection:.11}};
 const lightningColor=new Color(0xd7e7ff);
+/** How far a spell light's wall-clipped ground splat reaches. */
+export const spellLightReach=(light:{radius:number})=>light.radius*LIGHT_SPILL_MULTIPLIER*1.2;
 export type CarriedLanternLight={id:string;x:number;y:number;height:number;fixtureX?:number;fixtureY?:number;fixtureHeight:number;facing:number};
 export const torchFieldGlsl=`
   uniform sampler2D torchField;
@@ -104,8 +106,9 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
         gl_FragColor=vec4(lightRadiance.rgb*irradiance*visible,blocked);}`});
   const splats=new Mesh(fieldGeometry,fieldMaterial);splats.frustumCulled=false;fieldScene.add(splats);
   const wallSplats=new Group();wallSplats.visible=false;fieldScene.add(wallSplats);
-  const wallLights=new Map<string,{mesh:Mesh<BufferGeometry,ShaderMaterial>;key:string;light:TorchLight;vertices:number}>();
-  const preparedWallLights=new Map<string,{mesh:Mesh<BufferGeometry,ShaderMaterial>;key:string;light:TorchLight;vertices:number}>();
+  type WallLight={mesh:Mesh<BufferGeometry,ShaderMaterial>;key:string;light:TorchLight;vertices:number;polygon?:WallPoint[]};
+  const wallLights=new Map<string,WallLight>();
+  const preparedWallLights=new Map<string,WallLight>();
   let preparedGeometryCount=0;
   const preparationScene=new Scene(),preparationTarget=new WebGLRenderTarget(8,8);
   let wallLightGeometryUpdates=0,wallLightPositionUploads=0;
@@ -116,7 +119,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     wallGeometryMode.value=walls.length?1:0;splats.visible=!walls.length;wallSplats.visible=!!walls.length;
     if(!walls.length){for(const entry of wallLights.values())entry.mesh.geometry.dispose();wallLights.clear();wallSplats.clear();return;}
     if(lastWalls!==settings.walls){lastWalls=settings.walls;wallKey=JSON.stringify(walls);}
-    const radiusFor=(l:TorchLight)=>(l.transient?l.radius:(l.carried?20:nominalRadii.get(l.id)??20)*(settings.pixelsPerFoot??12.8))*LIGHT_SPILL_MULTIPLIER*1.2;
+    const radiusFor=(l:TorchLight)=>l.transient?spellLightReach(l):(l.carried?20:nominalRadii.get(l.id)??20)*(settings.pixelsPerFoot??12.8)*LIGHT_SPILL_MULTIPLIER*1.2;
     const ids=new Set(lights.map(l=>l.id));
     for(const [id,entry] of wallLights)if(!ids.has(id)){wallSplats.remove(entry.mesh);entry.mesh.geometry.dispose();wallLights.delete(id);}
     for(const l of lights){
@@ -151,7 +154,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       }
       polygon.forEach((p,i)=>{const q=polygon[(i+1)%polygon.length],v=i*3;points.setXYZ(v,l.x,l.y,0);points.setXYZ(v+1,p.x,p.y,0);points.setXYZ(v+2,q.x,q.y,0);});
       points.needsUpdate=true;entry.mesh.geometry.setDrawRange(0,count);
-      entry.key=cacheKey;entry.vertices=count;wallLightGeometryUpdates++;wallLightPositionUploads+=count*3;
+      entry.key=cacheKey;entry.vertices=count;entry.polygon=polygon;wallLightGeometryUpdates++;wallLightPositionUploads+=count*3;
     }
   }
   const wood=new MeshStandardMaterial({color:0x51331d,roughness:.83,emissive:0x331609,emissiveIntensity:.13});
@@ -290,17 +293,19 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       const key=JSON.stringify(walls);let upload=false;
       for(const light of next.slice(0,24)){
         if(preparedWallLights.has(light.id)||wallLights.has(light.id))continue;
-        const radius=light.radius*LIGHT_SPILL_MULTIPLIER*1.2,polygon=wallVisibilityPolygon(light,walls,radius),count=polygon.length*3;
+        const radius=spellLightReach(light),polygon=wallVisibilityPolygon(light,walls,radius),count=polygon.length*3;
         const capacity=2**Math.ceil(Math.log2(Math.max(1,count))),geometry=new BufferGeometry(),points=new Float32BufferAttribute(new Float32Array(capacity*3),3).setUsage(DynamicDrawUsage);
         polygon.forEach((p,i)=>{const q=polygon[(i+1)%polygon.length],v=i*3;points.setXYZ(v,light.x,light.y,0);points.setXYZ(v+1,p.x,p.y,0);points.setXYZ(v+2,q.x,q.y,0);});
         geometry.setAttribute('position',points);geometry.setDrawRange(0,count);const mesh=new Mesh(geometry,fieldMaterial);mesh.frustumCulled=false;
-        preparedWallLights.set(light.id,{mesh,key:`${key}:${light.x},${light.y},${radius}`,light,vertices:count});preparedGeometryCount++;upload=true;
+        preparedWallLights.set(light.id,{mesh,key:`${key}:${light.x},${light.y},${radius}`,light,vertices:count,polygon});preparedGeometryCount++;upload=true;
         mesh.onBeforeRender=()=>{wallSource.value.set(light.x,light.height,light.y,light.radius);wallRadiance.value.set(light.color.x,light.color.y,light.color.z,light.strength);wallShadowSlot.value=-2;fieldMaterial.uniformsNeedUpdate=true;};
         preparationScene.add(mesh);
       }
       if(upload&&renderer){const previous=renderer.getRenderTarget();try{renderer.setRenderTarget(preparationTarget);renderer.clear();renderer.render(preparationScene,fieldCamera);}finally{renderer.setRenderTarget(previous);preparationScene.clear();}}
       else preparationScene.clear();
     },setCarried(next:CarriedLanternLight[]){carried=next;},setTransient(next:TorchLight[]){transient=next;},get lights(){return lights;},
+    /** The wall-clipped splat this frame built for a light; undefined without walls. */
+    wallPolygon(id:string){return wallSplats.visible?wallLights.get(id)?.polygon:undefined;},
     renderField(renderer:WebGLRenderer){
       lights.forEach((l,i)=>shadowAttribute.setX(i,l.transient?-2:l.shadowSlot??-1));shadowAttribute.needsUpdate=true;
       const previous=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate,clearAlpha=renderer.getClearAlpha();renderer.getClearColor(fieldClearColor);renderer.shadowMap.needsUpdate=false;

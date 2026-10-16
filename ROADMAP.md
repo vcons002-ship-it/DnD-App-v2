@@ -3178,6 +3178,15 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
   fallback keeps the anchor-point rule. Hidden spell pixels are discarded
   before the effect shades them; the fog-cell texture is built only while
   spell art is drawing, and only when the revealed cells change.
+- [x] Fire, lightning and radiant area spells (Fireball, Lightning Bolt,
+  Burning Hands, Flame Strike, Meteor Swarm, Call Lightning) light the ground
+  while they animate: in magical darkness players see the terrain that light
+  reaches inside their line of sight, never creatures, DM fog or a room past a
+  wall, and it isn't remembered as explored. The light follows the animation:
+  the Fireball's in flight, the whole 100 ft bolt as its stroke travels. The
+  server sends these spells on line of sight alone.
+- [x] Light shapes skip wall corners beyond their reach and cast exact rays
+  where walls cross it (7–19 ms → about 1 ms per spell light on busy maps).
 - [x] Line of sight is about 10× faster (same answers, checked against the
   linear scan for every wall kind): per-wall-list geometry is cached, the
   inside-wall test is skipped outside each wall's bounds, and rays walk the
