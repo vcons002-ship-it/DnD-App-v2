@@ -11,7 +11,9 @@ test('roller opens the current 3D die for rotation, strength previews and mobile
  await expect(page.locator('#tray')).toHaveAttribute('data-state','settled',{timeout:45000});
  await page.getByRole('button',{name:'3D inspector',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'3D dice inspector'}),view=dialog.locator('.inspector-view');
- await expect(dialog).toBeVisible();await expect(view).toHaveAttribute('data-character','Vanec');
+ // The first open imports the inspector's JS/CSS lazily. A cold load is not
+ // covered by Playwright's default five-second DOM assertion budget.
+ await expect(dialog).toBeVisible({timeout:30000});await expect(view).toHaveAttribute('data-character','Vanec');
  await expect(page.getByLabel('Inspector die',{exact:true})).toHaveValue('4');
  await page.getByLabel('Inspector auto rotate').uncheck();
  const camera=await view.getAttribute('data-camera'),bounds=(await view.boundingBox())!;
