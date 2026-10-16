@@ -1,0 +1,20 @@
+﻿/** Material and energy direction shared by live rolls and the review tools.
+ * Existing Fighter, Ranger, Sorcerer and DM artwork stays in its original path. */
+export type ClassDiceArt = {
+ id:number;name:string;material:string;description:string;
+ dark:string;light:string;inlay:string;energy:string;roughness:number;metal:number;
+ effect:'embers'|'harmony'|'sun'|'pollen'|'qi'|'radiance'|'shadow'|'eldritch'|'stars'|'sparks';
+};
+export const CLASS_DICE_ART:Readonly<Record<string,ClassDiceArt>>={
+ barbarian:{id:1,name:'Barbarian',material:'Bloodstone & forged iron',description:'Deep red bloodstone sits in dark forged iron. Strong rolls awaken ember-red mineral seams; a maximum releases a fierce crown of rising sparks.',dark:'#100d11',light:'#68161d',inlay:'#e6c6a0',energy:'#ff4921',roughness:.24,metal:.32,effect:'embers'},
+ bard:{id:2,name:'Bard',material:'Peacock opal & champagne gold',description:'Violet-blue opal shifts color beneath a polished surface. Strong rolls build rippling iridescence; a maximum sends luminous notes of color around three interwoven orbits.',dark:'#100d29',light:'#64569f',inlay:'#f4d695',energy:'#e787ff',roughness:.10,metal:.08,effect:'harmony'},
+ cleric:{id:3,name:'Cleric',material:'Alabaster & warm gold',description:'Warm translucent-looking alabaster carries fine mineral clouds and gold engraving. Higher rolls brighten a light beneath the stone; a maximum opens a soft sunlit corona.',dark:'#8d806c',light:'#e5dcc1',inlay:'#82530d',energy:'#ffd886',roughness:.19,metal:.05,effect:'sun'},
+ druid:{id:4,name:'Druid',material:'Malachite & aged copper',description:'Deep malachite bands wrap naturally across every face, with aged copper inlays. Strong rolls stir living green light between the bands; a maximum releases drifting luminous pollen.',dark:'#062b23',light:'#34976b',inlay:'#efb97b',energy:'#a4f38b',roughness:.16,metal:.08,effect:'pollen'},
+ monk:{id:5,name:'Monk',material:'River jade & pale bronze',description:'Smooth blue-green river stone has gentle cloudy inclusions and bronze numbers. Strong rolls gather a quiet white-blue charge; a maximum releases balanced rings of qi.',dark:'#102a33',light:'#588d91',inlay:'#f3d3a0',energy:'#a6f5ff',roughness:.23,metal:.06,effect:'qi'},
+ paladin:{id:6,name:'Paladin',material:'Midnight enamel & polished gold',description:'Midnight-blue vitreous enamel sits in a bright gold frame. High rolls ignite light beneath its fine seams; a maximum releases a radiant gold-white flare.',dark:'#050d25',light:'#16375e',inlay:'#ffd980',energy:'#fff0b9',roughness:.08,metal:.24,effect:'radiance'},
+ rogue:{id:7,name:'Rogue',material:'Smoky silver & nightstone',description:'Dark polished nightstone carries subtle silver-gray clouds and bright silver engraving. High rolls gather a low violet shimmer; a maximum trails shadow wisps and brief silver glints.',dark:'#080b13',light:'#313644',inlay:'#e1e7ef',energy:'#a99bdc',roughness:.15,metal:.24,effect:'shadow'},
+ warlock:{id:8,name:'Warlock',material:'Black labradorite & witchfire',description:'Black labradorite flashes green and violet beneath its surface, with pale metal numbers. Strong rolls expose restless witchfire; a maximum sends curling eldritch wisps outward.',dark:'#030e13',light:'#224b43',inlay:'#d6d4b7',energy:'#86ffad',roughness:.10,metal:.14,effect:'eldritch'},
+ wizard:{id:9,name:'Wizard',material:'Lapis lazuli & antique gold',description:'Rich blue lapis has natural pale veins and tiny mineral flecks, with gold-filled engraving. Strong rolls awaken blue-violet starlight; a maximum releases an orbiting constellation.',dark:'#071440',light:'#2854a2',inlay:'#f1cd78',energy:'#a9beff',roughness:.12,metal:.08,effect:'stars'},
+ artificer:{id:10,name:'Artificer',material:'Brushed bronze & dark steel',description:'Machined bronze has brushed metal grain, dark steel shoulders and silver inlays. Higher rolls charge fine blue seams; a maximum vents short blue-orange sparks.',dark:'#30251b',light:'#a56e37',inlay:'#dce9ef',energy:'#69ddff',roughness:.30,metal:.94,effect:'sparks'},
+};
+export const classDiceArt=(id:string)=>CLASS_DICE_ART[id];

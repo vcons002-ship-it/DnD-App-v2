@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {liveNaturalCritical,physicalRollTimeline} from './diceFinaleTiming';
+import {liveNaturalCritical,liveNaturalTwenty,physicalRollTimeline} from './diceFinaleTiming';
 import {drukFinaleAge,DRUK_EXPLOSION_DELAY} from './diceRollPower';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import {LIVE_DICE_RESULT_HOLD_MS,liveCalculationWaitMs,LIVE_PRESENTATION_SYNC_MS} from '../../../shared/dicePresentationTiming';
@@ -48,4 +48,20 @@ it.each([false,true])('server cannot replace damage while the client is still re
   expect(timing.impact-timing.complete).toBe(LIVE_DICE_RESULT_HOLD_MS);
   expect(liveCalculationWaitMs(count,maximum)).toBe(timing.impact+LIVE_PRESENTATION_SYNC_MS);
  }
+});
+
+it('celebrates only confirmed kept non-attack natural twenties',()=>{
+ const check={...frame,label:'Perception',mode:undefined,kept:undefined,sides:[20],values:[20],sets:[0]};
+ expect(liveNaturalTwenty(check)).toBe(true);
+ expect(liveNaturalTwenty({...check,label:'DEX Saving Throw'})).toBe(true);
+ expect(liveNaturalTwenty({...check,done:false})).toBe(false);
+ expect(liveNaturalTwenty({...check,values:[19]})).toBe(false);
+ expect(liveNaturalTwenty({...check,values:[null]})).toBe(false);
+ expect(liveNaturalTwenty({...check,sides:[100]})).toBe(false);
+ expect(liveNaturalTwenty({...check,label:'Longbow — Attack Roll'})).toBe(false);
+ expect(liveNaturalTwenty({...check,label:'Chromatic Orb — Spell Attack Roll'})).toBe(false);
+ expect(liveNaturalTwenty({...check,saveDice:[{label:'G1',group:'one'}]})).toBe(false);
+ expect(liveNaturalTwenty({...frame,label:'Athletics'})).toBe(false);
+ expect(liveNaturalTwenty({...frame,label:'Athletics',mode:'adv',kept:0})).toBe(true);
+ expect(liveNaturalTwenty({...frame,label:'Athletics',mode:'adv',kept:undefined})).toBe(false);
 });

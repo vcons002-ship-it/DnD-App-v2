@@ -1,3 +1,4 @@
+import {diceArtForSaveOwner} from '../../shared/diceThemes.js';
 import {resetExploration} from './exploration.js';
 import {createGuidedCharacter,rollCreatorStats} from './characterCreator.js';
 import {CORE_CLASSES_2024} from '../../shared/characterProgression.js';
@@ -427,12 +428,17 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             const dmDice=!!npc || isDm()&&!actor;
             const attackerRefs:LiveTargetRef[]=pending?[pending.attacker]:requestedToken?[{id:requestedToken.id}]
               :actor?[{kind:'pc',refId:actor.id}]:npc?[{kind:'monster',refId:npc.id}]:[];
-            const meta={dmDice,affinity:npc?.disposition,ready:prepareTray,waitForPresentation:waitForDicePresentation,onFacing:()=>broadcastSnapshots(io,sid),roller,attacker:actor?.name??npc?.name??roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??(actor??npc)?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
+            const saveDiceArt=(target:import('../../shared/dice.js').SaveDieInfo['target'])=>{
+              const character=target.kind==='pc'?getCharacter(target.refId):undefined;
+              return diceArtForSaveOwner(target.kind,character,character?.claimedBy?getConn(character.claimedBy)?.role:undefined);
+            };
+            const meta={saveDiceArt,diceTheme:undefined as 'gold'|undefined,dmDice,affinity:npc?.disposition,ready:prepareTray,waitForPresentation:waitForDicePresentation,onFacing:()=>broadcastSnapshots(io,sid),roller,attacker:actor?.name??npc?.name??roller,className:actor?.className??'',label:ability?.name??pending?.weapon??(sourceEntry?.apply?.orb?'Chromatic Orb':undefined)??(actor??npc)?.weapons[payload?.weaponIndex]?.name??payload?.label??payload?.skill??payload?.ability??event.split(':').join(' ')};
             if(event==='combat:hitFeature')meta.label=actor?.sheetAbilities.find(a=>a.id===payload?.abilityId)?.name??meta.label;
             if(event==='death:roll')meta.label='Death Saving Throw';
             else if(event==='hitDice:spend')meta.label='Hit Dice';
             else if(event==='character:levelRollHp')meta.label='Level-up Hit Point Increase';
             else if(event==='character:rollStats'){
+              meta.diceTheme='gold';
               meta.label=Number.isInteger(payload?.index)?`${['STR','DEX','CON','INT','WIS','CHA'][payload.index]} starting score — 4d6, drop lowest`:'All starting ability scores — 24d6, drop lowest per group';
               meta.className=CORE_CLASSES_2024.includes(payload?.className)?payload.className:'';
               meta.attacker=typeof payload?.name==='string'?payload.name.trim().slice(0,60)||'New character':'New character';

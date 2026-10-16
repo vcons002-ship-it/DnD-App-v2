@@ -1,3 +1,4 @@
+import {CLASS_DICE_ART} from '../../../shared/classDiceArt';
 import {createTrayRenderer,loadTrayTexture,waitForDiceGraphics} from '../lib/diceTrayRenderer';
 import {DICE_THEMES,diceThemeForRoll} from '../../../shared/diceThemes';
 import {physicalDice,type Toss,type TrayDie} from '../../../shared/diceTrayTypes';
@@ -10,16 +11,20 @@ const reviewParams=new URLSearchParams(location.search);
 const requestedSides=reviewParams.get('sides');
 if(requestedSides&&['4','6','8','10','12','20','100'].includes(requestedSides))sides.value=requestedSides;
 let theme=reviewParams.get('character')??'fighter',renderer:ReturnType<typeof createTrayRenderer>|undefined,epoch=0;
-if(!['fighter','sorcerer','ranger','dm'].includes(theme))theme='fighter';
+if(!(theme in DICE_THEMES)&&theme!=='dm')theme='fighter';
 focus.checked=reviewParams.get('closeup')==='1';
 critical.checked=reviewParams.get('gold')==='1';
 descriptions.dm='Soft red light glows behind black swirls of ink inside purple resin. Higher natural results build stronger, more frequent swells. A maximum holds a strong red inner glow, with the dark ink still moving in front of it.';
+for(const [id,art]of Object.entries(CLASS_DICE_ART))descriptions[id]=art.description;
+const extras=document.createElement('select');extras.setAttribute('aria-label','Other class dice');extras.innerHTML='<option value="">Other classes...</option>'+Object.entries(CLASS_DICE_ART).map(([id,s])=>'<option value="'+id+'">'+s.name+'</option>').join('');
+document.querySelector('nav')!.append(extras);extras.value=theme in CLASS_DICE_ART?theme:'';
+extras.addEventListener('change',()=>{if(extras.value){theme=extras.value;void show();}});
 async function show(){
  const controls=[...document.querySelectorAll<HTMLButtonElement|HTMLSelectElement|HTMLInputElement>('nav button,nav select,nav input')];
  controls.forEach(c=>c.disabled=true);tray.dataset.state='preparing';
  const current=++epoch;renderer?.dispose();renderer=undefined;
  const n=Number(sides.value),values=focus.checked?[n]:[1,Math.max(2,Math.ceil(n*.75)),n];
- document.querySelector('#description')!.textContent=critical.checked?({fighter:'Gold critical dice carry intensifying warm sparks around their heated metal. A maximum still shudders and bursts into obsidian shards and lava.',sorcerer:'Gold critical dice carry red lightning across their outer shell, with more frequent bursts and red-tinted sparkles on stronger rolls. A maximum occasionally throws branching lightning into the air.',ranger:'Gold critical dice carry a green magical sheen and intensifying green-gold sparkles. A maximum sends gentle rotating rays and swirling leaves outside the gold shell.',dm:'Gold critical dice carry intensifying red-gold sparkles around them, keeping the gold face and dark numerals clear.'}[theme])+ ' Low, strong and maximum results use the same natural-face strength as ordinary dice.':descriptions[theme];
+ document.querySelector('#description')!.textContent=critical.checked?({fighter:'Gold critical dice carry intensifying warm sparks around their heated metal. A maximum still shudders and bursts into obsidian shards and lava.',sorcerer:'Gold critical dice carry red lightning across their outer shell, with more frequent bursts and red-tinted sparkles on stronger rolls. A maximum occasionally throws branching lightning into the air.',ranger:'Gold critical dice carry a green magical sheen and intensifying green-gold sparkles. A maximum sends gentle rotating rays and swirling leaves outside the gold shell.',dm:'Gold critical dice carry intensifying red-gold sparkles around them, keeping the gold face and dark numerals clear.'}[theme]??descriptions[theme]+' Gold dice keep dark engraving with the same class energy.')+ ' Low, strong and maximum results use the same natural-face strength as ordinary dice.':descriptions[theme];
  const labels=document.querySelector<HTMLElement>('#labels')!;labels.style.gridTemplateColumns=`repeat(${values.length},1fr)`;
  labels.innerHTML=values.map((v,i)=>`<div><strong>${v} / ${n}</strong><span>${focus.checked?'Maximum — close-up':['Low','Strong','Maximum'][i]}</span></div>`).join('');
  document.querySelectorAll<HTMLButtonElement>('[data-theme]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.theme===theme)));

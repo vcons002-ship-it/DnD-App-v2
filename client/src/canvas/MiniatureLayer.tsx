@@ -37,6 +37,7 @@ import { createVanecLightning } from './vanecLightning';
 import {createMiniatureTorchLighting,measureLanternAnchor} from './miniatureTorchLighting';
 import {createMiniatureShaderWarmup} from './miniatureShaderWarmup';
 import {createSpellImpactEffects,SPELL_IMPACT_LAYER,type SpellImpact} from './spellImpactEffects';
+import {spellMistEnabled} from './spellMist';
 import {createSpellColorOverlay} from './spellColorOverlay';
 import {createLocalLightShadows} from './localLightShadows';
 import {useEnvironmentQuality,recordGraphicsFrame} from '../lib/useEnvironmentQuality';
@@ -77,6 +78,8 @@ type Props = {
   rollBackground?: boolean;
   rollBackgroundPrepared?: boolean;
   spellColorOverlay?: boolean;
+  /** Cosmetic A/B comparison; never changes game state. */
+  spellMist?: boolean;
   graphics?: ReturnType<typeof graphicsBudget>;
   footprints?: ()=>FootprintMark[];
   spellImpacts?: SpellImpact[];
@@ -492,6 +495,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         return {id:token.id,x,y,diameter:token.diameter,body,visible:!!instance?.root.visible && !token.hidden && !token.sharedSightOnly};
       }));
       if(battlefield){
+        const disturbMist=props.spellMist!==false&&spellMistEnabled(props.graphics?.resolved,!!props.environmentPreview?.mist,props.environmentPreview?.mistInteraction!==false,reducedMotion.matches);
+        battlefield.setSpellMist(disturbMist?spellImpacts.mistImpulses(now,seconds,props.environmentPreview?.pixelsPerFoot??12.8):[],disturbMist);
         const ppf=props.environmentPreview?.pixelsPerFoot??12.8;
         const carriers=new Map((props.environmentPreview?.carriedLanterns??[]).map(t=>[t.id,t]));
         for(const token of props.tokens)if(token.carriedLantern&&!token.hidden)carriers.set(token.id,{...token,facing:token.facing??0});
@@ -683,6 +688,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           host.dataset.mistCacheSlices=String(mistState.cacheSlices);
           host.dataset.mistCacheHz=String(mistState.cacheHz);
           host.dataset.mistWakes=String(mistState.wakes);
+          host.dataset.mistSpellImpulses=String(mistState.spellImpulses);
+          host.dataset.mistSpellEnabled=String(mistState.spellEnabled);
+          host.dataset.mistSpellSamples=String(mistState.spellSamples);
+          host.dataset.mistSpellUpdateMs=String(mistState.spellUpdateMs);
           host.dataset.mistTime=String(mistState.time);
           host.dataset.mistOldestWakeAge=String(mistState.oldestWakeAge);
           host.dataset.mistBodies=JSON.stringify([...instances].flatMap(([id,instance])=>instance.mistBody?[{id,source:instance.mistBody.source,

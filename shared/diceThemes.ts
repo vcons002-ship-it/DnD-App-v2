@@ -22,10 +22,21 @@ export function diceThemeForClass(className = ''): DiceTheme {
   return DICE_THEMES[match?.[1] ?? 'neutral'];
 }
 
+/** Shared polished-gold material for character-creation ability rolls. */
+export const GOLD_DICE_THEME:DiceTheme={...theme('gold-roll',42,80,'#efcc78','sun'),ink:'#151515'};
+
 const DM_DICE_THEME: DiceTheme = {...theme('dm-neutral-roll',265,65,'#c0c7d1','scale'),ink:'#eac36b'};
 // Affinity remains accepted for older recorded frames; all DM/NPC rolls now
 // share one purple material rather than switching colors by disposition.
-export function diceThemeForRoll(className = '', dmDice = false, _affinity?: string): DiceTheme {
+export function diceThemeForRoll(className = '', dmDice = false, _affinity?: string, appearance?:'gold'): DiceTheme {
+  if(appearance==='gold')return GOLD_DICE_THEME;
   if (!dmDice) return diceThemeForClass(className);
   return DM_DICE_THEME;
+}
+
+/** Save dice belong to their saving character, not the caster or initiating DM. */
+export type SaveDiceArt={className:string;dmDice:boolean};
+export function diceArtForSaveOwner(kind:'pc'|'monster',character?:{className:string;claimedBy:string|null}|null,ownerRole?:string):SaveDiceArt{
+  return kind==='pc'&&character?.claimedBy&&ownerRole==='player'
+    ?{className:character.className,dmDice:false}:{className:'',dmDice:true};
 }

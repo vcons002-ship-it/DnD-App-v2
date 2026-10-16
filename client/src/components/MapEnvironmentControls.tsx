@@ -86,7 +86,7 @@ export function MapEnvironmentControls({map}:{map:MapState}){
           </select></label>
           <SettingSlider label="Mist density" value={settings.mistOpacity*100} min={0} max={70} suffix="%" onCommit={v=>update({mistOpacity:v/100})}/>
           <SettingSlider label="Mist height" value={settings.mistHeightFt} min={.5} max={10} step={.5} suffix=" ft" onCommit={v=>update({mistHeightFt:v})}/>
-          {toggle('mistShadows','Subtle mist shading')}{toggle('mistInteraction','React to moving figures')}
+          {toggle('mistShadows','Subtle mist shading')}{toggle('mistInteraction','React to figures and spells')}
         </>}
       </fieldset>
     </>}

@@ -484,6 +484,7 @@ export function createBattlefieldEnvironment(
   update(initial);
   return { update, tick, setTokens, dispose, get ready() { return settings.overlay || groundMaterial.map !== null; },
     lighting,
+    setSpellMist:mist.setSpells,
     prepareMist: mist.prepare,
     renderMist: mist.render,
     renderMemory: darkvisionTerrain.renderMemory,

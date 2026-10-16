@@ -48,10 +48,10 @@ export const prepareDiceTableTexture = preloadDiceTableTexture;
 export {diceTableBackground} from './diceTableScene';
 const liveRenderers=createDiceRendererCache<ReturnType<typeof createTrayRenderer>>();
 let liveRendererContext='';
-export function acquireLiveTrayRenderer(context:string,dice:TrayDie[],toss:Toss,theme:DiceTheme,art?:THREE.Texture){
+export function acquireLiveTrayRenderer(context:string,dice:TrayDie[],toss:Toss,theme:DiceTheme,art?:THREE.Texture,dieThemes?:readonly DiceTheme[]){
   if(context!==liveRendererContext){liveRenderers.clear();liveRendererContext=context;}
-  const key=JSON.stringify([currentGraphicsBudget().resolved,theme,toss.radius,toss.trayScale,dice.map(d=>[d.sides,d.set,!!d.crit,!!d.tens,!!d.ones])]);
-  const lease=liveRenderers.acquire(key,dice.length,()=>createTrayRenderer(dice,toss,theme,undefined,art,true));
+  const key=JSON.stringify([currentGraphicsBudget().resolved,theme,dieThemes,toss.radius,toss.trayScale,dice.map(d=>[d.sides,d.set,!!d.crit,!!d.tens,!!d.ones])]);
+  const lease=liveRenderers.acquire(key,dice.length,()=>createTrayRenderer(dice,toss,theme,undefined,art,true,dieThemes));
   if(lease.reused){art?.dispose();lease.value.resetForRoll(toss);}
   return lease;
 }

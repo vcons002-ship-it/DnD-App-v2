@@ -15,7 +15,11 @@ export type LiveDiceFrame = {
  target?:string;
  /** Offset is used only by the server to match a chunk to private save metadata. */
  dieOffset?:number;
+ /** Per physical die; filtered with poses/results before transmission. */
+ diceArt?:import('./diceThemes.js').SaveDiceArt[];
  saveDice?:{rollKind?:'initiative';label:string;name?:string;modifier?:number;dc?:number;group:string;mode?:'adv'|'dis';autoFail?:boolean;passEffect?:string;failEffect?:string;hideModifiers?:boolean;outcome?:'pass'|'fail'}[];
+ /** Appearance only; gold ability dice are not critical dice. */
+ diceTheme?:'gold';
  dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';
  mode?:'adv'|'dis';sets:number[];critical:boolean[];percentile:('tens'|'ones'|null)[];kept?:number;
  sides:number[];radius:number;trayScale?:number;poses:number[];values:(number|null)[];rerolls:number[];

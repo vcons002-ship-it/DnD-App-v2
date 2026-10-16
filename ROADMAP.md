@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Energetic spells displace the existing mist through bounded map-space
+  pressure fields: expanding blasts, directed gusts/cones and lightning lanes.
+  Balanced/High only, with no added render pass or effect on game visibility.
+  [Integrated-GPU comparison and scope](docs/SPELL_MIST_INTERACTION_2026-10-16.md).
+
 - [x] Close completed player damage trays on the normal reading clock while
   unseen/private saves resolve; show a neutral Calculating status without hidden
   creature details. Prepare invisible save trays through the DM connection.
@@ -21,6 +26,9 @@
   equipment, skills, spells, live HP/AC preview, and safe server creation/claiming.
   Keep the quick form and saved-character library available.
   [Scope and verification](docs/CHARACTER_CREATOR_2026-10-13.md).
+- [x] Use preloaded polished-gold dice for single and full-set character-creation
+  ability rolls, with cosmetic gold separate from critical-hit dice. Re-record
+  the player guide stat-roll section using real four- and twenty-four-die throws.
 - [x] Add manually clicked 4d6-drop-lowest ability rolls to the character creator,
   with optional simultaneous Roll all, durable partial sets, server validation,
   score swapping, and a prominent Race (species) choice in Identity.
@@ -3222,3 +3230,20 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
 - [x] Ice Knife's burst skips dead creatures. Starting-stat rolls allow one new
   set; after that the latest set is kept until spent on a character. Deleting a
   session clears its character-creator records.
+
+- [x] Door controls are compact and dismissible in the upper-left corner. Closing
+  the controls leaves door state unchanged; clicking an adjacent door or leaving
+  and re-entering reach reopens them. The list scrolls within the phone viewport.
+- [x] Added a first detailed material/power-art pass for the remaining ten classes,
+  shared by live dice, the interactive roller and the rotatable inspector.
+- [x] Grouped saves use per-die player class art and purple DM/NPC art together,
+  preserving hidden-creature filtering, labels, bonuses and pass/fail results.
+
+- [x] Turn announcements are consumed when their viewer starts an action or a
+  displayed announcement is interrupted by a roll; they cannot replay between
+  an attack and its damage. Real subsequent turns still announce normally.
+- [x] Kept natural twenties on skills/checks and individual non-attack d20 rolls
+  burst over the tray with large gold text, a brief halo and sparks. The live
+  settlement owns the celebration once, before modifiers; discarded twenties
+  do not trigger it, and check/save outcomes remain unchanged. Reduced motion
+  retains the message without particles or movement.

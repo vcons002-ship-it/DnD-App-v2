@@ -314,3 +314,29 @@ it('rebounds from a side wall even before the incoming die has cleared the entry
  for(let i=0;i<36;i++){w.advance(1/480);furthest=Math.max(furthest,b.position.x);}
  expect(furthest).toBeLessThan(7);expect(b.velocity.x).toBeLessThan(0);
 });
+
+it('keeps gold creator dice cosmetic while publishing ordinary live d6s',async()=>{
+ const frames:import('../../shared/liveDiceTypes.js').LiveDiceFrame[]=[];
+ await expect(physicalFaces([6,6,6,6],f=>frames.push(f),{label:'STR starting score',roller:'New character',className:'Fighter',diceTheme:'gold',ready:async()=>{throw new Error('Preview gate');}},42)).rejects.toThrow('Preview gate');
+ expect(frames[0]).toMatchObject({diceTheme:'gold',className:'Fighter',sides:[6,6,6,6],critical:[false,false,false,false],values:[null,null,null,null]});
+});
+
+it('streams per-owner art together, including advantage dice, before graphics launch',async()=>{
+ const frames:import('../../shared/liveDiceTypes.js').LiveDiceFrame[]=[];
+ const targets=[{kind:'pc' as const,refId:'fighter'},{kind:'pc' as const,refId:'fighter'},{kind:'pc' as const,refId:'ranger'},{kind:'monster' as const,refId:'goblin'},{kind:'pc' as const,refId:'dm-pc'}];
+ await expect(physicalFaces(Array(5).fill(20),f=>frames.push(f),{
+  label:'Fireball — DEX Saving Throws',roller:'Vanec',className:'Sorcerer',
+  saveDiceArt:target=>({className:target.refId==='fighter'?'Fighter':target.refId==='ranger'?'Ranger':'',dmDice:target.kind==='monster'||target.refId==='dm-pc'}),
+  ready:async()=>{throw new Error('Graphics gate');},
+ },42,{expr:'Saving Throws',saveDice:targets.map((target,i)=>({target,modifier:2,dc:15,group:i<2?'fighter':target.refId,mode:i<2?'adv':undefined}))})).rejects.toThrow('Graphics gate');
+ expect(frames[0].diceArt).toEqual([{className:'Fighter',dmDice:false},{className:'Fighter',dmDice:false},{className:'Ranger',dmDice:false},{className:'',dmDice:true},{className:'',dmDice:true}]);
+ expect(frames[0].values).toEqual(Array(5).fill(null));
+ expect(JSON.stringify(frames[0])).not.toContain('saveDiceArt');
+});
+it('uses the actual player art for a single targeted save even when the DM initiated it',async()=>{
+ const frames:import('../../shared/liveDiceTypes.js').LiveDiceFrame[]=[];
+ await expect(physicalFaces([20],f=>frames.push(f),{label:'CON Saving Throw',roller:'DM',className:'',dmDice:true,
+  saveDiceArt:()=>({className:'Cleric',dmDice:false}),ready:async()=>{throw new Error('Graphics gate');}},42,
+  {expr:'d20',label:'CON Saving Throw',target:{kind:'pc',refId:'cleric'}})).rejects.toThrow('Graphics gate');
+ expect(frames[0]).toMatchObject({className:'Cleric',dmDice:false});
+});

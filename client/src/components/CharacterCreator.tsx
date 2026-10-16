@@ -6,6 +6,7 @@ import {INSTRUMENTS,ARTISAN_TOOLS} from '../../../shared/startingEquipment2024';
 import { SKILLS,abilityMod,type AbilityKey } from '../../../shared/skills';
 import { useStore } from '../state/socket';
 import './character-creator.css';
+import {GOLD_DICE_THEME} from '../../../shared/diceThemes';
 import {CreatorEquipmentPicker} from './CreatorEquipmentPicker';
 
 const STEPS=['Identity','Abilities','Equipment & skills','Spells','Appearance','Ready to play'];
@@ -18,6 +19,7 @@ export function CharacterCreator({onCreated}:{onCreated:(id:string)=>void}) {
   const [catalog,setCatalog]=useState<CreatorCatalog|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(false),[search,setSearch]=useState('');
   const [rolling,setRolling]=useState(false),[statDraft,setStatDraft]=useState<CreatorStatDraft>(),pendingRoll=useRef<CreatorStatRollRequest|null>(null);
   const dialog=useRef<HTMLDialogElement>(null),content=useRef<HTMLDivElement>(null),headingId=useId();
+  useEffect(()=>{if(!open)return;let active=true;void import('../lib/diceTrayRenderer').then(m=>m.preloadDiceGraphics(GOLD_DICE_THEME,()=>active));return()=>{active=false;};},[open]);
   const create=useStore(s=>s.createGuidedCharacter),status=useStore(s=>s.status);
   const rollStats=useStore(s=>s.rollCreatorStats);
   useEffect(()=>{if(open&&!rolling)dialog.current?.showModal();else dialog.current?.close();},[open,rolling]);

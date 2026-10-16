@@ -113,6 +113,8 @@ describe('Druk maximum finale clock',()=>{
   const frame={className:'Fighter',sides:[20,20],values:[20,4],sets:[0,1]} as import('../../shared/liveDiceTypes.js').LiveDiceFrame;
   expect(hasDrukMaximum(frame)).toBe(true);
   expect(hasDrukMaximum({...frame,dmDice:true})).toBe(false);
+  expect(hasDrukMaximum({...frame,dmDice:true,diceArt:[{className:'Fighter',dmDice:false},{className:'',dmDice:true}]})).toBe(true);
+  expect(hasDrukMaximum({...frame,diceArt:[{className:'Ranger',dmDice:false},{className:'',dmDice:true}]})).toBe(false);
   expect(hasDrukMaximum({...frame,mode:'dis',kept:1})).toBe(false);
   expect(hasDrukMaximum({...frame,mode:'adv',kept:0})).toBe(true);
   expect(hasDrukMaximum({...frame,values:[null,null]})).toBe(false);

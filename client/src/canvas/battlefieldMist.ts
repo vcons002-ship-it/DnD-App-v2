@@ -5,6 +5,7 @@ import {
 } from 'three';
 import type {EnvironmentContactToken, EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {createMistFlow} from './mistFlow';
+import type {SpellMistImpulse} from './spellMist';
 import {environmentVisibilityGlsl, type createEnvironmentVisibility} from './environmentVisibility';
 import {torchFieldGlsl,type createBattlefieldLighting} from './battlefieldLighting';
 import {createMistDensityCache,mistCacheSampler} from './mistDensityCache';
@@ -281,6 +282,10 @@ export function createBattlefieldMist(depth: Texture, resolution: Vector2, visib
     setTokens(tokens:readonly EnvironmentContactToken[]){
       const {x,y}=common.mistOrigin.value;
       flow.setTokens(tokens.map(t=>({...t,x:t.x-x,y:t.y-y,body:t.body?{...t.body,x:t.body.x-x,y:t.body.y-y}:undefined})));
+    },
+    setSpells(inputs:readonly SpellMistImpulse[],enabled:boolean){
+      const {x,y}=common.mistOrigin.value;
+      flow.setSpells(inputs.map(s=>({...s,x:s.x-x,y:s.y-y})),enabled&&volume.visible);
     },
     prepare(renderer:WebGLRenderer){
       // Auto caps fog pixel work; main scene and miniatures keep full resolution.
