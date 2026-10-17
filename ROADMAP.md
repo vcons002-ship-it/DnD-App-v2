@@ -1,5 +1,13 @@
 # Roadmap & Feature Backlog
 
+- [x] Collapse pen, text and their five shared colors into one Annotate dropdown
+  for both roles. Keep a small current-color indicator on the toolbar and make
+  palette choices larger for touch; the chosen color carries between tools.
+
+- [x] Replace the DM's large turn spotlight with a quiet, compact top-of-map
+  notice naming the current combatant, including player turns. Fade it away
+  after 2.8 seconds; preserve the player's large personal turn announcement.
+
 - [x] Improve Druk's lava-pool smoke with expanding, curling wisps and explicit
   transparent layering above the lava and flames in overhead and rotating views.
   Keep solid-object depth occlusion and bound the smoke to one eight-wisp draw.
