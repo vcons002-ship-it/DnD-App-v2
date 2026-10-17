@@ -1,4 +1,7 @@
 /** Shared molten surface for the falling release and the persistent pool. */
+// These transparent layers do not write depth. Draw floor art before its
+// splatter, flames and rising smoke, irrespective of the viewing angle.
+export const lavaRenderOrder={glow:1,pool:2,splats:3,flames:4,smoke:5} as const;
 export const lavaNoise=`
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {lavaNoise} from './diceLavaMaterial';
+import {lavaNoise,lavaRenderOrder} from './diceLavaMaterial';
 
 /** Four low tongues of fire, attached to the small pool in 3D, no dynamic lights. */
 export function createDiceLavaFlames(parent:THREE.Group){
@@ -18,6 +18,6 @@ export function createDiceLavaFlames(parent:THREE.Group){
  #include <colorspace_fragment>
  }`,transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending});
  const geometry=new THREE.PlaneGeometry(.45,.65),group=new THREE.Group();parent.add(group);group.visible=false;
- for(let i=0;i<4;i++){const mesh=new THREE.Mesh(geometry,material);mesh.position.set(Math.cos(i*2.4)*.28,Math.sin(i*2.4)*.23,.30);mesh.rotation.set(Math.PI/2,0,i*1.2);group.add(mesh);}
+ for(let i=0;i<4;i++){const mesh=new THREE.Mesh(geometry,material);mesh.name='lava-flame';mesh.renderOrder=lavaRenderOrder.flames;mesh.position.set(Math.cos(i*2.4)*.28,Math.sin(i*2.4)*.23,.30);mesh.rotation.set(Math.PI/2,0,i*1.2);group.add(mesh);}
  return {prewarm(enabled:boolean){group.visible=enabled;},update(now:number,age:number,visible:boolean,seed:number){group.visible=visible;uniforms.time.value=now/1000;uniforms.seed.value=seed;uniforms.strength.value=visible?THREE.MathUtils.smoothstep(age,.12,.4)*(.72+.14*Math.sin(now*.006+seed)):0;},dispose(){parent.remove(group);geometry.dispose();material.dispose();}};
 }

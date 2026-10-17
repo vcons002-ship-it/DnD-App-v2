@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {lavaNoise,lavaSurface} from './diceLavaMaterial';
+import {lavaNoise,lavaSurface,lavaRenderOrder} from './diceLavaMaterial';
 
 /** A brief radial spray of small molten flecks, with flattened impact splats.
  * Cosmetic and bounded: it never changes the authoritative dice or their faces. */
@@ -25,7 +25,7 @@ export function createDiceLavaRelease(parent:THREE.Group,uniforms:{time:{value:n
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
  }`,transparent:true,depthWrite:false});
- const splats=new THREE.InstancedMesh(splatGeometry,splatMaterial,count);splats.frustumCulled=false;splats.instanceMatrix.setUsage(THREE.DynamicDrawUsage);group.add(splats);
+ const splats=new THREE.InstancedMesh(splatGeometry,splatMaterial,count);splats.name='lava-splatter';splats.renderOrder=lavaRenderOrder.splats;splats.frustumCulled=false;splats.instanceMatrix.setUsage(THREE.DynamicDrawUsage);group.add(splats);
  const transform=new THREE.Object3D();
  let height=.5,seed=0,firstImpact=.25,lastImpact=.7;
  const random=(i:number)=>{const n=Math.sin(i*127.1+seed*13.7)*43758.5453;return n-Math.floor(n);};

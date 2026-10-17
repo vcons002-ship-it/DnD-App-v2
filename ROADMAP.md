@@ -1,5 +1,9 @@
 # Roadmap & Feature Backlog
 
+- [x] Improve Druk's lava-pool smoke with expanding, curling wisps and explicit
+  transparent layering above the lava and flames in overhead and rotating views.
+  Keep solid-object depth occlusion and bound the smoke to one eight-wisp draw.
+
 - [x] Energetic spells displace the existing mist through bounded map-space
   pressure fields: expanding blasts, directed gusts/cones and lightning lanes.
   Balanced/High only, with no added render pass or effect on game visibility.

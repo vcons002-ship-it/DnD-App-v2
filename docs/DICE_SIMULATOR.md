@@ -127,3 +127,12 @@ Physical transmission has a rendering cost relative to opaque bodies; no claim
 of unchanged frame rate is made. The body uses the shared transmission pass
 rather than a new light, shadow map, or offscreen pass per class. Inspect and
 roll all revised materials in the existing public dice reviewer.
+
+Druk's maximum-roll lava now has a soft rising smoke plume. Eight expanding,
+camera-facing wisps share one instanced draw, with turbulent density, a warm
+base and a cooler fading top. Pool, splatter, flames and smoke have explicit
+transparent draw order, so rotating the inspector cannot let the pool paint
+over its rising effects. Depth testing remains on for solid tray/dice
+occlusion, and the smoke clips at the floor. It resets and disposes with the
+pool, adds no lights or shadow maps, and follows the existing reduced-motion
+suppression of Druk's explosion.
