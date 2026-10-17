@@ -184,6 +184,62 @@ reduction receipts and worker logs live in `data/asset-production/` (or under
 individual session export. Original source meshes and bundled models are not
 overwritten.
 
+## Local image generation (October 2026)
+
+Non-Gemini image generation uses native **FLUX 3 Image Klein distilled**, including
+its Qwen3-VL encoder and separate Qwen3.5 prompt upsampler. This applies to maps,
+token art, decals, and local backup for miniature reference sheets. Gemini remains
+the first choice for miniature source art. Install these files in ComfyUI:
+
+- `diffusion_models/flux3_image_klein_sd_int8_convrot.safetensors`
+- `text_encoders/qwen3vl_4b_int8_convrot.safetensors`
+- `text_encoders/qwen3.5_9b_flux3_prompt_upsampler_int8_convrot.safetensors`
+- `vae/flux2-vae.safetensors`
+
+The built-in recipe uses 16 Euler/simple steps, CFG 1, and a 16-pixel latent grid.
+It needs current ComfyUI `TextGenerate` and `EmptyFlux2LatentImage` nodes. Missing
+components produce a useful failure so the existing Gemini backup can take over;
+the provider never silently selects an SD checkpoint. Unchanged shipped Flux 2
+presets upgrade to this recipe. Explicitly edited/custom workflow JSON remains an
+expert override. Older map LoRA/DoRA adapters are applied only to custom workflows,
+since their weights are not compatible with FLUX 3. Cold model loading and prompt
+expansion can take longer than sampling; the job polling budget is ten minutes.
+
+Source-art approval, saved four-view references, per-view refresh, cancellation,
+and the existing four-view Hunyuan shape/texture pipeline still apply.
+
+## Candidate 3D upgrades (research, 17 October 2026)
+
+No new 3D model has replaced the production Hunyuan worker. The most useful next
+comparison is **Pixal3D multi-view**, using identical approved source images and
+the same final reduction budgets:
+
+- [Pixal3D](https://github.com/TencentARC/Pixal3D) released multi-view inference in
+  September 2026, with separate multi-view weights and PBR output. Its
+  `inference_mv.py` uses all views for shape and texture conditioning. It requires
+  camera matrices/FOV, consistent framing, and a canonical front first view, so
+  our generated orthographic turnarounds need a calibrated adapter and a visual
+  quality comparison. MIT code/model terms do not replace dependencies' licenses.
+- [TRELLIS.2](https://github.com/microsoft/TRELLIS.2) is another high-detail PBR
+  candidate (512–1536 resolution). Its documented basic workflow is single-image;
+  the official environment is Linux with at least 24 GB NVIDIA VRAM. A 32 GB 5090
+  meets that base memory requirement on paper, but local compatibility and peak
+  memory still need measurement. Published timings are H100 results, not 5090
+  expectations.
+- [Hunyuan3D 2.1](https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1) adds production
+  PBR materials; official documentation quotes 29 GB for shape plus texture. It
+  is worth a texture comparison, but is not automatically equivalent to our
+  installed four-view 2mv shape workflow.
+- [UniForge3D](https://github.com/xibushu/UniForge3D) accepts sparse unposed views,
+  which could suit generated turnarounds. It is very new; its VGGT-derived weights
+  retain noncommercial terms and its default background remover has separate
+  commercial restrictions. Prefer a research trial over a default dependency.
+- [Hunyuan3D-Buffalo](https://tencent-hunyuan.github.io/Hunyuan3D-Buffalo1.0/) is
+  interesting research, but the project page still labels code "Stay Tuned".
+
+Better token quality is a hypothesis until a controlled test compares faces,
+hands, weapons, back views, texture seams, final GLB size and generation time.
+
 ## Validation
 
 `npm run typecheck`, `npm test`, and `npm run build` cover the normal application.
