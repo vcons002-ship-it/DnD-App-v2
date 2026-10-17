@@ -1501,6 +1501,7 @@ test('rulers, grid snapping and drawn annotations use the tilted map plane', asy
   await expect.poll(() => page.evaluate(() => (window as any).Konva.stages
     .flatMap((stage: any) => stage.find('Text').map((node: any) => node.text())).includes('25 ft'))).toBe(true);
 
+  await page.getByRole('button',{name:'Annotate',exact:true}).click();
   await page.getByTitle('Freehand pen — draw on the map', { exact: true }).click();
   const penStart = screen(700, 100), penEnd = screen(700, 500);
   await page.mouse.move(penStart.x, penStart.y);

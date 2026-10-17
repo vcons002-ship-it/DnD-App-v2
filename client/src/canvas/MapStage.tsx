@@ -58,6 +58,7 @@ import { useStableCallback } from '../lib/useStableCallback';
 import { getPlayerId, useStore, isRollImpactPending } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
+import { AnnotationMenu } from '../components/AnnotationMenu';
 import { FogMenu } from '../components/FogMenu';
 import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
 import {useEnvironmentEditor} from '../lib/useEnvironmentEditor';
@@ -2190,39 +2191,13 @@ export function MapStage({
                 />
                 {/* Annotation tools — freehand pen + text labels (shared). */}
                 <div className="annotate-tools">
-                  <button
-                    className={`btn tiny ${annotate === 'pen' ? 'on' : ''}`}
-                    title="Freehand pen — draw on the map"
-                    onClick={() => {
+                  <AnnotationMenu tool={annotate} color={annoColor} onColor={setAnnoColor}
+                    onTool={next => {
                       setTool(null);
                       setRemoveMode(false);
                       setDraft(null);
-                      setAnnotate((a) => (a === 'pen' ? null : 'pen'));
-                    }}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    className={`btn tiny ${annotate === 'text' ? 'on' : ''}`}
-                    title="Text label — click the map to place text"
-                    onClick={() => {
-                      setTool(null);
-                      setRemoveMode(false);
-                      setDraft(null);
-                      setAnnotate((a) => (a === 'text' ? null : 'text'));
-                    }}
-                  >
-                    🅰
-                  </button>
-                  {['#ffd166', '#ef476f', '#06d6a0', '#4cc9f0', '#ffffff'].map((c) => (
-                    <button
-                      key={c}
-                      className="anno-swatch"
-                      style={{ background: c, outline: annoColor === c ? '2px solid #000' : 'none' }}
-                      title="Pen/label colour"
-                      onClick={() => setAnnoColor(c)}
-                    />
-                  ))}
+                      setAnnotate(next);
+                    }}/>
                   {isDm && comfyOk && (
                     <>
                       <button

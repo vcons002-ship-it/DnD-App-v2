@@ -82,16 +82,20 @@ test('themed deletion can be canceled by Escape or confirmed and restores keyboa
 
 test('map label entry and unsupported images use themed prompts on mobile',async({page,request})=>{
   const f=await setup(page,request);await page.setViewportSize({width:430,height:932});await dm(page,f.code);
+  await page.getByRole('button',{name:'Annotate',exact:true}).click();
+  await page.getByRole('group',{name:'Annotation color'}).getByRole('button',{name:'Blue',exact:true}).click();
   await page.getByTitle('Text label — click the map to place text',{exact:true}).click();
   const canvas=(await page.locator('.konvajs-content').first().boundingBox())!;
   await page.mouse.click(canvas.x+canvas.width*.55,canvas.y+canvas.height*.65);
   const label=page.getByRole('dialog',{name:'Add map label',exact:true});await expect(label).toBeVisible();
   await label.getByRole('textbox',{name:'Label text',exact:true}).fill('Watch the doorway');await label.getByRole('textbox').press('Enter');
   await expect.poll(async()=>(await f.snapshot()).annotations.some((a:any)=>a.text==='Watch the doorway')).toBe(true);
-  await page.getByTitle('Text label — click the map to place text',{exact:true}).click();
+  expect((await f.snapshot()).annotations.find((a:any)=>a.text==='Watch the doorway').color).toBe('#4cc9f0');
+  await page.getByRole('button',{name:'Annotate',exact:true}).click();
+  await page.getByRole('button',{name:'Done annotating',exact:true}).click();
   await page.getByRole('button',{name:'Maps',exact:true}).click();
   await page.locator('#dm-panel-maps input[type=file]').first().setInputFiles({name:'phone.heic',mimeType:'image/heic',buffer:Buffer.from('test')});
-  await page.locator('#dm-panel-maps').getByRole('button',{name:'Upload image map',exact:true}).click();
+  await page.locator('#dm-panel-maps').getByRole('button',{name:'Upload image or animated map',exact:true}).click();
   const notice=page.getByRole('dialog',{name:'Image not supported',exact:true});await expect(notice).toBeVisible();
   const box=(await notice.boundingBox())!;expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(430);
   await notice.getByRole('button',{name:'Got it',exact:true}).click();await expect(notice).toHaveCount(0);
