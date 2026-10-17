@@ -1,5 +1,11 @@
 # Roadmap & Feature Backlog
 
+- [x] Improve phone portrait/landscape play with compact View/Map tools groups,
+  larger touch controls, a folded initial combat panel, direct Character access,
+  touch rotation buttons and a taller landscape dice tray with side calculations.
+  Keep desktop/tablet panel preferences and server rules intact. See
+  [mobile UI validation](docs/MOBILE_UI_REVIEW_2026-10-17.md).
+
 - [x] Collapse pen, text and their five shared colors into one Annotate dropdown
   for both roles. Keep a small current-color indicator on the toolbar and make
   palette choices larger for touch; the chosen color carries between tools.

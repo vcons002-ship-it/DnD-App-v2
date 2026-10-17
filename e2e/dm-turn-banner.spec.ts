@@ -15,6 +15,12 @@ test('DM gets a compact transient notice for every combatant while players keep 
  };
  const playerContext=await browser.newContext({viewport:{width:1366,height:900},reducedMotion:'no-preference'});
  const player=await playerContext.newPage(),errors:string[]=[];
+ // This is a transient-banner regression, independent of model loading. Keep
+ // cold 3D shader compilation from consuming the notice's 2.8 second lifetime.
+ for(const p of [page,player])await p.addInitScript(()=>{
+  const id=localStorage.getItem('dnd.playerId')??crypto.randomUUID();localStorage.setItem('dnd.playerId',id);
+  localStorage.setItem(`dnd.tokenView:${id}`,'2d');localStorage.setItem(`dnd.monsterTokenView:${id}`,'2d');
+ });
  for(const p of [page,player])p.on('pageerror',e=>errors.push(e.message));
  try{
   let state=await snapshot();const druk=state.characters.find(c=>c.name==='Druk')!;

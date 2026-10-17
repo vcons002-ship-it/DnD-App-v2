@@ -23,6 +23,13 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+.touch-rotation-controls,.mobile-character-button {display:none;}
+.compact-toolbar-menu {position:fixed;z-index:75;width:320px;max-width:calc(100vw - 16px);padding:12px;overflow:auto;background:var(--panel);border:1px solid var(--accent);border-radius:8px;box-shadow:0 8px 30px #000b;color:var(--text);font-size:14px;}
+.compact-toolbar-menu .battlefield-view-options {display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 0;}
+.compact-toolbar-menu .battlefield-view-options+.battlefield-view-options {border-top:1px solid var(--line);}
+.compact-toolbar-menu .map-tool-menus {display:flex;flex-wrap:wrap;gap:8px;}
+.compact-toolbar-menu :is(.btn,select) {min-height:44px;padding:8px 10px;font-size:14px;}
+.compact-toolbar-menu .touch-rotation-controls {display:flex;flex-wrap:wrap;gap:8px;width:100%;}
 
 /* Keyboard navigation: one consistent focus ring (mouse/touch stay outline-free
    via :focus-visible). :where() keeps specificity at zero so any component rule
@@ -1914,3 +1921,55 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 .sb-field-hint { display: block; font-size: 11px; margin-top: 2px; }
 .class-offlist { margin: 6px 0; padding: 6px 10px; border-radius: 6px; font-size: 12px;
   border: 1px solid #b8892f; background: #2c2312; color: #f1d79b; }
+
+/* Phone presentation keeps the map primary. Larger tablet/desktop layouts and
+   saved dimensions remain available; only the initial phone combat panel folds. */
+@media (max-width:600px), (max-width:1000px) and (max-height:500px) {
+  .layout {height:100dvh;}
+  .layout.player-fantasy > .topbar,.layout.dm-fantasy > .topbar {zoom:1;padding:5px 8px;gap:5px;font-size:11px;}
+  .layout > .topbar :is(.code,.active-map,.round-chip) {display:none;}
+  .layout > .topbar .session-title {max-width:100px;font-size:11px;}
+  .layout > .topbar .topbar-actions {gap:4px;}
+  .layout > .topbar .map-tool-slot {order:10;flex:0 0 100%;width:100%;padding-top:3px;gap:4px;flex-wrap:nowrap;border-top:1px solid var(--line);}
+  .layout > .topbar .map-view-controls {gap:4px;flex-wrap:nowrap;}
+  .layout > .topbar .btn {min-height:40px;min-width:40px;padding:6px 8px;font-size:12px;}
+  .layout > .topbar .player-layout-trigger {width:40px;height:40px;}
+  .layout > .topbar .zoom-label {font-size:11px;min-width:29px;text-align:center;}
+  .layout > .topbar .zoom-btn {min-width:36px;padding:6px;}
+  .layout.player-fantasy .player-combat.collapsed {width:200px!important;}
+  .layout.player-fantasy .player-combat .floating-panel-header {min-height:44px;}
+  .layout.player-fantasy .player-combat .floating-panel-header button {min-width:40px;min-height:36px;}
+  .layout.player-fantasy .player-chat-toggle {min-width:48px;min-height:48px;}
+  .layout.player-fantasy .player-hud .hud-actions {display:none;}
+  .layout.player-fantasy .mobile-character-button {display:block;position:absolute;left:6px;bottom:calc(var(--orb-size) + 42px);min-height:44px;padding:8px 12px;font-size:13px;}
+  .layout.player-fantasy .player-hud .hud-status-strip {left:132px;}
+  .layout.player-fantasy .player-dice-picker .dice-adv-btn {min-height:40px;min-width:52px;font-size:11px;}
+  .layout.player-fantasy .player-dice-picker .dice-adv-armed {top:45px;}
+  .layout.player-fantasy .character-window {width:calc(100vw - 12px);max-width:none;max-height:calc(100dvh - 12px);}
+  .layout.player-fantasy .character-window-head {padding:12px;}
+  .layout.player-fantasy .character-window-head h2 {font-size:24px;}
+  .layout.player-fantasy .character-window-head .btn,.layout.player-fantasy .character-tabs button {min-height:40px;}
+  .layout.dm-fantasy .dm-window.side {max-width:calc(100% - 16px);}
+  .layout.dm-fantasy .dm-tool {min-height:44px;}
+  .layout.dm-fantasy .dm-turn-announcement {top:66px;}
+}
+@media (min-width:601px) and (max-width:1000px) and (max-height:500px) {
+  .layout > .topbar .map-tool-slot {flex:0 1 auto;width:auto;border:0;order:0;padding:0;}
+  .layout > .topbar .session-title {max-width:110px;}
+  .layout.player-fantasy .player-hud {--orb-size:148px;--hud-width:310px;}
+  .layout.player-fantasy .mobile-character-button {bottom:calc(var(--orb-size) + 42px);}
+}
+@media (max-width:600px), (max-width:1000px) and (max-height:500px) {
+  .layout.player-fantasy .player-combat .compact-player-combat :is(.attack-row,.adv-btn,select),
+  .layout.player-fantasy .character-window :is(input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea) {min-height:44px;font-size:14px;}
+  .layout.player-fantasy .player-hud .player-condition-chip {min-height:36px;font-size:12px;}
+  .layout.player-fantasy .character-window input:not([type=checkbox]):not([type=radio]):not([type=range]),.layout.player-fantasy .character-window select,.layout.player-fantasy .character-window textarea {font-size:16px;}
+}
+@media (max-width:600px), (max-width:1000px) and (max-height:500px) {
+ .layout .modal {max-height:calc(100dvh - 16px);}
+ .layout .modal-backdrop {padding:8px;}
+}
+@media (pointer:coarse) and (min-width:601px) and (min-height:501px) {
+ .layout > .topbar .btn {min-height:40px;font-size:13px;padding:7px 9px;}
+ .layout.player-fantasy .player-combat .compact-player-combat :is(.attack-row,.adv-btn,select) {min-height:44px;font-size:13px;}
+}

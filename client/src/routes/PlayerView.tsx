@@ -22,6 +22,7 @@ import { TopToolbar } from '../components/TopToolbar';
 import { useSelection } from '../lib/useSelection';
 import {DockableWindowHeader} from '../components/DockableWindowHeader';
 import { usePlayerLayout } from '../lib/usePlayerLayout';
+import {useCompactViewport} from '../lib/useCompactViewport';
 
 export function PlayerView() {
   const snapshot = useStore((s) => s.snapshot);
@@ -35,7 +36,8 @@ export function PlayerView() {
   const [claimedId, setClaimedId] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [combatOpen, setCombatOpen] = useState(true);
+  const compact=useCompactViewport();
+  const [combatOpen, setCombatOpen] = useState(()=>!compact);
   const layout = usePlayerLayout({combat:combatOpen,chat:chatOpen});
   const [preview, setPreview] = useState(false);
   useEffect(() => {
@@ -186,7 +188,7 @@ export function PlayerView() {
         >
           <DockableWindowHeader className="floating-panel-header" label="Combat" side={layout.side('combat')} onDock={side=>layout.setSide('combat',side)}>
             <h2>Combat</h2>
-            <small>ROUND {snapshot.round}</small>
+            {snapshot.round>0&&<small>ROUND {snapshot.round}</small>}
             <button
               className="btn tiny"
               aria-label={combatOpen ? 'Collapse combat' : 'Expand combat'}

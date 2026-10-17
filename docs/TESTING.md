@@ -1,5 +1,14 @@
 # Automated verification
 
+`mobile-tabletop.spec.ts` checks phone/tablet layouts with touch input, real
+token dragging, pan/pinch, compact menus, character records/creation and combat
+rolls. Its viewport matrix includes 360–430 px portrait phones, 844 × 390
+landscape and 768/1024 px tablets. Together with `roll-layout.spec.ts` and
+`hidden-roll-approval.spec.ts`, it verifies readable public/private roll results
+and approval controls. These are host-PC browser tests, not physical-device
+GPU benchmarks or Safari certification. See the
+[mobile UI review](MOBILE_UI_REVIEW_2026-10-17.md).
+
 `hidden-roll-approval.spec.ts` exercises the real hidden DM attack confirmation,
 reject/reroll and entered attack totals, then separate damage approval in the tray,
 including damage rerolls and entered die faces. It also checks private save
