@@ -113,6 +113,30 @@ test('a player creates, claims, and places a battle-ready fighter through the gu
   await page.screenshot({path:path.join(evidence,'uploaded-model-on-map.png')});
 });
 
+test('mobile backgrounds, starting feature descriptions and included inventory match the created sheet',async({page,request},info)=>{
+  await page.setViewportSize({width:390,height:844});const f=await campaign(request);
+  await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.creator-launch').click();
+  const guide=page.getByRole('dialog',{name:'Bring your hero to life'}),next=()=>guide.getByRole('button',{name:'Next →',exact:true}).click();
+  await guide.getByLabel('Character name',{exact:true}).fill('Mobile soldier');
+  await guide.getByRole('group',{name:'Human starting traits',exact:true}).getByText('Versatile',{exact:true}).click();
+  await expect(guide.getByRole('group',{name:'Human starting traits',exact:true})).toContainText('additional Origin feat');
+  await next();await guide.getByLabel('Choose a background',{exact:true}).selectOption('soldier');
+  await expect(guide.getByRole('combobox',{name:'Origin feat',exact:true})).toHaveValue('Savage Attacker');await expect(guide.getByRole('combobox',{name:'Origin feat',exact:true})).toBeDisabled();
+  await expect(guide.getByLabel('INT background increase',{exact:true})).toBeDisabled();await guide.getByLabel('Background tool proficiency',{exact:true}).selectOption('Dragonchess Set');
+  await guide.getByRole('group',{name:'Your origin feats',exact:true}).getByText('Savage Attacker',{exact:true}).click();
+  await expect(guide.getByRole('group',{name:'Your origin feats',exact:true})).toContainText('Once per turn');await next();
+  await guide.getByLabel('Background equipment option',{exact:true}).selectOption('package');
+  const inventory=guide.getByRole('group',{name:'Your starting inventory',exact:true});await expect(inventory).toContainText('18 GP');
+  await expect(inventory).toContainText('20 × Arrows');await expect(inventory).toContainText('1 × Dragonchess Set');
+  await inventory.getByText('What’s in Dungeoneer\'s Pack?',{exact:true}).click();await expect(inventory).toContainText('10 Torches');
+  expect(await guide.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await page.screenshot({path:info.outputPath('phone-background-inventory.png')});
+  await next();await next();await next();await expect(guide.getByRole('group',{name:'Class features added to your sheet',exact:true})).toBeVisible();
+  await guide.getByRole('button',{name:'Create & play',exact:true}).click();await expect(guide).not.toBeVisible();
+  const hero=(await f.snapshot()).characters.find(c=>c.name==='Mobile soldier')!;
+  expect(hero.gold).toBe(18);expect(hero.items.find(i=>i.name==='Arrows')?.qty).toBe(20);expect(hero.sheetAbilities.find(a=>a.name==='Background: Soldier')?.description).toContain('Dragonchess Set');
+  expect(hero.items.find(i=>i.name==="Dungeoneer's Pack")?.note).toContain('10 Torches');
+});
+
 test('mobile wizard draft survives closing; spells produce the right prepared spellbook',async({page,request})=>{
   mkdirSync(evidence,{recursive:true});await page.setViewportSize({width:390,height:844});const f=await campaign(request);
   await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();
@@ -171,13 +195,13 @@ test('player manually rolls abilities, can roll all 24 dice, and creates a chara
   const capture=process.env.CREATOR_CAPTURE?await startAv1Capture(page,path.join(evidence,'stat-rolls-av1.mp4'),{title:'Character Stat Rolls AV1',width:1500,height:1066}):null;
   const dieCounts=new Set<number>();f.socket.on('dice:frame',frame=>{if(frame?.sides)dieCounts.add(frame.sides.length);});
   try{
-    for(const stat of ['STR','DEX']){
-      await guide.getByRole('button',{name:`Roll ${stat}`,exact:true}).click();
+    for(const index of [1,2]){
+      await guide.getByRole('button',{name:`Roll score ${index}`,exact:true}).click();
       await expect(guide).not.toBeVisible();await expect(page.locator('.dice-tray-canvas')).toBeVisible({timeout:20000});
       await expect(guide).toBeVisible({timeout:60000});
     }
-    await expect(guide.getByRole('button',{name:'Roll CON',exact:true})).toBeEnabled();
-    await expect(guide.getByRole('button',{name:'Roll STR',exact:true})).toHaveCount(0);
+    await expect(guide.getByRole('button',{name:'Roll score 3',exact:true})).toBeEnabled();
+    await expect(guide.getByRole('button',{name:'Roll score 1',exact:true})).toHaveCount(0);
     await page.waitForTimeout(800); // no automatic next roll
     await expect(guide).toBeVisible();
     await guide.getByRole('button',{name:'Roll all (new set)',exact:true}).click();
@@ -199,6 +223,12 @@ test('player manually rolls abilities, can roll all 24 dice, and creates a chara
   const scores=await Promise.all(['STR','DEX','CON','INT','WIS','CHA'].map(async a=>Number(await guide.getByLabel(`${a} base score`).inputValue())));
   const totals=await guide.locator('.creator-roll-results strong').allTextContents();
   expect([...scores].sort()).toEqual(totals.map(Number).sort());
+  const assigned=new Set<string>();
+  for(const card of await guide.locator('.creator-roll-results>div').all()){
+    const label=await card.locator('small').last().textContent(),ability=label!.replace('Assigned to ','');assigned.add(ability);
+    expect(await guide.getByLabel(`${ability} base score`,{exact:true}).inputValue()).toBe(await card.locator('strong').textContent());
+  }
+  expect(assigned.size).toBe(6);
   await page.screenshot({path:path.join(evidence,'creator-rolled-stats.png')});
   for(let i=0;i<4;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
   await guide.getByRole('button',{name:'Create & play',exact:true}).click();await expect(guide).not.toBeVisible();

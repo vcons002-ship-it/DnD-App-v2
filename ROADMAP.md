@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Clarify the mobile creator's included inventory and pack contents,
+  supported background presets, starting-feature descriptions and current roll
+  assignments. Reduce 3D movement preview submission to one cached silhouette
+  draw per preview. [Scope and verification](docs/MOBILE_BUILDER_FEEDBACK_2026-10-17.md).
+
 - [x] Improve phone portrait/landscape play with compact View/Map tools groups,
   larger touch controls, a folded initial combat panel, direct Character access,
   touch rotation buttons and a taller landscape dice tray with side calculations.

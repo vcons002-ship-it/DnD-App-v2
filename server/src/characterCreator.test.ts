@@ -9,6 +9,8 @@ import { SKILLS } from '../../shared/skills.js';
 import { grantLevelUp,getLevelUpPlan,applyLevelUp } from './leveling.js';
 import {CREATOR_EQUIPMENT} from '../../shared/equipmentCatalog2024.js';
 import {getWeapon} from './weapons/srd.js';
+import {applyCreatorBackground} from '../../shared/characterCreation.js';
+import {rolledScoreAssignments} from '../../shared/creatorBackgrounds.js';
 
 function choices(className:CoreClass='fighter'):CreatorChoices {
   const cat=characterCreatorCatalog(),cls=CLASS_IDENTITY[className],stats=suggestedScores(className);
@@ -23,6 +25,35 @@ function choices(className:CoreClass='fighter'):CreatorChoices {
   return c;
 }
 describe('guided character creation',()=>{
+  it('applies a named background consistently to skills, allowed increases, tools, package inventory and gold',()=>{
+    const soldier=applyCreatorBackground(choices(),'soldier');soldier.backgroundEquipment='package';soldier.backgroundTool='Dragonchess Set';
+    const made=buildStarterCharacter(soldier);
+    expect(made.gold).toBe(18);expect(made.items).toEqual(expect.arrayContaining([expect.objectContaining({name:'Arrows',qty:20}),expect.objectContaining({name:'Dragonchess Set',qty:1})]));
+    expect(made.weapons?.map(w=>w.name)).toEqual(expect.arrayContaining(['Spear','Shortbow']));
+    expect(made.proficientSkills).toEqual(expect.arrayContaining(['Athletics','Intimidation']));
+    expect(new Set(made.proficientSkills).size).toBe(made.proficientSkills!.length);
+    expect(made.sheetAbilities?.find(a=>a.name==='Background: Soldier')?.description).toContain('Dragonchess Set tool proficiency');
+    expect(()=>buildStarterCharacter({...soldier,boosts:{INT:2,CON:1}})).toThrow('STR, DEX, CON');
+    expect(()=>buildStarterCharacter({...soldier,originFeat:'Tough'})).toThrow('origin feat');
+    expect(()=>buildStarterCharacter({...soldier,backgroundTool:"Thieves' Tools"})).toThrow('tool proficiency');
+    const criminal=applyCreatorBackground(choices(),'criminal');expect(criminal.humanFeat).not.toBe('Alert');
+    expect(buildStarterCharacter(criminal).gold).toBe(54);expect(buildStarterCharacter({...criminal,backgroundEquipment:'package'}).gold).toBe(20);
+  });
+  it('keeps roll history attached to current assignments, including tied scores',()=>{
+    const scores={STR:15,DEX:12,CON:14,INT:8,WIS:12,CHA:10},pool=[8,12,10,15,14,12];
+    expect(rolledScoreAssignments(scores,pool)).toEqual(['INT','DEX','CHA','STR','CON','WIS']);
+    expect(rolledScoreAssignments({...scores,STR:8,INT:15},pool)).toEqual(['STR','DEX','CHA','INT','CON','WIS']);
+  });
+  it('publishes readable starting features, preserves pack contents and excludes future species abilities',()=>{
+    const catalog=characterCreatorCatalog();
+    for(const c of CORE_CLASSES_2024)expect(catalog.classFeatures?.[c]?.every(a=>a.description.length>10)).toBe(true);
+    expect(catalog.traits.Goliath.some(a=>a.name==='Large Form')).toBe(false);expect(catalog.traits.Aasimar.some(a=>a.name==='Celestial Revelation')).toBe(false);
+    expect(catalog.speciesNotes?.Dragonborn?.join(' ')).toContain('Ancestry');
+    const c=buildStarterCharacter(choices());expect(c.items?.find(i=>i.name==="Dungeoneer's Pack")?.note).toContain('10 Torches');
+    expect(c.items?.some(i=>i.name==='Torch')).toBe(false); // a pack is not counted twice
+    const a=buildStarterCharacter({...choices(),species:'Aasimar',extraSkills:[]});
+    expect(a.resistances).toEqual(['necrotic','radiant']);expect(a.sheetAbilities?.some(s=>s.name==='Light'&&s.type==='spell')).toBe(true);
+  });
   it('creates the gold-route Paladin completely in the creator, including Maul, armor, inventory and magic',()=>{
     const c={...choices('paladin'),kitId:'gold',purchases:[{id:'maul',qty:1},{id:'chain-mail',qty:1},{id:'holy-symbol-amulet',qty:1},{id:'explorer-s-pack',qty:1}],wornArmor:'chain-mail',spells:['Bless','Cure Wounds'],prepared:['Bless','Cure Wounds'],tokenCrafting:{enabled:true,appearance:'Human in chain mail with a two-handed mace.',heldWeapon:'Maul'}};
     const made=createGuidedCharacter(createSession().id,'paladin-player',c);

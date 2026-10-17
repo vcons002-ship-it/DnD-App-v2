@@ -5,6 +5,7 @@ import { abilityMod, SKILLS, type AbilityKey } from './skills.js';
 import type { LevelUpFeatureChoice } from './levelingTypes.js';
 import type { SheetAbility } from './types.js';
 import {CREATOR_EQUIPMENT,type CreatorEquipmentItem} from './equipmentCatalog2024.js';
+import {creatorBackground,GAMING_SETS} from './creatorBackgrounds.js';
 
 export const CREATOR_ABILITIES: AbilityKey[] = ['STR','DEX','CON','INT','WIS','CHA'];
 export const STANDARD_ARRAY = [15,14,13,12,10,8];
@@ -52,12 +53,13 @@ export type CreatorChoices = {
   requestId:string; name:string; species:string; className:CoreClass;
   method:'array'|'points'|'roll'; scores:Record<AbilityKey,number>; rolled?:CreatorStatRoll;
   background:string; boosts:Partial<Record<AbilityKey,number>>; originFeat:string; humanFeat?:string;
+  backgroundId?:string; backgroundEquipment?:'package'|'gold'; backgroundTool?:string;
   backgroundSkills:string[]; skills:string[]; extraSkills:string[];
   kitId:string; equipmentTool?:string; purchases?:{id:string;qty:number}[]; wornArmor?:string; equippedShield?:boolean;
   features:Record<string,string[]>; cantrips:string[]; spells:string[]; prepared:string[];
   tokenCrafting?:{enabled:boolean;appearance:string;heldWeapon?:string};
 };
-export type CreatorCatalog = {spells:SheetAbility[]; choices:Partial<Record<CoreClass,LevelUpFeatureChoice[]>>;traits:Record<string,SheetAbility[]>};
+export type CreatorCatalog = {spells:SheetAbility[]; choices:Partial<Record<CoreClass,LevelUpFeatureChoice[]>>;traits:Record<string,SheetAbility[]>;classFeatures?:Partial<Record<CoreClass,SheetAbility[]>>;originFeats?:SheetAbility[];speciesNotes?:Record<string,string[]>};
 export type CreatorResult = {ok:true;characterId:string}|{ok:false;error:string};
 export type CreatorStatGroup = {faces:number[];dropped:number;total:number};
 export type CreatorStatRoll = {id:string;groups:CreatorStatGroup[];scores:number[]};
@@ -87,6 +89,18 @@ export function assignRolledScores(className:CoreClass,scores:number[]):Record<A
 export function suggestedScores(className:CoreClass):Record<AbilityKey,number> {
   return Object.fromEntries(CLASS_IDENTITY[className].priority.map((a,i)=>[a,STANDARD_ARRAY[i]])) as Record<AbilityKey,number>;
 }
+/** Changing a named origin must keep its rules and reconcile overlapping class
+ * proficiencies. Undefined/Custom preserves the older custom-origin payloads. */
+export function applyCreatorBackground(c:CreatorChoices,id:string):CreatorChoices {
+  const background=creatorBackground(id);
+  if(!background)return {...c,backgroundId:'custom',backgroundEquipment:'gold',backgroundTool:c.backgroundTool??ARTISAN_TOOLS[3]};
+  const allowed=CLASS_IDENTITY[c.className].priority.filter(a=>background.abilities.includes(a));
+  const skills=[...c.skills.filter(s=>!background.skills.includes(s)),...CLASS_IDENTITY[c.className].skills].filter((s,i,list)=>!background.skills.includes(s)&&list.indexOf(s)===i).slice(0,CLASS_IDENTITY[c.className].skillCount);
+  const humanFeat=c.humanFeat===background.feat?ORIGIN_FEATS.find(n=>n!==background.feat):c.humanFeat;
+  const extraCount=(c.species==='Human'?1:0)+(background.feat==='Skilled'||c.species==='Human'&&humanFeat==='Skilled'?3:0);
+  const extraSkills=[...c.extraSkills,...SKILLS.map(s=>s.name)].filter((s,i,list)=>![...background.skills,...skills].includes(s)&&list.indexOf(s)===i).slice(0,extraCount);
+  return {...c,backgroundId:id,background:background.name,backgroundEquipment:'gold',backgroundTool:background.tools[0],originFeat:background.feat,humanFeat,backgroundSkills:[...background.skills],skills,extraSkills,boosts:{[allowed[0]]:2,[allowed[1]]:1},purchases:[],wornArmor:undefined,equippedShield:undefined,features:{...c.features,...(c.className==='rogue'?{expertise:skills.slice(0,2)}:{})}};
+}
 export const pointCost = (scores:Record<AbilityKey,number>) => CREATOR_ABILITIES.reduce((n,a)=>n+(POINT_COST[scores[a]]??100),0);
 export function creatorStats(c:CreatorChoices):Record<AbilityKey,number> {
   return Object.fromEntries(CREATOR_ABILITIES.map(a=>[a,c.scores[a]+(c.boosts[a]??0)])) as Record<AbilityKey,number>;
@@ -111,15 +125,20 @@ export function creatorEquipmentAllowed(c:CreatorChoices,item:CreatorEquipmentIt
 /** The same purchased inventory, prices and worn equipment drive UI and server. */
 export function creatorEquipment(c:CreatorChoices){
   const kit=STARTER_KITS[c.className].find(k=>k.id===c.kitId)??STARTER_KITS[c.className][0];
+  const background=creatorBackground(c.backgroundId),backgroundTool=c.backgroundTool??background?.tools[0];
+  const backgroundItems=background&&c.backgroundEquipment==='package'?background.items.map(i=>({...i,name:i.name==='Chosen Background Tool'?backgroundTool!:i.name})):[];
+  const backgroundGold=background&&c.backgroundEquipment==='package'?background.gold:BACKGROUND_STARTING_GOLD;
   const items=new Map<string,number>();
   for(const i of kit.items){const name=i.name==='Musical Instrument'?(c.equipmentTool??'Lute'):i.name==='Chosen Tool'?(c.equipmentTool??ARTISAN_TOOLS[3]):i.name;items.set(name,(items.get(name)??0)+i.qty);}
-  let spentCp=0;const weapons=new Set(kit.weapons);
+  const classItems=[...items].map(([name,qty])=>({name,qty}));
+  for(const i of backgroundItems)items.set(i.name,(items.get(i.name)??0)+i.qty);
+  let spentCp=0;const weapons=new Set([...kit.weapons,...(backgroundItems.length?background?.weapons??[]:[])]);
   for(const p of Array.isArray(c.purchases)?c.purchases:[]){const item=CREATOR_EQUIPMENT.find(i=>i.id===p.id);if(!item)continue;spentCp+=item.costCp*p.qty;items.set(item.name,(items.get(item.name)??0)+p.qty*item.quantity);if(item.weaponName)weapons.add(item.weaponName);}
   const armors=CREATOR_EQUIPMENT.filter(i=>i.category==='armor'&&items.has(i.name));
   const defaultArmor=armors.find(i=>kit.items.some(k=>k.name===i.name));
   const wornArmor=c.wornArmor===undefined?defaultArmor:armors.find(i=>i.id===c.wornArmor);
   const shield=(c.equippedShield??!!kit.shield)&&items.has('Shield');
-  return {kit,items:[...items].map(([name,qty])=>({name,qty})),weapons:[...weapons],armors,wornArmor,shield,spentCp,budgetCp:(kit.gold+BACKGROUND_STARTING_GOLD)*100,gold:((kit.gold+BACKGROUND_STARTING_GOLD)*100-spentCp)/100};
+  return {kit,classItems,backgroundItems,backgroundGold,backgroundTool,items:[...items].map(([name,qty])=>({name,qty})),weapons:[...weapons],armors,wornArmor,shield,spentCp,budgetCp:(kit.gold+backgroundGold)*100,gold:((kit.gold+backgroundGold)*100-spentCp)/100};
 }
 export function creatorPurchaseError(c:CreatorChoices):string|null {
   if(c.purchases!==undefined&&(!Array.isArray(c.purchases)||c.purchases.length>64))return 'Choose up to 64 different equipment items.';
@@ -161,6 +180,14 @@ export function creatorError(c:CreatorChoices,step:number,catalog?:CreatorCatalo
   const boosts=Object.entries(c.boosts??{});
   if(boosts.some(([a,n])=>!CREATOR_ABILITIES.includes(a as AbilityKey)||!Number.isInteger(n)||n<0||n>2)||boosts.reduce((n,[,v])=>n+v,0)!==3)return 'Choose +2 and +1 to different abilities, or three +1 increases.';
   if(!c.background?.trim()||c.background.length>60)return 'Name your background.';
+  const background=creatorBackground(c.backgroundId);
+  if(c.backgroundId&&c.backgroundId!=='custom'&&!background)return 'Choose a listed background or Custom.';
+  if(c.backgroundEquipment!==undefined&&!['gold','package'].includes(c.backgroundEquipment)||c.backgroundEquipment==='package'&&!background)return 'Choose a valid background equipment option.';
+  if(background){
+    if(c.background!==background.name||c.originFeat!==background.feat||c.backgroundSkills.length!==2||background.skills.some(s=>!c.backgroundSkills.includes(s)))return 'Keep the skills and origin feat granted by your selected background, or choose Custom.';
+    if(boosts.some(([a,n])=>n>0&&!background.abilities.includes(a as AbilityKey)))return `Choose background increases from ${background.abilities.join(', ')}.`;
+    if(c.backgroundTool!==undefined&&!background.tools.includes(c.backgroundTool))return 'Choose the tool proficiency granted by your background.';
+  }else if(c.backgroundTool!==undefined&&![...ARTISAN_TOOLS,...INSTRUMENTS,...GAMING_SETS,...CREATOR_EQUIPMENT.filter(i=>i.category==='tool').map(i=>i.name)].includes(c.backgroundTool))return 'Choose a listed background tool.';
   if(!ORIGIN_FEATS.includes(c.originFeat as typeof ORIGIN_FEATS[number])||(c.species==='Human'&&(!ORIGIN_FEATS.includes(c.humanFeat as typeof ORIGIN_FEATS[number])||c.humanFeat===c.originFeat)))return 'Choose an origin feat (and a different bonus feat for a Human).';
   if(step===1)return null;
   const uniqueValid=(list:string[],allowed:string[],count:number)=>Array.isArray(list)&&list.length===count&&new Set(list).size===count&&list.every(s=>allowed.includes(s));

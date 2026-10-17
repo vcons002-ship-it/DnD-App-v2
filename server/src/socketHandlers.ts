@@ -439,7 +439,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             else if(event==='character:levelRollHp')meta.label='Level-up Hit Point Increase';
             else if(event==='character:rollStats'){
               meta.diceTheme='gold';
-              meta.label=Number.isInteger(payload?.index)?`${['STR','DEX','CON','INT','WIS','CHA'][payload.index]} starting score — 4d6, drop lowest`:'All starting ability scores — 24d6, drop lowest per group';
+              meta.label=Number.isInteger(payload?.index)?`Starting score ${payload.index+1} — 4d6, drop lowest`:'All starting ability scores — 24d6, drop lowest per group';
               meta.className=CORE_CLASSES_2024.includes(payload?.className)?payload.className:'';
               meta.attacker=typeof payload?.name==='string'?payload.name.trim().slice(0,60)||'New character':'New character';
             }

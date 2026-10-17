@@ -1,7 +1,7 @@
 import { db,newId } from './db.js';
 import { createCharacter,getCharacter,type CharacterInput } from './sessions.js';
 import { creatorError,creatorPreview,CLASS_IDENTITY,CREATOR_SPECIES,ORIGIN_FEATS,type CreatorCatalog,type CreatorChoices } from '../../shared/characterCreation.js';
-import { CORE_CLASSES_2024,classProgression2024 } from '../../shared/characterProgression.js';
+import { CORE_CLASSES_2024,classProgression2024,alwaysPreparedSpells2024,type ClassProgression } from '../../shared/characterProgression.js';
 import type { Character,SheetAbility } from '../../shared/types.js';
 import { featureChoices2024,levelingFeature,selectedFeatureAbility,LEVELING_FEATS } from './levelingCatalog.js';
 import { getFeature } from './features/srd.js';
@@ -11,6 +11,8 @@ import { getWeapon,weaponTags,searchWeapons } from './weapons/srd.js';
 import { getMastery } from './masteries/srd.js';
 import {rollDice} from '../../shared/dice.js';
 import {statRollFromFaces,statGroupFromFaces,completeStatRoll,type CreatorStatDraft,type CreatorStatRollRequest} from '../../shared/characterCreation.js';
+import {creatorBackground} from '../../shared/creatorBackgrounds.js';
+import {STARTING_PACK_CONTENTS} from '../../shared/startingEquipment2024.js';
 
 // Tables (character_creation_requests, character_stat_rolls) live in db.ts.
 export function savedCreatorStatRoll(sessionId:string,ownerKey:string,rollId:string):CreatorStatDraft|undefined {
@@ -42,6 +44,37 @@ export function rollCreatorStats(sessionId:string,ownerKey:string,request:Creato
 }
 
 const shell=(className:string):Character=>({className,subclass:'',level:1,stats:{},sheetAbilities:[],modifiers:[],proficientSkills:[]} as unknown as Character);
+function startingClassFeature(name:string,model:Character,p:ClassProgression):SheetAbility {
+ const label=/^lay on hands$/i.test(name)?'Lay on Hands':name;
+ const base=label==='Lay on Hands'?undefined:getFeature(label)??getSpell(label);
+ const descriptions:Record<string,string>={
+  'Unarmored Defense':p.classKey==='monk'?'Without armor or a shield, your AC is 10 + Dexterity modifier + Wisdom modifier. This is included in the creator’s AC.':'Without armor, your AC is 10 + Dexterity modifier + Constitution modifier. A shield can still apply. This is included in the creator’s AC.',
+  'Weapon Mastery':'Choose the weapons you have mastered. Their individual mastery effects are added to your sheet and become available with the matching weapon.',
+  'Divine Order':'Choose Protector for martial weapons and heavy armor, or Thaumaturge for another Cleric cantrip and a Wisdom-based bonus to Arcana and Religion checks.',
+  'Primal Order':'Choose Warden for martial weapons and medium armor, or Magician for another Druid cantrip and a Wisdom-based bonus to Arcana and Nature checks.',
+  'Druidic':'You know the secret Druidic language. Speak with Animals is always prepared and is added to your spellbook. Resolve hidden messages with your DM.',
+  'Innate Sorcery':'As a Bonus Action, awaken your innate magic for 1 minute: your Sorcerer spell save DC increases by 1 and your Sorcerer spell attack rolls have Advantage. Two uses recover on a Long Rest; apply these temporary benefits with your DM.',
+  'Ritual Adept':'You can cast a Ritual spell from your spellbook as a ritual without preparing it. Ritual casting takes 10 extra minutes and does not use a spell slot; arrange the ritual with your DM.',
+ };
+ return {...levelingFeature(label,model,p),...(base??{}),id:'',source:'srd',sourceClass:p.classKey,
+  ...(descriptions[label]?{description:descriptions[label]}:{}),
+  ...(base?.useCounter?{useCounter:{...base.useCounter,max:p.resourceMaxima[base.useCounter.name]??base.useCounter.max}}:{})};
+}
+function creatorSpeciesTraits(race:string):SheetAbility[]{
+  const traits:SheetAbility[]=traitsForRace(race).filter(t=>t.edition==='2024'&&!['Large Form','Celestial Revelation'].includes(t.name)).map(t=>({...t,id:'',source:'srd'}));
+  const add=(name:string,description:string,meta='Rules reference · discuss situational effects with your DM')=>traits.push({id:'',name,description,meta,type:'ability',source:'srd',school:`${race} trait (2024)`,tags:['race','trait','2024']});
+  if(['Dwarf','Elf','Gnome','Dragonborn','Tiefling','Aasimar'].includes(race)&&!traits.some(t=>/darkvision/i.test(t.name)))add('Darkvision',`See better in dim light and darkness within ${race==='Dwarf'?120:60} feet. Darkness vision and walls follow your map's visibility settings.`,'Included in species vision');
+  if(race==='Human')add('Versatile','Choose an additional Origin feat. Its choices and benefits are included below.','Bonus origin feat selected in this builder');
+  if(race==='Elf')add('Elven Lineage','Choose Drow, High Elf or Wood Elf with your DM. The lineage determines your starting cantrip, vision or speed, and later spells. Configure the chosen lineage on your sheet.');
+  if(race==='Gnome')add('Gnomish Lineage','Choose Forest Gnome or Rock Gnome with your DM. Add its starting spells to the spellbook and choose Intelligence, Wisdom or Charisma for their casting ability.');
+  if(race==='Goliath')add('Giant Ancestry','Choose a giant ancestry with your DM. It grants a limited-use benefit such as teleporting, reducing damage or adding damage after a hit. Configure that choice on the sheet.');
+  if(race==='Dragonborn')add('Draconic Ancestry','Choose a dragon ancestry with your DM, then set Breath Weapon and resistance to its damage type on your sheet.');
+  if(race==='Aasimar'){
+    add('Celestial Resistance','You resist necrotic and radiant damage.','Included in resistances');
+    add('Light Bearer','You know the Light cantrip and cast it using Charisma.','Cantrip added to your spellbook');
+  }
+  return traits;
+}
 export function characterCreatorCatalog():CreatorCatalog {
   return {spells:getAllSpells().filter(s=>s.type==='spell'&&(s.level===0||s.level===1)).map(s=>({...s,id:'',source:'srd'})),
     choices:Object.fromEntries(CORE_CLASSES_2024.map(c=>{
@@ -50,21 +83,17 @@ export function characterCreatorCatalog():CreatorCatalog {
         options:searchWeapons('',100).filter(w=>c!=='rogue'||w.category==='simple'||w.properties.some(p=>['finesse','light'].includes(p))).map(w=>({name:w.name,description:`${w.mastery} mastery for ${w.name}.`}))});
       return [c,choices];
     })),
-    traits:Object.fromEntries(CREATOR_SPECIES.map(r=>[r,traitsForRace(r).filter(t=>t.edition==='2024').map(t=>({...t,id:'',source:'srd'}))]))};
+    traits:Object.fromEntries(CREATOR_SPECIES.map(r=>[r,creatorSpeciesTraits(r)])),
+    classFeatures:Object.fromEntries(CORE_CLASSES_2024.map(c=>{const p=classProgression2024(c,1)!;return [c,p.features.map(name=>startingClassFeature(name,shell(c),p))];})),
+    originFeats:ORIGIN_FEATS.map(name=>({...getFeature(name),id:'',name,type:getFeature(name)?.type??'ability',description:LEVELING_FEATS.find(f=>f.name===name)!.description})),
+    speciesNotes:{Elf:['Choose your elven lineage with your DM after creation. Keen Senses needs one of Insight, Perception or Survival selected on your sheet.'],Gnome:['Choose Forest or Rock Gnome and its spells with your DM after creation.'],Goliath:['Choose Giant Ancestry with your DM. Large Form starts at level 5 and is not a level-one ability.'],Dragonborn:['Choose Draconic Ancestry and configure breath damage and resistance on the sheet. Flight starts at level 5.'],Tiefling:['Choose a Fiendish Legacy and its casting ability with your DM. Add its resistance, starting cantrip and Thaumaturgy on the sheet.'],Aasimar:['Celestial Revelation starts at level 3 and is not a level-one ability.']}};
 }
 export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
   const catalog=characterCreatorCatalog();
   for(const step of [0,1,2,3,4]){const error=creatorError(c,step,catalog);if(error)throw new Error(error);}
   const {stats,hp,ac,equipment,gold,speed}=creatorPreview(c), cls=CLASS_IDENTITY[c.className],progression=classProgression2024(c.className,1,'',stats)!;
   const model={...shell(c.className),stats};
-  const abilities:SheetAbility[]=progression.features.map(name=>{
-    // The legacy Lay on Hands definition carries a level-five example pool.
-    // New 2024 sheets use the leveling definition and one level-sized counter.
-    const label=/^lay on hands$/i.test(name)?'Lay on Hands':name;
-    const base=label==='Lay on Hands'?undefined:getFeature(name)??getSpell(name);
-    return {...levelingFeature(label,model,progression),...(base??{}),id:newId(),source:'srd',sourceClass:c.className,
-      ...(base?.useCounter?{useCounter:{...base.useCounter,max:progression.resourceMaxima[base.useCounter.name]??base.useCounter.max}}:{})};
-  });
+  const abilities:SheetAbility[]=progression.features.map(name=>({...startingClassFeature(name,model,progression),id:newId()}));
   const modifiers:Character['modifiers']=[];
   for(const [key,names] of Object.entries(c.features)) {
     // Never accept arbitrary feature text or unknown choice keys from a client.
@@ -83,14 +112,17 @@ export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
     if(name==='Alert')modifiers.push({id:newId(),source:'Alert',target:{kind:'initiative'},value:2});
   }
   abilities.push(...catalog.traits[c.species].map(t=>({...t,id:newId()})));
-  abilities.push({id:newId(),name:`Background: ${c.background.trim()}`,type:'ability',source:'custom',school:'Custom background',
-    description:`${c.backgroundSkills.join(', ')} proficiency. ${c.originFeat} origin feat. Ability increases: ${Object.entries(c.boosts).filter(([,v])=>v).map(([a,v])=>`${a} +${v}`).join(', ')}.`,tags:['background','2024']});
-  const always=c.className==='ranger'?[catalog.spells.find(s=>/^hunter.s mark$/i.test(s.name))!.name]:[];
+  const background=creatorBackground(c.backgroundId),tool=c.backgroundTool??background?.tools[0];
+  abilities.push({id:newId(),name:`Background: ${c.background.trim()}`,type:'ability',source:background?'srd':'custom',school:background?'2024 background':'Custom background',
+    description:`${c.backgroundSkills.join(', ')} proficiency. ${tool?`${tool} tool proficiency. `:''}${c.originFeat} origin feat. Ability increases: ${Object.entries(c.boosts).filter(([,v])=>v).map(([a,v])=>`${a} +${v}`).join(', ')}. ${c.backgroundEquipment==='package'?'Background equipment package included.':'Background equipment alternative: 50 GP.'}`,tags:['background','2024']});
+  const spellKey=(name:string)=>name.toLowerCase().replace(/[’']/g,'');
+  const always=alwaysPreparedSpells2024(c.className,'',1).map(name=>catalog.spells.find(s=>spellKey(s.name)===spellKey(name))?.name).filter((name):name is string=>!!name);
   for(const name of [...new Set([...c.cantrips,...c.spells,...always])]) {
     const s=getSpell(name)!;
     abilities.push({...s,id:newId(),source:'srd',sourceClass:c.className,prepared:s.level===0||c.prepared.includes(name)||always.includes(name),
       ...(always.includes(name)?{tags:[...(s.tags??[]),'always-prepared']}:{})});
   }
+  if(c.species==='Aasimar'&&!abilities.some(a=>a.type==='spell'&&a.name==='Light'))abilities.push({...getSpell('Light')!,id:newId(),prepared:true,roll:getSpell('Light')?.roll?{...getSpell('Light')!.roll!,castingAbility:'CHA'}:undefined});
   const weapons=equipment.weapons.map(name=>{const w=getWeapon(name)!;return {name:w.name,kind:w.kind,damage:w.damage,versatileDamage:w.versatileDamage,damageType:w.damageType,range:w.range,tags:weaponTags(w),diceOnly:true};});
   if(c.className==='monk')weapons.push({name:'Unarmed Strike',kind:'melee',damage:'1d6',versatileDamage:undefined,damageType:'bludgeoning',range:'5 ft',tags:['unarmed','finesse'],diceOnly:true});
   // Armor is a saved baseline, following the app's existing equipment model.
@@ -98,9 +130,9 @@ export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
   for(const a of abilities)if(a.useCounter&&!resources[a.useCounter.name])resources[a.useCounter.name]={max:a.useCounter.max,used:0};
   return {name:c.name.trim(),race:c.species,className:cls.title,level:1,maxHp:hp,armorClass:ac,gold,speed:`${speed} ft`,stats,weapons,resources,
     appearance:c.tokenCrafting?.appearance?.trim(),
-    resistances:c.species==='Dwarf'?['poison']:[],
+    resistances:c.species==='Dwarf'?['poison']:c.species==='Aasimar'?['necrotic','radiant']:[],
     proficientSkills:[...c.backgroundSkills,...c.skills,...c.extraSkills],saveProficiencies:cls.saves,modifiers,sheetAbilities:abilities,
-    items:equipment.items.map(i=>({id:newId(),...i,note:`2024 starting equipment${i.name===equipment.wornArmor?.name&&equipment.wornArmor.stealthDisadvantage?' · Disadvantage on Stealth checks':''}`,equipped:i.name===equipment.wornArmor?.name||i.name==='Shield'&&equipment.shield})),
+    items:equipment.items.map(i=>({id:newId(),...i,note:`2024 starting equipment${STARTING_PACK_CONTENTS[i.name]?` · Pack contains: ${STARTING_PACK_CONTENTS[i.name]}`:''}${i.name===equipment.wornArmor?.name&&equipment.wornArmor.stealthDisadvantage?' · Disadvantage on Stealth checks':''}`,equipped:i.name===equipment.wornArmor?.name||i.name==='Shield'&&equipment.shield})),
     leveling:{rules:'2024',classes:[{className:c.className,level:1}],history:[]}};
 }
 export function createGuidedCharacter(sessionId:string,ownerKey:string,input:unknown):Character {

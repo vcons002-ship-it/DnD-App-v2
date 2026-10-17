@@ -2321,6 +2321,7 @@ test('private movement shadows keep the figure at its origin and animate committ
     expect(held.artX).toBeCloseTo(druk.x);expect(held.artY).toBeCloseTo(druk.y);
     expect(held.preview).toBe(true);expect(held.distance).toBe('9 ft');expect(held.facing).toBeCloseTo(-45,0);
     await expect(playerLayer).toHaveAttribute('data-preview-token-id',druk.id);
+    await expect(playerLayer).toHaveAttribute('data-preview-draw-calls','1');
     expect((await f.snapshot()).tokens.find(t=>t.id===druk.id)).toMatchObject({x:druk.x,y:druk.y});
     expect((await inspect(dm,druk.id)).preview).toBe(false);
     await phase(page,'Shadow preview - 9 ft - facing the move');
@@ -2344,6 +2345,7 @@ test('private movement shadows keep the figure at its origin and animate committ
     const g=(await tokenView(dm,goblin.id))!,ge=offsetPoint(g,200,-150);
     await dm.mouse.move(g.x,g.y);await dm.mouse.down();await dm.mouse.move(ge.x,ge.y,{steps:24});
     await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-preview-token-id',goblin.id);
+    await expect(dm.getByTestId('miniature-layer')).toHaveAttribute('data-preview-draw-calls','1');
     f.socket.emit('token:drag',{tokenId:goblin.id,x:950,y:500});
     await page.waitForTimeout(250);
     expect(leaked).toEqual([]);expect(await inspect(page,goblin.id)).toMatchObject({x:goblin.x,y:goblin.y,preview:false});
