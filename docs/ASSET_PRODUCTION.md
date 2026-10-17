@@ -8,6 +8,44 @@ normalized family unless the DM or AI has supplied a more specific `modelType`.
 The DM should select an existing family for a named individual of an existing type.
 
 Missing families keep their normal 2D token while a persistent server queue works.
+Every newly generated model now stops for **source-art approval**. The image API
+creates the four source views, and Token info (DM) or **Personal token & miniature**
+on the character sheet shows the full-resolution sheet and each individual view.
+Choose **Approve art & create 3D model** to continue, or revise the appearance and
+choose **Regenerate source art**. Players can review only their own claimed hero;
+the DM can review creature jobs and character jobs. Approval survives a restart,
+is tied to the exact four image files, and is invalidated by regeneration or a
+changed image. Waiting for approval does not pause other queue jobs. Existing
+completed models are unchanged; pending legacy source art must also be approved.
+
+Unapproved art never replaces a character's current icon or model. After approval,
+the existing reduction, four-view texturing and base-fitting pipeline runs. If the
+3D worker is unavailable, retry retains the approved views. Source art can be
+generated and reviewed while that worker is offline. Hunyuan/Python/Blender checks
+therefore run **after approval**, before reconstruction. Each player job allows
+three source-art versions; the DM can request more. The existing three-new-jobs-
+per-player-per-day limit also remains in place.
+
+The reference prompt uses realistic sculpted anatomy and natural proportions,
+believable materials, distinct limbs/weapons, matched orthographic views and
+soft neutral studio lighting on white. It avoids the ambiguous "painted miniature"
+style instruction, cartoon/chibi proportions, dramatic shadows, scenery and
+magical effects. This is a reconstruction-friendly default, not a guarantee of
+better geometry: the approval step remains necessary. General input principles
+are supported by [Meshy's image-to-3D guidance](https://docs.meshy.ai/en/webapp/image-to-3d);
+our worker remains Hunyuan, using its named multi-view inputs.
+
+Generated heroes use a separate size target: 1.45 model units above a .055-unit
+base (diameter 1). At the default Medium PC base width of 4 ft this is about
+6.02 ft total, compared with the previous generic-creature target's 6.62 ft.
+Gnomes/halflings use .95 units; creature jobs retain their existing 1.6 target.
+This is a visual fit, not a change to a character's 5 ft combat footprint.
+Wide stances may still fit smaller so feet stay on the base; raised weapons are
+part of the fitted silhouette. The existing per-token size control still applies.
+Completed catalog models are not silently rescaled. The mobile sandbox's Liz
+model was separately refitted from its reduced source without changing textures
+or triangle count, retaining the original GLB for comparison.
+
 Token info shows progress, failure details, **Retry 3D**, and **Pause 3D queue**.
 Older missing-family tokens can start with **Create 3D model**. Pause holds the next
 job and lets the current job finish. The queue is shared by all campaigns on the
@@ -78,7 +116,7 @@ automated 3D reference art uses the image API first, with bounded connection
 retries, then the configured local image workflow as backup. No cloud mesh-generation
 provider is configured; Gemini image generation is not a GLB fallback.
 
-The worker checks Hunyuan, Python and Blender before requesting reference art.
+The worker checks Hunyuan, Python and Blender after source-art approval.
 An unavailable Hunyuan server pauses the queue. On interruption or an uncertain
 Hunyuan result, check that the previous remote job has ended before clicking
 **Retry 3D**, then **Resume 3D queue**. Restarts preserve pending/finished jobs;

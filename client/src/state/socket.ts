@@ -328,6 +328,7 @@ type Store = {
   createGuidedCharacter: (input: import('../../../shared/characterCreation').CreatorChoices) => Promise<import('../../../shared/characterCreation').CreatorResult>;
   rollCreatorStats: (input: import('../../../shared/characterCreation').CreatorStatRollRequest) => Promise<import('../../../shared/characterCreation').CreatorStatRollResult>;
   craftCharacterToken:(characterId:string,appearance:string,retry?:boolean,heldWeapon?:string)=>Promise<{ok:true;job:import('../../../shared/assetProduction').AssetJob}|{ok:false;error:string}>;
+  reviewCharacterToken:(characterId:string,jobId:string,artAction:'approve'|'regenerate',artHash:string,appearance:string,heldWeapon?:string)=>Promise<{ok:true;job:import('../../../shared/assetProduction').AssetJob}|{ok:false;error:string}>;
   characterTokenStatus:(characterId:string)=>Promise<{ok:true;job:import('../../../shared/assetProduction').AssetJob|null;paused:boolean}|{ok:false;error:string}>;
   updateCharacter: (payload: CharacterUpdatePayload) => void;
   aiFillCharacter: (characterId: string) => void;
@@ -1230,6 +1231,11 @@ export const useStore = create<Store>((set, get) => ({
     const socket=get().socket;if(!socket?.connected)return {ok:false,error:'Reconnect to check token crafting.'};
     try{return await socket.timeout(10000).emitWithAck('character:tokenCraftStatus',{characterId});}
     catch{return {ok:false,error:'Token crafting status is temporarily unavailable.'};}
+  },
+  reviewCharacterToken:async(characterId,jobId,artAction,artHash,appearance,heldWeapon)=>{
+    const socket=get().socket;if(!socket?.connected)return {ok:false,error:'Reconnect to review token art.'};
+    try{return await socket.timeout(12000).emitWithAck('character:craftToken',{characterId,jobId,artAction,artHash,appearance,heldWeapon});}
+    catch{return {ok:false,error:'No response was received. Check token status before retrying.'};}
   },
   rollCreatorStats: async (input) => {
     const socket=get().socket;

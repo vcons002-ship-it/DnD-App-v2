@@ -426,6 +426,22 @@ test('DM can request a separate equipped model despite an existing family and ap
   expect((await f.snapshot()).monsters.find(m => m.id === token.refId)?.modelType).toBe('goblin');
   await expect(page.getByRole('button', { name: 'Generate new 3D model', exact: true })).toBeDisabled();
   await page.screenshot({ path: info.outputPath('new-model-equipment-controls.png') });
+  // Review the actual mobile controls against a synthetic image checkpoint.
+  // No paid generation or GPU reconstruction is needed for this browser test.
+  const sourceArt={sha256:'a'.repeat(64),sheetUrl:'/miniatures/monsters/goblin.png',views:['front','back','left','right'].map(view=>({view,url:'/miniatures/monsters/goblin.png'}))};
+  let reviewing=true;const reviewActions:Record<string,unknown>[]=[];
+  await page.route('**/api/assets/jobs',route=>route.fulfill({json:{...queued,jobs:queued.jobs.map((j:any)=>j.id===job.id?{...j,state:reviewing?'awaiting_approval':'queued',sourceArt,stage:'Review source art'}:j)}}));
+  await page.route(`**/api/assets/jobs/${job.id}/art`,async route=>{const body=route.request().postDataJSON();reviewActions.push(body);if(body.action==='approve')reviewing=false;await route.fulfill({json:{}});});
+  await page.setViewportSize({width:390,height:844});
+  const artReview=page.getByRole('region',{name:'Source art approval'});
+  await expect(artReview).toBeVisible({timeout:15000});await expect(artReview.getByRole('img')).toHaveCount(5);
+  await expect(page.getByRole('button',{name:'Generate new 3D model',exact:true})).toBeDisabled();
+  await artReview.getByRole('button',{name:'Regenerate source art',exact:true}).click();
+  await expect.poll(()=>reviewActions.length).toBe(1);expect(reviewActions[0]).toMatchObject({action:'regenerate',notes:'Crossbow held ready; sword sheathed.'});
+  await page.screenshot({path:info.outputPath('mobile-source-art-approval.png')});
+  await artReview.getByRole('button',{name:'Approve art & create 3D model',exact:true}).click();
+  await expect(artReview).not.toBeVisible();expect(reviewActions[1]).toEqual({action:'approve',sha256:sourceArt.sha256});
+  await page.setViewportSize({width:1440,height:960});
   // Simulate completed production with a known GLB; this test spends no image/GPU jobs.
   await page.route('**/api/assets/jobs', route => route.fulfill({ json: { ...queued, jobs: queued.jobs.map((j: any) => j.id === job.id ? { ...j, state: 'ready', stage: 'Ready' } : j) } }));
   const glb = await (await request.get('/miniatures/monsters/goblin.glb')).body();

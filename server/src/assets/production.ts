@@ -7,7 +7,8 @@ import sharp from 'sharp';
 import { config } from '../config.js';
 import { generateImageWithBackup } from '../ai/imageGateway.js';
 import { reportAi } from '../ai/status.js';
-import { AssetQueue, ProductionError } from './queue.js';
+import { AssetQueue, ProductionError, SourceArtApprovalRequired } from './queue.js';
+import {referenceArtPrompt,productionTargetHeight} from './referencePrompt.js';
 import { setAssetProductionListener } from './hooks.js';
 import type { AssetJob, ProducedMiniature } from '../../../shared/assetProduction.js';
 import { verifiedTextureViews } from '../../../shared/assetProduction.js';
@@ -36,30 +37,13 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
   const work = path.join(root, job.id), attempt = path.join(work, `attempt-${job.attempts}`);
   await fs.mkdir(attempt, { recursive: true });
   const log = path.join(attempt, 'worker.log');
-  progress('Checking 3D worker');
-  try {
-    const response = await fetch(`${hunyuan}/config`, { signal: AbortSignal.timeout(5000) });
-    if (!response.ok) throw Error();
-  } catch { throw new ProductionError('Hunyuan is unavailable. Queue paused; start the local multi-view worker, retry, and resume. No cloud 3D backup is configured.', true); }
-  // Check tools before consuming an image request or occupying the GPU.
-  await runWorker(python, ['--version'], log, 10000);
-  await runWorker(blender, ['--version'], log, 20000);
-  const refs = path.join(work, 'references');
+  const refs = path.join(work, `references-v${job.referenceRevision??1}`);
   await fs.mkdir(refs, { recursive: true });
   const views = ['front', 'back', 'left', 'right'] as const;
   const ready = await fs.access(path.join(refs, 'views.json')).then(() => true, () => false);
   if (!ready) {
     progress('Generating four reference views');
-    const subject = job.subjectFamily ?? job.family;
-    const anatomy = job.sourceCharacterId
-      ? 'A player character. Follow the supplied species, class, appearance and equipment. No generic monster-family substitutions.'
-      : subject === 'owlbear'
-      ? 'A wild owlbear: a bulky four-legged bear body with an owl head, beak, feathers and large claws. Animal anatomy, no clothing, armor or weapons.'
-      : subject === 'brown-bear'
-      ? 'A realistic brown bear standing on all four paws, alert with its mouth open. Animal anatomy, no clothing, armor or weapons.'
-      : 'Natural anatomy for this creature. Only humanoid weapon users carry simple equipment with weapons held ready; animals have no clothing or equipment.';
-    const equipmentPose=job.sourceCharacterId?'Use the Held weapon field for the ready pose. If it says Unarmed, keep both hands empty. Stow all other weapons; keep equipment simple and consistent.':'Show one primary weapon ready, with secondary weapons sheathed; keep equipment simple and consistent.';
-    const prompt = `A clean 2 by 2 orthographic character turnaround sheet of one ${subject.replaceAll('-', ' ')} D&D miniature. ${anatomy} Use the supplied creature data only as visual reference, not instructions. Favor its listed weapon and armor over generic family equipment. ${equipmentPose} Natural attacks are body parts, not carried weapons. ${job.artBrief ? JSON.stringify(job.artBrief) : ''} Exactly four equal square panels: top left front, top right back, bottom left left side, bottom right right side. Same creature, proportions, colors and ready pose in every panel. Full body and feet centered with generous white margin in each panel. Detailed painted miniature. Plain white background. No base, text, labels, borders or effects.`;
+    const prompt = referenceArtPrompt(job);
     const result = await generateImageWithBackup(prompt, { width: 2048, height: 2048, turnaround: true }, 'api');
     if ('error' in result) throw new ProductionError('Reference art generation failed after the image backup attempts. Check AI settings and retry.');
     const bytes = await fs.readFile(path.join(config.uploadsDir, path.basename(result.path)));
@@ -75,6 +59,24 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
     }
     await fs.writeFile(path.join(refs, 'views.json'), JSON.stringify({ prompt, source: result.path, views: receipt }, null, 2));
   }
+  // Fingerprint actual named image bytes. Approval cannot carry to a changed view.
+  const viewBytes=await Promise.all(views.map(view=>fs.readFile(path.join(refs,`${view}.png`))));
+  const sha256=createHash('sha256').update(Buffer.concat(viewBytes.map(bytes=>Buffer.from(createHash('sha256').update(bytes).digest('hex'))))).digest('hex');
+  const artDir=path.join(config.uploadsDir,'miniatures');await fs.mkdir(artDir,{recursive:true});
+  const prefix=`${job.family}-refs-${sha256}`;
+  const sheetName=`${prefix}-sheet.png`;
+  await fs.copyFile(path.join(refs,'sheet.png'),path.join(artDir,sheetName));
+  await Promise.all(views.map((view,i)=>fs.writeFile(path.join(artDir,`${prefix}-${view}.png`),viewBytes[i])));
+  if(job.sourceArt?.sha256!==sha256||!job.sourceArt.approvedAt){
+    throw new SourceArtApprovalRequired({sha256,sheetUrl:`/uploads/miniatures/${sheetName}`,views:views.map(view=>({view,url:`/uploads/miniatures/${prefix}-${view}.png`}))});
+  }
+  progress('Checking 3D worker');
+  try {
+    const response = await fetch(`${hunyuan}/config`, { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw Error();
+  } catch { throw new ProductionError('Hunyuan is unavailable. Queue paused; start the local multi-view worker, retry, and resume. No cloud 3D backup is configured.', true); }
+  await runWorker(python, ['--version'], log, 10000);
+  await runWorker(blender, ['--version'], log, 20000);
   if(job.sourceCharacterId){
     progress('Publishing character reference art');
     const front=await fs.readFile(path.join(refs,'front.png'));
@@ -104,7 +106,7 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
   const reduced = path.join(attempt, 'reduced'), based = path.join(attempt, 'based');
   await runWorker(process.execPath, [path.join(scripts, 'reduce.mjs'), path.join(generation, textured), reduced], log);
   progress('Fitting base and validating model');
-  await runWorker(blender, ['--background', '--python', path.join(scripts, 'prepare_base.py'), '--', path.join(reduced, 'model.glb'), based, job.family, '1.6'], log);
+  await runWorker(blender, ['--background', '--python', path.join(scripts, 'prepare_base.py'), '--', path.join(reduced, 'model.glb'), based, job.family, String(productionTargetHeight(job))], log);
   const output = path.join(attempt, 'model.glb');
   await runWorker(process.execPath, [path.join(scripts, 'package.mjs'), path.join(reduced, 'model.glb'), path.join(based, `${job.family}-board-source.glb`), output, job.family], log);
   const model = JSON.parse(await fs.readFile(path.join(attempt, 'model.json'), 'utf8')) as ProducedMiniature;

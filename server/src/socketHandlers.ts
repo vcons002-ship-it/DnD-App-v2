@@ -4,6 +4,7 @@ import {createGuidedCharacter,rollCreatorStats} from './characterCreator.js';
 import {CORE_CLASSES_2024} from '../../shared/characterProgression.js';
 import {assetQueue} from './assets/production.js';
 import {craftHeroToken} from './assets/heroTokens.js';
+import {heroArtBrief} from '../../shared/assetProduction.js';
 import {SpellAreaPreviewController} from './spellAreaPreview.js';
 import {setRollPending,setRollSmite} from './sessions.js';
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
@@ -1390,7 +1391,18 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if(!c||c.sessionId!==sessionId()||!isDm()&&c.claimedBy!==socket.id){ack({ok:false,error:'Choose your own character to craft their token.'});return;}
       try{
         const queue=assetQueue(),previous=queue.snapshot().jobs.filter(j=>j.sourceCharacterId===c.id).at(-1);
-        if(p.retry){if(!previous||!queue.retry(previous.id))throw new Error('There is no failed token craft to retry.');ack({ok:true,job:queue.snapshot().jobs.find(j=>j.id===previous.id)!});}
+        if(p.artAction){
+          if(!previous||previous.id!==p.jobId)throw new Error('This art revision is no longer current. Refresh token crafting.');
+          if(p.artAction==='approve'){
+            if(typeof p.artHash!=='string'||!queue.approveArt(previous.id,p.artHash))throw new Error('The source art changed. Review the current four views before approving.');
+          }else if(p.artAction==='regenerate'){
+            if(typeof p.appearance!=='string'||!p.appearance.trim()||p.appearance.length>600)throw new Error('Describe your hero’s appearance in 1–600 characters.');
+            if(p.heldWeapon!==undefined&&p.heldWeapon!=='Unarmed'&&!c.weapons.some(w=>w.name===p.heldWeapon))throw new Error('Choose a weapon from your character sheet, or Unarmed.');
+            if(!queue.regenerateArt(previous.id,heroArtBrief(c,p.appearance.trim(),p.heldWeapon),isDm(),p.heldWeapon))throw new Error('Wait for source art before requesting another version.');
+          }else throw new Error('Choose approve or regenerate.');
+          ack({ok:true,job:queue.snapshot().jobs.find(j=>j.id===previous.id)!});
+        }
+        else if(p.retry){if(!previous||!queue.retry(previous.id))throw new Error('There is no failed token craft to retry.');ack({ok:true,job:queue.snapshot().jobs.find(j=>j.id===previous.id)!});}
         else ack({ok:true,job:craftHeroToken(queue,c,p.appearance,false,p.heldWeapon,{dm:isDm(),playerId:commandConnection()?.playerId})});
         afterChange();
       }catch(e){ack({ok:false,error:e instanceof Error?e.message:'Token crafting could not start. Your character is still playable.'});}

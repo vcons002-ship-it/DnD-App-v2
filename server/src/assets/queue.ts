@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { MONSTER_MODEL_TYPES } from '../../../shared/monsterAppearance.js';
-import { creatureArtBrief, heroArtBrief, productionFamily, type AssetCreature, type AssetJob, type ProducedMiniature } from '../../../shared/assetProduction.js';
+import { assetJobPending, creatureArtBrief, heroArtBrief, productionFamily, type AssetCreature, type AssetJob, type ProducedMiniature, type SourceArt } from '../../../shared/assetProduction.js';
 import type { Character } from '../../../shared/types.js';
 
 type State = { paused: boolean; jobs: AssetJob[]; models: ProducedMiniature[] };
@@ -40,7 +40,7 @@ export class AssetQueue {
     const subjectFamily = productionFamily(options?.newModel ? { ...creature, modelType: previousSubject ?? (creature.modelType === 'none' ? '' : creature.modelType) } : creature);
     if (!subjectFamily) return;
     if (options?.newModel && !creature.id) return;
-    const pending = options?.newModel && this.state.jobs.find(j => j.sourceMonsterId === creature.id && ['queued', 'running'].includes(j.state));
+    const pending = options?.newModel && this.state.jobs.find(j => j.sourceMonsterId === creature.id && assetJobPending(j));
     if (pending) return { ...pending };
     const family = options?.newModel ? `${subjectFamily.slice(0, 30)}-custom-${randomUUID().slice(0, 8)}` : subjectFamily;
     if (!options?.newModel && (MONSTER_MODEL_TYPES.includes(family as typeof MONSTER_MODEL_TYPES[number]) || this.state.models.some(m => m.id === family))) return;
@@ -55,11 +55,11 @@ export class AssetQueue {
   pause(paused: boolean) { this.state.paused = paused; this.save(); if (!paused) void this.drain(); }
   enqueueCharacter(hero:Character,appearance:string,initial=false,heldWeapon?:string,requestedBy?:string):AssetJob|undefined {
     const previous=this.state.jobs.filter(j=>j.sourceCharacterId===hero.id).at(-1);
-    if(previous&&(initial||['queued','running'].includes(previous.state)))return {...previous};
+    if(previous&&(initial||assetJobPending(previous)))return {...previous};
     if(this.state.jobs.filter(j=>j.state!=='ready').length>=100)return;
     const slug=hero.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,20)||'adventurer';
     const job:AssetJob={id:randomUUID(),family:`hero-${slug}-${randomUUID().slice(0,8)}`,subjectFamily:hero.race.toLowerCase(),
-      sourceCharacterId:hero.id,sourceModelType:hero.modelType,artBrief:heroArtBrief(hero,appearance,heldWeapon),state:'queued',stage:'Waiting',attempts:0,updatedAt:new Date().toISOString(),
+      sourceCharacterId:hero.id,sourceModelType:hero.modelType,heldWeapon,artBrief:heroArtBrief(hero,appearance,heldWeapon),state:'queued',stage:'Waiting',attempts:0,updatedAt:new Date().toISOString(),
       ...(requestedBy?{requestedBy,requestedAt:new Date().toISOString()}:{})};
     this.state.jobs.push(job);this.save();this.announce('Character token crafting queued. The character remains playable.');void this.drain();return {...job};
   }
@@ -83,6 +83,23 @@ export class AssetQueue {
     if (!job || job.state !== 'failed') return false;
     job.state = 'queued'; job.stage = 'Waiting'; delete job.error;
     this.save(); void this.drain(); return true;
+  }
+  approveArt(id:string,sha256:string):boolean {
+    const job=this.state.jobs.find(j=>j.id===id);
+    if(!job||job.state!=='awaiting_approval'||!job.sourceArt||job.sourceArt.sha256!==sha256)return false;
+    job.sourceArt.approvedAt=new Date().toISOString();job.state='queued';job.stage='Approved · waiting for 3D worker';job.updatedAt=new Date().toISOString();
+    this.save();void this.drain();return true;
+  }
+  regenerateArt(id:string,artBrief?:string,unlimited=false,heldWeapon?:string):boolean {
+    const job=this.state.jobs.find(j=>j.id===id);
+    if(!job||!['awaiting_approval','failed'].includes(job.state))return false;
+    // Bound paid revisions as well as new hero jobs; approval/retry are free.
+    if(!unlimited&&(job.referenceRevision??1)>=3)throw new Error('Three art versions have been requested. Ask the DM to regenerate another.');
+    job.referenceRevision=(job.referenceRevision??1)+1;delete job.sourceArt;delete job.error;
+    if(artBrief)job.artBrief=artBrief;
+    if(heldWeapon!==undefined)job.heldWeapon=heldWeapon;
+    job.state='queued';job.stage='Waiting for new source art';job.updatedAt=new Date().toISOString();
+    this.save();void this.drain();return true;
   }
   private async drain() {
     if (!this.started || this.active || this.state.paused) return;
@@ -108,6 +125,12 @@ export class AssetQueue {
           try { this.onCatalogChange(); } catch { /* a listener cannot break the queue */ }
           this.announce(`3D ${job.family}: ready. Matching tokens will load the model automatically.`);
         } catch (error) {
+          if(error instanceof SourceArtApprovalRequired){
+            job.sourceArt=error.art;job.state='awaiting_approval';job.stage='Review the four views before creating the 3D model';delete job.error;
+            job.updatedAt=new Date().toISOString();this.save();
+            this.announce('Source art ready. Review all four views and approve to start 3D generation.');
+            continue;
+          }
           job.state = 'failed'; job.stage = 'Needs attention';
           // Producers emit only deliberately safe messages (logs retain raw tool output).
           job.error = error instanceof ProductionError ? error.message : 'Production failed. Check the worker log, then retry from token info.';
@@ -121,4 +144,8 @@ export class AssetQueue {
 }
 export class ProductionError extends Error {
   constructor(message: string, readonly pauseQueue = false) { super(message); }
+}
+/** Expected queue checkpoint, not a production failure or global pause. */
+export class SourceArtApprovalRequired extends Error {
+  constructor(readonly art:SourceArt){super('Source art approval required.');}
 }

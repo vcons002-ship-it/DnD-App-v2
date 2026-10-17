@@ -261,4 +261,8 @@ test('appearance crafting creates a playable hero and exposes only their own job
   await stranger.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player',playerId:'stranger-crafting-test'});
   const denied=await stranger.timeout(5000).emitWithAck('character:tokenCraftStatus',{characterId:c.id});expect(denied.ok).toBe(false);expect(denied.job).toBeUndefined();
   const refused=await stranger.timeout(5000).emitWithAck('character:craftToken',{characterId:c.id,appearance:'Tampered'});expect(refused.ok).toBe(false);
+  for(const artAction of ['approve','regenerate']){
+    const refusedReview=await stranger.timeout(5000).emitWithAck('character:craftToken',{characterId:c.id,appearance:'Tampered',artAction,jobId:ownJob.job.id,artHash:'a'.repeat(64)});
+    expect(refusedReview.ok).toBe(false);expect(refusedReview.job).toBeUndefined();
+  }
 });

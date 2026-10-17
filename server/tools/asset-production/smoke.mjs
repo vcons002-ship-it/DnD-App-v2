@@ -60,6 +60,10 @@ try {
   startAssetProduction();
   const queue = assetQueue(); queue.enqueue({ name: 'Fixture creature', modelType: 'fixture-creature' });
   const deadline = Date.now() + 120000;
+  while (!['awaiting_approval', 'failed'].includes(queue.snapshot().jobs[0].state) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
+  const review=queue.snapshot().jobs[0];
+  assert.equal(review.state,'awaiting_approval');assert.equal(submitted,0,'3D must not start before source-art approval');
+  assert.equal(review.sourceArt.views.length,4);assert.equal(queue.approveArt(review.id,review.sourceArt.sha256),true);
   while (!['ready', 'failed'].includes(queue.snapshot().jobs[0].state) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(queue.snapshot().jobs[0].state, 'ready', `See worker log under ${root}: ${queue.snapshot().jobs[0].error}`);
   assert.equal(submitted, 1);

@@ -3,6 +3,7 @@ import {getCharacter} from '../sessions.js';
 import type {Character} from '../../../shared/types.js';
 import type {AssetJob} from '../../../shared/assetProduction.js';
 import type {AssetQueue} from './queue.js';
+import {assetJobPending} from '../../../shared/assetProduction.js';
 
 /** Only art changes; HP, equipment, ownership and combat state are untouched. */
 export function wireCharacterAssets(queue:AssetQueue) {
@@ -24,7 +25,7 @@ export function wireCharacterAssets(queue:AssetQueue) {
   // different icon. Older jobs carry no marker, so only fill an empty icon.
   for(const job of queue.snapshot().jobs){
     if(!job.sourceCharacterId)continue;
-    if(job.tokenIcon&&!job.iconApplied&&!getCharacter(job.sourceCharacterId)?.icon)apply(job,job.tokenIcon);
+    if(job.tokenIcon&&!job.iconApplied&&job.state!=='awaiting_approval'&&!getCharacter(job.sourceCharacterId)?.icon)apply(job,job.tokenIcon);
     if(job.state==='ready')apply(job,undefined,job.family);
   }
 }
@@ -35,7 +36,7 @@ export function craftHeroToken(queue:AssetQueue,hero:Character,appearance:string
   if(typeof appearance!=='string'||!appearance.trim()||appearance.length>600)throw new Error('Describe your hero’s appearance in 1–600 characters.');
   if(heldWeapon!==undefined&&heldWeapon!=='Unarmed'&&!hero.weapons.some(w=>w.name===heldWeapon))throw new Error('Choose a weapon from your character sheet, or Unarmed.');
   const previous=queue.snapshot().jobs.filter(j=>j.sourceCharacterId===hero.id).at(-1);
-  if(previous&&(initial||['queued','running'].includes(previous.state)))return previous;
+  if(previous&&(initial||assetJobPending(previous)))return previous;
   const requestedBy=requester.dm?'dm':requester.playerId??undefined;
   if(!requester.dm){
     const since=Date.now()-24*60*60*1000;

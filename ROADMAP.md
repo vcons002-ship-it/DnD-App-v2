@@ -1,5 +1,12 @@
 # Roadmap & Feature Backlog
 
+- [x] Require approval of the four source views before creature or hero 3D
+  reconstruction. Add mobile art review, regeneration, persistent revision
+  checks and owner-gated approval; use realistic, neutrally lit reference art.
+  Fit newly generated heroes to a party-calibrated height rather than the
+  generic monster target, preserving combat space and manual size controls.
+  [Workflow](docs/ASSET_PRODUCTION.md).
+
 - [x] Clarify the mobile creator's included inventory and pack contents,
   supported background presets, starting-feature descriptions and current roll
   assignments. Reduce 3D movement preview submission to one cached silhouette

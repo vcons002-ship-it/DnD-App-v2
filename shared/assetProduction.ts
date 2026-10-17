@@ -45,13 +45,22 @@ export type ProducedMiniature = {
   id: string; url: string; baseDiameter: number; baseCenter: [number, number, number];
   bytes: number; triangles: number; sha256: string;
 };
+export type SourceArt = {
+  sheetUrl:string;
+  views:{view:'front'|'back'|'left'|'right';url:string}[];
+  /** Fingerprint of all four named input images, approved as one revision. */
+  sha256:string;
+  approvedAt?:string;
+};
+export const assetJobPending=(job:AssetJob)=>['queued','running','awaiting_approval'].includes(job.state);
 export type AssetJob = {
+  sourceArt?:SourceArt; referenceRevision?:number; heldWeapon?:string;
   sourceCharacterId?:string; sourceModelType?:string; tokenIcon?:string;
   /** Player id (or 'dm') that asked for a hero token, and when — for the daily quota. */
   requestedBy?:string; requestedAt?:string;
   /** The finished token art has been put on the character once; a restart must not repeat it. */
   iconApplied?:boolean;
   sourceMonsterId?: string; artBrief?: string; subjectFamily?: string;
-  id: string; family: string; state: 'queued' | 'running' | 'failed' | 'ready';
+  id: string; family: string; state: 'queued' | 'running' | 'awaiting_approval' | 'failed' | 'ready';
   stage: string; attempts: number; updatedAt: string; error?: string;
 };
