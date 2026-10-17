@@ -15,6 +15,8 @@ const serverDir = path.resolve('server');
 
 export default defineConfig({
   testDir: '.',
+  // Probes the WebGL renderer; on a software GPU helpers/test.ts widens budgets.
+  globalSetup: './globalSetup.ts',
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,
@@ -48,6 +50,9 @@ export default defineConfig({
       HUNYUAN_URL: 'http://127.0.0.1:1',
       GEMINI_API_KEY: '',
       AI_MODE: 'local',
+      // Model files are Git LFS objects; a checkout without them gets a stand-in
+      // figure so the miniature pipeline (load, preload, reveal) still runs.
+      PLACEHOLDER_MODELS: '1',
     },
   },
 });

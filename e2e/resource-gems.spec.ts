@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Locator, type Page } from './helpers/test';
 import { writeFile } from 'node:fs/promises';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';

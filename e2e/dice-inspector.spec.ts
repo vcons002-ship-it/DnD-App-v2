@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 
 test('roller opens the current 3D die for rotation, strength previews and mobile inspection',async({page},info)=>{
  test.setTimeout(90000);

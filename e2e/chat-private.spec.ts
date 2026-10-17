@@ -1,4 +1,4 @@
-import { test, expect, type Browser, type Page } from '@playwright/test';
+import { test, expect, type Browser, type Page } from './helpers/test';
 import sharp from 'sharp';
 import { DM_SECRET } from './playwright.config';
 

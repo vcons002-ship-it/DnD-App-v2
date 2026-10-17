@@ -1,4 +1,4 @@
-import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
+import { expect, test, type Page, type APIRequestContext } from './helpers/test';
 import { DM_SECRET } from './playwright.config';
 
 async function enterPlayer(page: Page, request: APIRequestContext) {

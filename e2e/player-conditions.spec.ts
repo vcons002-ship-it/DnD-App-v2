@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 import { DM_SECRET } from './playwright.config';
 
 test('named conditions open their editor directly without expanding HP controls', async ({ page, request }) => {

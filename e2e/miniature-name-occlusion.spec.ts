@@ -1,4 +1,4 @@
-import {test,expect,Page} from '@playwright/test';
+import {test,expect,Page, budget} from './helpers/test';
 import {io,type Socket} from 'socket.io-client';
 const connections:Socket[]=[];
 test.afterEach(()=>connections.splice(0).forEach(s=>s.disconnect()));
@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import {DM_SECRET,PORT} from './playwright.config';
 
 test('only covered name pixels fade through a foreground miniature',async({page:dm,request},info)=>{
- test.setTimeout(120000);dm.setDefaultTimeout(12000);
+ test.setTimeout(120000);dm.setDefaultTimeout(budget(12000));
  const dir=info.outputPath('name-mask');fs.mkdirSync(dir,{recursive:true});
  const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Courtyard ambush - demonstration'}})).json();
  const socket=io(`http://localhost:${PORT}`,{transports:['websocket']});connections.push(socket);

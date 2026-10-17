@@ -1,5 +1,5 @@
 import {spawn,execFileSync} from 'node:child_process';
-import type {Page} from '@playwright/test';
+import type {Page} from './helpers/test';
 
 /** Capture browser compositor frames directly into NVIDIA AV1, without the
  * Playwright software VP8 recorder's fixed 25 fps path. App clock stays live. */

@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('physical roll prepares raster behind the tray without releasing impact, and skip remains immediate',async({page})=>{

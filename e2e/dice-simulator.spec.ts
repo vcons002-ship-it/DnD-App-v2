@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 
 test('published simulator rolls current character dice with live collision audio and mute controls',async({page},info)=>{
  test.setTimeout(180000);

@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('Burning Hands flame footprint matches the targeting cone at different directions and map scales',async({page})=>{

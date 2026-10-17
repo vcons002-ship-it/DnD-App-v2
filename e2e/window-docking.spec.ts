@@ -1,4 +1,4 @@
-import {expect,test,type Page,type APIRequestContext,type Locator} from '@playwright/test';
+import {expect,test,type Page,type APIRequestContext,type Locator} from './helpers/test';
 import {DM_SECRET,PORT} from './playwright.config';
 
 async function session(request:APIRequestContext){
@@ -35,7 +35,7 @@ test('DM windows dock with their pinned column, preserve drafts and widths, and 
   await expect(maps.getByPlaceholder('Map name (optional)')).toHaveValue('Keep my map draft');
   await maps.getByRole('button',{name:'Pin Maps',exact:true}).click();
   await expect(page.locator('.window-dock-preview')).toHaveCount(0);
-  await page.getByRole('button',{name:'Creatures',exact:true}).click();
+  await page.getByRole('button',{name:'Creatures',exact:true}).click({force:true}) /* pulsing while empty */;
   const creatures=page.getByRole('complementary',{name:'Creatures',exact:true});
   await expect(creatures).toHaveAttribute('data-dock-side','right');
   await creatures.getByRole('button',{name:'Pin Creatures',exact:true}).click();

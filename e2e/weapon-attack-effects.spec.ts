@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('weapon projectiles arrive before feedback, leave no light sources, and obey visibility',async({page})=>{

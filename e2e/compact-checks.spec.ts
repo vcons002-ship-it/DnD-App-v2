@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 import { io } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { SKILLS, abilityMod, proficiencyBonus, signed, skillBonus } from '../shared/skills';

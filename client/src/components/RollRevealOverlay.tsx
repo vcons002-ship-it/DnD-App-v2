@@ -249,7 +249,12 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const lift = ownLevelUpRoll && !!document.querySelector('dialog[data-level-up][open]');
   // Approval stays inside the mounted tray; no modal or canvas visibility swap.
   const presented=<RollOverlayPresence content={content} reduced={reducedMotion} clearImmediately={showingMapImpact||skippedLiveDice}/>;
-  return <>{lift ? <LevelUpRollLayer key="lift" player={player}>{presented}</LevelUpRollLayer> : presented}
+  // Rolls whose card has already come and gone, for tests that would otherwise
+  // wait for a result a slow machine finished presenting before they looked.
+  const shownRolls=useRef(new Set<string>()),activeRolls=[completed?.rollId,rollFx?.rollId,liveDice?.id].filter((id):id is string=>!!id);
+  for(const id of activeRolls)shownRolls.current.add(id);
+  const history=<span hidden data-testid="roll-reveal-history" data-finished-rolls={JSON.stringify([...shownRolls.current].filter(id=>!activeRolls.includes(id)))}/>;
+  return <>{history}{lift ? <LevelUpRollLayer key="lift" player={player}>{presented}</LevelUpRollLayer> : presented}
     {resolvingDice&&!tray&&<div className="spell-calculating" role="status" aria-live="polite"><span aria-hidden="true"/>Calculating…</div>}
   </>;
 });

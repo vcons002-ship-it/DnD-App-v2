@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import {test,expect} from '@playwright/test';import {io} from 'socket.io-client';import {DM_SECRET,PORT} from './playwright.config';
+import {test,expect} from './helpers/test';import {io} from 'socket.io-client';import {DM_SECRET,PORT} from './playwright.config';
 test('DM resets explored fog with confirmation; players and other sessions cannot reset it',async({page,request})=>{
  const headers={'x-dm-passphrase':DM_SECRET};const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Reset explored fog'}})).json();
  const map=await(await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{name:'Reset map',image:{name:'room.png',mimeType:'image/png',buffer:await sharp({create:{width:1000,height:600,channels:3,background:'#333333'}}).png().toBuffer()}}})).json();

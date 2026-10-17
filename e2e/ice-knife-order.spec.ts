@@ -1,4 +1,4 @@
-﻿import {test,expect,type Locator} from '@playwright/test';
+﻿import {test,expect,type Locator, budget} from './helpers/test';
 import {io} from 'socket.io-client';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import type {SheetAbility,StateSnapshot} from '../shared/types';
@@ -26,7 +26,7 @@ test('Ice Knife shows damage before saves and never reopens completed trays',asy
  }
  const ready=await state(),actor=ready.tokens.find(t=>t.refId===caster.id)!,foes=ready.tokens.filter(t=>t.kind==='monster');
  const context=await browser.newContext({viewport:{width:1600,height:1000},deviceScaleFactor:1}),page=await context.newPage(),errors:string[]=[],chapters:any[]=[],evidence:any[]=[];
- page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>{localStorage.setItem('dnd-environment-quality','high');});
+ page.setDefaultTimeout(budget(20000));page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(()=>{localStorage.setItem('dnd-environment-quality','high');});
  let capture:Awaited<ReturnType<typeof startAv1Capture>>|undefined,start=0;
  const click=async(l:Locator)=>{const b=await l.boundingBox();expect(b).toBeTruthy();await page.mouse.move(b!.x+b!.width/2,b!.y+b!.height/2,{steps:18});await page.waitForTimeout(450);await l.click();};
  try{

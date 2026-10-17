@@ -1414,6 +1414,26 @@ export function MapStage({
     </>
   );
 
+  // Focus requests (DM "Next turn"): centre the token only when it's near the
+  // edge or off-screen — never yank a camera that already shows it. Projecting
+  // through the same tilt/rotation as the box-select keeps 45° views correct;
+  // the screen centre is a fixed point of that projection, so centring solves
+  // directly for the view.
+  const focusNonce = useRef<number>();
+  useEffect(() => {
+    if (!focusRequest || focusRequest.nonce === focusNonce.current) return;
+    focusNonce.current = focusRequest.nonce;
+    const token = snapshot.tokens.find((t) => t.id === focusRequest.tokenId);
+    if (!token || !size.w || !size.h) return;
+    const ground = mapToScreen(token.x, token.y, view, tiltDegrees);
+    const p = projectGround(ground.x, ground.y, size.w, size.h, tiltDegrees, rotationDegrees);
+    const inset = 0.15;
+    if (p.x >= size.w * inset && p.x <= size.w * (1 - inset) && p.y >= size.h * inset && p.y <= size.h * (1 - inset)) return;
+    userAdjusted.current = true;
+    setView((v) => ({ ...v, x: size.w / 2 - token.x * v.scale, y: size.h / 2 - token.y * v.scale * groundYScale(tiltDegrees) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest?.nonce]);
+
   // Google Slides maps render as an embedded iframe instead of a canvas.
   if (map?.slidesUrl && !map.imagePath) {
     return (
@@ -1949,25 +1969,6 @@ export function MapStage({
     setView(fit);
   };
 
-  // Focus requests (DM "Next turn"): centre the token only when it's near the
-  // edge or off-screen — never yank a camera that already shows it. Projecting
-  // through the same tilt/rotation as the box-select keeps 45° views correct;
-  // the screen centre is a fixed point of that projection, so centring solves
-  // directly for the view.
-  const focusNonce = useRef<number>();
-  useEffect(() => {
-    if (!focusRequest || focusRequest.nonce === focusNonce.current) return;
-    focusNonce.current = focusRequest.nonce;
-    const token = snapshot.tokens.find((t) => t.id === focusRequest.tokenId);
-    if (!token || !size.w || !size.h) return;
-    const ground = mapToScreen(token.x, token.y, view, tiltDegrees);
-    const p = projectGround(ground.x, ground.y, size.w, size.h, tiltDegrees, rotationDegrees);
-    const inset = 0.15;
-    if (p.x >= size.w * inset && p.x <= size.w * (1 - inset) && p.y >= size.h * inset && p.y <= size.h * (1 - inset)) return;
-    userAdjusted.current = true;
-    setView((v) => ({ ...v, x: size.w / 2 - token.x * v.scale, y: size.h / 2 - token.y * v.scale * groundYScale(tiltDegrees) }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusRequest?.nonce]);
 
   const paintProjection = (tilt:number,rotation:number,nextView:View) => {
     const previous=projectionState.current;

@@ -1,5 +1,5 @@
 import {acceptConcentration} from './themed-dialogs';
-import {test,expect,type Locator} from '@playwright/test';
+import {test,expect,type Locator, budget} from './helpers/test';
 import {io} from 'socket.io-client';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -55,7 +55,7 @@ for(const [group,allNames] of Object.entries(groups))test(`linked spell animatio
   const ready=await state(),foe=ready.tokens.find(t=>t.kind==='monster'&&ready.monsters.find(m=>m.id===t.refId)?.name.startsWith('Bugbear'))!;
   const captureAv1=process.env.DND_PROFILE_NO_VIDEO!=='1'&&process.env.DND_CAPTURE_AV1!=='0';
   const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1600,height:1000},...(process.env.DND_PROFILE_NO_VIDEO==='1'||captureAv1?{}:{recordVideo:{dir:info.outputPath('capture'),size:{width:1600,height:1000}}})});
-  const page=await context.newPage(),errors:string[]=[],chapters:{title:string;note:string;time:number}[]=[],evidence:unknown[]=[];page.setDefaultTimeout(20000);
+  const page=await context.newPage(),errors:string[]=[],chapters:{title:string;note:string;time:number}[]=[],evidence:unknown[]=[];page.setDefaultTimeout(budget(20000));
   const gpu=await (await browser.newBrowserCDPSession()).send('SystemInfo.getInfo');
   await page.addInitScript(()=>{
     const samples:{ms:number;dice:string|null;material:string|null}[]=[];(window as any).captureFrameSamples=samples;

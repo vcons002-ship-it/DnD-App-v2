@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {io} from 'socket.io-client';
 import {DM_SECRET,PORT} from './playwright.config';
 import {expectUnclipped} from './helpers/rollVisibility';
