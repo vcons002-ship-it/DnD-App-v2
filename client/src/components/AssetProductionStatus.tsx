@@ -46,11 +46,12 @@ export function AssetProductionStatus({ monster, initiallyExpanded=false }: { mo
     <small>{job ? `3D ${job.state}: ${job.stage}` : model ? '3D model ready' : '2D placeholder · no 3D model yet'}{state?.paused ? ' · Queue paused' : ''}</small>
     {job?.error && <small>{job.error}</small>}
     {error && <small role="alert">{error}</small>}
-    {job&&<SourceArtReview job={job} busy={busy} onApprove={()=>void action(`/api/assets/jobs/${job.id}/art`,{action:'approve',sha256:job.sourceArt?.sha256})} onRegenerate={()=>void action(`/api/assets/jobs/${job.id}/art`,{action:'regenerate',notes})}/>}
+    {job&&<SourceArtReview job={job} busy={busy} onApprove={()=>void action(`/api/assets/jobs/${job.id}/art`,{action:'approve',sha256:job.sourceArt?.sha256})} onRegenerate={()=>void action(`/api/assets/jobs/${job.id}/art`,{action:'regenerate',notes})} onRefresh={view=>void action(`/api/assets/jobs/${job.id}/art`,{action:'regenerate',notes,view})}/>}
     {!monster.objectKind&&<><div>
       {!model && !job && family && <button disabled={busy} onClick={() => void action('/api/assets/queue', { monsterId: monster.id })}>Create 3D model</button>}
       {custom?.state === 'ready' && monster.modelType !== custom.family && <button onClick={() => updateMonster({ monsterId: monster.id, modelType: custom.family })}>Use this model</button>}
       {job?.state === 'failed' && <button disabled={busy} onClick={() => void action(`/api/assets/jobs/${job.id}/retry`, {})}>Retry 3D</button>}
+      {job&&(assetJobPending(job)||job.state==='failed')&&<button disabled={busy} onClick={()=>void action(`/api/assets/jobs/${job.id}/art`,{action:'cancel'})}>Cancel crafting</button>}
       {state && <button disabled={busy} title="Pausing lets the current model finish and holds subsequent jobs." onClick={() => void action('/api/assets/pause', { paused: !state.paused })}>{state.paused ? 'Resume 3D queue' : 'Pause 3D queue'}</button>}
     </div>
     <details open={requestOpen} onToggle={e=>setRequestOpen(e.currentTarget.open)}>

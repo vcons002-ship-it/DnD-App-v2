@@ -18,6 +18,30 @@ is tied to the exact four image files, and is invalidated by regeneration or a
 changed image. Waiting for approval does not pause other queue jobs. Existing
 completed models are unchanged; pending legacy source art must also be approved.
 
+The full-resolution sheet and individual views stay on the character/token after
+completion. **Refresh front/back/left/right** sends the previous sheet as an image
+reference and requests just that view. The other three PNGs are copied byte for
+byte into the next revision; the new combined set requires approval. Refreshes
+of a finished job keep its existing model available until reconstruction finishes.
+Both whole-sheet and single-view regeneration use a battle-ready stance.
+
+**Cancel crafting** works for queued jobs, source-art approval and active work.
+Cancellation prevents late progress, icon updates or model publication from
+replacing the existing token. Image API requests are aborted. An already submitted
+Hunyuan GPU operation must finish before the queue is freed; its result is discarded,
+and the UI says **Cancelling** until then. The app never kills an unrelated worker
+or starts overlapping 3D jobs. A re-craft can be queued while that operation retires.
+The player status refreshes every 2.5 seconds, guards against stale poll responses
+overwriting button results, and shows the current step's elapsed time.
+
+Character appearance includes an editable feet/inches height with native spinboxes
+and one-inch arrow buttons. It is saved on creation or crafting, included in the
+image brief, preserved in the character library and snapshotted per craft. Reference
+regeneration uses the new height; an already approved revision keeps its saved height.
+Species ranges are approximate suggestions from the 2024 SRD, not enforced min/max
+values. Aasimar uses the generic editable default. Technical input bounds are 6–240
+whole inches. Height fitting leaves combat space and manual base sizing unchanged.
+
 Unapproved art never replaces a character's current icon or model. After approval,
 the existing reduction, four-view texturing and base-fitting pipeline runs. If the
 3D worker is unavailable, retry retains the approved views. Source art can be
@@ -35,7 +59,7 @@ better geometry: the approval step remains necessary. General input principles
 are supported by [Meshy's image-to-3D guidance](https://docs.meshy.ai/en/webapp/image-to-3d);
 our worker remains Hunyuan, using its named multi-view inputs.
 
-Generated heroes use a separate size target: 1.45 model units above a .055-unit
+Legacy hero jobs without a saved height use a separate size target: 1.45 model units above a .055-unit
 base (diameter 1). At the default Medium PC base width of 4 ft this is about
 6.02 ft total, compared with the previous generic-creature target's 6.62 ft.
 Gnomes/halflings use .95 units; creature jobs retain their existing 1.6 target.
@@ -45,6 +69,9 @@ part of the fitted silhouette. The existing per-token size control still applies
 Completed catalog models are not silently rescaled. The mobile sandbox's Liz
 model was separately refitted from its reduced source without changing textures
 or triangle count, retaining the original GLB for comparison.
+New jobs with a selected height use height-in-feet divided by the default 4 ft
+player base width. This fits the generated silhouette; wide stances can still
+be limited by the base's foot-fit constraint and raised weapons affect its bounds.
 
 Token info shows progress, failure details, **Retry 3D**, and **Pause 3D queue**.
 Older missing-family tokens can start with **Create 3D model**. Pause holds the next

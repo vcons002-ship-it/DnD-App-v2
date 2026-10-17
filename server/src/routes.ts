@@ -335,12 +335,15 @@ export function createApiRouter(io: IOServer): Router {
     if(rateLimited(req,res,'asset-art-review',20,60000))return;
     const queue=assetQueue(),job=queue.snapshot().jobs.find(j=>j.id===String(req.params.id));
     if(!job)return res.status(404).json({error:'Crafting job not found.'});
-    if(req.body?.action==='approve'){
+    if(req.body?.action==='cancel'){
+      if(!queue.cancel(job.id))return res.status(409).json({error:'This craft has already finished or been cancelled.'});
+    }else if(req.body?.action==='approve'){
       if(typeof req.body.sha256!=='string'||!queue.approveArt(job.id,req.body.sha256))return res.status(409).json({error:'The source art changed. Refresh and review the current four views.'});
     }else if(req.body?.action==='regenerate'){
       if(req.body.notes!==undefined&&(typeof req.body.notes!=='string'||req.body.notes.length>600))return res.status(400).json({error:'Appearance notes must be at most 600 characters.'});
+      if(req.body.view!==undefined&&!['front','back','left','right'].includes(req.body.view))return res.status(400).json({error:'Choose a reference view.'});
       const brief=req.body.notes?.trim()?`${job.artBrief??''}\nRevised appearance: ${req.body.notes.trim()}`:undefined;
-      if(!queue.regenerateArt(job.id,brief,true))return res.status(409).json({error:'Wait for source art before regenerating.'});
+      if(!queue.regenerateArt(job.id,brief,true,undefined,{view:req.body.view}))return res.status(409).json({error:'Wait for source art before regenerating.'});
     }else return res.status(400).json({error:'Choose approve or regenerate.'});
     res.json({job:queue.snapshot().jobs.find(j=>j.id===job.id)});
   });

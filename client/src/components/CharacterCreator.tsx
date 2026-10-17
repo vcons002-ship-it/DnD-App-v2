@@ -10,6 +10,8 @@ import {GOLD_DICE_THEME} from '../../../shared/diceThemes';
 import {CreatorEquipmentPicker} from './CreatorEquipmentPicker';
 import {CREATOR_BACKGROUNDS,creatorBackground,rolledScoreAssignments} from '../../../shared/creatorBackgrounds';
 import {CreatorFeatureDetails} from './CreatorFeatureDetails';
+import {CharacterHeightControl} from './CharacterHeightControl';
+import {suggestedCharacterHeight,formatCharacterHeight} from '../../../shared/characterHeight';
 
 const STEPS=['Identity','Abilities','Equipment & skills','Spells','Appearance','Ready to play'];
 const sign=(n:number)=>n>=0?`+${n}`:String(n);
@@ -122,6 +124,7 @@ export function CharacterCreator({onCreated}:{onCreated:(id:string)=>void}) {
             {choices.className==='ranger'&&<p className="creator-note">Hunter’s Mark is added as an always-prepared spell.</p>}
           </>}
           {step===4&&<><p className="creator-eyebrow">05 / Appearance</p><h3>A hero you can picture</h3><p className="creator-copy">Describe your hero’s build, face, hair, clothing, colors, and any distinctive details. We’ll include their {choices.species} heritage, {cls.title} class, and selected equipment.</p>
+            <CharacterHeightControl value={choices.heightInches??suggestedCharacterHeight(choices.species)} species={choices.species} onChange={heightInches=>patch({heightInches})}/>
             <label className="creator-label">Your hero’s appearance<textarea maxLength={600} rows={6} value={choices.tokenCrafting?.appearance??''} onChange={e=>patch({tokenCrafting:{...choices.tokenCrafting,enabled:choices.tokenCrafting?.enabled??false,appearance:e.target.value}})} placeholder="A tall orc with dark green skin, warm brown eyes, braided black hair, weathered chainmail, and a deep red sash…"/></label>
             <label className="creator-label">Weapon held by your token<select aria-label="Weapon held by your token" value={choices.tokenCrafting?.heldWeapon??''} onChange={e=>patch({tokenCrafting:{enabled:choices.tokenCrafting?.enabled??false,appearance:choices.tokenCrafting?.appearance??'',heldWeapon:e.target.value}})}><option value="">Choose a weapon or Unarmed...</option>{creatorHeldWeapons(choices).map(n=><option key={n}>{n}</option>)}</select></label><p className="creator-copy">Uses the weapons chosen in Equipment & skills. Other weapons are stowed. This controls the art; you can still use all your equipped weapons in combat.</p>
             <label className="creator-craft-toggle"><input type="checkbox" checked={choices.tokenCrafting?.enabled??false} onChange={e=>patch({tokenCrafting:{...choices.tokenCrafting,enabled:e.target.checked,appearance:choices.tokenCrafting?.appearance??''}})}/><span><strong>Craft token art & a 3D miniature</strong><small>Creates source art first. Review and approve it on your character sheet before 3D generation. You can start playing immediately.</small></span></label>
@@ -134,6 +137,7 @@ export function CharacterCreator({onCreated}:{onCreated:(id:string)=>void}) {
             <CreatorFeatureDetails title="Class features added to your sheet" abilities={[...(catalog?.classFeatures?.[choices.className]??[]),...(catalog?.choices[choices.className]??[]).flatMap(f=>f.options.filter(o=>choices.features[f.key]?.includes(o.name)).map(o=>({id:'',name:o.name,description:o.description,type:'ability' as const})))]}/>
             <CreatorFeatureDetails title="Origin feats added to your sheet" abilities={originFeats}/>
             <p className="creator-note">Counters and roll buttons are provided where supported. A saved rules reference does not automatically apply every situational effect. Any remaining ancestry or lineage choices are called out above.</p>
+            <p className="creator-copy"><strong>Height:</strong> {formatCharacterHeight(choices.heightInches??suggestedCharacterHeight(choices.species))}</p>
             {choices.tokenCrafting?.appearance&&<p className="creator-copy"><strong>Appearance:</strong> {choices.tokenCrafting.appearance}</p>}
             {choices.tokenCrafting?.enabled&&<p className="creator-note">Your personal token will hold {choices.tokenCrafting.heldWeapon}. Its art and 3D miniature will be crafted after you create the character.</p>}
           </>}

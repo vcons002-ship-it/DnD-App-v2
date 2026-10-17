@@ -4,6 +4,7 @@ import type {Character} from '../../../shared/types.js';
 import type {AssetJob} from '../../../shared/assetProduction.js';
 import type {AssetQueue} from './queue.js';
 import {assetJobPending} from '../../../shared/assetProduction.js';
+import {validCharacterHeight} from '../../../shared/characterHeight.js';
 
 /** Only art changes; HP, equipment, ownership and combat state are untouched. */
 export function wireCharacterAssets(queue:AssetQueue) {
@@ -20,6 +21,13 @@ export function wireCharacterAssets(queue:AssetQueue) {
   };
   queue.onReferenceArt=(job,url)=>apply(job,url);
   queue.onModelReady=job=>apply(job,job.tokenIcon,job.family);
+  queue.onCancelled=job=>{
+    if(!job.sourceCharacterId)return;
+    const c=getCharacter(job.sourceCharacterId);if(!c)return;
+    if(job.tokenIcon&&c.icon===job.tokenIcon&&job.sourceIcon!==undefined)db.prepare('UPDATE characters SET icon=? WHERE id=?').run(job.sourceIcon,c.id);
+    if(c.modelType===job.family&&!queue.snapshot().models.some(m=>m.id===job.family))db.prepare('UPDATE characters SET model_type=? WHERE id=?').run(job.sourceModelType??'',c.id);
+    queue.onCharacterChange(c.sessionId);
+  };
   // A restart between publishing and notifying must still attach completed art,
   // but never again once it was applied: the player may since have picked a
   // different icon. Older jobs carry no marker, so only fill an empty icon.
@@ -32,9 +40,10 @@ export function wireCharacterAssets(queue:AssetQueue) {
 /** Hero tokens call a paid image API (plus GPU time): each player may start
  *  this many per rolling 24 h. The DM is not limited. */
 export const HERO_CRAFTS_PER_DAY=3;
-export function craftHeroToken(queue:AssetQueue,hero:Character,appearance:string,initial=false,heldWeapon?:string,requester:{dm:boolean;playerId?:string|null}={dm:true}):AssetJob {
+export function craftHeroToken(queue:AssetQueue,hero:Character,appearance:string,initial=false,heldWeapon?:string,requester:{dm:boolean;playerId?:string|null}={dm:true},heightInches?:number):AssetJob {
   if(typeof appearance!=='string'||!appearance.trim()||appearance.length>600)throw new Error('Describe your hero’s appearance in 1–600 characters.');
   if(heldWeapon!==undefined&&heldWeapon!=='Unarmed'&&!hero.weapons.some(w=>w.name===heldWeapon))throw new Error('Choose a weapon from your character sheet, or Unarmed.');
+  if(heightInches!==undefined&&!validCharacterHeight(heightInches))throw new Error('Choose a height between 0 ft 6 in and 20 ft, in whole inches.');
   const previous=queue.snapshot().jobs.filter(j=>j.sourceCharacterId===hero.id).at(-1);
   if(previous&&(initial||assetJobPending(previous)))return previous;
   const requestedBy=requester.dm?'dm':requester.playerId??undefined;
@@ -43,9 +52,10 @@ export function craftHeroToken(queue:AssetQueue,hero:Character,appearance:string
     const recent=queue.snapshot().jobs.filter(j=>!!requestedBy&&j.requestedBy===requestedBy&&Date.parse(j.requestedAt??'')>since).length;
     if(!requestedBy||recent>=HERO_CRAFTS_PER_DAY)throw new Error(`Hero tokens can be crafted ${HERO_CRAFTS_PER_DAY} times a day per player. Ask the DM to craft another.`);
   }
-  const job=queue.enqueueCharacter(hero,appearance.trim(),initial,heldWeapon,requestedBy);
+  const job=queue.enqueueCharacter({...hero,heightInches:heightInches??hero.heightInches},appearance.trim(),initial,heldWeapon,requestedBy);
   if(!job)throw new Error('The token-crafting queue is full. Your character is saved; try crafting from the character sheet later.');
   db.prepare('UPDATE characters SET appearance=? WHERE id=?').run(appearance.trim(),hero.id);
+  if(heightInches!==undefined)db.prepare('UPDATE characters SET height_inches=? WHERE id=?').run(heightInches,hero.id);
   // Keep an existing miniature during deliberate regeneration.
   if(!hero.modelType)db.prepare('UPDATE characters SET model_type=? WHERE id=?').run(job.family,hero.id);
   queue.onCharacterChange(hero.sessionId);

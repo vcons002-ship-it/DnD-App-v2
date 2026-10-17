@@ -4,6 +4,7 @@ import { CORE_CLASSES_2024, classProgression2024, type CoreClass } from './chara
 import { abilityMod, SKILLS, type AbilityKey } from './skills.js';
 import type { LevelUpFeatureChoice } from './levelingTypes.js';
 import type { SheetAbility } from './types.js';
+import {validCharacterHeight} from './characterHeight.js';
 import {CREATOR_EQUIPMENT,type CreatorEquipmentItem} from './equipmentCatalog2024.js';
 import {creatorBackground,GAMING_SETS} from './creatorBackgrounds.js';
 
@@ -50,7 +51,7 @@ export {STARTER_KITS,type StarterKit} from './startingEquipment2024.js';
 import {STARTER_KITS,INSTRUMENTS,ARTISAN_TOOLS,BACKGROUND_STARTING_GOLD} from './startingEquipment2024.js';
 
 export type CreatorChoices = {
-  requestId:string; name:string; species:string; className:CoreClass;
+  requestId:string; name:string; species:string; className:CoreClass;heightInches?:number;
   method:'array'|'points'|'roll'; scores:Record<AbilityKey,number>; rolled?:CreatorStatRoll;
   background:string; boosts:Partial<Record<AbilityKey,number>>; originFeat:string; humanFeat?:string;
   backgroundId?:string; backgroundEquipment?:'package'|'gold'; backgroundTool?:string;
@@ -166,6 +167,7 @@ export function creatorError(c:CreatorChoices,step:number,catalog?:CreatorCatalo
   if(!c||!CORE_CLASSES_2024.includes(c.className)||!CREATOR_SPECIES.includes(c.species as typeof CREATOR_SPECIES[number]))return 'Choose a class and species.';
   if(step===0)return c.name.trim().length>=1&&c.name.trim().length<=60?null:'Give your character a name (up to 60 characters).';
   if(step===4){
+    if(c.heightInches!==undefined&&!validCharacterHeight(c.heightInches))return 'Choose a height between 0 ft 6 in and 20 ft, in whole inches.';
     const purchaseError=creatorPurchaseError(c);if(purchaseError)return purchaseError;
     if(c.tokenCrafting?.enabled&&!creatorHeldWeapons(c).includes(c.tokenCrafting.heldWeapon??''))return 'Choose which equipped weapon your token will hold, or choose Unarmed.';
     if(c.tokenCrafting?.enabled&&creatorEquipment(c).shield&&CREATOR_EQUIPMENT.some(i=>i.weaponName===c.tokenCrafting?.heldWeapon&&i.description?.includes('Two-Handed')))return 'Stow your shield in Equipment & skills before choosing a two-handed held weapon.';

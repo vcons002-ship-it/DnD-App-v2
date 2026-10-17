@@ -238,6 +238,7 @@ test('player manually rolls abilities, can roll all 24 dice, and creates a chara
 
 test('appearance crafting creates a playable hero and exposes only their own job',async({page,request})=>{
   mkdirSync(evidence,{recursive:true});await page.setViewportSize({width:1500,height:980});const f=await campaign(request);
+  await request.post('/api/assets/pause',{headers:{'x-dm-passphrase':DM_SECRET},data:{paused:true}});
   await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();
   await page.locator('.creator-launch').click();const guide=page.getByRole('dialog',{name:'Bring your hero to life'});
   await guide.getByLabel('Character name',{exact:true}).fill('Sable');
@@ -261,8 +262,32 @@ test('appearance crafting creates a playable hero and exposes only their own job
   await stranger.timeout(5000).emitWithAck('join',{sessionCode:f.code,role:'player',playerId:'stranger-crafting-test'});
   const denied=await stranger.timeout(5000).emitWithAck('character:tokenCraftStatus',{characterId:c.id});expect(denied.ok).toBe(false);expect(denied.job).toBeUndefined();
   const refused=await stranger.timeout(5000).emitWithAck('character:craftToken',{characterId:c.id,appearance:'Tampered'});expect(refused.ok).toBe(false);
-  for(const artAction of ['approve','regenerate']){
+  for(const artAction of ['approve','regenerate','cancel']){
     const refusedReview=await stranger.timeout(5000).emitWithAck('character:craftToken',{characterId:c.id,appearance:'Tampered',artAction,jobId:ownJob.job.id,artHash:'a'.repeat(64)});
     expect(refusedReview.ok).toBe(false);expect(refusedReview.job).toBeUndefined();
   }
+  const crafting=page.locator('.hero-token-crafting');await crafting.getByRole('button',{name:'Cancel crafting',exact:true}).click();
+  await expect(crafting.getByRole('status')).toContainText('Craft cancelled');
+  expect((await f.socket.timeout(5000).emitWithAck('character:tokenCraftStatus',{characterId:c.id})).job.state).toBe('cancelled');
+  await crafting.getByRole('button',{name:/^Craft (a new token|token & miniature)$/}).click();
+  await expect(crafting.getByRole('status')).toContainText('Crafting in progress');
+  const recraft=await f.socket.timeout(5000).emitWithAck('character:tokenCraftStatus',{characterId:c.id});
+  expect(recraft.job.id).not.toBe(ownJob.job.id);expect(recraft.job.heldWeapon).toBe('Flail');expect(recraft.job.heightInches).toBe(78);
+  await crafting.getByRole('button',{name:'Cancel crafting',exact:true}).click();
+  await request.post('/api/assets/pause',{headers:{'x-dm-passphrase':DM_SECRET},data:{paused:false}});
+});
+
+test('mobile appearance height supports manual feet/inches and one-inch steps and persists on the character',async({page,request})=>{
+  const f=await campaign(request);await page.setViewportSize({width:390,height:844});
+  await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.creator-launch').click();
+  const guide=page.getByRole('dialog',{name:'Bring your hero to life'});
+  await guide.getByLabel('Character name',{exact:true}).fill('Height review');await guide.getByRole('button',{name:'Elf',exact:true}).click();
+  for(let i=0;i<4;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
+  await expect(guide.getByLabel('Height feet',{exact:true})).toHaveValue('5');await expect(guide.getByLabel('Height inches',{exact:true})).toHaveValue('6');
+  await guide.getByLabel('Height inches',{exact:true}).fill('11');await guide.getByRole('button',{name:'Increase height by one inch',exact:true}).click();
+  await expect(guide.getByLabel('Height feet',{exact:true})).toHaveValue('6');await expect(guide.getByLabel('Height inches',{exact:true})).toHaveValue('0');
+  await guide.getByRole('button',{name:'Decrease height by one inch',exact:true}).click();await expect(guide.getByLabel('Height feet',{exact:true})).toHaveValue('5');
+  await guide.getByLabel('Height inches',{exact:true}).fill('7');await guide.getByRole('button',{name:'Next →',exact:true}).click();await expect(guide).toContainText('5 ft 7 in');
+  await guide.getByRole('button',{name:'Create & play',exact:true}).click();await expect(guide).not.toBeVisible();
+  expect((await f.snapshot()).characters.find(c=>c.name==='Height review')?.heightInches).toBe(67);
 });

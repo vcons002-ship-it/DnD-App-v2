@@ -299,6 +299,7 @@ export type Character = {
   /** A generated character model is bound by id, independent of the hero's name. */
   modelType?: string;
   appearance?: string;
+  heightInches?:number;
 };
 
 export type CreatureAbility = {
@@ -728,7 +729,7 @@ export type LibraryItem = {
  * `Character` in the current session.
  */
 export type LibraryCharacter = {
-  modelType?:string;appearance?:string;
+  modelType?:string;appearance?:string;heightInches?:number;
   name: string;
   race: string;
   className: string;
@@ -1838,7 +1839,7 @@ export interface ClientToServerEvents {
   'character:create': (payload: CharacterCreatePayload) => void;
   'character:createGuided': (payload: import('./characterCreation.js').CreatorChoices, ack: (result: import('./characterCreation.js').CreatorResult) => void) => void;
   'character:rollStats': (payload: import('./characterCreation.js').CreatorStatRollRequest, ack: (result: import('./characterCreation.js').CreatorStatRollResult) => void) => void;
-  'character:craftToken': (payload:{characterId:string;appearance:string;heldWeapon?:string;retry?:boolean;artAction?:'approve'|'regenerate';jobId?:string;artHash?:string},ack:(result:{ok:true;job:import('./assetProduction.js').AssetJob}|{ok:false;error:string})=>void)=>void;
+  'character:craftToken': (payload:{characterId:string;appearance:string;heldWeapon?:string;heightInches?:number;view?:import('./assetProduction.js').SourceArtView;retry?:boolean;artAction?:'approve'|'regenerate'|'cancel';jobId?:string;artHash?:string},ack:(result:{ok:true;job:import('./assetProduction.js').AssetJob}|{ok:false;error:string})=>void)=>void;
   'character:tokenCraftStatus': (payload:{characterId:string},ack:(result:{ok:true;job:import('./assetProduction.js').AssetJob|null;paused:boolean}|{ok:false;error:string})=>void)=>void;
   'character:loadFromLibrary': (payload: CharacterLoadFromLibraryPayload) => void;
   'character:update': (payload: CharacterUpdatePayload) => void;

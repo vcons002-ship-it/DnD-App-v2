@@ -440,14 +440,16 @@ test('DM can request a separate equipped model despite an existing family and ap
   await expect.poll(()=>reviewActions.length).toBe(1);expect(reviewActions[0]).toMatchObject({action:'regenerate',notes:'Crossbow held ready; sword sheathed.'});
   await page.screenshot({path:info.outputPath('mobile-source-art-approval.png')});
   await artReview.getByRole('button',{name:'Approve art & create 3D model',exact:true}).click();
-  await expect(artReview).not.toBeVisible();expect(reviewActions[1]).toEqual({action:'approve',sha256:sourceArt.sha256});
+  await expect(artReview.getByRole('button',{name:'Approve art & create 3D model',exact:true})).not.toBeVisible();expect(reviewActions[1]).toEqual({action:'approve',sha256:sourceArt.sha256});
   await page.setViewportSize({width:1440,height:960});
   // Simulate completed production with a known GLB; this test spends no image/GPU jobs.
-  await page.route('**/api/assets/jobs', route => route.fulfill({ json: { ...queued, jobs: queued.jobs.map((j: any) => j.id === job.id ? { ...j, state: 'ready', stage: 'Ready' } : j) } }));
+  await page.route('**/api/assets/jobs', route => route.fulfill({ json: { ...queued, jobs: queued.jobs.map((j: any) => j.id === job.id ? { ...j, state: 'ready', stage: 'Ready',sourceArt:{...sourceArt,approvedAt:'fixture-approved'} } : j) } }));
   const glb = await (await request.get('/miniatures/monsters/goblin.glb')).body();
   await page.route('**/uploads/miniatures/manual-test.glb', route => route.fulfill({ body: glb, contentType: 'model/gltf-binary' }));
   await page.route('**/api/assets/catalog', route => route.fulfill({ json: { models: [{ id: job.family, url: '/uploads/miniatures/manual-test.glb', baseDiameter: 1, baseCenter: [0, 0, 0], bytes: glb.length, triangles: 20764, sha256: 'test' }] } }));
   await page.getByRole('button', { name: 'Use this model', exact: true }).click({ timeout: 15000 });
+  await expect(artReview).toContainText('Saved reference images');
+  await expect(artReview.getByRole('button',{name:'Refresh left',exact:true})).toBeEnabled();
   await expect.poll(async () => (await f.snapshot()).monsters.find(m => m.id === token.refId)?.modelType).toBe(job.family);
   expect((await f.snapshot()).monsterTemplates.find(m => m.id === template.id)?.modelType).toBe('goblin');
   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '4', { timeout: 15000 });

@@ -84,3 +84,11 @@ it('limits each player to a few paid hero-token crafts a day; the DM is not limi
   expect(()=>craftHeroToken(q,fresh(97),'Blue robes.',false,undefined,{dm:true})).not.toThrow();
   expect(()=>craftHeroToken(q,fresh(96),'Blue robes.',false,undefined,{dm:false,playerId:null})).toThrow(/a day per player/);
 });
+
+it('persists selected height through crafting and library loading and includes it in the art brief',()=>{
+  const c=hero(),q=new AssetQueue(file(),vi.fn()),job=craftHeroToken(q,c,'Ready stance.',false,undefined,{dm:true},67);
+  expect(job.heightInches).toBe(67);expect(job.artBrief).toContain('Height: 5 ft 7 in');expect(getCharacter(c.id)?.heightInches).toBe(67);
+  saveLibraryCharacter({...getCharacter(c.id)!,name:'Height library'},true);
+  expect(createCharacterFromLibrary(createSession().id,'Height library')?.heightInches).toBe(67);
+  expect(()=>craftHeroToken(q,c,'Ready.',false,undefined,{dm:true},NaN)).toThrow('height');
+});

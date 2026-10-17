@@ -1,4 +1,5 @@
 import { db,newId } from './db.js';
+import {suggestedCharacterHeight} from '../../shared/characterHeight.js';
 import { createCharacter,getCharacter,type CharacterInput } from './sessions.js';
 import { creatorError,creatorPreview,CLASS_IDENTITY,CREATOR_SPECIES,ORIGIN_FEATS,type CreatorCatalog,type CreatorChoices } from '../../shared/characterCreation.js';
 import { CORE_CLASSES_2024,classProgression2024,alwaysPreparedSpells2024,type ClassProgression } from '../../shared/characterProgression.js';
@@ -129,7 +130,7 @@ export function buildStarterCharacter(c:CreatorChoices):CharacterInput {
   const resources=Object.fromEntries(Object.entries(progression.resourceMaxima).map(([key,max])=>[key,{max,used:0}]));
   for(const a of abilities)if(a.useCounter&&!resources[a.useCounter.name])resources[a.useCounter.name]={max:a.useCounter.max,used:0};
   return {name:c.name.trim(),race:c.species,className:cls.title,level:1,maxHp:hp,armorClass:ac,gold,speed:`${speed} ft`,stats,weapons,resources,
-    appearance:c.tokenCrafting?.appearance?.trim(),
+    appearance:c.tokenCrafting?.appearance?.trim(),heightInches:c.heightInches??suggestedCharacterHeight(c.species),
     resistances:c.species==='Dwarf'?['poison']:c.species==='Aasimar'?['necrotic','radiant']:[],
     proficientSkills:[...c.backgroundSkills,...c.skills,...c.extraSkills],saveProficiencies:cls.saves,modifiers,sheetAbilities:abilities,
     items:equipment.items.map(i=>({id:newId(),...i,note:`2024 starting equipment${STARTING_PACK_CONTENTS[i.name]?` · Pack contains: ${STARTING_PACK_CONTENTS[i.name]}`:''}${i.name===equipment.wornArmor?.name&&equipment.wornArmor.stealthDisadvantage?' · Disadvantage on Stealth checks':''}`,equipped:i.name===equipment.wornArmor?.name||i.name==='Shield'&&equipment.shield})),

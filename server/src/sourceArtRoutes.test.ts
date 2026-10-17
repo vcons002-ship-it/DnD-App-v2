@@ -6,7 +6,7 @@ import {config} from './config.js';
 import {createApiRouter} from './routes.js';
 import type {IOServer} from './connections.js';
 
-const queue=vi.hoisted(()=>({snapshot:vi.fn(()=>({jobs:[{id:'review',artBrief:'Chainmail'}]})),approveArt:vi.fn(()=>false),regenerateArt:vi.fn(()=>false)}));
+const queue=vi.hoisted(()=>({snapshot:vi.fn(()=>({jobs:[{id:'review',artBrief:'Chainmail'}]})),approveArt:vi.fn(()=>false),regenerateArt:vi.fn(()=>false),cancel:vi.fn(()=>false)}));
 vi.mock('./assets/production.js',()=>({assetQueue:()=>queue}));
 let server:Server|undefined;
 afterEach(async()=>{queue.approveArt.mockReset().mockReturnValue(false);queue.regenerateArt.mockReset().mockReturnValue(false);if(server)await new Promise<void>(resolve=>server!.close(()=>resolve()));server=undefined;});
@@ -25,5 +25,10 @@ it('requires DM authentication and exact current-image approval; validates regen
   expect(queue.regenerateArt).not.toHaveBeenCalled();
   queue.regenerateArt.mockReturnValue(true);
   expect((await fetch(url,{method:'POST',headers,body:JSON.stringify({action:'regenerate',notes:'Brown hair'})})).status).toBe(200);
-  expect(queue.regenerateArt).toHaveBeenCalledWith('review','Chainmail\nRevised appearance: Brown hair',true);
+  expect(queue.regenerateArt).toHaveBeenCalledWith('review','Chainmail\nRevised appearance: Brown hair',true,undefined,{view:undefined});
+  expect((await fetch(url,{method:'POST',headers,body:JSON.stringify({action:'regenerate',view:'upside-down'})})).status).toBe(400);
+  expect((await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cancel'})})).status).toBe(403);
+  queue.cancel.mockReturnValue(true);
+  expect((await fetch(url,{method:'POST',headers,body:JSON.stringify({action:'cancel'})})).status).toBe(200);
+  expect(queue.cancel).toHaveBeenCalledWith('review');
 });

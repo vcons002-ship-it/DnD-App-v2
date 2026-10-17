@@ -1,5 +1,6 @@
 import { MONSTER_MODEL_TYPES, normalizeModelType, resolveMonsterModelType, type MonsterAppearance } from './monsterAppearance.js';
 import type { Monster, Character } from './types.js';
+import {formatCharacterHeight} from './characterHeight.js';
 
 export type AssetCreature = MonsterAppearance & Partial<Pick<Monster, 'id' | 'weapons' | 'actions' | 'abilities' | 'sheetAbilities'>>;
 export function verifiedTextureViews(receipt: { multiview_texture_verified?: boolean; texture_view_count?: number; texture_reference_views?: string[]; texture_policy?: string }, views: readonly string[]): boolean {
@@ -19,10 +20,11 @@ export function creatureArtBrief(creature: AssetCreature, notes = ''): string {
     notes.trim() ? `DM appearance notes: ${clean(notes.trim())}` : '',
   ].filter(Boolean).join('\n');
 }
-export function heroArtBrief(hero:Pick<Character,'name'|'race'|'className'|'weapons'|'items'>,appearance:string,heldWeapon?:string):string {
+export function heroArtBrief(hero:Pick<Character,'name'|'race'|'className'|'weapons'|'items'|'heightInches'>,appearance:string,heldWeapon?:string):string {
   const clean=(s:string)=>s.replace(/[\r\n]+/g,' ').slice(0,600);
   return [`Hero: ${clean(hero.name)}. Species/race: ${clean(hero.race)}. Class: ${clean(hero.className)}.`,
     `Appearance: ${clean(appearance)}.`,
+    ...(hero.heightInches?[`Height: ${formatCharacterHeight(hero.heightInches)}.`]:[]),
     heldWeapon?`Held weapon: ${clean(heldWeapon)}. ${heldWeapon==='Unarmed'?'Empty hands; all equipment stowed.':'Hold only this weapon ready. All other weapons are stowed, not held.'}`:'',
     `Weapons: ${hero.weapons.slice(0,8).map(w=>clean(w.name)).join(', ')}.`,
     `Clothing and equipment: ${hero.items.filter(i=>/armor|armour|mail|shirt|shield|robe|focus|symbol/i.test(i.name)).slice(0,8).map(i=>clean(i.name)).join(', ')||'use the appearance description'}.`
@@ -45,22 +47,24 @@ export type ProducedMiniature = {
   id: string; url: string; baseDiameter: number; baseCenter: [number, number, number];
   bytes: number; triangles: number; sha256: string;
 };
+export type SourceArtView='front'|'back'|'left'|'right';
 export type SourceArt = {
   sheetUrl:string;
-  views:{view:'front'|'back'|'left'|'right';url:string}[];
+  views:{view:SourceArtView;url:string}[];
   /** Fingerprint of all four named input images, approved as one revision. */
   sha256:string;
   approvedAt?:string;
 };
 export const assetJobPending=(job:AssetJob)=>['queued','running','awaiting_approval'].includes(job.state);
 export type AssetJob = {
-  sourceArt?:SourceArt; referenceRevision?:number; heldWeapon?:string;
+  sourceArt?:SourceArt; referenceRevision?:number; heldWeapon?:string; heightInches?:number; sourceIcon?:string;
+  refreshView?:SourceArtView; referenceSourceRevision?:number;
   sourceCharacterId?:string; sourceModelType?:string; tokenIcon?:string;
   /** Player id (or 'dm') that asked for a hero token, and when — for the daily quota. */
   requestedBy?:string; requestedAt?:string;
   /** The finished token art has been put on the character once; a restart must not repeat it. */
   iconApplied?:boolean;
   sourceMonsterId?: string; artBrief?: string; subjectFamily?: string;
-  id: string; family: string; state: 'queued' | 'running' | 'awaiting_approval' | 'failed' | 'ready';
+  id: string; family: string; state: 'queued' | 'running' | 'awaiting_approval' | 'cancelling' | 'cancelled' | 'failed' | 'ready';
   stage: string; attempts: number; updatedAt: string; error?: string;
 };

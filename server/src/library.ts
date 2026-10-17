@@ -261,7 +261,7 @@ export function deleteLibraryCreature(name: string): void {
 // ---- Cross-session character library ----
 
 type LibCharacterRow = {
-  model_type?:string;appearance?:string;
+  model_type?:string;appearance?:string;height_inches?:number;
   id: string;
   name: string;
   race: string;
@@ -292,7 +292,7 @@ type LibCharacterRow = {
 
 function rowToLibraryCharacter(r: LibCharacterRow): LibraryCharacter {
   return {
-    modelType:r.model_type||undefined,appearance:r.appearance||undefined,
+    modelType:r.model_type||undefined,appearance:r.appearance||undefined,heightInches:r.height_inches??undefined,
     name: r.name,
     race: r.race,
     className: r.class_name,
@@ -417,6 +417,7 @@ export function saveLibraryCharacter(
   db.prepare('UPDATE library_characters SET model_type=?,appearance=? WHERE id=?').run(
     typeof input.modelType==='string'&&/^[a-z0-9-]{1,48}$/.test(input.modelType)?input.modelType:'',
     typeof input.appearance==='string'?input.appearance.slice(0,600):'',id);
+  if(typeof input.heightInches==='number'&&Number.isInteger(input.heightInches)&&input.heightInches>=6&&input.heightInches<=240)db.prepare('UPDATE library_characters SET height_inches=? WHERE id=?').run(input.heightInches,id);
   return { saved: getLibraryCharacter(name)! };
 }
 

@@ -5,6 +5,7 @@
 .source-art-review>a>img{max-height:520px}
 .source-art-review a span{display:block;text-align:center;font-size:.85em;padding:4px;text-transform:capitalize}
 .source-art-views{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:10px 0}
+.source-art-views>div{min-width:0}.source-art-views button{width:100%;white-space:normal;min-height:40px;margin:0!important}
 .source-art-actions{display:flex;gap:8px;flex-wrap:wrap}
 .source-art-actions button{white-space:normal;flex:1 1 170px;min-height:44px}
 .source-art-review small{display:block;margin-top:8px}

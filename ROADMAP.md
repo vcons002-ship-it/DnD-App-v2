@@ -1,5 +1,10 @@
 # Roadmap & Feature Backlog
 
+- [x] Add cancellable/repeatable token crafting, persistent source galleries with
+  individual-view refresh and fresh approval, explicit battle-ready reference
+  poses, and editable feet/inches character height with suggested species ranges.
+  Preserve existing models, serial GPU work and library height values.
+
 - [x] Require approval of the four source views before creature or hero 3D
   reconstruction. Add mobile art review, regeneration, persistent revision
   checks and owner-gated approval; use realistic, neutrally lit reference art.
