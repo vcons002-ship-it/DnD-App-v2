@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import {createPortal} from 'react-dom';
 import { useStore } from '../state/socket';
 import { playInitiative, playRest, playYourTurn } from '../lib/sfx';
 import {CounterspellPrompt} from './CounterspellPrompt';
@@ -63,12 +64,11 @@ export function CombatMoments() {
     const token = snapshot.tokens.find(t => t.id === snapshot.activeTurnTokenId);
     if (!token) return;
     const ch = token.kind === 'pc' ? snapshot.characters.find(c => c.id === token.refId) : null;
-    const mine = snapshot.role === 'player' ? ch?.claimedBy === socket?.id
-      : token.kind === 'monster' || !!ch && !ch.claimedBy;
-    if (!mine) return;
+    if (snapshot.role === 'player' && ch?.claimedBy !== socket?.id) return;
     const name = ch?.name ?? snapshot.monsters.find(m => m.id === token.refId)?.name ?? 'Your creature';
-    setQueue(q => [...q.filter(v => v.kind !== 'turn'), {id: key, title: 'Your Turn',
-      detail: `${name} · Round ${snapshot.round}`, kind: 'turn'}]);
+    setQueue(q => [...q.filter(v => v.kind !== 'turn'), {id: key,
+      title: snapshot.role === 'dm' ? `${name}’s turn` : 'Your Turn',
+      detail: snapshot.role === 'dm' ? `Round ${snapshot.round}` : `${name} · Round ${snapshot.round}`, kind: 'turn'}]);
   }, [snapshot, socket?.id]);
 
   // Starting an action consumes the invitation, even before the server's first
@@ -92,13 +92,15 @@ export function CombatMoments() {
       ?q.filter(v=>v.kind!=='turn'||v.id!==shown):q);
   },[liveDice?.id,rollFx?.id]);
   const banner = liveDice || rollFx ? undefined : queue[0];
+  const compactTurn=banner?.kind==='turn'&&snapshot?.role==='dm';
+  const bannerDuration=compactTurn?2800:banner?.kind==='turn'?5400:4600;
   useEffect(() => {
     if (!banner) return;
     presented.current = banner.id;
-    (banner.kind === 'initiative' ? playInitiative : banner.kind === 'rest' ? playRest : playYourTurn)();
-    const timer = window.setTimeout(() => setQueue(q => q.filter(v=>v.id!==banner.id)), banner.kind === 'turn' ? 5400 : 4600);
+    if(!compactTurn)(banner.kind === 'initiative' ? playInitiative : banner.kind === 'rest' ? playRest : playYourTurn)();
+    const timer = window.setTimeout(() => setQueue(q => q.filter(v=>v.id!==banner.id)), bannerDuration);
     return () => clearTimeout(timer);
-  }, [banner?.id]);
+  }, [banner?.id,compactTurn,bannerDuration]);
   useEffect(() => {
     if (!snapshot?.ripostes?.length) return;
     setNow(Date.now());
@@ -111,6 +113,15 @@ export function CombatMoments() {
     t.kind === 'pc' && t.inCombatEffective && t.initiative === null) : [];
   const mine = waiting.find(t => snapshot?.characters.find(c => c.id === t.refId)?.claimedBy === socket?.id);
   const dmWaiting = snapshot?.initiativePending && snapshot.role === 'dm';
+  const announcement=banner&&<div className={`combat-moment combat-moment-${banner.kind} ${compactTurn?'combat-moment-dm-turn':''} ${animate?'':'no-motion'}`}
+    style={{animationDuration:`${bannerDuration}ms`}}
+    role="status" aria-live="polite" aria-label={compactTurn?'Current turn':undefined} key={banner.id}>
+    {!compactTurn&&<span className="combat-moment-kicker">{banner.kind==='initiative'?'Combat':banner.kind==='rest'?'The party rests':'Take the spotlight'}</span>}
+    <strong title={banner.title}>{banner.title}</strong><span>{banner.detail}</span>
+    <button aria-label="Dismiss announcement" onClick={()=>setQueue(q=>q.filter(v=>v.id!==banner.id))}>×</button>
+  </div>;
+  // Anchor the compact notice below the toolbar, even when it wraps on mobile.
+  const turnHost=compactTurn?document.getElementById('dm-turn-announcement'):null;
   return <>
     <ShieldReactionPrompt/>
     <CounterspellPrompt/>
@@ -125,13 +136,7 @@ export function CombatMoments() {
       </button>
     </div>}
     {snapshot?.initiativePending && !mine && !dmWaiting && <div className="initiative-waiting" role="status">Waiting for initiative rolls…</div>}
-    {banner && <div className={`combat-moment combat-moment-${banner.kind} ${animate ? '' : 'no-motion'}`}
-      style={{animationDuration: banner.kind === 'turn' ? '5400ms' : '4600ms'}}
-      role="status" aria-live="polite" key={banner.id}>
-      <span className="combat-moment-kicker">{banner.kind === 'initiative' ? 'Combat' : banner.kind === 'rest' ? 'The party rests' : 'Take the spotlight'}</span>
-      <strong>{banner.title}</strong><span>{banner.detail}</span>
-      <button aria-label="Dismiss announcement" onClick={() => setQueue(q => q.slice(1))}>×</button>
-    </div>}
+    {turnHost?createPortal(announcement,turnHost):announcement}
     {offer && fighter && <div className="riposte-prompt" role="region" aria-label="Riposte opportunity">
       <strong>Riposte?</strong><span>A melee attack missed {fighter.name}.</span>
       <small>Reaction + 1 Superiority Die · {Math.max(0, Math.ceil((offer.expiresAt - now) / 1000))}s</small>

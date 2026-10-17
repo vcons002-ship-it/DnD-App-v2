@@ -99,6 +99,7 @@ export function DmView() {
       <TopToolbar snapshot={snapshot} compactDm />
 
       <div className="body">
+        <div id="dm-turn-announcement" className="dm-turn-announcement" />
         <main className="center">
           {snapshot.undoLabel && (
             <button
