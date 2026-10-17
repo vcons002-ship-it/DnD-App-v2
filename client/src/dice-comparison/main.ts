@@ -84,7 +84,7 @@ async function roll(next=sides){
   if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);}
   if(!inspecting)renderer.draw(ctx,r.width,r.height,dpr,0,now);
   canvas.dataset.trailPoints=String(renderer.trailPointCount());canvas.dataset.trailBranches=String(renderer.trailBranchCount());
-  canvas.dataset.rollPower=JSON.stringify(renderer.powerStates().map(p=>({known:p.known,strength:p.strength,maximum:p.maximum,critical:p.critical,dmCharge:p.dmCharge,dmPulseFrequency:p.dmPulseFrequency,goldCharge:p.goldCharge,goldSparkles:p.goldSparkles,leaves:p.leaves,escapingBolts:p.escapingBolts,lightningBursts:p.lightningBursts,broken:p.broken,pools:p.pools})));
+  canvas.dataset.rollPower=JSON.stringify(renderer.powerStates().map(p=>({resin:p.resin,classArt:p.classArt,known:p.known,strength:p.strength,maximum:p.maximum,critical:p.critical,dmCharge:p.dmCharge,dmPulseFrequency:p.dmPulseFrequency,goldCharge:p.goldCharge,goldSparkles:p.goldSparkles,leaves:p.leaves,escapingBolts:p.escapingBolts,lightningBursts:p.lightningBursts,broken:p.broken,pools:p.pools})));
   labels.forEach((l,i)=>{const p=renderer!.numberPosition(i);l.hidden=!done||p.x<.05||p.x>.95||p.y<.05||p.y>.88;l.style.left=`${p.x*100}%`;l.style.top=`calc(${p.y*100}% + ${sides===100?25:38}px)`;});
   if(snapshot.done&&!done){
    done=true;inspect.disabled=false;tray.dataset.state='settled';sound?.stop();

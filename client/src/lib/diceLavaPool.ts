@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import {createDiceLavaRelease} from './diceLavaRelease';
-import {lavaNoise,lavaSurface} from './diceLavaMaterial';
+import {lavaNoise,lavaSurface,lavaRenderOrder} from './diceLavaMaterial';
 import {createDiceLavaFlames} from './diceLavaFlames';
+import {createDiceLavaSmoke} from './diceLavaSmoke';
 
 const vertex=`varying vec2 poolUV;
 void main(){poolUV=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
@@ -41,22 +42,24 @@ export function createDiceLavaPool(parent:THREE.Group){
  const group=new THREE.Group();group.visible=false;group.userData.dicePowerArt=true;group.add(glow,surface);parent.add(group);
  const release=createDiceLavaRelease(group,uniforms);
  const flames=createDiceLavaFlames(group);
+ const smoke=createDiceLavaSmoke(group);
  group.traverse(object=>{object.userData.dicePowerArt=true;});
- surface.position.z=.018;surface.renderOrder=2;glow.position.z=.012;glow.scale.setScalar(2.4);glow.renderOrder=1;
+ surface.name='lava-pool';surface.position.z=.018;surface.renderOrder=lavaRenderOrder.pool;glow.position.z=.012;glow.scale.setScalar(2.4);glow.renderOrder=lavaRenderOrder.glow;
  return {
   start(origin:THREE.Vector3,radius:number,floor:number,seed:number){group.position.set(origin.x,origin.y,floor);group.scale.setScalar(radius);uniforms.seed.value=seed;release.start(Math.max(.35,(origin.z-floor)/radius),seed);},
-  prewarm(enabled:boolean){group.visible=enabled;release.prewarm(enabled);flames.prewarm(enabled);uniforms.alpha.value=0;},
+  prewarm(enabled:boolean){group.visible=enabled;release.prewarm(enabled);flames.prewarm(enabled);smoke.prewarm(enabled);uniforms.alpha.value=0;},
   visible(){return group.visible&&uniforms.alpha.value>0;},
   dropping(){return group.visible&&release.active();},
   update(now:number,age:number,visible:boolean){
    group.visible=visible;uniforms.time.value=now/1000;
    release.update(age,visible);
    flames.update(now,age,visible,uniforms.seed.value);
+   smoke.update(now,age,visible,uniforms.seed.value);
    // The core lands first; tiny radial flecks land around it moments later.
    uniforms.alpha.value=visible?THREE.MathUtils.smoothstep(age,.12,.30):0;
    uniforms.spread.value=THREE.MathUtils.lerp(.20,1,THREE.MathUtils.smoothstep(age,.12,.65));
   },
   clear(){group.visible=false;release.clear();uniforms.alpha.value=0;},
-  dispose(){release.dispose();flames.dispose();parent.remove(group);geometry.dispose();material.dispose();glowMaterial.dispose();},
+  dispose(){release.dispose();flames.dispose();smoke.dispose();parent.remove(group);geometry.dispose();material.dispose();glowMaterial.dispose();},
  };
 }

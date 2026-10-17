@@ -102,3 +102,37 @@ initiative batches. Gold creation dice remain a separate appearance override.
 Validation: 2,241 unit tests passed. A live Fireball in a disposable session
 rendered Fighter, Ranger and DM dice together, with independent labels and
 PASS/FAIL outcomes. Browser regression: e2e/grouped-save-dice-art.spec.ts.
+
+
+### Resin revision
+
+The ten added class sets now have closed refractive resin bodies, using the
+same MeshPhysicalMaterial transmission path as the approved DM dice. Their
+former opaque stone/metal body treatment is replaced. Metal number inlays stay
+opaque, with dark inward backings so transmitted far-side numbers do not become
+competing bright results. Gold critical/creation dice remain their opaque gold
+variant, and the approved Fighter/Ranger/Sorcerer/DM designs keep their existing
+material paths.
+
+Each new class samples a distinct animated 3D field inside the refracted ray:
+embers, iridescent ribbons, solar/radiant cores, pollen, qi rings, shadow/witchfire
+clouds, stars, or copper dust and energy coils. Depth changes with the viewing
+angle. These are bounded twelve-sample shader effects, without per-die scene
+lights or extra particle meshes inside the shell. Existing maximum effects
+outside the dice remain. Reduced motion freezes the new internal field and
+suppresses its existing external particles. This is real transmission with
+absorption and refraction, rather than lowering the whole model's alpha.
+
+Physical transmission has a rendering cost relative to opaque bodies; no claim
+of unchanged frame rate is made. The body uses the shared transmission pass
+rather than a new light, shadow map, or offscreen pass per class. Inspect and
+roll all revised materials in the existing public dice reviewer.
+
+Druk's maximum-roll lava now has a soft rising smoke plume. Eight expanding,
+camera-facing wisps share one instanced draw, with turbulent density, a warm
+base and a cooler fading top. Pool, splatter, flames and smoke have explicit
+transparent draw order, so rotating the inspector cannot let the pool paint
+over its rising effects. Depth testing remains on for solid tray/dice
+occlusion, and the smoke clips at the floor. It resets and disposes with the
+pool, adds no lights or shadow maps, and follows the existing reduced-motion
+suppression of Druk's explosion.

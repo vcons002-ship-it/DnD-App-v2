@@ -1,3 +1,4 @@
+import {classResinDeclarations,classResinIntegration} from './classDiceResin';
 import * as THREE from 'three';
 import {classDiceArt} from '../../../shared/classDiceArt';
 import {classDiceShader} from './classDiceShader';
@@ -22,6 +23,7 @@ import type { DiceTheme } from '../../../shared/diceThemes';
 let stage: ReturnType<typeof makeStage> | undefined;
 let rangerMoteSequence=0;
 let dmChargeSequence=0;
+let classResinSequence=0;
 function drawDieNumeral(ctx:CanvasRenderingContext2D,text:string,x:number,y:number){
   ctx.fillText(text,x,y);
   if(!text.includes('6'))return;
@@ -643,14 +645,16 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   const classSpec=classDiceArt(theme.id);
   const gold=crit||theme.id==='gold-roll';
   const dm=theme.id.startsWith('dm-');
-  const gem=dm&&!crit;
+  const gem=(dm||!!classSpec)&&!gold;
   const glass=!!classSpec||gold||dm||['sorcerer','fighter','ranger'].includes(theme.id);
   const style=dm?3:theme.id==='fighter'?1:theme.id==='ranger'?2:0;
   const planes=Array.from({length:20},(_,i)=>faces[i]?new THREE.Vector4(...faces[i].n.toArray(),faces[i].n.dot(faces[i].c)):new THREE.Vector4());
-  const uniforms={classArt:{value:classSpec?.id??0},classDark:{value:new THREE.Color(classSpec?.dark??'#000000')},classLight:{value:new THREE.Color(classSpec?.light??'#ffffff')},classInlay:{value:new THREE.Color(classSpec?.inlay??'#ffffff')},classEnergy:{value:new THREE.Color(classSpec?.energy??'#000000')},classRoughness:{value:classSpec?.roughness??.2},classMetal:{value:classSpec?.metal??0},eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:gem?1:0},style:{value:style},critical:{value:gold?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
+  const uniforms={classArt:{value:classSpec?.id??0},classDark:{value:new THREE.Color(classSpec?.dark??'#000000')},classLight:{value:new THREE.Color(classSpec?.light??'#ffffff')},classInlay:{value:new THREE.Color(classSpec?.inlay??'#ffffff')},classEnergy:{value:new THREE.Color(classSpec?.energy??'#000000')},classRoughness:{value:classSpec?.roughness??.2},classMetal:{value:classSpec?.metal??0},eye:{value:new THREE.Vector3()},rotation:{value:new THREE.Matrix3()},planes:{value:planes},count:{value:faces.length},time:{value:0},moltenCracks:{value:style===1&&!crit?1:0},mossAgate:{value:0},enchantedAmber:{value:0},motePosition:{value:new THREE.Vector3()},moteRoom:{value:Math.min(...faces.map(f=>f.n.dot(f.c)))},trayLighting:{value:false},rollPower:{value:.35},rollMaximum:{value:0},eruptionPulse:{value:0},moltenWarning:{value:0},internalLightning:{value:theme.id==='sorcerer'&&!crit?1:0},lightningPhase:{value:3},lightningSeed:{value:0},resinGlow:{value:gem?.65:0},resinDensity:{value:gem?1:0},resinInk:{value:dm&&!crit?1:0},style:{value:style},critical:{value:gold?1:0},tint:{value:dm?new THREE.Vector3(...new THREE.Color().setHSL(theme.hue/360,.88,.15).toArray()):style===2?new THREE.Vector3(.16,.85,.29):crit?new THREE.Vector3(.98,.65,.14):new THREE.Vector3(.93,.1,.2)}};
   const power=createRollPowerState(sides);
   let powerView=power.advance(0),powerReduced=false,explosionAt:number|null|undefined;
   const shatterAge=(now:number)=>drukFinaleAge(powerView.age,now,explosionAt);
+  const resinPhase={value:classSpec?classResinSequence++*2.399963:0};
+  const resinReducedMotion={value:0};
   const resinRedCharge={value:0},chargeSeed=dm?dmChargeSequence++*2.399963:0;
   let dmChargeView={charge:0,frequency:0};
   let dmResultBorn=NaN;
@@ -702,6 +706,13 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
   let resinBody:THREE.MeshPhysicalMaterial|undefined;
   const updateResin=()=>{
     if(!resinBody)return;
+    if(classSpec){
+      resinBody.transmission=.96;resinBody.opacity=1;resinBody.metalness=0;
+      resinBody.attenuationColor.set(classSpec.resinTint);resinBody.attenuationDistance=2.6;
+      resinBody.color.copy(new THREE.Color('#ffffff')).lerp(new THREE.Color(classSpec.resinTint),.12);
+      resinBody.roughness=.045;resinBody.envMapIntensity=.11;
+      resinBody.specularIntensity=.5;resinBody.clearcoat=.22;return;
+    }
     const ink=uniforms.resinInk.value>.5,dense=uniforms.resinDensity.value>.5;
     resinBody.transmission=ink ? .95 : dense ? .78 : .98;
     resinBody.attenuationDistance=ink ? (dense?3.6:6) : dense?2.2:6;
@@ -779,17 +790,33 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
       shader.uniforms.resinDensity=uniforms.resinDensity;
       shader.uniforms.resinInk=uniforms.resinInk;
       shader.uniforms.resinRedCharge=resinRedCharge;
+      if(classSpec){
+        shader.uniforms.resinClass=uniforms.classArt;
+        shader.uniforms.resinClassEnergy=uniforms.classEnergy;
+        shader.uniforms.resinClassDark=uniforms.classDark;
+        shader.uniforms.resinClassLight=uniforms.classLight;
+        shader.uniforms.resinClassDensity={value:classSpec.cloudDensity};
+        shader.uniforms.resinClassRoom=uniforms.moteRoom;
+        shader.uniforms.resinClassPhase=resinPhase;
+        shader.uniforms.resinPower=uniforms.rollPower;
+        shader.uniforms.resinMaximum=uniforms.rollMaximum;
+        shader.uniforms.resinReducedMotion=resinReducedMotion;
+      }
       shader.uniforms.resinPlanes=uniforms.planes;shader.uniforms.resinPlaneCount=uniforms.count;
       shader.vertexShader='varying vec3 resinPosition;\nvarying vec3 resinNormal;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nresinPosition=position;resinNormal=normal;');
-      shader.fragmentShader='uniform bool trayLighting;\nuniform bool resinTetrahedron;\n'+resinCloudDeclarations+resinInkField+'\n'+shader.fragmentShader;
+      shader.fragmentShader='uniform bool trayLighting;\nuniform bool resinTetrahedron;\n'+resinCloudDeclarations+resinInkField+(classSpec?classResinDeclarations:'')+'\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
         float topReflection=trayLighting?1.-smoothstep(resinTetrahedron?.15:.50,resinTetrahedron?.60:.88,inverseTransformDirection(normal,viewMatrix).z)*.88:1.;
         reflectedLight.directSpecular*=topReflection;reflectedLight.indirectSpecular*=topReflection;`);
-      shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+resinCloudTransmission);
+      const volume=classSpec?resinCloudTransmission
+        .replace('float samples=resinInk>.5?12.:8.;','float samples=12.;')
+        .replace('   if(resinInk>.5){',classResinIntegration+'if(resinInk>.5){')
+        .replace(' if(resinInk>.5){\n   totalDiffuse=', ' if(resinClass>.5||resinInk>.5){\n   totalDiffuse='):resinCloudTransmission;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>','#include <transmission_fragment>\n'+volume);
     };
-    resin.customProgramCacheKey=()=> 'dm-resin-clouds-v8-black-ink-red-light';
-    materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name='purple-resin-volume';root.add(body);
+    resin.customProgramCacheKey=()=>classSpec?'class-resin-volume-v1':'dm-resin-clouds-v8-black-ink-red-light';
+    materials.push(resin);const body=new THREE.Mesh(bodyGeometry,resin);body.name=classSpec?'class-resin-volume':'purple-resin-volume';root.add(body);
   }
   const shatter=theme.id==='fighter'?createDiceShatterArt(root,source.faces.map(ids=>ids.map(i=>vertices[i])),crit):undefined;
   const moteRays=style===2?createDiceMoteRays(root,planes.slice(0,faces.length),uniforms.moteRoom.value):undefined;
@@ -805,11 +832,11 @@ export function createMaterialDie(sides:number,theme:DiceTheme,crit:boolean,tens
     object: root,
     resetForRoll(){power.reset();powerView=power.advance(performance.now());dmResultBorn=NaN;dmChargeView={charge:0,frequency:0};resinRedCharge.value=0;explosionAt=undefined;shatter?.reset();moteRays?.reset();leafSwirl?.reset();escapingLightning?.reset();lightning=createLightningTiming();moteRevision=-1;lastValue=-1;lastReadable=false;},
     setRollResult(value:number|null|undefined,percentileValue?:number){power.setResult(value,percentileValue);},
-    setReducedMotion(reduced:boolean){powerReduced=reduced;},
+    setReducedMotion(reduced:boolean){powerReduced=reduced;resinReducedMotion.value=reduced?1:0;},
     setExplosionAt(at:number|null|undefined){explosionAt=at;},
     setShatterWorld(world:ShatterWorld){shatter?.setWorld(world);},
     prewarmShatter(enabled:boolean){shatter?.prewarm(enabled);},
-    powerState(){return {...powerView,classArt:classSpec?.name,classParticles:classPowerArt?.count()??0,critical:crit,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldCharge:goldSparkles?.strength()??0,goldSparkles:goldSparkles?.count()??0,particles:moteRays?.count()??0,...leafSwirl?.state(),...escapingLightning?.state(),...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
+    powerState(){return {...powerView,resin:resinBody?{volume:classSpec?'class':'dm',transmission:resinBody.transmission,opacity:resinBody.opacity,metalness:resinBody.metalness}:undefined,classArt:classSpec?.name,classParticles:classPowerArt?.count()??0,critical:crit,dmCharge:dmChargeView.charge,dmPulseFrequency:dmChargeView.frequency,goldCharge:goldSparkles?.strength()??0,goldSparkles:goldSparkles?.count()??0,particles:moteRays?.count()??0,...leafSwirl?.state(),...escapingLightning?.state(),...shatter?.state(),mote:uniforms.motePosition.value.toArray()};},
     setTrayLighting(enabled:boolean){uniforms.trayLighting.value=enabled;},
     innerLightPosition(target:THREE.Vector3){return root.localToWorld(target.copy(uniforms.motePosition.value));},
     // Approved material defaults; the viewer can toggle effects for comparison.

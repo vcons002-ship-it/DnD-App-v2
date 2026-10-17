@@ -1,5 +1,9 @@
 # Roadmap & Feature Backlog
 
+- [x] Improve Druk's lava-pool smoke with expanding, curling wisps and explicit
+  transparent layering above the lava and flames in overhead and rotating views.
+  Keep solid-object depth occlusion and bound the smoke to one eight-wisp draw.
+
 - [x] Energetic spells displace the existing mist through bounded map-space
   pressure fields: expanding blasts, directed gusts/cones and lightning lanes.
   Balanced/High only, with no added render pass or effect on game visibility.
@@ -3247,3 +3251,8 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
   settlement owns the celebration once, before modifiers; discarded twenties
   do not trigger it, and check/save outcomes remain unchanged. Reduced motion
   retains the message without particles or movement.
+
+- [x] Replaced the ten new class dice's opaque bodies with translucent refractive
+  resin and class-specific moving interior fields. Numbers retain opaque metal
+  inlays and dark inward backings. Approved character/DM materials and gold
+  variants remain intact; reduced motion freezes the new volume animation.
