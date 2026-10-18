@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('batched figures preserve different torch colors, occlusion selections, darkvision, tints and body-mask IDs',async({page})=>{

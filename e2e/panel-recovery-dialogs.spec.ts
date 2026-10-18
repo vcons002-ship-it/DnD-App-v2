@@ -1,10 +1,10 @@
-import {test,expect,type Page,type APIRequestContext} from '@playwright/test';
+import {test,expect,type Page,type APIRequestContext, budget} from './helpers/test';
 import {io,type Socket} from 'socket.io-client';
 import sharp from 'sharp';
 import {DM_SECRET,PORT} from './playwright.config';
 import {openToolbarGroup} from './helpers/mobileToolbar';
 const sockets:Socket[]=[];
-test.beforeEach(({page})=>page.setDefaultTimeout(12000));
+test.beforeEach(({page})=>page.setDefaultTimeout(budget(12000)));
 test.afterEach(()=>sockets.splice(0).forEach(s=>s.disconnect()));
 async function setup(page:Page,request:APIRequestContext){
   const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Panel recovery and prompts'}})).json();
@@ -55,7 +55,7 @@ test('DM closes only unpinned windows and resets saved layout without losing map
   await maps.getByRole('button',{name:'Pin Maps',exact:true}).click();
   await maps.getByRole('group',{name:'Move Maps window',exact:true}).press('ArrowRight');
   await maps.getByRole('button',{name:'Resize DM panel',exact:true}).press('ArrowLeft');
-  await page.getByRole('button',{name:'Creatures',exact:true}).click();
+  await page.getByRole('button',{name:'Creatures',exact:true}).click({force:true}) /* pulsing while empty */;
   await page.locator('.dm-campaign-menu > summary').click();await page.getByRole('button',{name:'Close unpinned windows',exact:true}).click();
   await expect(maps).toBeVisible();await expect(page.locator('#dm-panel-spawn')).toBeHidden();
   await expect(page.getByRole('button',{name:'Close unpinned windows',exact:true})).toBeDisabled();

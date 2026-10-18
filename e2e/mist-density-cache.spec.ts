@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('cached mist retains the procedural cloud across height slices and wind strengths',async({page})=>{

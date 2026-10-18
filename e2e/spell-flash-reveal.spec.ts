@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 const bundle=async(contents:string)=>(await build({write:false,bundle:true,format:'iife',platform:'browser',define:{'import.meta.env':'{}'},stdin:{resolveDir:process.cwd(),contents}})).outputFiles[0].text;

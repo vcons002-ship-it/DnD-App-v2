@@ -1,21 +1,18 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {io} from 'socket.io-client';
-import {spawnSync} from 'node:child_process';
-import ffmpeg from 'ffmpeg-static';
-import {readFileSync,mkdtempSync} from 'node:fs';
-import {tmpdir} from 'node:os';
-import path from 'node:path';
+import {readFileSync} from 'node:fs';
 import {DM_SECRET,PORT} from './playwright.config';
+import {createTestVideo} from './helpers/environment';
 
 test('animated map upload, fog, darkness, tiles, fallback and cached seeking work in the real app',async({request,page})=>{
  test.setTimeout(180000);
- const file=path.join(mkdtempSync(path.join(tmpdir(),'animated-map-e2e-')),'map.mp4');
- expect(spawnSync(ffmpeg!,['-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=30','-t','3','-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart','-y',file],{windowsHide:true}).status).toBe(0);
+ // Encoded in whatever this browser can decode (H.264 MP4, else VP9 WebM).
+ const clip=await createTestVideo(page,{prefix:'animated-map-e2e'});
  const headers={'x-dm-passphrase':DM_SECRET};
  const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Animated map regression'}})).json();
  const bad=await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{image:{name:'fake.mp4',mimeType:'video/mp4',buffer:Buffer.from('invalid')}}});expect(bad.status()).toBe(422);
- const response=await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{name:'Moving scenery',image:{name:'map.mp4',mimeType:'video/mp4',buffer:readFileSync(file)}}});expect(response.status()).toBe(201);
- const map=await response.json();expect(map.videoPath).toMatch(/\.mp4$/);expect(map.imagePath).toMatch(/-poster\.jpg$/);
+ const response=await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{name:'Moving scenery',image:{name:clip.name,mimeType:clip.mimeType,buffer:readFileSync(clip.file)}}});expect(response.status()).toBe(201);
+ const map=await response.json();expect(map.videoPath).toMatch(clip.pattern);expect(map.imagePath).toMatch(/-poster\.jpg$/);
  expect((await request.get(map.videoPath,{headers:{Range:'bytes=0-99'}})).status()).toBe(206);
  const socket=io(`http://localhost:${PORT}`,{transports:['websocket']});
  const snap=async()=>{const r=await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.ok).toBe(true);return r.snapshot;};
@@ -30,7 +27,7 @@ test('animated map upload, fog, darkness, tiles, fallback and cached seeking wor
   socket.emit('map:editWalls',{mapId:map.id,add:wall});await snap();
   await page.addInitScript(()=>localStorage.setItem('dnd-environment-quality','balanced'));
   await page.setViewportSize({width:1440,height:1000});await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.claim-row').filter({hasText:'Druk'}).click();
-  const video=page.getByTestId('animated-map-video');await expect(video).toHaveCount(1);await expect.poll(()=>video.evaluate((v:HTMLVideoElement)=>v.readyState)).toBeGreaterThanOrEqual(2);
+  const video=page.getByTestId('animated-map-video');await expect(video).toHaveCount(1);await expect.poll(()=>video.evaluate((v:HTMLVideoElement)=>v.readyState),{timeout:30000}).toBeGreaterThanOrEqual(2); // software decode beside a software GPU is slow to start
   await expect(page.getByTestId('player-vision')).toHaveAttribute('data-wall-count','1');
   await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1',{timeout:60000});
   // Concealed creatures' art is ready before the passage opens, while their
@@ -48,7 +45,7 @@ test('animated map upload, fog, darkness, tiles, fallback and cached seeking wor
    socket.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dungeon',heavyDarkness:heavy,mist:false}});await snap();
    await expect(page.getByTestId('player-vision')).toHaveAttribute('data-heavy',String(heavy));
    await expect(video).toHaveCount(1); // One decoder shared by artwork and darkvision.
-   await expect.poll(()=>video.evaluate((v:HTMLVideoElement)=>v.currentTime)).toBeGreaterThan(0);
+   await expect.poll(()=>video.evaluate((v:HTMLVideoElement)=>v.currentTime),{timeout:30000}).toBeGreaterThan(0);
   }
   socket.emit('map:editWalls',{mapId:map.id,removeId:'barrier'});await snap();
   await expect(page.getByTestId('player-vision')).toHaveAttribute('data-wall-count','0');
@@ -63,7 +60,7 @@ test('animated map upload, fog, darkness, tiles, fallback and cached seeking wor
   await page.context().setOffline(true);
   await video.evaluate(async(v:HTMLVideoElement)=>{v.pause();await new Promise<void>((resolve,reject)=>{v.addEventListener('loadeddata',()=>resolve(),{once:true});v.addEventListener('error',()=>reject(Error('Cached reload failed')),{once:true});v.load();});v.currentTime=1;await v.play();});await page.waitForTimeout(350);expect(await video.evaluate((v:HTMLVideoElement)=>v.error)).toBeNull();
   await page.context().setOffline(false);
-  const tileResponse=await request.post('/api/map-media',{headers,multipart:{image:{name:'tile.mp4',mimeType:'video/mp4',buffer:readFileSync(file)}}});expect(tileResponse.status()).toBe(201);
+  const tileResponse=await request.post('/api/map-media',{headers,multipart:{image:{name:'tile'+clip.ext,mimeType:clip.mimeType,buffer:readFileSync(clip.file)}}});expect(tileResponse.status()).toBe(201);
   const tile=await tileResponse.json();socket.emit('mapImage:add',{mapId:map.id,...tile,x:640,y:0,w:640,h:360});await snap();
   await expect(video).toHaveCount(2);
   await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');
@@ -74,18 +71,17 @@ test('animated map upload, fog, darkness, tiles, fallback and cached seeking wor
 });
 
 test('DM can upload an animated map from the Maps panel',async({page,request})=>{
- const file=path.join(mkdtempSync(path.join(tmpdir(),'animated-map-ui-')),'map.mp4');
- expect(spawnSync(ffmpeg!,['-v','error','-f','lavfi','-i','color=c=darkgreen:size=160x90:rate=10','-t','0.3','-c:v','libx264','-pix_fmt','yuv420p','-y',file],{windowsHide:true}).status).toBe(0);
+ const clip=await createTestVideo(page,{prefix:'animated-map-ui',filter:'color=c=darkgreen:size=160x90:rate=10',seconds:.3});
  const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Animated upload UI'}})).json();
  await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   // An empty campaign opens Maps on mount. Wait for that mount rather than
   // racing it with a toggle that can immediately close the new panel.
   await expect(page.getByPlaceholder('Map name (optional)',{exact:true})).toBeVisible();
  await page.getByPlaceholder('Map name (optional)',{exact:true}).fill('UI animated map');
- await page.locator('input[type=file][accept*="video/mp4"]').setInputFiles(file);
+ await page.locator('input[type=file][accept*="video/mp4"]').setInputFiles(clip.file);
  await page.getByRole('button',{name:'Upload image or animated map',exact:true}).click();
  await expect(page.getByText('UI animated map',{exact:true})).toBeVisible();
  const socket=io(`http://localhost:${PORT}`,{transports:['websocket']});
- try{const r=await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.snapshot.maps.find((m:any)=>m.name==='UI animated map').videoPath).toMatch(/\.mp4$/);}
+ try{const r=await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});expect(r.snapshot.maps.find((m:any)=>m.name==='UI animated map').videoPath).toMatch(clip.pattern);}
  finally{socket.disconnect();}
 });

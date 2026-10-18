@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from './helpers/test';
 import { io, type Socket } from 'socket.io-client';
 import { DM_SECRET, PORT } from './playwright.config';
 

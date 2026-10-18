@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('held spells warm detached GPU resources, reuse them on release, and keep their full visible lifetime',async({page})=>{

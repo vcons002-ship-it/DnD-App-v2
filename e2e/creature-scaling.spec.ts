@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 import { io } from 'socket.io-client';
 import { DM_SECRET, PORT } from './playwright.config';
 
@@ -16,7 +16,7 @@ test('CR previews, cancels, saves and restores the original baseline after reloa
       await page.goto(`/dm?code=${code}`);
       if(!joined){await page.locator('input[type=password]').fill(DM_SECRET);
       await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();joined=true;}
-      await page.getByRole('button',{name:'Creatures',exact:true}).click();
+      await page.getByRole('button',{name:'Creatures',exact:true}).click({force:true}) /* pulsing while empty */;
       await page.getByRole('button',{name:'Edit',exact:true}).click();
     };
     await rejoin();

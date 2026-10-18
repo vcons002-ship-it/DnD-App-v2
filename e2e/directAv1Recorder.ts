@@ -1,6 +1,6 @@
 import {spawn} from 'node:child_process';
 import {writeFileSync} from 'node:fs';
-import type {Page} from '@playwright/test';
+import type {Page} from './helpers/test';
 export async function startAv1Capture(page:Page,output:string,options:{title?:string;width?:number;height?:number}={}){
  const title=options.title??'Druk Direct AV1 Recording';
  const args=['-hide_banner','-loglevel','info','-f','lavfi','-i',`gfxcapture=window_title=${title}:max_framerate=60:capture_cursor=1:width=${options.width??1920}:height=${options.height??1294}:resize_mode=scale`,'-an','-c:v','av1_nvenc','-gpu','0','-preset','p5','-tune','hq','-rc','constqp','-qp','20','-fps_mode','vfr','-movflags','+faststart','-progress','pipe:1','-y',output];

@@ -16,7 +16,7 @@
     "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
     "test": "npm run test -w server",
     "audit:spells": "node --import tsx tools/audit-spell-support.ts",
-    "test:e2e": "npm run build -w client && playwright test -c e2e/playwright.config.ts"
+    "test:e2e": "npm run build:e2e -w client && playwright test -c e2e/playwright.config.ts"
   },
   "engines": {
     "node": ">=20 <23"

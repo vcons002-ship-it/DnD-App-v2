@@ -8,6 +8,7 @@
     "dev": "vite",
     "prebuild": "node ../scripts/token-assets/validate-runtime.mjs && cd .. && node scripts/token-assets/validate-quality-models.mjs && node scripts/token-assets/validate-battlefield-lod.mjs",
     "build": "vite build",
+    "build:e2e": "vite build",
     "build:exploration-preview": "vite build --config vite.exploration-preview.config.ts && node --import tsx scripts/package-exploration-preview.mts",
     "build:dice-review": "vite build --config vite.dice-review.config.ts",
     "preview": "vite preview",

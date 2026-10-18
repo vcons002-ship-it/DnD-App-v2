@@ -1,5 +1,5 @@
 import {readFileSync,writeFileSync} from 'node:fs';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {io,type Socket} from 'socket.io-client';
 import {DM_SECRET,PORT} from './playwright.config';
 import type {StateSnapshot} from '../shared/types';

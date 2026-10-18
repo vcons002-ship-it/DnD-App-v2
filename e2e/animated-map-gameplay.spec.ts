@@ -1,4 +1,4 @@
-import {test,expect,type Page,type Locator} from '@playwright/test';
+import {test,expect,type Page,type Locator, budget} from './helpers/test';
 import {io} from 'socket.io-client';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {DM_SECRET,PORT} from './playwright.config';
@@ -34,7 +34,7 @@ test('animated maps with player fog, darkness, combat and a paired static perfor
  for(const [x,y]of [[1300,500],[1380,590],[1290,650]])admin.emit('token:spawn',{mapId:maps[0].id,kind:'monster',refId:template.id,x,y});
  admin.emit('session:setManualDamage',{manual:true});admin.emit('session:setHideDmRolls',{hide:false});admin.emit('map:setActive',{mapId:maps[0].id});await snap();
  const context=await browser.newContext({viewport:{width:1600,height:1000},deviceScaleFactor:1,baseURL:`http://localhost:${PORT}`}),page=await context.newPage();
- page.setDefaultTimeout(30000);
+ page.setDefaultTimeout(budget(30000));
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/shader|WebGL|THREE/i.test(m.text()))errors.push(m.text());});
  await page.addInitScript(()=>{localStorage.setItem('dnd-environment-quality','balanced');localStorage.setItem('dnd-map-animation','on');});
  let capture:Awaited<ReturnType<typeof startAv1Capture>>|undefined;

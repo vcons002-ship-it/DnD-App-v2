@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page } from './test';
 
 /** The server owns these faces. Wait for its settled frame and the visible
  * result boxes, rather than the old prerecorded tray's timing/group structure. */

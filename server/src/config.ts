@@ -160,4 +160,8 @@ export const config = {
   rulebookPath: path.join(dataDir, 'rulebook.json'),
   /** Where the built client lives (served in production). */
   clientDist: path.resolve(serverRoot, '..', 'client', 'dist'),
+  /** Serve a stand-in miniature for model files that are Git LFS pointers
+   *  (checkouts without `git lfs pull`: CI, the browser tests). Off by default
+   *  so a real install never hides a missing model behind a placeholder. */
+  placeholderModels: process.env.PLACEHOLDER_MODELS === '1',
 };

@@ -1,4 +1,4 @@
-import type {Page} from '@playwright/test';
+import type {Page} from './helpers/test';
 
 /** Existing spell demonstrations intentionally replace concentration. Keep the
  * test automation on the same themed prompt a player now sees. */

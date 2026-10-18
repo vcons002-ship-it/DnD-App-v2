@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('GPU names skip duplicate Konva paint without losing textures, tags or fallback names',async({page})=>{

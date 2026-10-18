@@ -29,9 +29,9 @@ Monorepo, npm workspaces: `shared`, `server`, `client`.
 npm install
 npm run dev        # server + client (concurrently); two browser windows = DM + player
 npm run typecheck  # tsc --noEmit for server AND client
-npm run test       # server Vitest (230+ tests across ~26 *.test.ts) — tests are SERVER-ONLY
+npm run test       # Vitest: server + shared + client/src/lib (2,200+ tests)
 npm run build      # client (vite) + server (tsc)
-npm run test:e2e   # Playwright browser regressions against a disposable save
+npm run test:e2e   # Playwright browser regressions against a disposable save (passes without LFS models/GPU: docs/TESTING.md)
 ```
 
 Browser test contracts and optional capture switches are in [`docs/TESTING.md`](docs/TESTING.md).

@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Page } from './helpers/test';
 import { io, type Socket } from 'socket.io-client';
 import type { SheetAbility, StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
@@ -278,7 +278,7 @@ test('editing a profile-only spell preserves upcasting and explicit custom save 
   await page.getByRole('button', { name: 'Close character window', exact: true }).click();
   await f.row('Command').getByTitle('Cast at level (upcast)').selectOption('2');
   await f.row('Command').getByRole('button').click();
-  await expect(page.locator('.spell-damage-dock')).toContainText('Roll saving throws');
+  await expect(page.locator('.spell-damage-dock')).toContainText('Roll saving throws',{timeout:LIVE_COMBAT_TIMEOUT});
   const cast = (await f.snapshot()).rollLog.find((roll) => roll.label === 'Command')!;
   expect(cast.apply).toMatchObject({ targetMode: 'multiple', save: 'WIS', dc: 18 });
   await page.locator('.spell-damage-dock').getByRole('button', { name: 'Close', exact: true }).click();

@@ -45,6 +45,32 @@ To run a focused browser check after building the client:
 npx playwright test -c e2e/playwright.config.ts e2e/damage-prompt-ownership.spec.ts
 ```
 
+## Running without the Git LFS models or a GPU
+
+The suite is meant to pass on a plain checkout and a plain container:
+
+- **Models.** Monster figures are Git LFS objects; a checkout without
+  `git lfs pull` holds small text pointers in their place. The browser-test
+  server runs with `PLACEHOLDER_MODELS=1` (`e2e/playwright.config.ts`), which
+  serves a generated stand-in figure for any `.glb` whose file is a pointer
+  (`server/src/assets/placeholderModel.ts`, header `X-Placeholder-Model`). The
+  miniature pipeline (load, preload, reveal, caching) runs unchanged; only the
+  art differs. A real install never sets this, so a missing `git lfs pull`
+  stays visible there.
+- **Video.** Playwright's Chromium has no H.264. `createTestVideo` in
+  `e2e/helpers/environment.ts` encodes the synthetic map clip as VP9 WebM when
+  the browser can't decode MP4; the app accepts both formats.
+- **Software WebGL.** `e2e/globalSetup.ts` probes the renderer once. On
+  SwiftShader/llvmpipe (CI runners, cloud containers) every spec's `test` and
+  `expect` come from `e2e/helpers/test.ts`, which multiplies test timeouts and
+  explicit expect/poll timeouts by `E2E_SLOW_FACTOR` (default 4). Specs import
+  from `./helpers/test`, never from `@playwright/test` directly, so the scaling
+  applies everywhere. `E2E_SOFTWARE_GL=0|1` overrides the probe. Measured-time
+  thresholds (frame deltas, reveal latency) use `frameBudgetMs` from
+  `e2e/helpers/environment.ts` instead. Functional assertions are never relaxed.
+- `npm run test:e2e` builds the client with `build:e2e` (plain `vite build`);
+  the shipping-asset validators run only in `npm run build`.
+
 `PW_CHROMIUM` can point to an installed Chromium/Chrome executable. `E2E_PORT` overrides the default disposable port, 4099, for independent audits. Give simultaneous runs distinct `--output` directories; each invocation creates its own temporary database. Do not run these commands against the installed campaign server.
 
 ## What a failure means

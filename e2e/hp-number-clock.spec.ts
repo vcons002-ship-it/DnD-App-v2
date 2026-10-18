@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 // This clock harness intentionally disables RAF; screenshot stabilization cannot run.
 test.use({screenshot:'off',trace:'off'});

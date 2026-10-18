@@ -1,5 +1,6 @@
-import {test,expect} from '@playwright/test';import {io} from 'socket.io-client';import sharp from 'sharp';
+import {test,expect} from './helpers/test';import {io} from 'socket.io-client';import sharp from 'sharp';
 import {DM_SECRET,PORT} from './playwright.config';
+import {frameBudgetMs} from './helpers/environment';
 test.use({serviceWorkers:'block'}); // Make the artificial cold-network delay observable.
 test('private door preview highlights before release, and opening reveals a preloaded creature',async({page,request})=>{
  test.setTimeout(90000);
@@ -37,7 +38,8 @@ test('private door preview highlights before release, and opening reveals a prel
  await expect(layer).toHaveAttribute('data-miniature-count','2');
  expect(modelRequests).toHaveLength(3);
  const timeline=await page.evaluate(()=>(window as any).doorRevealTimeline);
- expect(timeline.start).toBeGreaterThan(0);expect(timeline.ready-timeline.start).toBeLessThan(250);
+ // 250 ms on a GPU; a software renderer compiles the new figure's shaders far slower.
+ expect(timeline.start).toBeGreaterThan(0);expect(timeline.ready-timeline.start).toBeLessThan(await frameBudgetMs(page,250));
  console.log(`Preloaded door reveal: ${(timeline.ready-timeline.start).toFixed(1)} ms; no reveal-time model downloads`);
  dm.emit('map:setDoor',{mapId:map.id,doorId:d.id,open:false});dm.emit('condition:set',{kind:'monster',refId:obj.id,condition:{label:'Locked',aura:'red',isConcentration:false}});await snap();
  await expect(page.getByTestId('door-controls').getByRole('button',{name:/Pick lock$/})).toBeVisible();expect((await snap()).map.walls.find((w:any)=>w.id==='door').open).toBe(false);

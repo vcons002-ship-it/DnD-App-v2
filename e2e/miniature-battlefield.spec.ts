@@ -2,7 +2,7 @@ import {acceptConcentration} from './themed-dialogs';
 import {wallsFromYellowMask} from '../server/src/wallMask';
 import {getSpell} from '../server/src/spells/srd';
 import sharp from 'sharp';
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page, budget} from './helpers/test';
 import { io, type Socket } from 'socket.io-client';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -32,7 +32,7 @@ test.afterEach(() => sockets.splice(0).forEach(socket => socket.disconnect()));
 
 test('saved map environment works for DM and player, preserves tools, and clips fog', async ({page,request,browser},info)=>{
   test.setTimeout(150000);
-  page.setDefaultTimeout(12000);
+  page.setDefaultTimeout(budget(12000));
   await page.setViewportSize({width:1440,height:960});
   const errors:string[]=[];
   const watch=(p:Page)=>{p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&/THREE|WebGL|shader/i.test(m.text()))errors.push(m.text());});};
@@ -46,7 +46,7 @@ test('saved map environment works for DM and player, preserves tools, and clips 
   await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
   const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1440,height:960}});
   const player=await context.newPage();watch(player);
-  player.setDefaultTimeout(12000);
+  player.setDefaultTimeout(budget(12000));
   const toggleLantern=async()=>{
     await player.locator('.hud-actions').getByRole('button',{name:'Character',exact:true}).click();
     await player.locator('.sheet-exploration > summary').click();
@@ -1826,7 +1826,7 @@ test('DM workspace keeps drafts, spawning, turns and mobile tools usable', async
   expect((await page.locator('main.center').boundingBox())!.width).toBe(1366);
   await page.getByRole('button', { name: 'Maps', exact: true }).click();
   await drawer.getByPlaceholder('Map name (optional)').fill('Preserved draft');
-  await page.getByRole('button', { name: 'Creatures', exact: true }).click();
+  await page.getByRole('button', { name: 'Creatures', exact: true }).click({force:true}) /* pulsing while empty */;
   await expect(drawer.getByRole('heading', { name: 'Player characters', exact: true })).toBeVisible();
   await expect(drawer.getByPlaceholder('Map name (optional)')).toBeHidden();
   await page.getByRole('button', { name: 'Maps', exact: true }).click();
@@ -1850,7 +1850,7 @@ test('DM workspace keeps drafts, spawning, turns and mobile tools usable', async
   await page.getByRole('button', { name: 'Close token inspector' }).click();
   await page.getByRole('button', { name: 'Close DM panel', exact: true }).click();
   await page.setViewportSize({ width: 430, height: 932 });
-  await page.getByRole('button', { name: 'Creatures', exact: true }).click();
+  await page.getByRole('button', { name: 'Creatures', exact: true }).click({force:true}) /* pulsing while empty */;
   const box = (await drawer.boundingBox())!;
   expect(box.x).toBe(8); expect(box.width).toBe(414);
   await drawer.locator('.spawn-row').filter({ hasText: 'Druk' }).click();
@@ -1892,7 +1892,7 @@ test('DM pinned panels share a column, retain drafts and restore pins', async ({
   expect(viewControls.y + viewControls.height).toBeLessThan(full.y);
   await maps.getByPlaceholder('Map name (optional)').fill('Pinned draft');
   await maps.getByRole('button', { name: 'Pin Maps', exact: true }).click();
-  await page.getByRole('button', { name: 'Creatures', exact: true }).click();
+  await page.getByRole('button', { name: 'Creatures', exact: true }).click({force:true}) /* pulsing while empty */;
   const creatures = page.getByRole('complementary', { name: 'Creatures', exact: true });
   const a = (await maps.boundingBox())!, b = (await creatures.boundingBox())!;
   expect(a.x).toBe(full.x); expect(b.x).toBe(a.x); expect(b.width).toBe(a.width);
@@ -2601,7 +2601,7 @@ test('walls block player drags and hide DM outlines outside editing',async({page
 
 
 test('DM cuts doors into walls and players reveal daylight rooms by opening them',async({page,request,browser},info)=>{
- test.setTimeout(240000);page.setDefaultTimeout(20000);await page.setViewportSize({width:1500,height:1000});
+ test.setTimeout(240000);page.setDefaultTimeout(budget(20000));await page.setViewportSize({width:1500,height:1000});
  const f=await fixture(page,request),druk=f.ready.tokens[0],varis=f.ready.tokens[1];
  f.socket.emit('map:editWalls',{mapId:f.mapId,add:{id:'partition',kind:'rectangle',ax:450,ay:-2000,bx:470,by:2000}});
  f.socket.emit('map:setEnvironment',{mapId:f.mapId,settings:{enabled:false}});
@@ -3346,7 +3346,7 @@ for(const mode of ['regular','darkness','heavy'] as const)test(`record corner pa
 });
 
 test('spell impacts light a heavy dungeon after dice and keep hunter spell identities',async({page,request},info)=>{
- test.setTimeout(240000);page.setDefaultTimeout(20000);await page.setViewportSize({width:1600,height:1000});
+ test.setTimeout(240000);page.setDefaultTimeout(budget(20000));await page.setViewportSize({width:1600,height:1000});
  // Directional spell illumination is the High-quality contract. Balanced keeps
  // terrain flashes and Low samples the terrain field instead (tested separately).
  await page.addInitScript(()=>localStorage.setItem('dnd-environment-quality','high'));

@@ -1,5 +1,5 @@
 import {acceptConcentration} from './themed-dialogs';
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {io,type Socket} from 'socket.io-client';
 import type {SheetAbility,StateSnapshot} from '../shared/types';
 import {DM_SECRET,PORT} from './playwright.config';

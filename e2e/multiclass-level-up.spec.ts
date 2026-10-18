@@ -1,4 +1,4 @@
-﻿import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+﻿import { test, expect, type APIRequestContext, type Page } from './helpers/test';
 import { io, type Socket } from 'socket.io-client';
 import type { Character, StateSnapshot } from '../shared/types';
 import type { LevelUpPlan } from '../shared/levelingTypes';
