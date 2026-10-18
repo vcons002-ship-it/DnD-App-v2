@@ -15,6 +15,12 @@ export function miniatureLodPair(quality: MiniatureLodBudget) {
   return PAIRS[quality === 'low' || quality === 'off' ? 'low' : quality === 'balanced' ? 'balanced' : 'high'];
 }
 
+/** Start preparing only the same preset's close tier, while the visible figure
+ * is approaching close-up size. Display thresholds remain unchanged. */
+export function miniatureLodShouldPrepare(pixels:number,quality:MiniatureLodBudget,onScreen:boolean):boolean {
+  return onScreen && Number.isFinite(pixels) && pixels >= miniatureLodPair(quality).pixels*.55;
+}
+
 /** CSS-pixel base diameter, independent of DPR and map scale. The detailed
  * model is only eligible inside the viewport. Hysteresis prevents zoom jitter. */
 export function miniatureLodForPixels(pixels: number, quality: MiniatureLodBudget, previous?: MiniatureLod, onScreen = true): MiniatureLod {

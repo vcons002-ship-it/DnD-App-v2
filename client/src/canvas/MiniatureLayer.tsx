@@ -1,6 +1,8 @@
 import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
 import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart,type OutlineRect} from './miniatureSilhouetteOutline';
-import {miniatureLodForPixels,type MiniatureLod} from '../../../shared/miniatureLod';
+import {miniatureLodForPixels,miniatureLodPair,miniatureLodShouldPrepare,type MiniatureLod} from '../../../shared/miniatureLod';
+import {warmMiniatureGpuBuffers} from './miniatureGpuWarmup';
+import {createMiniatureLodTransitions} from './miniatureLodTransitions';
 import {createMiniatureLodVisibility} from './miniatureLodVisibility';
 import {createMiniatureBatches} from './miniatureBatches';
 import {createMiniatureTransform,retainMiniatureLocalTransforms} from './miniatureTransforms';
@@ -313,6 +315,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   const lodLevels=new Map<string,MiniatureLod>();
   const lodVisibility=createMiniatureLodVisibility();
+  const lodTransitions=createMiniatureLodTransitions();
+  const wantedModels=new Map<string,MiniatureDefinition>();
+  const preparedInstances=new Map<string,Instance>();
+  let lodDecisionKey='';
   let lodTimer:ReturnType<typeof setTimeout>|undefined;
   let tokenById=new Map(initial.tokens.map(t=>[t.id,t]));
   const batches=createMiniatureBatches(scene);
@@ -325,7 +331,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let preloadTimer:ReturnType<typeof setTimeout>|undefined;
   let preloadRunning=false;
   function evictRetiredPlayerAssets(){
-    const keep=new Set([...(props.preloadDefinitions??[]).map(d=>miniatureForPreload(d,props.graphics?.modelQuality??'high').url),...props.tokens.map(t=>t.definition.url),...[...instances.values()].map(i=>i.url),...loading.values()]);
+    const keep=new Set([...(props.preloadDefinitions??[]).map(d=>miniatureForPreload(d,props.graphics?.modelQuality??'high').url),...props.tokens.map(t=>t.definition.url),...[...instances.values(),...preparedInstances.values()].map(i=>i.url),...loading.values(),...[...wantedModels.values()].map(d=>d.url)]);
     for(const url of new Set([...playerAssetUrls,...backgroundAssetUrls])){
       if(keep.has(url)||!assets.has(url))continue;
       const promise=assets.get(url)!;assets.delete(url);measurements.delete(url);warmedAssets.delete(url);backgroundAssetUrls.delete(url);
@@ -387,6 +393,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     host.dataset.cameraRotation=String(props.rotationDegrees??0);host.dataset.cameraTilt=String(props.tiltDegrees);
   };
   const publish = () => {
+    host.dataset.preparedModelUrls=JSON.stringify([...preparedInstances.values()].map(i=>i.url));
+    host.dataset.preparedModelsInScene=String([...preparedInstances.values()].filter(i=>i.root.parent===scene).length);
     host.dataset.activeModelUrls=JSON.stringify([...instances.values()].map(i=>i.url));
     host.dataset.deathSkullCount=String(props.tokens.filter(t=>t.definition.id===DEATH_SKULL.id&&instances.get(t.id)?.url===DEATH_SKULL.url).length);
     const failedIds = props.tokens.filter(t => failedAssets.has(t.definition.url)&&!instances.has(t.id)).map(t => t.id).sort();
@@ -896,6 +904,53 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const archArtLayer=createArchArtLayer(renderer,outlineMask.texture,host,invalidate);
   const archArtStudy=import.meta.env.VITE_ARCH_ART_STUDY==='1'&&new URLSearchParams(location.search).get('archArt')==='1'
     ?createArchArtStudy(renderer,outlineMask.texture,host,invalidate):null;
+  const activatePrepared=(token:MiniatureToken)=>{
+    const instance=preparedInstances.get(token.id);
+    if(!instance||instance.url!==token.definition.url)return;
+    preparedInstances.delete(token.id);batches.restore();
+    const old=instances.get(token.id);
+    if(old){
+      if(preview?.id===token.id)clearPreview();
+      scene.remove(old.root);
+      const quality=props.graphics?.modelQuality??'high';
+      const pair=miniatureLodPair(quality);
+      const allowed=[pair.far,pair.near].map(level=>miniatureForLod(token.definition,level,quality).url);
+      const far=miniatureForPreload(token.definition,quality).url;
+      if(old.modelId===instance.modelId&&allowed.includes(old.url)&&(old.url===far||old.url===wantedModels.get(token.id)?.url))preparedInstances.set(token.id,old);
+      else disposeInstance(old);
+    }
+    instances.set(token.id,instance);place(token,instance);scene.add(instance.root);
+    host.dataset.lodSwapCount=String(Number(host.dataset.lodSwapCount??0)+1);
+    if(battlefield)renderer.shadowMap.needsUpdate=true;
+    invalidate();
+  };
+  const planLod=(next:Props)=>{
+    updateCamera();lodVisibility.update(camera);
+    const onScreenIds:string[]=[],wanted=new Map<string,MiniatureDefinition>(),levels=new Map<string,MiniatureLod>();
+    let pending=false;lodTransitions.retain(next.tokens.map(t=>t.id));
+    const tokens=next.tokens.map(token=>{
+      const c=new Vector3(token.x,0,token.y).project(camera);
+      const diameter=Math.max(...[new Vector3(token.x+token.diameter/2,0,token.y),new Vector3(token.x,0,token.y+token.diameter/2)].map(p=>{p.project(camera);return Math.hypot((p.x-c.x)*next.width,(p.y-c.y)*next.height)}));
+      const instance=instances.get(token.id);
+      const onScreen=!!instance&&(next.isVisibleAt?.(token.id,instance.root.position.x,instance.root.position.z)??instance.root.visible)
+        &&lodVisibility.contains(instance.outlineBounds,instance.root.matrixWorld);
+      if(onScreen)onScreenIds.push(token.id);
+      const quality=next.graphics?.modelQuality??'high';
+      const pair=miniatureLodPair(quality),near=miniatureForLod(token.definition,pair.near,quality);
+      const desired=miniatureLodForPixels(diameter,quality,lodLevels.get(token.id),onScreen);
+      const decision=lodTransitions.resolve(token.id,desired,instance?.url===near.url?pair.near:pair.far,onScreen,performance.now());
+      const level=decision.level;pending||=decision.pending;
+      levels.set(token.id,level);
+      const definition=miniatureForLod(token.definition,level,quality);
+      // Keep the same two ready bodies while this figure remains on-screen.
+      // Reversing a zoom reuses their buffers/materials instead of decoding and
+      // rebuilding them again. Leaving the viewport releases the dense tier.
+      const reuse=onScreen&&(wantedModels.get(token.id)?.url===near.url||preparedInstances.get(token.id)?.url===near.url||instance?.url===near.url);
+      wanted.set(token.id,miniatureLodShouldPrepare(diameter,quality,onScreen)||reuse?near:definition);
+      return {...token,definition};
+    });
+    return {tokens,wanted,levels,onScreenIds,pending,key:JSON.stringify([tokens.map(t=>[t.id,t.definition.url,wanted.get(t.id)!.url]),onScreenIds])};
+  };
   const sync = (next: Props) => {
     if (disposed || failed) return;
     batches.restore();
@@ -936,30 +991,23 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       host.dataset.weather='none';host.dataset.weatherCount='0';host.dataset.lighting='off';host.dataset.lightCount='0';
       host.dataset.carriedLanternCount='0';host.dataset.visibleTorchCount='0';host.dataset.carriedLanternPositions='[]';
     }
-    updateCamera();
-    lodVisibility.update(camera);
-    const onScreenIds:string[]=[];
-    props={...props,tokens:props.tokens.map(token=>{
-      // Measure both ground axes in the actual camera, including perspective.
-      const c=new Vector3(token.x,0,token.y).project(camera);
-      const diameter=Math.max(...[new Vector3(token.x+token.diameter/2,0,token.y),new Vector3(token.x,0,token.y+token.diameter/2)].map(p=>{p.project(camera);return Math.hypot((p.x-c.x)*props.width,(p.y-c.y)*props.height);}));
-      const instance=instances.get(token.id);
-      // First prepare coarse art. Its measured bounds then decide whether the
-      // figure is in this viewport; never speculate by loading the dense mesh.
-      const onScreen=!!instance&&(props.isVisibleAt?.(token.id,instance.root.position.x,instance.root.position.z)??instance.root.visible)
-        &&lodVisibility.contains(instance.outlineBounds,instance.root.matrixWorld);
-      if(onScreen)onScreenIds.push(token.id);
-      const quality=props.graphics?.modelQuality??'high';
-      const level=miniatureLodForPixels(diameter,quality,lodLevels.get(token.id),onScreen);
-      lodLevels.set(token.id,level);return {...token,definition:miniatureForLod(token.definition,level,quality)};
-    })};
+    const plan=planLod(props);lodDecisionKey=plan.key;
+    wantedModels.clear();for(const[id,definition]of plan.wanted)wantedModels.set(id,definition);
+    props={...props,tokens:plan.tokens};
+    for(const[id,level]of plan.levels)lodLevels.set(id,level);
     next=props;tokenById=new Map(next.tokens.map(t=>[t.id,t]));
     host.dataset.modelLods=JSON.stringify(Object.fromEntries(lodLevels));
-    host.dataset.lodOnScreenIds=JSON.stringify(onScreenIds);
+    host.dataset.lodOnScreenIds=JSON.stringify(plan.onScreenIds);
     host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
     shaderWarmup.update(camera,scene,`${renderer.shadowMap.enabled}:${key.castShadow}:${!!scene.environment}`);
     for (const [id, url] of loading) {
-      if (!next.tokens.some((token) => token.id === id && token.definition.url === url)) loading.delete(id);
+      if (!next.tokens.some((token) => token.id === id && (token.definition.url === url||wantedModels.get(id)?.url===url))) loading.delete(id);
+    }
+    for(const[id,instance]of preparedInstances){
+      const token=tokenById.get(id),far=token&&miniatureForPreload(token.definition,next.graphics?.modelQuality??'high').url;
+      if(!token||token.definition.id!==instance.modelId||![token.definition.url,wantedModels.get(id)?.url,far].includes(instance.url)){
+        preparedInstances.delete(id);disposeInstance(instance);
+      }
     }
     for (const id of moves.keys()) {
       if (!next.tokens.some((token) => token.id === id) && !next.environmentPreview?.carriedLanterns?.some(t=>t.id===id)) moves.delete(id);
@@ -974,16 +1022,19 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       // Keep the release position until the authoritative snapshot acknowledges
       // or corrects it. A rejected move returns to its source after a short grace.
       if (move && Number.isFinite(move.until) && (token.x !== move.fromX || token.y !== move.fromY)) moves.delete(token.id);
+      activatePrepared(token);
       const existing = instances.get(token.id);
-      if (existing) { place(token, existing); if(existing.url===token.definition.url)continue; }
-      if (failed || failedAssets.has(token.definition.url) || loading.get(token.id) === token.definition.url) continue;
-      loading.set(token.id, token.definition.url);
-      const definition = token.definition;
+      if (existing) place(token, existing);
+      const definition=wantedModels.get(token.id)??token.definition;
+      if(existing?.url===definition.url||preparedInstances.get(token.id)?.url===definition.url)continue;
+      if (failed || failedAssets.has(definition.url) || loading.get(token.id) === definition.url) continue;
+      loading.set(token.id, definition.url);
       loadDefinition(definition);
       void assets.get(definition.url)!.then(async (gltf) => {
         if (disposed || failed || !gltf) {if(loading.get(token.id)===definition.url)loading.delete(token.id);return;}
         const current=tokenById.get(token.id);
-        if (!current || current.definition.url!==definition.url || instances.get(token.id)?.url===definition.url) return;
+        const wanted=()=>tokenById.get(token.id)?.definition.url===definition.url||wantedModels.get(token.id)?.url===definition.url;
+        if (!current || !wanted() || instances.get(token.id)?.url===definition.url) return;
         const root = new Group();
         const updateTransform=createMiniatureTransform(root);
         // Animated source transforms remain intact below this base-centering group.
@@ -1081,7 +1132,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };
         place(current, instance);
-        instance.movePreviewKey=JSON.stringify([definition.url,definition.baseCenter]);
+        // The same coarse planning silhouette serves both detail tiers. Never
+        // bake millions of dense triangle corners during a camera zoom.
+        instance.movePreviewKey=JSON.stringify([miniatureForPreload(definition,props.graphics?.modelQuality??'high').url,definition.baseCenter]);
         let silhouette=movePreviewGeometries.get(instance.movePreviewKey);
         if(!silhouette){silhouette={geometry:createMiniatureMovePreviewGeometry(centered),users:0};movePreviewGeometries.set(instance.movePreviewKey,silhouette);}
         silhouette.users++;instance.movePreviewGeometry=silhouette.geometry;
@@ -1091,22 +1144,21 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // new body; KHR_parallel_shader_compile lets existing figures keep moving.
         try { await renderer.compileAsync(root,camera,scene); }
         catch(error) {console.warn('Miniature shader preparation failed',error);}
+        try{if(instances.has(token.id))await warmMiniatureGpuBuffers(renderer,root,camera,scene,()=>disposed||failed||!wanted());}
+        catch(error){console.warn('Miniature buffer preparation failed',error);}
         const latest=tokenById.get(token.id);
-        if(disposed||failed||!latest||latest.definition.url!==definition.url||instances.get(token.id)?.url===definition.url) {disposeInstance(instance);return;}
-        batches.restore();
-        const heldMove=moves.get(token.id);
-        if(instances.has(token.id))removeInstance(token.id);
-        if(heldMove)moves.set(token.id,heldMove);
+        if(disposed||failed||!latest||!wanted()||instances.get(token.id)?.url===definition.url) {disposeInstance(instance);return;}
         loading.delete(token.id);
-        instances.set(token.id, instance);
-        place(latest, instance);
-        scene.add(root);
+        const oldPrepared=preparedInstances.get(token.id);
+        if(oldPrepared)disposeInstance(oldPrepared);
+        preparedInstances.set(token.id,instance);
+        activatePrepared(latest);
         evictRetiredPlayerAssets();
         if(battlefield)renderer.shadowMap.needsUpdate=true;
         invalidate();
         scheduleLod();
         const fx = definition.fxUrl ? await manifests.get(definition.fxUrl) : null;
-        if (!disposed && instances.get(token.id) === instance && fx && Array.isArray(fx.keyframes) && fx.material_channels) {
+        if (!disposed && (instances.get(token.id) === instance||preparedInstances.get(token.id)===instance) && fx && Array.isArray(fx.keyframes) && fx.material_channels) {
           instance.fx = fx;
           applyFx(instance, 0);
           invalidate();
@@ -1116,6 +1168,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     queuePreloads((next.preloadDefinitions??[]).map(d=>miniatureForPreload(d,next.graphics?.modelQuality??'high')));
     evictRetiredPlayerAssets();
     invalidate();
+    if(plan.pending)scheduleLod();
   };
   const contextLost = (event: Event) => { event.preventDefault(); fail(); };
   const visibility = () => { invalidate(); };
@@ -1132,6 +1185,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     document.removeEventListener('visibilitychange', visibility);
     reducedMotion.removeEventListener('change', invalidate);
     [...instances.keys()].forEach(removeInstance);
+    preparedInstances.forEach(disposeInstance);preparedInstances.clear();wantedModels.clear();
     assets.forEach((promise) => { void promise.then((asset) => { if (asset) disposeAsset(asset); }); });
     assets.clear(); manifests.clear(); loading.clear(); moves.clear();
     shaderWarmup.dispose();
@@ -1157,7 +1211,15 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   renderer.domElement.addEventListener('webglcontextlost', contextLost);
   document.addEventListener('visibilitychange', visibility);
   reducedMotion.addEventListener('change', invalidate);
-  const scheduleLod=()=>{if(lodTimer)clearTimeout(lodTimer);lodTimer=setTimeout(()=>{lodTimer=undefined;if(!disposed&&!failed)sync(sourceProps);},160);};
+  // Throttle rather than debounce: a continuous wheel/pinch gesture must not
+  // postpone preparation until the user has already finished zooming. Full
+  // scene sync is only needed when the display/preparation decision changes.
+  const scheduleLod=()=>{if(lodTimer)return;lodTimer=setTimeout(()=>{
+    lodTimer=undefined;if(disposed||failed)return;
+    const plan=planLod(sourceProps);
+    if(plan.key!==lodDecisionKey)sync(sourceProps);
+    if(plan.pending)scheduleLod();
+  },80);};
   sync(initial);
   return {
     sync,

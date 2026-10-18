@@ -71,9 +71,12 @@ heads/weapons even when the base is just off-screen. Fog-hidden figures cannot
 upgrade. Bounds checks reuse existing measurements and scratch math objects;
 they add no rendering pass, pixel readback or mesh traversal per check.
 
-Camera changes debounce detail decisions by 160 ms; the existing 15% size
-hysteresis prevents repeated swaps near a threshold. The coarse figure remains
-visible while detail loads. A close-tier load can fall back only to Battlefield;
+Camera changes now check detail decisions at most every 80 ms during zoom;
+close art prepares before its display threshold. The existing 15% size
+hysteresis plus a 350 ms downgrade dwell prevent repeated swaps. Both prepared
+tiers are reused while on-screen; the inactive body is detached from the scene.
+See [zoom preparation and repeated-zoom tests](LOD_ZOOM_PREPARATION_2026_10_18.md).
+The coarse figure remains visible while detail loads. A close-tier load can fall back only to Battlefield;
 a failed Battlefield file cannot silently fetch a dense off-screen replacement.
 
 The real-renderer network test, in each of High/Balanced/Low, verified:

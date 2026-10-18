@@ -1,6 +1,16 @@
 import {describe,it,expect} from 'vitest';
-import {miniatureLodForPixels,miniatureLodPair,type MiniatureLodBudget} from '../../shared/miniatureLod.js';
+import {miniatureLodForPixels,miniatureLodPair,miniatureLodShouldPrepare,type MiniatureLodBudget} from '../../shared/miniatureLod.js';
 describe('two-tier miniature detail',()=>{
+  it('prepares close art before its display threshold, only for visible figures',()=>{
+    for(const quality of ['high','balanced','low'] as const){
+      const pair=miniatureLodPair(quality),p=pair.pixels*.6;
+      expect(miniatureLodShouldPrepare(p,quality,true)).toBe(true);
+      expect(miniatureLodForPixels(p,quality,pair.far,true)).toBe(pair.far);
+      expect(miniatureLodShouldPrepare(pair.pixels*.5,quality,true)).toBe(false);
+      expect(miniatureLodShouldPrepare(10000,quality,false)).toBe(false);
+      expect(miniatureLodShouldPrepare(NaN,quality,true)).toBe(false);
+    }
+  });
   it('keeps each graphics mode on its own two-model pair',()=>{
     expect([40,120,220,360].map(p=>miniatureLodForPixels(p,'high'))).toEqual(['battlefield','battlefield','battlefield','high']);
     expect([40,120,220,360].map(p=>miniatureLodForPixels(p,'balanced'))).toEqual(['battlefield','battlefield','balanced','balanced']);
