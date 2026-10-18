@@ -1,0 +1,6 @@
+.character-height-control{min-width:0;margin:12px 0;padding:10px;border:1px solid #71664f;border-radius:6px}
+.character-height-control>div{display:flex;align-items:end;gap:8px}
+.character-height-control label{flex:1;min-width:0}
+.character-height-control input{display:block;box-sizing:border-box;width:100%;min-height:44px;padding:8px;background:#171e28;color:#efdfbc;border:1px solid #55513f;border-radius:5px;font:inherit}
+.character-height-control button{min-height:44px;min-width:40px;margin:0!important}
+.character-height-control small{display:block;margin-top:8px;font-size:.85em;line-height:1.4;color:#bdb7a8}

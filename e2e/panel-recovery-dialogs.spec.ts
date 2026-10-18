@@ -2,6 +2,7 @@ import {test,expect,type Page,type APIRequestContext, budget} from './helpers/te
 import {io,type Socket} from 'socket.io-client';
 import sharp from 'sharp';
 import {DM_SECRET,PORT} from './playwright.config';
+import {openToolbarGroup} from './helpers/mobileToolbar';
 const sockets:Socket[]=[];
 test.beforeEach(({page})=>page.setDefaultTimeout(budget(12000)));
 test.afterEach(()=>sockets.splice(0).forEach(s=>s.disconnect()));
@@ -82,6 +83,7 @@ test('themed deletion can be canceled by Escape or confirmed and restores keyboa
 
 test('map label entry and unsupported images use themed prompts on mobile',async({page,request})=>{
   const f=await setup(page,request);await page.setViewportSize({width:430,height:932});await dm(page,f.code);
+  await openToolbarGroup(page,'Map tools');
   await page.getByRole('button',{name:'Annotate',exact:true}).click();
   await page.getByRole('group',{name:'Annotation color'}).getByRole('button',{name:'Blue',exact:true}).click();
   await page.getByTitle('Text label — click the map to place text',{exact:true}).click();
@@ -91,6 +93,7 @@ test('map label entry and unsupported images use themed prompts on mobile',async
   await label.getByRole('textbox',{name:'Label text',exact:true}).fill('Watch the doorway');await label.getByRole('textbox').press('Enter');
   await expect.poll(async()=>(await f.snapshot()).annotations.some((a:any)=>a.text==='Watch the doorway')).toBe(true);
   expect((await f.snapshot()).annotations.find((a:any)=>a.text==='Watch the doorway').color).toBe('#4cc9f0');
+  await openToolbarGroup(page,'Map tools');
   await page.getByRole('button',{name:'Annotate',exact:true}).click();
   await page.getByRole('button',{name:'Done annotating',exact:true}).click();
   await page.getByRole('button',{name:'Maps',exact:true}).click();

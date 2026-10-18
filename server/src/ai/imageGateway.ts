@@ -7,10 +7,12 @@ import { apiRequest } from './apiRequest.js';
 import { reportAi } from './status.js';
 
 /** Ordinary art stays local first; miniature references explicitly prefer the API. */
-export async function generateImageWithBackup(prompt:string, options: Parameters<typeof generateImage>[1], prefer: 'local' | 'api' = 'local') {
+export async function generateImageWithBackup(prompt:string, options: Parameters<typeof generateImage>[1], prefer: 'local' | 'api' = 'local',signal?:AbortSignal) {
+  signal?.throwIfAborted();
   if (prefer === 'api' && config.geminiApiKey) {
     reportAi('Generating 3D reference art with the image API.');
-    const api = await generateApiImage(prompt, options);
+    const api = await generateApiImage(prompt, options,[],signal);
+    signal?.throwIfAborted();
     if (!('error' in api)) return api;
     reportAi('Image API failed after its retry attempts. Switching to local ComfyUI backup.');
   } else if (prefer === 'api') {
@@ -19,6 +21,7 @@ export async function generateImageWithBackup(prompt:string, options: Parameters
   let local: Awaited<ReturnType<typeof generateImage>>;
   try { local=await generateImage(prompt,options); }
   catch { local={error:'Local image generation failed.'}; }
+  signal?.throwIfAborted();
   if(!('error' in local)) return local;
   if (prefer === 'api') { reportAi('Image API and local backup could not complete the reference art.'); return local; }
   if(!config.geminiApiKey) {
@@ -26,17 +29,18 @@ export async function generateImageWithBackup(prompt:string, options: Parameters
     return local;
   }
   reportAi('Local image generation failed. Switching to Gemini image API backup.');
-  return generateApiImage(prompt, options);
+  return generateApiImage(prompt, options,[],signal);
 }
 
-export async function generateApiImage(prompt:string, options: Parameters<typeof generateImage>[1], referenceImages: {mimeType:string;data:string}[] = []) {
+export async function generateApiImage(prompt:string, options: Parameters<typeof generateImage>[1], referenceImages: {mimeType:string;data:string}[] = [],signal?:AbortSignal) {
   type Result={candidates?:{content?:{parts?:{inlineData?:{mimeType?:string;data?:string}}[]}}[]};
   const result=await apiRequest<Result>(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiImageModel}:generateContent`,
     {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':config.geminiApiKey},body:JSON.stringify({
       contents:[{parts:[{text:prompt},...referenceImages.map(inlineData=>({inlineData}))]}],
       generationConfig:{responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:closestImageAspect(options?.width??768,options?.height??768), ...((options?.width ?? 0) >= 2048 ? {imageSize:'2K'} : {})}}
-    })}, {timeoutMs:180000,label:`Gemini image API (${config.geminiImageModel})`});
+    })}, {signal,timeoutMs:180000,label:`Gemini image API (${config.geminiImageModel})`});
+  signal?.throwIfAborted();
   const image=result?.data?.candidates?.[0]?.content?.parts?.find(p=>!(p as {thought?:boolean}).thought && p.inlineData?.data)?.inlineData;
   const ext=image?.mimeType==='image/png'?'.png':image?.mimeType==='image/jpeg'?'.jpg':image?.mimeType==='image/webp'?'.webp':null;
   if(!image?.data || !ext || image.data.length>35_000_000) {

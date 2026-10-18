@@ -382,10 +382,10 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
 
         {preset === 'builtin' && (
           <label className="settings-field">
-            Checkpoint <span className="muted">(blank = first installed)</span>
+            FLUX 3 model <span className="muted">(blank = installed distilled model)</span>
             <input
               list="comfy-models"
-              placeholder={comfy?.models[0] ?? 'model.safetensors'}
+              placeholder={comfy?.models[0] ?? 'flux3_image_klein_sd_int8_convrot.safetensors'}
               value={comfyModel}
               onChange={(e) => setComfyModel(e.target.value)}
             />
@@ -408,8 +408,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
                 <br />
               </span>
             ))}
-            If your ComfyUI lacks <code>EmptyFlux2LatentImage</code>, change it to{' '}
-            <code>EmptyLatentImage</code> (same inputs).
+            FLUX 3 needs current ComfyUI with <code>TextGenerate</code> and{' '}
+            <code>EmptyFlux2LatentImage</code> support.
           </p>
         )}
 
@@ -457,7 +457,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           />
         </label>
         <label className="settings-field">
-          Battle-map LoRA / DoRA <span className="muted">(optional — applied to maps only)</span>
+          Battle-map LoRA / DoRA <span className="muted">(optional — custom workflows only)</span>
           <input
             list="comfy-loras"
             placeholder={

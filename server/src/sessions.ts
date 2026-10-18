@@ -2318,6 +2318,7 @@ export type CharacterInput = {
   icon?: string;
   modelType?:string;
   appearance?:string;
+  heightInches?:number;
 };
 
 /** Create a player character (DM or a player may add one). */
@@ -2398,6 +2399,7 @@ export function createCharacter(
   if(opts.modelType||opts.appearance)db.prepare('UPDATE characters SET model_type=?,appearance=? WHERE id=?')
     .run(typeof opts.modelType==='string'&&/^[a-z0-9-]{1,48}$/.test(opts.modelType)?opts.modelType:'',typeof opts.appearance==='string'?opts.appearance.slice(0,600):'',id);
   if(opts.gold!==undefined)db.prepare('UPDATE characters SET gold=? WHERE id=?').run(Number.isFinite(opts.gold)?Math.max(0,Math.round(opts.gold*100)/100):0,id);
+  if(typeof opts.heightInches==='number'&&Number.isInteger(opts.heightInches)&&opts.heightInches>=6&&opts.heightInches<=240)db.prepare('UPDATE characters SET height_inches=? WHERE id=?').run(opts.heightInches,id);
   return getCharacter(id)!;
 }
 

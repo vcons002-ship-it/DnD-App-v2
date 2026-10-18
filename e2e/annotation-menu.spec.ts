@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
 import {DM_SECRET,PORT} from './playwright.config';
+import {openToolbarGroup} from './helpers/mobileToolbar';
 
 for(const role of ['dm','player'] as const)test(`${role} chooses annotation colors inside the dropdown and draws with the selected color`,async({page,request},info)=>{
  test.setTimeout(60000);
@@ -31,7 +32,7 @@ for(const role of ['dm','player'] as const)test(`${role} chooses annotation colo
   expect((await snapshot()).annotations.find((a:any)=>a.kind==='freehand').color).toBe('#4cc9f0');
   await trigger.click();await expect(menu.getByRole('button',{name:'Blue',exact:true})).toHaveAttribute('aria-pressed','true');
   await page.keyboard.press('Escape');await expect(menu).toHaveCount(0);await expect(trigger).toBeFocused();await expect(trigger).toContainText('Pen');
-  await page.setViewportSize({width:430,height:932});await trigger.click();await expect(menu).toBeVisible();
+  await page.setViewportSize({width:430,height:932});await openToolbarGroup(page,'Map tools');await trigger.click();await expect(menu).toBeVisible();
   const bounds=(await menu.boundingBox())!;expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(430);expect(bounds.y+bounds.height).toBeLessThanOrEqual(932);
   await page.screenshot({path:info.outputPath(`${role}-mobile-annotation-palette.png`)});
   await menu.getByRole('button',{name:'Done annotating',exact:true}).click();await expect(menu).toHaveCount(0);await expect(trigger).toContainText('Annotate');

@@ -1,0 +1,11 @@
+.creator-feature-details details{border-bottom:1px solid #404956;padding:6px 0}
+.creator-feature-details summary{cursor:pointer;min-height:44px;padding:8px 4px;color:#ead5a6}
+.creator-feature-details summary small{display:block;color:#b6c5c7;font-size:12px;margin:5px 0 0 16px;line-height:1.4}
+.creator-feature-details details p{font-size:14px;line-height:1.65;color:#e0dfd5;overflow-wrap:anywhere;margin:8px 4px}
+.creator-feature-details details>small{display:block;color:#adb9bf;margin:8px 4px}
+.creator-inventory ul{list-style:none;padding:0}
+.creator-inventory li{padding:9px 0;border-bottom:1px solid #3c4550;overflow-wrap:anywhere;font-size:14px}
+.creator-inventory li small{display:block;color:#aab9bd;margin-top:4px;font-size:12px}
+.creator-inventory details{margin:8px 0;padding:8px;border:1px solid #495361;border-radius:5px;font-size:13px}
+.creator-inventory details p{font-size:13px;line-height:1.6;color:#c4cfcd}
+.creator-roll-results>div>small:last-child{display:block;margin-top:6px;color:#c6d7c5;font-size:12px}

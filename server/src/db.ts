@@ -556,6 +556,8 @@ ensureColumn('characters', 'model_type', "model_type TEXT NOT NULL DEFAULT ''");
 ensureColumn('characters', 'appearance', "appearance TEXT NOT NULL DEFAULT ''");
 ensureColumn('library_characters', 'model_type', "model_type TEXT NOT NULL DEFAULT ''");
 ensureColumn('library_characters', 'appearance', "appearance TEXT NOT NULL DEFAULT ''");
+ensureColumn('characters','height_inches','height_inches INTEGER');
+ensureColumn('library_characters','height_inches','height_inches INTEGER');
 // Character templates retain completed progression, never a session's pending grant.
 ensureColumn('library_characters', 'leveling', "leveling TEXT NOT NULL DEFAULT '{}'");
 // Durable per-browser id of whoever first saved a library entry. Lets a player
@@ -809,7 +811,7 @@ export function rowToToken(r: TokenRow): Token {
 }
 
 type CharacterRow = {
-  model_type?:string; appearance?:string;
+  model_type?:string; appearance?:string;height_inches?:number;
   id: string;
   session_id: string;
   name: string;
@@ -896,7 +898,7 @@ export function rowToCharacter(r: CharacterRow): Character {
     hitDiceUsed: r.hit_dice_used ?? 0,
     hitDiceUsedByDie: parseJsonColumn(r.hit_dice_used_by_die, {}, 'characters.hit_dice_used_by_die ' + r.id),
     icon: r.icon ?? '',
-    modelType:r.model_type||undefined,appearance:r.appearance||undefined,
+    modelType:r.model_type||undefined,appearance:r.appearance||undefined,heightInches:r.height_inches??undefined,
   };
 }
 

@@ -1,5 +1,14 @@
 # Automated verification
 
+`mobile-tabletop.spec.ts` checks phone/tablet layouts with touch input, real
+token dragging, pan/pinch, compact menus, character records/creation and combat
+rolls. Its viewport matrix includes 360–430 px portrait phones, 844 × 390
+landscape and 768/1024 px tablets. Together with `roll-layout.spec.ts` and
+`hidden-roll-approval.spec.ts`, it verifies readable public/private roll results
+and approval controls. These are host-PC browser tests, not physical-device
+GPU benchmarks or Safari certification. See the
+[mobile UI review](MOBILE_UI_REVIEW_2026-10-17.md).
+
 `hidden-roll-approval.spec.ts` exercises the real hidden DM attack confirmation,
 reject/reroll and entered attack totals, then separate damage approval in the tray,
 including damage rerolls and entered die faces. It also checks private save
@@ -80,6 +89,12 @@ A regression test checks behavior that should continue to work after a change. A
 - Update an assertion when an accepted workflow has changed, while preserving the behavior it protects.
 - Keep missing asset files, incorrect arithmetic, privacy leaks, and broken interactions as failures.
 - Run manual recordings and paid/live AI demonstrations explicitly, separately from automated regressions.
+
+Miniature checks follow the current visible base size and compact phone View
+menu. The disposable server's uploaded-model catalog is shared between scenarios:
+assert whether the tested family was published, rather than assuming unrelated
+uploads cannot exist. Source-art approval unit tests stub host binary probes;
+the real Python/Blender finishing contract is exercised separately on a worker host.
 
 CI uploads browser traces, screenshots, and failure context as `browser-test-results` when the browser job fails. Open a downloaded trace with `npx playwright show-trace <trace.zip>`.
 

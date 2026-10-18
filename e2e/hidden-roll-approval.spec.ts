@@ -180,6 +180,13 @@ test('hidden attacks, damage, saves and checks await private DM approval in the 
  await expectUnclipped(review.getByRole('button',{name:'Reject & reroll'}));
  await expectUnclipped(review.locator('.hidden-roll-verdict'));
  await page.screenshot({path:test.info().outputPath('phone-private-review.png')});
+ await page.setViewportSize({width:844,height:390});
+ await expect.poll(async()=>(await page.locator('.dice-tray-stage').boundingBox())?.height??0).toBeGreaterThan(120);
+ await expectUnclipped(review.getByRole('button',{name:'Apply result'}));
+ await expectUnclipped(review.getByRole('button',{name:'Reject & reroll'}));
+ await expectUnclipped(review.getByRole('button',{name:'Enter result'}));
+ await expectUnclipped(review.locator('.hidden-roll-verdict'));
+ await page.screenshot({path:test.info().outputPath('phone-landscape-private-review.png')});
  await page.setViewportSize({width:1600,height:1000});
  expect((await snapshot()).rollLog).toHaveLength(oldCount);
  expect((await observer.timeout(5000).emitWithAck('join',{sessionCode:code,role:'player'})).snapshot.rollLog).toEqual(playerLogBefore);

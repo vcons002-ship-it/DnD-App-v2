@@ -241,6 +241,7 @@ export function PlayerHud({
   const art = orbArt(character);
   return (
     <div className="player-hud" data-testid="player-hud" data-orb-art={art ?? 'generic-orb'}>
+      <button type="button" className="btn mobile-character-button" onClick={()=>setWindowTab('Character')}>Character</button>
       <nav className="hud-actions" aria-label="Player action bar">
         <button className={`btn hud-icon-button${character.leveling?.pending ? ' level-up-ready' : ''}`} aria-label="Character" onClick={() => setWindowTab('Character')}>
           <HudIcon name="character" />

@@ -33,6 +33,21 @@
 .hidden-roll-entry input{width:100px;min-height:44px;font-size:20px}
 .hidden-roll-manual-note{color:#f2d99d!important;font-size:14px!important}
 .private-review-fallback{width:min(740px,94vw);height:340px}
+/* Keep the decision and all three secondary actions visible beside a sideways
+   phone's tray. The roll title is already above it; results scroll separately. */
+@media (min-width:601px) and (max-width:1000px) and (max-height:500px){
+ .hidden-roll-review header{gap:4px}
+ .hidden-roll-review footer{grid-template-columns:1fr;gap:4px}
+ .hidden-roll-review .hidden-roll-accept{grid-row:1;width:100%;min-width:0;min-height:44px;font-size:18px}
+ .hidden-roll-secondary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+ .hidden-roll-review .btn{font-size:13px;padding:6px;min-height:44px}
+ .hidden-roll-review footer>span{font-size:11px}
+ .hidden-roll-results section{flex:1 0 100%;gap:3px 6px;padding:2px 6px}
+ .hidden-roll-results h3{display:none}
+ .hidden-roll-review .hidden-roll-who{font-size:18px}
+ .hidden-roll-verdict{font-size:20px}
+ .hidden-roll-entry{bottom:105px;grid-template-columns:1fr;max-height:calc(100dvh - 180px);padding:10px}
+}
 @media(max-width:600px){
  .hidden-roll-review footer{grid-template-columns:1fr;gap:4px}
  .hidden-roll-review .hidden-roll-accept{width:100%;min-height:44px;grid-row:1}

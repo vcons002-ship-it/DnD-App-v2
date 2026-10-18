@@ -597,3 +597,13 @@ Image generation tries ComfyUI first, then the configurable Gemini image API
 model. Its fallback supports token art, decals, and maps but does not reproduce
 local LoRAs or custom workflow internals. The external 3D asset pipeline remains
 outside the in-game generation gateway.
+
+
+## Accepted hybrid miniature production
+
+The app producer uses automatically aligned four-view Hunyuan 2mv geometry
+(75 steps, guidance 5.5) followed by four-reference Hunyuan 2.1 PBR painting.
+Verified stage receipts support retry without regenerating completed geometry.
+The accepted UV-aware crease definition pass is part of new-model finishing.
+Source-art approval, cancellation, 20k runtime reduction and base fitting remain
+in place. See `docs/ASSET_PRODUCTION.md` for worker setup and exact settings.

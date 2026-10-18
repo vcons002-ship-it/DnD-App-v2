@@ -27,3 +27,14 @@ export const ARTISAN_TOOLS=["Alchemist's Supplies","Brewer's Supplies","Calligra
 // alternative avoids inventing a package for a free-text background.
 export const BACKGROUND_STARTING_GOLD=50;
 export const ARMOR_NAMES={leather:'Leather Armor',studded:'Studded Leather Armor',shirt:'Chain Shirt',chain:'Chain Mail'};
+/** Contents are saved as pack notes, not duplicated as loose inventory items.
+ * 2024 Free Rules: /sources/dnd/br-2024/equipment */
+export const STARTING_PACK_CONTENTS:Record<string,string>={
+ "Burglar's Pack":'Backpack; Ball Bearings; Bell; 10 Candles; Crowbar; Hooded Lantern; 7 flasks of Oil; 5 days of Rations; Rope; Tinderbox; Waterskin.',
+ "Diplomat's Pack":'Chest; Fine Clothes; Ink; 5 Ink Pens; Lamp; 2 Map or Scroll Cases; 4 flasks of Oil; 5 sheets of Paper; 5 sheets of Parchment; Perfume; Tinderbox.',
+ "Dungeoneer's Pack":'Backpack; Caltrops; Crowbar; 2 flasks of Oil; 10 days of Rations; Rope; Tinderbox; 10 Torches; Waterskin.',
+ "Entertainer's Pack":'Backpack; Bedroll; Bell; Bullseye Lantern; 3 Costumes; Mirror; 8 flasks of Oil; 9 days of Rations; Tinderbox; Waterskin.',
+ "Explorer's Pack":'Backpack; Bedroll; 2 flasks of Oil; 10 days of Rations; Rope; Tinderbox; 10 Torches; Waterskin.',
+ "Priest's Pack":'Backpack; Blanket; Holy Water; Lamp; 7 days of Rations; Robe; Tinderbox.',
+ "Scholar's Pack":'Backpack; Book; Ink; Ink Pen; Lamp; 10 flasks of Oil; 10 sheets of Parchment; Tinderbox.',
+};
