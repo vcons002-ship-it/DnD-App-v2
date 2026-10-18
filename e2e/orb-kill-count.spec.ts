@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Page } from './helpers/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
@@ -201,7 +201,7 @@ test('DM workspace exposes its roster without receiving the player orb tally', a
   await page.goto(`/dm?code=${f.code}`);
   await page.locator('input[type="password"]').fill(DM_SECRET);
   await page.getByRole('button', { name: 'Rejoin as DM', exact: true }).click();
-  await page.getByRole('button', { name: 'Creatures', exact: true }).click();
+  await page.getByRole('button', { name: 'Creatures', exact: true }).click({force:true}) /* pulsing while empty */;
   await expect(page.locator('.spawn-row').filter({ hasText: 'Druk' })).toBeVisible();
   await expect(page.locator('.orb-kill-count')).toHaveCount(0);
   await expect(page.locator('[data-testid="player-hud"]')).toHaveCount(0);

@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Page, type Route } from './helpers/test';
 import { build } from 'esbuild';
 import path from 'node:path';
 

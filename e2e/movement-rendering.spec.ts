@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('moving a lantern updates only its wall geometry and preserves independent colored lights',async({page})=>{

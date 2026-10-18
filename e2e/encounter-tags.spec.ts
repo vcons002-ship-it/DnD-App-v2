@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page, budget} from './helpers/test';
 import { io, type Socket } from 'socket.io-client';
 import type { StateSnapshot } from '../shared/types';
 import { DM_SECRET, PORT } from './playwright.config';
@@ -70,7 +70,7 @@ async function afterPaint(page: Page) {
 
 test('DM and player encounter tags follow activation and fog, and match complete reveals',async({page,browser,request},info)=>{
  test.setTimeout(90000);
- page.setDefaultTimeout(10000);
+ page.setDefaultTimeout(budget(10000));
  const f=await fixture(page,request);
  for(const [i,t] of f.ready.tokens.entries())f.socket.emit('token:move',{tokenId:t.id,x:430+i*150,y:690});
  f.socket.emit('monster:create',{name:'Goblin',maxHp:12,modelType:'goblin'});

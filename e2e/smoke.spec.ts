@@ -1,4 +1,4 @@
-import { test, expect, request as pwRequest } from '@playwright/test';
+import { test, expect, request as pwRequest } from './helpers/test';
 import { DM_SECRET, PORT } from './playwright.config';
 
 const BASE = `http://localhost:${PORT}`;
@@ -44,7 +44,7 @@ test('player joins by code and the DM opens the same session — two live client
   await dm.goto(`/dm?code=${code}`, { waitUntil: 'networkidle' });
   await dm.fill('input[type=password]', DM_SECRET);
   await dm.click('button:has-text("Rejoin as DM")');
-  await dm.getByRole('button', { name: 'Creatures', exact: true }).click();
+  await dm.getByRole('button', { name: 'Creatures', exact: true }).click({force:true}) /* pulsing while empty */;
   // DM console mounts (left panel is present) and the same roster is there —
   // proving the DM's snapshot built correctly with a player already connected.
   await expect(dm.getByText('Druk', { exact: false }).first()).toBeVisible({
@@ -158,7 +158,7 @@ test('the Library window adds a creature and arms placement in the map window', 
   await dm.click('button:has-text("Rejoin as DM")');
   // New maps stay in preparation until the DM activates them.
   await dm.getByRole('button', { name: 'Make active', exact: true }).click();
-  await dm.getByRole('button', { name: 'Creatures', exact: true }).click();
+  await dm.getByRole('button', { name: 'Creatures', exact: true }).click({force:true}) /* pulsing while empty */;
   await expect(dm.getByText('Druk', { exact: false }).first()).toBeVisible({ timeout: 20_000 });
 
   // Library window.
@@ -203,7 +203,7 @@ test('the DM can switch off the two-step damage roll and it sticks', async ({ pa
   await page.goto(`/dm?code=${code}`, { waitUntil: 'networkidle' });
   await page.fill('input[type=password]', DM_SECRET);
   await page.click('button:has-text("Rejoin as DM")');
-  await page.getByRole('button', { name: 'Creatures', exact: true }).click();
+  await page.getByRole('button', { name: 'Creatures', exact: true }).click({force:true}) /* pulsing while empty */;
   await expect(page.getByText('Druk', { exact: false }).first()).toBeVisible({
     timeout: 20_000,
   });

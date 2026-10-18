@@ -15,6 +15,7 @@ import { startTunnel, publicUrl } from './tunnel.js';
 import { broadcastAiStatus, broadcastSnapshots, type IOServer } from './connections.js';
 import { setAiReporter } from './ai/status.js';
 import { assetQueue, startAssetProduction } from './assets/production.js';
+import { placeholderModelMiddleware } from './assets/placeholderModel.js';
 
 // Last-resort crash guards. Socket handlers already run inside a per-event
 // try/catch (see socketHandlers.ts) and async routes catch internally, but a
@@ -65,6 +66,11 @@ startAssetProduction();
 assetQueue().onCatalogChange = () => { io.emit('assets:catalog'); };
 assetQueue().onCharacterChange = sessionId => { broadcastSnapshots(io,sessionId); };
 
+if (config.placeholderModels) {
+  console.log('[models] PLACEHOLDER_MODELS=1: Git LFS pointer .glb files are served as a stand-in figure');
+  app.use('/uploads', placeholderModelMiddleware([config.uploadsDir]));
+  app.use(placeholderModelMiddleware([config.clientDist]));
+}
 app.use('/uploads', express.static(config.uploadsDir));
 app.use('/api', createApiRouter(io));
 app.get('/api/health', (_req, res) => res.json({ ok: true, preview: config.preview }));

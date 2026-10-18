@@ -1,5 +1,5 @@
 import {acceptConcentration} from './themed-dialogs';
-import {test,expect,type Page,type Locator} from '@playwright/test';
+import {test,expect,type Page,type Locator, budget} from './helpers/test';
 import {io} from 'socket.io-client';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -33,7 +33,7 @@ for(const actor of ['Varis','Druk','Vanec'])test(`party abilities walkthrough ${
  socket.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dusk',weather:'none',mist:false,shadows:true,lights:[]}});
  await snap();
  const context=await browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1600,height:1000},recordVideo:{dir:info.outputPath('capture'),size:{width:1600,height:1000}}});
- const page=await context.newPage();page.setDefaultTimeout(16000);
+ const page=await context.newPage();page.setDefaultTimeout(budget(16000));
  const errors:string[]=[],chapters:any[]=[],evidence:any[]=[];
  page.on('pageerror',e=>errors.push(e.message));
  await acceptConcentration(page,async message=>{evidence.push({dialog:message});await page.waitForTimeout(900);});

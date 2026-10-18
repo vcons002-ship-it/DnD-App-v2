@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import type {LiveDiceFrame} from '../shared/liveDiceTypes';
 import type {RollReveal} from '../shared/types';
 import {DM_SECRET} from './playwright.config';

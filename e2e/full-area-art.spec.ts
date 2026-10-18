@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('six updated spell fields render in tilted, overhead and reduced views with bounded draw calls',async({page})=>{

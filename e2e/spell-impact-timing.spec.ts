@@ -1,7 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/test';
 import { io } from 'socket.io-client';
 import { readFileSync } from 'node:fs';
 import { PORT, DM_SECRET } from './playwright.config';
+import { frameBudgetMs } from './helpers/environment';
 import {HP_TOTAL_HOLD_MS,HP_NUMBER_FADE_MS} from '../client/src/lib/hpFeedback';
 
 // Route-delayed cold assets must not be served by the app's offline cache.
@@ -136,14 +137,19 @@ for (const scenario of [
       await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0, {timeout: 700});
     }
     if(spell==='Cure Wounds'&&!scenario.skip){
-      const result=page.locator('[data-dice-presentation="result"]');
-      await expect(result.getByLabel('Damage or dice calculation').locator('.rr-adjustment')).toContainText([/\+4\s*WIS modifier/],{timeout:35000});
-      expect(await page.evaluate(()=>document.querySelector('.dice-tray-canvas')===(window as any).__healingTrayCanvas)).toBe(true);
-      await expect(result.locator('.physics-dice-tray')).toBeVisible();
-      expect(await result.getByLabel('Damage or dice calculation').evaluate(el=>{
-        const equation=el.getBoundingClientRect(),card=el.closest('.roll-reveal')!.getBoundingClientRect();
-        return equation.top>=card.top&&equation.bottom<=card.bottom&&equation.bottom<=innerHeight;
-      }),'The full modifier equation is readable without scrolling the tray').toBe(true);
+      // Measure the card in the same frame the modifier appears: the result
+      // compacts after its reading hold, which a slow renderer can reach first.
+      let layout:{sameCanvas:boolean;tray:boolean;readable:boolean}|null=null;
+      await expect.poll(async()=>{layout=await page.evaluate(()=>{
+        const card=document.querySelector('[data-dice-presentation="result"] .roll-reveal'),equation=card?.querySelector('[aria-label="Damage or dice calculation"]');
+        if(!card||!equation||!/\+4\s*WIS modifier/.test(equation.querySelector('.rr-adjustment')?.textContent??''))return null;
+        const e=equation.getBoundingClientRect(),c=card.getBoundingClientRect(),tray=card.querySelector('.physics-dice-tray') as HTMLElement|null;
+        return {sameCanvas:document.querySelector('.dice-tray-canvas')===(window as any).__healingTrayCanvas,tray:!!tray&&tray.getBoundingClientRect().height>0,
+          readable:e.top>=c.top&&e.bottom<=c.bottom&&e.bottom<=innerHeight};
+      });return !!layout;},{timeout:35000}).toBe(true);
+      expect(layout!.sameCanvas,'The ordinary tray canvas is reused for the healing roll').toBe(true);
+      expect(layout!.tray,'The dice tray is visible with the result').toBe(true);
+      expect(layout!.readable,'The full modifier equation is readable without scrolling the tray').toBe(true);
       await page.screenshot({path:test.info().outputPath('healing-modifiers-in-tray.png')});
     }
     await expect.poll(() => page.evaluate(() => (window as any).__impactSamples.some((s: any) => s.fx > 0)),
@@ -191,7 +197,8 @@ for (const scenario of [
       const total=totals.reduce((best:any,n:any)=>!best||amount(n)>amount(best)?n:best,undefined);
       expect(components).toHaveLength(3);
       expect(total.color).toBe('#ff5a60');
-      expect(total.time).toBeGreaterThan(Math.max(...components.map((n:any)=>n.time)));
+      // Never before its components; a slow frame can deliver the last one together with the total.
+      expect(total.time).toBeGreaterThanOrEqual(Math.max(...components.map((n:any)=>n.time)));
       expect(new Set(totals.map((n:any)=>n.text)).size,'The total counts up as components arrive').toBeGreaterThan(2);
       expect(totals.every((n:any,i:number)=>i===0||amount(n)>=amount(totals[i-1]))).toBe(true);
       expect(amount(total)).toBe(components.reduce((sum:number,n:any)=>sum+amount(n),0));
@@ -204,7 +211,7 @@ for (const scenario of [
       expect(Math.max(...splash.filter((n:any)=>n.total).map(amount))).toBe(200-after.monsters.find((m:any)=>m.id===neighbor.refId).curHp);
       const mainThorns=mainSamples.find((s:any)=>s.numbers.some((n:any)=>!n.total&&n.color==='#b4f47e'))!.time;
       const splashThorns=samples.find((s:any)=>s.numbers.some((n:any)=>n.x===690&&!n.total&&n.color==='#b4f47e'))!.time;
-      expect(Math.abs(mainThorns-splashThorns),'Shared AoE numbers appear on the same frame across victims').toBeLessThan(40);
+      expect(Math.abs(mainThorns-splashThorns),'Shared AoE numbers appear on the same frame across victims').toBeLessThan(await frameBudgetMs(page,40));
       expect(samples.every((s:any)=>s.numbers.every((n:any)=>n.x===650||n.x===690)),
         'Every number rises from its own token center').toBe(true);
       expect(await page.evaluate(() => ((window as any).Konva?.stages??[]).flatMap((stage:any)=>stage.find('.hp-floater-label')).length)).toBe(0);

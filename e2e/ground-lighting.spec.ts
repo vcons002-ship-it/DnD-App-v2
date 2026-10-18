@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('beam ground light stays continuous along its length, narrow across it, and clipped by walls',async({page})=>{

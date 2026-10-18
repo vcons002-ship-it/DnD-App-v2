@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';import {io} from 'socket.io-client';import sharp from 'sharp';
+import {test,expect} from './helpers/test';import {io} from 'socket.io-client';import sharp from 'sharp';
 import {DM_SECRET,PORT} from './playwright.config';
 import {projectGround} from '../client/src/canvas/miniatureProjection';
 

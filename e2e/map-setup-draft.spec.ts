@@ -1,4 +1,4 @@
-import {test,expect,type Page,type APIRequestContext} from '@playwright/test';
+import {test,expect,type Page,type APIRequestContext} from './helpers/test';
 import {createHash} from 'node:crypto';
 import sharp from 'sharp';
 import {io,type Socket} from 'socket.io-client';

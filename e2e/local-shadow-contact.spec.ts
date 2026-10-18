@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {build} from 'esbuild';
 
 test('local shadows touch grounded bases at near and far distances and different map scales',async({page})=>{

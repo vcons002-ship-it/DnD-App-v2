@@ -1,4 +1,4 @@
-import {expect,type Locator} from '@playwright/test';
+import {expect,type Locator} from './test';
 
 /** Visibility alone does not detect text hidden below an overflow container. */
 export async function expectUnclipped(locator:Locator){

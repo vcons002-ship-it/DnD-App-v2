@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 import {io} from 'socket.io-client';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';

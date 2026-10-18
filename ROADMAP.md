@@ -3214,6 +3214,14 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
   fallback keeps the anchor-point rule. Hidden spell pixels are discarded
   before the effect shades them; the fog-cell texture is built only while
   spell art is drawing, and only when the revealed cells change.
+- [x] The browser suite runs on machines without a GPU or the Git LFS models
+  (CI runners, cloud containers): a stand-in figure replaces pointer `.glb`
+  files under `PLACEHOLDER_MODELS=1`, synthetic map videos use a codec the
+  test browser decodes, and on a software renderer every test/expect budget
+  widens 4× through `e2e/helpers/test.ts` (specs import `test`/`expect` from
+  there). CI runs the suite in four shards. Found on the way: the DM view
+  crashed on Google Slides maps (hooks after an early return), and the
+  lockfile was out of date.
 - [x] Fire, lightning and radiant area spells (Fireball, Lightning Bolt,
   Burning Hands, Flame Strike, Meteor Swarm, Call Lightning) light the ground
   while they animate: in magical darkness players see the terrain that light

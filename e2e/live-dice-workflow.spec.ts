@@ -1,11 +1,11 @@
-import {test,expect} from '@playwright/test';
+import {test,expect, budget} from './helpers/test';
 import {io,type Socket} from 'socket.io-client';
 const connections:Socket[]=[];
 test.afterEach(()=>connections.splice(0).forEach(s=>s.disconnect()));
 import {DM_SECRET,PORT} from './playwright.config';
 
 test('server live fireball and manual weapon damage match the streamed faces',async({page:dm,request})=>{
- test.setTimeout(120000);dm.setDefaultTimeout(12000);
+ test.setTimeout(120000);dm.setDefaultTimeout(budget(12000));
  const {code}=await(await request.post('/api/sessions',{headers:{'x-dm-passphrase':DM_SECRET},data:{name:'Live dice workflow'}})).json();
  const socket=io(`http://localhost:${PORT}`,{transports:['websocket']});connections.push(socket);
  const snap=async()=>{const r=await socket.timeout(5000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});return r.snapshot;};

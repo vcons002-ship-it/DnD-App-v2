@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './helpers/test';
 
 test('custom dice roller uses one selected character and preserves percentile pair results',async({page},info)=>{
  test.setTimeout(120000);
