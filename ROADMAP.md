@@ -3299,6 +3299,13 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
 
 ## Hybrid miniature pipeline (17 October 2026)
 
+- [x] Added the accepted lossless delivery pass after base fitting for newly
+  generated character and creature models. PNG/WebP candidates must preserve
+  decoded pixels exactly; Meshopt preserves triangle-corner attributes without
+  quantization or further simplification. Reload validation, size/hash receipts
+  and the pipeline contract smoke cover final publication. The elf paladin
+  comparison shrank from 6.31 MB to 3.98 MB (36.9%); existing models are unchanged.
+
 The app producer uses automatically aligned four-view Hunyuan 2mv geometry
 (75 steps, guidance 5.5) followed by four-reference Hunyuan 2.1 PBR painting.
 Verified stage receipts support retry without regenerating completed geometry.

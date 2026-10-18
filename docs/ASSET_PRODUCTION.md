@@ -257,6 +257,41 @@ hands, weapons, back views, texture seams, final GLB size and generation time.
 
 ## Validation
 
+### Lossless model delivery (18 October 2026)
+
+The final `package.mjs` step now applies `lossless-delivery-v1` to every newly
+generated creature or character, **after** Blender fits the base and the original
+finished textures are restored. This avoids Blender undoing delivery compression.
+
+- Untagged 8-bit PNG textures, including metallic/roughness maps, are tested with
+  optimized PNG and lossless WebP. Only a smaller candidate with identical decoded
+  RGBA pixels and dimensions is accepted. Existing JPEG images are not recompressed;
+  tagged profiles and unsupported encodings are preserved.
+- Meshopt losslessly encodes the existing triangle data. Identical vertices can be
+  merged and triangles reordered; no geometry is simplified or quantized. Every
+  triangle corner's attributes and winding are checked after decoding. Scene
+  transforms, materials, texture pixels and the base placement must remain exact.
+- The finished file is reloaded before publication. Tiny files that would grow
+  retain their previous encoding. A failed verification fails that production
+  attempt rather than publishing an unverified model.
+- Each job keeps `model.glb.compression.json` with the size saving, texture hashes
+  and preservation checks. Catalog byte counts and SHA-256 identify the actual
+  compressed file. The existing battlefield loader already supports Meshopt and
+  `EXT_texture_webp`; no external decoder download or new dependency is required.
+
+This is lossless **relative to the already finished 20k/2K asset**. The earlier
+geometry reduction and color JPEG preparation still use their approved settings.
+Existing catalog files and user uploads are not automatically rewritten.
+
+The approved elf-paladin comparison reduced its 6,308,148-byte GLB to 3,980,604
+bytes (36.9%). Of that saving, 2,094,400 bytes came from lossless material-texture
+encoding and 233,144 bytes from mesh encoding. Both retain 20k triangles, all
+decoded texture pixels and the same PBR response. An interactive lighting preview
+verified daylight, lanterns, colored lights, rotation and spell flashes. This
+measurement is for that comparison asset; savings depend on each model's data.
+
+Focused checks: `npm run test -w server -- --run tools/asset-production/lossless_delivery.test.mjs`.
+
 ### Pedestal contact in the battlefield
 
 The shared pewter-base renderer measures the original support surface and moves

@@ -79,6 +79,12 @@ try {
   assert.equal(finishing.detailPolicy.id,'defined-crease-v2','Approved crease definition is part of app production');
   const model = queue.snapshot().models[0];
   const published = await fs.readFile(path.join(config.uploadsDir, 'miniatures', path.basename(model.url)));
+  const delivery=JSON.parse(await fs.readFile(path.join(root,'asset-production',readyJob.id,`attempt-${readyJob.attempts}`,'model.glb.compression.json'),'utf8'));
+  assert.equal(delivery.policy,'lossless-delivery-v1','Verified lossless delivery is part of app production');
+  assert.equal(delivery.verified.triangleCornerAttributesExact,true);
+  assert.equal(delivery.verified.decodedTexturePixelsExact,true);
+  assert.equal(delivery.bytes,published.length);
+  assert.equal(delivery.sha256,model.sha256);
   assert.equal(model.bytes, published.length);
   assert.equal(model.sha256, createHash('sha256').update(published).digest('hex'));
   assert.equal(published.readUInt32LE(0), 0x46546c67);
