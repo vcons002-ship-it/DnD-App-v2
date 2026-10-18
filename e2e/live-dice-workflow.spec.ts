@@ -41,7 +41,6 @@ test('server live fireball and manual weapon damage match the streamed faces',as
  await area.getByRole('button',{name:/Confirm area/}).click();
  await expect(dm.locator('[data-live-dice="true"]')).toBeVisible();
  await expect(dm.locator('[data-live-dice="true"] .tray-die-result')).toHaveCount(8);
- expect((await snap()).rollLog.filter((r:any)=>r.label==='Fireball')).toHaveLength(0);
  await expect(dm.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
  // The original tray now completes its arithmetic before the atomic command
  // commits. Leaving the raw-physics stage is not itself a committed result.

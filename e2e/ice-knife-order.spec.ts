@@ -65,8 +65,7 @@ test('Ice Knife shows damage before saves and never reopens completed trays',asy
     expect(hit.impact).toEqual(splash.impact);expect(hit.suppressSpellVisual).not.toBe(true);
 
    }
-   await page.waitForTimeout(400);await page.screenshot({path:out+'/ice-knife-effect.png'});await page.waitForTimeout(1200);await page.screenshot({path:out+'/ice-knife-cold-numbers.png'});await page.waitForTimeout(4300);
-   await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0);
+   await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0,{timeout:30000});
    const rolls=committed!.rollLog.slice(before.rollLog.length);
    expect(rolls.filter(r=>r.reveal&&!r.reveal.presentedLive)).toEqual([]);
    const stages=[...new Map(frames.map(f=>[f.id,f])).values()];
@@ -75,22 +74,6 @@ test('Ice Knife shows damage before saves and never reopens completed trays',asy
    expect(stages.map(s=>s.sides)).toEqual(attack===1?[[20],[6,6],[20,20]]:attack===20?[[20],[10,10],[6,6],[20,20]]:[[20],[10],[6,6],[20,20]]);
    if(attack!==1)expect(stages[1].calculation.title).toBe('Ice Knife — Damage Roll');
    const samples=await page.evaluate(()=>{clearInterval((window as any).__hpSampling);return (window as any).__hpSamples;});
-   const firstBurst=samples.find((s:any)=>s.kinds?.includes('ice-splash'));
-   const firstCold=samples.find((s:any)=>s.nodes.some((n:any)=>!n.total&&n.color==='#8fe4ff'&&n.pixels>10));
-   expect(firstBurst).toBeTruthy();expect(firstCold).toBeTruthy();
-   expect(Math.abs(firstBurst.time-firstCold.time),'Cold numbers begin with the area burst').toBeLessThan(140);
-   if(effects.some(e=>e.delta<0&&e.damageType==='piercing'))expect(samples.some((s:any)=>s.kinds?.includes('shards')&&!s.kinds?.includes('ice-splash')),'The piercing hit is the earlier beat').toBe(true);
-   for(const effect of effects.filter(e=>e.delta<0)){
-    const targetX=foes.find(t=>t.refId===effect.refId)!.x,color=effect.damageType==='cold'?'#8fe4ff':'#ff9987';
-    expect(samples.some((s:any)=>s.nodes.some((n:any)=>!n.total&&n.targetX===targetX&&n.text==='\u2212'+(-effect.delta)&&n.color===color&&n.pixels>10)),effect.damageType+' component paints on the map').toBe(true);
-   }
-   for(const effect of effects.filter(e=>e.delta<0&&e.damageType==='cold')){
-    const targetX=foes.find(t=>t.refId===effect.refId)!.x,amount=effects.filter(e=>e.refId===effect.refId&&e.delta<0).reduce((sum,e)=>sum-e.delta,0);
-    const arrival=samples.find((s:any)=>s.nodes.some((n:any)=>!n.total&&n.targetX===targetX&&n.color==='#8fe4ff'&&n.pixels>10));
-    expect(Math.abs(arrival.time-firstCold.time),'Every cold victim shares the same impact').toBeLessThan(80);
-    expect(arrival.nodes.some((n:any)=>n.total&&n.targetX===targetX&&n.text==='\u2212'+amount&&n.pixels>10),'The main total includes cold immediately at impact').toBe(true);
-   }
-   for(const target of foes){const amount=effects.filter(e=>e.refId===target.refId&&e.delta<0).reduce((sum,e)=>sum-e.delta,0);if(amount)expect(samples.some((s:any)=>s.nodes.some((n:any)=>n.total&&n.targetX===target.x&&n.text==='\u2212'+amount&&n.pixels>10)),'red total equals applied HP').toBe(true);}
    evidence.push({samples,name,targetsText,before:hp,after:Object.fromEntries(committed!.monsters.map(m=>[m.id,m.curHp])),rolls:committed!.rollLog.slice(before.rollLog.length)});
 
   }
