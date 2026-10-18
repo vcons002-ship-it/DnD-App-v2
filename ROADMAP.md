@@ -3332,3 +3332,9 @@ in place. See `docs/ASSET_PRODUCTION.md` for worker setup and exact settings.
   35% local cap (3.24% mean on the dragon), preserving geometry and PBR data maps.
   New app-generated models now include it. Wolf and bandit comparisons passed;
   existing-alpha preservation is regression-tested against the red-ear artifact.
+
+- Character loading now requests only Battlefield plus the resolved preset's
+  close tier, with camera-frustum and fog visibility checks before detail loads.
+  High-preset benchmarks on AMD integrated graphics and RTX 5090 confirm useful
+  distant-geometry savings on integrated; see
+  [two-tier model results](docs/TWO_TIER_MINIATURES_2026_10_18.md).

@@ -1,5 +1,9 @@
 ﻿# Shared character textures and model detail tests - 18 October 2026
 
+**Later update:** [two-tier loading and High-preset hardware tests](TWO_TIER_MINIATURES_2026_10_18.md)
+supersede the four-tier loading policy below. The storage receipts and original
+measurements remain historical evidence.
+
 The twelve Druk, Varis and Vanec model tiers now share their exact encoded
 textures. No geometry, texture pixels, material values, animations, bases,
 attachments or effects were changed.

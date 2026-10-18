@@ -1,6 +1,7 @@
 import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
 import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart,type OutlineRect} from './miniatureSilhouetteOutline';
 import {miniatureLodForPixels,type MiniatureLod} from '../../../shared/miniatureLod';
+import {createMiniatureLodVisibility} from './miniatureLodVisibility';
 import {createMiniatureBatches} from './miniatureBatches';
 import {createMiniatureTransform,retainMiniatureLocalTransforms} from './miniatureTransforms';
 import {createMiniatureMovePreviewGeometry} from './miniatureMovePreview';
@@ -8,7 +9,7 @@ import {createMirrorImages} from './mirrorImages';
 import {createMiniatureFootprints} from './miniatureFootprints';
 import type {FootprintMark} from './FootprintTrails';
 import {createSpiritualWeapon} from './spiritualWeapon';
-import {DEATH_SKULL,SPIRITUAL_WEAPON,miniatureForLod} from '../lib/miniatures';
+import {DEATH_SKULL,SPIRITUAL_WEAPON,miniatureForLod,miniatureForPreload} from '../lib/miniatures';
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {COMBAT_ROLE_ICON} from '../../../shared/combatRole';
 import type {CombatRole} from '../../../shared/types';
@@ -311,6 +312,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     spellImpacts.setFogClip({texture:spellFogTexture,originX,originY,cols,rows,grid:fog.grid});
   };
   const lodLevels=new Map<string,MiniatureLod>();
+  const lodVisibility=createMiniatureLodVisibility();
   let lodTimer:ReturnType<typeof setTimeout>|undefined;
   let tokenById=new Map(initial.tokens.map(t=>[t.id,t]));
   const batches=createMiniatureBatches(scene);
@@ -323,7 +325,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let preloadTimer:ReturnType<typeof setTimeout>|undefined;
   let preloadRunning=false;
   function evictRetiredPlayerAssets(){
-    const keep=new Set([...(props.preloadDefinitions??[]).map(d=>miniatureForLod(d,'battlefield').url),...props.tokens.map(t=>t.definition.url),...[...instances.values()].map(i=>i.url),...loading.values()]);
+    const keep=new Set([...(props.preloadDefinitions??[]).map(d=>miniatureForPreload(d,props.graphics?.modelQuality??'high').url),...props.tokens.map(t=>t.definition.url),...[...instances.values()].map(i=>i.url),...loading.values()]);
     for(const url of new Set([...playerAssetUrls,...backgroundAssetUrls])){
       if(keep.has(url)||!assets.has(url))continue;
       const promise=assets.get(url)!;assets.delete(url);measurements.delete(url);warmedAssets.delete(url);backgroundAssetUrls.delete(url);
@@ -849,7 +851,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
   };
   const publishPreloads=()=>{
-    const urls=(props.preloadDefinitions??[]).map(d=>miniatureForLod(d,'battlefield').url);
+    const urls=(props.preloadDefinitions??[]).map(d=>miniatureForPreload(d,props.graphics?.modelQuality??'high').url);
     host.dataset.preloadModelCount=String(new Set(urls).size);
     host.dataset.preloadReadyCount=String(new Set(urls.filter(url=>warmedAssets.has(url))).size);
     host.dataset.preloadedModelUrls=JSON.stringify(urls.filter(url=>warmedAssets.has(url)));
@@ -935,15 +937,25 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       host.dataset.carriedLanternCount='0';host.dataset.visibleTorchCount='0';host.dataset.carriedLanternPositions='[]';
     }
     updateCamera();
+    lodVisibility.update(camera);
+    const onScreenIds:string[]=[];
     props={...props,tokens:props.tokens.map(token=>{
       // Measure both ground axes in the actual camera, including perspective.
       const c=new Vector3(token.x,0,token.y).project(camera);
       const diameter=Math.max(...[new Vector3(token.x+token.diameter/2,0,token.y),new Vector3(token.x,0,token.y+token.diameter/2)].map(p=>{p.project(camera);return Math.hypot((p.x-c.x)*props.width,(p.y-c.y)*props.height);}));
-      const level=miniatureLodForPixels(diameter,props.graphics?.modelQuality??'high',lodLevels.get(token.id));
-      lodLevels.set(token.id,level);return {...token,definition:miniatureForLod(token.definition,level)};
+      const instance=instances.get(token.id);
+      // First prepare coarse art. Its measured bounds then decide whether the
+      // figure is in this viewport; never speculate by loading the dense mesh.
+      const onScreen=!!instance&&(props.isVisibleAt?.(token.id,instance.root.position.x,instance.root.position.z)??instance.root.visible)
+        &&lodVisibility.contains(instance.outlineBounds,instance.root.matrixWorld);
+      if(onScreen)onScreenIds.push(token.id);
+      const quality=props.graphics?.modelQuality??'high';
+      const level=miniatureLodForPixels(diameter,quality,lodLevels.get(token.id),onScreen);
+      lodLevels.set(token.id,level);return {...token,definition:miniatureForLod(token.definition,level,quality)};
     })};
     next=props;tokenById=new Map(next.tokens.map(t=>[t.id,t]));
     host.dataset.modelLods=JSON.stringify(Object.fromEntries(lodLevels));
+    host.dataset.lodOnScreenIds=JSON.stringify(onScreenIds);
     host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
     shaderWarmup.update(camera,scene,`${renderer.shadowMap.enabled}:${key.castShadow}:${!!scene.environment}`);
     for (const [id, url] of loading) {
@@ -1092,6 +1104,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         evictRetiredPlayerAssets();
         if(battlefield)renderer.shadowMap.needsUpdate=true;
         invalidate();
+        scheduleLod();
         const fx = definition.fxUrl ? await manifests.get(definition.fxUrl) : null;
         if (!disposed && instances.get(token.id) === instance && fx && Array.isArray(fx.keyframes) && fx.material_channels) {
           instance.fx = fx;
@@ -1100,7 +1113,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         }
       });
     }
-    queuePreloads((next.preloadDefinitions??[]).map(d=>miniatureForLod(d,'battlefield')));
+    queuePreloads((next.preloadDefinitions??[]).map(d=>miniatureForPreload(d,next.graphics?.modelQuality??'high')));
     evictRetiredPlayerAssets();
     invalidate();
   };
@@ -1192,6 +1205,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if (disposed) return;
       const token = tokenById.get(id)??props.environmentPreview?.carriedLanterns?.find(t=>t.id===id);
       if (!token) return;
+      if(finished)scheduleLod();
       if(finished && facing!==undefined && x===token.x && y===token.y){
         moves.delete(id);invalidate();return;
       }

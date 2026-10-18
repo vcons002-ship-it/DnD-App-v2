@@ -40,7 +40,7 @@ import { BATTLEFIELD_TILT_DEGREES, groundYScale, screenToMap, perspectiveSlope, 
 import { useBoxSelection } from './useBoxSelection';
 import { installPerspectiveCanvas } from './perspectiveCanvas';
 import { installPerspectiveInput } from './perspectiveInput';
-import { resolveMiniature, miniatureForQuality, miniaturePreloadDefinitions, useMiniatureCatalog } from '../lib/miniatures';
+import { resolveMiniature, miniatureForQuality, miniatureForPreload, miniaturePreloadDefinitions, useMiniatureCatalog } from '../lib/miniatures';
 import { HpFxLayer, HpNumberLayer } from './HpFx';
 import {weaponTravelMs} from '../../../shared/weaponImpact';
 import {spellImpactStyle,weaponImpactStyle,persistentSpellVisual} from '../../../shared/spellImpact';
@@ -1283,8 +1283,8 @@ export function MapStage({
   // Content-stable: each snapshot rebuilds these arrays, which would otherwise
   // hand MiniatureLayer a "new" preload list on every update.
   const preloadMiniatures = useContentStable(useMemo(() => [...(use3dTokens || use3dMonsters ? [DEATH_SKULL] : []), ...(use3dTokens ? snapshot.characters.flatMap(character => {
-    const definition = miniatureForQuality(resolveMiniature(character.name, 'pc',character),graphics.modelQuality);
-    return definition ? [definition] : [];
+    const definition = resolveMiniature(character.name, 'pc',character);
+    return definition ? [miniatureForPreload(definition,graphics.modelQuality)] : [];
   }) : []), ...(use3dMonsters?miniaturePreloadDefinitions(snapshot.miniaturePreloadFamilies??[]):[])], [snapshot.characters, snapshot.miniaturePreloadFamilies, use3dTokens, use3dMonsters, graphics.modelQuality, miniatureCatalogRevision]));
 
   // A player's map fog, so the 3D layer clips spell art to revealed cells.
