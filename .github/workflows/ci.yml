@@ -35,12 +35,12 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     # Runners have no GPU: WebGL is software-rendered and the suite's budgets
-    # widen 4x (e2e/helpers/test.ts), so one serial run takes hours. Four
-    # shards keep the wall clock near an hour and under the 6 h job limit.
+    # widen 4x (e2e/helpers/test.ts). The functional gate (108 tests) runs in
+    # two shards to keep the wall clock short.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,11 +50,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # The normal browser suite excludes opt-in video captures and live AI demos.
+      # Functional flows only; nothing visual is asserted (docs/TESTING.md).
       - run: npx playwright install --with-deps chromium
       - run: npm run build:e2e -w client
-      - name: Browser regressions (DM + player, real sockets) — shard ${{ matrix.shard }}/4
-        run: npx playwright test -c e2e/playwright.config.ts --shard=${{ matrix.shard }}/4
+      - name: Browser regressions (DM + player, real sockets) — shard ${{ matrix.shard }}/2
+        run: npx playwright test -c e2e/playwright.config.ts --shard=${{ matrix.shard }}/2
       - name: Upload browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
