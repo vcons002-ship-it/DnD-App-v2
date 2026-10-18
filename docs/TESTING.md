@@ -90,6 +90,12 @@ A regression test checks behavior that should continue to work after a change. A
 - Keep missing asset files, incorrect arithmetic, privacy leaks, and broken interactions as failures.
 - Run manual recordings and paid/live AI demonstrations explicitly, separately from automated regressions.
 
+Miniature checks follow the current visible base size and compact phone View
+menu. The disposable server's uploaded-model catalog is shared between scenarios:
+assert whether the tested family was published, rather than assuming unrelated
+uploads cannot exist. Source-art approval unit tests stub host binary probes;
+the real Python/Blender finishing contract is exercised separately on a worker host.
+
 CI uploads browser traces, screenshots, and failure context as `browser-test-results` when the browser job fails. Open a downloaded trace with `npx playwright show-trace <trace.zip>`.
 
 ## Live dice regression contracts

@@ -1,4 +1,4 @@
-import {expect,type Page} from '@playwright/test';
+import {expect,type Page} from './test';
 import {COMPACT_VIEWPORT} from '../../client/src/lib/useCompactViewport';
 
 /** Same task path on phones, where optional controls live in compact groups. */

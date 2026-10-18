@@ -13,6 +13,8 @@ import {createPlayerVision,visionContains,visionLit} from '../shared/playerVisio
 import {hasLineOfSight} from '../shared/mapWalls';
 import {tokenDistanceFt} from '../shared/distance';
 import { MONSTER_MODEL_TYPES, monsterVariation, monsterVariantIds } from '../shared/monsterAppearance';
+import {miniatureBaseWidthFt} from '../shared/monsterAppearance';
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import { DM_SECRET, PORT } from './playwright.config';
 
 // Optional capture runs the same regression against real sockets and models.
@@ -476,7 +478,10 @@ test('asset production keeps missing creatures usable and loads published models
     return (await response.json()).jobs.find((j: any) => j.family === 'elephant')?.state;
   }).toBe('failed'); // Test server intentionally has no Hunyuan service.
   const catalog = await (await request.get('/api/assets/catalog')).json();
-  expect(catalog).toEqual({ models: [] });
+  // Other scenarios can publish unrelated uploads to the shared disposable
+  // catalog. A failed elephant job must not publish its own family.
+  expect(catalog.models).toEqual(expect.any(Array));
+  expect(catalog.models.some((model:{id:string})=>model.id==='elephant')).toBe(false);
   const glb = await (await request.get('/miniatures/monsters/goblin.glb')).body();
   // Simulated publication only: use a known valid fixture to exercise the real
   // catalog refresh, GLTF loader and renderer without spending GPU/API work.
@@ -563,8 +568,10 @@ async function enter(page: Page, code: string, characterName = 'Druk', tilted = 
   await page.getByRole('button', { name: 'Join', exact: true }).click();
   await page.locator('.claim-row').filter({ hasText: characterName }).click();
   await expect(page.getByTestId('player-hud')).toBeVisible();
+  await openToolbarGroup(page,'View');
   await expect(page.getByRole('button', { name: 'Flat battlefield view', exact: true })).toHaveAttribute('aria-pressed', 'true');
   if (tilted) await page.getByRole('button', { name: 'Tilted battlefield view', exact: true }).click();
+  if(await page.getByRole('dialog',{name:'View',exact:true}).isVisible())await page.keyboard.press('Escape');
 }
 
 async function togglePlayerLantern(page:Page){
@@ -1136,11 +1143,14 @@ test('monster miniatures load, recolor independently, use base hits and face the
     for (const viewName of ['Flat battlefield view', 'Tilted battlefield view']) {
       await dm.getByRole('button', { name: viewName, exact: true }).click();
       await afterPaint(dm);
-      const hits = await dm.evaluate(id => {
+      const map=f.ready.maps.find(map=>map.id===f.mapId)!;
+      const pxPerFoot=map.mapWidthFt>0?1200/map.mapWidthFt:map.gridSizePx/map.feetPerSquare;
+      const radius=miniatureBaseWidthFt(goblin,f.ready.monsters.find(m=>m.id===goblin.refId))*pxPerFoot/2;
+      const hits = await dm.evaluate(({id,radius}) => {
         const stage = (window as any).Konva.stages.find((s: any) => s.find('.token').some((n: any) => n.getAttr('tokenId') === id));
         const node = stage.find('.token').find((n: any) => n.getAttr('tokenId') === id);
-        return [[0, 0], [29, 0], [49, 49], [0, -100], [70, 0]].map(([x, y]) => stage.getIntersection(node.getAbsoluteTransform().point({ x, y }))?.getAttr('tokenId') ?? null);
-      }, goblin.id);
+        return [[0, 0], [radius*.75, 0], [radius*1.1, radius*1.1], [0, -radius*3], [radius*2.5, 0]].map(([x, y]) => stage.getIntersection(node.getAbsoluteTransform().point({ x, y }))?.getAttr('tokenId') ?? null);
+      }, {id:goblin.id,radius});
       expect(hits).toEqual([goblin.id, goblin.id, null, null, null]);
       const start = (await f.snapshot()).tokens.find(t => t.id === goblin.id)!;
       const view = (await tokenView(dm, goblin.id))!;
@@ -1453,7 +1463,7 @@ test('mobile tap and pinch keep the miniature projection aligned', async ({ brow
     const setup = await fixture(page, request);
     await enter(page, setup.code);
     await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3', { timeout: 60_000 });
-    await page.getByRole('button', { name: 'Collapse combat', exact: true }).click();
+    if(await page.getByRole('button', { name: 'Collapse combat', exact: true }).isVisible())await page.getByRole('button', { name: 'Collapse combat', exact: true }).click();
     const druk = setup.ready.tokens.find(t => t.refId === setup.initial.characters.find(c => c.name === 'Druk')!.id)!;
     const before = (await tokenView(page, druk.id))!;
     await page.touchscreen.tap(before.x, before.y);
@@ -1461,10 +1471,12 @@ test('mobile tap and pinch keep the miniature projection aligned', async ({ brow
     expect(before.texts).toContain('Druk');
     expect(before.healthBars.length).toBeGreaterThanOrEqual(2);
     const cdp = await context.newCDPSession(page);
-    const center = { x: 215, y: 430 };
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: center.x - 35, y: center.y }, { x: center.x + 35, y: center.y }] });
-    for (const spread of [45, 60, 75]) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: center.x - spread, y: center.y }, { x: center.x + spread, y: center.y }] });
+    const canvas=(await page.locator('.konvajs-content').first().boundingBox())!;
+    const center = { x: canvas.x+canvas.width/2, y: canvas.y+Math.min(170,canvas.height*.4) };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id:1,x: center.x - 35, y: center.y }, { id:2,x: center.x + 35, y: center.y }] });
+    for (const spread of [45, 60, 75]) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id:1,x: center.x - spread, y: center.y }, { id:2,x: center.x + spread, y: center.y }] });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await cdp.detach();
     await expect.poll(async () => (await tokenView(page, druk.id))!.scaleX).toBeGreaterThan(before.scaleX);
     const after = (await tokenView(page, druk.id))!;
     expect(after.scaleX).toBeGreaterThan(before.scaleX);
@@ -1472,6 +1484,7 @@ test('mobile tap and pinch keep the miniature projection aligned', async ({ brow
     await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count', '3');
     await afterPaint(page);
     await page.screenshot({ path: info.outputPath('mobile-miniatures-zoomed.png') });
+    await openToolbarGroup(page,'View');
     const flat = page.getByRole('button', { name: 'Flat battlefield view', exact: true });
     const flatBounds = await flat.boundingBox();
     expect(flatBounds).not.toBeNull();

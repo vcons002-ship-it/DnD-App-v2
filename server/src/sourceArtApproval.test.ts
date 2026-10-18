@@ -2,6 +2,7 @@ import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import {spawn} from 'node:child_process';
 import {config} from './config.js';
 import {AssetQueue,SourceArtApprovalRequired} from './assets/queue.js';
 import {produceAsset} from './assets/production.js';
@@ -12,6 +13,13 @@ import {craftHeroToken,wireCharacterAssets} from './assets/heroTokens.js';
 import type {AssetJob,ProducedMiniature,SourceArt} from '../../shared/assetProduction.js';
 
 vi.mock('./ai/imageGateway.js',()=>({generateImageWithBackup:vi.fn(),generateApiImage:vi.fn()}));
+// Approval/worker-routing contracts must not require Python or Blender on CI.
+// GPU finishing itself is covered by the explicit real-tools contract smoke.
+vi.mock('node:child_process',async importOriginal=>{
+  const actual=await importOriginal<typeof import('node:child_process')>();
+  const {EventEmitter}=await import('node:events');
+  return {...actual,spawn:vi.fn(()=>{const child=Object.assign(new EventEmitter(),{kill:vi.fn()});queueMicrotask(()=>child.emit('close',0));return child;})};
+});
 let directory:string;
 const art:SourceArt={sha256:'a'.repeat(64),sheetUrl:'/uploads/miniatures/review-sheet.png',views:['front','back','left','right'].map(view=>({view:view as 'front'|'back'|'left'|'right',url:`/uploads/miniatures/${view}.png`}))};
 const model=(id:string):ProducedMiniature=>({id,url:`/uploads/miniatures/${id}.glb`,baseDiameter:1.6,baseCenter:[0,0,0],bytes:1000,triangles:100,sha256:'test'});
@@ -29,9 +37,11 @@ it('generates and publishes all four review images but never contacts Hunyuan be
   try{await produceAsset(job,vi.fn());}catch(e){expect(e).toBeInstanceOf(SourceArtApprovalRequired);checkpoint=(e as SourceArtApprovalRequired).art;}
   expect(checkpoint?.views.map(v=>v.view)).toEqual(['front','back','left','right']);
   expect(fetcher).not.toHaveBeenCalled();
+  expect(spawn).not.toHaveBeenCalled();
   for(const url of [checkpoint!.sheetUrl,...checkpoint!.views.map(v=>v.url)])expect((await fs.stat(path.join(config.uploadsDir,'miniatures',path.basename(url)))).size).toBeGreaterThan(0);
   await expect(produceAsset({...job,attempts:2,sourceArt:{...checkpoint!,approvedAt:new Date().toISOString()}},vi.fn())).rejects.toThrow('hybrid multiview shape worker is unavailable');
   expect(generateImageWithBackup).toHaveBeenCalledTimes(1);expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(spawn).toHaveBeenCalledTimes(2); // Only Python/Blender version checks after approval.
   const reference=path.join(config.dataDir,'asset-production',job.id,'references-v1','left.png');
   await sharp({create:{width:1024,height:1024,channels:3,background:'#112233'}}).png().toFile(reference);
   await expect(produceAsset({...job,attempts:3,sourceArt:{...checkpoint!,approvedAt:'approved'}},vi.fn())).rejects.toBeInstanceOf(SourceArtApprovalRequired);
