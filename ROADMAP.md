@@ -3295,3 +3295,26 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
   resin and class-specific moving interior fields. Numbers retain opaque metal
   inlays and dark inward backings. Approved character/DM materials and gold
   variants remain intact; reduced motion freezes the new volume animation.
+
+
+## Hybrid miniature pipeline (17 October 2026)
+
+The app producer uses automatically aligned four-view Hunyuan 2mv geometry
+(75 steps, guidance 5.5) followed by four-reference Hunyuan 2.1 PBR painting.
+Verified stage receipts support retry without regenerating completed geometry.
+Source-art approval, cancellation, 20k runtime reduction and base fitting remain
+in place. See `docs/ASSET_PRODUCTION.md` for worker setup and exact settings.
+
+- Tested an opt-in, UV-aware subtle crease pass on dragon, goblin and elf paladin.
+  Local darkening is capped at 6%; average change stayed below 0.4%. Geometry and
+  PBR data maps stay unchanged. That subtle trial was superseded by the accepted
+  stronger pass below; `--crease-detail` enables it in standalone preparation.
+
+- Fixed shared pewter-pedestal seating for generated and uploaded miniatures:
+  measured surface lift, unchanged floor, hierarchy-aware mesh placement,
+  Z-up support and idempotent preparation. Dragon map comparison includes old,
+  untouched hybrid and crease-enhanced models with matching base sizes. The
+  first 6%-cap texture trial was too subtle; the accepted finishing pass uses a
+  35% local cap (3.24% mean on the dragon), preserving geometry and PBR data maps.
+  New app-generated models now include it. Wolf and bandit comparisons passed;
+  existing-alpha preservation is regression-tested against the red-ear artifact.

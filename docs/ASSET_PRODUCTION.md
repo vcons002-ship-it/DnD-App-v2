@@ -107,35 +107,43 @@ errors and controls require DM authentication.
 
 ## Worker setup
 
-Install normal app dependencies with `npm ci`. The host additionally needs Python
-and Blender. Start the accepted Hunyuan Gradio server with the
-`tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv` shape checkpoint and textured output.
-The server verifies the returned checkpoint before publishing.
+Install normal app dependencies with `npm ci`. The host additionally needs Python,
+Blender, the full Hunyuan 2mv shape checkpoint and the Hunyuan 2.1 PBR paint runtime.
+The default producer now uses **hybrid-2mv-21-v1**, not the old combined Gradio call.
+Both workers run on the host and exchange local file paths; keep them loopback-only.
 
-Install the versioned adapter into the Hunyuan worker directory, then restart
-that worker using its normal launch command:
+The versioned workers are in `server/tools/asset-production/`:
 
-```powershell
-python server/tools/asset-production/install_multiview_texture.py C:/pinokio/api/Hunyuan3d-2-lowvram/app
-```
+- `hybrid_shape_worker.py PORT`: run with the 2mv environment, working directory
+  its installed `app/` folder. Exposes `/health`, `/align` and `/shape`.
+- `hybrid_paint_worker.py PORT`: run with the 2.1 environment, working directory
+  its installed `Hunyuan3D-2.1/` folder. Exposes `/health` and `/trial`.
 
-This enables named front/back/left/right references for texture generation as
-well as shape generation. The installer preserves a backup of `gradio_app.py`,
-is repeatable, and checks the expected source structure. The adapter targets the
-tested Hunyuan3D-2 low-VRAM worker; unsupported implementations fail explicitly.
-Reapply the installer after replacing/updating the worker. No text-conditioning
-experiment is enabled. Both manual script runs and app jobs require matching
-texture-reference evidence in `generation_receipt.json`; an old front-only worker
-cannot silently publish a model under the new policy.
+For the tested Pinokio installations, copy `start-hybrid-shape.js` into the 2mv
+launcher directory and `start-hybrid-paint.js` into the 2.1 WinPortable launcher
+directory. Set `DND_ASSET_TOOLS` in the launcher host environment to this repo's
+absolute `server/tools/asset-production` directory. Start those named scripts
+through Pinokio/pterm. Other installations can launch the Python workers through
+their own process manager with the corresponding dependencies and checkpoints.
+No upstream source or checkpoint is overwritten. The paint adapter checks the
+upstream source structure and fails explicitly if it no longer matches.
 
+Both health endpoints must report `protocol: "dnd-hybrid-v1"`. Workers unload
+their model after each stage to avoid keeping both large pipelines in VRAM.
+The app serializes jobs, but other local AI applications can still consume VRAM.
 
 Optional server environment variables:
 
 | Variable | Default |
 | --- | --- |
-| `HUNYUAN_URL` | `http://127.0.0.1:42003` |
+| `HUNYUAN_SHAPE_URL` | `http://127.0.0.1:42005` |
+| `HUNYUAN_PAINT_URL` | `http://127.0.0.1:42004` |
 | `ASSET_PYTHON` | `python` |
 | `ASSET_BLENDER` | Windows: `C:/Program Files/Blender Foundation/Blender 5.1/blender.exe`; other hosts: `blender` |
+
+`HUNYUAN_URL` remains a legacy script setting; it no longer selects the app's
+default miniature producer. Normal play and manual GLB uploads do not need either
+GPU worker. An unavailable worker pauses production with a retryable message.
 
 Use the existing AI settings for the Gemini image API and ComfyUI backup. An
 embedded application cannot invoke Codex's interactive image-generation tool:
@@ -151,38 +159,45 @@ an interrupted running job is held for explicit retry instead of resubmitted.
 
 ## Production stages and provenance
 
-1. Generate one **2048×2048 or larger**, square, four-panel turnaround sheet.
-   The prompt requests the same full-body creature in a ready pose, simple
-   equipment, white background and no base. Top left is front, top right back,
-   bottom left left side, bottom right right side. A smaller/non-square response
-   fails rather than being silently upscaled or mis-cropped.
-2. Extract the four named views and record dimensions, hashes and the prompt.
-   These are separate named inputs to Hunyuan, not four creatures in one request.
-   Retries reuse the saved views. Semantic art consistency still depends on the
-   chosen image model; structural validation cannot guarantee good anatomy.
-3. Generate the textured model using all four named references for both shape and texture, with 50 steps, guidance 5.5, octree resolution
-   512, 10,000 chunks, background removal, and the verified multi-view checkpoint.
-4. Apply `monster-reduction-v1`: target 20,000 body triangles at 0.01 error limit;
-   opaque color textures use JPEG quality 95 / 4:4:4 when smaller. Texture
-   dimensions, transparent textures and data maps are preserved. No Draco or
-   meshopt geometry encoding is added. The simplifier's error limit may leave
-   more than 20,000 triangles.
-5. Remove tiny disconnected generation specks (less than 0.2% of the largest
-   geometric island, identified across UV seams without welding UVs). Fit the
-   feet inside a measured round base with Blender. Preserve the reduced
-   image bytes through export. Runtime applies the same raised pewter treatment
-   as existing monster bases. Combat size remains driven by creature stats and
-   the existing map-scale rules, independently of normalized asset coordinates.
-6. Reload/validate indexed geometry, finite positions, texture hashes and output
-   budgets (60,000 total triangles, 12 MiB maximum). Atomically publish a
-   content-hashed GLB under `/uploads/miniatures/`, then update the catalog.
+1. Generate a square 2K-or-larger four-panel turnaround and extract named front,
+   back, left and right views. Save the prompt, original pixels and hashes.
+2. Stop for approval of that exact reference revision. Existing models stay usable.
+3. Remove opaque backgrounds, then uniformly scale each silhouette to the same
+   height and floor. Align a robust lower-torso silhouette axis at x=512 on a
+   1024px square. Wide wings/tails reduce the shared height to remain in frame.
+   The process never stretches images or independently recrops them afterward.
+   This is silhouette alignment, not semantic rigging: inconsistent poses or
+   anatomy in the approved art can still produce a poor reconstruction.
+4. Full **Hunyuan 2mv** geometry: **75 steps, guidance 5.5, seed 923300,
+   extraction resolution 512, chunks 10000**. Save the native mesh and actual
+   512px model-conditioning images. Verify four image tensors survived.
+5. Retain **120k triangles** for **Hunyuan 2.1 PBR** painting. Condition on all
+   four aligned references at 768px, render six output views and bake a 4096px
+   atlas. The installed paint pipeline uses seed 0. Verify the observed reference
+   count, output view count and actual texture sizes before accepting output.
+6. Correct JPEG/PNG declarations and smooth coincident upper-central shading
+   normals without changing positions, UVs, indices or texture bytes. Prepare 2K
+   PBR maps and a gentle 60k intermediate, then apply the standard 20k reduction.
+   Albedo uses JPEG95/4:4:4; data maps use PNG. This is a practical quality budget,
+   not mathematically lossless compression.
+7. Fit the existing base, validate finite geometry, texture integrity and runtime
+   budgets, then publish the GLB and catalog entry. Existing family assignments
+   change only through the app's existing selection/automatic family behavior.
 
-Private job records, reference sheets, named views, generation receipts,
-reduction receipts and worker logs live in `data/asset-production/` (or under
-`DATA_ROOT`). Every retry has a separate attempt directory. Back up this directory
-**and uploads** with host backups; these shared assets are not part of an
-individual session export. Original source meshes and bundled models are not
-overwritten.
+Alignment, shape and paint each have a private persisted receipt and output
+hashes under the job's `hybrid/` directory. The cache key includes all policy
+settings plus the approved image fingerprint. Retry reuses verified completed
+stages; changed art/settings, missing files or corrupted outputs invalidate them.
+A paint failure therefore does not require another geometry generation. A
+submitted GPU request finishes before cancellation releases the queue; uncertain
+timeouts pause it rather than silently starting overlapping work.
+GPU HTTP calls use an explicit 90-minute end-to-end deadline instead of fetch's
+separate five-minute header deadline. If the response was lost after completion,
+retry can recover the worker's receipt after checking the exact request and input
+hashes. Check worker status before resuming an uncertain operation. After PBR
+diffusion, its weights move to CPU before super-resolution to preserve GPU
+headroom; this changes staging rather than output quality or texture resolution.
+
 
 ## Local image generation (October 2026)
 
@@ -210,9 +225,9 @@ and the existing four-view Hunyuan shape/texture pipeline still apply.
 
 ## Candidate 3D upgrades (research, 17 October 2026)
 
-No new 3D model has replaced the production Hunyuan worker. The most useful next
-comparison is **Pixal3D multi-view**, using identical approved source images and
-the same final reduction budgets:
+Research candidates below describe the earlier comparison. The accepted default
+is now the 2mv geometry / 2.1 PBR hybrid above. Pixal3D and the other candidates
+remain optional experiments:
 
 - [Pixal3D](https://github.com/TencentARC/Pixal3D) released multi-view inference in
   September 2026, with separate multi-view weights and PBR output. Its
@@ -242,7 +257,105 @@ hands, weapons, back views, texture seams, final GLB size and generation time.
 
 ## Validation
 
+### Pedestal contact in the battlefield
+
+The shared pewter-base renderer measures the original support surface and moves
+body meshes in world space when installing the taller base. It keeps the base
+floor fixed, preserves intentional hovering, and applies the lift once even with
+nested upload wrappers or mesh attachments. Recognized generated bases, uploaded
+bases and Z-up source hierarchies use the same path. Baseless uploads are not
+arbitrarily lifted, and repeat preparation does not accumulate offsets.
+
+This fixes the older approach that lifted top-level scene children by a constant:
+upload wrappers also contained the base, so the pedestal rose with the figure.
+The renderer also now anchors a replacement base correctly when its original
+geometry had its coordinates baked rather than using a translated mesh origin.
+`miniatureBasePlacement.test.ts` covers these arrangements. A live browser audit
+of the three comparison dragons and the direct generated GLB measured feet on
+the new inner top within 0.00001 model units, with an unchanged base floor.
+
+### Accepted crease definition finishing
+
+`prepare_hybrid.mjs INPUT OUTPUT --crease-detail` applies `defined-crease-v2`.
+The app producer enables this accepted treatment for newly generated models.
+The standalone preparation tool still requires the explicit flag. It processes base color
+after resizing and before normal JPEG encoding, without changing geometry,
+normals or metallic/roughness maps. Small luminance valleys are darkened by at
+most 35%; flat areas, highlights, deep shadows and UV island edges are protected.
+Transparent pixels and unsupported UV mappings are left alone. The operation
+does not add geometric AO or directional shadows. Use the original painted mesh:
+an output marker rejects accidentally applying the pass again to its own output.
+
+The earlier `subtle-crease-v1` dragon, goblin and elf-paladin trial darkened used atlas
+pixels by an average of 0.37%, 0.17% and 0.18%, respectively, with a 6% local ceiling before
+JPEG encoding. Runtime GLBs grew by approximately 25 KB, 11 KB and 3 KB. Geometry,
+normals and PBR data maps were verified byte-for-byte unchanged. Running preparation
+without the flag reproduced the previous dragon intermediate's exact file hash.
+That first trial was judged too subtle on the battlefield. The revised dragon
+trial uses a wider local neighborhood and stronger gain, averaging 3.24%
+darkening over used atlas pixels with a 35% local cap; roughly 19% of used pixels
+change. Its based runtime GLB is about 175 KB larger than the untouched hybrid.
+The map preview compares OLD / HYBRID / STRONGER with matched sizes and lighting.
+Geometry and non-color PBR maps remain byte-for-byte unchanged. This remains
+enabled in new production after review, and does not globally darken pale albedo.
+
+The subsequent wolf trial reused its original four views and the historical
+same-art model. The real app queue completed alignment, 75-step/5.5 geometry,
+four-reference painting, reduction and base fitting in about 4 minutes 13 seconds.
+The matched runtime bodies contain 20k triangles; based GLBs are 1.39 MB old,
+6.09 MB hybrid and 6.34 MB with the stronger crease pass. The latter averages
+4.43% darkening on this fur texture. Front, side, rear and real-map previews were
+checked, including mobile overflow and measured paw-to-pedestal contact. This is
+a comparison fixture; the live wolf library model remains unchanged.
+
+The bandit follow-up retains the historical front image (correctly composited
+onto white), with matching side/rear references created using Codex image_gen.
+The historical bandit had only a front reference. Comparing original pixels to
+that test's rematted input showed almost-transparent red edge pixels (alpha at
+most 6/255) had been promoted to nearly opaque pixels (up to 254/255); the red
+then appeared in the generated albedo. Current hybrid alignment preserves
+existing alpha rather than replacing it. An alignment regression checks that
+nearly transparent red fringes never become opaque. The new bandit has natural
+ear colors; the comparison retains the earlier red-ear result for inspection.
+All default bodies have 20k triangles; with bases, the hybrid is 6.97 MB and its
+stronger-crease copy 7.11 MB. Eight map figures, mobile overflow, geometry/PBR
+preservation, and base contact were verified. Live library assets are unchanged.
+
+Run its focused checks with:
+
+```powershell
+npm run test -w server -- --run tools/asset-production/crease_detail.test.mjs
+```
+
+The 17 October hybrid validation reused the original goblin and dragon turnaround
+images, without manual reference edits. Both ran through `AssetQueue` and
+`produceAsset`, including real alignment, GPU generation, reduction, Blender base
+fitting and catalog publication in disposable data. Four actual references and
+six generated paint views were verified. The original library models were kept.
+
+| Complete based GLB | Original workflow | Hybrid |
+| --- | --- | --- |
+| Goblin | 1.57 MB | 6.33 MB |
+| Dragon | 1.56 MB | 7.43 MB |
+
+All comparison bodies use the same 20k triangle / 2K texture budget; bases add
+roughly 760 triangles. Hybrid PBR maps account for the larger storage. The goblin
+shows clearer material separation and a coherent rear; the dragon's wing mesh is
+more complete, but its PBR appearance is substantially paler than the baked old
+texture. Approval should consider both close-up inspection and battlefield scale.
+Automatic alignment fixes framing; it does not guarantee artifact-free anatomy.
+
+The live dragon trial also exercised recovery: normal 120k simplification rounded
+to 119,999 triangles, exposing an overly strict validator. The corrected check
+accepts small rounding differences, while rejecting substantial unexpected
+reduction. A subsequent retry recovered the completed paint receipt without
+regenerating its saved shape. Desktop/mobile inspection and an actual battlefield
+with eight comparison figures loaded without browser errors or horizontal overflow.
+
 `npm run typecheck`, `npm test`, and `npm run build` cover the normal application.
+`hybridProduction.test.ts` verifies staged recovery and cache integrity.
+`test_align_views.py` and `test_worker_adapter.py` test deterministic framing and
+repeatable worker initialization without GPU weights.
 `assetProduction.test.ts` verifies reuse, deduplication, serial execution,
 persistence, interruption, pause/resume, retries, publication failure and creature
 save hooks. The browser test named `asset production keeps...` verifies a 2D
@@ -255,7 +368,7 @@ For an opt-in pipeline contract smoke on a worker-equipped host:
 node --import tsx server/tools/asset-production/smoke.mjs "PATH/TO/RAW_TEXTURED_MODEL.glb"
 ```
 
-This uses controlled image/Hunyuan responses and **real** Python transport,
+This uses controlled image/hybrid responses and **real** model finishing,
 reduction, Blender, validation, publication and queue persistence in a temporary
 data directory. It does not call a live image/GPU service or modify a campaign.
 The original goblin raw mesh produced a 1,564,932-byte / 20,764-triangle test

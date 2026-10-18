@@ -1,21 +1,21 @@
 import { CanvasTexture, Color, LatheGeometry, Vector2, Float32BufferAttribute, Mesh, MeshStandardMaterial, NoColorSpace, SRGBColorSpace, TextureLoader } from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import type { MiniatureDefinition } from '../lib/miniatures';
+import {refitPewterPedestal} from './miniatureBasePlacement';
 
 /** Add high-resolution basalt to Druk's existing terrain only. Geometry,
  * feet, metal rim and orb inlay remain the original approved model. */
 export async function prepareMiniatureBase(gltf: GLTF, definition: MiniatureDefinition, anisotropy: number) {
-  // Preserve the measured footprint; lift feet with the thicker beveled pewter top.
+  // Preserve footprint and floor contact across generated and uploaded hierarchies.
   if (definition.url.includes('/miniatures/monsters/') || definition.url.startsWith('/uploads/miniatures/')) {
-    gltf.scene.traverse(node => {
-      if (!(node instanceof Mesh) || !node.name.endsWith('_round_base')) return;
+    const bases=refitPewterPedestal(gltf.scene,definition.baseDiameter,()=>{
       const radius = definition.baseDiameter / 2;
       const profile = [[0,-.0275],[.94,-.0275],[1,-.008],[1,.012],[.97,.025],[.97,.075],[.93,.1025],[.88,.1025],[.85,.085],[0,.085]];
-      const geometry = new LatheGeometry(profile.map(([r,y]) => new Vector2(r * radius, y)), 64);
+      const geometry = new LatheGeometry(profile.map(([r,y]) => new Vector2(r * radius, y*definition.baseDiameter)), 64);
       const positions = geometry.getAttribute('position'), colors = new Float32Array(positions.count * 3);
       const top = new Color('#555d65'), rim = new Color('#7b8590'), side = new Color('#23272d');
       for (let i = 0; i < positions.count; i++) {
-        const color = positions.getY(i) < .075 ? (positions.getY(i) > .024 ? side : rim)
+        const color = positions.getY(i) < .075*definition.baseDiameter ? (positions.getY(i) > .024*definition.baseDiameter ? side : rim)
           : Math.hypot(positions.getX(i), positions.getZ(i)) >= radius * .87 ? rim : top;
         colors.set([color.r, color.g, color.b], i * 3);
       }
@@ -26,6 +26,9 @@ export async function prepareMiniatureBase(gltf: GLTF, definition: MiniatureDefi
         uv[i * 2 + 1] = positions.getZ(i) / (radius * 2) + .5;
       }
       geometry.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+      return geometry;
+    });
+    for(const node of bases){
       // Deterministic fine grain and faint circular tool marks, shared with clones.
       const canvas = document.createElement('canvas'); canvas.width = canvas.height = 512;
       const ctx = canvas.getContext('2d')!;
@@ -45,8 +48,6 @@ export async function prepareMiniatureBase(gltf: GLTF, definition: MiniatureDefi
       metalTexture.colorSpace = SRGBColorSpace;
       metalTexture.anisotropy = anisotropy;
 
-      node.geometry.dispose();
-      node.geometry = geometry;
       const oldMaterials = Array.isArray(node.material) ? node.material : [node.material];
       oldMaterials.forEach(m => m.dispose());
       node.material = new MeshStandardMaterial({
@@ -55,10 +56,6 @@ export async function prepareMiniatureBase(gltf: GLTF, definition: MiniatureDefi
       });
       node.material.userData.pewterBase = true;
 
-    });
-    // Lift the body by exactly the top-surface increase so the feet stay seated.
-    for (const node of gltf.scene.children) {
-      if (!node.name.endsWith('_round_base')) node.position.y += .0575;
     }
     return gltf;
   }

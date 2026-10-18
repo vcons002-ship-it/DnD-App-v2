@@ -30,7 +30,7 @@ it('generates and publishes all four review images but never contacts Hunyuan be
   expect(checkpoint?.views.map(v=>v.view)).toEqual(['front','back','left','right']);
   expect(fetcher).not.toHaveBeenCalled();
   for(const url of [checkpoint!.sheetUrl,...checkpoint!.views.map(v=>v.url)])expect((await fs.stat(path.join(config.uploadsDir,'miniatures',path.basename(url)))).size).toBeGreaterThan(0);
-  await expect(produceAsset({...job,attempts:2,sourceArt:{...checkpoint!,approvedAt:new Date().toISOString()}},vi.fn())).rejects.toThrow('Hunyuan is unavailable');
+  await expect(produceAsset({...job,attempts:2,sourceArt:{...checkpoint!,approvedAt:new Date().toISOString()}},vi.fn())).rejects.toThrow('hybrid multiview shape worker is unavailable');
   expect(generateImageWithBackup).toHaveBeenCalledTimes(1);expect(fetcher).toHaveBeenCalledTimes(1);
   const reference=path.join(config.dataDir,'asset-production',job.id,'references-v1','left.png');
   await sharp({create:{width:1024,height:1024,channels:3,background:'#112233'}}).png().toFile(reference);

@@ -11,14 +11,13 @@ import { AssetQueue, ProductionError, SourceArtApprovalRequired } from './queue.
 import {referenceArtPrompt,productionTargetHeight} from './referencePrompt.js';
 import { setAssetProductionListener } from './hooks.js';
 import type { AssetJob, ProducedMiniature } from '../../../shared/assetProduction.js';
-import { verifiedTextureViews } from '../../../shared/assetProduction.js';
+import {runHybridPipeline} from './hybrid.js';
 import {wireCharacterAssets} from './heroTokens.js';
 
 const scripts = fileURLToPath(new URL('../../tools/asset-production/', import.meta.url));
 const root = path.join(config.dataDir, 'asset-production');
 const python = process.env.ASSET_PYTHON || 'python';
 const blender = process.env.ASSET_BLENDER || (process.platform === 'win32' ? 'C:/Program Files/Blender Foundation/Blender 5.1/blender.exe' : 'blender');
-const hunyuan = (process.env.HUNYUAN_URL || 'http://127.0.0.1:42003').replace(/\/$/, '');
 
 /** Shell-free worker execution; output goes to the private job log, never DM chat. */
 export async function runWorker(command: string, args: string[], log: string, timeoutMs = 90 * 60 * 1000,signal?:AbortSignal,finishRemote=false) {
@@ -94,11 +93,6 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
   if(job.sourceArt?.sha256!==sha256||!job.sourceArt.approvedAt){
     throw new SourceArtApprovalRequired({sha256,sheetUrl:`/uploads/miniatures/${sheetName}`,views:views.map(view=>({view,url:`/uploads/miniatures/${prefix}-${view}.png`}))});
   }
-  progress('Checking 3D worker');
-  try {
-    const response = await fetch(`${hunyuan}/config`, { signal: signal?AbortSignal.any([signal,AbortSignal.timeout(5000)]):AbortSignal.timeout(5000) });
-    if (!response.ok) throw Error();
-  } catch { throw new ProductionError('Hunyuan is unavailable. Queue paused; start the local multi-view worker, retry, and resume. No cloud 3D backup is configured.', true); }
   signal?.throwIfAborted();
   await runWorker(python, ['--version'], log, 10000,signal);
   await runWorker(blender, ['--version'], log, 20000,signal);
@@ -110,28 +104,14 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
     await fs.writeFile(path.join(artDir,filename),await sharp(front).resize({width:768,withoutEnlargement:true}).png().toBuffer());
     referenceArt?.(`/uploads/miniatures/${filename}`);
   }
-  progress('Building textured multi-view model');
-  const generation = path.join(attempt, 'generation');
-  try {
-    await runWorker(python, ['-X', 'utf8', path.join(scripts, 'generate_multiview_mesh.py'), '--base-url', hunyuan,
-      ...views.flatMap(view => [`--${view}`, path.join(refs, `${view}.png`)]), '--output-dir', generation,
-      '--steps', '50', '--guidance', '5.5', '--seed', '923300', '--octree-resolution', '512', '--num-chunks', '10000', '--remove-background'], log,undefined,signal,true);
-  } catch (error) {
-    if(signal?.aborted)throw error;
-    throw new ProductionError('Hunyuan did not finish with verified shape and texture views. Queue paused; check its job status and multi-view texture adapter before retrying and resuming.', true);
-  }
-  signal?.throwIfAborted();
-  const receipt = JSON.parse(await fs.readFile(path.join(generation, 'generation_receipt.json'), 'utf8'));
-  if (!receipt.actual_multiview_model_verified || receipt.view_count !== 4) throw new ProductionError('The worker did not verify the four-view Hunyuan model. The asset was not published.');
-  if (!verifiedTextureViews(receipt, views)) {
-    throw new ProductionError('Four-view texturing was not verified. Install the texture adapter and restart Hunyuan before retrying.', true);
-  }
-  const texturedPath = receipt.artifacts.find((artifact: { result_index: number }) => artifact.result_index === 1)?.path;
-  if (typeof texturedPath !== 'string' || path.dirname(path.resolve(texturedPath)) !== path.resolve(generation)) throw new ProductionError('The worker returned no textured model.');
-  const textured = path.basename(texturedPath);
+  const hybrid=await runHybridPipeline(refs,work,sha256,progress,signal);
+  progress('Correcting model shading and preparing 2K PBR textures');
+  const corrected=path.join(attempt,'corrected.glb'),practical=path.join(attempt,'practical.glb');
+  await runWorker(process.execPath,[path.join(scripts,'finish_normals.cjs'),hybrid.painted,corrected],log,undefined,signal);
+  await runWorker(process.execPath,[path.join(scripts,'prepare_hybrid.mjs'),corrected,practical,'--crease-detail'],log,undefined,signal);
   progress('Reducing geometry and compressing textures');
   const reduced = path.join(attempt, 'reduced'), based = path.join(attempt, 'based');
-  await runWorker(process.execPath, [path.join(scripts, 'reduce.mjs'), path.join(generation, textured), reduced], log,undefined,signal);
+  await runWorker(process.execPath, [path.join(scripts, 'reduce.mjs'), practical, reduced], log,undefined,signal);
   progress('Fitting base and validating model');
   await runWorker(blender, ['--background', '--python', path.join(scripts, 'prepare_base.py'), '--', path.join(reduced, 'model.glb'), based, job.family, String(productionTargetHeight(job))], log,undefined,signal);
   const output = path.join(attempt, 'model.glb');
