@@ -1,0 +1,19 @@
+{
+  "sourceSha256": "3738bd9e9362d4ab4e52aebd7d9b3faa1083a0c380985d6af4f6893722883db4",
+  "outputSha256": "a29d8e70e4962a180ab3658d43af86186a0bade8d47d1b075becc37acf012fb0",
+  "bytes": 31324364,
+  "regionTriangles": 1280,
+  "correctedCapTriangles": 1277,
+  "totalTriangles": 879214,
+  "oldJoinTriangles": 2342,
+  "newJoinTriangles": 1152,
+  "changedGeometry": "DrukV9_Lowered_Right_Short_Wrist_Transition",
+  "verified": {
+    "originalHeadHandsSwordUnchanged": true,
+    "allTextureBytesUnchanged": true,
+    "allOriginalGeometryBuffersPreserved": true,
+    "allTransformsUnchanged": true,
+    "onlyRightWristGeometryChanged": true,
+    "sourceUnchanged": true
+  }
+}

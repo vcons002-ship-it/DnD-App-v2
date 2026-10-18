@@ -1,0 +1,47 @@
+{
+  "sourceTriangles": 233920,
+  "paintedTriangles": 233920,
+  "maxTriangleCornerDifference": 8.95062531094623e-07,
+  "maxTriangleCenterDifference": 7.147769807464805e-07,
+  "originalBounds": [
+    [
+      -0.47865334153175354,
+      -0.9967947006225586,
+      -0.46671605110168457
+    ],
+    [
+      0.5430986881256104,
+      0.6679579019546509,
+      0.46880266070365906
+    ]
+  ],
+  "paintedBounds": [
+    [
+      -0.4786530137062073,
+      -0.9967949986457825,
+      -0.4667159914970398
+    ],
+    [
+      0.5430989861488342,
+      0.6679580211639404,
+      0.4688029885292053
+    ]
+  ],
+  "originalBodySha256": "d51f13dfb4f2461a56a78b0ddfe90b702d555b04f7b75d1bcf5699e1ea5d620f",
+  "paintedBytes": 21719064,
+  "textures": {
+    "textured.jpg": [
+      4096,
+      4096
+    ],
+    "textured_metallic.jpg": [
+      4096,
+      4096
+    ],
+    "textured_roughness.jpg": [
+      4096,
+      4096
+    ]
+  },
+  "packingWarning": "GPU painting and file export succeeded; final status print failed under Windows cp1252 encoding. Output checked independently."
+}

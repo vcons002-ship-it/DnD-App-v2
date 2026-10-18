@@ -1,0 +1,26 @@
+[
+  {
+    "part": "head",
+    "triangles": 238548,
+    "maxTriangleCornerDifference": 8.785368784060285e-07,
+    "references": 4,
+    "generatedViews": 6,
+    "seconds": 166.44
+  },
+  {
+    "part": "right",
+    "triangles": 19116,
+    "maxTriangleCornerDifference": 8.519764160467867e-07,
+    "references": 4,
+    "generatedViews": 6,
+    "seconds": 90.03
+  },
+  {
+    "part": "left",
+    "triangles": 15852,
+    "maxTriangleCornerDifference": 8.400529623031616e-07,
+    "references": 4,
+    "generatedViews": 6,
+    "seconds": 86.92
+  }
+]
