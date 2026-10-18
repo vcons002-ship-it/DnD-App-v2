@@ -455,3 +455,31 @@ reference as 2D fallback art and source views/receipts under
 The sculpt's equipment is cosmetic; it does not grant extra attacks or AC.
 The `starter-creature-imp-v1` migration adds this entry once, preserves existing
 stats, and fills missing appearance fields from older app versions.
+
+## Shared character textures (18 October 2026)
+
+The bundled Druk, Varis and Vanec geometry tiers now reference content-addressed
+images under `/miniatures/textures/`. Each distinct encoded image is delivered
+once, with exactly the same resolution and bytes as before. Geometry stays in
+GLB files, including Meshopt data, materials, transforms and Vanec's animations.
+Generated/uploaded models remain standalone GLBs.
+
+Run `node scripts/token-assets/share-character-textures.mjs` after installing a
+new reviewed character tier batch. It is idempotent. The build validates all
+three manifests and the shared files against receipts in
+`assets/miniatures/shared-textures/`. Each receipt can reconstruct its original
+standalone GLB byte for byte; earlier compression/reduction receipts keep their
+original source hashes as provenance.
+
+For a standalone Blender/export copy:
+
+```powershell
+node scripts/token-assets/export-character-model.mjs druk high exported-druk.glb
+```
+
+This restores the exact original embedded-image GLB. It refuses to overwrite an
+existing output file. Deploy/copy the shared `textures` folder along with the new
+GLBs; a geometry GLB on its own is not a standalone export.
+
+See [storage and model detail measurements](CHARACTER_SHARED_TEXTURES_2026_10_18.md)
+for sizes, hardware tests and the decision to retain zoom-based detail.

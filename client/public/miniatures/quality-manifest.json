@@ -4,70 +4,82 @@
     {
       "id": "druk",
       "profile": "balanced",
-      "url": "/miniatures/druk-balanced-c9d669208f41.glb",
-      "sha256": "c9d669208f41cdedf420373c877973c58f15b22cb3765090c220955ad174068e",
-      "bytes": 17212072,
+      "url": "/miniatures/druk-balanced-shared-7fe4de19c1aa.glb",
+      "sha256": "7fe4de19c1aae5f49351f13d26346b0acf4504d8b1b58b0c5d06e271866831a9",
+      "bytes": 5857944,
       "triangles": 277100,
       "sourceUrl": "/miniatures/druk-c98df869b913.glb",
       "sourceSha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
-      "receipt": "assets/miniatures/character-reduction/druk-balanced.json"
+      "receipt": "assets/miniatures/character-reduction/druk-balanced.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/druk-balanced.json",
+      "sharedTextureReceiptSha256": "8e1a2a16f9df6e18bcf6f7b1462270693bce2e0d218c214de34ada78c1a50aba"
     },
     {
       "id": "druk",
       "profile": "low",
-      "url": "/miniatures/druk-light-0af485ac49a2.glb",
-      "sha256": "0af485ac49a2d13b4a95fa385de286f9c260c9a31d5bdd2ba3b06d37b7f70576",
-      "bytes": 14969144,
+      "url": "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "sha256": "f5edeb1b13f5ebffa53612eeaba19cf5cf4dfb024fae0305400ac3806bba901b",
+      "bytes": 3614972,
       "triangles": 142186,
       "sourceUrl": "/miniatures/druk-c98df869b913.glb",
       "sourceSha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
-      "receipt": "assets/miniatures/character-reduction/druk-light.json"
+      "receipt": "assets/miniatures/character-reduction/druk-light.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/druk-low.json",
+      "sharedTextureReceiptSha256": "55b84808670fcd1062e4e86a82e58617780615f7ba69a88cfc70982d1b3cc14f"
     },
     {
       "id": "varis",
       "profile": "balanced",
-      "url": "/miniatures/varis-sharpened-weapons-cad4711bca1b.glb",
-      "sha256": "cad4711bca1b456902699759e4dea1f9f1e5e287efa4defc76a144951af6231e",
-      "bytes": 18698608,
+      "url": "/miniatures/varis-balanced-shared-052588cc735d.glb",
+      "sha256": "052588cc735d719ca9f19db57359a41c40e7b1aed18fd5d057da771632569973",
+      "bytes": 7977240,
       "triangles": 348006,
       "sourceUrl": "/miniatures/varis-264feff1b076.glb",
       "sourceSha256": "264feff1b076e6fc0b7d75f72a143e9e02948c4de5e5cef3bd91dbda0defbd5d",
       "receipt": "assets/miniatures/character-reduction/varis-balanced.json",
-      "refinementReceipt": "assets/miniatures/character-reduction/varis-balanced-sharpened-weapons.json"
+      "refinementReceipt": "assets/miniatures/character-reduction/varis-balanced-sharpened-weapons.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/varis-balanced.json",
+      "sharedTextureReceiptSha256": "37585737f1140dfc6a888fe6f47a74fa629dc1eab49fe0f77b9fb967a5a0ee63"
     },
     {
       "id": "varis",
       "profile": "low",
-      "url": "/miniatures/varis-sharpened-weapons-ffc2a5072344.glb",
-      "sha256": "ffc2a507234437c4954f4ea61cd5e88fd249da27596d6b1b9a0937da6fa2a112",
-      "bytes": 16227716,
+      "url": "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "sha256": "d32ee1a9b01445a2eccfbaa900fbe3a9ef90c2cdeff9d08cfbb121466039885e",
+      "bytes": 5506352,
       "triangles": 203252,
       "sourceUrl": "/miniatures/varis-264feff1b076.glb",
       "sourceSha256": "264feff1b076e6fc0b7d75f72a143e9e02948c4de5e5cef3bd91dbda0defbd5d",
       "receipt": "assets/miniatures/character-reduction/varis-light.json",
-      "refinementReceipt": "assets/miniatures/character-reduction/varis-sharpened-weapons.json"
+      "refinementReceipt": "assets/miniatures/character-reduction/varis-sharpened-weapons.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/varis-low.json",
+      "sharedTextureReceiptSha256": "71a10776da8db68574e8346c24cfbebe4640f7ed003f2261e87cb5df6fc4706a"
     },
     {
       "id": "vanec",
       "profile": "balanced",
-      "url": "/miniatures/vanec-balanced-c5c3961b54b7.glb",
-      "sha256": "c5c3961b54b75338dc86fce0c2bd74353d379457a71112ce8f054540a41767c7",
-      "bytes": 22758880,
+      "url": "/miniatures/vanec-balanced-shared-bbc92756d593.glb",
+      "sha256": "bbc92756d5939663c3407e203c2a4028707efe0fbc044aeebee5066b3b503ed8",
+      "bytes": 10456572,
       "triangles": 355589,
       "sourceUrl": "/miniatures/vanec-7f57d87ce42f.glb",
       "sourceSha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
-      "receipt": "assets/miniatures/character-reduction/vanec-balanced.json"
+      "receipt": "assets/miniatures/character-reduction/vanec-balanced.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-balanced.json",
+      "sharedTextureReceiptSha256": "89f93ecd4358c6d1d0877d9655db1e4f33087e8dcde619208825d44150dcac1a"
     },
     {
       "id": "vanec",
       "profile": "low",
-      "url": "/miniatures/vanec-light-239045d67404.glb",
-      "sha256": "239045d67404238e3fb01a469f694fa3e24758271ceb316de7943ece72f5d61b",
-      "bytes": 19902264,
+      "url": "/miniatures/vanec-low-shared-d1371882ee98.glb",
+      "sha256": "d1371882ee984c01010c50456dca497f925726fd778bc85b0a2d5dd8c95605b2",
+      "bytes": 7599952,
       "triangles": 207975,
       "sourceUrl": "/miniatures/vanec-7f57d87ce42f.glb",
       "sourceSha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
-      "receipt": "assets/miniatures/character-reduction/vanec-light.json"
+      "receipt": "assets/miniatures/character-reduction/vanec-light.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-low.json",
+      "sharedTextureReceiptSha256": "e2fd733c3b159a3b7f7aef3681b5dff67dab57b4df5bd5f91e44b4b124da3f38"
     }
   ]
 }

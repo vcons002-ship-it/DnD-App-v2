@@ -1,0 +1,158 @@
+{
+  "method": "Production MiniatureLayer, slow continuous camera rotation, 1440x960 DPR1, real hardware adapter verified. Geometry/material/outline isolation, or --heavy adds four flickering lights, light shadows, 20 walls, tall mist and rain; neither includes player vision fog. Warmed shaders; two 6.5-second samples per case. No recording.",
+  "results": [
+    {
+      "device": "5090",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "zoom",
+      "scene": "heavy",
+      "pass": 1,
+      "fps": 252.9912952525226,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "308685",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\"}",
+      "mist": "low",
+      "lights": "4"
+    },
+    {
+      "device": "5090",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "zoom",
+      "scene": "heavy",
+      "pass": 2,
+      "fps": 252.5493332508404,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000002183
+      },
+      "triangles": "308685",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\"}",
+      "mist": "low",
+      "lights": "4"
+    },
+    {
+      "device": "5090",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "fixed",
+      "scene": "heavy",
+      "pass": 1,
+      "fps": 253.2229777545306,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "1026738",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\"}",
+      "mist": "low",
+      "lights": "4"
+    },
+    {
+      "device": "5090",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "fixed",
+      "scene": "heavy",
+      "pass": 2,
+      "fps": 252.1602755293792,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "1026738",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\"}",
+      "mist": "low",
+      "lights": "4"
+    },
+    {
+      "device": "5090",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "zoom",
+      "scene": "heavy",
+      "pass": 1,
+      "fps": 252.8219481424289,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "559515",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}",
+      "mist": "low",
+      "lights": "4"
+    },
+    {
+      "device": "5090",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "zoom",
+      "scene": "heavy",
+      "pass": 2,
+      "fps": 252.6215443265422,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "559515",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}",
+      "mist": "low",
+      "lights": "4"
+    },
+    {
+      "device": "5090",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "fixed",
+      "scene": "heavy",
+      "pass": 1,
+      "fps": 252.2960478747135,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "1013810",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\"}",
+      "mist": "low",
+      "lights": "4"
+    },
+    {
+      "device": "5090",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "fixed",
+      "scene": "heavy",
+      "pass": 2,
+      "fps": 252.71091286718843,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "1013810",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\"}",
+      "mist": "low",
+      "lights": "4"
+    }
+  ],
+  "errors": []
+}

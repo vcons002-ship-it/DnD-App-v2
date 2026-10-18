@@ -1,0 +1,518 @@
+{
+  "method": "Production MiniatureLayer, slow continuous camera rotation, 1440x960 DPR1, real hardware adapter verified. Isolated geometry/material/outline cost; no fog, mist or light shadows. Warmed shaders; two 6.5-second samples per case. No recording.",
+  "results": [
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "zoom",
+      "pass": 1,
+      "fps": 253.43318929060234,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "307913",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "zoom",
+      "pass": 2,
+      "fps": 252.85305607863313,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000002183
+      },
+      "triangles": "307913",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "fixed",
+      "pass": 1,
+      "fps": 237.06598157008142,
+      "frameMs": {
+        "p50": 4,
+        "p95": 7.899999999999636
+      },
+      "triangles": "1013038",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "fixed",
+      "pass": 2,
+      "fps": 237.49826952449004,
+      "frameMs": {
+        "p50": 4,
+        "p95": 7.5
+      },
+      "triangles": "1013038",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "low",
+      "mode": "zoom",
+      "pass": 1,
+      "fps": 253.57527295234024,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "322937",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "low",
+      "mode": "zoom",
+      "pass": 2,
+      "fps": 253.16066320095976,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "322937",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "low",
+      "mode": "fixed",
+      "pass": 1,
+      "fps": 252.08403826632627,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "589348",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "far",
+      "quality": "low",
+      "mode": "fixed",
+      "pass": 2,
+      "fps": 252.67593503937002,
+      "frameMs": {
+        "p50": 4,
+        "p95": 4.100000000000364
+      },
+      "triangles": "589348",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "zoom",
+      "pass": 1,
+      "fps": 183.6386287098781,
+      "frameMs": {
+        "p50": 4.099999999998545,
+        "p95": 8.099999999999454
+      },
+      "triangles": "589348",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "zoom",
+      "pass": 2,
+      "fps": 184.81787290311667,
+      "frameMs": {
+        "p50": 4,
+        "p95": 8.100000000000364
+      },
+      "triangles": "589348",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "fixed",
+      "pass": 1,
+      "fps": 126.89964929458391,
+      "frameMs": {
+        "p50": 8,
+        "p95": 11.099999999999454
+      },
+      "triangles": "1025966",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "fixed",
+      "pass": 2,
+      "fps": 128.02188513331612,
+      "frameMs": {
+        "p50": 8,
+        "p95": 10.200000000000728
+      },
+      "triangles": "1025966",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "low",
+      "mode": "zoom",
+      "pass": 1,
+      "fps": 169.0561161700075,
+      "frameMs": {
+        "p50": 4.100000000000364,
+        "p95": 8.100000000000364
+      },
+      "triangles": "589348",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "low",
+      "mode": "zoom",
+      "pass": 2,
+      "fps": 170.08842752756206,
+      "frameMs": {
+        "p50": 4.100000000000364,
+        "p95": 8.100000000000364
+      },
+      "triangles": "589348",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "low",
+      "mode": "fixed",
+      "pass": 1,
+      "fps": 181.47982959351594,
+      "frameMs": {
+        "p50": 4.099999999999454,
+        "p95": 8.100000000000364
+      },
+      "triangles": "589348",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 3,
+      "zoom": "near",
+      "quality": "low",
+      "mode": "fixed",
+      "pass": 2,
+      "fps": 182.7937152175934,
+      "frameMs": {
+        "p50": 4.099999999998545,
+        "p95": 8.100000000000364
+      },
+      "triangles": "589348",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "zoom",
+      "pass": 1,
+      "fps": 125.46125461254613,
+      "frameMs": {
+        "p50": 8,
+        "p95": 8.100000000000364
+      },
+      "triangles": "1330368",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\",\"test3\":\"battlefield\",\"test4\":\"battlefield\",\"test5\":\"battlefield\",\"test6\":\"battlefield\",\"test7\":\"battlefield\",\"test8\":\"battlefield\",\"test9\":\"battlefield\",\"test10\":\"battlefield\",\"test11\":\"battlefield\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "zoom",
+      "pass": 2,
+      "fps": 125.73396046581529,
+      "frameMs": {
+        "p50": 8,
+        "p95": 8.199999999998909
+      },
+      "triangles": "1330368",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\",\"test3\":\"battlefield\",\"test4\":\"battlefield\",\"test5\":\"battlefield\",\"test6\":\"battlefield\",\"test7\":\"battlefield\",\"test8\":\"battlefield\",\"test9\":\"battlefield\",\"test10\":\"battlefield\",\"test11\":\"battlefield\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "fixed",
+      "pass": 1,
+      "fps": 66.11112819408997,
+      "frameMs": {
+        "p50": 15.899999999999636,
+        "p95": 16.199999999999818
+      },
+      "triangles": "4103864",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\",\"test3\":\"balanced\",\"test4\":\"balanced\",\"test5\":\"balanced\",\"test6\":\"balanced\",\"test7\":\"balanced\",\"test8\":\"balanced\",\"test9\":\"balanced\",\"test10\":\"balanced\",\"test11\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "far",
+      "quality": "balanced",
+      "mode": "fixed",
+      "pass": 2,
+      "fps": 66.383920339174,
+      "frameMs": {
+        "p50": 15.899999999999636,
+        "p95": 16.200000000000728
+      },
+      "triangles": "4103864",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\",\"test3\":\"balanced\",\"test4\":\"balanced\",\"test5\":\"balanced\",\"test6\":\"balanced\",\"test7\":\"balanced\",\"test8\":\"balanced\",\"test9\":\"balanced\",\"test10\":\"balanced\",\"test11\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "far",
+      "quality": "low",
+      "mode": "zoom",
+      "pass": 1,
+      "fps": 85.29669417692791,
+      "frameMs": {
+        "p50": 12,
+        "p95": 12.200000000000728
+      },
+      "triangles": "1330368",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\",\"test3\":\"battlefield\",\"test4\":\"battlefield\",\"test5\":\"battlefield\",\"test6\":\"battlefield\",\"test7\":\"battlefield\",\"test8\":\"battlefield\",\"test9\":\"battlefield\",\"test10\":\"battlefield\",\"test11\":\"battlefield\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "far",
+      "quality": "low",
+      "mode": "zoom",
+      "pass": 2,
+      "fps": 84.87476359641798,
+      "frameMs": {
+        "p50": 12,
+        "p95": 12.300000000001091
+      },
+      "triangles": "1330368",
+      "lods": "{\"test0\":\"battlefield\",\"test1\":\"battlefield\",\"test2\":\"battlefield\",\"test3\":\"battlefield\",\"test4\":\"battlefield\",\"test5\":\"battlefield\",\"test6\":\"battlefield\",\"test7\":\"battlefield\",\"test8\":\"battlefield\",\"test9\":\"battlefield\",\"test10\":\"battlefield\",\"test11\":\"battlefield\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "far",
+      "quality": "low",
+      "mode": "fixed",
+      "pass": 1,
+      "fps": 93.84471008155548,
+      "frameMs": {
+        "p50": 11.800000000000182,
+        "p95": 12.200000000000728
+      },
+      "triangles": "2339715",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\",\"test3\":\"low\",\"test4\":\"low\",\"test5\":\"low\",\"test6\":\"low\",\"test7\":\"low\",\"test8\":\"low\",\"test9\":\"low\",\"test10\":\"low\",\"test11\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "far",
+      "quality": "low",
+      "mode": "fixed",
+      "pass": 2,
+      "fps": 93.06039711929073,
+      "frameMs": {
+        "p50": 11.899999999999636,
+        "p95": 12.200000000000728
+      },
+      "triangles": "2339715",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\",\"test3\":\"low\",\"test4\":\"low\",\"test5\":\"low\",\"test6\":\"low\",\"test7\":\"low\",\"test8\":\"low\",\"test9\":\"low\",\"test10\":\"low\",\"test11\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "zoom",
+      "pass": 1,
+      "fps": 44.393241167759875,
+      "frameMs": {
+        "p50": 23.5,
+        "p95": 24.100000000000364
+      },
+      "triangles": "2657560",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\",\"test3\":\"low\",\"test4\":\"low\",\"test5\":\"low\",\"test6\":\"low\",\"test7\":\"low\",\"test8\":\"low\",\"test9\":\"low\",\"test10\":\"balanced\",\"test11\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "zoom",
+      "pass": 2,
+      "fps": 43.87579774201785,
+      "frameMs": {
+        "p50": 23.5,
+        "p95": 24.299999999999272
+      },
+      "triangles": "2659096",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\",\"test3\":\"low\",\"test4\":\"low\",\"test5\":\"low\",\"test6\":\"low\",\"test7\":\"low\",\"test8\":\"low\",\"test9\":\"low\",\"test10\":\"balanced\",\"test11\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "fixed",
+      "pass": 1,
+      "fps": 35.935868296709984,
+      "frameMs": {
+        "p50": 28,
+        "p95": 30.299999999999272
+      },
+      "triangles": "4102328",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\",\"test3\":\"balanced\",\"test4\":\"balanced\",\"test5\":\"balanced\",\"test6\":\"balanced\",\"test7\":\"balanced\",\"test8\":\"balanced\",\"test9\":\"balanced\",\"test10\":\"balanced\",\"test11\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "near",
+      "quality": "balanced",
+      "mode": "fixed",
+      "pass": 2,
+      "fps": 35.47351771391892,
+      "frameMs": {
+        "p50": 28,
+        "p95": 31.100000000000364
+      },
+      "triangles": "4103864",
+      "lods": "{\"test0\":\"balanced\",\"test1\":\"balanced\",\"test2\":\"balanced\",\"test3\":\"balanced\",\"test4\":\"balanced\",\"test5\":\"balanced\",\"test6\":\"balanced\",\"test7\":\"balanced\",\"test8\":\"balanced\",\"test9\":\"balanced\",\"test10\":\"balanced\",\"test11\":\"balanced\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "near",
+      "quality": "low",
+      "mode": "zoom",
+      "pass": 1,
+      "fps": 49.4828884485393,
+      "frameMs": {
+        "p50": 20,
+        "p95": 23.199999999999818
+      },
+      "triangles": "2355854",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\",\"test3\":\"low\",\"test4\":\"low\",\"test5\":\"low\",\"test6\":\"low\",\"test7\":\"low\",\"test8\":\"low\",\"test9\":\"low\",\"test10\":\"low\",\"test11\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "near",
+      "quality": "low",
+      "mode": "zoom",
+      "pass": 2,
+      "fps": 48.82467642145552,
+      "frameMs": {
+        "p50": 20,
+        "p95": 24
+      },
+      "triangles": "2357392",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\",\"test3\":\"low\",\"test4\":\"low\",\"test5\":\"low\",\"test6\":\"low\",\"test7\":\"low\",\"test8\":\"low\",\"test9\":\"low\",\"test10\":\"low\",\"test11\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "near",
+      "quality": "low",
+      "mode": "fixed",
+      "pass": 1,
+      "fps": 49.622073373071956,
+      "frameMs": {
+        "p50": 20,
+        "p95": 23.100000000000364
+      },
+      "triangles": "2355854",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\",\"test3\":\"low\",\"test4\":\"low\",\"test5\":\"low\",\"test6\":\"low\",\"test7\":\"low\",\"test8\":\"low\",\"test9\":\"low\",\"test10\":\"low\",\"test11\":\"low\"}"
+    },
+    {
+      "device": "igpu",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "count": 12,
+      "zoom": "near",
+      "quality": "low",
+      "mode": "fixed",
+      "pass": 2,
+      "fps": 48.90878051049172,
+      "frameMs": {
+        "p50": 20,
+        "p95": 24
+      },
+      "triangles": "2357392",
+      "lods": "{\"test0\":\"low\",\"test1\":\"low\",\"test2\":\"low\",\"test3\":\"low\",\"test4\":\"low\",\"test5\":\"low\",\"test6\":\"low\",\"test7\":\"low\",\"test8\":\"low\",\"test9\":\"low\",\"test10\":\"low\",\"test11\":\"low\"}"
+    }
+  ],
+  "errors": []
+}

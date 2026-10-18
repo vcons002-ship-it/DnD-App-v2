@@ -6,9 +6,9 @@
       "id": "druk",
       "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
       "baseTextureSha256": "e19b0a12af0c4f383b3731a90016184ad6799f0e6441df9e520d44595cf9013b",
-      "url": "/miniatures/druk-c98df869b913.glb",
-      "sha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
-      "bytes": 24966816,
+      "url": "/miniatures/druk-high-shared-3b43a1a9b56c.glb",
+      "sha256": "3b43a1a9b56cb0f318fda4b0c12ed802ed61fb32d1b479383943afa40dd8b4a0",
+      "bytes": 13612696,
       "triangles": 880404,
       "baseCenter": [
         0.03537392616271973,
@@ -39,13 +39,15 @@
         "29d47ab5823d056a27484ff653aa5981f8f8e5c023b1b7898a2f2ef09443d088"
       ],
       "optimizationReceipt": "assets/miniatures/character-compression/druk.json",
-      "optimizationReceiptSha256": "465901552b5f71a66ef86754e5143b829f05ed8e885970f773a68ba38c54aec8"
+      "optimizationReceiptSha256": "465901552b5f71a66ef86754e5143b829f05ed8e885970f773a68ba38c54aec8",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/druk-high.json",
+      "sharedTextureReceiptSha256": "00ff9831ff6df4fc729ba7707306567bbde88fe5c9dae52d458fec658e8727a6"
     },
     {
       "id": "varis",
-      "url": "/miniatures/varis-264feff1b076.glb",
-      "sha256": "264feff1b076e6fc0b7d75f72a143e9e02948c4de5e5cef3bd91dbda0defbd5d",
-      "bytes": 25467436,
+      "url": "/miniatures/varis-high-shared-da33c00b0853.glb",
+      "sha256": "da33c00b08539016f64b8ca1ac30022b47da59c56a498f7ddde20f60e67d00aa",
+      "bytes": 14746120,
       "triangles": 905238,
       "baseCenter": [
         0.08445727825164795,
@@ -88,13 +90,15 @@
         "c453a9a0a034d4356381de4d9ebe223d1318930541c75e40e9cf1a73b0d9057f"
       ],
       "optimizationReceipt": "assets/miniatures/character-compression/varis.json",
-      "optimizationReceiptSha256": "007c04594932a3939f7697285d069aa5f0137df675848c1fcdebe18471bcf67f"
+      "optimizationReceiptSha256": "007c04594932a3939f7697285d069aa5f0137df675848c1fcdebe18471bcf67f",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/varis-high.json",
+      "sharedTextureReceiptSha256": "85f6bbd02ed7ea32fff62120accb9568a6795525570cdd6b4c156be09e8d4dd8"
     },
     {
       "id": "vanec",
-      "url": "/miniatures/vanec-7f57d87ce42f.glb",
-      "sha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
-      "bytes": 33210108,
+      "url": "/miniatures/vanec-high-shared-fd572cfbb719.glb",
+      "sha256": "fd572cfbb719339c491f0708fa9568b88276b6647e7f789baf0a6c9f14974b84",
+      "bytes": 20907872,
       "triangles": 1138771,
       "baseCenter": [
         -0.00920414924621582,
@@ -132,7 +136,9 @@
         "7581a45d5676c80700db208b6534e4796e0086fb5f78f53f46b4f867f082db69"
       ],
       "optimizationReceipt": "assets/miniatures/character-compression/vanec.json",
-      "optimizationReceiptSha256": "b2e71228468b17dc286f6f1f2d74777c9c637ea634102100465f5650c4e7df64"
+      "optimizationReceiptSha256": "b2e71228468b17dc286f6f1f2d74777c9c637ea634102100465f5650c4e7df64",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-high.json",
+      "sharedTextureReceiptSha256": "78a530d1d0e5a4a84c03bb289e281d1a28fffa0cad1adfe77c115c70d4033328"
     }
   ],
   "files": [
