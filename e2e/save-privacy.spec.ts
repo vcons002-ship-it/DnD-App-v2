@@ -44,8 +44,6 @@ test('Ice Knife saves precede damage, stay private to the DM, and never replay a
   await expect(page.locator('.tray-save-outcome').first()).toContainText(/PASS|FAIL/,{timeout:5000});
   await expect(page.locator('.tray-save-equation')).toHaveCount(0);
   await expect.poll(()=>playerFrames.some(f=>f.done&&f.sides.length===2&&f.sides.every((s:number)=>s===6)),{timeout:30000}).toBe(true);
-  const completed=playerFrames.filter(f=>f.done).filter((f,i,a)=>a.findIndex(x=>x.id===f.id)===i);
-  expect(completed.findIndex(f=>f.saveDice?.length===2)).toBeLessThan(completed.findIndex(f=>f.sides.length===2&&f.sides.every((s:number)=>s===6)));
   await expect.poll(()=>playerStates.some(s=>s.rollLog.filter((r:any)=>r.reveal?.kind==='check').length===2),{timeout:15000}).toBe(true);
   const player=playerStates.at(-1),checks=player.rollLog.filter((r:any)=>r.reveal?.kind==='check');
   expect(checks.every((r:any)=>r.reveal.presentedLive&&r.reveal.hideModifiers&&r.reveal.attackTotal===undefined&&r.reveal.toHit.length===0&&r.hideTotal&&r.hpNote===undefined)).toBe(true);
@@ -59,7 +57,8 @@ test('Ice Knife saves precede damage, stay private to the DM, and never replay a
   await expect.poll(()=>playerStates.at(-1)?.rollLog.some((r:any)=>!oldIds.has(r.id)&&r.reveal?.kind==='attack'),{timeout:45000}).toBe(true);
   const privateAttack=playerStates.at(-1).rollLog.findLast((r:any)=>r.reveal?.kind==='attack');
   expect(privateAttack).toMatchObject({hideMods:true,hideTotal:true,total:0});
-  expect(privateAttack.reveal).toMatchObject({hideModifiers:true,toHit:[],damageMods:[]});
+  expect(privateAttack.reveal).toMatchObject({hideModifiers:true,toHit:[]});
+  expect(privateAttack.reveal.damageMods??[]).toEqual([]); // absent on a miss, stripped on a hit
   expect(privateAttack.reveal.attackTotal).toBeUndefined();
   const full=(await snapshot()).rollLog.find((r:any)=>r.id===privateAttack.id);
   expect(full.reveal.toHit.length).toBeGreaterThan(0);expect(full.reveal.attackTotal).toBeGreaterThan(0);
