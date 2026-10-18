@@ -61,15 +61,16 @@ test('Next turn hands the DM the creature whose turn it is — but never on join
   f.socket.emit('initiative:next'); // Druk
   f.socket.emit('initiative:next'); // the ogre
   await expect.poll(async () => (await f.snapshot()).activeTurnTokenId).toBe(f.ogre.id);
-  // Joining mid-turn keeps an empty selection.
+  // Joining mid-turn keeps an empty selection: the inspector has nothing to open.
   await openDm(page, f.code);
-  await page.getByRole('button', { name: 'Token inspector' }).click();
-  await expect(page.getByRole('heading', { name: 'No token selected' })).toBeVisible();
+  const inspector = page.getByRole('button', { name: 'Token inspector' });
+  await expect(inspector).toBeDisabled();
   // A real change of turn selects the DM-run creature.
   f.socket.emit('initiative:next'); // wraps to Druk (unclaimed: DM-run too)
   f.socket.emit('initiative:next'); // the ogre again
   await expect.poll(async () => (await f.snapshot()).activeTurnTokenId).toBe(f.ogre.id);
-  await expect(page.getByRole('heading', { name: 'No token selected' })).toHaveCount(0);
+  await expect(inspector).toBeEnabled();
+  if (await inspector.getAttribute('aria-expanded') !== 'true') await inspector.click();
   await expect(page.getByRole('complementary', { name: 'Token inspector' }).getByRole('heading', { name: 'Turn ogre 1', level: 2 })).toBeVisible();
 });
 
