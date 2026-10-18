@@ -186,8 +186,13 @@ test('A deliberate unsafe-spell roll override is labelled authored and retains i
   // Intentionally author a homebrew healing variant, rather than executing the
   // catalogue's max-HP buff as ordinary healing silently.
   await entry.getByRole('button', { name: /Add roll/ }).click();
+  // Each edit is saved on the server and re-rendered before the next one, so a
+  // snapshot cannot clobber a half-typed field.
+  const savedRoll = () => f.snapshot().then(s => s.characters.find(c => c.id === f.characterId)!.sheetAbilities.find(a => a.name === 'Aid')!.roll);
   await entry.getByTitle('What this roll does', { exact: true }).selectOption('heal');
+  await expect.poll(savedRoll).toMatchObject({ kind: 'heal' });
   await entry.getByPlaceholder('dice e.g. 8d6', { exact: true }).fill('1d4');
+  await expect.poll(savedRoll).toMatchObject({ dice: '1d4' });
   await entry.getByRole('combobox', { name: 'Healing bonus', exact: true }).selectOption('none');
   await expect.poll(async () => (await f.snapshot()).characters.find(c => c.id === f.characterId)!.sheetAbilities.find(a => a.name === 'Aid')!.roll)
     .toMatchObject({ kind: 'heal', dice: '1d4', healingBonus: 'none' });

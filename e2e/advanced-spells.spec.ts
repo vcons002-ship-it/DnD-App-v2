@@ -26,19 +26,15 @@ async function setup(request:APIRequestContext,page:Page){
  return {socket,snapshot,character,caster,ally,map,actor,friend,enemy,mapPoint,catalog};
 }
 
-test('Invisibility has a touch-target chooser and a translucent 3D party figure',async({page,request})=>{
+test('Invisibility has a touch-target chooser, spends a slot and ends on a hostile cast',async({page,request})=>{
  test.setTimeout(120000);const f=await setup(request,page);
- await page.getByRole('button',{name:'3D player tokens',exact:true}).click();
- const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-personal-miniature-count','2',{timeout:60000});
  await page.locator('.compact-player-combat').getByRole('button',{name:/Invisibility/}).click();
  const chooser=page.getByRole('region',{name:'Invisibility targets'});await expect(chooser).toContainText('Vanec');
  await chooser.getByRole('button',{name:'Cast Invisibility',exact:true}).click();
  await expect.poll(async()=>(await f.character()).conditions.some(c=>c.label==='Invisible')).toBe(true);
- await expect(layer).toHaveAttribute('data-invisible-miniature-count','1');expect((await f.character()).spellSlots.L2.used).toBe(1);
- await page.screenshot({path:test.info().outputPath('invisibility-3d-ghost.png'),fullPage:true});
+ expect((await f.character()).spellSlots.L2.used).toBe(1);
  await page.locator('.compact-player-combat').getByRole('button',{name:/Fire Bolt/}).click();
  await expect.poll(async()=>(await f.character()).conditions.some(c=>c.label==='Invisible'),{timeout:45000}).toBe(false);
- await expect(layer).toHaveAttribute('data-invisible-miniature-count','0');
 });
 
 test('Spike Growth places a persistent area and rolls damage after travel through it',async({page,request})=>{

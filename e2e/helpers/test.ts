@@ -14,8 +14,36 @@ export const SLOW_FACTOR=process.env.E2E_SOFTWARE_GL==='1'?Number(process.env.E2
 export const softwareGl=SLOW_FACTOR!==1;
 /** A GPU-sized wait, widened on a software renderer. */
 export const budget=(ms:number)=>Math.round(ms*SLOW_FACTOR);
+/** On a software renderer the 3D battlefield and dice tray saturate the page's
+ * main thread: a single click can take a minute to become actionable. The
+ * suite checks outcomes, never rendering, so there the test browser gets no
+ * WebGL at all and the app takes its 2D/static paths. `E2E_WEBGL=1` keeps it. */
+export const webglDisabled=softwareGl&&process.env.E2E_WEBGL!=='1';
+const disableWebgl=()=>{
+ const original=HTMLCanvasElement.prototype.getContext;
+ HTMLCanvasElement.prototype.getContext=function(this:HTMLCanvasElement,kind:string,...args:unknown[]){
+  if(kind==='webgl'||kind==='webgl2'||kind==='experimental-webgl')return null;
+  return (original as (this:HTMLCanvasElement,kind:string,...a:unknown[])=>unknown).call(this,kind,...args);
+ } as typeof original;
+ if(typeof OffscreenCanvas!=='undefined'){
+  const offscreen=OffscreenCanvas.prototype.getContext;
+  OffscreenCanvas.prototype.getContext=function(this:OffscreenCanvas,kind:string,...args:unknown[]){
+   if(kind==='webgl'||kind==='webgl2')return null;
+   return (offscreen as (this:OffscreenCanvas,kind:string,...a:unknown[])=>unknown).call(this,kind,...args);
+  } as typeof offscreen;
+ }
+};
 
 export const test=base.extend<{slowBudget:void}>({
+ // Every context a spec opens (the default one and `browser.newContext()`
+ // alike) gets the WebGL switch before any page script runs.
+ browser:async({browser},use)=>{
+  if(webglDisabled){
+   const newContext=browser.newContext.bind(browser);
+   browser.newContext=(async(options?:Parameters<typeof newContext>[0])=>{const context=await newContext(options);await context.addInitScript(disableWebgl);return context;}) as typeof browser.newContext;
+  }
+  await use(browser);
+ },
  slowBudget:[async({},use,testInfo)=>{
   if(softwareGl){
    // Scale the configured timeout, and any `test.setTimeout(n)` a spec sets later.

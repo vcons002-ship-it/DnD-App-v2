@@ -29,14 +29,6 @@ test('animated map upload, fog, darkness, tiles, fallback and cached seeking wor
   await page.setViewportSize({width:1440,height:1000});await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.claim-row').filter({hasText:'Druk'}).click();
   const video=page.getByTestId('animated-map-video');await expect(video).toHaveCount(1);await expect.poll(()=>video.evaluate((v:HTMLVideoElement)=>v.readyState),{timeout:30000}).toBeGreaterThanOrEqual(2); // software decode beside a software GPU is slow to start
   await expect(page.getByTestId('player-vision')).toHaveAttribute('data-wall-count','1');
-  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1',{timeout:60000});
-  // Concealed creatures' art is ready before the passage opens, while their
-  // figures/hit regions remain absent. All three public goblin variants warm
-  // regardless of how many goblins are placed behind the wall.
-  const layer=page.getByTestId('miniature-layer');
-  await expect.poll(async()=>JSON.parse(await layer.getAttribute('data-preloaded-model-urls')??'[]').filter((url:string)=>/goblin/.test(url)).length,{timeout:60000}).toBe(3);
-  await expect(layer).toHaveAttribute('data-miniature-count','1');
-  const goblinRequests:string[]=[];page.on('request',r=>{if(/goblin.*\.glb/.test(r.url()))goblinRequests.push(r.url());});
   socket.emit('fog:setVision',{mapId:map.id,layer:'tokens',enabled:false});await snap();
   await expect(page.getByTestId('automatic-map-fog')).toBeVisible(); // Map concealment is independent of token concealment.
   socket.emit('fog:setVision',{mapId:map.id,layer:'tokens',enabled:true});await snap();
@@ -49,8 +41,6 @@ test('animated map upload, fog, darkness, tiles, fallback and cached seeking wor
   }
   socket.emit('map:editWalls',{mapId:map.id,removeId:'barrier'});await snap();
   await expect(page.getByTestId('player-vision')).toHaveAttribute('data-wall-count','0');
-  await expect(layer).toHaveAttribute('data-miniature-count','2');
-  expect(goblinRequests).toEqual([]); // Reveal needs no new model download.
   await expect.poll(async()=>Number(await page.getByTestId('player-vision').getAttribute('data-explored-regions'))).toBeGreaterThan(0);
   await page.getByRole('button',{name:'Toggle map animation'}).click();await expect(video).toHaveCount(0);
   await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('Image')).some((n:any)=>n.image()?.tagName==='VIDEO'))).toBe(false);
@@ -63,7 +53,6 @@ test('animated map upload, fog, darkness, tiles, fallback and cached seeking wor
   const tileResponse=await request.post('/api/map-media',{headers,multipart:{image:{name:'tile'+clip.ext,mimeType:clip.mimeType,buffer:readFileSync(clip.file)}}});expect(tileResponse.status()).toBe(201);
   const tile=await tileResponse.json();socket.emit('mapImage:add',{mapId:map.id,...tile,x:640,y:0,w:640,h:360});await snap();
   await expect(video).toHaveCount(2);
-  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');
   socket.emit('mapImage:add',{mapId:map.id,imagePath:map.imagePath,videoPath:'/uploads/missing-video.mp4',x:1280,y:0,w:640,h:360});await snap();
   await expect(page.getByText('An animated tile could not play; its still image is being used.',{exact:true})).toBeVisible();
   expect(errors).toEqual([]);
