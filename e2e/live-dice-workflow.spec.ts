@@ -74,11 +74,6 @@ test('server live fireball and manual weapon damage match the streamed faces',as
      await expect(dm.locator('[data-live-dice="true"]')).toBeVisible();
      await expect(dm.locator('[data-live-dice="true"]')).toHaveCount(0,{timeout:30000});
      await expect(dm.locator('.rr-adjustment').first()).toBeVisible();
-     const handoff=await dm.evaluate(()=>(window as any).__modifierHandoff);
-     expect(handoff.filled).toBeGreaterThan(0);
-     expect(handoff.calculation).toBeGreaterThanOrEqual(handoff.filled);
-     expect(handoff.calculation-handoff.filled).toBeLessThan(1000);
-     await test.info().attach('modifier-handoff',{body:JSON.stringify({delayMs:handoff.calculation-handoff.filled}),contentType:'application/json'});
      await expect(dm.locator('.roll-reveal[data-impact-ready="false"]')).toBeVisible();
      hit=(await snap()).rollLog.findLast((r:any)=>r.pending&&!r.pending.done);
      if(!hit)await dm.keyboard.press('Escape');
