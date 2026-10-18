@@ -938,7 +938,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       const quality=next.graphics?.modelQuality??'high';
       const pair=miniatureLodPair(quality),near=miniatureForLod(token.definition,pair.near,quality);
       const desired=miniatureLodForPixels(diameter,quality,lodLevels.get(token.id),onScreen);
-      const decision=lodTransitions.resolve(token.id,desired,instance?.url===near.url?pair.near:pair.far,onScreen,performance.now());
+      const decision=lodTransitions.resolve(token.id,desired,instance?.url===near.url?pair.near:pair.far,onScreen,performance.now(),pair.far);
       const level=decision.level;pending||=decision.pending;
       levels.set(token.id,level);
       const definition=miniatureForLod(token.definition,level,quality);
@@ -1025,7 +1025,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       activatePrepared(token);
       const existing = instances.get(token.id);
       if (existing) place(token, existing);
-      const definition=wantedModels.get(token.id)??token.definition;
+      // A graphics-mode change can turn the old distant body into the new
+      // close tier (Low -> Low). Prepare a missing display tier first; retaining
+      // that ready close body must not prevent the new distant model loading.
+      const missingDisplay=existing&&existing.url!==token.definition.url&&preparedInstances.get(token.id)?.url!==token.definition.url;
+      const definition=missingDisplay?token.definition:wantedModels.get(token.id)??token.definition;
       if(existing?.url===definition.url||preparedInstances.get(token.id)?.url===definition.url)continue;
       if (failed || failedAssets.has(definition.url) || loading.get(token.id) === definition.url) continue;
       loading.set(token.id, definition.url);

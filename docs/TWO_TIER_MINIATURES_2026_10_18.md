@@ -4,8 +4,8 @@ Character model downloads now use two tiers per resolved graphics preset:
 
 | Preset | Distant, hidden or off-screen | Large on-screen close-up |
 |---|---|---|
-| High | Battlefield | High |
-| Balanced | Battlefield | Balanced |
+| High | Low | High |
+| Balanced | Low | Balanced |
 | Low | Battlefield | Low |
 
 Auto follows its currently resolved preset. Switching presets can accumulate
@@ -13,7 +13,7 @@ additional cached tiers; this change does not purge previous browser caches.
 Existing custom uploads and creature sculpts keep their existing definitions.
 All character tiers still share their exact textures, bases, attachments and FX.
 
-## Why retain Battlefield geometry at map distance?
+## Hardware comparison and visual review
 
 We tested the proposed High/Balanced and Balanced/Low pairs against lighter
 distant geometry. The difference remains useful on integrated graphics, even
@@ -31,8 +31,10 @@ varied. Monsters used the same assets in every case.
 Battlefield improved integrated movement FPS about 15% over Balanced, and
 about 32% over High geometry. In the separate Balanced-preset comparison,
 Battlefield improved stationary/moving FPS from 37.7/34.0 to 42.6/39.1 versus
-Low geometry. This supports using Battlefield as the common distant model,
-while retaining only the selected preset's close-up model as the second tier.
+Low geometry. The original performance-first policy used Battlefield as the
+common distant model. Subsequent visual review found artifacts in that sculpt,
+so High and Balanced now use Low as their minimum. Low graphics retains
+Battlefield for its performance savings. The two-model download limit remains.
 
 The 5090 shows no consistent benefit in displayed FPS. The renderer normally
 limits stationary painting to roughly 60 FPS; movement invalidations request
@@ -64,7 +66,8 @@ mist/scene animation; full recorded diagnostics accompany every sample.
 
 ## Loading and visibility behavior
 
-Preloading prepares only Battlefield geometry. A figure can request its close
+Preloading prepares only the preset's distant geometry (Low for High/Balanced,
+Battlefield for Low). A figure can request its close
 tier only when its projected size warrants it and its full model bounds
 intersect the actual camera frustum. Checking the whole bounds covers visible
 heads/weapons even when the base is just off-screen. Fog-hidden figures cannot
@@ -76,12 +79,13 @@ close art prepares before its display threshold. The existing 15% size
 hysteresis plus a 350 ms downgrade dwell prevent repeated swaps. Both prepared
 tiers are reused while on-screen; the inactive body is detached from the scene.
 See [zoom preparation and repeated-zoom tests](LOD_ZOOM_PREPARATION_2026_10_18.md).
-The coarse figure remains visible while detail loads. A close-tier load can fall back only to Battlefield;
-a failed Battlefield file cannot silently fetch a dense off-screen replacement.
+The coarse figure remains visible while detail loads. A close-tier load can
+fall back only to the same preset's distant tier; a failed distant file cannot
+silently fetch a dense off-screen replacement or drop below the visual floor.
 
 The real-renderer network test, in each of High/Balanced/Low, verified:
 
-1. Three characters preload exactly three Battlefield GLBs.
+1. Three characters preload exactly three distant-tier GLBs for that preset.
 2. Zooming with Druk concealed downloads nothing further.
 3. Revealing the zoomed Druk adds only his selected close tier.
 4. Panning to Varis adds only his close tier; off-screen Vanec stays coarse.
@@ -91,6 +95,10 @@ Each preset requested exactly six unique GLBs for three characters, all from
 its two tiers, with no browser errors. The thresholds remain 300/180/100 CSS
 pixels of projected base diameter for High/Balanced/Low respectively. Shared
 texture URLs and persistent HTTP/service-worker caching still apply across maps.
+
+The original linked measurements remain historical. The updated visual-floor
+loading, continuous zoom and rapid-reuse assertions are in
+[this current-policy run](performance/low-model-floor-2026-10-18/loading.json).
 
 ## Repeating the tests
 

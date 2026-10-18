@@ -1,11 +1,11 @@
 export type MiniatureLod = 'battlefield' | 'low' | 'balanced' | 'high';
 export type MiniatureLodBudget = 'low' | 'balanced' | 'high' | 'auto' | 'off';
 
-// Share one inexpensive distant model across modes. Integrated-GPU tests show
-// that using Balanced/Low geometry at map distance still costs useful FPS.
+// Low geometry is the visual floor for High/Balanced. Reserve the more heavily
+// reduced Battlefield sculpt for the Low performance preset.
 const PAIRS = {
-  high: {far: 'battlefield', near: 'high', pixels: 300},
-  balanced: {far: 'battlefield', near: 'balanced', pixels: 180},
+  high: {far: 'low', near: 'high', pixels: 300},
+  balanced: {far: 'low', near: 'balanced', pixels: 180},
   low: {far: 'battlefield', near: 'low', pixels: 100},
 } as const;
 

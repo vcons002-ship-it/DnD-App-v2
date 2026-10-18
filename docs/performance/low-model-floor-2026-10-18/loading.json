@@ -1,0 +1,213 @@
+[
+  {
+    "quality": "high",
+    "far": "low",
+    "near": "high",
+    "hiddenFigureDidNotUpgrade": true,
+    "before": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb"
+    ],
+    "afterZoom": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb",
+      "/miniatures/druk-high-shared-3b43a1a9b56c.glb"
+    ],
+    "afterPan": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb",
+      "/miniatures/druk-high-shared-3b43a1a9b56c.glb",
+      "/miniatures/varis-high-shared-da33c00b0853.glb"
+    ],
+    "afterMove": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb",
+      "/miniatures/druk-high-shared-3b43a1a9b56c.glb",
+      "/miniatures/varis-high-shared-da33c00b0853.glb",
+      "/miniatures/vanec-high-shared-fd572cfbb719.glb"
+    ],
+    "errors": []
+  },
+  {
+    "quality": "balanced",
+    "far": "low",
+    "near": "balanced",
+    "hiddenFigureDidNotUpgrade": true,
+    "before": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb"
+    ],
+    "afterZoom": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb",
+      "/miniatures/druk-balanced-shared-7fe4de19c1aa.glb"
+    ],
+    "afterPan": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb",
+      "/miniatures/druk-balanced-shared-7fe4de19c1aa.glb",
+      "/miniatures/varis-balanced-shared-052588cc735d.glb"
+    ],
+    "afterMove": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb",
+      "/miniatures/druk-balanced-shared-7fe4de19c1aa.glb",
+      "/miniatures/varis-balanced-shared-052588cc735d.glb",
+      "/miniatures/vanec-balanced-shared-bbc92756d593.glb"
+    ],
+    "errors": []
+  },
+  {
+    "quality": "low",
+    "far": "battlefield",
+    "near": "low",
+    "hiddenFigureDidNotUpgrade": true,
+    "before": [
+      "/miniatures/druk-battlefield-shared-9412d5a70d4c.glb",
+      "/miniatures/varis-battlefield-shared-0fbc946e253e.glb",
+      "/miniatures/vanec-battlefield-shared-610d4beb37bb.glb"
+    ],
+    "afterZoom": [
+      "/miniatures/druk-battlefield-shared-9412d5a70d4c.glb",
+      "/miniatures/varis-battlefield-shared-0fbc946e253e.glb",
+      "/miniatures/vanec-battlefield-shared-610d4beb37bb.glb",
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb"
+    ],
+    "afterPan": [
+      "/miniatures/druk-battlefield-shared-9412d5a70d4c.glb",
+      "/miniatures/varis-battlefield-shared-0fbc946e253e.glb",
+      "/miniatures/vanec-battlefield-shared-610d4beb37bb.glb",
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb"
+    ],
+    "afterMove": [
+      "/miniatures/druk-battlefield-shared-9412d5a70d4c.glb",
+      "/miniatures/varis-battlefield-shared-0fbc946e253e.glb",
+      "/miniatures/vanec-battlefield-shared-610d4beb37bb.glb",
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb"
+    ],
+    "errors": []
+  },
+  {
+    "quality": "high",
+    "continuousCamera": true,
+    "detailRequestedMs": 1362,
+    "upgradedDuringGesture": true,
+    "rapidSwaps": 2,
+    "extraModelRequests": 0,
+    "offscreenDetailReleased": true,
+    "initialDraw": {
+      "triangles": 145432,
+      "calls": 48
+    },
+    "retained": {
+      "triangles": 142186,
+      "calls": 43,
+      "prepared": [
+        "/miniatures/druk-high-shared-3b43a1a9b56c.glb"
+      ],
+      "preparedInScene": 0
+    },
+    "cachedDraw": {
+      "triangles": 142186,
+      "calls": 43,
+      "previewAssets": 3
+    },
+    "urls": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb",
+      "/miniatures/druk-high-shared-3b43a1a9b56c.glb"
+    ]
+  },
+  {
+    "quality": "balanced",
+    "continuousCamera": true,
+    "detailRequestedMs": 590,
+    "upgradedDuringGesture": true,
+    "rapidSwaps": 2,
+    "extraModelRequests": 0,
+    "offscreenDetailReleased": true,
+    "initialDraw": {
+      "triangles": 145432,
+      "calls": 48
+    },
+    "retained": {
+      "triangles": 142186,
+      "calls": 43,
+      "prepared": [
+        "/miniatures/druk-balanced-shared-7fe4de19c1aa.glb"
+      ],
+      "preparedInScene": 0
+    },
+    "cachedDraw": {
+      "triangles": 142186,
+      "calls": 43,
+      "previewAssets": 3
+    },
+    "urls": [
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
+      "/miniatures/varis-low-shared-d32ee1a9b014.glb",
+      "/miniatures/vanec-low-shared-d1371882ee98.glb",
+      "/miniatures/druk-balanced-shared-7fe4de19c1aa.glb"
+    ]
+  },
+  {
+    "quality": "low",
+    "continuousCamera": true,
+    "detailRequestedMs": 86,
+    "upgradedDuringGesture": true,
+    "rapidSwaps": 2,
+    "extraModelRequests": 0,
+    "offscreenDetailReleased": true,
+    "initialDraw": {
+      "triangles": 53928,
+      "calls": 48
+    },
+    "retained": {
+      "triangles": 51832,
+      "calls": 43,
+      "prepared": [
+        "/miniatures/druk-low-shared-f5edeb1b13f5.glb"
+      ],
+      "preparedInScene": 0
+    },
+    "cachedDraw": {
+      "triangles": 51832,
+      "calls": 43,
+      "previewAssets": 3
+    },
+    "urls": [
+      "/miniatures/druk-battlefield-shared-9412d5a70d4c.glb",
+      "/miniatures/varis-battlefield-shared-0fbc946e253e.glb",
+      "/miniatures/vanec-battlefield-shared-610d4beb37bb.glb",
+      "/miniatures/druk-low-shared-f5edeb1b13f5.glb"
+    ]
+  },
+  {
+    "modeChangesAtDistance": [
+      {
+        "quality": "low",
+        "far": "battlefield"
+      },
+      {
+        "quality": "balanced",
+        "far": "low"
+      },
+      {
+        "quality": "high",
+        "far": "low"
+      }
+    ]
+  }
+]

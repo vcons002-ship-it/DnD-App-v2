@@ -8,7 +8,7 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
 const results=[];
 try {
   for(const quality of ['high','balanced','low']) {
-    const far='battlefield',near=quality;
+    const far=quality==='low'?'battlefield':'low',near=quality;
     const context=await browser.newContext({viewport:{width:1440,height:900}});
     const page=await context.newPage(),requests=[],errors=[];
     page.on('request',r=>{if(r.url().endsWith('.glb'))requests.push(new URL(r.url()).pathname)});
@@ -106,6 +106,20 @@ try {
     results.push({quality,continuousCamera:true,detailRequestedMs:requestedAt,upgradedDuringGesture,rapidSwaps,extraModelRequests:requestCount-beforeRequests,offscreenDetailReleased:true,initialDraw,retained,cachedDraw,urls:[...urls]});
     console.log(JSON.stringify({quality,continuousCamera:true,requestedAt,upgradedDuringGesture}));
     await context.close();
+  }
+  // Switching modes while zoomed out can reuse Low as a different role.
+  // Retaining it must not block the new preset's missing distant tier.
+  {
+    const context=await browser.newContext({viewport:{width:1440,height:900}}),page=await context.newPage();
+    await page.goto(base+'?quality=high');
+    await page.waitForFunction(()=>document.querySelector('[data-testid="miniature-layer"]')?.dataset.miniatureCount==='3',undefined,{timeout:120000});
+    const steps=[];
+    for(const[quality,far]of[['low','battlefield'],['balanced','low'],['high','low']]){
+      await page.evaluate(q=>window.lodTest.setQuality(q),quality);
+      await page.waitForFunction(tier=>JSON.parse(document.querySelector('[data-testid="miniature-layer"]').dataset.activeModelUrls).some(u=>u.includes('/druk-'+tier+'-shared-')),far,{timeout:120000});
+      steps.push({quality,far});
+    }
+    results.push({modeChangesAtDistance:steps});await context.close();
   }
   fs.writeFileSync(output+'/viewport-qa.json',JSON.stringify(results,null,2));
 } finally { await browser.close() }

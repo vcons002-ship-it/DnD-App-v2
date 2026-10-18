@@ -485,7 +485,8 @@ See [storage and model detail measurements](CHARACTER_SHARED_TEXTURES_2026_10_18
 for sizes, hardware tests and the decision to retain zoom-based detail.
 
 Character loading now uses [two tiers per preset](TWO_TIER_MINIATURES_2026_10_18.md):
-Battlefield at distance/off-screen, plus High/Balanced/Low for sufficiently large
-on-screen figures according to the resolved graphics preset. Auto follows its
+Low at distance/off-screen for High/Balanced, or Battlefield for Low graphics,
+plus the preset's High/Balanced/Low close tier for sufficiently large on-screen
+figures. Auto follows its
 resolved preset. Hidden figures preload only the coarse model; close-tier files
 are requested from projected model bounds inside the current camera viewport.

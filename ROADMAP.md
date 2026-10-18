@@ -3333,7 +3333,7 @@ in place. See `docs/ASSET_PRODUCTION.md` for worker setup and exact settings.
   New app-generated models now include it. Wolf and bandit comparisons passed;
   existing-alpha preservation is regression-tested against the red-ear artifact.
 
-- Character loading now requests only Battlefield plus the resolved preset's
+- Character loading requests only the distant tier plus the resolved preset's
   close tier, with camera-frustum and fog visibility checks before detail loads.
   High-preset benchmarks on AMD integrated graphics and RTX 5090 confirm useful
   distant-geometry savings on integrated; see
@@ -3343,3 +3343,7 @@ in place. See `docs/ASSET_PRODUCTION.md` for worker setup and exact settings.
   reuse of coarse planning silhouettes. Prepared tiers are reused on-screen;
   downgrade dwell reduces rapid reversal swaps without rendering both bodies.
   See [zoom transition tests](docs/LOD_ZOOM_PREPARATION_2026_10_18.md).
+
+- Visual review raised the distant-model floor to Low for High/Balanced graphics;
+  only Low graphics uses the more reduced Battlefield sculpt. Two-tier downloads,
+  viewport gating, early preparation and rapid-zoom reuse remain in place.

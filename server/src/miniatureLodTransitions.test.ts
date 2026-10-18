@@ -17,3 +17,12 @@ it('releases off-screen models immediately and clears removed tokens',()=>{
   lod.resolve('a','battlefield','low',true,100);lod.retain([]);
   expect(lod.resolve('a','battlefield','low',true,500)).toEqual({level:'low',pending:true});
 });
+it('retains downgrade dwell when Low is the High/Balanced distant tier',()=>{
+  for(const near of ['high','balanced'] as const){
+    const lod=createMiniatureLodTransitions();
+    expect(lod.resolve('a',near,'low',true,0,'low')).toEqual({level:near,pending:false});
+    expect(lod.resolve('a','low',near,true,100,'low')).toEqual({level:near,pending:true});
+    expect(lod.resolve('a','low',near,true,450,'low')).toEqual({level:'low',pending:false});
+    expect(lod.resolve('a','low',near,false,451,'low')).toEqual({level:'low',pending:false});
+  }
+});

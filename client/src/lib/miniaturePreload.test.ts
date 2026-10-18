@@ -7,6 +7,7 @@ it('only prepares the coarse character model of the selected graphics pair',()=>
     const pair=miniatureLodPair(quality),model=MINIATURES[id];
     const preload=miniatureForPreload(model,quality);
     expect(preload.url).toBe(miniatureForLod(model,pair.far).url);
+    if(quality!=='low')expect(preload.url).not.toContain('-battlefield-');
     expect(preload.fallbackUrl).toBeUndefined();
     const near=miniatureForLod(model,pair.near,quality);
     expect(near.url).not.toBe(preload.url);

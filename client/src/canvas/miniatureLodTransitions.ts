@@ -5,8 +5,8 @@ import type {MiniatureLod} from '../../../shared/miniatureLod.js';
 export function createMiniatureLodTransitions(delayMs=350){
   const exits=new Map<string,{since:number;from:MiniatureLod}>();
   return {
-    resolve(id:string,desired:MiniatureLod,current:MiniatureLod,onScreen:boolean,now:number){
-      if(!onScreen||desired!=='battlefield'||current==='battlefield'){
+    resolve(id:string,desired:MiniatureLod,current:MiniatureLod,onScreen:boolean,now:number,far:MiniatureLod='battlefield'){
+      if(!onScreen||desired!==far||current===far){
         exits.delete(id);return{level:desired,pending:false};
       }
       let exit=exits.get(id);

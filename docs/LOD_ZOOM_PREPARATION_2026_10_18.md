@@ -1,7 +1,11 @@
 # Preparing character detail during zoom - 18 October 2026
 
-The two-tier policy remains unchanged. Each resolved graphics preset uses only
-Battlefield plus its own close-up model. Close art is still restricted to figures
+Each resolved graphics preset uses only its distant and close-up model. After
+visual review, High/Balanced use Low at distance; Low still uses Battlefield.
+The performance traces and 51,832-triangle figures below describe the earlier
+common-Battlefield trial. Current loading assertions are linked from
+[the updated policy](TWO_TIER_MINIATURES_2026_10_18.md).
+Close art is still restricted to figures
 whose measured bounds intersect the viewport and which are not fog-hidden.
 
 ## Changes
