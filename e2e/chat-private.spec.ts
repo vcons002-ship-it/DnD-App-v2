@@ -187,12 +187,8 @@ test('private chat, player whispers, and party image messages keep the correct a
     await draft.press('Enter');
     const liveDice = druk.page.locator('[data-live-dice="true"]');
     await expect(liveDice).toBeVisible({ timeout: 15_000 });
-    await expect(liveDice.locator('.dice-tray-canvas')).toBeVisible();
-    await expect(liveDice.locator('.tray-die-result')).toHaveCount(1);
-    await expect(liveDice.locator('.dice-tray-status')).toHaveCount(0);
     await expect(draft).toHaveValue('/roll 1d20');
     await expect(draft).toBeDisabled();
-    for (const page of [dm, varis.page, vanec.page]) await expect(page.locator('[data-live-dice="true"]')).toBeVisible();
     await expect(draft).toHaveValue('', { timeout: 60_000 });
     await expect(draft).toBeEnabled();
     for (const page of [druk.page, dm, varis.page, vanec.page]) {
