@@ -1,0 +1,126 @@
+{
+  "policy": "lossless-delivery-v1",
+  "applied": true,
+  "sourceBytes": 7110752,
+  "bytes": 4066416,
+  "bytesSaved": 3044336,
+  "savingPercent": 42.8131370634217,
+  "sha256": "f80b0aef3b0b8136c2d68a6beb19eaaa6f9edd36923faec30eb143797d1c9938",
+  "textures": [
+    {
+      "index": 0,
+      "sourceBytes": 1206078,
+      "sourceSha256": "62122815ffe7ea5bbe2ae305206b6a62b247c6de5adaab77566867e2bfaea0ad",
+      "sourceMime": "image/jpeg",
+      "bytes": 1206078,
+      "sha256": "62122815ffe7ea5bbe2ae305206b6a62b247c6de5adaab77566867e2bfaea0ad",
+      "mime": "image/jpeg",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "0038d4e862cec1a6de99d964af26a9c4346bb8f4b457957f84652c5e4a5571fb"
+      }
+    },
+    {
+      "index": 1,
+      "sourceBytes": 5218218,
+      "sourceSha256": "b67dfc0c03ba787d7776beb18ef7da360019013749b246ab40901be70fef940c",
+      "sourceMime": "image/png",
+      "bytes": 2408492,
+      "sha256": "2cb19d08d7bc6e277b1affdf8fb2261f93615e3c8c5ec1c0a51673228fa915bb",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "877a97a33a41e35d0098316232015ebdaa581ae9b773f8e64d099d906349f10b"
+      }
+    }
+  ],
+  "geometry": [
+    {
+      "mesh": "textured.obj",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 0,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 20000,
+      "sha256": "6ab57f95f2b0adb4535b5e48ebce3f61b80be05e7b6e011ecbab3cc53413c84d"
+    },
+    {
+      "mesh": "Cylinder",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 1,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 764,
+      "sha256": "dbe140595ca336d0cade9e2f29ea537ed3dcc9327c150579b86c5f3f3b256cfc"
+    }
+  ],
+  "verified": {
+    "triangleCornerAttributesExact": true,
+    "decodedTexturePixelsExact": true,
+    "sceneAndMaterialsExact": true,
+    "noQuantization": true,
+    "noSimplification": true,
+    "noTextureResizing": true
+  },
+  "sourceSha256": "32ff74c043e73514892972ccfed9e8ee6b111e190a4e08db2a0d2d1eb301d414",
+  "sourceAsset": "/uploads/miniatures/uploaded-ab2f0c02-32ff74c043e7.glb",
+  "sourceWorkflow": "hybrid-2mv-21-v1",
+  "sourceFamily": "bandit",
+  "sourceVariant": "defined-crease-v2",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "replaces": {
+    "url": "/miniatures/monsters/human-bandit.glb",
+    "sha256": "36fb6a34e31a6cd2c5090167fcc13cd8c642c833bed8fc465d3641a79989b6ce"
+  }
+}

@@ -4,9 +4,11 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {createDeliveryIO,texturePixels,geometryFingerprint,DELIVERY_POLICY} from '../../server/tools/asset-production/lossless_delivery.mjs';
 
 const directory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/public/miniatures/monsters');
 const manifest = JSON.parse(readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
+const io=await createDeliveryIO();
 assert.equal(manifest.version, 1);
 const familySource = readFileSync(path.resolve(directory, '../../../../shared/monsterAppearance.ts'), 'utf8');
 const declaredFamilies = [...familySource.match(/MONSTER_MODEL_TYPES = \[([\s\S]*?)\] as const/)[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
@@ -15,8 +17,9 @@ const variantDeclaration = familySource.match(/MONSTER_VARIANTS = \{([\s\S]*?)\}
 const declaredVariants = [...variantDeclaration.matchAll(/\[([^\]]+)\]/g)].flatMap(m => [...m[1].matchAll(/'([^']+)'/g)].slice(1).map(v => v[1]));
 assert.deepEqual((manifest.variants ?? []).map(m => m.id).sort(), declaredVariants.sort(), 'Every selectable variant must have a packaged asset');
 for (const model of [...manifest.models, ...(manifest.variants ?? [])]) {
-  assert.equal(model.url, `/miniatures/monsters/${model.id}.glb`);
-  const bytes = readFileSync(path.join(directory, `${model.id}.glb`));
+  const delivery=model.deliveryPolicy===DELIVERY_POLICY;
+  assert.equal(model.url, delivery?`/miniatures/monsters/${model.id}-hybrid-${model.sha256.slice(0,12)}.glb`:`/miniatures/monsters/${model.id}.glb`);
+  const bytes = readFileSync(path.join(directory, path.basename(model.url)));
   assert.equal(bytes.length, model.bytes);
   assert.equal(createHash('sha256').update(bytes).digest('hex'), model.sha256);
   assert.equal(bytes.toString('ascii', 0, 4), 'glTF');
@@ -25,7 +28,7 @@ for (const model of [...manifest.models, ...(manifest.variants ?? [])]) {
   assert.equal(bytes.readUInt32LE(16), 0x4e4f534a);
   const gltf = JSON.parse(bytes.toString('utf8', 20, 20 + bytes.readUInt32LE(12)));
   assert(gltf.buffers.every(buffer => !buffer.uri));
-  assert(gltf.images.every(image => image.bufferView !== undefined && !image.uri && image.mimeType === 'image/jpeg'));
+  assert(gltf.images.every(image => image.bufferView !== undefined && !image.uri && (delivery?['image/jpeg','image/png','image/webp'].includes(image.mimeType):image.mimeType === 'image/jpeg')));
   for (const accessor of gltf.accessors) {
     const view = gltf.bufferViews[accessor.bufferView];
     const components = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[accessor.type];
@@ -47,7 +50,22 @@ for (const model of [...manifest.models, ...(manifest.variants ?? [])]) {
   assert(triangles >= 764 && triangles <= 40_764, 'Error-bounded reduced body plus fitted base');
   assert.equal(model.policy, 'monster-reduction-v1');
   assert.match(model.sourceSha256, /^[a-f0-9]{64}$/);
-  assert.equal(model.baseDiameter, ['dragon', 'two-headed-dragon', 'treant', 'troll', 'stone-golem', 'werebear'].includes(model.id) ? .96 : 1);
+  assert.equal(model.baseDiameter, delivery?1:['dragon', 'two-headed-dragon', 'treant', 'troll', 'stone-golem', 'werebear'].includes(model.id) ? .96 : 1);
   assert.deepEqual(model.baseCenter, [0, 0, 0]);
+  if(delivery){
+    const expectedReceipt=`assets/miniatures/hybrid-delivery/${model.id}.json`;
+    assert.equal(model.deliveryReceipt,expectedReceipt);
+    const receipt=JSON.parse(readFileSync(path.resolve(directory,'../../../..',expectedReceipt),'utf8'));
+    assert.equal(receipt.sha256,model.sha256);assert.equal(receipt.bytes,bytes.length);
+    assert.equal(receipt.sourceSha256,model.sourceSha256);assert.equal(receipt.policy,DELIVERY_POLICY);
+    assert(Object.values(receipt.verified).every(v=>v===true));
+    const doc=await io.readBinary(bytes);
+    assert.deepEqual(geometryFingerprint(doc),receipt.geometry);
+    assert.equal(doc.getRoot().listTextures().length,receipt.textures.length);
+    for(const[index,texture]of doc.getRoot().listTextures().entries()){
+      assert.equal(createHash('sha256').update(texture.getImage()).digest('hex'),receipt.textures[index].sha256);
+      assert.deepEqual(await texturePixels(texture.getImage()),receipt.textures[index].decodedRgba);
+    }
+  }
   console.log(`${model.id}: ${triangles.toLocaleString()} triangles, ${(bytes.length / 1e6).toFixed(2)} MB; SHA256 verified`);
 }

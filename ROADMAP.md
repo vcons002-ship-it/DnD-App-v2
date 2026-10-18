@@ -3299,6 +3299,13 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
 
 ## Hybrid miniature pipeline (17 October 2026)
 
+- [x] Compressed the six reviewed hybrid assets (40.19 MB to 24.05 MB total) and
+  replaced bundled goblin, skeleton, wolf, bandit and dragon defaults with their
+  verified delivery copies. Stable family IDs preserve existing assignments;
+  content-hashed URLs avoid stale model caches. Liz's existing mobile test hero
+  now uses the approved compressed hybrid elf. Runtime receipts validate decoded
+  texture pixels and triangle-corner geometry; alternate sculpts remain available.
+
 - [x] Added the accepted lossless delivery pass after base fitting for newly
   generated character and creature models. PNG/WebP candidates must preserve
   decoded pixels exactly; Meshopt preserves triangle-corner attributes without

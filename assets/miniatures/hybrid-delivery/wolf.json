@@ -1,0 +1,126 @@
+{
+  "policy": "lossless-delivery-v1",
+  "applied": true,
+  "sourceBytes": 6343972,
+  "bytes": 3822428,
+  "bytesSaved": 2521544,
+  "savingPercent": 39.74708589508277,
+  "sha256": "2e6887e31231c3b2927ecb053b942c7512ada045608474236ee53aa620924ab6",
+  "textures": [
+    {
+      "index": 0,
+      "sourceBytes": 1334330,
+      "sourceSha256": "900ec667c9826967b7d66dca2222407b4d079429864a54e8614139a4be0cb281",
+      "sourceMime": "image/jpeg",
+      "bytes": 1334330,
+      "sha256": "900ec667c9826967b7d66dca2222407b4d079429864a54e8614139a4be0cb281",
+      "mime": "image/jpeg",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "a1c1ac19a69b04b0ebddceca3110c3b4a1c83460e614dcf018b211469188c9cb"
+      }
+    },
+    {
+      "index": 1,
+      "sourceBytes": 4352157,
+      "sourceSha256": "b501d25e885e442c989aecde46478c8957d6334dbe1781d57496f62a303c7919",
+      "sourceMime": "image/png",
+      "bytes": 2058148,
+      "sha256": "2382f632a2d799e333ba032175f6717a5fda6e0f594c6560931140746f6dd779",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "a6d01cfa245b5d3ca7b397d1857af99ce84463baa96d258952dedcc746982c1f"
+      }
+    }
+  ],
+  "geometry": [
+    {
+      "mesh": "textured.obj",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 0,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 19962,
+      "sha256": "e1beb7aa8dd270457c2d95fc27b16b76153ab86767068e06720da66ecb689378"
+    },
+    {
+      "mesh": "Cylinder",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 1,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 764,
+      "sha256": "36c9cf503c2389f4315894b2037ea875449335f6760e27d3e4dbfc8a8f103f5b"
+    }
+  ],
+  "verified": {
+    "triangleCornerAttributesExact": true,
+    "decodedTexturePixelsExact": true,
+    "sceneAndMaterialsExact": true,
+    "noQuantization": true,
+    "noSimplification": true,
+    "noTextureResizing": true
+  },
+  "sourceSha256": "356fa012025fd4f9c39b410639ae55534d713c5fe0fcb5e63f8fefe0d3d649e3",
+  "sourceAsset": "/uploads/miniatures/uploaded-435dcbb6-356fa012025f.glb",
+  "sourceWorkflow": "hybrid-2mv-21-v1",
+  "sourceFamily": "wolf",
+  "sourceVariant": "defined-crease-v2",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "replaces": {
+    "url": "/miniatures/monsters/wolf.glb",
+    "sha256": "d3e746af646302daac083a93abb61ceae1419bd6e640e5c28b6a51c053960f0b"
+  }
+}

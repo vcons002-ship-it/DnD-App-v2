@@ -1,0 +1,126 @@
+{
+  "policy": "lossless-delivery-v1",
+  "applied": true,
+  "sourceBytes": 7603472,
+  "bytes": 4617000,
+  "bytesSaved": 2986472,
+  "savingPercent": 39.27774048487323,
+  "sha256": "9948211a73df9ea0c8a7f94a24f15f6d3bc6f69c926417503196cd92e1dc6faf",
+  "textures": [
+    {
+      "index": 0,
+      "sourceBytes": 1228986,
+      "sourceSha256": "0f07f475e7d94e49893a03f1c639732300036a47a0561fa6a63384c9eb259d52",
+      "sourceMime": "image/jpeg",
+      "bytes": 1228986,
+      "sha256": "0f07f475e7d94e49893a03f1c639732300036a47a0561fa6a63384c9eb259d52",
+      "mime": "image/jpeg",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "18bbcd31cfba59ccc442523f6be235813ff13441298af398164c7360a206955b"
+      }
+    },
+    {
+      "index": 1,
+      "sourceBytes": 5646897,
+      "sourceSha256": "5eb32bf1477b89c9d49afe39b57905c6b880c6cd189558f99eb38b6df01f974d",
+      "sourceMime": "image/png",
+      "bytes": 2896884,
+      "sha256": "915327968ea51d16a4bea0734554b8fac8cf9483f22392f358f3b69f01d25241",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "c2c2844950f246129fcdb7bd5413021538a0792aa46ef0da50c5926917e7f1d6"
+      }
+    }
+  ],
+  "geometry": [
+    {
+      "mesh": "textured.obj",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 0,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 19996,
+      "sha256": "240a3c17c8ecf107292b44b16d08e97637ddc36775463705f38e3b23ec3bf927"
+    },
+    {
+      "mesh": "Cylinder",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 1,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 764,
+      "sha256": "dbe140595ca336d0cade9e2f29ea537ed3dcc9327c150579b86c5f3f3b256cfc"
+    }
+  ],
+  "verified": {
+    "triangleCornerAttributesExact": true,
+    "decodedTexturePixelsExact": true,
+    "sceneAndMaterialsExact": true,
+    "noQuantization": true,
+    "noSimplification": true,
+    "noTextureResizing": true
+  },
+  "sourceSha256": "d37ce897c67aa585767060538b49fd8e11ebd05e98275c3fde1b64abf966d4a3",
+  "sourceAsset": "/uploads/miniatures/uploaded-68a38335-d37ce897c67a.glb",
+  "sourceWorkflow": "hybrid-2mv-21-v1",
+  "sourceFamily": "dragon",
+  "sourceVariant": "defined-crease-v2",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "replaces": {
+    "url": "/miniatures/monsters/dragon.glb",
+    "sha256": "603fdc856cb40e84af315581260d4d8efa39d1bf692738288ed6526333401c57"
+  }
+}

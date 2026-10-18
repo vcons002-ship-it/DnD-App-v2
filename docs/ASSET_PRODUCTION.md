@@ -292,6 +292,37 @@ measurement is for that comparison asset; savings depend on each model's data.
 
 Focused checks: `npm run test -w server -- --run tools/asset-production/lossless_delivery.test.mjs`.
 
+### Existing hybrid replacements (18 October 2026)
+
+The reviewed hybrid goblin, skeleton, wolf, bandit and dragon now replace their
+five bundled defaults. Family IDs and the existing alternate sculpts stay intact.
+The approved stronger crease treatment is retained on wolf, bandit and dragon;
+compression does not apply another color or geometry edit. The skeleton retains
+its reviewed recovered multiview shape; it is not regenerated with different
+geometry settings during this delivery change.
+
+| Hybrid asset | Before compression | Delivery copy |
+| --- | ---: | ---: |
+| Goblin | 6.33 MB | 3.68 MB |
+| Skeleton | 6.48 MB | 3.88 MB |
+| Wolf | 6.34 MB | 3.82 MB |
+| Bandit | 7.11 MB | 4.07 MB |
+| Dragon | 7.60 MB | 4.62 MB |
+| Elf paladin / Liz | 6.33 MB | 3.99 MB |
+
+The six reviewed hybrid assets total about 40.19 MB before and 24.05 MB after
+compression. This compares the hybrid models, rather than their older single-map
+material predecessors. Five receipt files under `assets/miniatures/hybrid-delivery`
+are checked against the bundled assets during every client build: decoded texture
+pixels, exact triangle-corner geometry, bytes and SHA-256 must match. Filenames
+include content hashes so clients cannot keep using a cached previous model.
+
+Liz's approved hybrid elf was installed through the character upload endpoint in
+the existing mobile test session, preserving her sheet, icon and other character
+data. Its uploaded family and compressed file live in the host's upload catalog,
+as other custom character models do; `liz.json` records the source and result.
+The installed service/main campaign is not changed by this asset-development step.
+
 ### Pedestal contact in the battlefield
 
 The shared pewter-base renderer measures the original support surface and moves

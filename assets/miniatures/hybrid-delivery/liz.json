@@ -1,0 +1,139 @@
+{
+  "policy": "lossless-delivery-v1",
+  "applied": true,
+  "sourceBytes": 6325928,
+  "bytes": 3985128,
+  "bytesSaved": 2340800,
+  "savingPercent": 37.003266556306045,
+  "sha256": "ce5c605342633daeb465837f1d1615f5311d9f97d80df743fb7f663688951294",
+  "textures": [
+    {
+      "index": 0,
+      "sourceBytes": 1161277,
+      "sourceSha256": "4e6046477eca40d16a7e23c3a97218fd379d94528562f3df3af24a32b345dd28",
+      "sourceMime": "image/jpeg",
+      "bytes": 1161277,
+      "sha256": "4e6046477eca40d16a7e23c3a97218fd379d94528562f3df3af24a32b345dd28",
+      "mime": "image/jpeg",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "a47a9ec490b7220573a4df33e8339965d3fbb0957a1bc2d6687be5d6273033cb"
+      }
+    },
+    {
+      "index": 1,
+      "sourceBytes": 4376651,
+      "sourceSha256": "a1829eba930084d99fb1f1702e88cdc9dbe14cab3014e8348c919de8a793cb5c",
+      "sourceMime": "image/png",
+      "bytes": 2282136,
+      "sha256": "e08d8d6fcac902616e715f7a1c195145e5ea354e631acf24f6b3f24ecd350ebf",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "dcb35a3282213082dbd933c0fb026c860ab91350597b41902341430acec4d9ff"
+      }
+    }
+  ],
+  "geometry": [
+    {
+      "mesh": "textured.obj",
+      "extras": {
+        "processed": true,
+        "file_path": "D:\\dnd-approved-release\\dm-party-view-20261009\\tmp\\elf-textured-guidance-20261017\\g55\\paint\\textured.obj",
+        "file_name": "textured.obj"
+      },
+      "primitiveExtras": {},
+      "material": 0,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 20000,
+      "sha256": "18a6727d1c1225f2e21e85a3caa067299e84a74e36558f263128c417bffa6d08"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 1,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 256,
+      "sha256": "5941de9fbc427b2cf45cac17f765fbd56f96d7ebca3254ba938dedb26948b466"
+    }
+  ],
+  "verified": {
+    "triangleCornerAttributesExact": true,
+    "decodedTexturePixelsExact": true,
+    "sceneAndMaterialsExact": true,
+    "noQuantization": true,
+    "noSimplification": true,
+    "noTextureResizing": true
+  },
+  "sourceSha256": "7748eb16f85bd13999ddf6c813e607f80686f0c66715166d83165d81aae1b4dc",
+  "sourceAsset": "/uploads/miniatures/uploaded-f44e0ef2-7748eb16f85b.glb",
+  "sourceWorkflow": "hybrid-2mv-21-v1",
+  "sourceFamily": "elf-paladin",
+  "sourceVariant": "hybrid",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "replaces": null,
+  "installedModel": {
+    "id": "uploaded-f8a74cec",
+    "url": "/uploads/miniatures/uploaded-f8a74cec-49ede079f773.glb",
+    "baseDiameter": 1,
+    "baseCenter": [
+      0,
+      0,
+      0
+    ],
+    "bytes": 3985212,
+    "triangles": 20256,
+    "sha256": "49ede079f7732501a1af50dcca236437a9edc655c2b8356ec5a04138aac092e9"
+  },
+  "installedCharacter": {
+    "id": "4aea0358-9101-4dc6-a699-236ba5b6f977",
+    "name": "Liz",
+    "scope": "existing mobile test session"
+  }
+}
