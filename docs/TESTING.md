@@ -48,10 +48,15 @@ npx playwright test -c e2e/playwright.config.ts e2e/smoke.spec.ts # one file (cl
   generated stand-in for any `.glb` that is a pointer file. A real install never
   sets this.
 - On a software WebGL renderer (CI runners, cloud containers) `e2e/globalSetup.ts`
-  detects it and `e2e/helpers/test.ts` multiplies every test and expect budget
-  by `E2E_SLOW_FACTOR` (default 4). Specs import `test`/`expect` from
-  `./helpers/test`, never from `@playwright/test` directly. `E2E_SOFTWARE_GL=0|1`
-  overrides the probe.
+  detects it and `e2e/helpers/test.ts` does two things: it multiplies every
+  test and expect budget by `E2E_SLOW_FACTOR` (default 4), and it gives every
+  browser context **no WebGL at all**, so the app takes its 2D token and static
+  dice paths. With the 3D battlefield animating on SwiftShader a single click
+  took up to 90 s to become actionable; without it the same flows run at
+  normal speed. The suite asserts outcomes, never rendering, so nothing it
+  checks depends on WebGL. Specs import `test`/`expect` from `./helpers/test`,
+  never from `@playwright/test` directly. `E2E_SOFTWARE_GL=0|1` overrides the
+  probe; `E2E_WEBGL=1` keeps WebGL on a software renderer.
 - `E2E_PORT` overrides the disposable port (4099); `PW_CHROMIUM` points at an
   installed browser. The synthetic map video is encoded as VP9 when the test
   browser cannot decode H.264.

@@ -96,9 +96,11 @@ assert what changed on the server.
   assert on the id printed in the card; it is the live-roll id, not the log id.
 - **One flow per test, under a minute on a GPU.** If it needs
   `test.setTimeout(180000)` it is several tests or it is a demo.
-- **Must pass without the LFS models and on software WebGL.** The e2e server
-  sets `PLACEHOLDER_MODELS=1`; if your test loads a figure, assert the
-  miniature count, not its mesh.
+- **Must pass without the LFS models and without WebGL.** The e2e server
+  sets `PLACEHOLDER_MODELS=1`, and on a software renderer (CI) the test
+  browser has no WebGL at all, so the app runs its 2D tokens and static dice.
+  Never assert on the miniature layer's attributes, spell-effect kinds, tilt or
+  loaded model urls; assert the token, condition or HP the effect belongs to.
 - **No screenshots as evidence, no `sharp` pixel reads, no viewport matrices,
   no `test.use({isMobile})` layout checks.** A phone flow is tested the same
   way as a desktop flow: by what it changed.
