@@ -25,7 +25,8 @@ first**: when a test is needed, where it goes, and how to write one that holds.
 - **Browser suite (`npm run test:e2e`)** is a short functional gate: real DM and
   player sessions over real sockets, exercising the flows a unit test can't
   reach (join, claim, create a character, cast, attack, approve a hidden roll,
-  upload a map, apply a wall draft, level up). 108 tests in 37 files. A browser
+  upload a map, apply a wall draft, level up). 109 tests in 36 files, about 20
+  minutes on a GitHub runner. A browser
   test earns its place only if it checks an outcome (HP changed, slot spent,
   token blocked, request rejected, state survived reload). Pixel colours,
   animation timing, shader output, dice art, sound cues, layout at a given

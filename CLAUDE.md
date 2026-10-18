@@ -31,7 +31,7 @@ npm run dev        # server + client (concurrently); two browser windows = DM + 
 npm run typecheck  # tsc --noEmit for server AND client
 npm run test       # Vitest: server + shared + client/src/lib (2,200+ tests)
 npm run build      # client (vite) + server (tsc)
-npm run test:e2e   # Playwright functional gate (108 tests): real DM+player flows against a disposable save
+npm run test:e2e   # Playwright functional gate (109 tests): real DM+player flows against a disposable save
 ```
 
 Test policy (in [`docs/TESTING.md`](docs/TESTING.md)): tests prove the app runs and that

@@ -35,7 +35,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     # Runners have no GPU: WebGL is software-rendered and the suite's budgets
-    # widen 4x (e2e/helpers/test.ts). The functional gate (108 tests) runs in
+    # widen 4x (e2e/helpers/test.ts). The functional gate (109 tests) runs in
     # two shards to keep the wall clock short.
     strategy:
       fail-fast: false

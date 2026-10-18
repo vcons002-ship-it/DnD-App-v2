@@ -3246,9 +3246,12 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
   after an early return), and the lockfile was out of date.
 - [x] The browser suite is a functional gate only: 77 presentation specs
   (shaders, lighting, shadows, dice art, sound, layout, animation timing, video
-  captures) were removed, and visual tests inside mixed specs cut, leaving 108
-  tests in 37 files that check outcomes over real DM/player sessions. Visuals
-  are verified by eye; rules live in the unit suite. CI runs it in two shards.
+  captures) were removed, and visual tests inside mixed specs cut, leaving 109
+  tests in 36 files that check outcomes over real DM/player sessions. Visuals
+  are verified by eye; rules live in the unit suite. On a software renderer
+  the test browser runs without WebGL (with the 3D board animating on
+  SwiftShader a click took up to 90 s to become actionable), so the whole gate
+  takes about 20 minutes; CI runs it in two shards.
   The phone layout matrix PR #155 added went the same way; its functional
   creator tests stayed. `docs/WRITING_TESTS.md` says when a test is needed and
   how to write one.
