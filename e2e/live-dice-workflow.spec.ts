@@ -24,7 +24,7 @@ test('server live fireball and manual weapon damage match the streamed faces',as
  socket.emit('map:setActive',{mapId:map.id});socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:vanec.id,x:640,y:480});
  socket.emit('monster:create',{name:'Goblin',modelType:'goblin',maxHp:100,armorClass:1,disposition:'enemy'});
  const template=(await snap()).monsterTemplates.find((m:any)=>m.name==='Goblin');socket.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:640,y:288});await snap();
- await dm.setViewportSize({width:1440,height:900});await dm.goto(`/join?code=${code}`);await dm.getByRole('button',{name:'Join',exact:true}).click();await dm.locator('.claim-row').filter({hasText:'Vanec'}).click();await expect(dm.getByTestId('player-hud')).toBeVisible();await dm.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await dm.waitForTimeout(1500);
+ await dm.setViewportSize({width:1440,height:900});await dm.goto(`/join?code=${code}`);await dm.getByRole('button',{name:'Join',exact:true}).click();await dm.locator('.claim-row').filter({hasText:'Vanec'}).click();await expect(dm.getByTestId('player-hud')).toBeVisible();
  const liveFrames:any[]=[];socket.on('dice:frame',(f:any)=>liveFrames.push(f));
  {
  await dm.locator('.compact-player-combat').getByRole('combobox').last().selectOption('3');

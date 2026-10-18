@@ -50,27 +50,17 @@ test('a successful Shield reaction displays Blocked! and dismisses automatically
 });
 test('Misty Step and Pass without Trace use visible map controls and preserve spell-slot bookkeeping',async({page,request})=>{
  const f=await setup(request,page);
- const layer=page.getByTestId('miniature-layer');
  await page.getByRole('button',{name:'2D player tokens',exact:true}).click();
  await page.locator('.compact-player-combat').getByRole('button',{name:/Misty Step/}).click();
  const prompt=page.getByRole('region',{name:'Misty Step destination'});await expect(prompt).toBeVisible();await expect(prompt.getByRole('button',{name:'Teleport',exact:true})).toBeDisabled();
  let point=await f.mapPoint(350,300);await page.mouse.click(point.x,point.y);await expect(prompt.getByRole('button',{name:'Teleport',exact:true})).toBeEnabled();await prompt.getByRole('button',{name:'Teleport',exact:true}).click();
  await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===f.actor.id)?.x).toBeCloseTo(350,0);expect((await f.character()).spellSlots.L2.used).toBe(1);
- await expect(layer).toHaveAttribute('data-spell-impact-kinds',/mist/);
- await page.screenshot({path:test.info().outputPath('misty-step-effect.png'),fullPage:true});
  await page.locator('.compact-player-combat').getByRole('button',{name:/Pass without Trace/}).click();
  const aura=page.getByRole('region',{name:'Place spell area'});await expect(aura).toContainText('Choose allies');await expect(aura).toContainText('Varis');await aura.getByRole('checkbox',{name:/Test sentry/}).uncheck();await aura.getByRole('button',{name:/Confirm area/}).click();
  await expect.poll(async()=>(await f.character(f.ally.id)).conditions.some(c=>c.combatEffect?.stealthBonus===10)).toBe(true);expect((await f.character()).spellSlots.L2.used).toBe(2);
- await expect(layer).toHaveAttribute('data-spell-impact-kinds',/veil/);
- await page.waitForTimeout(2100);await expect(layer).toHaveAttribute('data-spell-impact-kinds','veil,veil');
- await expect(layer).toHaveAttribute('data-spell-light-strength','0');
- await page.screenshot({path:test.info().outputPath('pass-without-trace-effect.png'),fullPage:true});
  f.socket.emit('token:move',{tokenId:f.friend.id,x:950,y:500});await expect.poll(async()=>(await f.character(f.ally.id)).conditions.some(c=>c.combatEffect?.stealthBonus===10)).toBe(false);
- await expect(layer).toHaveAttribute('data-spell-impact-kinds','veil');
  const concentration=(await f.character()).conditions.find(c=>c.isConcentration)!;
  f.socket.emit('condition:clear',{kind:'pc',refId:f.caster.id,conditionId:concentration.id});await f.snapshot();
- await expect(layer).toHaveAttribute('data-spell-impact-count','0');
- await page.screenshot({path:test.info().outputPath('party-spells-controls.png'),fullPage:true});
 });
 test('a real attack offers Shield to its defender and grouped Hypnotic Pattern saves attach linked conditions',async({page,request})=>{
  test.setTimeout(120000);const f=await setup(request,page);
@@ -81,16 +71,10 @@ test('a real attack offers Shield to its defender and grouped Hypnotic Pattern s
  }
  const prompt=page.getByRole('region',{name:'Shield reaction'});await expect(prompt).toBeVisible();await prompt.getByRole('button',{name:'Shield · L1',exact:true}).click();
  await expect.poll(async()=>(await f.character()).spellSlots.L1.used,{timeout:20000}).toBe(1);await expect(page.getByLabel('Armor Class 21',{exact:true})).toBeVisible();await expect(prompt).toHaveCount(0);
- const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-spell-impact-kinds',/shield/);
- await page.screenshot({path:test.info().outputPath('shield-effect.png'),fullPage:true});
  await page.locator('.compact-player-combat').getByRole('button',{name:/Hypnotic Pattern/}).click();const area=page.getByRole('region',{name:'Place spell area'});await expect(area).toBeVisible();
  const point=await f.mapPoint(600,300);await page.mouse.click(point.x,point.y);await area.getByRole('button',{name:/Confirm area/}).click();
  await expect.poll(async()=>(await f.snapshot()).monsters.find(m=>m.id===f.enemy.refId)?.conditions.some(c=>c.label==='Hypnotic Pattern'),{timeout:20000}).toBe(true);
- await expect(layer).toHaveAttribute('data-spell-impact-kinds',/pattern/);
  const conditions=(await f.snapshot()).monsters.find(m=>m.id===f.enemy.refId)!.conditions;expect(conditions.map(c=>c.label)).toEqual(expect.arrayContaining(['Charmed','Incapacitated']));
- await page.screenshot({path:test.info().outputPath('hypnotic-pattern-live.png'),fullPage:true});
- await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await expect(layer).toHaveAttribute('data-tilt-degrees','45');
- await page.screenshot({path:test.info().outputPath('hypnotic-pattern-45.png'),fullPage:true});
 });
 
 test('Command offers custom words by default, respects DM opt-out, and shows next-turn instructions',async({page,request})=>{

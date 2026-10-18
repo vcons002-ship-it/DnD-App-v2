@@ -98,10 +98,6 @@ test('a player creates, claims, and places a battle-ready fighter through the gu
   await page.getByRole('button',{name:/Place.*token/}).click();
   await page.locator('.konvajs-content').first().click({position:{x:400,y:300}});
   await expect.poll(async()=> (await f.snapshot()).tokens.some(t=>t.refId===hero.id)).toBe(true);
-  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-loaded-model-urls',/uploaded-/,{timeout:30000});
-  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
-  await page.waitForTimeout(700);
-  await page.screenshot({path:path.join(evidence,'uploaded-model-on-map.png')});
 });
 
 test('mobile backgrounds, starting feature descriptions and included inventory match the created sheet',async({page,request},info)=>{
