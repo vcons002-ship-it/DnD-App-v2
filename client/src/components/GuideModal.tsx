@@ -26,6 +26,10 @@ const DESKTOP = [
 ];
 
 const MOBILE = [
+  ROW('View ▾ (phone)', 'Tilt or rotate the map, choose 2D/3D tokens and change DM visibility. Zoom and Fit stay on the toolbar.'),
+  ROW('Map tools ▾ (phone)', 'Measuring and Annotate tools; DM also gets scale, walls, doors, lights, fog and tiles.'),
+  ROW('Character (phone)', 'Open your sheet, inventory, spellbook, checks/saves and party tabs. Tap the health orb for health controls.'),
+  ROW('Combat + (phone)', 'The combat panel starts folded to leave the map clear. Expand it to target, attack or cast; fold it again when exploring.'),
   ROW('Combat and Chat', 'Panels share available height when they would overlap. Their saved sizes return on a larger screen.'),
   ROW('Drag a window header', 'Dock DM windows or player Combat/Chat left or right; the highlighted side shows where it will land. DM windows stay full width on phones.'),
   ROW('Tap a token', 'Select it'),
@@ -40,8 +44,8 @@ const MOBILE = [
 ];
 
 /**
- * A controls reference for both roles (Settings is DM-only, so this lives on its
- * own "?" button). Two tabs: desktop (mouse/keyboard) and mobile (touch).
+ * A controls reference for both roles, on its own "?" button. Two tabs:
+ * desktop (mouse/keyboard) and mobile (touch).
  */
 export function GuideModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>(

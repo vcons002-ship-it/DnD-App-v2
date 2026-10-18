@@ -59,6 +59,7 @@ import { getPlayerId, useStore, isRollImpactPending } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { AnnotationMenu } from '../components/AnnotationMenu';
+import { CompactToolbarMenu } from '../components/CompactToolbarMenu';
 import { FogMenu } from '../components/FogMenu';
 import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
 import {useEnvironmentEditor} from '../lib/useEnvironmentEditor';
@@ -2120,6 +2121,7 @@ export function MapStage({
             <button className="btn tiny" onClick={resetView} title="Fit to window">
               Fit
             </button>
+            <CompactToolbarMenu label="View">
             <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
               <span className="muted">Your view</span>
               {actualDm&&<select className="btn tiny" aria-label="Battlefield visibility" value={dmViewMode}
@@ -2136,6 +2138,10 @@ export function MapStage({
                 onClick={() => chooseTilt(false)}>Overhead</button>
               <button ref={rotationLabel} className="btn tiny" hidden={Math.abs(rotationDegrees%360)<.01} aria-label="Reset battlefield rotation" title="Reset the map's rotation. Hold right mouse button and drag empty space to rotate freely."
                 onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,0)}>Reset rotation</button>
+              <span className="touch-rotation-controls">
+                <button className="btn tiny" aria-label="Rotate map left" onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,rotationDegrees-15)}>↶ Rotate</button>
+                <button className="btn tiny" aria-label="Rotate map right" onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,rotationDegrees+15)}>Rotate ↷</button>
+              </span>
             </div>
             {(map?.videoPath||tiles.some(t=>t.videoPath))&&<button className={`btn tiny ${animateMap?'on':''}`} aria-label="Toggle map animation" aria-pressed={animateMap} title="Animate the map in your view, or use its still image for better performance" onClick={()=>mapAnimation.setEnabled(!mapAnimation.enabled)}>Map animation: {animateMap?'On':'Off'}</button>}
             {([
@@ -2157,12 +2163,13 @@ export function MapStage({
                   }}>{enabled ? '3D' : '2D'}</button>
               ))}
             </div>)}
+            </CompactToolbarMenu>
           </div>, toolSlot)}
           {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
               via a portal, but keep all their state/handlers here in MapStage. */}
           {toolSlot &&
             createPortal(
-              <div className="map-tool-menus">
+              <CompactToolbarMenu label="Map tools"><div className="map-tool-menus">
                 {/* Measuring tools — available to everyone; shapes are shared. */}
                 <MeasureMenu
                   tool={tool}
@@ -2346,7 +2353,7 @@ export function MapStage({
                     />
                   </>
                 )}
-              </div>,
+              </div></CompactToolbarMenu>,
               toolSlot,
             )}
           <Stage

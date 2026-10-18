@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { config } from '../config.js';
+import { normalizeComfyWorkflow } from '../../../shared/comfyPresets.js';
+import { buildFlux3Graph, FLUX3_FILES, isFlux3Model } from './flux3.js';
 
 /**
  * Minimal client for a LOCAL ComfyUI server's HTTP API — in-app txt2img so the DM
@@ -51,9 +53,9 @@ export async function listLoaderOptions(nodeClass: string, inputName: string): P
   }
 }
 
-/** List installed checkpoints (for the built-in SD graph's checkpoint picker). */
+/** Only compatible distilled FLUX 3 diffusion models belong in the built-in picker. */
 export async function listComfyModels(): Promise<string[]> {
-  return listLoaderOptions('CheckpointLoaderSimple', 'ckpt_name');
+  return (await listLoaderOptions('UNETLoader', 'unet_name')).filter(isFlux3Model);
 }
 
 /** Collect every model-file dropdown a node exposes (any input whose options are
@@ -262,45 +264,6 @@ export function frameMapPrompt(userPrompt: string, style?: string): string {
   return s.includes('{prompt}') ? s.split('{prompt}').join(userPrompt) : `${userPrompt}, ${s}`;
 }
 
-/** Build the standard ComfyUI txt2img graph (API format) with the prompt injected. */
-function buildGraph(opts: {
-  model: string;
-  prompt: string;
-  negative: string;
-  width: number;
-  height: number;
-  steps: number;
-  cfg: number;
-  seed: number;
-}): Record<string, unknown> {
-  return {
-    '4': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: opts.model } },
-    '5': {
-      class_type: 'EmptyLatentImage',
-      inputs: { width: opts.width, height: opts.height, batch_size: 1 },
-    },
-    '6': { class_type: 'CLIPTextEncode', inputs: { text: opts.prompt, clip: ['4', 1] } },
-    '7': { class_type: 'CLIPTextEncode', inputs: { text: opts.negative, clip: ['4', 1] } },
-    '3': {
-      class_type: 'KSampler',
-      inputs: {
-        seed: opts.seed,
-        steps: opts.steps,
-        cfg: opts.cfg,
-        sampler_name: 'euler',
-        scheduler: 'normal',
-        denoise: 1,
-        model: ['4', 0],
-        positive: ['6', 0],
-        negative: ['7', 0],
-        latent_image: ['5', 0],
-      },
-    },
-    '8': { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['4', 2] } },
-    '9': { class_type: 'SaveImage', inputs: { filename_prefix: 'dndvtt', images: ['8', 0] } },
-  };
-}
-
 /**
  * Build a graph from the DM's custom workflow template (ComfyUI **API format**)
  * by substituting placeholders. String placeholders are JSON-escaped so the
@@ -358,17 +321,18 @@ export async function generateImage(
   if (!base) return { error: 'ComfyUI URL is not set in Settings.' };
   if (!prompt.trim()) return { error: 'Empty prompt.' };
   const clientId = randomUUID();
-  const cleanPrompt = prompt.trim().slice(0, 2000);
+  const cleanPrompt = prompt.trim().slice(0, 12000);
   const negative = (opts.negative ?? DEFAULT_NEGATIVE).slice(0, 2000);
   const width = clampDim(opts.width, 768, opts.turnaround ? 2048 : 1536);
   const height = clampDim(opts.height, 768, opts.turnaround ? 2048 : 1536);
   const seed = Math.floor(Math.random() * 2 ** 31);
 
+  const workflow = normalizeComfyWorkflow(config.comfyWorkflow).trim();
   let graph: Record<string, unknown> | null;
-  if (config.comfyWorkflow.trim()) {
-    // The DM supplied their own workflow (e.g. a Flux / SD3 / Mistral-encoder
-    // graph the built-in SD graph can't run) — substitute the prompt into it.
-    graph = applyWorkflowTemplate(config.comfyWorkflow, {
+  if (workflow) {
+    // The DM supplied their own workflow (e.g. a deliberately chosen expert
+    // graph instead of the default FLUX 3 workflow) — substitute the prompt into it.
+    graph = applyWorkflowTemplate(workflow, {
       prompt: cleanPrompt,
       negative,
       width,
@@ -377,29 +341,28 @@ export async function generateImage(
     });
     if (!graph) return { error: 'Your custom workflow is not valid JSON (after placeholder substitution).' };
   } else {
-    // Built-in SD1.5/SDXL txt2img graph. Pick the checkpoint: configured, else
-    // the first installed.
-    let model = config.comfyModel.trim();
-    if (!model) {
-      model = (await listComfyModels())[0] ?? '';
-      if (!model) return { error: 'No checkpoint is installed in ComfyUI.' };
-    }
-    graph = buildGraph({
-      model,
-      prompt: cleanPrompt,
-      negative,
-      width,
-      height,
-      steps: Math.min(60, Math.max(8, opts.steps ?? 25)),
-      cfg: Math.min(20, Math.max(1, opts.cfg ?? 7)),
-      seed,
+    // A stale saved SD checkpoint must not silently select an older model.
+    const installed = await listComfyModels();
+    const requested = config.comfyModel.trim();
+    const model = isFlux3Model(requested)
+      ? bestModelMatch(requested, installed)
+      : bestModelMatch(FLUX3_FILES.model, installed) ?? installed[0];
+    if (!model) return { error: 'FLUX 3 is not installed in ComfyUI. Install the distilled FLUX 3 model and its encoders, or configure a custom workflow in Settings.' };
+    const requiredNodes = ['TextGenerate', 'EmptyFlux2LatentImage', 'ConditioningZeroOut'];
+    const registered = await Promise.all(requiredNodes.map(nodeClassRegistered));
+    const missing = requiredNodes.filter((_, i) => !registered[i]);
+    if (missing.length) return { error: `FLUX 3 needs an updated ComfyUI; missing nodes: ${missing.join(', ')}.` };
+    graph = buildFlux3Graph({
+      model, prompt: `${cleanPrompt}\nAvoid these unwanted elements: ${negative}.`,
+      width, height, seed, steps: opts.steps,
     });
   }
 
   // Optional map LoRA — spliced in here (before filename resolution, so the LoRA
-  // name is matched too). Fails gracefully: a missing LoRA / unsupported node /
+  // name is matched too). Legacy map adapters are not injected into native FLUX 3,
+  // since their weights were trained for a different base model. Fails gracefully: a missing LoRA / unsupported node /
   // odd graph just generates without it, never an error.
-  if (opts.injectLora?.name) {
+  if (opts.injectLora?.name && workflow) {
     const loras = await listComfyLoras();
     const match = loras.length ? bestModelMatch(opts.injectLora.name, loras) : null;
     const node = opts.injectLora.node?.trim() || 'LoraLoaderModelOnly';
@@ -443,7 +406,7 @@ export async function generateImage(
     if (!promptId) return { error: 'ComfyUI did not queue the job.' };
 
     // Poll history until the run produces an image (CPU generation can be slow).
-    const deadline = Date.now() + 180_000;
+    const deadline = Date.now() + 600_000;
     while (Date.now() < deadline) {
       await sleep(1500);
       const h = await fetch(`${base}/history/${promptId}`, {
@@ -516,8 +479,8 @@ async function saveFromView(base: string, img: ComfyImageRef): Promise<string | 
 const clampDim = (v: number | undefined, fallback: number, maximum = 1536): number => {
   const n = Math.round(v ?? fallback);
   if (!Number.isFinite(n)) return fallback;
-  // Snap to a multiple of 8 (latent grid), bounded to sane SD sizes.
-  return Math.min(maximum, Math.max(256, Math.round(n / 8) * 8));
+  // FLUX 3 uses the Flux2 16-pixel latent grid.
+  return Math.min(maximum, Math.max(256, Math.round(n / 16) * 16));
 };
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));

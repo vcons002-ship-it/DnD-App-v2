@@ -3,6 +3,7 @@ import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniat
 import {miniatureLodForPixels,type MiniatureLod} from '../../../shared/miniatureLod';
 import {createMiniatureBatches} from './miniatureBatches';
 import {createMiniatureTransform,retainMiniatureLocalTransforms} from './miniatureTransforms';
+import {createMiniatureMovePreviewGeometry} from './miniatureMovePreview';
 import {createMirrorImages} from './mirrorImages';
 import {createMiniatureFootprints} from './miniatureFootprints';
 import type {FootprintMark} from './FootprintTrails';
@@ -131,6 +132,8 @@ type Instance = {
   torchLighting:ReturnType<typeof createMiniatureTorchLighting>;
   measureBody: () => MistBody;
   root: Group;
+  movePreviewGeometry?:ReturnType<typeof createMiniatureMovePreviewGeometry>;
+  movePreviewKey?:string;
   updateTransform:()=>boolean;
   turnRing: Mesh<RingGeometry, MeshBasicMaterial>;
   selectionRing: Mesh<RingGeometry, MeshBasicMaterial>;
@@ -271,18 +274,18 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let lastFailedIds: string | undefined;
   const manifests = new Map<string, Promise<FxManifest | null>>();
   const instances = new Map<string, Instance>();
+  const movePreviewGeometries=new Map<string,{geometry:ReturnType<typeof createMiniatureMovePreviewGeometry>;users:number}>();
   const opacityFades=new Map<string,{start:number;from:number;to:number;value:number}>();
   const shaderWarmup=createMiniatureShaderWarmup(renderer,createMiniatureTorchLighting(localShadows.uniforms));
   const loading = new Map<string, string>();
   const moves = new Map<string, { x: number; y: number; facing: number; fromX: number; fromY: number; until: number }>();
-  // One local planning figure; geometry is shared with the loaded model. It has
-  // no effects, shadows, labels, hit region or network representation.
+  // One local planning silhouette, baked while loading. It has no effects,
+  // shadows, labels, hit region or network representation and costs one draw.
   let preview: {id:string;root:Group} | null = null;
-  const previewMaterial = new MeshStandardMaterial({color: '#83aab6', transparent:true, opacity:.3,
-    roughness:.9, metalness:0, depthWrite:false});
+  const previewMaterial = new MeshBasicMaterial({color: '#83aab6', transparent:true, opacity:.3,depthWrite:false,toneMapped:false});
   const clearPreview = () => {
     if(preview)scene.remove(preview.root);
-    preview=null;delete host.dataset.previewTokenId;
+    preview=null;delete host.dataset.previewTokenId;delete host.dataset.previewDrawCalls;
   };
   const abort = new AbortController();
   let props = initial,sourceProps=initial;
@@ -722,6 +725,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const disposeInstance = (instance:Instance) => {
     batches.restore();
     instance.mirrors.dispose();
+    const silhouette=instance.movePreviewKey?movePreviewGeometries.get(instance.movePreviewKey):undefined;
+    if(silhouette&&--silhouette.users===0){silhouette.geometry.dispose();movePreviewGeometries.delete(instance.movePreviewKey!);}
+    host.dataset.previewGeometryAssets=String(movePreviewGeometries.size);
     instance.mixer?.stopAllAction();
     if (instance.mixer) instance.mixer.uncacheRoot(instance.mixer.getRoot());
     scene.remove(instance.root);
@@ -1063,6 +1069,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           lightning: definition.id === 'vanec' ? createVanecLightning(model) : null,
         };
         place(current, instance);
+        instance.movePreviewKey=JSON.stringify([definition.url,definition.baseCenter]);
+        let silhouette=movePreviewGeometries.get(instance.movePreviewKey);
+        if(!silhouette){silhouette={geometry:createMiniatureMovePreviewGeometry(centered),users:0};movePreviewGeometries.set(instance.movePreviewKey,silhouette);}
+        silhouette.users++;instance.movePreviewGeometry=silhouette.geometry;
+        host.dataset.previewGeometryAssets=String(movePreviewGeometries.size);
         // First-use shader linking was blocking the movement frame for hundreds
         // of milliseconds. Compile against the real lighting before drawing the
         // new body; KHR_parallel_shader_compile lets existing figures keep moving.
@@ -1163,20 +1174,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if(disposed)return;
       if(!point){if(preview?.id===id)clearPreview();invalidate();return;}
       const instance=instances.get(id);
-      if(!instance)return;
+      if(!instance?.movePreviewGeometry)return;
       if(preview?.id!==id){
         clearPreview();
         const root=new Group();
-        root.add(instance.root.children[0].clone(true));
-        root.traverse(node=>{
-          node.layers.set(0);
-          if(node instanceof Mesh){
-            if(node.name==='disposition-outline')node.visible=false;
-            node.material=previewMaterial;
-            node.castShadow=false;node.receiveShadow=false;
-          }
-        });
+        root.add(new Mesh(instance.movePreviewGeometry,previewMaterial));
         preview={id,root};scene.add(root);host.dataset.previewTokenId=id;
+        host.dataset.previewDrawCalls='1';
       }
       preview!.root.scale.copy(instance.root.scale);
       preview!.root.position.set(point.x,0,point.y);

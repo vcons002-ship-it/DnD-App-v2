@@ -12,7 +12,8 @@ npm run test:e2e    # Playwright: builds the client, runs the browser suite agai
 ```
 
 Run `typecheck` and `test` before every commit. CI runs all four on every push
-and pull request.
+and pull request. **Adding a test? Read [`WRITING_TESTS.md`](WRITING_TESTS.md)
+first**: when a test is needed, where it goes, and how to write one that holds.
 
 ## What each suite is for
 

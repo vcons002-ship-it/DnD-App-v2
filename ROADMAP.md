@@ -1,5 +1,28 @@
 # Roadmap & Feature Backlog
 
+- [x] Add cancellable/repeatable token crafting, persistent source galleries with
+  individual-view refresh and fresh approval, explicit battle-ready reference
+  poses, and editable feet/inches character height with suggested species ranges.
+  Preserve existing models, serial GPU work and library height values.
+
+- [x] Require approval of the four source views before creature or hero 3D
+  reconstruction. Add mobile art review, regeneration, persistent revision
+  checks and owner-gated approval; use realistic, neutrally lit reference art.
+  Fit newly generated heroes to a party-calibrated height rather than the
+  generic monster target, preserving combat space and manual size controls.
+  [Workflow](docs/ASSET_PRODUCTION.md).
+
+- [x] Clarify the mobile creator's included inventory and pack contents,
+  supported background presets, starting-feature descriptions and current roll
+  assignments. Reduce 3D movement preview submission to one cached silhouette
+  draw per preview. [Scope and verification](docs/MOBILE_BUILDER_FEEDBACK_2026-10-17.md).
+
+- [x] Improve phone portrait/landscape play with compact View/Map tools groups,
+  larger touch controls, a folded initial combat panel, direct Character access,
+  touch rotation buttons and a taller landscape dice tray with side calculations.
+  Keep desktop/tablet panel preferences and server rules intact. See
+  [mobile UI validation](docs/MOBILE_UI_REVIEW_2026-10-17.md).
+
 - [x] Collapse pen, text and their five shared colors into one Annotate dropdown
   for both roles. Keep a small current-color indicator on the toolbar and make
   palette choices larger for touch; the chosen color carries between tools.
@@ -3226,6 +3249,9 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
   captures) were removed, and visual tests inside mixed specs cut, leaving 108
   tests in 37 files that check outcomes over real DM/player sessions. Visuals
   are verified by eye; rules live in the unit suite. CI runs it in two shards.
+  The phone layout matrix PR #155 added went the same way; its functional
+  creator tests stayed. `docs/WRITING_TESTS.md` says when a test is needed and
+  how to write one.
 - [x] Fire, lightning and radiant area spells (Fireball, Lightning Bolt,
   Burning Hands, Flame Strike, Meteor Swarm, Call Lightning) light the ground
   while they animate: in magical darkness players see the terrain that light
@@ -3276,3 +3302,26 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
   resin and class-specific moving interior fields. Numbers retain opaque metal
   inlays and dark inward backings. Approved character/DM materials and gold
   variants remain intact; reduced motion freezes the new volume animation.
+
+
+## Hybrid miniature pipeline (17 October 2026)
+
+The app producer uses automatically aligned four-view Hunyuan 2mv geometry
+(75 steps, guidance 5.5) followed by four-reference Hunyuan 2.1 PBR painting.
+Verified stage receipts support retry without regenerating completed geometry.
+Source-art approval, cancellation, 20k runtime reduction and base fitting remain
+in place. See `docs/ASSET_PRODUCTION.md` for worker setup and exact settings.
+
+- Tested an opt-in, UV-aware subtle crease pass on dragon, goblin and elf paladin.
+  Local darkening is capped at 6%; average change stayed below 0.4%. Geometry and
+  PBR data maps stay unchanged. That subtle trial was superseded by the accepted
+  stronger pass below; `--crease-detail` enables it in standalone preparation.
+
+- Fixed shared pewter-pedestal seating for generated and uploaded miniatures:
+  measured surface lift, unchanged floor, hierarchy-aware mesh placement,
+  Z-up support and idempotent preparation. Dragon map comparison includes old,
+  untouched hybrid and crease-enhanced models with matching base sizes. The
+  first 6%-cap texture trial was too subtle; the accepted finishing pass uses a
+  35% local cap (3.24% mean on the dragon), preserving geometry and PBR data maps.
+  New app-generated models now include it. Wolf and bandit comparisons passed;
+  existing-alpha preservation is regression-tested against the red-ear artifact.

@@ -4,6 +4,8 @@ import {createGuidedCharacter,rollCreatorStats} from './characterCreator.js';
 import {CORE_CLASSES_2024} from '../../shared/characterProgression.js';
 import {assetQueue} from './assets/production.js';
 import {craftHeroToken} from './assets/heroTokens.js';
+import {heroArtBrief} from '../../shared/assetProduction.js';
+import {validCharacterHeight} from '../../shared/characterHeight.js';
 import {SpellAreaPreviewController} from './spellAreaPreview.js';
 import {setRollPending,setRollSmite} from './sessions.js';
 import {repeatSpell,summonSpiritualWeapon,spiritualWeaponPlacementError,spiritualWeaponOwner,moveSpiritualWeapon} from './linkedSpells.js';
@@ -439,7 +441,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             else if(event==='character:levelRollHp')meta.label='Level-up Hit Point Increase';
             else if(event==='character:rollStats'){
               meta.diceTheme='gold';
-              meta.label=Number.isInteger(payload?.index)?`${['STR','DEX','CON','INT','WIS','CHA'][payload.index]} starting score — 4d6, drop lowest`:'All starting ability scores — 24d6, drop lowest per group';
+              meta.label=Number.isInteger(payload?.index)?`Starting score ${payload.index+1} — 4d6, drop lowest`:'All starting ability scores — 24d6, drop lowest per group';
               meta.className=CORE_CLASSES_2024.includes(payload?.className)?payload.className:'';
               meta.attacker=typeof payload?.name==='string'?payload.name.trim().slice(0,60)||'New character':'New character';
             }
@@ -1390,8 +1392,25 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       if(!c||c.sessionId!==sessionId()||!isDm()&&c.claimedBy!==socket.id){ack({ok:false,error:'Choose your own character to craft their token.'});return;}
       try{
         const queue=assetQueue(),previous=queue.snapshot().jobs.filter(j=>j.sourceCharacterId===c.id).at(-1);
-        if(p.retry){if(!previous||!queue.retry(previous.id))throw new Error('There is no failed token craft to retry.');ack({ok:true,job:queue.snapshot().jobs.find(j=>j.id===previous.id)!});}
-        else ack({ok:true,job:craftHeroToken(queue,c,p.appearance,false,p.heldWeapon,{dm:isDm(),playerId:commandConnection()?.playerId})});
+        if(p.artAction){
+          if(!previous||previous.id!==p.jobId)throw new Error('This art revision is no longer current. Refresh token crafting.');
+          if(p.artAction==='cancel'){
+            if(!queue.cancel(previous.id))throw new Error('This craft has already finished or been cancelled.');
+          }else if(p.artAction==='approve'){
+            if(typeof p.artHash!=='string'||!queue.approveArt(previous.id,p.artHash))throw new Error('The source art changed. Review the current four views before approving.');
+          }else if(p.artAction==='regenerate'){
+            if(typeof p.appearance!=='string'||!p.appearance.trim()||p.appearance.length>600)throw new Error('Describe your hero’s appearance in 1–600 characters.');
+            if(p.heldWeapon!==undefined&&p.heldWeapon!=='Unarmed'&&!c.weapons.some(w=>w.name===p.heldWeapon))throw new Error('Choose a weapon from your character sheet, or Unarmed.');
+            if(p.heightInches!==undefined&&!validCharacterHeight(p.heightInches))throw new Error('Choose a height between 0 ft 6 in and 20 ft, in whole inches.');
+            if(p.view!==undefined&&!['front','back','left','right'].includes(p.view))throw new Error('Choose a reference view.');
+            const heightInches=p.heightInches??c.heightInches;
+            if(!queue.regenerateArt(previous.id,heroArtBrief({...c,heightInches},p.appearance.trim(),p.heldWeapon),isDm(),p.heldWeapon,{heightInches,view:p.view,sourceIcon:c.icon,sourceModelType:c.modelType}))throw new Error('Wait for source art before requesting another version.');
+            db.prepare('UPDATE characters SET appearance=?,height_inches=? WHERE id=?').run(p.appearance.trim(),heightInches??null,c.id);
+          }else throw new Error('Choose approve or regenerate.');
+          ack({ok:true,job:queue.snapshot().jobs.find(j=>j.id===previous.id)!});
+        }
+        else if(p.retry){if(!previous||!queue.retry(previous.id))throw new Error('There is no failed token craft to retry.');ack({ok:true,job:queue.snapshot().jobs.find(j=>j.id===previous.id)!});}
+        else ack({ok:true,job:craftHeroToken(queue,c,p.appearance,false,p.heldWeapon,{dm:isDm(),playerId:commandConnection()?.playerId},p.heightInches)});
         afterChange();
       }catch(e){ack({ok:false,error:e instanceof Error?e.message:'Token crafting could not start. Your character is still playable.'});}
     });

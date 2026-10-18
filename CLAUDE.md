@@ -38,6 +38,7 @@ Test policy (in [`docs/TESTING.md`](docs/TESTING.md)): tests prove the app runs 
 changes don't break behaviour. **No visual tests** — pixel colours, animation timing,
 shader output, dice art, sound, layout and video captures are verified by eye, never
 by a spec. A browser test must check an outcome (HP, slots, state, a rejected request).
+How to decide and how to write one: [`docs/WRITING_TESTS.md`](docs/WRITING_TESTS.md).
 
 Always run `npm run typecheck` and `npm run test` before committing. Manual UX
 is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
@@ -600,3 +601,13 @@ Image generation tries ComfyUI first, then the configurable Gemini image API
 model. Its fallback supports token art, decals, and maps but does not reproduce
 local LoRAs or custom workflow internals. The external 3D asset pipeline remains
 outside the in-game generation gateway.
+
+
+## Accepted hybrid miniature production
+
+The app producer uses automatically aligned four-view Hunyuan 2mv geometry
+(75 steps, guidance 5.5) followed by four-reference Hunyuan 2.1 PBR painting.
+Verified stage receipts support retry without regenerating completed geometry.
+The accepted UV-aware crease definition pass is part of new-model finishing.
+Source-art approval, cancellation, 20k runtime reduction and base fitting remain
+in place. See `docs/ASSET_PRODUCTION.md` for worker setup and exact settings.

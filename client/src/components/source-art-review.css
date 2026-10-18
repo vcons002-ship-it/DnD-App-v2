@@ -1,0 +1,12 @@
+.source-art-review{margin:12px 0;padding:12px;border:1px solid #b99b61;border-radius:8px;background:#171d25;color:#eee3cd;min-width:0}
+.source-art-review>p{font-size:.9em;line-height:1.45}
+.source-art-review a{display:block;color:#ffe1a1;min-width:0}
+.source-art-review img{display:block;width:100%;height:auto;border-radius:4px;background:white;object-fit:contain}
+.source-art-review>a>img{max-height:520px}
+.source-art-review a span{display:block;text-align:center;font-size:.85em;padding:4px;text-transform:capitalize}
+.source-art-views{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:10px 0}
+.source-art-views>div{min-width:0}.source-art-views button{width:100%;white-space:normal;min-height:40px;margin:0!important}
+.source-art-actions{display:flex;gap:8px;flex-wrap:wrap}
+.source-art-actions button{white-space:normal;flex:1 1 170px;min-height:44px}
+.source-art-review small{display:block;margin-top:8px}
+@media(max-width:600px){.source-art-views{grid-template-columns:repeat(2,minmax(0,1fr))}}

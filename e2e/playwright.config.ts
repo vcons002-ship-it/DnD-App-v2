@@ -48,6 +48,8 @@ export default defineConfig({
       OLLAMA_URL: 'http://127.0.0.1:1',
       COMFY_URL: 'http://127.0.0.1:1',
       HUNYUAN_URL: 'http://127.0.0.1:1',
+      HUNYUAN_SHAPE_URL: 'http://127.0.0.1:1',
+      HUNYUAN_PAINT_URL: 'http://127.0.0.1:1',
       GEMINI_API_KEY: '',
       AI_MODE: 'local',
       // Model files are Git LFS objects; a checkout without them gets a stand-in

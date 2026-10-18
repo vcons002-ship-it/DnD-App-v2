@@ -1,4 +1,4 @@
-/** Opt-in contract smoke: mocked image/Hunyuan responses, REAL Python transport,
+/** Opt-in contract smoke: mocked image/Hunyuan responses, REAL model finishing,
  * reduction, Blender, publication and durable queue. Never touches a campaign. */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -20,29 +20,36 @@ const sheet = await sharp({ create: { width: 2048, height: 2048, channels: 3, ba
 let submitted = 0;
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.url === '/config') { res.setHeader('Content-Type', 'application/json'); res.end('{}'); return; }
-    if (req.url === '/asset.glb') { res.end(raw); return; }
-    if (req.method === 'POST' && req.url === '/gradio_api/call/generation_all') {
-      const chunks = []; for await (const chunk of req) chunks.push(chunk);
-      const { data } = JSON.parse(Buffer.concat(chunks));
-      assert.equal(data[0], null); assert.equal(data[1], null);
-      for (let i = 0; i < 4; i++) {
-        const image = Buffer.from(data[i + 2].url.split(',')[1], 'base64');
-        const pixel = await sharp(image).removeAlpha().extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer();
-        assert.equal(`#${pixel.toString('hex')}`, colors[i], 'Named front/back/left/right view order');
-      }
-      assert.deepEqual(data.slice(6), [50, 5.5, 923300, 512, true, 10000, false]);
-      submitted++; res.setHeader('Content-Type', 'application/json'); res.end('{"event_id":"fixture"}'); return;
-    }
-    if (req.url === '/gradio_api/call/generation_all/fixture') {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.end(`event: complete\ndata: ${JSON.stringify([null, { url: `${process.env.HUNYUAN_URL}/asset.glb`, orig_name: 'textured_mesh.glb' }, null, { model: { shapegen: 'tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv' } }, 923300])}\n\n`); return;
+    if (req.url === '/health') {res.setHeader('Content-Type','application/json');res.end(JSON.stringify({protocol:'dnd-hybrid-v1',running:false}));return;}
+    if (req.method === 'POST') {
+      const chunks=[];for await(const chunk of req)chunks.push(chunk);
+      const data=JSON.parse(Buffer.concat(chunks));await fs.mkdir(data.output_dir,{recursive:true});
+      let result;
+      if(req.url==='/align'){
+        const views={};for(const [i,v]of ['front','back','left','right'].entries()){
+          const source=data.reference_paths[v],image=await fs.readFile(source);
+          const pixel=await sharp(image).removeAlpha().extract({left:0,top:0,width:1,height:1}).raw().toBuffer();
+          assert.equal('#'+pixel.toString('hex'),colors[i],'Named reference order');
+          const output=path.join(data.output_dir,v+'.png');await fs.writeFile(output,image);views[v]={output,figureHeightPx:870};
+        }
+        result={policy:'hybrid-alignment-v1',views};
+      }else if(req.url==='/shape'){
+        assert.equal(data.steps,75);assert.equal(data.guidance,5.5);
+        const output=path.join(data.output_dir,'shape.glb');await fs.writeFile(output,raw);submitted++;
+        result={checkpoint:'tencent/Hunyuan3D-2mv/hunyuan3d-dit-v2-mv',conditioningShape:[1,4,3,512,512],settings:data,output};
+      }else if(req.url==='/trial'){
+        assert.equal(data.reference_paths.length,4);assert.equal(data.faces,120000);assert.equal(data.views,6);
+        const output=path.join(data.output_dir,'paint.glb');await fs.writeFile(output,raw);
+        // Synthetic GPU receipt only. The supplied GLB is finished for real below.
+        result={encodedReferenceCount:4,actualOutputViewCount:6,triangles:120000,textureSizes:{a:[4096,4096],m:[4096,4096],r:[4096,4096]},output};
+      }else{res.statusCode=404;res.end();return;}
+      res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));return;
     }
     res.statusCode = 404; res.end();
   } catch (error) { res.statusCode = 500; res.end(String(error)); }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-process.env.HUNYUAN_URL = `http://127.0.0.1:${server.address().port}`;
+process.env.HUNYUAN_SHAPE_URL = process.env.HUNYUAN_PAINT_URL = `http://127.0.0.1:${server.address().port}`;
 const fetchOriginal = globalThis.fetch;
 globalThis.fetch = async (url, init) => {
   if (String(url).startsWith('https://generativelanguage.googleapis.com/')) {
@@ -50,7 +57,7 @@ globalThis.fetch = async (url, init) => {
     assert.equal(request.generationConfig.imageConfig.imageSize, '2K');
     return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: sheet.toString('base64') } }] } }] }));
   }
-  assert.ok(String(url).startsWith(process.env.HUNYUAN_URL), 'No external services during smoke');
+  assert.ok(String(url).startsWith(process.env.HUNYUAN_SHAPE_URL), 'No external services during smoke');
   return fetchOriginal(url, init);
 };
 try {
@@ -60,9 +67,16 @@ try {
   startAssetProduction();
   const queue = assetQueue(); queue.enqueue({ name: 'Fixture creature', modelType: 'fixture-creature' });
   const deadline = Date.now() + 120000;
+  while (!['awaiting_approval', 'failed'].includes(queue.snapshot().jobs[0].state) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
+  const review=queue.snapshot().jobs[0];
+  assert.equal(review.state,'awaiting_approval');assert.equal(submitted,0,'3D must not start before source-art approval');
+  assert.equal(review.sourceArt.views.length,4);assert.equal(queue.approveArt(review.id,review.sourceArt.sha256),true);
   while (!['ready', 'failed'].includes(queue.snapshot().jobs[0].state) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(queue.snapshot().jobs[0].state, 'ready', `See worker log under ${root}: ${queue.snapshot().jobs[0].error}`);
   assert.equal(submitted, 1);
+  const readyJob=queue.snapshot().jobs[0];
+  const finishing=JSON.parse(await fs.readFile(path.join(root,'asset-production',readyJob.id,`attempt-${readyJob.attempts}`,'practical.glb.receipt.json'),'utf8'));
+  assert.equal(finishing.detailPolicy.id,'defined-crease-v2','Approved crease definition is part of app production');
   const model = queue.snapshot().models[0];
   const published = await fs.readFile(path.join(config.uploadsDir, 'miniatures', path.basename(model.url)));
   assert.equal(model.bytes, published.length);
@@ -70,5 +84,5 @@ try {
   assert.equal(published.readUInt32LE(0), 0x46546c67);
   const persisted = JSON.parse(await fs.readFile(path.join(root, 'asset-production/queue.json'), 'utf8'));
   assert.equal(persisted.models[0].sha256, model.sha256);
-  console.log(JSON.stringify({ result: 'passed', generation: 'mocked', workerTools: 'real', namedViews: 4, output: root, model }, null, 2));
+  console.log(JSON.stringify({ result: 'passed', generation: 'mocked', workerTools: 'real finishing; synthetic GPU stage receipts', namedViews: 4, output: root, model }, null, 2));
 } finally { globalThis.fetch = fetchOriginal; await new Promise(resolve => server.close(resolve)); }
