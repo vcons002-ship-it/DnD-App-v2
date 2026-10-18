@@ -63,7 +63,7 @@ test('Next turn hands the DM the creature whose turn it is — but never on join
   await expect.poll(async () => (await f.snapshot()).activeTurnTokenId).toBe(f.ogre.id);
   // Joining mid-turn keeps an empty selection: the inspector has nothing to open.
   await openDm(page, f.code);
-  const inspector = page.getByRole('button', { name: 'Token inspector' });
+  const inspector = page.locator('#dm-tool-inspect'); // the toolbar button; selected tokens add their own
   await expect(inspector).toBeDisabled();
   // A real change of turn selects the DM-run creature.
   f.socket.emit('initiative:next'); // wraps to Druk (unclaimed: DM-run too)
@@ -94,15 +94,19 @@ test('a player spends Hit Dice and tunes sound in their own settings', async ({ 
   await page.getByRole('button', { name: 'Join', exact: true }).click();
   await page.locator('.claim-row').filter({ hasText: 'Druk' }).click();
   await expect(page.locator('.compact-player-combat')).toBeVisible();
-  await page.getByRole('button', { name: /^Hit Dice: 5 of 5 d12 left/ }).click(); // Druk is a Barbarian
-  await page.getByRole('group', { name: 'Spend Hit Dice' }).getByLabel('Hit Dice to spend').selectOption('2');
-  await page.getByRole('button', { name: /Spend 2d12/ }).click();
+  // Hit Dice are spent from the character window's resources row. Druk is a Barbarian: d12.
+  await page.getByRole('button', { name: 'Character', exact: true }).click();
+  const row = page.locator('dialog.character-window .hit-dice-row');
+  await expect(row).toBeVisible(); await expect(row).toContainText('d12'); await expect(row.locator('.res-count')).toHaveText('5/5');
+  await row.getByRole('combobox', { name: 'Hit Dice to spend', exact: true }).selectOption('2');
+  await row.getByRole('button', { name: /Spend 2/ }).click();
   // Hit Dice roll on the live physical dice, which can take a while headless.
   await expect.poll(async () => (await f.snapshot()).characters.find((c) => c.id === f.druk.id)!.hitDiceUsed, { timeout: 30_000 }).toBe(2);
   const healed = (await f.snapshot()).characters.find((c) => c.id === f.druk.id)!.curHp;
   expect(healed).toBeGreaterThanOrEqual(9 + 6); // 2 × (d12 + 2 CON), each at least 1 + 2
-  await expect(page.getByRole('button', { name: /^Hit Dice: 3 of 5/ })).toBeVisible({ timeout: 30_000 });
+  await expect(row.locator('.res-count')).toHaveText('3/5', { timeout: 30_000 });
   expect((await f.snapshot()).rollLog.at(-1)!.label).toBe('Hit Dice');
+  await page.getByRole('button', { name: 'Close character window', exact: true }).click();
 
   await page.getByRole('button', { name: 'Interface settings', exact: true }).click();
   const panel = page.locator('#player-layout-options');
