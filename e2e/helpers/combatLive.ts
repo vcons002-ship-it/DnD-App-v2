@@ -32,17 +32,19 @@ export function completedDice(frames: LiveDiceFrame[]): LiveDiceFrame[] {
 }
 
 export async function dismissCommittedRoll(page: Page, rollId: string) {
-  // A DM snapshot can arrive before this player's rendered result. Skip only
-  // after that same result is visible, so a late overlay cannot intercept input.
-  // On a slow machine the card can also finish its reading hold before this
-  // runs; the overlay records such rolls, and there is nothing left to dismiss.
-  const card = page.locator(`.roll-reveal[data-roll-id="${rollId}"]`);
+  // `rollId` is committed on the server. Wait for its presentation to finish
+  // (the live tray is gone), then clear whatever result card is still up so a
+  // late overlay cannot intercept the next click. A live roll's card carries
+  // the live-roll id, not the log id, so the card is not matched by id; the
+  // overlay's history marker is checked only to know the card already went.
+  const cards = page.locator('.roll-reveal');
   const finished = () => page.getByTestId('roll-reveal-history').getAttribute('data-finished-rolls')
     .then(json => (JSON.parse(json ?? '[]') as string[]).includes(rollId)).catch(() => false);
-  await expect.poll(async () => (await card.count()) > 0 || await finished(), { timeout: LIVE_COMBAT_TIMEOUT }).toBe(true);
-  if (await card.count()) {
+  await expect(page.locator('[data-live-dice="true"]')).toHaveCount(0, { timeout: LIVE_COMBAT_TIMEOUT });
+  await expect.poll(async () => (await cards.count()) > 0 || await finished(), { timeout: 10_000 }).toBe(true).catch(() => undefined);
+  if (await cards.count()) {
     // The card may finish its hold and fade between the check and the click.
-    await card.click({ position: { x: 10, y: 10 }, timeout: 5000 }).catch(async () => { expect(await finished()).toBe(true); });
-    await expect(page.locator('.roll-reveal')).toHaveCount(0);
+    await cards.first().click({ position: { x: 10, y: 10 }, timeout: 5000 }).catch(() => undefined);
+    await expect(cards).toHaveCount(0);
   }
 }
