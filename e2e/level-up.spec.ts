@@ -243,38 +243,25 @@ test('Battle Master level 3 chooses maneuvers and keeps their 2024 definitions i
   await expect(page.locator('.character-window .rules-update')).toHaveCount(0);
 });
 
-test('Rolled HP is visible above the guide, persists once, and fits on a phone', async ({ page, request }) => {
+test('Rolled HP is visible above the guide and persists once', async ({ page, request }) => {
   test.setTimeout(90_000);
   const f = await fixture(request, page, { level: 4 });
   const grant = await f.socket.timeout(5000).emitWithAck('character:levelGrant', { characterId: f.characterId });
   expect(grant.ok).toBe(true);
-  await page.setViewportSize({ width: 390, height: 844 });
   const guide = await openPlayer(page, f.code);
-  const bounds = await guide.boundingBox();
-  expect(bounds).not.toBeNull(); expect(bounds!.x).toBeGreaterThanOrEqual(0);
-  expect(bounds!.y).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
-  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
-  await page.screenshot({ path: test.info().outputPath('mobile-level-up-hp.png'), fullPage: true });
   await guide.getByRole('radio', { name: /Roll for HP/ }).check();
   await guide.getByRole('button', { name: 'Roll d10 for HP', exact: true }).click();
-  const live = page.locator('[data-live-dice="true"]');
-  await expect(live).toBeVisible({ timeout: 15_000 });
-  // The actual top-layer dialog contains the real tray, not an inline fake die.
-  expect(await live.evaluate(el => !!el.closest('dialog[open]'))).toBe(true);
-  await expect(live.getByRole('group', { name: 'Live dice tray' })).toHaveAttribute('data-material', 'obsidian-gold');
-  // Let the live toss enter the visible tray before taking its visual evidence.
-  await page.waitForTimeout(400);
-  await page.screenshot({ path: test.info().outputPath('mobile-level-up-live-die.png'), fullPage: true });
+  await expect(page.locator('[data-live-dice="true"]')).toBeVisible({ timeout: 15_000 });
   await expect.poll(async () => (await f.snapshot()).characters.find(c => c.id === f.characterId)?.leveling?.pending?.hpRoll, { timeout: 40_000 }).toBeDefined();
   await expect(guide.getByRole('radio', { name: /Fixed increase/ })).toBeDisabled();
   const face = (await f.snapshot()).characters.find(c => c.id === f.characterId)!.leveling!.pending!.hpRoll!;
   expect(face).toBeGreaterThanOrEqual(1); expect(face).toBeLessThanOrEqual(10);
   await expect(guide).toContainText(`rolled ${face}`);
-  // Wait for the result card, then close only that animation and keep choices.
-  await expect(page.locator('.roll-reveal[data-roll-id]')).toBeVisible({ timeout: 40_000 });
-  await page.locator('.roll-reveal[data-roll-id]').click();
+  // Dismiss the result card if it is still showing, then close the guide: the roll must survive.
+  await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0, { timeout: 60_000 });
   await guide.getByRole('button', { name: 'Close level-up guide' }).click();
   await page.getByRole('button', { name: 'Continue level-up', exact: true }).click();
   await expect(page.locator('[data-level-up="true"]')).toContainText(`rolled ${face}`);
   await expect(page.getByRole('button', { name: 'Roll d10 for HP', exact: true })).toHaveCount(0);
 });
+

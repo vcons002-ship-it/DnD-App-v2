@@ -1,278 +1,97 @@
 # Automated verification
 
-`mobile-tabletop.spec.ts` checks phone/tablet layouts with touch input, real
-token dragging, pan/pinch, compact menus, character records/creation and combat
-rolls. Its viewport matrix includes 360–430 px portrait phones, 844 × 390
-landscape and 768/1024 px tablets. Together with `roll-layout.spec.ts` and
-`hidden-roll-approval.spec.ts`, it verifies readable public/private roll results
-and approval controls. These are host-PC browser tests, not physical-device
-GPU benchmarks or Safari certification. See the
-[mobile UI review](MOBILE_UI_REVIEW_2026-10-17.md).
-
-`hidden-roll-approval.spec.ts` exercises the real hidden DM attack confirmation,
-reject/reroll and entered attack totals, then separate damage approval in the tray,
-including damage rerolls and entered die faces. It also checks private save
-approval, manual total entry,
-context-specific cancellation labels and explanations, and readable compact review layouts at desktop and phone sizes.
-A second player window and socket
-verify that pending secret rolls send no dice, review or history; another player/DM
-connection cannot approve the owner's result. Save-dependent effects wait for
-approval; hidden attack damage also waits before changing HP or publishing
-effects. `hiddenRollApproval.test.ts` checks
-transaction rollback, unchanged resources/history/effects on cancellation, and
-one commit using the same faces after approval, separate damage approval without
-reapproving the original hit, unchanged damage when saves are
-rerolled, recalculated manual outcomes, and invalid manual input rejection.
-A changed result is rejected.
-The live-dice contract checks that a disconnected DM's unapproved hidden roll
-is discarded and releases the queue, while public rolls still finish after a
-disconnect. For a direct Windows/RTX AV1 capture of the approval sequence, set
-`HIDDEN_REVIEW_VIDEO` to an absolute MP4 path and run the browser test headed;
-its recorder uses Windows Graphics Capture and NVIDIA AV1, not CDP screencasts.
-
-`npm test` runs server and shared-rule tests. `npm run test:e2e` builds the client and runs the normal Playwright browser suite against a disposable server and save. Neither command uses the installed campaign database. CI runs both suites, typechecking, and the production build.
+Two suites, one purpose: prove the app starts and that a change did not break
+something that worked. Neither suite judges how anything looks, sounds or
+animates. That is verified by hand in two browser windows (`/dm` and `/join`).
 
 ```sh
-npm run typecheck
-npm test
-npm run build
-npm run test:e2e
+npm run typecheck   # tsc --noEmit, server + client
+npm test            # Vitest: server + shared rules + client/src/lib (fast, ~2,250 tests)
+npm run build       # client (vite) + server (tsc)
+npm run test:e2e    # Playwright: builds the client, runs the browser suite against a disposable server
 ```
 
-To run a focused browser check after building the client:
+Run `typecheck` and `test` before every commit. CI runs all four on every push
+and pull request. **Adding a test? Read [`WRITING_TESTS.md`](WRITING_TESTS.md)
+first**: when a test is needed, where it goes, and how to write one that holds.
+
+## What each suite is for
+
+- **Unit tests (`npm test`)** cover the rules engine and the server: dice,
+  attacks, saves, damage traits, spells, rests, leveling, multiclassing,
+  visibility shaping, persistence/migrations, role gates. They are pure, fast
+  and deterministic. This is where most regressions are caught, and where a new
+  rule or server behaviour gets its test.
+- **Browser suite (`npm run test:e2e`)** is a short functional gate: real DM and
+  player sessions over real sockets, exercising the flows a unit test can't
+  reach (join, claim, create a character, cast, attack, approve a hidden roll,
+  upload a map, apply a wall draft, level up). 109 tests in 36 files, about 20
+  minutes on a GitHub runner. A browser
+  test earns its place only if it checks an outcome (HP changed, slot spent,
+  token blocked, request rejected, state survived reload). Pixel colours,
+  animation timing, shader output, dice art, sound cues, layout at a given
+  viewport and video captures are **not** tested; those checks were removed in
+  October 2026 because they were slow, brittle and verified by eye anyway.
+
+Both commands use a throwaway database and the fixed secret `e2e-secret`; they
+never touch the installed campaign save.
+
+## Running the browser suite
 
 ```sh
-npx playwright test -c e2e/playwright.config.ts e2e/damage-prompt-ownership.spec.ts
+npm run test:e2e                                                  # everything
+npx playwright test -c e2e/playwright.config.ts e2e/smoke.spec.ts # one file (client already built)
 ```
 
-## Running without the Git LFS models or a GPU
-
-The suite is meant to pass on a plain checkout and a plain container:
-
-- **Models.** Monster figures are Git LFS objects; a checkout without
-  `git lfs pull` holds small text pointers in their place. The browser-test
-  server runs with `PLACEHOLDER_MODELS=1` (`e2e/playwright.config.ts`), which
-  serves a generated stand-in figure for any `.glb` whose file is a pointer
-  (`server/src/assets/placeholderModel.ts`, header `X-Placeholder-Model`). The
-  miniature pipeline (load, preload, reveal, caching) runs unchanged; only the
-  art differs. A real install never sets this, so a missing `git lfs pull`
-  stays visible there.
-- **Video.** Playwright's Chromium has no H.264. `createTestVideo` in
-  `e2e/helpers/environment.ts` encodes the synthetic map clip as VP9 WebM when
-  the browser can't decode MP4; the app accepts both formats.
-- **Software WebGL.** `e2e/globalSetup.ts` probes the renderer once. On
-  SwiftShader/llvmpipe (CI runners, cloud containers) every spec's `test` and
-  `expect` come from `e2e/helpers/test.ts`, which multiplies test timeouts and
-  explicit expect/poll timeouts by `E2E_SLOW_FACTOR` (default 4). Specs import
-  from `./helpers/test`, never from `@playwright/test` directly, so the scaling
-  applies everywhere. `E2E_SOFTWARE_GL=0|1` overrides the probe. Measured-time
-  thresholds (frame deltas, reveal latency) use `frameBudgetMs` from
-  `e2e/helpers/environment.ts` instead. Functional assertions are never relaxed.
-- `npm run test:e2e` builds the client with `build:e2e` (plain `vite build`);
-  the shipping-asset validators run only in `npm run build`.
-
-`PW_CHROMIUM` can point to an installed Chromium/Chrome executable. `E2E_PORT` overrides the default disposable port, 4099, for independent audits. Give simultaneous runs distinct `--output` directories; each invocation creates its own temporary database. Do not run these commands against the installed campaign server.
+- The suite passes on a plain checkout and a plain container. Monster figures
+  are Git LFS objects; without `git lfs pull` the test server runs with
+  `PLACEHOLDER_MODELS=1` (set only by `e2e/playwright.config.ts`) and serves a
+  generated stand-in for any `.glb` that is a pointer file. A real install never
+  sets this.
+- On a software WebGL renderer (CI runners, cloud containers) `e2e/globalSetup.ts`
+  detects it and `e2e/helpers/test.ts` does two things: it multiplies every
+  test and expect budget by `E2E_SLOW_FACTOR` (default 4), and it gives every
+  browser context **no WebGL at all**, so the app takes its 2D token and static
+  dice paths. With the 3D battlefield animating on SwiftShader a single click
+  took up to 90 s to become actionable; without it the same flows run at
+  normal speed. The suite asserts outcomes, never rendering, so nothing it
+  checks depends on WebGL. Specs import `test`/`expect` from `./helpers/test`,
+  never from `@playwright/test` directly. `E2E_SOFTWARE_GL=0|1` overrides the
+  probe; `E2E_WEBGL=1` keeps WebGL on a software renderer.
+- `E2E_PORT` overrides the disposable port (4099); `PW_CHROMIUM` points at an
+  installed browser. The synthetic map video is encoded as VP9 when the test
+  browser cannot decode H.264.
+- CI runs the browser suite in two shards and uploads traces and screenshots
+  as `browser-test-results-<shard>` on failure. Open a trace with
+  `npx playwright show-trace <trace.zip>`.
 
 ## What a failure means
 
-`vision-composite.spec.ts` verifies the GPU fog compositor with real WebGL
-pixels: personal/shared body masks, wall-clipped distant light, cache reuse,
-camera/viewport invalidation, and an old/new screenshot comparison over unknown
-and remembered fog with translucent content. `miniature-battlefield.spec.ts`
-exercises the same path through actual player sessions: exploration, lanterns,
-shared sight, raised heads and retained-color fog's heavy-darkness range. Both
-the GPU path and the lazy legacy fallback must preserve these visibility rules.
+A failing test is a behaviour that used to work. Reproduce it on the base
+branch before touching the assertion.
 
-A regression test checks behavior that should continue to work after a change. A failing old test is not automatically obsolete. Reproduce it on the base branch and compare the assertion with the current feature contract before changing it.
+- Fix the app when the expected behaviour still applies.
+- Update the assertion only when the workflow deliberately changed, keeping the
+  outcome it protects.
+- Never skip, quarantine or widen a test to get green.
 
-- Fix the app when the expected behavior still applies.
-- Update an assertion when an accepted workflow has changed, while preserving the behavior it protects.
-- Keep missing asset files, incorrect arithmetic, privacy leaks, and broken interactions as failures.
-- Run manual recordings and paid/live AI demonstrations explicitly, separately from automated regressions.
+## Browser coverage
 
-Miniature checks follow the current visible base size and compact phone View
-menu. The disposable server's uploaded-model catalog is shared between scenarios:
-assert whether the tested family was published, rather than assuming unrelated
-uploads cannot exist. Source-art approval unit tests stub host binary probes;
-the real Python/Blender finishing contract is exercised separately on a worker host.
-
-CI uploads browser traces, screenshots, and failure context as `browser-test-results` when the browser job fails. Open a downloaded trace with `npx playwright show-trace <trace.zip>`.
-
-## Live dice regression contracts
-
-The current roller streams server physics before committing a result. Tests must wait for a particular roll or pending-hit ID and its final result, rather than assume it completes within five seconds.
-
-- A hit creates a pending damage choice without precomputed damage faces or modifiers. Rolling damage then commits the weapon, rider, modifiers, and HP change.
-- Floating damage components must sum to the defended HP event, with one HP/death/concentration application per combined hit. One red total per creature/impact includes both a weapon hit and its AoE rider; smaller colored components explain mixed hits. `hpFeedback`, `marks`, `hailOfThorns` and `areaSpells` cover type defenses and compact per-token offsets; nearby victims must never push numbers across the map. `hunters-mark` and `spell-impact-timing` exercise real bow/mark/thorns rolls and verify totals against HP loss, distinct colors, the readable component and final-total lifetimes, and numbers without long captions.
-- Compare visible physical faces and persisted arithmetic after settlement. Keep advantage/disadvantage kept/discarded checks, percentile arithmetic, critical extra dice, bonus labels, and class material checks.
-- Check the current live tray and result boxes. The old prerecorded renderer's comparison markup does not describe the live workflow.
-- Initiative starts with the DM; claimed players retain their own Roll initiative button. Your Turn and result announcements should be checked at their intended presentation phase.
-- Unsupported custom polyhedra show an actionable notice without committing a roll. Standard d4, d6, d8, d10, d12, d20, and d100 rolls remain covered. See [Live dice physics](LIVE_DICE_PHYSICS.md).
-- Asset-cache tests require an actual GLB, not a Git LFS pointer, and still verify cached/offline reuse. Reveal-tag, visibility, damage ownership, and roll privacy checks remain active.
-
-The relevant regression list includes:
-
-| Coverage | Specs |
+| Area | Specs (`e2e/<name>.spec.ts`) |
 | --- | --- |
-| Live faces, totals, network privacy, disconnect completion | `live-dice-workflow`, `live-dice-contract`, `player-hud`, `upstream-dice-reconciliation` |
-| Dice picker bounds and keyboard/touch controls | `dice-picker` |
-| Background shader preload for each character and DM, cold-load readiness | `dice-preload`, `live-dice-contract`, `spell-impact-timing` |
-| Animated settled dice, skippable reading hold, spell effects after compacting | `spell-impact-timing`, `roll-reveal-timing` |
-| Results, impacts, bonuses, initiative, reactions | `roll-reveal-timing`, `combat-moments`, `turn-and-nat20`, `compact-checks`, `player-initiative` |
-| Roll text inside overflow bounds, grouped verdicts and first d20 entrance | `roll-layout`, `dice-rider-reading`, `grouped-save-dice-art`, `save-privacy` |
-| Pending ownership, damage history, on-hit choices | `damage-prompt-ownership`, `damage-roll-log`, `smite-damage`, `hunters-mark`, `maneuver-damage`, `spell-execution`, `weapon-quick-menu` |
-| Combat controls and kill credit | `player-combat-layout`, `orb-kill-count` |
-| DM-granted leveling, ASIs, Wizard spells, mobile live HP dice | `level-up` |
-| Multiclass entry, class-level choices, legacy splits, Pact spending, separate class counters | `multiclass-level-up` |
-| Spell support badges/filter, manual casts, safe player routing, summon levels/pools, class-scoped browse ownership | `spell-support` |
-| Haste ally targeting, live benefits, restricted extra action, lethargy, Hold Person repeat saves, and shared healing | `spell-buffs` |
-| 2D silhouettes and 3D base-only selection | `token-hit-region` |
-| Cache integrity and creature reveal tags | `asset-cache`, `encounter-tags` |
+| App starts, two live clients, REST/DM secret gates, library, placement, ADV/DIS | `smoke` |
+| Characters: guided creator, stat rolls, server rejection of bad choices | `character-creator` |
+| Leveling: DM grants, ASIs, spellbook, subclass choices, multiclass rules, Pact slots | `level-up`, `multiclass-level-up` |
+| Combat outcomes: pending damage ownership, damage history, smite, maneuvers, quick menu | `damage-prompt-ownership`, `damage-roll-log`, `smite-damage`, `maneuver-damage`, `weapon-quick-menu`, `compact-checks` |
+| Spells: areas and saves, rays, buffs, support flags, summons, party reactions, advanced spells, footprints | `spell-execution`, `spell-buffs`, `spell-support`, `party-spells`, `advanced-spells`, `lightning-footprints`, `dm-default-save` |
+| Roll privacy and hidden DM approval | `hidden-roll-approval`, `hidden-area-save`, `save-privacy`, `unseen-creature-saves`, `ice-knife-order` |
+| Live dice contract: faces match the server, disconnects, skipping | `live-dice-contract`, `live-dice-workflow` |
+| Turns, rests, Hit Dice, initiative requests | `rest-turn-sound`, `player-initiative` |
+| Maps: upload, animated maps, wall/door drafts, arches, feature selection, exploration reset | `animated-maps`, `map-setup-draft`, `map-arches`, `map-feature-selection`, `window-openings`, `reset-exploration` |
+| Role security and resource ownership | `player-hud` |
+| Chat audiences, annotations, creature scaling, offline asset cache | `chat-private`, `annotation-menu`, `creature-scaling`, `asset-cache` |
 
-Each name above is an `e2e/<name>.spec.ts` file. Other normal UI/map regressions remain enabled too. Component fixtures must provide valid current data, including condition IDs, and explicitly choose 2D/3D mode when checking a particular hit shape. A pulsing button can be clicked at its measured center when its intentional animation prevents Playwright's static-position actionability check; it must still be visible and enabled, and the test must verify the real resulting action.
-
-Multiclass server tests also exercise persisted class rosters, class-specific
-casting scores and combat scaling, mixed Hit Dice, rests, and spent-use
-preservation. A level-up or a change to the recorded class split must not act as
-a rest. Combined spell slots must not raise a class's spell-learning allowance.
-
-## Optional captures and AI demonstrations
-
-`dice-rider-reading.spec.ts` exercises real attack, weapon damage, superiority
-dice and a target save. Consecutive rolls retain one card and acknowledge
-readiness after the artwork handoff so the toss remains visible.
-The outer roll window keeps fixed bounds throughout an automatic roll sequence,
-including new dice pools, modifier chips and DM saves. Its result areas reserve
-space and scroll within that space. Reserved result rows are compact, and the
-roll window uses viewport sizing independently of player HUD zoom. The browser
-checks that the canvas fills at least 80 percent of the window width on the
-desktop combat fixture. The tray fills its fixed viewport at the
-same apparent size for every pool. Existing physical dice-to-tray ratios are
-preserved: larger pools make dice appear smaller, without growing the visible
-tray, remounting its canvas or scaling the card. Different player artwork
-retains its 360 ms crossfade. Player/DM handoffs instead pan across plain
-lacquered wood in 460 ms; the incoming physics waits for the pan and the
-existing 220 ms anticipation. The same cached wood texture underlies each
-tray and is prepared only once per browser session. Browser assertions measure
-card bounds, canvas visibility and actual projected deck corners across weapon,
-rider and save rolls, alongside the pool's unchanged physical die radius.
-The maneuver save heading identifies the saving creature rather than Druk,
-includes the known maneuver DC, and remains unclipped. Save-presentation unit
-tests cover full visible names, grouped/advantage dice, and independent DC and
-creature-modifier redaction; unknown DCs are never inferred from pass/fail.
-Incoming dice
-bypass only their entry rim; the other three walls always collide. A small
-throw has an upward release velocity as well as horizontal travel and spin.
-The Orb leap menu becomes available at impact readiness, while the compact
-result remains readable; choosing a target clears that compact result.
-Druk maxima use one shared finale clock: 750 ms after the last modifier
-total finishes its 260 ms count-up, or 750 ms after the unmodified result is
-ready. Ordinary intermediate calculations include the same full 2.5-second reading hold as final results; the server adds 250 ms for packet/interpolation latency. The tray retains 1.75 seconds after the explosion before its handoff.
-The server uses the same schedule for intermediate weapon damage, so a
-superiority die/save cannot cut off the weapon finale. Discarded advantage
-dice and DM dice do not activate this clock.
-Results without modifiers retain their 2.5-second reading/effects hold. Set
-`DICE_RIDER_VIDEO` to capture this sequence with NVIDIA AV1.
-
-The map-centered 3D camera-panning experiment is parked on `prototype/dice-table-camera-20261008` (commit
-`97e730c`). Its `dice-table-camera.spec.ts` and recordings are prototype evidence,
-not requirements for the production surface and two-image pan compositor.
-Private DM rolls still create no player tray or transition (`live-dice-contract`).
-The `dice-preload` browser suite waits for background preparation while the
-character chooser is still open, then verifies that the first d20 borrows a
-prepared scene and begins live physics within two seconds of clicking. It checks
-all three character themes and DM dice, shader errors and large heading size.
-Preloading includes every geometry/percentile variant plus critical materials,
-with at most three prospective player styles and the DM style resident. The
-selected character takes priority; queued themes yield when a roll begins.
-The `diceRendererCache` unit suite checks bounded retention, in-flight leases,
-large-pool disposal, session invalidation and maximum-roll state reset. The
-network contract checks that hidden DM rolls never reach either player while
-public player rolls still reach the DM and the rest of the party.
-
-`roll-layout` feeds presentation-boundary fixtures through the app's WebSocket
-listener (not fabricated combat evidence). It checks attack, check, spell outcome,
-damage, healing, 40 dice, grouped/private/advantage saves and initiative at four
-viewport sizes. `expectUnclipped` measures all overflow ancestors; ordinary
-Playwright visibility alone misses text hidden below a scroll container. The
-real `dice-rider-reading` and `save-privacy` sequences verify saving throw verdicts
-with authoritative physics, reading holds and hidden NPC modifiers intact.
-
-Measured-area contracts live in `areaSpells`, `spell-execution` and
-`live-dice-workflow`: place/confirm before casting, grouped saves and automatic
-occupants, no repeated apply clicks, and cancellation without spending a slot.
-`linked-spells-video` supports `DND_LINKED_VIDEO=1` and an optional pipe-separated
-`DND_LINKED_SPELLS` list for real-physics demonstrations; its `areas` group covers
-circles, cones, lines, cubes, selective healing and persistent utility areas.
-The `aoe-review` group records a single chaptered walkthrough with Heat Metal,
-Call Lightning/repeat strikes, typed Ice Storm damage, grouped save bonuses,
-the area shapes, selected healing, connected Fire Storm cubes and four Meteor
-Swarm areas. Run it with `--grep 'showcase aoe-review'`; use
-`DND_CAPTURE_AV1=1` for the RTX hardware encoder and `DND_CAPTURE_GPU=0`.
-The `phantasmal-review` group exercises the initial save/damage order and
-both end-of-turn outcomes through real server dice and initiative turn hooks.
-
-The static Spellbook compatibility report is regenerated with
-`npm run audit:spells -- --write`. It imports only catalogue data and the shared
-support registry; it does not connect to a save or an AI service. The
-`spellbook-compatibility` and `manualSpellCast` server suites cover catalogue-wide
-classification, preserved authored rolls, actual combat paths, manual casts
-without HP changes, selected Spellcasting/Pact spending, and concentration.
-Spell support is a capability flag, not a claim that every spell rule is automated.
-See [the complete audit](SPELLBOOK_COMBAT_SUPPORT.md).
-
-The `spellRevisions`, `spellHealing`, `spellBuffs`, and `holdPerson` server suites
-cover corrected 2024 formulas, exact legacy-profile matching, temporary HP versus
-healing, one shared healing roll with six distinct recipients, casting modifiers
-on critical damage, linked control cleanup, turn hooks, and extra-action authority.
-Older save-only Hold Person assertions now expect the supported paralysis effect;
-Prayer of Healing and Conjure tests retain their protection against executing
-unsafe healing or obsolete creature summoning. These are changed feature contracts,
-not disabled regressions. See [implementation scope](SPELL_FIXES_2024.md).
-
-These are recordings or environment-dependent demonstrations, not required CI tests. Their explicit switches keep Windows-only ffmpeg lookup, long walkthroughs, and external API calls out of the normal regression run.
-
-| Spec | Opt-in environment variable |
-| --- | --- |
-| `combat-environment-video.spec.ts` | `DND_ENVIRONMENT_DEMO=1` |
-| `dm-affinity-dice.spec.ts` | `DND_DM_DICE_DEMO=1` |
-| AV1 capture within `dm-dice-theme.spec.ts` (purple DM dice with gold numbers) | `DND_DM_GOLD_VIDEO=1` |
-| `combat-fixes-video.spec.ts` | `DND_FIXES_DEMO=1` |
-| `party-abilities-video.spec.ts` | `DND_PARTY_DEMO=1` |
-| `party-spells-video.spec.ts` (five repaired party spells, regular darkness with no placed lights, +10 Stealth and no tracks, 3D tokens, NVIDIA AV1) | `DND_PARTY_SPELL_VIDEO=1` |
-| Optional recordings within `miniature-battlefield.spec.ts` | `DND_MOVEMENT_DEMO=1` |
-| Live wall-draft comparison within `miniature-battlefield.spec.ts` | `DND_WALL_DRAFT_DEMO=1` |
-| Recorded mask conversion within `miniature-battlefield.spec.ts` | `DND_MASK_WALL_DEMO=1` |
-
-For example, on Windows PowerShell with ffmpeg installed:
-
-```powershell
-$env:DND_ENVIRONMENT_DEMO = '1'
-npm run test:e2e -- e2e/combat-environment-video.spec.ts
-Remove-Item Env:DND_ENVIRONMENT_DEMO
-```
-
-The ordinary miniature, movement, combat, and visibility regressions still run without those switches.
-
-### Private roll tray controls
-
-`e2e/hidden-roll-approval.spec.ts` verifies the same canvas and window bounds
-survive physical attack, damage and save settlement and reroll. Hidden damage
-keeps HP and effects unchanged through rerolls and manual entry until Apply result.
-The private save remains at
-elapsed zero beyond the graphics-ready fallback; neither a player nor a different
-DM connection can start or approve it. A compact **Saving throw needed** prompt
-names the creature and save before opening the tray. The initiating DM clicks
-**Roll saving throw**, then uses the tray's integrated result controls. Reject & reroll immediately tosses
-the same pending save, without a second start click. Desktop and
-phone checks cover the verdict and Apply/reroll buttons without clipping.
-Player observers receive no private frames or reviews, and only accepted outcome
-history and final damage. No native confirmation dialog opens.
-
-`e2e/hidden-area-save.spec.ts` casts Fireball from a player at three goblins and
-checks the handoff to the DM's grouped saving-throw prompt. Rerolling preserves
-the public damage throw; manually entered save faces recalculate full/half damage.
-No HP, effects, resources or history commits until acceptance. The player receives
-no creature save frames or approval messages, and sees outcome-only save history.
-Set `CAPTURE_HIDDEN_AREA` to an output directory with a headed Chrome run to
-record both windows through Windows Graphics Capture and NVIDIA NVENC AV1.
+A few specs still accept an optional recording switch (`HIDDEN_REVIEW_VIDEO`,
+`CAPTURE_HIDDEN_AREA`, `CREATOR_CAPTURE`, `ICE_KNIFE_CAPTURE`). They record a
+headed Windows run through NVIDIA AV1 for review; unset, they do nothing and
+never run in CI.

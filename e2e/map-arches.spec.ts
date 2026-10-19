@@ -41,16 +41,6 @@ test('arch review applies only confirmed spans; normal editing deletes the arch 
  await page.mouse.click(p.x,p.y);await expect(page.getByTestId('delete-map-features')).toHaveText('Delete 1 selected');await page.keyboard.press('Delete');
  await expect.poll(async()=>((await f.snapshot()).map.walls.length)).toBe(1);expect(hasLineOfSight({x:350,y:200},{x:350,y:350},(await f.snapshot()).map.walls)).toBe(false);
 });
-test('saved original arch artwork fades over a real 3D figure in overhead and tilted views without shader errors',async({page,request},info)=>{
- test.setTimeout(120000);const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&/THREE|shader|WebGL/i.test(m.text()))errors.push(m.text());});
- const f=await fixture(page,request);await f.review.getByRole('button',{name:'Apply selected setup',exact:true}).click();await expect(f.review).toBeHidden();
- const layer=page.getByTestId('miniature-layer');await expect(layer).toHaveAttribute('data-miniature-count','1',{timeout:60000});await expect(layer).toHaveAttribute('data-arch-art-status','ready');await expect(layer).toHaveAttribute('data-arch-art-active','0');
- const token=(await f.snapshot()).tokens.find((t:any)=>t.kind==='pc');f.socket.emit('token:move',{tokenId:token.id,x:350,y:270});
- await expect(layer).toHaveAttribute('data-arch-art-active','1');await expect.poll(async()=>Number(await layer.getAttribute('data-arch-art-fade'))).toBeGreaterThan(.55);
- await page.screenshot({path:info.outputPath('under-arch-overhead.png')});
- await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();await expect.poll(async()=>Number(await layer.getAttribute('data-arch-art-fade'))).toBeGreaterThan(.75);await page.screenshot({path:info.outputPath('under-arch-tilted.png')});
- f.socket.emit('token:move',{tokenId:token.id,x:350,y:190});await expect(layer).toHaveAttribute('data-arch-art-active','0');await expect.poll(async()=>Number(await layer.getAttribute('data-arch-art-fade'))).toBeLessThan(.01);expect(errors).toEqual([]);
-});
 test('arch analysis requires DM authentication',async({request})=>{
  expect((await request.post('/api/maps/anything/arch-draft',{data:{}})).status()).toBe(403);
 });

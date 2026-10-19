@@ -49,3 +49,6 @@ blob-report/
 
 # Python asset migration helpers
 __pycache__/
+
+# Browser-test evidence (screenshots the character-creator spec writes)
+tmp/

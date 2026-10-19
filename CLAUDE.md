@@ -31,10 +31,14 @@ npm run dev        # server + client (concurrently); two browser windows = DM + 
 npm run typecheck  # tsc --noEmit for server AND client
 npm run test       # Vitest: server + shared + client/src/lib (2,200+ tests)
 npm run build      # client (vite) + server (tsc)
-npm run test:e2e   # Playwright browser regressions against a disposable save (passes without LFS models/GPU: docs/TESTING.md)
+npm run test:e2e   # Playwright functional gate (109 tests): real DM+player flows against a disposable save
 ```
 
-Browser test contracts and optional capture switches are in [`docs/TESTING.md`](docs/TESTING.md).
+Test policy (in [`docs/TESTING.md`](docs/TESTING.md)): tests prove the app runs and that
+changes don't break behaviour. **No visual tests** — pixel colours, animation timing,
+shader output, dice art, sound, layout and video captures are verified by eye, never
+by a spec. A browser test must check an outcome (HP, slots, state, a rejected request).
+How to decide and how to write one: [`docs/WRITING_TESTS.md`](docs/WRITING_TESTS.md).
 
 Always run `npm run typecheck` and `npm run test` before committing. Manual UX
 is verified with two windows (DM at `/dm`, player at `/join`). Dev branch:
@@ -583,7 +587,7 @@ live outside the bundled static catalog and must be backed up with uploads.
   matching entry in `ClientToServerEvents` (`shared/types.ts`); end mutations
   with `afterChange()`.
 - Match the surrounding code's style/comment density.
-- `npm test` runs server/shared Vitest; `npm run test:e2e` runs disposable-server browser regressions. Keep `ROADMAP.md` ticked as features land.
+- `npm test` runs server/shared Vitest; `npm run test:e2e` runs the disposable-server browser gate. New rules/server behaviour get a unit test; a browser test only for a flow a unit test can't reach, and never for how something looks. Keep `ROADMAP.md` ticked as features land.
 
 ## AI reliability
 

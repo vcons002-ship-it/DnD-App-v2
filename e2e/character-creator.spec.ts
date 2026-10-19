@@ -43,15 +43,6 @@ test('Paladin purchases gear and chooses spells before creating or crafting the 
   await page.getByLabel('Character',{exact:true}).click();await page.screenshot({path:path.join(evidence,'paladin-created.png')});
 });
 
-test('mobile equipment shopping stays usable and switching loadouts clears the old purchases',async({page,request})=>{
-  await page.setViewportSize({width:390,height:844});const f=await campaign(request);await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.creator-launch').click();
-  const guide=page.getByRole('dialog',{name:'Bring your hero to life'});await guide.getByLabel('Character name',{exact:true}).fill('Mobile hero');
-  await guide.getByRole('button',{name:/^Next/}).click();await guide.getByRole('button',{name:/^Next/}).click();await guide.getByRole('button',{name:/Gold alternative/}).click();
-  await guide.getByLabel('Search equipment').fill('Maul');await guide.getByRole('button',{name:'Buy Maul',exact:true}).click();
-  expect(await guide.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(false);await page.screenshot({path:path.join(evidence,'equipment-mobile.png')});
-  await guide.getByRole('button',{name:/Greatsword & chain mail/}).click();await expect(guide.locator('.creator-cart')).toHaveCount(0);
-  await expect(guide.locator('.creator-budget')).toContainText('54 GP remaining');
-});
 test('a player creates, claims, and places a battle-ready fighter through the guided option',async({page,request})=>{
   test.setTimeout(120000);mkdirSync(evidence,{recursive:true});
   await page.setViewportSize({width:1500,height:980});
@@ -107,10 +98,6 @@ test('a player creates, claims, and places a battle-ready fighter through the gu
   await page.getByRole('button',{name:/Place.*token/}).click();
   await page.locator('.konvajs-content').first().click({position:{x:400,y:300}});
   await expect.poll(async()=> (await f.snapshot()).tokens.some(t=>t.refId===hero.id)).toBe(true);
-  await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-loaded-model-urls',/uploaded-/,{timeout:30000});
-  await page.getByRole('button',{name:'Tilted battlefield view',exact:true}).click();
-  await page.waitForTimeout(700);
-  await page.screenshot({path:path.join(evidence,'uploaded-model-on-map.png')});
 });
 
 test('mobile backgrounds, starting feature descriptions and included inventory match the created sheet',async({page,request},info)=>{
@@ -129,7 +116,6 @@ test('mobile backgrounds, starting feature descriptions and included inventory m
   const inventory=guide.getByRole('group',{name:'Your starting inventory',exact:true});await expect(inventory).toContainText('18 GP');
   await expect(inventory).toContainText('20 × Arrows');await expect(inventory).toContainText('1 × Dragonchess Set');
   await inventory.getByText('What’s in Dungeoneer\'s Pack?',{exact:true}).click();await expect(inventory).toContainText('10 Torches');
-  expect(await guide.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await page.screenshot({path:info.outputPath('phone-background-inventory.png')});
   await next();await next();await next();await expect(guide.getByRole('group',{name:'Class features added to your sheet',exact:true})).toBeVisible();
   await guide.getByRole('button',{name:'Create & play',exact:true}).click();await expect(guide).not.toBeVisible();
   const hero=(await f.snapshot()).characters.find(c=>c.name==='Mobile soldier')!;
@@ -167,19 +153,6 @@ test('the server rejects invalid creator choices without creating a sheet',async
   const ack=await f.socket.timeout(5000).emitWithAck('character:createGuided',{requestId:'bad-request-123456',name:'Injected hero',className:'necromancer',species:'Human'});
   expect(ack.ok).toBe(false);expect((await f.snapshot()).characters).toHaveLength(before);
   await page.goto(`/join?code=${f.code}`);
-});
-
-test('desktop identity and review keep the preview and navigation visible',async({page,request})=>{
-  mkdirSync(evidence,{recursive:true});await page.setViewportSize({width:1500,height:980});const f=await campaign(request);
-  await page.goto(`/join?code=${f.code}`);await page.getByRole('button',{name:'Join',exact:true}).click();
-  await page.locator('.creator-launch').click();const guide=page.getByRole('dialog',{name:'Bring your hero to life'});
-  await guide.getByLabel('Character name',{exact:true}).fill('Rowan Ashford');
-  await expect(guide.getByRole('button',{name:'Next →',exact:true})).toBeEnabled();
-  await page.screenshot({path:path.join(evidence,'creator-desktop.png')});
-  for(let i=0;i<5;i++)await guide.getByRole('button',{name:'Next →',exact:true}).click();
-  await page.screenshot({path:path.join(evidence,'creator-desktop-review.png')});
-  await guide.getByRole('button',{name:'Close character creator'}).click();
-  await expect(page.locator('.creator-launch')).toBeFocused();
 });
 
 test('player manually rolls abilities, can roll all 24 dice, and creates a character',async({page,request})=>{

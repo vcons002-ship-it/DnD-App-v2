@@ -193,34 +193,29 @@ test('Class is picked from the 12-class list; an old free-text class is shown, n
   expect((await f.snapshot()).characters.find(c => c.id === f.characterId)!.className).toBe('Rogue');
 });
 
-test('A new-class HP roll visibly uses its die and locks that class across reopening on mobile', async ({ page, request }) => {
+test('A new-class HP roll uses that class die and locks the class across reopening', async ({ page, request }) => {
   test.setTimeout(90_000);
   const f = await fixture(request, page, {});
   await grant(f);
   const guide = await openPlayer(page, f.code);
-  await page.setViewportSize({ width: 390, height: 844 });
   await guide.getByRole('combobox', { name: 'Class to advance', exact: true }).selectOption('barbarian');
   await guide.getByRole('radio', { name: /Roll for HP/ }).check();
   await guide.getByRole('button', { name: 'Roll d12 for HP', exact: true }).click();
-  const live = page.locator('[data-live-dice=true]');
-  await expect(live).toBeVisible({ timeout: 15_000 });
-  await expect(live.getByRole('group', { name: 'Live dice tray' })).toHaveAttribute('data-material', 'obsidian-gold');
+  await expect(page.locator('[data-live-dice=true]')).toBeVisible({ timeout: 15_000 });
   await expect(guide.getByRole('combobox', { name: 'Class to advance', exact: true })).toBeDisabled();
-  await page.screenshot({ path: test.info().outputPath('mobile-multiclass-hp-roll.png'), fullPage: true });
   await expect.poll(async () => (await f.snapshot()).characters.find(c => c.id === f.characterId)!.leveling?.pending?.hpRoll, { timeout: 40_000 }).toBeGreaterThan(0);
   const pending = (await f.snapshot()).characters.find(c => c.id === f.characterId)!.leveling!.pending!;
   expect(pending.hpClassName).toBe('barbarian'); expect(pending.hpRoll).toBeLessThanOrEqual(12);
   await expect(guide).toContainText(`Your d12 rolled ${pending.hpRoll}`);
-  await expect(page.locator('.roll-reveal[data-roll-id]')).toBeVisible({ timeout: 40_000 });
-  await page.locator('.roll-reveal[data-roll-id]').click();
+  // Once the result card has gone, closing and reopening the guide keeps the roll and the class lock.
+  await expect(page.locator('.roll-reveal-backdrop')).toHaveCount(0, { timeout: 60_000 });
   await guide.getByRole('button', { name: 'Close level-up guide' }).click();
   await page.getByRole('button', { name: 'Continue level-up', exact: true }).click();
   await expect(guide.getByRole('combobox', { name: 'Class to advance', exact: true })).toHaveValue('barbarian');
   await expect(guide.getByRole('combobox', { name: 'Class to advance', exact: true })).toBeDisabled();
   await expect(guide.getByRole('button', { name: 'Roll d12 for HP', exact: true })).toHaveCount(0);
-  const bounds = await guide.boundingBox();
-  expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
 });
+
 
 test('Warlock subclass and Pact Magic advance by class level while spent uses remain spent', async ({ page, request }) => {
   const f = await fixture(request, page, { level: 5, stats: { STR: 16, DEX: 12, CON: 14, INT: 14, WIS: 10, CHA: 16 },
@@ -306,12 +301,17 @@ test('A player spends the selected mixed Hit Dice pool and retains each pool aft
   await page.locator('.claim-row').filter({ hasText: 'Druk' }).click();
   await expect(page.locator('.compact-player-combat')).toBeVisible();
 
-  const hud = page.locator('.hit-dice-hud');
-  const spender = hud.getByRole('group', { name: 'Spend Hit Dice', exact: true });
-  await hud.getByRole('button', { name: /^Hit Dice: 5 of 5 left/ }).click();
-  await spender.getByRole('combobox', { name: 'Hit Die size', exact: true }).selectOption('6');
-  await spender.getByRole('combobox', { name: 'Hit Dice to spend', exact: true }).selectOption('2');
-  await spender.getByRole('button', { name: /Spend 2d6/ }).click();
+  // Hit Dice are spent from the character window's resources row.
+  const sheetRow = async () => {
+    const window = page.locator('dialog.character-window');
+    if (!await window.isVisible()) await page.getByRole('button', { name: 'Character', exact: true }).click();
+    const row = window.locator('.hit-dice-row'); await expect(row).toBeVisible(); return row;
+  };
+  let row = await sheetRow();
+  const pool = () => row.getByRole('combobox', { name: 'Hit Die size', exact: true });
+  await pool().selectOption('6');
+  await row.getByRole('combobox', { name: 'Hit Dice to spend', exact: true }).selectOption('2');
+  await row.getByRole('button', { name: /Spend 2/ }).click();
   // Turning the animation off still uses the authoritative physical roll.
   await expect.poll(async () => (await f.snapshot()).characters.find(c => c.id === f.characterId)!.hitDiceUsed, { timeout: 40_000 }).toBe(2);
   const afterD6 = await f.snapshot();
@@ -323,11 +323,11 @@ test('A player spends the selected mixed Hit Dice pool and retains each pool aft
   expect(d6Roll.total).toBeLessThanOrEqual(16);
   expect(c6.curHp).toBe(1 + d6Roll.total);
 
-  await hud.getByRole('button', { name: /^Hit Dice: 3 of 5 left/ }).click();
-  await expect(spender.getByRole('combobox', { name: 'Hit Die size', exact: true })).toHaveValue('6');
-  await expect(spender.getByRole('button', { name: /Spend 1d6/ })).toBeDisabled();
-  await spender.getByRole('combobox', { name: 'Hit Die size', exact: true }).selectOption('10');
-  await spender.getByRole('button', { name: /Spend 1d10/ }).click();
+  // The d6 pool is spent; the d10 pool is still there.
+  await expect(row.locator('.res-count')).toHaveText('0/2');
+  await expect(row.getByRole('button', { name: /Spend/ })).toBeDisabled();
+  await pool().selectOption('10');
+  await row.getByRole('button', { name: /Spend 1/ }).click();
   await expect.poll(async () => (await f.snapshot()).characters.find(c => c.id === f.characterId)!.hitDiceUsed, { timeout: 40_000 }).toBe(3);
   const afterD10 = await f.snapshot();
   const c10 = afterD10.characters.find(c => c.id === f.characterId)!;
@@ -340,16 +340,15 @@ test('A player spends the selected mixed Hit Dice pool and retains each pool aft
 
   await page.reload();
   await expect(page.locator('.compact-player-combat')).toBeVisible();
-  await hud.getByRole('button', { name: /^Hit Dice: 2 of 5 left/ }).click();
-  const pool = spender.getByRole('combobox', { name: 'Hit Die size', exact: true });
-  await expect(pool).toHaveValue('10');
-  await expect(pool.locator('option[value="6"]')).toContainText('0/2');
-  await expect(pool.locator('option[value="10"]')).toContainText('2/3');
-  await page.screenshot({ path: test.info().outputPath('mixed-hit-dice-after-reload.png'), fullPage: true });
+  row = await sheetRow();
+  await expect(pool()).toHaveValue('10'); // the empty d6 pool is no longer the default
+  await expect(pool().locator('option[value="6"]')).toContainText('0/2');
+  await expect(pool().locator('option[value="10"]')).toContainText('2/3');
   const reloaded = (await f.snapshot()).characters.find(c => c.id === f.characterId)!;
   expect(reloaded.hitDiceUsedByDie).toEqual({ d10: 1, d6: 2 });
   expect(reloaded.curHp).toBe(c10.curHp);
 });
+
 
 async function openDmSheet(page: Page, f: Awaited<ReturnType<typeof fixture>>) {
   await page.setViewportSize({ width: 1366, height: 900 });

@@ -3242,9 +3242,19 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
   files under `PLACEHOLDER_MODELS=1`, synthetic map videos use a codec the
   test browser decodes, and on a software renderer every test/expect budget
   widens 4× through `e2e/helpers/test.ts` (specs import `test`/`expect` from
-  there). CI runs the suite in four shards. Found on the way: the DM view
-  crashed on Google Slides maps (hooks after an early return), and the
-  lockfile was out of date.
+  there). Found on the way: the DM view crashed on Google Slides maps (hooks
+  after an early return), and the lockfile was out of date.
+- [x] The browser suite is a functional gate only: 77 presentation specs
+  (shaders, lighting, shadows, dice art, sound, layout, animation timing, video
+  captures) were removed, and visual tests inside mixed specs cut, leaving 109
+  tests in 36 files that check outcomes over real DM/player sessions. Visuals
+  are verified by eye; rules live in the unit suite. On a software renderer
+  the test browser runs without WebGL (with the 3D board animating on
+  SwiftShader a click took up to 90 s to become actionable), so the whole gate
+  takes about 20 minutes; CI runs it in two shards.
+  The phone layout matrix PR #155 added went the same way; its functional
+  creator tests stayed. `docs/WRITING_TESTS.md` says when a test is needed and
+  how to write one.
 - [x] Fire, lightning and radiant area spells (Fireball, Lightning Bolt,
   Burning Hands, Flame Strike, Meteor Swarm, Call Lightning) light the ground
   while they animate: in magical darkness players see the terrain that light

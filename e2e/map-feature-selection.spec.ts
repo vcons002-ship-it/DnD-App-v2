@@ -35,7 +35,6 @@ test('DM click, multi-select and box-delete features with undo without deleting 
   await click(155,210);await page.evaluate(()=>{const input=document.createElement('input');input.id='delete-focus-test';input.value='abc';document.body.append(input);input.focus();});
   await page.keyboard.press('Delete');expect((await snap()).map.walls).toHaveLength(2);await page.evaluate(()=>document.getElementById('delete-focus-test')?.remove());
   await page.keyboard.press('Escape');
-  await page.getByRole('button',{name:'Tilted battlefield view'}).click();tilt=45;await page.waitForTimeout(900);
   await click(300,210);await click(400,300,'Control');await expect(page.getByTestId('delete-map-features')).toHaveText('Delete 2 selected');
   await page.getByTestId('delete-map-features').click();await expect.poll(async()=>((await snap()).map.environment.lights.length)).toBe(0);expect((await snap()).map.walls).toHaveLength(2);
  }finally{dm.disconnect();}
