@@ -8,16 +8,16 @@
     "error": 0.004,
     "permissive": true
   },
-  "sourceUrl": "/miniatures/druk-light-0af485ac49a2.glb",
-  "sourceSha256": "0af485ac49a2d13b4a95fa385de286f9c260c9a31d5bdd2ba3b06d37b7f70576",
-  "sourceBytes": 14969144,
-  "sourceTriangles": 142186,
-  "sourceGeometryBytes": 6091876,
-  "geometryBytes": 2106216,
-  "filename": "druk-battlefield-765c69ae3d10.glb",
-  "sha256": "765c69ae3d10ef7a37fdfa19f9c7e3e7e121cbbaac38930732e5f6996e763b40",
-  "bytes": 12673896,
-  "triangles": 51832,
+  "sourceUrl": "/miniatures/druk-light-1d344ee33b33.glb",
+  "sourceSha256": "1d344ee33b33691fe35bda3dd5a85fce9086c578262b37153a54c6222637919f",
+  "sourceBytes": 33989040,
+  "sourceTriangles": 147925,
+  "sourceGeometryBytes": 6212070,
+  "geometryBytes": 2325470,
+  "filename": "druk-battlefield-7148fc63d385.glb",
+  "sha256": "7148fc63d3852f06ae69f77cd1e76a82b266ac9e782f54d8b2e6a0b82ba0fae1",
+  "bytes": 31764836,
+  "triangles": 59021,
   "baseCenter": [
     0.03537392616271973,
     -1.1119999885559082,
@@ -25,19 +25,13 @@
   ],
   "baseDiameter": 1.3600000143051147,
   "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
-  "textureBytes": 11354381,
+  "textureBytes": 30290219,
   "textures": [
     {
       "name": "",
       "mime": "image/webp",
       "sha256": "d54db9b6ed6ed388dd4576a9aa72cd686c417d7c621296f6666e5555d5b719ac",
       "bytes": 2135296
-    },
-    {
-      "name": "Image_0",
-      "mime": "image/webp",
-      "sha256": "6400e423b0348e799771546891d72caca1337120dc66eeacb80ccab25998917d",
-      "bytes": 1928274
     },
     {
       "name": "Image_0",
@@ -62,6 +56,66 @@
       "mime": "image/webp",
       "sha256": "29d47ab5823d056a27484ff653aa5981f8f8e5c023b1b7898a2f2ef09443d088",
       "bytes": 2139574
+    },
+    {
+      "name": "Generated walnut leather hand wraps",
+      "mime": "image/webp",
+      "sha256": "80a2bdc55872dd4491afbc2c921e7dfdc44850909300b986c1d7f3e8c5cc09de",
+      "bytes": 2407086
+    },
+    {
+      "name": "Leather edge and grain normals",
+      "mime": "image/webp",
+      "sha256": "4723a6cff6ed4e007567542baa685d6c954f3b1122d021496e16ed2db0ab0372",
+      "bytes": 2916660
+    },
+    {
+      "name": "Nonmetallic worn leather roughness",
+      "mime": "image/webp",
+      "sha256": "18d30d42f1d5ec43c66d2b517495e3793fcce9d937f0d502167bc05fb7445b46",
+      "bytes": 348518
+    },
+    {
+      "name": "body-material-corrections-albedo-v7.png",
+      "mime": "image/webp",
+      "sha256": "5ab1d153c6fc0db0ac5b27ca23b3caba9c3deab66ff1720a183914410f4a39fb",
+      "bytes": 6662976
+    },
+    {
+      "name": "body-material-corrections-mr-v7.png",
+      "mime": "image/webp",
+      "sha256": "a628f3c2698c2cdc71be9f493d602439ead9bfaeed40ef69094931858ebd64ad",
+      "bytes": 6634492
+    },
+    {
+      "name": "chainmail-relief-v6.png",
+      "mime": "image/webp",
+      "sha256": "64c0d2a29d8f80a438b45ce43f459e203f59b4c123e0c45c7244786dfc0bd30d",
+      "bytes": 1510736
+    },
+    {
+      "name": "Fine steel microfinish",
+      "mime": "image/webp",
+      "sha256": "a451ba9cd7e1f73557c28867559665f5e7630756b0659c6008ab20fcef2338ac",
+      "bytes": 109408
+    },
+    {
+      "name": "Torso mail pattern reused on right sleeve",
+      "mime": "image/webp",
+      "sha256": "99cc3d886afda51e4fb0f1ac81a9a9cb1ada3e6a8d82b3e30683c1dda32e5690",
+      "bytes": 22524
+    },
+    {
+      "name": "Right sleeve chainmail relief",
+      "mime": "image/webp",
+      "sha256": "b34661e86c87902695d10478c983216650e34622517af2498ab04020348bab2b",
+      "bytes": 40832
+    },
+    {
+      "name": "Arm skin with mip-safe island padding",
+      "mime": "image/webp",
+      "sha256": "b196cf414535e0c535c7853ccfad3f6aaa7706228fb05ef89058d56a0a9d31b8",
+      "bytes": 210880
     }
   ],
   "primitives": [
@@ -69,29 +123,17 @@
       "nodes": [
         "DrukV9_Dense_Body_REVIEW_CANDIDATE"
       ],
-      "material": "",
-      "before": 17277,
-      "after": 3205,
+      "material": "Druk original-shape corrected body PBR",
+      "before": 14701,
+      "after": 2845,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.003974963445216417
+      "actualError": 0.003897106507793069
     },
     {
       "nodes": [
         "DrukV9_Dense_Body_REVIEW_CANDIDATE"
       ],
-      "material": "DrukV9_Dark_Olive_Textured_Arms",
-      "before": 1995,
-      "after": 1081,
-      "detail": false,
-      "preserved": false,
-      "actualError": 0.0039380993694067
-    },
-    {
-      "nodes": [
-        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
-      ],
-      "material": "DrukV9_Dark_Olive_Textured_Hands",
+      "material": "Druk manually mapped leather hand wraps",
       "before": 2,
       "after": 2,
       "detail": true,
@@ -102,128 +144,182 @@
       "nodes": [
         "DrukV9_Dense_Body_REVIEW_CANDIDATE"
       ],
-      "material": "DrukV9_Dark_Olive_Clean_Patch_02",
-      "before": 228,
-      "after": 228,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
+      "material": "Druk manually mapped leather hand wraps",
+      "before": 2088,
+      "after": 772,
+      "detail": true,
+      "actualError": 0.003990073688328266
     },
     {
       "nodes": [
         "DrukV9_Dense_Body_REVIEW_CANDIDATE"
       ],
-      "material": "DrukV9_Dark_Olive_Clean_Patch_03",
-      "before": 420,
-      "after": 420,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
+      "material": "Druk manually mapped leather hand wraps",
+      "before": 901,
+      "after": 515,
+      "detail": true,
+      "actualError": 0.003998712636530399
     },
     {
       "nodes": [
         "DrukV9_Dense_Body_REVIEW_CANDIDATE"
       ],
-      "material": "DrukV9_Dark_Olive_Clean_Patch_04",
-      "before": 1362,
-      "after": 212,
-      "detail": false,
-      "preserved": false,
-      "actualError": 0.003779288846999407
-    },
-    {
-      "nodes": [
-        "DrukV9_Lowered_Right_Hand"
-      ],
-      "material": "DrukV7_Gauntlet_Leather",
-      "before": 4012,
-      "after": 2112,
+      "material": "Druk manually mapped leather hand wraps",
+      "before": 1261,
+      "after": 727,
       "detail": true,
-      "preserved": false,
-      "actualError": 0.003982539754360914
+      "actualError": 0.003988770302385092
     },
     {
       "nodes": [
-        "DrukV9_Lowered_Right_Hand"
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
       ],
-      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
-      "before": 666,
-      "after": 480,
-      "detail": true,
-      "preserved": false,
-      "actualError": 0.003997139632701874
-    },
-    {
-      "nodes": [
-        "DrukV9_Lowered_Right_Hand"
-      ],
-      "material": "DrukV7_Glove_Grip_Interior",
-      "before": 734,
-      "after": 734,
-      "detail": true,
-      "preserved": false,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "DrukV9_Lowered_Right_Hand"
-      ],
-      "material": "DrukV7_Gauntlet_Leather",
-      "before": 309,
-      "after": 309,
-      "detail": true,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "DrukV9_Lowered_Right_Hand"
-      ],
-      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
-      "before": 1217,
-      "after": 369,
-      "detail": true,
-      "preserved": false,
-      "actualError": 0.00399369839578867
-    },
-    {
-      "nodes": [
-        "DrukV9_Lowered_Left_Hand"
-      ],
-      "material": "DrukV7_Gauntlet_Leather",
-      "before": 3033,
-      "after": 1575,
-      "detail": true,
-      "preserved": false,
-      "actualError": 0.003923048730939627
-    },
-    {
-      "nodes": [
-        "DrukV9_Lowered_Left_Hand"
-      ],
-      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
-      "before": 1510,
+      "material": "Druk formed satin-polished steel: unified pauldrons v24",
+      "before": 1762,
       "after": 1048,
+      "detail": false,
+      "actualError": 0.0039049573242664337
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk formed satin-polished steel: unified pauldrons v24",
+      "before": 795,
+      "after": 711,
+      "detail": false,
+      "actualError": 0.003706033108755946
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk formed satin-polished steel: unified pauldrons v24",
+      "before": 114,
+      "after": 114,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk formed satin-polished steel: unified pauldrons v24",
+      "before": 481,
+      "after": 481,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk original-shape corrected body PBR",
+      "before": 23,
+      "after": 23,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk right chainmail sleeve - satin links, no plate glare",
+      "before": 805,
+      "after": 507,
+      "detail": false,
+      "actualError": 0.003891762113198638
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk right chainmail sleeve - satin links, no plate glare",
+      "before": 781,
+      "after": 333,
+      "detail": false,
+      "actualError": 0.003742052474990487
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk right chainmail sleeve - satin links, no plate glare",
+      "before": 199,
+      "after": 199,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk right chainmail sleeve - satin links, no plate glare",
+      "before": 211,
+      "after": 211,
+      "detail": false,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk exposed arm skin - seam-safe matte olive",
+      "before": 1747,
+      "after": 939,
+      "detail": false,
+      "actualError": 0.003985235933214426
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Right_Hand"
+      ],
+      "material": "Druk manually mapped leather hand wraps",
+      "before": 4038,
+      "after": 2468,
       "detail": true,
-      "preserved": false,
-      "actualError": 0.003966038580983877
+      "actualError": 0.0039852820336818695
     },
     {
       "nodes": [
         "DrukV9_Lowered_Left_Hand"
       ],
-      "material": "DrukV7_Glove_Grip_Interior",
+      "material": "Druk manually mapped leather hand wraps",
+      "before": 2783,
+      "after": 1577,
+      "detail": true,
+      "actualError": 0.0038749747909605503
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Left_Hand"
+      ],
+      "material": "Druk manually mapped leather hand wraps",
+      "before": 1426,
+      "after": 1054,
+      "detail": true,
+      "actualError": 0.003900786628946662
+    },
+    {
+      "nodes": [
+        "DrukV9_Lowered_Left_Hand"
+      ],
+      "material": "Druk manually mapped leather hand wraps",
       "before": 502,
       "after": 502,
       "detail": true,
-      "preserved": false,
       "actualError": 0
     },
     {
       "nodes": [
         "DrukV9_Lowered_Left_Hand"
       ],
-      "material": "Short_Proximal_Glove_Leather_Linear_From_sRGB",
+      "material": "Druk manually mapped leather hand wraps",
       "before": 251,
       "after": 251,
       "detail": true,
@@ -238,27 +334,15 @@
       "before": 3200,
       "after": 800,
       "detail": true,
-      "preserved": false,
-      "actualError": 0.0030097526032477617
-    },
-    {
-      "nodes": [
-        "DrukV9_Pinned_Rear_Neck_Repair"
-      ],
-      "material": "Original_Atlas_Darkened_Rear_Hair",
-      "before": 7302,
-      "after": 7302,
-      "detail": true,
-      "preserved": true,
-      "actualError": 0
+      "actualError": 0.002926589921116829
     },
     {
       "nodes": [
         "DrukV9_Lowered_Right_Short_Wrist_Transition"
       ],
-      "material": "Short_Boundary_Leather_Transition",
-      "before": 2342,
-      "after": 2342,
+      "material": "Druk manually mapped leather hand wraps",
+      "before": 6728,
+      "after": 6728,
       "detail": true,
       "preserved": true,
       "actualError": 0
@@ -267,7 +351,7 @@
       "nodes": [
         "DrukV9_Lowered_Left_Short_Wrist_Transition"
       ],
-      "material": "Short_Boundary_Leather_Transition",
+      "material": "Druk manually mapped leather hand wraps",
       "before": 2352,
       "after": 2352,
       "detail": true,
@@ -359,8 +443,7 @@
       "before": 966,
       "after": 244,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.0037105174269527197
+      "actualError": 0.00381774571724236
     },
     {
       "nodes": [
@@ -414,8 +497,7 @@
       "before": 1808,
       "after": 216,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.002390062902122736
+      "actualError": 0.0023900626692920923
     },
     {
       "nodes": [
@@ -434,10 +516,9 @@
       ],
       "material": "Weathered_Steel",
       "before": 3734,
-      "after": 816,
+      "after": 856,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.003978383261710405
+      "actualError": 0.0038931851740926504
     },
     {
       "nodes": [
@@ -447,8 +528,7 @@
       "before": 8264,
       "after": 990,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.002235105726867914
+      "actualError": 0.0022783696185797453
     },
     {
       "nodes": [
@@ -456,10 +536,9 @@
       ],
       "material": "Weathered_Steel",
       "before": 3734,
-      "after": 816,
+      "after": 856,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.003978383261710405
+      "actualError": 0.0038931851740926504
     },
     {
       "nodes": [
@@ -469,8 +548,7 @@
       "before": 8264,
       "after": 990,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.002235105726867914
+      "actualError": 0.0022783696185797453
     },
     {
       "nodes": [
@@ -480,8 +558,7 @@
       "before": 512,
       "after": 238,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.0032909344881772995
+      "actualError": 0.0032692376989871264
     },
     {
       "nodes": [
@@ -500,10 +577,9 @@
       ],
       "material": "DrukV9_Snug_Hip_Axe_Leather",
       "before": 512,
-      "after": 236,
+      "after": 242,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.0033252686262130737
+      "actualError": 0.0033089828211814165
     },
     {
       "nodes": [
@@ -533,13 +609,45 @@
       ],
       "material": "Druk_Natural_Face_Organic_Material",
       "before": 59636,
-      "after": 15920,
+      "after": 15886,
       "detail": true,
-      "preserved": false,
-      "actualError": 0.003999777138233185
+      "actualError": 0.003996753599494696
+    },
+    {
+      "nodes": [
+        "DrukV9_Pinned_Rear_Neck_Repair"
+      ],
+      "material": "Original_Atlas_Darkened_Rear_Hair",
+      "before": 6107,
+      "after": 6107,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Pinned_Rear_Neck_Repair"
+      ],
+      "material": "Druk formed satin-polished steel: unified pauldrons v24",
+      "before": 1140,
+      "after": 1140,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Pinned_Rear_Neck_Repair"
+      ],
+      "material": "Druk formed satin-polished steel: unified pauldrons v24",
+      "before": 55,
+      "after": 55,
+      "detail": true,
+      "preserved": true,
+      "actualError": 0
     }
   ],
-  "elapsedMs": 366.7939,
+  "elapsedMs": 406.3885,
   "verified": {
     "texturesByteExact": true,
     "materialsPreserved": true,

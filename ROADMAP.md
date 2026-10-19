@@ -3357,3 +3357,13 @@ in place. See `docs/ASSET_PRODUCTION.md` for worker setup and exact settings.
 - Visual review raised the distant-model floor to Low for High/Balanced graphics;
   only Low graphics uses the more reduced Battlefield sculpt. Two-tier downloads,
   viewport gating, early preparation and rapid-zoom reuse remain in place.
+
+
+### Approved Druk model (19 October 2026)
+
+- [x] Ship v29 body/armor textures, shin-matched pauldrons, strap-brown leather
+  wraps and the small left-hand alignment correction as Druk's default.
+- [x] Rebuild High, Balanced, Low and Battlefield delivery assets from the same
+  approved revision; preserve shared immutable texture URLs across tiers.
+- [x] Verify exact full-detail geometry/materials and decoded texture pixels,
+  reduced-tier receipts, and both DM/player loading in a disposable live game.

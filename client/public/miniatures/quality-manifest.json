@@ -4,28 +4,28 @@
     {
       "id": "druk",
       "profile": "balanced",
-      "url": "/miniatures/druk-balanced-shared-7fe4de19c1aa.glb",
-      "sha256": "7fe4de19c1aae5f49351f13d26346b0acf4504d8b1b58b0c5d06e271866831a9",
-      "bytes": 5857944,
-      "triangles": 277100,
-      "sourceUrl": "/miniatures/druk-c98df869b913.glb",
-      "sourceSha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
+      "url": "/miniatures/druk-balanced-shared-98df17b5a79f.glb",
+      "sha256": "98df17b5a79fd86ac9cca6d7d3d9998cf2e96a75ea44d17e9a0ca7b46cb1742f",
+      "bytes": 5973284,
+      "triangles": 283065,
+      "sourceUrl": "/miniatures/druk-approved-63d53c563552.glb",
+      "sourceSha256": "63d53c563552b6c7a24ceabf83284f2345027227cda02616f4a5f58e8ae92824",
       "receipt": "assets/miniatures/character-reduction/druk-balanced.json",
       "sharedTextureReceipt": "assets/miniatures/shared-textures/druk-balanced.json",
-      "sharedTextureReceiptSha256": "8e1a2a16f9df6e18bcf6f7b1462270693bce2e0d218c214de34ada78c1a50aba"
+      "sharedTextureReceiptSha256": "280d5d0171190956727556854779aa3df056b0c2a3616f3eaa829b17033ebe95"
     },
     {
       "id": "druk",
       "profile": "low",
-      "url": "/miniatures/druk-low-shared-f5edeb1b13f5.glb",
-      "sha256": "f5edeb1b13f5ebffa53612eeaba19cf5cf4dfb024fae0305400ac3806bba901b",
-      "bytes": 3614972,
-      "triangles": 142186,
-      "sourceUrl": "/miniatures/druk-c98df869b913.glb",
-      "sourceSha256": "c98df869b9131ed16fa3dfc5e7df2eb820ef02fcbf52613d2c8feb740f6e0010",
+      "url": "/miniatures/druk-low-shared-497965d8af51.glb",
+      "sha256": "497965d8af51a795ba48fef40860c0249fa8632c9fb8f4fd1c59d9abb88bb658",
+      "bytes": 3699556,
+      "triangles": 147925,
+      "sourceUrl": "/miniatures/druk-approved-63d53c563552.glb",
+      "sourceSha256": "63d53c563552b6c7a24ceabf83284f2345027227cda02616f4a5f58e8ae92824",
       "receipt": "assets/miniatures/character-reduction/druk-light.json",
       "sharedTextureReceipt": "assets/miniatures/shared-textures/druk-low.json",
-      "sharedTextureReceiptSha256": "55b84808670fcd1062e4e86a82e58617780615f7ba69a88cfc70982d1b3cc14f"
+      "sharedTextureReceiptSha256": "73e8bd5607f4fd3dae4e42194cb9868e08f4eab1bc873f77dfe43f69b349911a"
     },
     {
       "id": "varis",

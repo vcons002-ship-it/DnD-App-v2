@@ -1,0 +1,35 @@
+{
+  "approvedSourceSha256": "c6e4f267253b2a48efd53d40b235535aace62b7076485a3378de4359171bf497",
+  "approvedReviewBytes": 44329896,
+  "fullStandaloneBytes": 43967664,
+  "triangles": 880377,
+  "tiers": [
+    {
+      "tier": "high",
+      "url": "/miniatures/druk-high-shared-fb24aaa49290.glb",
+      "bytes": 13678260,
+      "triangles": 880377
+    },
+    {
+      "tier": "balanced",
+      "url": "/miniatures/druk-balanced-shared-98df17b5a79f.glb",
+      "bytes": 5973284,
+      "triangles": 283065
+    },
+    {
+      "tier": "low",
+      "url": "/miniatures/druk-low-shared-497965d8af51.glb",
+      "bytes": 3699556,
+      "triangles": 147925
+    },
+    {
+      "tier": "battlefield",
+      "url": "/miniatures/druk-battlefield-shared-cc8fddc8d053.glb",
+      "bytes": 1475284,
+      "triangles": 59021
+    }
+  ],
+  "uniqueTextureBytes": 30290219,
+  "texturesSharedAcrossAllTiers": true,
+  "allTiersRebuiltFromApprovedModel": true
+}

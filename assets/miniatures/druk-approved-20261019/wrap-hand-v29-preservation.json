@@ -1,0 +1,11 @@
+{
+  "triangles": 880377,
+  "protectedParts": 49,
+  "allTextureBytesUnchanged": true,
+  "allUVsAndTopologyUnchanged": true,
+  "headSwordBodyAndRightHandUnchanged": true,
+  "leftHandRigidRotationDegrees": 8,
+  "leftWristBridgeOnlyGeometryChange": true,
+  "leftWristBoundaryError": 5.551115123125783e-17,
+  "wrapColorOnlyMaterialChange": true
+}

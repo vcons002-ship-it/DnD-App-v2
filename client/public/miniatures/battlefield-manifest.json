@@ -3,10 +3,10 @@
   "models": [
     {
       "id": "druk",
-      "url": "/miniatures/druk-battlefield-shared-9412d5a70d4c.glb",
-      "sha256": "9412d5a70d4cbc8d00f01af81bc07c957b7b9e6dea10830ef2a36b8974f52a72",
-      "bytes": 1319656,
-      "triangles": 51832,
+      "url": "/miniatures/druk-battlefield-shared-cc8fddc8d053.glb",
+      "sha256": "cc8fddc8d0535e5adb46faf11b4578379ea1a9c126dee20b15ebb75b041f7020",
+      "bytes": 1475284,
+      "triangles": 59021,
       "baseCenter": [
         0.03537392616271973,
         -1.1119999885559082,
@@ -16,7 +16,7 @@
       "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
       "receipt": "assets/miniatures/battlefield-lod/druk.json",
       "sharedTextureReceipt": "assets/miniatures/shared-textures/druk-battlefield.json",
-      "sharedTextureReceiptSha256": "ea02757ce659afd738c80050b4c6fec22efde493008e00de7fe4182803e0752e"
+      "sharedTextureReceiptSha256": "9f7aae308ee262e5c8a1e8fd3ce9230511b4e023900f0f8dfcb1612d1166937d"
     },
     {
       "id": "varis",
