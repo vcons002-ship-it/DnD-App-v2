@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { MONSTER_MODEL_TYPES } from '../../../shared/monsterAppearance.js';
-import { assetJobPending, creatureArtBrief, heroArtBrief, productionFamily, type AssetCreature, type AssetJob, type ProducedMiniature, type SourceArt, type SourceArtView } from '../../../shared/assetProduction.js';
+import { assetJobPending, creatureArtBrief, heroArtBrief, productionFamily, validMiniatureDetail, type AssetCreature, type AssetJob, type ProducedMiniature, type SourceArt, type SourceArtView } from '../../../shared/assetProduction.js';
 import type { Character } from '../../../shared/types.js';
 
 type State = { paused: boolean; jobs: AssetJob[]; models: ProducedMiniature[] };
@@ -141,6 +141,7 @@ export class AssetQueue {
           },controller.signal);
           controller.signal.throwIfAborted();
           if (model.id !== job.family || !model.url.startsWith('/uploads/miniatures/') || !(model.bytes > 0) || !(model.triangles > 0)) throw Error('Model publication validation failed.');
+          for(const detail of [model.highDetail,model.balancedDetail])if(detail&&!validMiniatureDetail(detail,model.triangles))throw Error('Model detail publication validation failed.');
           this.state.models = [...this.state.models.filter(m => m.id !== model.id), model];
           job.state = 'ready'; job.stage = 'Ready'; delete job.error;
           try{this.onModelReady({...job},model);}catch{/* recovered on restart */}

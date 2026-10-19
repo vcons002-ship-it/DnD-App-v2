@@ -499,3 +499,38 @@ both standalone and shared-texture sources. The runtime manifest selects the
 repaired 67,543-triangle Druk and 81,756-triangle Varis; Vanec already used the
 safer body settings. The linked workflow includes regeneration, installation,
 shared delivery and validation commands.
+
+## Generated geometry tiers (19 October 2026)
+
+The common creature/hero/recraft pipeline now finishes the ordinary ~20k body
+first, then recovers an aligned ~120k body from the already-painted master using
+retained UV landmarks. Characters also receive a ~60k Balanced version. This is
+local geometry processing, with no additional AI requests. Every tier preserves
+the standard model's 2K texture pixels, materials, base and placement, and uses
+verified lossless delivery compression. Small base meshes add to these counts.
+
+Generated characters use ~120k for High close-ups, ~60k for Balanced close-ups,
+and ~20k for Low and distant/off-screen views. Creatures use ~120k only for High
+close-ups and ~20k otherwise. Each mode requests at most two geometry files per
+family. Auto uses its resolved graphics preset. Existing zoom prefetch, viewport
+checks and hysteresis still apply. The custom bundled party models retain their
+previously reviewed tiers. User-uploaded GLBs keep their current import policy.
+
+Optional detail metadata (`highDetail`, and `balancedDetail` for heroes) persists
+in the asset queue/catalog. Files are verified and published before catalog
+metadata. If a source cannot be safely aligned, the standard model still
+publishes, with a DM notice explaining that higher geometry was unavailable.
+No campaign migration or mass regeneration occurs. Reviewed elf paladin,
+bandit and goblin source hashes attach their tested alternatives; a recraft with
+a different source hash cannot inherit the old shape.
+
+Reproduce geometry preparation from an existing painted master and fitted model:
+
+```sh
+node scripts/token-assets/trial-generated-quality.mjs inputs.json NEW_DIR --character-tiers
+node scripts/token-assets/trial-generated-quality.mjs inputs.json NEW_DIR --high-only
+```
+
+The character option creates only 60k/120k; creature creates only 120k. Without
+either option the offline comparison still produces 20k/40k/60k/120k candidates.
+See [the measurements and comparison](GENERATED_TOKEN_GEOMETRY_TRIAL_2026_10_19.md).

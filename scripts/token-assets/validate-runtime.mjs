@@ -1,6 +1,7 @@
 /** Verify shipped geometry and every exact shared character texture. */
 import './validate-monsters.mjs';
 import './validate-objects.mjs';
+import './validate-generated-quality.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';

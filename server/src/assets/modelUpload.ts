@@ -162,7 +162,7 @@ export function createModelUploadRouter(io:IOServer,queue:()=>AssetQueue,isDm:(r
         // repeated uploads can't pile up 12 MB files on the host's disk.
         if(previous.startsWith('uploaded-')&&!modelFamilyInUse(previous)){
           const old=queue().removeModel(previous);
-          if(old)await fs.unlink(path.join(dir,path.basename(old.url))).catch(()=>{});
+          if(old)for(const url of [old.url,old.highDetail?.url,old.balancedDetail?.url])if(url)await fs.unlink(path.join(dir,path.basename(url))).catch(()=>{});
         }
         const subject=kind==='character'?getCharacter(id)!:getMonster(id)!;
         broadcastSnapshots(io,subject.sessionId);saved=undefined;res.json({model});

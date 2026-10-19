@@ -43,9 +43,21 @@ export function productionFamily(creature: MonsterAppearance): string {
   return name.replace(/\b(fire|poison|ice|frost|lightning|undead|red|blue|green|white|black|gold)\b/g, '').trim().replace(/ +/g, '-');
 }
 
+export type MiniatureDetailAsset = {url:string;bytes:number;triangles:number;sha256:string};
+/** Catalog detail files stay local, immutable, and inside the generated-asset budget. */
+export function validMiniatureDetail(detail:MiniatureDetailAsset,baseTriangles:number):boolean{
+  return /^\/uploads\/miniatures\/[a-z0-9-]+\.glb$/.test(detail.url)&&
+    Number.isSafeInteger(detail.bytes)&&detail.bytes>0&&detail.bytes<=12*1024*1024&&
+    Number.isSafeInteger(detail.triangles)&&detail.triangles>baseTriangles&&detail.triangles<=200000&&
+    /^[a-f0-9]{64}$/.test(detail.sha256);
+}
 export type ProducedMiniature = {
   id: string; url: string; baseDiameter: number; baseCenter: [number, number, number];
   bytes: number; triangles: number; sha256: string;
+  /** Optional dense geometry, requested only for on-screen High close-ups. */
+  highDetail?: MiniatureDetailAsset;
+  /** Generated heroes retain a middle tier for Balanced close-ups. */
+  balancedDetail?: MiniatureDetailAsset;
 };
 export type SourceArtView='front'|'back'|'left'|'right';
 export type SourceArt = {

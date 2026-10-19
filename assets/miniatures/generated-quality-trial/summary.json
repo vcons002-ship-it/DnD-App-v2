@@ -1,0 +1,369 @@
+{
+  "policy": "generated-quality-geometry-trial-v1",
+  "productionDefaultsChanged": false,
+  "models": [
+    {
+      "id": "elf",
+      "tier": "current",
+      "triangles": 20256,
+      "bytes": 3985212,
+      "sha256": "49ede079f7732501a1af50dcca236437a9edc655c2b8356ec5a04138aac092e9",
+      "filename": "elf-current.glb",
+      "alignment": {
+        "scale": 0.8531917871674229,
+        "translation": [
+          -0.007603223168691886,
+          0.9066449551667936,
+          0.12837763119094184
+        ],
+        "matchedLandmarks": 20179,
+        "maxLandmarkError": 5.551115123125783e-17,
+        "medianLandmarkError": 0
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "elf",
+      "tier": "40000",
+      "triangles": 40256,
+      "bytes": 4375396,
+      "sha256": "e423f99123889e55852058ab356ccf010f9eb8ae0427c5e99c54ecf50c63cbe8",
+      "filename": "elf-40000-e423f9912388.glb",
+      "sourceMasterSha256": "0c3db09663f08c84a582bb57a397fe9ad2aefabfd9322b0523759814cf003398",
+      "alignment": {
+        "scale": 0.8531917871674229,
+        "translation": [
+          -0.007603223168691886,
+          0.9066449551667936,
+          0.12837763119094184
+        ],
+        "matchedLandmarks": 20179,
+        "maxLandmarkError": 5.551115123125783e-17,
+        "medianLandmarkError": 0
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "elf",
+      "tier": "60000",
+      "triangles": 60256,
+      "bytes": 4683472,
+      "sha256": "669771674942b303df77f0175f88c32aa4d0ab88b13ec1a13908be8566eaaf88",
+      "filename": "elf-60000-669771674942.glb",
+      "sourceMasterSha256": "0c3db09663f08c84a582bb57a397fe9ad2aefabfd9322b0523759814cf003398",
+      "alignment": {
+        "scale": 0.8531917871674229,
+        "translation": [
+          -0.007603223168691886,
+          0.9066449551667936,
+          0.12837763119094184
+        ],
+        "matchedLandmarks": 20179,
+        "maxLandmarkError": 5.551115123125783e-17,
+        "medianLandmarkError": 0
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "elf",
+      "tier": "120000",
+      "triangles": 120256,
+      "bytes": 5527576,
+      "sha256": "b09ae14ee41b3dd2962b52bbbe67462c14238334900ec9f6a0d212f7320170d6",
+      "filename": "elf-120000-b09ae14ee41b.glb",
+      "sourceMasterSha256": "0c3db09663f08c84a582bb57a397fe9ad2aefabfd9322b0523759814cf003398",
+      "alignment": {
+        "scale": 0.8531917871674229,
+        "translation": [
+          -0.007603223168691886,
+          0.9066449551667936,
+          0.12837763119094184
+        ],
+        "matchedLandmarks": 20179,
+        "maxLandmarkError": 5.551115123125783e-17,
+        "medianLandmarkError": 0
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "bandit",
+      "tier": "current",
+      "triangles": 20764,
+      "bytes": 4066416,
+      "sha256": "f80b0aef3b0b8136c2d68a6beb19eaaa6f9edd36923faec30eb143797d1c9938",
+      "filename": "bandit-current.glb",
+      "alignment": {
+        "scale": 0.6579197855437694,
+        "translation": [
+          0.0019036958185040757,
+          0.711726981853236,
+          0.013032081269367862
+        ],
+        "matchedLandmarks": 16540,
+        "maxLandmarkError": 6.032262996473203e-8,
+        "medianLandmarkError": 1.6086492880990016e-8
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "bandit",
+      "tier": "40000",
+      "triangles": 40764,
+      "bytes": 4368512,
+      "sha256": "b6b61a1b5b080e4b866332f7a6df93d637332e12e02c256ed9817e06e8aa3849",
+      "filename": "bandit-40000-b6b61a1b5b08.glb",
+      "sourceMasterSha256": "48c28804bc0f286d31ccfb536498c7507710b30ad30cff5901cb2a95b37a1134",
+      "alignment": {
+        "scale": 0.6579197855437694,
+        "translation": [
+          0.0019036958185040757,
+          0.711726981853236,
+          0.013032081269367862
+        ],
+        "matchedLandmarks": 16540,
+        "maxLandmarkError": 6.032262996473203e-8,
+        "medianLandmarkError": 1.6086492880990016e-8
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "bandit",
+      "tier": "60000",
+      "triangles": 60764,
+      "bytes": 4637388,
+      "sha256": "72927db5c81ff2f46732e7d2cf6f8b09dbdf0cc7c626672e49d26f6abe189400",
+      "filename": "bandit-60000-72927db5c81f.glb",
+      "sourceMasterSha256": "48c28804bc0f286d31ccfb536498c7507710b30ad30cff5901cb2a95b37a1134",
+      "alignment": {
+        "scale": 0.6579197855437694,
+        "translation": [
+          0.0019036958185040757,
+          0.711726981853236,
+          0.013032081269367862
+        ],
+        "matchedLandmarks": 16540,
+        "maxLandmarkError": 6.032262996473203e-8,
+        "medianLandmarkError": 1.6086492880990016e-8
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "bandit",
+      "tier": "120000",
+      "triangles": 120764,
+      "bytes": 5393132,
+      "sha256": "283e7c3ef4565ef01e7abff04b9828b615c30998caf2c4a8cb518da56b4866ef",
+      "filename": "bandit-120000-283e7c3ef456.glb",
+      "sourceMasterSha256": "48c28804bc0f286d31ccfb536498c7507710b30ad30cff5901cb2a95b37a1134",
+      "alignment": {
+        "scale": 0.6579197855437694,
+        "translation": [
+          0.0019036958185040757,
+          0.711726981853236,
+          0.013032081269367862
+        ],
+        "matchedLandmarks": 16540,
+        "maxLandmarkError": 6.032262996473203e-8,
+        "medianLandmarkError": 1.6086492880990016e-8
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "goblin",
+      "tier": "current",
+      "triangles": 20752,
+      "bytes": 3681916,
+      "sha256": "c1712d0061992b750f4af621b798035941e5e48748e02a6af6f2222285017265",
+      "filename": "goblin-current.glb",
+      "alignment": {
+        "scale": 0.7758337769968932,
+        "translation": [
+          -0.058021880549746885,
+          0.829427194189525,
+          0.0521728780327074
+        ],
+        "matchedLandmarks": 15735,
+        "maxLandmarkError": 6.06987090409041e-8,
+        "medianLandmarkError": 1.5888650151835406e-8
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "goblin",
+      "tier": "40000",
+      "triangles": 40764,
+      "bytes": 3979512,
+      "sha256": "d18f26bb501e51f3a71b52d72a1819d476114b6c25441de37247aae33969eb3b",
+      "filename": "goblin-40000-d18f26bb501e.glb",
+      "sourceMasterSha256": "194ee719e60f539d5ac969b1ad3219399220665a9064e2a8b8bfa6b98ad6424f",
+      "alignment": {
+        "scale": 0.7758337769968932,
+        "translation": [
+          -0.058021880549746885,
+          0.829427194189525,
+          0.0521728780327074
+        ],
+        "matchedLandmarks": 15735,
+        "maxLandmarkError": 6.06987090409041e-8,
+        "medianLandmarkError": 1.5888650151835406e-8
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "goblin",
+      "tier": "60000",
+      "triangles": 60764,
+      "bytes": 4248672,
+      "sha256": "92a447ab1f963e90c59ea7808e7aec87ca7449a4d70bc9e1c428ecbe524500b9",
+      "filename": "goblin-60000-92a447ab1f96.glb",
+      "sourceMasterSha256": "194ee719e60f539d5ac969b1ad3219399220665a9064e2a8b8bfa6b98ad6424f",
+      "alignment": {
+        "scale": 0.7758337769968932,
+        "translation": [
+          -0.058021880549746885,
+          0.829427194189525,
+          0.0521728780327074
+        ],
+        "matchedLandmarks": 15735,
+        "maxLandmarkError": 6.06987090409041e-8,
+        "medianLandmarkError": 1.5888650151835406e-8
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    },
+    {
+      "id": "goblin",
+      "tier": "120000",
+      "triangles": 120764,
+      "bytes": 5008732,
+      "sha256": "2fd5b442556ffca9b11d5a8066245be5f937b1da32c6356d578803cc7a920775",
+      "filename": "goblin-120000-2fd5b442556f.glb",
+      "sourceMasterSha256": "194ee719e60f539d5ac969b1ad3219399220665a9064e2a8b8bfa6b98ad6424f",
+      "alignment": {
+        "scale": 0.7758337769968932,
+        "translation": [
+          -0.058021880549746885,
+          0.829427194189525,
+          0.0521728780327074
+        ],
+        "matchedLandmarks": 15735,
+        "maxLandmarkError": 6.06987090409041e-8,
+        "medianLandmarkError": 1.5888650151835406e-8
+      },
+      "verified": {
+        "basePositionsAndNormalsExact": true,
+        "baseWorldTransformExact": true,
+        "decodedTexturePixelsExact": true,
+        "deliveryValidated": true
+      }
+    }
+  ],
+  "performance": {
+    "5090": {
+      "method": "Production MiniatureLayer. 30 tokens (10 each elf/bandit/goblin), identical 2K textures, current based transforms, fixed Balanced graphics, daylight map with map shadows, slow continuous camera rotation, 1440x960 DPR1. Adapter verified. 2s warmup; 6.5s samples forward/reverse tier order. Isolates model geometry; excludes player fog, mist, spells and network transfer; no recording.",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "tiers": [
+        {
+          "tier": "current",
+          "averageFps": 254.34946382879747,
+          "p95Ms": 4.100000000000364
+        },
+        {
+          "tier": "40000",
+          "averageFps": 253.71067652790578,
+          "p95Ms": 4.100000000000364
+        },
+        {
+          "tier": "60000",
+          "averageFps": 253.90820315477697,
+          "p95Ms": 4.100000000000364
+        },
+        {
+          "tier": "120000",
+          "averageFps": 253.0837650283441,
+          "p95Ms": 4.100000000000364
+        }
+      ]
+    },
+    "igpu": {
+      "method": "Production MiniatureLayer. 30 tokens (10 each elf/bandit/goblin), identical 2K textures, current based transforms, fixed Balanced graphics, daylight map with map shadows, slow continuous camera rotation, 1440x960 DPR1. Adapter verified. 2s warmup; 6.5s samples forward/reverse tier order. Isolates model geometry; excludes player fog, mist, spells and network transfer; no recording.",
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "tiers": [
+        {
+          "tier": "current",
+          "averageFps": 79.55209437448798,
+          "p95Ms": 16
+        },
+        {
+          "tier": "40000",
+          "averageFps": 64.16366369154122,
+          "p95Ms": 17.800000000000182
+        },
+        {
+          "tier": "60000",
+          "averageFps": 55.69256322312971,
+          "p95Ms": 20.100000000000364
+        },
+        {
+          "tier": "120000",
+          "averageFps": 41.94386697482314,
+          "p95Ms": 26.600000000000364
+        }
+      ]
+    }
+  }
+}

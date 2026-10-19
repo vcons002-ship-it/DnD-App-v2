@@ -7,7 +7,7 @@ import {refitPewterPedestal} from './miniatureBasePlacement';
  * feet, metal rim and orb inlay remain the original approved model. */
 export async function prepareMiniatureBase(gltf: GLTF, definition: MiniatureDefinition, anisotropy: number) {
   // Preserve footprint and floor contact across generated and uploaded hierarchies.
-  if (definition.url.includes('/miniatures/monsters/') || definition.url.startsWith('/uploads/miniatures/')) {
+  if (definition.url.includes('/miniatures/monsters/') || definition.url.startsWith('/uploads/miniatures/') || definition.url===definition.highDetail?.url || definition.url===definition.balancedDetail?.url) {
     const bases=refitPewterPedestal(gltf.scene,definition.baseDiameter,()=>{
       const radius = definition.baseDiameter / 2;
       const profile = [[0,-.0275],[.94,-.0275],[1,-.008],[1,.012],[.97,.025],[.97,.075],[.93,.1025],[.88,.1025],[.85,.085],[0,.085]];
