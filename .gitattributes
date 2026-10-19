@@ -82,4 +82,6 @@ assets/miniatures/hybrid-delivery/*.json -filter diff merge -text whitespace=cr-
 # Shared immutable character images and geometry delivery copies.
 client/public/miniatures/*-shared-*.glb -filter -diff -merge -text
 client/public/miniatures/textures/* -filter -diff -merge -text
+client/public/miniatures/generated-high-*.glb -filter -diff -merge -text
+client/public/miniatures/generated-balanced-*.glb -filter -diff -merge -text
 assets/miniatures/shared-textures/*.json -filter diff merge -text whitespace=cr-at-eol

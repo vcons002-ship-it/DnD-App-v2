@@ -13,6 +13,7 @@ import { setAssetProductionListener } from './hooks.js';
 import type { AssetJob, ProducedMiniature } from '../../../shared/assetProduction.js';
 import {runHybridPipeline} from './hybrid.js';
 import {wireCharacterAssets} from './heroTokens.js';
+import {validMiniatureDetail} from '../../../shared/assetProduction.js';
 
 const scripts = fileURLToPath(new URL('../../tools/asset-production/', import.meta.url));
 const root = path.join(config.dataDir, 'asset-production');
@@ -121,6 +122,36 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
   const filename = `${job.family}-${model.sha256.slice(0, 16)}.glb`;
   const directory = path.join(config.uploadsDir, 'miniatures');
   await fs.mkdir(directory, { recursive: true });
+  // Recover denser geometry from the already-painted master. No second AI call,
+  // texture generation or fitting guess: retained UV landmarks verify alignment.
+  // The ordinary 20k output remains usable if an unusual mesh cannot be matched.
+  try{
+    progress(job.sourceCharacterId?'Preparing High and Balanced character geometry':'Preparing High close-up geometry');
+    const inputs=path.join(attempt,'detail-inputs.json'),detailDir=path.join(attempt,'detail-models');
+    await fs.writeFile(inputs,JSON.stringify({[job.family]:{master:corrected,current:output}}));
+    await runWorker(process.execPath,[path.resolve(scripts,'../../../scripts/token-assets/trial-generated-quality.mjs'),inputs,detailDir,job.sourceCharacterId?'--character-tiers':'--high-only'],log,undefined,signal);
+    const details=JSON.parse(await fs.readFile(path.join(detailDir,'models.json'),'utf8')) as {tier:string;filename:string;bytes:number;triangles:number;sha256:string}[];
+    for(const detail of details){
+      if(detail.triangles<=model.triangles)continue;
+      const key=detail.tier==='120000'?'highDetail':detail.tier==='60000'&&job.sourceCharacterId?'balancedDetail':undefined;
+      if(!key)throw Error('Unexpected detail tier');
+      const detailName=`${job.family}-${key==='highDetail'?'high':'balanced'}-${detail.sha256.slice(0,16)}.glb`;
+      const asset={url:`/uploads/miniatures/${detailName}`,bytes:detail.bytes,triangles:detail.triangles,sha256:detail.sha256};
+      if(!validMiniatureDetail(asset,model.triangles))throw Error('Detail budget validation failed');
+      const bytes=await fs.readFile(path.join(detailDir,detail.filename));
+      if(bytes.length!==asset.bytes||createHash('sha256').update(bytes).digest('hex')!==asset.sha256)throw Error('Detail file verification failed');
+      await fs.writeFile(path.join(directory,`${detailName}.pending`),bytes);
+      signal?.throwIfAborted();
+      await fs.rename(path.join(directory,`${detailName}.pending`),path.join(directory,detailName));
+      model[key]=asset;
+    }
+  }catch(error){
+    signal?.throwIfAborted();
+    if(error instanceof ProductionError&&error.pauseQueue)throw error;
+    delete model.highDetail;delete model.balancedDetail;
+    await fs.appendFile(log,`\nOptional detail preparation failed: ${error instanceof Error?error.message:String(error)}\n`);
+    reportAi('Higher-detail geometry could not be prepared. The standard compressed model is ready and works with every graphics preset.');
+  }
   await fs.copyFile(output, path.join(directory, `${filename}.pending`));
   signal?.throwIfAborted();
   await fs.rename(path.join(directory, `${filename}.pending`), path.join(directory, filename));

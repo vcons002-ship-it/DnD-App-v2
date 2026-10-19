@@ -65,8 +65,10 @@ try {
   config.comfyUrl = ''; config.geminiApiKey = 'fixture';
   const { startAssetProduction, assetQueue } = await import('../../src/assets/production.ts');
   startAssetProduction();
-  const queue = assetQueue(); queue.enqueue({ name: 'Fixture creature', modelType: 'fixture-creature' });
-  const deadline = Date.now() + 120000;
+  const queue = assetQueue(),character=process.argv.includes('--character');
+  if(character)queue.enqueueCharacter({id:'fixture-hero',name:'Fixture hero',race:'Elf',className:'Paladin',weapons:[],items:[]},'Battle-ready elf paladin');
+  else queue.enqueue({ name: 'Fixture creature', modelType: 'fixture-creature' });
+  const deadline = Date.now() + 180000;
   while (!['awaiting_approval', 'failed'].includes(queue.snapshot().jobs[0].state) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 100));
   const review=queue.snapshot().jobs[0];
   assert.equal(review.state,'awaiting_approval');assert.equal(submitted,0,'3D must not start before source-art approval');
@@ -78,6 +80,13 @@ try {
   const finishing=JSON.parse(await fs.readFile(path.join(root,'asset-production',readyJob.id,`attempt-${readyJob.attempts}`,'practical.glb.receipt.json'),'utf8'));
   assert.equal(finishing.detailPolicy.id,'defined-crease-v2','Approved crease definition is part of app production');
   const model = queue.snapshot().models[0];
+  assert(model.highDetail,'Generated model must retain its High geometry');
+  assert.equal(!!model.balancedDetail,character,'Only heroes receive a Balanced geometry tier');
+  for(const detail of [model.highDetail,model.balancedDetail].filter(Boolean)){
+    const bytes=await fs.readFile(path.join(config.uploadsDir,'miniatures',path.basename(detail.url)));
+    assert.equal(bytes.length,detail.bytes);assert.equal(createHash('sha256').update(bytes).digest('hex'),detail.sha256);
+    assert(detail.triangles>model.triangles);
+  }
   const published = await fs.readFile(path.join(config.uploadsDir, 'miniatures', path.basename(model.url)));
   const delivery=JSON.parse(await fs.readFile(path.join(root,'asset-production',readyJob.id,`attempt-${readyJob.attempts}`,'model.glb.compression.json'),'utf8'));
   assert.equal(delivery.policy,'lossless-delivery-v1','Verified lossless delivery is part of app production');

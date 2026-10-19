@@ -2,12 +2,13 @@
 import monsters from '../../public/miniatures/monsters/manifest.json';
 import qualityManifest from '../../public/miniatures/quality-manifest.json';
 import battlefieldManifest from '../../public/miniatures/battlefield-manifest.json';
+import generatedQuality from '../../public/miniatures/generated-quality-manifest.json';
 import {miniatureLodPair, type MiniatureLod, type MiniatureLodBudget} from '../../../shared/miniatureLod';
 import type {EnvironmentQuality} from '../../../shared/mapEnvironment';
 import objects from '../../public/miniatures/objects/manifest.json';
 import type { TokenKind } from '../../../shared/types';
 import { type MonsterAppearance, monsterVariation, monsterVariantIds } from '../../../shared/monsterAppearance';
-import { productionFamily, type ProducedMiniature } from '../../../shared/assetProduction';
+import { productionFamily, validMiniatureDetail, type ProducedMiniature, type MiniatureDetailAsset } from '../../../shared/assetProduction';
 import { useEffect, useSyncExternalStore } from 'react';
 
 /** Fit by the measured round base, never by weapons or full height. */
@@ -19,17 +20,33 @@ export type MiniatureDefinition = {
   fxUrl?: string;
   baseTextureUrl?: string;
   fallbackUrl?: string;
+  highDetail?: MiniatureDetailAsset;
+  balancedDetail?: MiniatureDetailAsset;
 };
+const reviewedHigh=new Map<string,{highDetail:MiniatureDetailAsset;balancedDetail?:MiniatureDetailAsset}>(generatedQuality.models.map(m=>[m.baseSha256,m]));
+function withReviewedHigh<T extends {sha256?:string;highDetail?:MiniatureDetailAsset;balancedDetail?:MiniatureDetailAsset}>(model:T):T{
+  const reviewed=model.sha256?reviewedHigh.get(model.sha256):undefined;
+  const highDetail=model.highDetail??reviewed?.highDetail,balancedDetail=model.balancedDetail??reviewed?.balancedDetail;
+  return highDetail?{...model,highDetail,...(balancedDetail?{balancedDetail}:{})}:model;
+}
 /** Four-view Hunyuan reconstruction, shared by all defeated creature markers. */
 export const DEATH_SKULL: MiniatureDefinition = {id:'death-skull',url:'/miniatures/objects/death-skull-c1d9470a2def.glb',baseDiameter:1,baseCenter:[0,0,0]};
 export const SPIRITUAL_WEAPON: MiniatureDefinition = {id:'spiritual-weapon',url:'builtin:spiritual-weapon',baseDiameter:1,baseCenter:[0,0,0]};
-export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models, ...monsters.variants, ...objects.models].map(model => [model.id, model])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
+export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models, ...monsters.variants, ...objects.models].map(model => [model.id, withReviewedHigh(model)])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
 const generated: Record<string, MiniatureDefinition> = Object.create(null);
 const qualityModels=new Map(qualityManifest.models.map(m=>[`${m.id}:${m.profile}`,{...MINIATURES[m.id],url:m.url,fallbackUrl:MINIATURES[m.id].url}]));
 const battlefieldModels=new Map(battlefieldManifest.models.map(m=>[m.id,{...MINIATURES[m.id],url:m.url,fallbackUrl:qualityModels.get(`${m.id}:low`)?.url??MINIATURES[m.id].url}]));
 /** Character variants share the original bases, FX and art. Other families stay
  * on their existing, already reduced geometry. */
 export function miniatureForLod(model:MiniatureDefinition,level:MiniatureLod,quality?:MiniatureLodBudget):MiniatureDefinition{
+  if(model.highDetail){
+    // Only two files per mode: the coarse model and that mode's close-up.
+    // Creatures have High only; generated heroes also retain a Balanced tier.
+    const high=level==='high'&&(!quality||miniatureLodPair(quality).near==='high');
+    const balanced=level==='balanced'&&(!quality||miniatureLodPair(quality).near==='balanced');
+    const detail=high?model.highDetail:balanced?model.balancedDetail:undefined;
+    return detail?{...model,url:detail.url,fallbackUrl:model.url}:model;
+  }
   if(!battlefieldModels.has(model.id))return model;
   const selected=level==='battlefield'?battlefieldModels.get(model.id)!:level==='high'?MINIATURES[model.id]:qualityModels.get(`${model.id}:${level}`)??model;
   if(!quality)return selected;
@@ -63,7 +80,12 @@ export async function refreshMiniatureCatalog() {
     if (signature === next) return;
     signature = next;
     for (const key of Object.keys(generated)) delete generated[key];
-    for (const model of valid) generated[model.id] = model;
+    for (const model of valid) {
+      const {highDetail,balancedDetail,...base}=model;
+      const safe=(detail:MiniatureDetailAsset|undefined)=>detail&&validMiniatureDetail(detail,model.triangles)?detail:undefined;
+      const safeHigh=safe(highDetail),safeBalanced=safe(balancedDetail);
+      generated[model.id]=withReviewedHigh({...base,...(safeHigh?{highDetail:safeHigh,...(safeBalanced?{balancedDetail:safeBalanced}:{})}:{})});
+    }
     revision++; listeners.forEach(listener => listener());
   } catch { /* Keep the last usable catalog during network interruptions. */ }
   finally { pending = false; }

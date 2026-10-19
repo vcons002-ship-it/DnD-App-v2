@@ -118,6 +118,21 @@ it('never publishes an invalid model or leaks raw provider errors into notices',
   await vi.waitFor(() => expect(queue.snapshot().jobs[0].state).toBe('failed'));
   expect(queue.snapshot().models).toEqual([]); expect(queue.snapshot().jobs[0].error).not.toContain('https:');
 });
+it('persists generated geometry tiers without changing the standard model or base',async()=>{
+  const highDetail={url:'/uploads/miniatures/elephant-high.glb',bytes:5000000,triangles:120764,sha256:'a'.repeat(64)};
+  const balancedDetail={...highDetail,url:'/uploads/miniatures/elephant-balanced.glb',triangles:60764};
+  const produced={...model('elephant'),highDetail,balancedDetail};
+  const queue=new AssetQueue(file(),vi.fn().mockResolvedValue(produced));
+  queue.enqueue({name:'Elephant'});queue.start();
+  await vi.waitFor(()=>expect(queue.snapshot().jobs[0].state).toBe('ready'));
+  expect(new AssetQueue(file(),vi.fn()).snapshot().models[0]).toEqual(produced);
+});
+it.each(['https://untrusted.example/high.glb','/uploads/miniatures/../high.glb'])('rejects unsafe detail publication %s',async url=>{
+  const queue=new AssetQueue(file(),vi.fn().mockResolvedValue({...model('elephant'),highDetail:{url,bytes:5000000,triangles:120000,sha256:'a'.repeat(64)}}));
+  queue.enqueue({name:'Elephant'});queue.start();
+  await vi.waitFor(()=>expect(queue.snapshot().jobs[0].state).toBe('failed'));
+  expect(queue.snapshot().models).toEqual([]);
+});
 
 it('queues creature creation, spawning and AI appearance updates, without blocking saves', () => {
   const listener = vi.fn(); setAssetProductionListener(listener);

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "policy": "generated-character-tiers-creature-high-v1",
+  "models": [
+    {
+      "id": "elf-paladin",
+      "baseSha256": "49ede079f7732501a1af50dcca236437a9edc655c2b8356ec5a04138aac092e9",
+      "highDetail": {
+        "url": "/miniatures/generated-high-elf-b09ae14ee41b.glb",
+        "bytes": 5527576,
+        "triangles": 120256,
+        "sha256": "b09ae14ee41b3dd2962b52bbbe67462c14238334900ec9f6a0d212f7320170d6"
+      },
+      "balancedDetail": {
+        "url": "/miniatures/generated-balanced-elf-669771674942.glb",
+        "bytes": 4683472,
+        "triangles": 60256,
+        "sha256": "669771674942b303df77f0175f88c32aa4d0ab88b13ec1a13908be8566eaaf88"
+      }
+    },
+    {
+      "id": "bandit",
+      "baseSha256": "f80b0aef3b0b8136c2d68a6beb19eaaa6f9edd36923faec30eb143797d1c9938",
+      "highDetail": {
+        "url": "/miniatures/generated-high-bandit-283e7c3ef456.glb",
+        "bytes": 5393132,
+        "triangles": 120764,
+        "sha256": "283e7c3ef4565ef01e7abff04b9828b615c30998caf2c4a8cb518da56b4866ef"
+      }
+    },
+    {
+      "id": "goblin",
+      "baseSha256": "c1712d0061992b750f4af621b798035941e5e48748e02a6af6f2222285017265",
+      "highDetail": {
+        "url": "/miniatures/generated-high-goblin-2fd5b442556f.glb",
+        "bytes": 5008732,
+        "triangles": 120764,
+        "sha256": "2fd5b442556ffca9b11d5a8066245be5f937b1da32c6356d578803cc7a920775"
+      }
+    }
+  ]
+}
