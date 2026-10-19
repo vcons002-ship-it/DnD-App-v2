@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
-const input=path.resolve(process.argv[2]??'artifacts/battlefield-lod-permissive');
+const input=path.resolve(process.argv[2]??'artifacts/battlefield-lod-seam-safe');
 const models=[];
 await fs.mkdir('assets/miniatures/battlefield-lod',{recursive:true});
 for(const id of ['druk','varis','vanec']){

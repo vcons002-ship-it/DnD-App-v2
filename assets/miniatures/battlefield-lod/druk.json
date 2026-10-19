@@ -6,18 +6,23 @@
     "bodyRatio": 0.12,
     "detailRatio": 0.25,
     "error": 0.004,
-    "permissive": true
+    "permissive": true,
+    "seamSafeBody": {
+      "ratio": 0.2,
+      "error": 0.002,
+      "permissive": false
+    }
   },
   "sourceUrl": "/miniatures/druk-light-1d344ee33b33.glb",
   "sourceSha256": "1d344ee33b33691fe35bda3dd5a85fce9086c578262b37153a54c6222637919f",
   "sourceBytes": 33989040,
   "sourceTriangles": 147925,
   "sourceGeometryBytes": 6212070,
-  "geometryBytes": 2325470,
-  "filename": "druk-battlefield-7148fc63d385.glb",
-  "sha256": "7148fc63d3852f06ae69f77cd1e76a82b266ac9e782f54d8b2e6a0b82ba0fae1",
-  "bytes": 31764836,
-  "triangles": 59021,
+  "geometryBytes": 2675474,
+  "filename": "druk-battlefield-bd287679d36e.glb",
+  "sha256": "bd287679d36e86c0b9bd17a099b708b3e7d49d85c208eafd873d02f797a3e957",
+  "bytes": 31999728,
+  "triangles": 67543,
   "baseCenter": [
     0.03537392616271973,
     -1.1119999885559082,
@@ -125,9 +130,15 @@
       ],
       "material": "Druk original-shape corrected body PBR",
       "before": 14701,
-      "after": 2845,
+      "after": 8381,
       "detail": false,
-      "actualError": 0.003897106507793069
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.0019891392439603806
     },
     {
       "nodes": [
@@ -138,6 +149,12 @@
       "after": 2,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
       "actualError": 0
     },
     {
@@ -146,9 +163,15 @@
       ],
       "material": "Druk manually mapped leather hand wraps",
       "before": 2088,
-      "after": 772,
+      "after": 1346,
       "detail": true,
-      "actualError": 0.003990073688328266
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.001996902283281088
     },
     {
       "nodes": [
@@ -156,9 +179,15 @@
       ],
       "material": "Druk manually mapped leather hand wraps",
       "before": 901,
-      "after": 515,
+      "after": 817,
       "detail": true,
-      "actualError": 0.003998712636530399
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.0019988168496638536
     },
     {
       "nodes": [
@@ -166,9 +195,15 @@
       ],
       "material": "Druk manually mapped leather hand wraps",
       "before": 1261,
-      "after": 727,
+      "after": 1155,
       "detail": true,
-      "actualError": 0.003988770302385092
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.0019849606323987246
     },
     {
       "nodes": [
@@ -176,9 +211,15 @@
       ],
       "material": "Druk formed satin-polished steel: unified pauldrons v24",
       "before": 1762,
-      "after": 1048,
+      "after": 1636,
       "detail": false,
-      "actualError": 0.0039049573242664337
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.0019482031930238008
     },
     {
       "nodes": [
@@ -186,9 +227,15 @@
       ],
       "material": "Druk formed satin-polished steel: unified pauldrons v24",
       "before": 795,
-      "after": 711,
+      "after": 783,
       "detail": false,
-      "actualError": 0.003706033108755946
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.001756700105033815
     },
     {
       "nodes": [
@@ -199,6 +246,12 @@
       "after": 114,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
       "actualError": 0
     },
     {
@@ -210,6 +263,12 @@
       "after": 481,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
       "actualError": 0
     },
     {
@@ -221,6 +280,12 @@
       "after": 23,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
       "actualError": 0
     },
     {
@@ -229,9 +294,15 @@
       ],
       "material": "Druk right chainmail sleeve - satin links, no plate glare",
       "before": 805,
-      "after": 507,
+      "after": 769,
       "detail": false,
-      "actualError": 0.003891762113198638
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.0019725076854228973
     },
     {
       "nodes": [
@@ -239,9 +310,15 @@
       ],
       "material": "Druk right chainmail sleeve - satin links, no plate glare",
       "before": 781,
-      "after": 333,
+      "after": 483,
       "detail": false,
-      "actualError": 0.003742052474990487
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.0019960354547947645
     },
     {
       "nodes": [
@@ -252,6 +329,12 @@
       "after": 199,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
       "actualError": 0
     },
     {
@@ -263,6 +346,12 @@
       "after": 211,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
       "actualError": 0
     },
     {
@@ -271,9 +360,15 @@
       ],
       "material": "Druk exposed arm skin - seam-safe matte olive",
       "before": 1747,
-      "after": 939,
+      "after": 1549,
       "detail": false,
-      "actualError": 0.003985235933214426
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.001996921841055155
     },
     {
       "nodes": [
@@ -283,6 +378,12 @@
       "before": 4038,
       "after": 2468,
       "detail": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0039852820336818695
     },
     {
@@ -293,6 +394,12 @@
       "before": 2783,
       "after": 1577,
       "detail": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0038749747909605503
     },
     {
@@ -303,6 +410,12 @@
       "before": 1426,
       "after": 1054,
       "detail": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003900786628946662
     },
     {
@@ -313,6 +426,12 @@
       "before": 502,
       "after": 502,
       "detail": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -324,6 +443,12 @@
       "after": 251,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -334,6 +459,12 @@
       "before": 3200,
       "after": 800,
       "detail": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.002926589921116829
     },
     {
@@ -345,6 +476,12 @@
       "after": 6728,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -356,6 +493,12 @@
       "after": 2352,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -367,6 +510,12 @@
       "after": 384,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -378,6 +527,12 @@
       "after": 384,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -389,6 +544,12 @@
       "after": 384,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -400,6 +561,12 @@
       "after": 384,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -411,6 +578,12 @@
       "after": 384,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -422,6 +595,12 @@
       "after": 384,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -433,6 +612,12 @@
       "after": 192,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -443,6 +628,12 @@
       "before": 966,
       "after": 244,
       "detail": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.00381774571724236
     },
     {
@@ -454,6 +645,12 @@
       "after": 45,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -465,6 +662,12 @@
       "after": 45,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -476,6 +679,12 @@
       "after": 45,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -487,6 +696,12 @@
       "after": 45,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -497,6 +712,12 @@
       "before": 1808,
       "after": 216,
       "detail": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0023900626692920923
     },
     {
@@ -508,6 +729,12 @@
       "after": 96,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -518,6 +745,12 @@
       "before": 3734,
       "after": 856,
       "detail": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0038931851740926504
     },
     {
@@ -528,6 +761,12 @@
       "before": 8264,
       "after": 990,
       "detail": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0022783696185797453
     },
     {
@@ -538,6 +777,12 @@
       "before": 3734,
       "after": 856,
       "detail": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0038931851740926504
     },
     {
@@ -548,6 +793,12 @@
       "before": 8264,
       "after": 990,
       "detail": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0022783696185797453
     },
     {
@@ -558,6 +809,12 @@
       "before": 512,
       "after": 238,
       "detail": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0032692376989871264
     },
     {
@@ -569,6 +826,12 @@
       "after": 12,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -579,6 +842,12 @@
       "before": 512,
       "after": 242,
       "detail": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0033089828211814165
     },
     {
@@ -590,6 +859,12 @@
       "after": 12,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -601,6 +876,12 @@
       "after": 3246,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -611,6 +892,12 @@
       "before": 59636,
       "after": 15886,
       "detail": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003996753599494696
     },
     {
@@ -622,6 +909,12 @@
       "after": 6107,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -633,6 +926,12 @@
       "after": 1140,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -644,10 +943,16 @@
       "after": 55,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     }
   ],
-  "elapsedMs": 406.3885,
+  "elapsedMs": 389.6002,
   "verified": {
     "texturesByteExact": true,
     "materialsPreserved": true,

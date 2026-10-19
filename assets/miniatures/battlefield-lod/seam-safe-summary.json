@@ -1,0 +1,54 @@
+{
+  "historicalAcceptedDruk": {
+    "triangles": 61202,
+    "source": "Low",
+    "bodyRatio": 0.2,
+    "error": 0.002,
+    "lockBorder": true,
+    "permissive": false
+  },
+  "models": [
+    {
+      "id": "druk",
+      "beforeTriangles": 59021,
+      "afterTriangles": 67543,
+      "beforeBytes": 1475284,
+      "afterBytes": 1710180,
+      "protectedPrimitivesExact": 35,
+      "texturesExact": true,
+      "bodyPolicy": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      }
+    },
+    {
+      "id": "varis",
+      "beforeTriangles": 74034,
+      "afterTriangles": 81756,
+      "beforeBytes": 1799740,
+      "afterBytes": 1985464,
+      "protectedPrimitivesExact": 77,
+      "texturesExact": true,
+      "bodyPolicy": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      }
+    },
+    {
+      "id": "vanec",
+      "beforeTriangles": 179963,
+      "afterTriangles": 179963,
+      "beforeBytes": 7005820,
+      "afterBytes": 7005820,
+      "protectedPrimitivesExact": 34,
+      "texturesExact": true,
+      "bodyPolicy": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      }
+    }
+  ]
+}

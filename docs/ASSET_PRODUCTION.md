@@ -490,3 +490,12 @@ plus the preset's High/Balanced/Low close tier for sufficiently large on-screen
 figures. Auto follows its
 resolved preset. Hidden figures preload only the coarse model; close-tier files
 are requested from projected model bounds inside the current camera viewport.
+
+Battlefield body reduction uses the accepted [seam-safe workflow](BATTLEFIELD_SEAM_SAFE_REDUCTION_2026_10_19.md):
+reduce from Low with ratio `0.2`, error `0.002`, locked borders and no Permissive
+flag on body primitives. Separate heads, hands, weapons and accessories keep
+their existing policies; texture bytes remain exact. The reduction script reads
+both standalone and shared-texture sources. The runtime manifest selects the
+repaired 67,543-triangle Druk and 81,756-triangle Varis; Vanec already used the
+safer body settings. The linked workflow includes regeneration, installation,
+shared delivery and validation commands.
