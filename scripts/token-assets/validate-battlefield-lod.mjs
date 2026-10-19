@@ -24,6 +24,9 @@ for(const model of manifest.models){
   for(const i of p.getIndices().getArray())assert(i<pos.getCount());triangles+=p.getIndices().getCount()/3;
  }
  assert.equal(triangles,model.triangles);assert(triangles<source.triangles);
+ const body=receipt.primitives.filter(p=>p.nodes.some(n=>/body/i.test(n))&&!p.preserved);
+ assert(body.length>0);
+ assert(body.every(p=>p.seamSafeBody&&p.reduction.ratio===.2&&p.reduction.error===.002&&p.reduction.permissive===false),'Battlefield bodies use the accepted seam-safe reduction');
  if(model.id==='vanec'){
   const head=receipt.primitives.filter(p=>p.nodes.some(n=>/head|face/i.test(n)));
   assert(head.length>0);assert(head.every(p=>p.preserved&&p.before===p.after),'Vanec head remains intact');

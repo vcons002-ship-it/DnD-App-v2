@@ -6,18 +6,23 @@
     "bodyRatio": 0.12,
     "detailRatio": 0.25,
     "error": 0.004,
-    "permissive": true
+    "permissive": true,
+    "seamSafeBody": {
+      "ratio": 0.2,
+      "error": 0.002,
+      "permissive": false
+    }
   },
   "sourceUrl": "/miniatures/varis-sharpened-weapons-ffc2a5072344.glb",
   "sourceSha256": "ffc2a507234437c4954f4ea61cd5e88fd249da27596d6b1b9a0937da6fa2a112",
   "sourceBytes": 16227716,
   "sourceTriangles": 203252,
   "sourceGeometryBytes": 8573598,
-  "geometryBytes": 2589548,
-  "filename": "varis-battlefield-f7cc36107994.glb",
-  "sha256": "f7cc36107994c122f994ad892179d6016608604d161bf940d9cc2f988097cfa5",
-  "bytes": 12521176,
-  "triangles": 74034,
+  "geometryBytes": 2863624,
+  "filename": "varis-battlefield-5d65d56a37a2.glb",
+  "sha256": "5d65d56a37a2230201a71fd593666fcd6cf7e37da6db49206a1d2c66a69caf41",
+  "bytes": 12706860,
+  "triangles": 81756,
   "baseCenter": [
     0.08445727825164795,
     -0.9991905093193054,
@@ -106,10 +111,15 @@
       ],
       "material": "",
       "before": 13946,
-      "after": 5038,
+      "after": 12760,
       "detail": false,
-      "preserved": false,
-      "actualError": 0.003981417044997215
+      "seamSafeBody": true,
+      "reduction": {
+        "ratio": 0.2,
+        "error": 0.002,
+        "permissive": false
+      },
+      "actualError": 0.0019527650438249111
     },
     {
       "nodes": [
@@ -119,7 +129,12 @@
       "before": 80389,
       "after": 20091,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0026294742710888386
     },
     {
@@ -130,7 +145,12 @@
       "before": 27855,
       "after": 6963,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0003170626296196133
     },
     {
@@ -142,6 +162,12 @@
       "after": 413,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -152,7 +178,12 @@
       "before": 4136,
       "after": 496,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0030097507406026125
     },
     {
@@ -163,7 +194,12 @@
       "before": 640,
       "after": 506,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0038773284759372473
     },
     {
@@ -175,6 +211,12 @@
       "after": 128,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -185,7 +227,12 @@
       "before": 1002,
       "after": 520,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003997937776148319
     },
     {
@@ -197,6 +244,12 @@
       "after": 44,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -207,7 +260,12 @@
       "before": 860,
       "after": 524,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003981312736868858
     },
     {
@@ -218,7 +276,12 @@
       "before": 600,
       "after": 72,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.001887293765321374
     },
     {
@@ -230,6 +293,12 @@
       "after": 40,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -241,6 +310,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -251,7 +326,12 @@
       "before": 1264,
       "after": 648,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.00395309180021286
     },
     {
@@ -263,6 +343,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -274,6 +360,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -284,7 +376,12 @@
       "before": 1352,
       "after": 644,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003940606024116278
     },
     {
@@ -296,6 +393,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -307,6 +410,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -317,7 +426,12 @@
       "before": 1332,
       "after": 666,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0039802840910851955
     },
     {
@@ -329,6 +443,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -340,6 +460,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -350,7 +476,12 @@
       "before": 1256,
       "after": 638,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003876236965879798
     },
     {
@@ -362,6 +493,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -373,6 +510,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -383,7 +526,12 @@
       "before": 1354,
       "after": 640,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003991351462900639
     },
     {
@@ -395,6 +543,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -406,6 +560,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -416,7 +576,12 @@
       "before": 1344,
       "after": 662,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003969511017203331
     },
     {
@@ -428,6 +593,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -439,6 +610,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -449,7 +626,12 @@
       "before": 1250,
       "after": 642,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0038608538452535868
     },
     {
@@ -461,6 +643,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -472,6 +660,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -482,7 +676,12 @@
       "before": 1360,
       "after": 642,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.00399433309212327
     },
     {
@@ -494,6 +693,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -505,6 +710,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -515,7 +726,12 @@
       "before": 1322,
       "after": 640,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003992211073637009
     },
     {
@@ -527,6 +743,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -538,6 +760,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -548,7 +776,12 @@
       "before": 1252,
       "after": 628,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0038791352417320013
     },
     {
@@ -560,6 +793,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -571,6 +810,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -581,7 +826,12 @@
       "before": 1354,
       "after": 666,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003946835640817881
     },
     {
@@ -593,6 +843,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -604,6 +860,12 @@
       "after": 64,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -614,7 +876,12 @@
       "before": 1356,
       "after": 658,
       "detail": false,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0039575956761837006
     },
     {
@@ -626,6 +893,12 @@
       "after": 448,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -637,6 +910,12 @@
       "after": 46,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -648,6 +927,12 @@
       "after": 58,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.12,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -658,7 +943,12 @@
       "before": 4968,
       "after": 2472,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003989351913332939
     },
     {
@@ -669,7 +959,12 @@
       "before": 734,
       "after": 734,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -680,7 +975,12 @@
       "before": 1157,
       "after": 667,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003995561972260475
     },
     {
@@ -691,7 +991,12 @@
       "before": 2456,
       "after": 964,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003864038037136197
     },
     {
@@ -702,7 +1007,12 @@
       "before": 2398,
       "after": 934,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003937099128961563
     },
     {
@@ -713,7 +1023,12 @@
       "before": 911,
       "after": 879,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0038250519428402185
     },
     {
@@ -724,7 +1039,12 @@
       "before": 899,
       "after": 869,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0038423603400588036
     },
     {
@@ -735,7 +1055,12 @@
       "before": 2518,
       "after": 1020,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003666038392111659
     },
     {
@@ -746,7 +1071,12 @@
       "before": 2527,
       "after": 997,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003632777603343129
     },
     {
@@ -757,7 +1087,12 @@
       "before": 1009,
       "after": 971,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0027233492583036423
     },
     {
@@ -768,7 +1103,12 @@
       "before": 992,
       "after": 938,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.00245015905238688
     },
     {
@@ -779,7 +1119,12 @@
       "before": 5187,
       "after": 2675,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003968007396906614
     },
     {
@@ -790,7 +1135,12 @@
       "before": 734,
       "after": 734,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -801,7 +1151,12 @@
       "before": 4329,
       "after": 1683,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003987117670476437
     },
     {
@@ -812,7 +1167,12 @@
       "before": 1612,
       "after": 442,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0011802689405158162
     },
     {
@@ -823,7 +1183,12 @@
       "before": 4368,
       "after": 1640,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003974519670009613
     },
     {
@@ -834,7 +1199,12 @@
       "before": 1544,
       "after": 398,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003262559650465846
     },
     {
@@ -845,7 +1215,12 @@
       "before": 1557,
       "after": 1205,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003662186674773693
     },
     {
@@ -856,7 +1231,12 @@
       "before": 1489,
       "after": 1197,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003978753928095102
     },
     {
@@ -867,7 +1247,12 @@
       "before": 2521,
       "after": 747,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003733285702764988
     },
     {
@@ -879,6 +1264,12 @@
       "after": 13,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -889,7 +1280,12 @@
       "before": 2507,
       "after": 775,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003951328806579113
     },
     {
@@ -900,7 +1296,12 @@
       "before": 725,
       "after": 663,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0022703639697283506
     },
     {
@@ -912,6 +1313,12 @@
       "after": 5,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -922,7 +1329,12 @@
       "before": 871,
       "after": 751,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.0028821725863963366
     },
     {
@@ -934,6 +1346,12 @@
       "after": 5,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0
     },
     {
@@ -944,7 +1362,12 @@
       "before": 1539,
       "after": 383,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003677979577332735
     },
     {
@@ -955,11 +1378,16 @@
       "before": 1580,
       "after": 416,
       "detail": true,
-      "preserved": false,
+      "seamSafeBody": false,
+      "reduction": {
+        "ratio": 0.25,
+        "error": 0.004,
+        "permissive": true
+      },
       "actualError": 0.003900827607139945
     }
   ],
-  "elapsedMs": 402.28749999999997,
+  "elapsedMs": 438.13490000000013,
   "verified": {
     "texturesByteExact": true,
     "materialsPreserved": true,
