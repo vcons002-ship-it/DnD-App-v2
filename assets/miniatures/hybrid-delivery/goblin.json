@@ -1,0 +1,126 @@
+{
+  "policy": "lossless-delivery-v1",
+  "applied": true,
+  "sourceBytes": 6331976,
+  "bytes": 3681916,
+  "bytesSaved": 2650060,
+  "savingPercent": 41.85202218075369,
+  "sha256": "c1712d0061992b750f4af621b798035941e5e48748e02a6af6f2222285017265",
+  "textures": [
+    {
+      "index": 0,
+      "sourceBytes": 1049843,
+      "sourceSha256": "5f5c96a62586be6a4586522b291824ba4b95e2250a0b23977dfc0496cc0f05c5",
+      "sourceMime": "image/jpeg",
+      "bytes": 1049843,
+      "sha256": "5f5c96a62586be6a4586522b291824ba4b95e2250a0b23977dfc0496cc0f05c5",
+      "mime": "image/jpeg",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "938f410b2a330471bb0591ec96025c8a3294ae3c520f049c28ad3d9e416a0fb4"
+      }
+    },
+    {
+      "index": 1,
+      "sourceBytes": 4622695,
+      "sourceSha256": "b6ba55226635ca0b3bfcf0c1c6a4b2f03d114348ff86c4bba8def71c75de7563",
+      "sourceMime": "image/png",
+      "bytes": 2199434,
+      "sha256": "c5988f25069de57c8a57ea1f78979649c81dbb6e9d00b48e2b3281162f65e9c0",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "9ee0f6fa3775ff9baffb04d0a3d51f2d400395b078dbde4105b471658a02807c"
+      }
+    }
+  ],
+  "geometry": [
+    {
+      "mesh": "textured.obj",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 0,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 19988,
+      "sha256": "2a7d6c57257024305a90d9d4e7fa21dea0f48a81e11ab23a4d84390efe97479f"
+    },
+    {
+      "mesh": "Cylinder",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 1,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 764,
+      "sha256": "22370d3773b4584a611a7183652e16e4bdd7b501590757730fef9f062df5218c"
+    }
+  ],
+  "verified": {
+    "triangleCornerAttributesExact": true,
+    "decodedTexturePixelsExact": true,
+    "sceneAndMaterialsExact": true,
+    "noQuantization": true,
+    "noSimplification": true,
+    "noTextureResizing": true
+  },
+  "sourceSha256": "b1510f29149d1c98d6f9f6924cfab243c668ec779b6b83f8f179d6223a013b84",
+  "sourceAsset": "/uploads/miniatures/uploaded-92d7962d-b1510f29149d.glb",
+  "sourceWorkflow": "hybrid-2mv-21-v1",
+  "sourceFamily": "goblin",
+  "sourceVariant": "hybrid",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "replaces": {
+    "url": "/miniatures/monsters/goblin.glb",
+    "sha256": "53cc93ff11c1f5d71badf9b5ed931dbfe3bcf9b4a77ed8850782c7140417fa2e"
+  }
+}

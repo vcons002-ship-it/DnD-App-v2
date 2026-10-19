@@ -257,6 +257,72 @@ hands, weapons, back views, texture seams, final GLB size and generation time.
 
 ## Validation
 
+### Lossless model delivery (18 October 2026)
+
+The final `package.mjs` step now applies `lossless-delivery-v1` to every newly
+generated creature or character, **after** Blender fits the base and the original
+finished textures are restored. This avoids Blender undoing delivery compression.
+
+- Untagged 8-bit PNG textures, including metallic/roughness maps, are tested with
+  optimized PNG and lossless WebP. Only a smaller candidate with identical decoded
+  RGBA pixels and dimensions is accepted. Existing JPEG images are not recompressed;
+  tagged profiles and unsupported encodings are preserved.
+- Meshopt losslessly encodes the existing triangle data. Identical vertices can be
+  merged and triangles reordered; no geometry is simplified or quantized. Every
+  triangle corner's attributes and winding are checked after decoding. Scene
+  transforms, materials, texture pixels and the base placement must remain exact.
+- The finished file is reloaded before publication. Tiny files that would grow
+  retain their previous encoding. A failed verification fails that production
+  attempt rather than publishing an unverified model.
+- Each job keeps `model.glb.compression.json` with the size saving, texture hashes
+  and preservation checks. Catalog byte counts and SHA-256 identify the actual
+  compressed file. The existing battlefield loader already supports Meshopt and
+  `EXT_texture_webp`; no external decoder download or new dependency is required.
+
+This is lossless **relative to the already finished 20k/2K asset**. The earlier
+geometry reduction and color JPEG preparation still use their approved settings.
+Existing catalog files and user uploads are not automatically rewritten.
+
+The approved elf-paladin comparison reduced its 6,308,148-byte GLB to 3,980,604
+bytes (36.9%). Of that saving, 2,094,400 bytes came from lossless material-texture
+encoding and 233,144 bytes from mesh encoding. Both retain 20k triangles, all
+decoded texture pixels and the same PBR response. An interactive lighting preview
+verified daylight, lanterns, colored lights, rotation and spell flashes. This
+measurement is for that comparison asset; savings depend on each model's data.
+
+Focused checks: `npm run test -w server -- --run tools/asset-production/lossless_delivery.test.mjs`.
+
+### Existing hybrid replacements (18 October 2026)
+
+The reviewed hybrid goblin, skeleton, wolf, bandit and dragon now replace their
+five bundled defaults. Family IDs and the existing alternate sculpts stay intact.
+The approved stronger crease treatment is retained on wolf, bandit and dragon;
+compression does not apply another color or geometry edit. The skeleton retains
+its reviewed recovered multiview shape; it is not regenerated with different
+geometry settings during this delivery change.
+
+| Hybrid asset | Before compression | Delivery copy |
+| --- | ---: | ---: |
+| Goblin | 6.33 MB | 3.68 MB |
+| Skeleton | 6.48 MB | 3.88 MB |
+| Wolf | 6.34 MB | 3.82 MB |
+| Bandit | 7.11 MB | 4.07 MB |
+| Dragon | 7.60 MB | 4.62 MB |
+| Elf paladin / Liz | 6.33 MB | 3.99 MB |
+
+The six reviewed hybrid assets total about 40.19 MB before and 24.05 MB after
+compression. This compares the hybrid models, rather than their older single-map
+material predecessors. Five receipt files under `assets/miniatures/hybrid-delivery`
+are checked against the bundled assets during every client build: decoded texture
+pixels, exact triangle-corner geometry, bytes and SHA-256 must match. Filenames
+include content hashes so clients cannot keep using a cached previous model.
+
+Liz's approved hybrid elf was installed through the character upload endpoint in
+the existing mobile test session, preserving her sheet, icon and other character
+data. Its uploaded family and compressed file live in the host's upload catalog,
+as other custom character models do; `liz.json` records the source and result.
+The installed service/main campaign is not changed by this asset-development step.
+
 ### Pedestal contact in the battlefield
 
 The shared pewter-base renderer measures the original support surface and moves
@@ -389,3 +455,38 @@ reference as 2D fallback art and source views/receipts under
 The sculpt's equipment is cosmetic; it does not grant extra attacks or AC.
 The `starter-creature-imp-v1` migration adds this entry once, preserves existing
 stats, and fills missing appearance fields from older app versions.
+
+## Shared character textures (18 October 2026)
+
+The bundled Druk, Varis and Vanec geometry tiers now reference content-addressed
+images under `/miniatures/textures/`. Each distinct encoded image is delivered
+once, with exactly the same resolution and bytes as before. Geometry stays in
+GLB files, including Meshopt data, materials, transforms and Vanec's animations.
+Generated/uploaded models remain standalone GLBs.
+
+Run `node scripts/token-assets/share-character-textures.mjs` after installing a
+new reviewed character tier batch. It is idempotent. The build validates all
+three manifests and the shared files against receipts in
+`assets/miniatures/shared-textures/`. Each receipt can reconstruct its original
+standalone GLB byte for byte; earlier compression/reduction receipts keep their
+original source hashes as provenance.
+
+For a standalone Blender/export copy:
+
+```powershell
+node scripts/token-assets/export-character-model.mjs druk high exported-druk.glb
+```
+
+This restores the exact original embedded-image GLB. It refuses to overwrite an
+existing output file. Deploy/copy the shared `textures` folder along with the new
+GLBs; a geometry GLB on its own is not a standalone export.
+
+See [storage and model detail measurements](CHARACTER_SHARED_TEXTURES_2026_10_18.md)
+for sizes, hardware tests and the decision to retain zoom-based detail.
+
+Character loading now uses [two tiers per preset](TWO_TIER_MINIATURES_2026_10_18.md):
+Low at distance/off-screen for High/Balanced, or Battlefield for Low graphics,
+plus the preset's High/Balanced/Low close tier for sufficiently large on-screen
+figures. Auto follows its
+resolved preset. Hidden figures preload only the coarse model; close-tier files
+are requested from projected model bounds inside the current camera viewport.

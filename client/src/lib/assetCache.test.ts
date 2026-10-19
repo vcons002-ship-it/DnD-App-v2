@@ -54,3 +54,14 @@ it('keeps only the newest few videos',async()=>{
  for(let i=0;i<8;i++)await sw.call(`/uploads/map-${i}.mp4`,'bytes=0-');
  expect([...sw.entries.keys()].map(u=>new URL(u).pathname)).toEqual([2,3,4,5,6,7].map(i=>`/uploads/map-${i}.mp4`));
 });
+
+it('reuses content-addressed character textures across detail tiers and maps',async()=>{
+ const sw=worker(()=>new Response('identical encoded texture',{headers:{'content-type':'image/webp'}}));
+ const texture='/miniatures/textures/'+ 'a'.repeat(64)+'.webp';
+ expect((await sw.call(texture)).text).toBe('identical encoded texture');
+ // The next tier and next map request the same URI, not a GLB-specific copy.
+ expect((await sw.call(texture)).text).toBe('identical encoded texture');
+ expect((await sw.call(texture)).text).toBe('identical encoded texture');
+ expect(sw.fetch).toHaveBeenCalledTimes(1);
+ expect(sw.entries.size).toBe(1);
+});

@@ -3,53 +3,63 @@
   "models": [
     {
       "id": "goblin",
-      "url": "/miniatures/monsters/goblin.glb",
+      "url": "/miniatures/monsters/goblin-hybrid-c1712d006199.glb",
       "baseDiameter": 1,
       "baseCenter": [
         0,
         0,
         0
       ],
-      "triangles": 20764,
-      "bytes": 1792308,
-      "sha256": "53cc93ff11c1f5d71badf9b5ed931dbfe3bcf9b4a77ed8850782c7140417fa2e",
-      "sourceSha256": "14d2b4ca6191cc82f5742c73f8bab43957154e3ffed4b51aed9816c9f36e53e8",
-      "texture": "2048x2048 JPEG95",
+      "triangles": 20752,
+      "bytes": 3681916,
+      "sha256": "c1712d0061992b750f4af621b798035941e5e48748e02a6af6f2222285017265",
+      "sourceSha256": "b1510f29149d1c98d6f9f6924cfab243c668ec779b6b83f8f179d6223a013b84",
+      "texture": "2048x2048 color + PBR; verified lossless delivery",
       "policy": "monster-reduction-v1",
-      "sourceViewCount": 1
+      "sourceViewCount": 4,
+      "deliveryPolicy": "lossless-delivery-v1",
+      "deliveryReceipt": "assets/miniatures/hybrid-delivery/goblin.json",
+      "sourceWorkflow": "hybrid-2mv-21-v1"
     },
     {
       "id": "skeleton",
-      "url": "/miniatures/monsters/skeleton.glb",
+      "url": "/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb",
       "baseDiameter": 1,
       "baseCenter": [
         0,
         0,
         0
       ],
-      "triangles": 20764,
-      "bytes": 1753732,
-      "sha256": "4ed995748e8eee47d514f5e0fce7a8522f2afc353826d6d59cabba35a856ead4",
-      "sourceSha256": "41addea33cd3e039460a6e8f9e27624393beed2b96549746862bef2d671aeffe",
-      "texture": "2048x2048 JPEG95",
+      "triangles": 20256,
+      "bytes": 3880172,
+      "sha256": "0df09092cecb075116f60de3c475929ce959ab5e0b1fc08c8d3212eed4c91ccf",
+      "sourceSha256": "9e6f7001760fc7a528c24593a1313d1e919c02c68d9a312898dd365e99e9523b",
+      "texture": "2048x2048 color + PBR; verified lossless delivery",
       "policy": "monster-reduction-v1",
-      "sourceViewCount": 1
+      "sourceViewCount": 4,
+      "deliveryPolicy": "lossless-delivery-v1",
+      "deliveryReceipt": "assets/miniatures/hybrid-delivery/skeleton.json",
+      "sourceWorkflow": "hybrid-2mv-21-v1"
     },
     {
       "id": "wolf",
-      "url": "/miniatures/monsters/wolf.glb",
+      "url": "/miniatures/monsters/wolf-hybrid-2e6887e31231.glb",
       "baseDiameter": 1,
       "baseCenter": [
         0,
         0,
         0
       ],
-      "triangles": 20764,
-      "bytes": 1388464,
-      "sha256": "d3e746af646302daac083a93abb61ceae1419bd6e640e5c28b6a51c053960f0b",
-      "sourceSha256": "ad53e91d73340fdc5dc25e3069b3ee7ede54c9bb668cb1a89afd7cbe2322a539",
-      "texture": "2048x2048 JPEG95",
-      "policy": "monster-reduction-v1"
+      "triangles": 20726,
+      "bytes": 3822428,
+      "sha256": "2e6887e31231c3b2927ecb053b942c7512ada045608474236ee53aa620924ab6",
+      "sourceSha256": "356fa012025fd4f9c39b410639ae55534d713c5fe0fcb5e63f8fefe0d3d649e3",
+      "texture": "2048x2048 color + PBR; verified lossless delivery",
+      "policy": "monster-reduction-v1",
+      "sourceViewCount": 4,
+      "deliveryPolicy": "lossless-delivery-v1",
+      "deliveryReceipt": "assets/miniatures/hybrid-delivery/wolf.json",
+      "sourceWorkflow": "hybrid-2mv-21-v1"
     },
     {
       "id": "dwarf-warrior",
@@ -104,25 +114,28 @@
     },
     {
       "id": "human-bandit",
-      "url": "/miniatures/monsters/human-bandit.glb",
+      "url": "/miniatures/monsters/human-bandit-hybrid-f80b0aef3b0b.glb",
       "baseDiameter": 1,
       "baseCenter": [
         0,
         0,
         0
       ],
-      "triangles": 18622,
-      "bytes": 1526248,
-      "sha256": "36fb6a34e31a6cd2c5090167fcc13cd8c642c833bed8fc465d3641a79989b6ce",
-      "sourceSha256": "2a5378352bffacb5fe451d8da1ede1cb667cb9c9568ec2335a24d9a17fe81214",
-      "texture": "2048x2048 JPEG95",
+      "triangles": 20764,
+      "bytes": 4066416,
+      "sha256": "f80b0aef3b0b8136c2d68a6beb19eaaa6f9edd36923faec30eb143797d1c9938",
+      "sourceSha256": "32ff74c043e73514892972ccfed9e8ee6b111e190a4e08db2a0d2d1eb301d414",
+      "texture": "2048x2048 color + PBR; verified lossless delivery",
       "policy": "monster-reduction-v1",
-      "sourceViewCount": 1,
+      "sourceViewCount": 4,
       "cleanup": {
         "sourceRuntimeSha256": "c97a99c8e073a1d52181e19a9cff0955413981928e5598a1e4ef738746a17418",
         "removedTriangles": 2142,
         "description": "Removed near-ground white reconstruction remnants below boots; original body texture and base preserved."
-      }
+      },
+      "deliveryPolicy": "lossless-delivery-v1",
+      "deliveryReceipt": "assets/miniatures/hybrid-delivery/human-bandit.json",
+      "sourceWorkflow": "hybrid-2mv-21-v1"
     },
     {
       "id": "human-commoner",
@@ -279,20 +292,23 @@
     },
     {
       "id": "dragon",
-      "url": "/miniatures/monsters/dragon.glb",
-      "baseDiameter": 0.96,
+      "url": "/miniatures/monsters/dragon-hybrid-9948211a73df.glb",
+      "baseDiameter": 1,
       "baseCenter": [
         0,
         0,
         0
       ],
-      "triangles": 20764,
-      "bytes": 1558356,
-      "sha256": "603fdc856cb40e84af315581260d4d8efa39d1bf692738288ed6526333401c57",
-      "sourceSha256": "ae1591ca23a78aa87f504269a934797183de530534a20a8a1722905aee4ea445",
-      "texture": "2048x2048 JPEG95",
+      "triangles": 20760,
+      "bytes": 4617000,
+      "sha256": "9948211a73df9ea0c8a7f94a24f15f6d3bc6f69c926417503196cd92e1dc6faf",
+      "sourceSha256": "d37ce897c67aa585767060538b49fd8e11ebd05e98275c3fde1b64abf966d4a3",
+      "texture": "2048x2048 color + PBR; verified lossless delivery",
       "policy": "monster-reduction-v1",
-      "sourceViewCount": 4
+      "sourceViewCount": 4,
+      "deliveryPolicy": "lossless-delivery-v1",
+      "deliveryReceipt": "assets/miniatures/hybrid-delivery/dragon.json",
+      "sourceWorkflow": "hybrid-2mv-21-v1"
     },
     {
       "id": "dwarf-commoner",

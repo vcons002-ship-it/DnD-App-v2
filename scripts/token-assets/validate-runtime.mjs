@@ -1,4 +1,4 @@
-/** Verify the actual self-contained files shipped by the VTT client. */
+/** Verify shipped geometry and every exact shared character texture. */
 import './validate-monsters.mjs';
 import './validate-objects.mjs';
 import assert from 'node:assert/strict';
@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import {verifySharedDelivery,imagePayload} from './shared-character-textures.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const directory = path.join(root, 'client/public/miniatures');
@@ -34,8 +35,9 @@ for (const model of manifest.models) {
   assert.equal(digest(receiptBytes),model.optimizationReceiptSha256);
   const receipt=JSON.parse(receiptBytes);
   assert.equal(receipt.id,model.id);
-  assert.equal(receipt.sha256,model.sha256);
-  assert.equal(receipt.bytes,model.bytes);
+  const sourceDelivery=verifySharedDelivery(model,root);
+  assert.equal(receipt.sha256,sourceDelivery.sha256);
+  assert.equal(receipt.bytes,sourceDelivery.bytes);
   for(const check of ['triangleCornerAttributesExact','decodedTexturePixelsExact','sceneAndMaterialsExact','animationDataExact','noQuantization','noSimplification','noTextureResizing'])assert.equal(receipt.verified[check],true,check);
   const bytes = verifyFile(model);
   assert.equal(bytes.toString('ascii', 0, 4), 'glTF', 'Run git lfs pull if an asset is a pointer.');
@@ -57,7 +59,7 @@ for (const model of manifest.models) {
   assert(gltf.bufferViews.some(view => view.extensions?.EXT_meshopt_compression),
     'The advertised lossless delivery compression must exist in the GLB.');
   assert(gltf.buffers.every(buffer => !buffer.uri), 'Runtime GLBs must not load external buffers.');
-  assert(gltf.images.every(image => image.bufferView !== undefined && !image.uri));
+  assert(gltf.images.every(image => image.bufferView !== undefined || (model.sharedTextureReceipt && /^textures\/[a-f0-9]{64}\.(webp|png|jpg)$/.test(image.uri))));
   assert.equal(gltf.skins?.length ?? 0, 0);
   assert(model.baseDiameter > 0 && Number.isFinite(model.baseDiameter));
   assert.equal(model.baseCenter.length, 3);
@@ -72,14 +74,11 @@ for (const model of manifest.models) {
   assert(count > 0);
   assert.equal(count, model.sourceTriangles, 'The approved full-detail geometry must be retained.');
   assert.equal(model.originalTextures, true, 'The approved texture resolution must be retained.');
-  const binaryOffset = 20 + bytes.readUInt32LE(12) + 8;
   assert.equal(model.sourceImageHashes.length, gltf.images.length);
   assert.equal(model.runtimeImageHashes.length, gltf.images.length);
   assert.equal(receipt.textures.length, gltf.images.length);
   for (const [index,image] of gltf.images.entries()) {
-    const view = gltf.bufferViews[image.bufferView];
-    const start = binaryOffset + (view.byteOffset ?? 0);
-    const payload=bytes.subarray(start,start+view.byteLength);
+    const payload=imagePayload(bytes,index,model.url,root);
     assert.equal(digest(payload),model.runtimeImageHashes[index]);
     assert.equal(receipt.textures[index].sourceSha256,model.sourceImageHashes[index]);
     const {data,info}=await sharp(payload).ensureAlpha().raw().toBuffer({resolveWithObject:true});

@@ -3309,6 +3309,20 @@ See [Animated maps](docs/ANIMATED_MAPS.md).
 
 ## Hybrid miniature pipeline (17 October 2026)
 
+- [x] Compressed the six reviewed hybrid assets (40.19 MB to 24.05 MB total) and
+  replaced bundled goblin, skeleton, wolf, bandit and dragon defaults with their
+  verified delivery copies. Stable family IDs preserve existing assignments;
+  content-hashed URLs avoid stale model caches. Liz's existing mobile test hero
+  now uses the approved compressed hybrid elf. Runtime receipts validate decoded
+  texture pixels and triangle-corner geometry; alternate sculpts remain available.
+
+- [x] Added the accepted lossless delivery pass after base fitting for newly
+  generated character and creature models. PNG/WebP candidates must preserve
+  decoded pixels exactly; Meshopt preserves triangle-corner attributes without
+  quantization or further simplification. Reload validation, size/hash receipts
+  and the pipeline contract smoke cover final publication. The elf paladin
+  comparison shrank from 6.31 MB to 3.98 MB (36.9%); existing models are unchanged.
+
 The app producer uses automatically aligned four-view Hunyuan 2mv geometry
 (75 steps, guidance 5.5) followed by four-reference Hunyuan 2.1 PBR painting.
 Verified stage receipts support retry without regenerating completed geometry.
@@ -3328,3 +3342,28 @@ in place. See `docs/ASSET_PRODUCTION.md` for worker setup and exact settings.
   35% local cap (3.24% mean on the dragon), preserving geometry and PBR data maps.
   New app-generated models now include it. Wolf and bandit comparisons passed;
   existing-alpha preservation is regression-tested against the red-ear artifact.
+
+- Character loading requests only the distant tier plus the resolved preset's
+  close tier, with camera-frustum and fog visibility checks before detail loads.
+  High-preset benchmarks on AMD integrated graphics and RTX 5090 confirm useful
+  distant-geometry savings on integrated; see
+  [two-tier model results](docs/TWO_TIER_MINIATURES_2026_10_18.md).
+
+- Close character art prepares during camera zoom, with GPU buffer warmup and
+  reuse of coarse planning silhouettes. Prepared tiers are reused on-screen;
+  downgrade dwell reduces rapid reversal swaps without rendering both bodies.
+  See [zoom transition tests](docs/LOD_ZOOM_PREPARATION_2026_10_18.md).
+
+- Visual review raised the distant-model floor to Low for High/Balanced graphics;
+  only Low graphics uses the more reduced Battlefield sculpt. Two-tier downloads,
+  viewport gating, early preparation and rapid-zoom reuse remain in place.
+
+
+### Approved Druk model (19 October 2026)
+
+- [x] Ship v29 body/armor textures, shin-matched pauldrons, strap-brown leather
+  wraps and the small left-hand alignment correction as Druk's default.
+- [x] Rebuild High, Balanced, Low and Battlefield delivery assets from the same
+  approved revision; preserve shared immutable texture URLs across tiers.
+- [x] Verify exact full-detail geometry/materials and decoded texture pixels,
+  reduced-tier receipts, and both DM/player loading in a disposable live game.

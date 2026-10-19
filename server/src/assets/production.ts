@@ -114,6 +114,7 @@ export async function produceAsset(job: AssetJob, progress: (stage: string) => v
   await runWorker(process.execPath, [path.join(scripts, 'reduce.mjs'), practical, reduced], log,undefined,signal);
   progress('Fitting base and validating model');
   await runWorker(blender, ['--background', '--python', path.join(scripts, 'prepare_base.py'), '--', path.join(reduced, 'model.glb'), based, job.family, String(productionTargetHeight(job))], log,undefined,signal);
+  progress('Applying verified lossless texture and mesh compression');
   const output = path.join(attempt, 'model.glb');
   await runWorker(process.execPath, [path.join(scripts, 'package.mjs'), path.join(reduced, 'model.glb'), path.join(based, `${job.family}-board-source.glb`), output, job.family], log,undefined,signal);
   const model = JSON.parse(await fs.readFile(path.join(attempt, 'model.json'), 'utf8')) as ProducedMiniature;

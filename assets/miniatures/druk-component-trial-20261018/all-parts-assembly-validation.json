@@ -1,0 +1,13 @@
+{
+  "bytes": 50475196,
+  "sha256": "02485885be875535e74680f70e56567b80f95b871fc6f882f0c6d1adb6e04f04",
+  "changedParts": [
+    "Druk_Natural_Multiview_Head",
+    "DrukV9_Lowered_Right_Hand",
+    "DrukV9_Lowered_Left_Hand"
+  ],
+  "unchangedSwordAndAccessories": true,
+  "allNodeTransformsUnchanged": true,
+  "originalDataStillByteExact": true,
+  "bodyOnlyTrialUnchanged": true
+}

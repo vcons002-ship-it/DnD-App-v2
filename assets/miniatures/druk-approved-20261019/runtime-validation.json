@@ -1,0 +1,69 @@
+{
+  "approvedSourceSha256": "c6e4f267253b2a48efd53d40b235535aace62b7076485a3378de4359171bf497",
+  "typecheckPassed": true,
+  "unitTestsPassed": 2299,
+  "unitFilesPassed": 225,
+  "productionBuildPassed": true,
+  "browserSmokeTestsPassed": 8,
+  "liveRuntime": [
+    {
+      "role": "dm",
+      "status": "ready",
+      "activeModelUrls": [
+        "/miniatures/druk-high-shared-fb24aaa49290.glb"
+      ],
+      "loadedModels": [
+        {
+          "url": "http://127.0.0.1:4389/miniatures/druk-low-shared-497965d8af51.glb",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4389/miniatures/objects/death-skull-c1d9470a2def.glb",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4389/miniatures/vanec-low-shared-d1371882ee98.glb",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4389/miniatures/varis-low-shared-d32ee1a9b014.glb",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4389/miniatures/druk-high-shared-fb24aaa49290.glb",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "role": "player",
+      "status": "ready",
+      "activeModelUrls": [
+        "/miniatures/druk-high-shared-fb24aaa49290.glb"
+      ],
+      "loadedModels": [
+        {
+          "url": "http://127.0.0.1:4389/miniatures/druk-low-shared-497965d8af51.glb",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4389/miniatures/objects/death-skull-c1d9470a2def.glb",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4389/miniatures/vanec-low-shared-d1371882ee98.glb",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4389/miniatures/varis-low-shared-d32ee1a9b014.glb",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4389/miniatures/druk-high-shared-fb24aaa49290.glb",
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "browserErrors": []
+}

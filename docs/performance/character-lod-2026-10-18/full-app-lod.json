@@ -1,0 +1,230 @@
+{
+  "method": "Actual player MapStage and socket state in disposable 30-token campaign, 23 walls, 6 lights, 3 lanterns, heavy darkness, 8-foot mist65%, rain/embers, Balanced. 1440x960 DPR1 on verified AMD iGPU. Four ABBA loads; each has a stationary and movement 9-second rendered-frame and RAF sample. Warmed 10s. No recording.",
+  "results": [
+    {
+      "mode": "zoom",
+      "movement": false,
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "fps": 49.99333422216993,
+      "rafFps": 154.64604719391232,
+      "frameMs": {
+        "p50": 7.099999999998545,
+        "p95": 12
+      },
+      "modelLods": "{\"dbba540d-70eb-46ad-a48c-2e009a620885\":\"battlefield\",\"c7d5c2cc-3f59-4523-855c-464a8ba572b2\":\"battlefield\",\"f64a2a02-f995-4b5d-a550-e3334d9ba203\":\"battlefield\",\"16c93978-aba7-4036-86bc-b37cc1d43645\":\"battlefield\",\"f23d98f2-c612-4878-81fb-8b5cc1d53a97\":\"battlefield\",\"0d612a59-1314-4c77-95b3-60871fe73ae7\":\"battlefield\",\"4bf37b45-9f23-4315-8c5f-fc67375ebed3\":\"battlefield\",\"99ec3b27-576f-46cd-8bad-54ae6c2e8b31\":\"battlefield\",\"7764e8d1-d334-4f19-b86b-c04b721f3a2e\":\"battlefield\",\"de696b5d-ec87-4322-b3b2-fcc9951a6842\":\"battlefield\",\"5f9108c8-9a5f-448a-9757-4c8b883e5431\":\"battlefield\",\"becec829-9f99-42fb-8c08-2dfc80a05cb3\":\"battlefield\",\"7b2767ea-46ba-4334-bca2-ba4c77eca1a2\":\"battlefield\",\"d33ef9f4-49b9-48fc-a201-25190b14d496\":\"battlefield\",\"c49eacb3-737d-400c-8de9-43fa900e5055\":\"battlefield\",\"605eb7a8-a0db-4cb7-abaf-c34c5415acf4\":\"battlefield\",\"173e1e88-f4ff-4a95-88fa-b594cdc58a2f\":\"battlefield\",\"43a020a3-f092-4c6a-8036-daaa5d707d31\":\"battlefield\",\"72f565a7-8729-403f-8ae8-e9961ef23d8e\":\"battlefield\",\"cad4d91e-5609-4c46-983f-d84c6dc7c81e\":\"battlefield\",\"004ec6d3-4be2-4ce8-a3f0-8e25d7ef4590\":\"battlefield\",\"7116a768-3d46-4ecd-8bf7-1334211f5509\":\"battlefield\",\"a73594a9-7458-492e-9dbb-5decd11fa472\":\"battlefield\",\"8c5730b8-0664-4371-afeb-65e4d9b1d5ff\":\"battlefield\",\"7804264e-c9da-488f-b3b7-2a5b90cb89f5\":\"battlefield\",\"8fbbf26a-4d6e-4b43-bb67-e68c2790015c\":\"battlefield\",\"a7139a87-ea8f-4035-a712-082b4048e822\":\"battlefield\",\"6a2287f7-71d4-4890-b30d-6cc8802eb0b8\":\"battlefield\"}",
+      "triangles": "690342",
+      "miniatures": "28",
+      "mist": "low",
+      "graphics": "balanced",
+      "diagnostics": {
+        "tiltDegrees": "45",
+        "modelUrls": "[\"/miniatures/druk-battlefield-shared-9412d5a70d4c.glb\",\"/miniatures/varis-battlefield-shared-0fbc946e253e.glb\",\"/miniatures/vanec-battlefield-shared-610d4beb37bb.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\"]",
+        "visionComposite": "gpu",
+        "renderCount": "969",
+        "frameCount": "969",
+        "lightCount": "9",
+        "mistHeight": "80",
+        "mistResolution": "360x224",
+        "activeModelUrls": "[\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/druk-battlefield-shared-9412d5a70d4c.glb\",\"/miniatures/varis-battlefield-shared-0fbc946e253e.glb\",\"/miniatures/vanec-battlefield-shared-610d4beb37bb.glb\"]",
+        "renderFps": "50.0"
+      }
+    },
+    {
+      "mode": "zoom",
+      "movement": true,
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "fps": 44.635917479247226,
+      "rafFps": 50.29868312959949,
+      "frameMs": {
+        "p50": 16.099999999998545,
+        "p95": 35.400000000001455
+      },
+      "modelLods": "{\"dbba540d-70eb-46ad-a48c-2e009a620885\":\"battlefield\",\"c7d5c2cc-3f59-4523-855c-464a8ba572b2\":\"battlefield\",\"f64a2a02-f995-4b5d-a550-e3334d9ba203\":\"battlefield\",\"16c93978-aba7-4036-86bc-b37cc1d43645\":\"battlefield\",\"f23d98f2-c612-4878-81fb-8b5cc1d53a97\":\"battlefield\",\"0d612a59-1314-4c77-95b3-60871fe73ae7\":\"battlefield\",\"4bf37b45-9f23-4315-8c5f-fc67375ebed3\":\"battlefield\",\"99ec3b27-576f-46cd-8bad-54ae6c2e8b31\":\"battlefield\",\"7764e8d1-d334-4f19-b86b-c04b721f3a2e\":\"battlefield\",\"de696b5d-ec87-4322-b3b2-fcc9951a6842\":\"battlefield\",\"5f9108c8-9a5f-448a-9757-4c8b883e5431\":\"battlefield\",\"becec829-9f99-42fb-8c08-2dfc80a05cb3\":\"battlefield\",\"7b2767ea-46ba-4334-bca2-ba4c77eca1a2\":\"battlefield\",\"d33ef9f4-49b9-48fc-a201-25190b14d496\":\"battlefield\",\"c49eacb3-737d-400c-8de9-43fa900e5055\":\"battlefield\",\"605eb7a8-a0db-4cb7-abaf-c34c5415acf4\":\"battlefield\",\"173e1e88-f4ff-4a95-88fa-b594cdc58a2f\":\"battlefield\",\"43a020a3-f092-4c6a-8036-daaa5d707d31\":\"battlefield\",\"72f565a7-8729-403f-8ae8-e9961ef23d8e\":\"battlefield\",\"cad4d91e-5609-4c46-983f-d84c6dc7c81e\":\"battlefield\",\"004ec6d3-4be2-4ce8-a3f0-8e25d7ef4590\":\"battlefield\",\"7116a768-3d46-4ecd-8bf7-1334211f5509\":\"battlefield\",\"a73594a9-7458-492e-9dbb-5decd11fa472\":\"battlefield\",\"8c5730b8-0664-4371-afeb-65e4d9b1d5ff\":\"battlefield\",\"7804264e-c9da-488f-b3b7-2a5b90cb89f5\":\"battlefield\",\"8fbbf26a-4d6e-4b43-bb67-e68c2790015c\":\"battlefield\",\"a7139a87-ea8f-4035-a712-082b4048e822\":\"battlefield\",\"6a2287f7-71d4-4890-b30d-6cc8802eb0b8\":\"battlefield\"}",
+      "triangles": "690366",
+      "miniatures": "28",
+      "mist": "low",
+      "graphics": "balanced",
+      "diagnostics": {
+        "tiltDegrees": "45",
+        "modelUrls": "[\"/miniatures/druk-battlefield-shared-9412d5a70d4c.glb\",\"/miniatures/varis-battlefield-shared-0fbc946e253e.glb\",\"/miniatures/vanec-battlefield-shared-610d4beb37bb.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\"]",
+        "visionComposite": "gpu",
+        "renderCount": "1372",
+        "frameCount": "1372",
+        "lightCount": "9",
+        "mistHeight": "80",
+        "mistResolution": "360x224",
+        "activeModelUrls": "[\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/druk-battlefield-shared-9412d5a70d4c.glb\",\"/miniatures/varis-battlefield-shared-0fbc946e253e.glb\",\"/miniatures/vanec-battlefield-shared-610d4beb37bb.glb\"]",
+        "renderFps": "47.1"
+      }
+    },
+    {
+      "mode": "fixed",
+      "movement": false,
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "fps": 43.996578044162995,
+      "rafFps": 138.43367738138153,
+      "frameMs": {
+        "p50": 7.5,
+        "p95": 15.899999999997817
+      },
+      "modelLods": "{\"dbba540d-70eb-46ad-a48c-2e009a620885\":\"balanced\",\"c7d5c2cc-3f59-4523-855c-464a8ba572b2\":\"balanced\",\"f64a2a02-f995-4b5d-a550-e3334d9ba203\":\"balanced\",\"16c93978-aba7-4036-86bc-b37cc1d43645\":\"balanced\",\"f23d98f2-c612-4878-81fb-8b5cc1d53a97\":\"balanced\",\"0d612a59-1314-4c77-95b3-60871fe73ae7\":\"balanced\",\"4bf37b45-9f23-4315-8c5f-fc67375ebed3\":\"balanced\",\"99ec3b27-576f-46cd-8bad-54ae6c2e8b31\":\"balanced\",\"7764e8d1-d334-4f19-b86b-c04b721f3a2e\":\"balanced\",\"de696b5d-ec87-4322-b3b2-fcc9951a6842\":\"balanced\",\"5f9108c8-9a5f-448a-9757-4c8b883e5431\":\"balanced\",\"becec829-9f99-42fb-8c08-2dfc80a05cb3\":\"balanced\",\"7b2767ea-46ba-4334-bca2-ba4c77eca1a2\":\"balanced\",\"d33ef9f4-49b9-48fc-a201-25190b14d496\":\"balanced\",\"c49eacb3-737d-400c-8de9-43fa900e5055\":\"balanced\",\"605eb7a8-a0db-4cb7-abaf-c34c5415acf4\":\"balanced\",\"173e1e88-f4ff-4a95-88fa-b594cdc58a2f\":\"balanced\",\"43a020a3-f092-4c6a-8036-daaa5d707d31\":\"balanced\",\"72f565a7-8729-403f-8ae8-e9961ef23d8e\":\"balanced\",\"cad4d91e-5609-4c46-983f-d84c6dc7c81e\":\"balanced\",\"004ec6d3-4be2-4ce8-a3f0-8e25d7ef4590\":\"balanced\",\"7116a768-3d46-4ecd-8bf7-1334211f5509\":\"balanced\",\"a73594a9-7458-492e-9dbb-5decd11fa472\":\"balanced\",\"8c5730b8-0664-4371-afeb-65e4d9b1d5ff\":\"balanced\",\"7804264e-c9da-488f-b3b7-2a5b90cb89f5\":\"balanced\",\"8fbbf26a-4d6e-4b43-bb67-e68c2790015c\":\"balanced\",\"a7139a87-ea8f-4035-a712-082b4048e822\":\"balanced\",\"6a2287f7-71d4-4890-b30d-6cc8802eb0b8\":\"balanced\"}",
+      "triangles": "1378136",
+      "miniatures": "28",
+      "mist": "low",
+      "graphics": "balanced",
+      "diagnostics": {
+        "tiltDegrees": "45",
+        "modelUrls": "[\"/miniatures/druk-balanced-shared-7fe4de19c1aa.glb\",\"/miniatures/varis-balanced-shared-052588cc735d.glb\",\"/miniatures/vanec-balanced-shared-bbc92756d593.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\"]",
+        "visionComposite": "gpu",
+        "renderCount": "832",
+        "frameCount": "832",
+        "lightCount": "9",
+        "mistHeight": "80",
+        "mistResolution": "360x224",
+        "activeModelUrls": "[\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/varis-balanced-shared-052588cc735d.glb\",\"/miniatures/druk-balanced-shared-7fe4de19c1aa.glb\",\"/miniatures/vanec-balanced-shared-bbc92756d593.glb\"]",
+        "renderFps": "44.0"
+      }
+    },
+    {
+      "mode": "fixed",
+      "movement": true,
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "fps": 40.17089274815513,
+      "rafFps": 43.16706430671919,
+      "frameMs": {
+        "p50": 20,
+        "p95": 45
+      },
+      "modelLods": "{\"dbba540d-70eb-46ad-a48c-2e009a620885\":\"balanced\",\"c7d5c2cc-3f59-4523-855c-464a8ba572b2\":\"balanced\",\"f64a2a02-f995-4b5d-a550-e3334d9ba203\":\"balanced\",\"16c93978-aba7-4036-86bc-b37cc1d43645\":\"balanced\",\"f23d98f2-c612-4878-81fb-8b5cc1d53a97\":\"balanced\",\"0d612a59-1314-4c77-95b3-60871fe73ae7\":\"balanced\",\"4bf37b45-9f23-4315-8c5f-fc67375ebed3\":\"balanced\",\"99ec3b27-576f-46cd-8bad-54ae6c2e8b31\":\"balanced\",\"7764e8d1-d334-4f19-b86b-c04b721f3a2e\":\"balanced\",\"de696b5d-ec87-4322-b3b2-fcc9951a6842\":\"balanced\",\"5f9108c8-9a5f-448a-9757-4c8b883e5431\":\"balanced\",\"becec829-9f99-42fb-8c08-2dfc80a05cb3\":\"balanced\",\"7b2767ea-46ba-4334-bca2-ba4c77eca1a2\":\"balanced\",\"d33ef9f4-49b9-48fc-a201-25190b14d496\":\"balanced\",\"c49eacb3-737d-400c-8de9-43fa900e5055\":\"balanced\",\"605eb7a8-a0db-4cb7-abaf-c34c5415acf4\":\"balanced\",\"173e1e88-f4ff-4a95-88fa-b594cdc58a2f\":\"balanced\",\"43a020a3-f092-4c6a-8036-daaa5d707d31\":\"balanced\",\"72f565a7-8729-403f-8ae8-e9961ef23d8e\":\"balanced\",\"cad4d91e-5609-4c46-983f-d84c6dc7c81e\":\"balanced\",\"004ec6d3-4be2-4ce8-a3f0-8e25d7ef4590\":\"balanced\",\"7116a768-3d46-4ecd-8bf7-1334211f5509\":\"balanced\",\"a73594a9-7458-492e-9dbb-5decd11fa472\":\"balanced\",\"8c5730b8-0664-4371-afeb-65e4d9b1d5ff\":\"balanced\",\"7804264e-c9da-488f-b3b7-2a5b90cb89f5\":\"balanced\",\"8fbbf26a-4d6e-4b43-bb67-e68c2790015c\":\"balanced\",\"a7139a87-ea8f-4035-a712-082b4048e822\":\"balanced\",\"6a2287f7-71d4-4890-b30d-6cc8802eb0b8\":\"balanced\"}",
+      "triangles": "1365232",
+      "miniatures": "28",
+      "mist": "low",
+      "graphics": "balanced",
+      "diagnostics": {
+        "tiltDegrees": "45",
+        "modelUrls": "[\"/miniatures/druk-balanced-shared-7fe4de19c1aa.glb\",\"/miniatures/varis-balanced-shared-052588cc735d.glb\",\"/miniatures/vanec-balanced-shared-bbc92756d593.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\"]",
+        "visionComposite": "gpu",
+        "renderCount": "1194",
+        "frameCount": "1194",
+        "lightCount": "9",
+        "mistHeight": "80",
+        "mistResolution": "360x224",
+        "activeModelUrls": "[\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/varis-balanced-shared-052588cc735d.glb\",\"/miniatures/druk-balanced-shared-7fe4de19c1aa.glb\",\"/miniatures/vanec-balanced-shared-bbc92756d593.glb\"]",
+        "renderFps": "39.6"
+      }
+    },
+    {
+      "mode": "fixed",
+      "movement": false,
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "fps": 40.38386864169586,
+      "rafFps": 79.88017973082697,
+      "frameMs": {
+        "p50": 8.099999999998545,
+        "p95": 31.19999999999709
+      },
+      "modelLods": "{\"dbba540d-70eb-46ad-a48c-2e009a620885\":\"balanced\",\"c7d5c2cc-3f59-4523-855c-464a8ba572b2\":\"balanced\",\"f64a2a02-f995-4b5d-a550-e3334d9ba203\":\"balanced\",\"16c93978-aba7-4036-86bc-b37cc1d43645\":\"balanced\",\"f23d98f2-c612-4878-81fb-8b5cc1d53a97\":\"balanced\",\"0d612a59-1314-4c77-95b3-60871fe73ae7\":\"balanced\",\"4bf37b45-9f23-4315-8c5f-fc67375ebed3\":\"balanced\",\"99ec3b27-576f-46cd-8bad-54ae6c2e8b31\":\"balanced\",\"7764e8d1-d334-4f19-b86b-c04b721f3a2e\":\"balanced\",\"de696b5d-ec87-4322-b3b2-fcc9951a6842\":\"balanced\",\"5f9108c8-9a5f-448a-9757-4c8b883e5431\":\"balanced\",\"becec829-9f99-42fb-8c08-2dfc80a05cb3\":\"balanced\",\"7b2767ea-46ba-4334-bca2-ba4c77eca1a2\":\"balanced\",\"d33ef9f4-49b9-48fc-a201-25190b14d496\":\"balanced\",\"c49eacb3-737d-400c-8de9-43fa900e5055\":\"balanced\",\"605eb7a8-a0db-4cb7-abaf-c34c5415acf4\":\"balanced\",\"173e1e88-f4ff-4a95-88fa-b594cdc58a2f\":\"balanced\",\"43a020a3-f092-4c6a-8036-daaa5d707d31\":\"balanced\",\"72f565a7-8729-403f-8ae8-e9961ef23d8e\":\"balanced\",\"cad4d91e-5609-4c46-983f-d84c6dc7c81e\":\"balanced\",\"004ec6d3-4be2-4ce8-a3f0-8e25d7ef4590\":\"balanced\",\"7116a768-3d46-4ecd-8bf7-1334211f5509\":\"balanced\",\"a73594a9-7458-492e-9dbb-5decd11fa472\":\"balanced\",\"8c5730b8-0664-4371-afeb-65e4d9b1d5ff\":\"balanced\",\"7804264e-c9da-488f-b3b7-2a5b90cb89f5\":\"balanced\",\"8fbbf26a-4d6e-4b43-bb67-e68c2790015c\":\"balanced\",\"a7139a87-ea8f-4035-a712-082b4048e822\":\"balanced\",\"6a2287f7-71d4-4890-b30d-6cc8802eb0b8\":\"balanced\"}",
+      "triangles": "1408395",
+      "miniatures": "28",
+      "mist": "low",
+      "graphics": "balanced",
+      "diagnostics": {
+        "tiltDegrees": "45",
+        "modelUrls": "[\"/miniatures/druk-balanced-shared-7fe4de19c1aa.glb\",\"/miniatures/varis-balanced-shared-052588cc735d.glb\",\"/miniatures/vanec-balanced-shared-bbc92756d593.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\"]",
+        "visionComposite": "gpu",
+        "renderCount": "774",
+        "frameCount": "774",
+        "lightCount": "9",
+        "mistHeight": "80",
+        "mistResolution": "360x224",
+        "activeModelUrls": "[\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/varis-balanced-shared-052588cc735d.glb\",\"/miniatures/vanec-balanced-shared-bbc92756d593.glb\",\"/miniatures/druk-balanced-shared-7fe4de19c1aa.glb\"]",
+        "renderFps": "39.8"
+      }
+    },
+    {
+      "mode": "fixed",
+      "movement": true,
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "fps": 37.88341683978981,
+      "rafFps": 39.9942230566696,
+      "frameMs": {
+        "p50": 23.299999999999272,
+        "p95": 51.400000000001455
+      },
+      "modelLods": "{\"dbba540d-70eb-46ad-a48c-2e009a620885\":\"balanced\",\"c7d5c2cc-3f59-4523-855c-464a8ba572b2\":\"balanced\",\"f64a2a02-f995-4b5d-a550-e3334d9ba203\":\"balanced\",\"16c93978-aba7-4036-86bc-b37cc1d43645\":\"balanced\",\"f23d98f2-c612-4878-81fb-8b5cc1d53a97\":\"balanced\",\"0d612a59-1314-4c77-95b3-60871fe73ae7\":\"balanced\",\"4bf37b45-9f23-4315-8c5f-fc67375ebed3\":\"balanced\",\"99ec3b27-576f-46cd-8bad-54ae6c2e8b31\":\"balanced\",\"7764e8d1-d334-4f19-b86b-c04b721f3a2e\":\"balanced\",\"de696b5d-ec87-4322-b3b2-fcc9951a6842\":\"balanced\",\"5f9108c8-9a5f-448a-9757-4c8b883e5431\":\"balanced\",\"becec829-9f99-42fb-8c08-2dfc80a05cb3\":\"balanced\",\"7b2767ea-46ba-4334-bca2-ba4c77eca1a2\":\"balanced\",\"d33ef9f4-49b9-48fc-a201-25190b14d496\":\"balanced\",\"c49eacb3-737d-400c-8de9-43fa900e5055\":\"balanced\",\"605eb7a8-a0db-4cb7-abaf-c34c5415acf4\":\"balanced\",\"173e1e88-f4ff-4a95-88fa-b594cdc58a2f\":\"balanced\",\"43a020a3-f092-4c6a-8036-daaa5d707d31\":\"balanced\",\"72f565a7-8729-403f-8ae8-e9961ef23d8e\":\"balanced\",\"cad4d91e-5609-4c46-983f-d84c6dc7c81e\":\"balanced\",\"004ec6d3-4be2-4ce8-a3f0-8e25d7ef4590\":\"balanced\",\"7116a768-3d46-4ecd-8bf7-1334211f5509\":\"balanced\",\"a73594a9-7458-492e-9dbb-5decd11fa472\":\"balanced\",\"8c5730b8-0664-4371-afeb-65e4d9b1d5ff\":\"balanced\",\"7804264e-c9da-488f-b3b7-2a5b90cb89f5\":\"balanced\",\"8fbbf26a-4d6e-4b43-bb67-e68c2790015c\":\"balanced\",\"a7139a87-ea8f-4035-a712-082b4048e822\":\"balanced\",\"6a2287f7-71d4-4890-b30d-6cc8802eb0b8\":\"balanced\"}",
+      "triangles": "1365232",
+      "miniatures": "28",
+      "mist": "low",
+      "graphics": "balanced",
+      "diagnostics": {
+        "tiltDegrees": "45",
+        "modelUrls": "[\"/miniatures/druk-balanced-shared-7fe4de19c1aa.glb\",\"/miniatures/varis-balanced-shared-052588cc735d.glb\",\"/miniatures/vanec-balanced-shared-bbc92756d593.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\"]",
+        "visionComposite": "gpu",
+        "renderCount": "1115",
+        "frameCount": "1115",
+        "lightCount": "9",
+        "mistHeight": "80",
+        "mistResolution": "360x224",
+        "activeModelUrls": "[\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/varis-balanced-shared-052588cc735d.glb\",\"/miniatures/vanec-balanced-shared-bbc92756d593.glb\",\"/miniatures/druk-balanced-shared-7fe4de19c1aa.glb\"]",
+        "renderFps": "36.8"
+      }
+    },
+    {
+      "mode": "zoom",
+      "movement": false,
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "fps": 52.19264638933739,
+      "rafFps": 162.1303483583672,
+      "frameMs": {
+        "p50": 4.100000000000364,
+        "p95": 12
+      },
+      "modelLods": "{\"dbba540d-70eb-46ad-a48c-2e009a620885\":\"battlefield\",\"c7d5c2cc-3f59-4523-855c-464a8ba572b2\":\"battlefield\",\"f64a2a02-f995-4b5d-a550-e3334d9ba203\":\"battlefield\",\"16c93978-aba7-4036-86bc-b37cc1d43645\":\"battlefield\",\"f23d98f2-c612-4878-81fb-8b5cc1d53a97\":\"battlefield\",\"0d612a59-1314-4c77-95b3-60871fe73ae7\":\"battlefield\",\"4bf37b45-9f23-4315-8c5f-fc67375ebed3\":\"battlefield\",\"99ec3b27-576f-46cd-8bad-54ae6c2e8b31\":\"battlefield\",\"7764e8d1-d334-4f19-b86b-c04b721f3a2e\":\"battlefield\",\"de696b5d-ec87-4322-b3b2-fcc9951a6842\":\"battlefield\",\"5f9108c8-9a5f-448a-9757-4c8b883e5431\":\"battlefield\",\"becec829-9f99-42fb-8c08-2dfc80a05cb3\":\"battlefield\",\"7b2767ea-46ba-4334-bca2-ba4c77eca1a2\":\"battlefield\",\"d33ef9f4-49b9-48fc-a201-25190b14d496\":\"battlefield\",\"c49eacb3-737d-400c-8de9-43fa900e5055\":\"battlefield\",\"605eb7a8-a0db-4cb7-abaf-c34c5415acf4\":\"battlefield\",\"173e1e88-f4ff-4a95-88fa-b594cdc58a2f\":\"battlefield\",\"43a020a3-f092-4c6a-8036-daaa5d707d31\":\"battlefield\",\"72f565a7-8729-403f-8ae8-e9961ef23d8e\":\"battlefield\",\"cad4d91e-5609-4c46-983f-d84c6dc7c81e\":\"battlefield\",\"004ec6d3-4be2-4ce8-a3f0-8e25d7ef4590\":\"battlefield\",\"7116a768-3d46-4ecd-8bf7-1334211f5509\":\"battlefield\",\"a73594a9-7458-492e-9dbb-5decd11fa472\":\"battlefield\",\"8c5730b8-0664-4371-afeb-65e4d9b1d5ff\":\"battlefield\",\"7804264e-c9da-488f-b3b7-2a5b90cb89f5\":\"battlefield\",\"8fbbf26a-4d6e-4b43-bb67-e68c2790015c\":\"battlefield\",\"a7139a87-ea8f-4035-a712-082b4048e822\":\"battlefield\",\"6a2287f7-71d4-4890-b30d-6cc8802eb0b8\":\"battlefield\"}",
+      "triangles": "705366",
+      "miniatures": "28",
+      "mist": "low",
+      "graphics": "balanced",
+      "diagnostics": {
+        "tiltDegrees": "45",
+        "modelUrls": "[\"/miniatures/druk-battlefield-shared-9412d5a70d4c.glb\",\"/miniatures/varis-battlefield-shared-0fbc946e253e.glb\",\"/miniatures/vanec-battlefield-shared-610d4beb37bb.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\"]",
+        "visionComposite": "gpu",
+        "renderCount": "1009",
+        "frameCount": "1009",
+        "lightCount": "9",
+        "mistHeight": "80",
+        "mistResolution": "360x224",
+        "activeModelUrls": "[\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/varis-battlefield-shared-0fbc946e253e.glb\",\"/miniatures/druk-battlefield-shared-9412d5a70d4c.glb\",\"/miniatures/vanec-battlefield-shared-610d4beb37bb.glb\"]",
+        "renderFps": "52.6"
+      }
+    },
+    {
+      "mode": "zoom",
+      "movement": true,
+      "gpu": "ANGLE (AMD, AMD Radeon(TM) Graphics (0x0000164E) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "fps": 47.03272323892164,
+      "rafFps": 52.13533000540842,
+      "frameMs": {
+        "p50": 16.100000000002183,
+        "p95": 35.79999999999927
+      },
+      "modelLods": "{\"dbba540d-70eb-46ad-a48c-2e009a620885\":\"battlefield\",\"c7d5c2cc-3f59-4523-855c-464a8ba572b2\":\"battlefield\",\"f64a2a02-f995-4b5d-a550-e3334d9ba203\":\"battlefield\",\"16c93978-aba7-4036-86bc-b37cc1d43645\":\"battlefield\",\"f23d98f2-c612-4878-81fb-8b5cc1d53a97\":\"battlefield\",\"0d612a59-1314-4c77-95b3-60871fe73ae7\":\"battlefield\",\"4bf37b45-9f23-4315-8c5f-fc67375ebed3\":\"battlefield\",\"99ec3b27-576f-46cd-8bad-54ae6c2e8b31\":\"battlefield\",\"7764e8d1-d334-4f19-b86b-c04b721f3a2e\":\"battlefield\",\"de696b5d-ec87-4322-b3b2-fcc9951a6842\":\"battlefield\",\"5f9108c8-9a5f-448a-9757-4c8b883e5431\":\"battlefield\",\"becec829-9f99-42fb-8c08-2dfc80a05cb3\":\"battlefield\",\"7b2767ea-46ba-4334-bca2-ba4c77eca1a2\":\"battlefield\",\"d33ef9f4-49b9-48fc-a201-25190b14d496\":\"battlefield\",\"c49eacb3-737d-400c-8de9-43fa900e5055\":\"battlefield\",\"605eb7a8-a0db-4cb7-abaf-c34c5415acf4\":\"battlefield\",\"173e1e88-f4ff-4a95-88fa-b594cdc58a2f\":\"battlefield\",\"43a020a3-f092-4c6a-8036-daaa5d707d31\":\"battlefield\",\"72f565a7-8729-403f-8ae8-e9961ef23d8e\":\"battlefield\",\"cad4d91e-5609-4c46-983f-d84c6dc7c81e\":\"battlefield\",\"004ec6d3-4be2-4ce8-a3f0-8e25d7ef4590\":\"battlefield\",\"7116a768-3d46-4ecd-8bf7-1334211f5509\":\"battlefield\",\"a73594a9-7458-492e-9dbb-5decd11fa472\":\"battlefield\",\"8c5730b8-0664-4371-afeb-65e4d9b1d5ff\":\"battlefield\",\"7804264e-c9da-488f-b3b7-2a5b90cb89f5\":\"battlefield\",\"8fbbf26a-4d6e-4b43-bb67-e68c2790015c\":\"battlefield\",\"a7139a87-ea8f-4035-a712-082b4048e822\":\"battlefield\",\"6a2287f7-71d4-4890-b30d-6cc8802eb0b8\":\"battlefield\"}",
+      "triangles": "690366",
+      "miniatures": "28",
+      "mist": "low",
+      "graphics": "balanced",
+      "diagnostics": {
+        "tiltDegrees": "45",
+        "modelUrls": "[\"/miniatures/druk-battlefield-shared-9412d5a70d4c.glb\",\"/miniatures/varis-battlefield-shared-0fbc946e253e.glb\",\"/miniatures/vanec-battlefield-shared-610d4beb37bb.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\"]",
+        "visionComposite": "gpu",
+        "renderCount": "1433",
+        "frameCount": "1433",
+        "lightCount": "9",
+        "mistHeight": "80",
+        "mistResolution": "360x224",
+        "activeModelUrls": "[\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-vest.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/skeleton-helmet.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/goblin-crest.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/skeleton-hybrid-0df09092cecb.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/wolf-hybrid-2e6887e31231.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-helmet.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/monsters/goblin-hybrid-c1712d006199.glb\",\"/miniatures/varis-battlefield-shared-0fbc946e253e.glb\",\"/miniatures/druk-battlefield-shared-9412d5a70d4c.glb\",\"/miniatures/vanec-battlefield-shared-610d4beb37bb.glb\"]",
+        "renderFps": "46.3"
+      }
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,6 @@
+{
+  "allVertexAttributesTopologyAndTransformsExact": true,
+  "triangles": 880377,
+  "appearanceOnly": true,
+  "notes": "Only pauldron material factors and arm skin material assignment change. Original positions, normals, colors, all UV channels, oriented triangles and transforms are exact against v27."
+}

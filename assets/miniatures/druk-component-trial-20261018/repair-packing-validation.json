@@ -1,0 +1,16 @@
+{
+  "sourceSha256": "9412d5a70d4cbc8d00f01af81bc07c957b7b9e6dea10830ef2a36b8974f52a72",
+  "trianglesBefore": 51832,
+  "trianglesAfter": 61202,
+  "geometryBytesBefore": 1319656,
+  "geometryBytesAfter": 1715688,
+  "addedGeometryBytes": 396032,
+  "sharedImagePayloads": 6,
+  "verified": {
+    "allProtectedOriginalBytesPreserved": true,
+    "allOriginalMaterialsPreserved": true,
+    "allOriginalTexturesPreserved": true,
+    "allTransformsPreserved": true
+  },
+  "sourceUnchanged": true
+}

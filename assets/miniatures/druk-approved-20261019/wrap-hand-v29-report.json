@@ -1,0 +1,20 @@
+{
+  "source": "v28 shin-matched review",
+  "wrapTint": [
+    0.9999999999999997,
+    0.6366503221923148,
+    0.32143913989459105
+  ],
+  "strapReferenceSRGB": [
+    0.2588235294117647,
+    0.1237771208379783,
+    0.055036818032302454
+  ],
+  "leftHandRotationDegrees": 8,
+  "openingAngleBefore": 23.708048130913596,
+  "openingAngleAfter": 15.708048130913628,
+  "wristBoundaryError": 5.551115123125783e-17,
+  "triangles": 880377,
+  "bytes": 44329896,
+  "sha256": "c6e4f267253b2a48efd53d40b235535aace62b7076485a3378de4359171bf497"
+}

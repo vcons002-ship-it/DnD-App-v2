@@ -1,0 +1,124 @@
+{
+  "policy": "lossless-delivery-v1",
+  "applied": true,
+  "sourceBytes": 6477184,
+  "bytes": 3880172,
+  "bytesSaved": 2597012,
+  "savingPercent": 40.09476957887872,
+  "sha256": "0df09092cecb075116f60de3c475929ce959ab5e0b1fc08c8d3212eed4c91ccf",
+  "textures": [
+    {
+      "index": 0,
+      "sourceBytes": 1174443,
+      "sourceSha256": "43c84af31e132dae528a5b1d0591459e2fbd38ef4b33f534782252381493d9f7",
+      "sourceMime": "image/jpeg",
+      "bytes": 1174443,
+      "sha256": "43c84af31e132dae528a5b1d0591459e2fbd38ef4b33f534782252381493d9f7",
+      "mime": "image/jpeg",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "a33cf61567da82bbd15a06f84452220ae9021becf4beeea7f537f06ad7271eca"
+      }
+    },
+    {
+      "index": 1,
+      "sourceBytes": 4595382,
+      "sourceSha256": "9b512ad602f9b01297adab90452272238fdf3fee0f739ab3ca2f6b68a1d908c7",
+      "sourceMime": "image/png",
+      "bytes": 2226474,
+      "sha256": "e223b9d44668a19d6e041309baf78b2343ba24b558a400a3fc1b88b0cde543ab",
+      "mime": "image/webp",
+      "method": "lossless WebP",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "5c8ac7ca5f68bace6b71771a9919f103ab81417cfa6acd4886a0eb4ef9a60b86"
+      }
+    }
+  ],
+  "geometry": [
+    {
+      "mesh": "textured.obj",
+      "extras": {
+        "processed": true,
+        "file_path": "D:\\dnd-approved-release\\dm-party-view-20261009\\tmp\\hybrid-quality-20261017\\skeleton\\paint\\textured.obj",
+        "file_name": "textured.obj"
+      },
+      "primitiveExtras": {},
+      "material": 0,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 20000,
+      "sha256": "54217241297ff75a36578e1892b001aef76747e5fde4b12002f2b43da1dda651"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 1,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 256,
+      "sha256": "5941de9fbc427b2cf45cac17f765fbd56f96d7ebca3254ba938dedb26948b466"
+    }
+  ],
+  "verified": {
+    "triangleCornerAttributesExact": true,
+    "decodedTexturePixelsExact": true,
+    "sceneAndMaterialsExact": true,
+    "noQuantization": true,
+    "noSimplification": true,
+    "noTextureResizing": true
+  },
+  "sourceSha256": "9e6f7001760fc7a528c24593a1313d1e919c02c68d9a312898dd365e99e9523b",
+  "sourceAsset": "/uploads/miniatures/uploaded-872b3adb-9e6f7001760f.glb",
+  "sourceWorkflow": "hybrid-2mv-21-v1",
+  "sourceFamily": "skeleton",
+  "sourceVariant": "hybrid",
+  "baseDiameter": 1,
+  "baseCenter": [
+    0,
+    0,
+    0
+  ],
+  "replaces": {
+    "url": "/miniatures/monsters/skeleton.glb",
+    "sha256": "4ed995748e8eee47d514f5e0fce7a8522f2afc353826d6d59cabba35a856ead4"
+  }
+}

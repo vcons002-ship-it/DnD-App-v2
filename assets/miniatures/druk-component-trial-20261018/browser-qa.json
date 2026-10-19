@@ -1,0 +1,482 @@
+[
+  {
+    "slug": "druk-wrist-review",
+    "width": 1800,
+    "errors": [],
+    "audit": {
+      "character": "druk",
+      "auto": false,
+      "errors": [],
+      "viewers": [
+        {
+          "tier": "low",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-high-shared-3b43a1a9b56c.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        },
+        {
+          "tier": "balanced",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-body-pbr-3738bd9e9362.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        },
+        {
+          "tier": "high",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-body-wrist-fixed-a29d8e70e496.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "slug": "druk-wrist-review",
+    "width": 412,
+    "errors": [],
+    "audit": {
+      "character": "druk",
+      "auto": false,
+      "errors": [],
+      "viewers": [
+        {
+          "tier": "low",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-high-shared-3b43a1a9b56c.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        },
+        {
+          "tier": "balanced",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-body-pbr-3738bd9e9362.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        },
+        {
+          "tier": "high",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-body-wrist-fixed-a29d8e70e496.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "slug": "druk-gap-review",
+    "width": 1800,
+    "errors": [],
+    "audit": {
+      "character": "druk",
+      "auto": false,
+      "errors": [],
+      "viewers": [
+        {
+          "tier": "low",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-battlefield-shared-9412d5a70d4c.glb",
+          "height": 1.7610278523689424,
+          "bounds": {
+            "min": [
+              -0.6399983804426482,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7610278523689424,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.175427579327087,
+            2.3301342101899953
+          ],
+          "target": [
+            0,
+            0.8452933691370923,
+            0
+          ]
+        },
+        {
+          "tier": "balanced",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/two-sided-68151d3d0059.glb",
+          "height": 1.7610278523689424,
+          "bounds": {
+            "min": [
+              -0.6399983804426482,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7610278523689424,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.175427579327087,
+            2.3301342101899953
+          ],
+          "target": [
+            0,
+            0.8452933691370923,
+            0
+          ]
+        },
+        {
+          "tier": "high",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/seam-safe-58d12486143e.glb",
+          "height": 1.7610278523689424,
+          "bounds": {
+            "min": [
+              -0.6399983804426482,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7610278523689424,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.175427579327087,
+            2.3301342101899953
+          ],
+          "target": [
+            0,
+            0.8452933691370923,
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "slug": "druk-body-review",
+    "width": 1800,
+    "errors": [],
+    "audit": {
+      "character": "druk",
+      "auto": false,
+      "errors": [],
+      "viewers": [
+        {
+          "tier": "low",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-high-shared-3b43a1a9b56c.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        },
+        {
+          "tier": "balanced",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-body-pbr-3738bd9e9362.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        },
+        {
+          "tier": "high",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-body-head-hands-pbr-02485885be87.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "slug": "druk-body-review",
+    "width": 412,
+    "errors": [],
+    "audit": {
+      "character": "druk",
+      "auto": false,
+      "errors": [],
+      "viewers": [
+        {
+          "tier": "low",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-high-shared-3b43a1a9b56c.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        },
+        {
+          "tier": "balanced",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-body-pbr-3738bd9e9362.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        },
+        {
+          "tier": "high",
+          "ready": true,
+          "url": "/uploads/previews/druk-model-trials-20261018/models/druk-body-head-hands-pbr-02485885be87.glb",
+          "height": 1.7612632860695658,
+          "bounds": {
+            "min": [
+              -0.6412517639981923,
+              0,
+              -0.4999999780865279
+            ],
+            "max": [
+              0.5,
+              1.7612632860695658,
+              0.49999997808652796
+            ]
+          },
+          "camera": [
+            0,
+            3.1758521056428157,
+            2.3304457283294253
+          ],
+          "target": [
+            0,
+            0.8454063773133914,
+            0
+          ]
+        }
+      ]
+    }
+  }
+]

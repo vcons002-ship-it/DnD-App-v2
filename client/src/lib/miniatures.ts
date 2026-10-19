@@ -2,7 +2,7 @@
 import monsters from '../../public/miniatures/monsters/manifest.json';
 import qualityManifest from '../../public/miniatures/quality-manifest.json';
 import battlefieldManifest from '../../public/miniatures/battlefield-manifest.json';
-import type {MiniatureLod} from '../../../shared/miniatureLod';
+import {miniatureLodPair, type MiniatureLod, type MiniatureLodBudget} from '../../../shared/miniatureLod';
 import type {EnvironmentQuality} from '../../../shared/mapEnvironment';
 import objects from '../../public/miniatures/objects/manifest.json';
 import type { TokenKind } from '../../../shared/types';
@@ -29,11 +29,18 @@ const qualityModels=new Map(qualityManifest.models.map(m=>[`${m.id}:${m.profile}
 const battlefieldModels=new Map(battlefieldManifest.models.map(m=>[m.id,{...MINIATURES[m.id],url:m.url,fallbackUrl:qualityModels.get(`${m.id}:low`)?.url??MINIATURES[m.id].url}]));
 /** Character variants share the original bases, FX and art. Other families stay
  * on their existing, already reduced geometry. */
-export function miniatureForLod(model:MiniatureDefinition,level:MiniatureLod):MiniatureDefinition{
+export function miniatureForLod(model:MiniatureDefinition,level:MiniatureLod,quality?:MiniatureLodBudget):MiniatureDefinition{
   if(!battlefieldModels.has(model.id))return model;
-  if(level==='battlefield')return battlefieldModels.get(model.id)!;
-  if(level==='high')return MINIATURES[model.id];
-  return qualityModels.get(`${model.id}:${level}`)??model;
+  const selected=level==='battlefield'?battlefieldModels.get(model.id)!:level==='high'?MINIATURES[model.id]:qualityModels.get(`${model.id}:${level}`)??model;
+  if(!quality)return selected;
+  // A failed coarse asset must not silently fetch a denser/off-screen model.
+  // A requested close-up may fall back to the same mode's coarse tier only.
+  const far=miniatureLodPair(quality).far;
+  return {...selected,fallbackUrl:level===far?undefined:miniatureForLod(model,far).url};
+}
+/** Hidden/off-screen preparation only downloads the current mode's coarse tier. */
+export function miniatureForPreload(model:MiniatureDefinition,quality:MiniatureLodBudget):MiniatureDefinition{
+  return miniatureForLod(model,miniatureLodPair(quality).far,quality);
 }
 /** Stable IDs/base measurements keep effects, hit areas and facing identical across tiers. */
 export function miniatureForQuality(model:MiniatureDefinition|null,quality:EnvironmentQuality):MiniatureDefinition|null{

@@ -74,3 +74,12 @@ client/public/miniatures/vanec-light-239045d67404.glb -filter -diff -merge -text
 
 # Distance-based battlefield models preserve source textures.
 client/public/miniatures/*-battlefield-*.glb -filter -diff -merge -text
+
+# Approved hybrid replacements use lossless delivery and regular Git storage.
+client/public/miniatures/monsters/*-hybrid-*.glb -filter -diff -merge -text
+assets/miniatures/hybrid-delivery/*.json -filter diff merge -text whitespace=cr-at-eol
+
+# Shared immutable character images and geometry delivery copies.
+client/public/miniatures/*-shared-*.glb -filter -diff -merge -text
+client/public/miniatures/textures/* -filter -diff -merge -text
+assets/miniatures/shared-textures/*.json -filter diff merge -text whitespace=cr-at-eol
