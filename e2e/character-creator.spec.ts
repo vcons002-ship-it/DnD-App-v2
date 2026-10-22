@@ -1,6 +1,7 @@
 import {test,expect,type APIRequestContext} from './helpers/test';
 import {io,type Socket} from 'socket.io-client';
 import {mkdirSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {DM_SECRET,PORT} from './playwright.config';
 import {startAv1Capture} from './directAv1Recorder';
@@ -43,7 +44,7 @@ test('Paladin purchases gear and chooses spells before creating or crafting the 
   await page.getByLabel('Character',{exact:true}).click();await page.screenshot({path:path.join(evidence,'paladin-created.png')});
 });
 
-test('a player creates, claims, and places a battle-ready fighter through the guided option',async({page,request})=>{
+test('a player creates, claims, and places a battle-ready fighter through the guided option',async({page,request},testInfo)=>{
   test.setTimeout(120000);mkdirSync(evidence,{recursive:true});
   await page.setViewportSize({width:1500,height:980});
   const f=await campaign(request);
@@ -88,7 +89,12 @@ test('a player creates, claims, and places a battle-ready fighter through the gu
   await page.screenshot({path:path.join(evidence,'created-character.png')});
   await page.locator('.hero-token-crafting > summary').click();
   await page.locator('.model-upload-control > summary').click();
-  await page.getByLabel('3D model file',{exact:true}).setInputFiles(path.resolve('client/public/miniatures/varis-battlefield-f7cc36107994.glb'));
+  // Export the registered model with embedded images: shared runtime GLBs
+  // reference external textures and cannot serve as standalone uploads.
+  const uploadFixture=testInfo.outputPath('varis-upload.glb');
+  mkdirSync(path.dirname(uploadFixture),{recursive:true});
+  execFileSync(process.execPath,[path.resolve('scripts/token-assets/export-character-model.mjs'),'varis','battlefield',uploadFixture]);
+  await page.getByLabel('3D model file',{exact:true}).setInputFiles(uploadFixture);
   await page.getByRole('checkbox',{name:'Model already has a circular base'}).check();
   await page.getByRole('button',{name:'Upload & use miniature',exact:true}).click();
   await expect(page.locator('.model-upload-control')).toContainText('Miniature ready',{timeout:60000});
