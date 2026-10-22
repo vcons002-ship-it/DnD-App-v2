@@ -1,0 +1,10 @@
+{
+  "id": "druk",
+  "version": "druk-approved-20261022/chainmail-strap-boundary",
+  "sourceSha256": "77cb574f0a29a10835b9415ee61ce40b6b6097c2f7022438ea3e185ccfe4001f",
+  "sourceBytes": 87936000,
+  "sourceReview": "https://dnd.nic024i.app/uploads/previews/druk-chainmail-boundary-20261022/",
+  "approvedByUser": true,
+  "details": "Full-size repaired pauldrons with original chainmail and leather restored on the marked rear-inner patch; unchanged surface shape, with only small material-boundary subdivisions.",
+  "blenderMaster": "artifacts\\druk-approved-boundary-20261022\\druk-approved-high.blend"
+}

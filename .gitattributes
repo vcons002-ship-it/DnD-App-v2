@@ -85,3 +85,12 @@ client/public/miniatures/textures/* -filter -diff -merge -text
 client/public/miniatures/generated-high-*.glb -filter -diff -merge -text
 client/public/miniatures/generated-balanced-*.glb -filter -diff -merge -text
 assets/miniatures/shared-textures/*.json -filter diff merge -text whitespace=cr-at-eol
+
+# Approved October miniature sources remain byte-preserved in regular Git.
+# Keep these exceptions narrow; existing historical LFS archives stay unchanged.
+assets/miniatures/runtime-provenance/druk-v10/chainmail-boundary-20261022/final/** -filter -diff -merge -text
+assets/miniatures/runtime-provenance/vanec-tail-skin-20261022/** -filter -diff -merge -text
+assets/miniatures/runtime-provenance/druk-v10/chainmail-boundary-20261022/final/*.json -filter diff merge -text whitespace=cr-at-eol
+assets/miniatures/runtime-provenance/druk-v10/chainmail-boundary-20261022/final/*.md -filter diff merge text eol=lf
+assets/miniatures/runtime-provenance/vanec-tail-skin-20261022/*.json -filter diff merge -text whitespace=cr-at-eol
+assets/miniatures/runtime-provenance/vanec-tail-skin-20261022/*.md -filter diff merge text eol=lf

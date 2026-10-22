@@ -3,10 +3,10 @@
   "models": [
     {
       "id": "druk",
-      "url": "/miniatures/druk-battlefield-shared-db9e82d4852e.glb",
-      "sha256": "db9e82d4852ee6eb16684fe55fe5b5ac8cc474930df057106cc4f1fd289aeca8",
-      "bytes": 1710180,
-      "triangles": 67543,
+      "url": "/miniatures/druk-battlefield-shared-3c06f1e45caa.glb",
+      "sha256": "3c06f1e45caafcc59dbe6a20ac91073231510e735b8e8643b62e8c63801e662c",
+      "bytes": 8271404,
+      "triangles": 194641,
       "baseCenter": [
         0.03537392616271973,
         -1.1119999885559082,
@@ -16,7 +16,7 @@
       "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
       "receipt": "assets/miniatures/battlefield-lod/druk.json",
       "sharedTextureReceipt": "assets/miniatures/shared-textures/druk-battlefield.json",
-      "sharedTextureReceiptSha256": "975f8b09973dde68bae575e14d71e4e9126a9acbc25596a0237789e004215e45"
+      "sharedTextureReceiptSha256": "b0d7d887498e9dc0c6c72d73887bac8fbe56192c044367b7383839362a313076"
     },
     {
       "id": "varis",
@@ -36,8 +36,8 @@
     },
     {
       "id": "vanec",
-      "url": "/miniatures/vanec-battlefield-shared-610d4beb37bb.glb",
-      "sha256": "610d4beb37bbf216e89c064187776dfff4fff0b0ddfb4c7c45726a6a56fa3191",
+      "url": "/miniatures/vanec-tail-battlefield-shared-de2e340c454c.glb",
+      "sha256": "de2e340c454c827e347d9d80d28b475848ed9f41c1b53caac2e1f6be9fd3a9b9",
       "bytes": 7005820,
       "triangles": 179963,
       "baseCenter": [
@@ -47,9 +47,9 @@
       ],
       "baseDiameter": 1.1495295763015747,
       "fxUrl": "/miniatures/vanec-fx-2e60effcfd99.json",
-      "receipt": "assets/miniatures/battlefield-lod/vanec.json",
-      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-battlefield.json",
-      "sharedTextureReceiptSha256": "1972e947cd547d806ae3dc5639426362e822fb9febf33ad9fbed8a6f7b26d252"
+      "receipt": "assets/miniatures/battlefield-lod/vanec-tail-20261022.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-battlefield-20261022.json",
+      "sharedTextureReceiptSha256": "e0e1ad18554f5315c27a80c28be3820492b4f0fc805721a9e9c4c4ece76f9ec4"
     }
   ]
 }

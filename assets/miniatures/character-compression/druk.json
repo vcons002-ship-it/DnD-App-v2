@@ -1,11 +1,11 @@
 {
   "policy": "lossless-delivery-v1",
-  "applied": true,
-  "sourceBytes": 44329896,
-  "bytes": 43967664,
-  "bytesSaved": 362232,
-  "savingPercent": 0.8171280167226236,
-  "sha256": "63d53c563552b6c7a24ceabf83284f2345027227cda02616f4a5f58e8ae92824",
+  "applied": false,
+  "sourceBytes": 87936000,
+  "bytes": 87936000,
+  "bytesSaved": 0,
+  "savingPercent": 0,
+  "sha256": "ce4503a37a819d1c5a474539b7a197a232d96f9cf97cd338c8bb701097c57021",
   "textures": [
     {
       "index": 0,
@@ -25,75 +25,75 @@
     },
     {
       "index": 1,
-      "sourceBytes": 1003217,
-      "sourceSha256": "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
-      "sourceMime": "image/jpeg",
-      "bytes": 1003217,
-      "sha256": "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
-      "mime": "image/jpeg",
+      "sourceBytes": 204392,
+      "sourceSha256": "36bf698ffb5b9330679c4de0f40082940fac73371a36d0c275391f4f0ba83df3",
+      "sourceMime": "image/webp",
+      "bytes": 204392,
+      "sha256": "36bf698ffb5b9330679c4de0f40082940fac73371a36d0c275391f4f0ba83df3",
+      "mime": "image/webp",
       "method": "preserved",
       "decodedRgba": {
-        "width": 2048,
-        "height": 2048,
+        "width": 1024,
+        "height": 1536,
         "channels": 4,
-        "sha256": "c729358643876e08027a0677fadec96c7cdc87992992e45a96d3acb3d3eb39d3"
+        "sha256": "2375a43d11f7b76f3c8ab3b2f31ef4a9e7fc0edba9f1ac8cb9368b8ada76df3b"
       }
     },
     {
       "index": 2,
-      "sourceBytes": 2169794,
-      "sourceSha256": "6a9e31d057247a1bb8cbba82d9d761e3f0faf1c1b35d10fdd8d799770e4823e3",
+      "sourceBytes": 93490,
+      "sourceSha256": "40735b7405009985bc9ad640b023c4fc9d30c61d0b5ec197c9e9d77d63047bb7",
       "sourceMime": "image/webp",
-      "bytes": 2169794,
-      "sha256": "6a9e31d057247a1bb8cbba82d9d761e3f0faf1c1b35d10fdd8d799770e4823e3",
+      "bytes": 93490,
+      "sha256": "40735b7405009985bc9ad640b023c4fc9d30c61d0b5ec197c9e9d77d63047bb7",
       "mime": "image/webp",
       "method": "preserved",
       "decodedRgba": {
-        "width": 2048,
-        "height": 2048,
+        "width": 1024,
+        "height": 1536,
         "channels": 4,
-        "sha256": "a5fd8cfe7319bad280b3775e7e5934a53b739f953c0d178d56cde0c0a00a5773"
+        "sha256": "446b870c35cf9aa228d40362df837d5f6ac5008b97719953ad8d44fc935ca5ad"
       }
     },
     {
       "index": 3,
-      "sourceBytes": 1978226,
-      "sourceSha256": "e85d82105645088b528f5d3953da6018515f5172ccb6dd2e0c010fead4ecd0c1",
+      "sourceBytes": 2019132,
+      "sourceSha256": "a872f770330a0565b0a6d9b5dda87b3252afb783df884c81f759c75b16ac8dae",
       "sourceMime": "image/webp",
-      "bytes": 1978226,
-      "sha256": "e85d82105645088b528f5d3953da6018515f5172ccb6dd2e0c010fead4ecd0c1",
+      "bytes": 2019132,
+      "sha256": "a872f770330a0565b0a6d9b5dda87b3252afb783df884c81f759c75b16ac8dae",
       "mime": "image/webp",
       "method": "preserved",
       "decodedRgba": {
         "width": 2048,
         "height": 2048,
         "channels": 4,
-        "sha256": "744f01c45f54933db1ee4ceda2770fed1d2fa49401d552b5639c5a89a22f33e9"
+        "sha256": "cc85aaec4c0db18f1331876f0e5c1f38af4f57d0e2d09e7ee04ae9c5dbf421e9"
       }
     },
     {
       "index": 4,
-      "sourceBytes": 2139574,
-      "sourceSha256": "29d47ab5823d056a27484ff653aa5981f8f8e5c023b1b7898a2f2ef09443d088",
+      "sourceBytes": 2380258,
+      "sourceSha256": "a8f93c5aea0aaa9152f0886f03b19c57ddf9c46d4fd9271119a40f24cce531f1",
       "sourceMime": "image/webp",
-      "bytes": 2139574,
-      "sha256": "29d47ab5823d056a27484ff653aa5981f8f8e5c023b1b7898a2f2ef09443d088",
+      "bytes": 2380258,
+      "sha256": "a8f93c5aea0aaa9152f0886f03b19c57ddf9c46d4fd9271119a40f24cce531f1",
       "mime": "image/webp",
       "method": "preserved",
       "decodedRgba": {
         "width": 2048,
         "height": 2048,
         "channels": 4,
-        "sha256": "e25efa580701599a708a94074619d006239d2bdcf14d271fb9e1bd9591dd209b"
+        "sha256": "4c9e53aee853cd565e986b08735ac9e44d7bab9bdede0675bdeb3c81b0950f1e"
       }
     },
     {
       "index": 5,
-      "sourceBytes": 2407086,
-      "sourceSha256": "80a2bdc55872dd4491afbc2c921e7dfdc44850909300b986c1d7f3e8c5cc09de",
+      "sourceBytes": 2394628,
+      "sourceSha256": "7c53a8d973f0eb1d7522c4293f23d797369806c082289c4950be479f41f1816f",
       "sourceMime": "image/webp",
-      "bytes": 2407086,
-      "sha256": "80a2bdc55872dd4491afbc2c921e7dfdc44850909300b986c1d7f3e8c5cc09de",
+      "bytes": 2394628,
+      "sha256": "7c53a8d973f0eb1d7522c4293f23d797369806c082289c4950be479f41f1816f",
       "mime": "image/webp",
       "method": "preserved",
       "decodedRgba": {
@@ -105,11 +105,11 @@
     },
     {
       "index": 6,
-      "sourceBytes": 2916660,
-      "sourceSha256": "4723a6cff6ed4e007567542baa685d6c954f3b1122d021496e16ed2db0ab0372",
+      "sourceBytes": 2923172,
+      "sourceSha256": "6365b72f56842aba84b41d87e3341213d10e16495b1a907461c9df81c0eecacd",
       "sourceMime": "image/webp",
-      "bytes": 2916660,
-      "sha256": "4723a6cff6ed4e007567542baa685d6c954f3b1122d021496e16ed2db0ab0372",
+      "bytes": 2923172,
+      "sha256": "6365b72f56842aba84b41d87e3341213d10e16495b1a907461c9df81c0eecacd",
       "mime": "image/webp",
       "method": "preserved",
       "decodedRgba": {
@@ -121,11 +121,11 @@
     },
     {
       "index": 7,
-      "sourceBytes": 348518,
-      "sourceSha256": "18d30d42f1d5ec43c66d2b517495e3793fcce9d937f0d502167bc05fb7445b46",
+      "sourceBytes": 344770,
+      "sourceSha256": "6bf1c75477e2c64d5a01f73fbdd704e2cccbfed44c968043f6af821a126fb7a1",
       "sourceMime": "image/webp",
-      "bytes": 348518,
-      "sha256": "18d30d42f1d5ec43c66d2b517495e3793fcce9d937f0d502167bc05fb7445b46",
+      "bytes": 344770,
+      "sha256": "6bf1c75477e2c64d5a01f73fbdd704e2cccbfed44c968043f6af821a126fb7a1",
       "mime": "image/webp",
       "method": "preserved",
       "decodedRgba": {
@@ -137,22 +137,246 @@
     },
     {
       "index": 8,
-      "sourceBytes": 6662976,
-      "sourceSha256": "5ab1d153c6fc0db0ac5b27ca23b3caba9c3deab66ff1720a183914410f4a39fb",
+      "sourceBytes": 9646708,
+      "sourceSha256": "8e23442f359ba289981d6eb821236041449212363f7f6e574445eb77ea69082f",
       "sourceMime": "image/webp",
-      "bytes": 6662976,
-      "sha256": "5ab1d153c6fc0db0ac5b27ca23b3caba9c3deab66ff1720a183914410f4a39fb",
+      "bytes": 9646708,
+      "sha256": "8e23442f359ba289981d6eb821236041449212363f7f6e574445eb77ea69082f",
       "mime": "image/webp",
       "method": "preserved",
       "decodedRgba": {
         "width": 4096,
         "height": 4096,
         "channels": 4,
-        "sha256": "f6c09d2dd2293d0b761e003b88f796ab31141beda19b78e833faa01844bac858"
+        "sha256": "e0aad991a841ef63513411f65af3fbf57a7248d2ce821fa5c6338451d818076e"
       }
     },
     {
       "index": 9,
+      "sourceBytes": 1511234,
+      "sourceSha256": "02263c097e6d9724d1b6bb809c6b5e048f9f915e3835b238a77aabe66f26b6fc",
+      "sourceMime": "image/webp",
+      "bytes": 1511234,
+      "sha256": "02263c097e6d9724d1b6bb809c6b5e048f9f915e3835b238a77aabe66f26b6fc",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 4096,
+        "height": 4096,
+        "channels": 4,
+        "sha256": "6ede0d69c4f559a59e40c501d66bd78cc99e6edef5beccb03b7d09ad3447a508"
+      }
+    },
+    {
+      "index": 10,
+      "sourceBytes": 22524,
+      "sourceSha256": "99cc3d886afda51e4fb0f1ac81a9a9cb1ada3e6a8d82b3e30683c1dda32e5690",
+      "sourceMime": "image/webp",
+      "bytes": 22524,
+      "sha256": "99cc3d886afda51e4fb0f1ac81a9a9cb1ada3e6a8d82b3e30683c1dda32e5690",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 336,
+        "height": 336,
+        "channels": 4,
+        "sha256": "6e76900759c5fee36adda9bd40db63c8825e20cda71f7ed4f135c314a2d0f7af"
+      }
+    },
+    {
+      "index": 11,
+      "sourceBytes": 40832,
+      "sourceSha256": "b34661e86c87902695d10478c983216650e34622517af2498ab04020348bab2b",
+      "sourceMime": "image/webp",
+      "bytes": 40832,
+      "sha256": "b34661e86c87902695d10478c983216650e34622517af2498ab04020348bab2b",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 336,
+        "height": 336,
+        "channels": 4,
+        "sha256": "3df4191198d219e6b8019c15a5281d824e0fda8e95740903b205dfb6a09830af"
+      }
+    },
+    {
+      "index": 12,
+      "sourceBytes": 210880,
+      "sourceSha256": "b196cf414535e0c535c7853ccfad3f6aaa7706228fb05ef89058d56a0a9d31b8",
+      "sourceMime": "image/webp",
+      "bytes": 210880,
+      "sha256": "b196cf414535e0c535c7853ccfad3f6aaa7706228fb05ef89058d56a0a9d31b8",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 4096,
+        "height": 4096,
+        "channels": 4,
+        "sha256": "c42131baeae042ba4797967637aa50f1237431310844b658440d973ed4ad4993"
+      }
+    },
+    {
+      "index": 13,
+      "sourceBytes": 1041686,
+      "sourceSha256": "4f2cbda22bc3a57666206b25bda9580f626028105df4fe476ad09c33442f1c29",
+      "sourceMime": "image/webp",
+      "bytes": 1041686,
+      "sha256": "4f2cbda22bc3a57666206b25bda9580f626028105df4fe476ad09c33442f1c29",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "cf27b1ab29be05dac8f48f7c5f79ee93cc4800f4a4b57820e1324fa885e4a990"
+      }
+    },
+    {
+      "index": 14,
+      "sourceBytes": 1535166,
+      "sourceSha256": "3382697bc2c132fd8ca595c72cdc6a2ce5a7fbf6f184ce9410cd296bd0794725",
+      "sourceMime": "image/webp",
+      "bytes": 1535166,
+      "sha256": "3382697bc2c132fd8ca595c72cdc6a2ce5a7fbf6f184ce9410cd296bd0794725",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "f13a1e366c3d97c3342b1bd69fb94dd2c4439cb9ee7c979c22817407df17a667"
+      }
+    },
+    {
+      "index": 15,
+      "sourceBytes": 212728,
+      "sourceSha256": "4bcb8e22bdf287edeaa5e2c58e8c56be51d4c3ca149111d72cacb3f9439706c6",
+      "sourceMime": "image/webp",
+      "bytes": 212728,
+      "sha256": "4bcb8e22bdf287edeaa5e2c58e8c56be51d4c3ca149111d72cacb3f9439706c6",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 1024,
+        "height": 1536,
+        "channels": 4,
+        "sha256": "a2c03603d6a8ffe18a2be8b6407af6bef138224ea3ac2954bbb8d87402ef5959"
+      }
+    },
+    {
+      "index": 16,
+      "sourceBytes": 755842,
+      "sourceSha256": "e061f22934ed5ad0c5f4bbcf7fdb069e72f2a4efcb1df73605ab93d10186e67c",
+      "sourceMime": "image/webp",
+      "bytes": 755842,
+      "sha256": "e061f22934ed5ad0c5f4bbcf7fdb069e72f2a4efcb1df73605ab93d10186e67c",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "c9b5482b7cbc33daaf224a23fb7b00725010d355aba34c86b4f0ee1998696efa"
+      }
+    },
+    {
+      "index": 17,
+      "sourceBytes": 1323922,
+      "sourceSha256": "9fc60d5bff1b4aba466bc344eae5425e251625c0edb78cae1a8079a04fa6411e",
+      "sourceMime": "image/webp",
+      "bytes": 1323922,
+      "sha256": "9fc60d5bff1b4aba466bc344eae5425e251625c0edb78cae1a8079a04fa6411e",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 2048,
+        "height": 2048,
+        "channels": 4,
+        "sha256": "6ff1649ee2d45dcec59bca6ab0c143358abca25f313fe22771f93a853cabab20"
+      }
+    },
+    {
+      "index": 18,
+      "sourceBytes": 2566498,
+      "sourceSha256": "1e0ecd116c7ccf8fbfee62cf6d6f51ce83597c7af1d065b47eaab95daecb9119",
+      "sourceMime": "image/webp",
+      "bytes": 2566498,
+      "sha256": "1e0ecd116c7ccf8fbfee62cf6d6f51ce83597c7af1d065b47eaab95daecb9119",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 1254,
+        "height": 1254,
+        "channels": 4,
+        "sha256": "db420aac311c137fba9e3d6ef62344390587f1b3578f2b55bd842778a264fd22"
+      }
+    },
+    {
+      "index": 19,
+      "sourceBytes": 124466,
+      "sourceSha256": "d47afb0b25c49e91ce4fbebc096d4b79680c6ae339c71c28108c9acbff82280b",
+      "sourceMime": "image/webp",
+      "bytes": 124466,
+      "sha256": "d47afb0b25c49e91ce4fbebc096d4b79680c6ae339c71c28108c9acbff82280b",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 1024,
+        "height": 1024,
+        "channels": 4,
+        "sha256": "c16296df7e124f55acca37c5557d4a559594eb91d3c4439213bc03dcd8aed5c6"
+      }
+    },
+    {
+      "index": 20,
+      "sourceBytes": 97488,
+      "sourceSha256": "c25a91204888245c4f2cf487a8abd02b01caf7afd0b33c96d94a7df39239791c",
+      "sourceMime": "image/webp",
+      "bytes": 97488,
+      "sha256": "c25a91204888245c4f2cf487a8abd02b01caf7afd0b33c96d94a7df39239791c",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 1024,
+        "height": 1024,
+        "channels": 4,
+        "sha256": "7a9a65161aefbd263fb5d0527cfd17e4d90c6aacb8c5837a80f3c25c08317cff"
+      }
+    },
+    {
+      "index": 21,
+      "sourceBytes": 205280,
+      "sourceSha256": "9a4b72398f2c34a0a06253b17ff017182c75d3b89a543f7708c38708afab7361",
+      "sourceMime": "image/webp",
+      "bytes": 205280,
+      "sha256": "9a4b72398f2c34a0a06253b17ff017182c75d3b89a543f7708c38708afab7361",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 1024,
+        "height": 1024,
+        "channels": 4,
+        "sha256": "18e96c4cb234c25498bcd1748b931cd13c9961df17f13c421408b2da3013f519"
+      }
+    },
+    {
+      "index": 22,
+      "sourceBytes": 22016,
+      "sourceSha256": "b7006a228269e06890be26cf1b8099476196d52123ed75eb76731467a430263d",
+      "sourceMime": "image/webp",
+      "bytes": 22016,
+      "sha256": "b7006a228269e06890be26cf1b8099476196d52123ed75eb76731467a430263d",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 1024,
+        "height": 1024,
+        "channels": 4,
+        "sha256": "e0265ac79313768ca8c681b82b8e13b2344e994b2910880df7d17cf5c1fb3a73"
+      }
+    },
+    {
+      "index": 23,
       "sourceBytes": 6634492,
       "sourceSha256": "a628f3c2698c2cdc71be9f493d602439ead9bfaeed40ef69094931858ebd64ad",
       "sourceMime": "image/webp",
@@ -168,7 +392,7 @@
       }
     },
     {
-      "index": 10,
+      "index": 24,
       "sourceBytes": 1510736,
       "sourceSha256": "64c0d2a29d8f80a438b45ce43f459e203f59b4c123e0c45c7244786dfc0bd30d",
       "sourceMime": "image/webp",
@@ -184,67 +408,67 @@
       }
     },
     {
-      "index": 11,
-      "sourceBytes": 109408,
-      "sourceSha256": "a451ba9cd7e1f73557c28867559665f5e7630756b0659c6008ab20fcef2338ac",
+      "index": 25,
+      "sourceBytes": 6662976,
+      "sourceSha256": "5ab1d153c6fc0db0ac5b27ca23b3caba9c3deab66ff1720a183914410f4a39fb",
       "sourceMime": "image/webp",
-      "bytes": 109408,
-      "sha256": "a451ba9cd7e1f73557c28867559665f5e7630756b0659c6008ab20fcef2338ac",
+      "bytes": 6662976,
+      "sha256": "5ab1d153c6fc0db0ac5b27ca23b3caba9c3deab66ff1720a183914410f4a39fb",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 4096,
+        "height": 4096,
+        "channels": 4,
+        "sha256": "f6c09d2dd2293d0b761e003b88f796ab31141beda19b78e833faa01844bac858"
+      }
+    },
+    {
+      "index": 26,
+      "sourceBytes": 83910,
+      "sourceSha256": "46b05df1f79c5155e0a228d9b25ee783eb56437a4ba996cbc0a9af471e901d94",
+      "sourceMime": "image/webp",
+      "bytes": 83910,
+      "sha256": "46b05df1f79c5155e0a228d9b25ee783eb56437a4ba996cbc0a9af471e901d94",
       "mime": "image/webp",
       "method": "preserved",
       "decodedRgba": {
         "width": 512,
         "height": 512,
         "channels": 4,
-        "sha256": "7b342d39aeabb758d6cd80ab51792c14cb89236bb2107721d3e03bebd6d84b71"
+        "sha256": "53e929eee43ee97cc180c36542eef1c35e8b87d2eaa70b07e42e8af1070bcbd8"
       }
     },
     {
-      "index": 12,
-      "sourceBytes": 58920,
-      "sourceSha256": "4cbb27ce83d67b598c07d9efee7e18c2fa1dae48a00997261132a2af2703bc48",
-      "sourceMime": "image/png",
-      "bytes": 22524,
-      "sha256": "99cc3d886afda51e4fb0f1ac81a9a9cb1ada3e6a8d82b3e30683c1dda32e5690",
+      "index": 27,
+      "sourceBytes": 10244524,
+      "sourceSha256": "967da88bd034ee778ee1a5ee2e7f306ed261301c0b7c435754f798fa0cda1c83",
+      "sourceMime": "image/webp",
+      "bytes": 10244524,
+      "sha256": "967da88bd034ee778ee1a5ee2e7f306ed261301c0b7c435754f798fa0cda1c83",
       "mime": "image/webp",
-      "method": "lossless WebP",
-      "decodedRgba": {
-        "width": 336,
-        "height": 336,
-        "channels": 4,
-        "sha256": "6e76900759c5fee36adda9bd40db63c8825e20cda71f7ed4f135c314a2d0f7af"
-      }
-    },
-    {
-      "index": 13,
-      "sourceBytes": 62146,
-      "sourceSha256": "5b8cfe50daf92f216914f54c8d0414e7b3148cd6122068b9577f3e194122161b",
-      "sourceMime": "image/png",
-      "bytes": 40832,
-      "sha256": "b34661e86c87902695d10478c983216650e34622517af2498ab04020348bab2b",
-      "mime": "image/webp",
-      "method": "lossless WebP",
-      "decodedRgba": {
-        "width": 336,
-        "height": 336,
-        "channels": 4,
-        "sha256": "3df4191198d219e6b8019c15a5281d824e0fda8e95740903b205dfb6a09830af"
-      }
-    },
-    {
-      "index": 14,
-      "sourceBytes": 491180,
-      "sourceSha256": "6deb7357bf8a59be6cbf4cab5d5638afd67897e43446f3bd627408f169d0ed0b",
-      "sourceMime": "image/png",
-      "bytes": 210880,
-      "sha256": "b196cf414535e0c535c7853ccfad3f6aaa7706228fb05ef89058d56a0a9d31b8",
-      "mime": "image/webp",
-      "method": "lossless WebP",
+      "method": "preserved",
       "decodedRgba": {
         "width": 4096,
         "height": 4096,
         "channels": 4,
-        "sha256": "c42131baeae042ba4797967637aa50f1237431310844b658440d973ed4ad4993"
+        "sha256": "a3c455631cb5023d8e3c7fdec85c780c0391682b7cd5298c5368df9cf5e2215b"
+      }
+    },
+    {
+      "index": 28,
+      "sourceBytes": 9652596,
+      "sourceSha256": "6b8e54316dc68f85d75211f757d4e5766ad214b445ab8a3397a0bbc923217688",
+      "sourceMime": "image/webp",
+      "bytes": 9652596,
+      "sha256": "6b8e54316dc68f85d75211f757d4e5766ad214b445ab8a3397a0bbc923217688",
+      "mime": "image/webp",
+      "method": "preserved",
+      "decodedRgba": {
+        "width": 4096,
+        "height": 4096,
+        "channels": 4,
+        "sha256": "d93a58451e99c7181816cf55c1096e798371dde57db5742b7598b809ab952808"
       }
     }
   ],
@@ -252,8 +476,11 @@
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 13,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 0,
+        "layerSourcePrimitive": 0
+      },
+      "material": 7,
       "mode": 4,
       "attributes": [
         {
@@ -275,14 +502,17 @@
           "normalized": false
         }
       ],
-      "triangles": 183787,
-      "sha256": "6b94e44fa8d1c13734b757a0490aafb1132846cf747c3a28d05bdf8437e95639"
+      "triangles": 177326,
+      "sha256": "911527705c333814e3e7dbca9aa0e385fcbe8db569c10c9cfd69586e4a24574b"
     },
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 1,
+        "layerSourcePrimitive": 1
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -310,8 +540,11 @@
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 2,
+        "layerSourcePrimitive": 2
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -339,8 +572,11 @@
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 3,
+        "layerSourcePrimitive": 3
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -368,8 +604,11 @@
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 4,
+        "layerSourcePrimitive": 4
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -397,148 +636,11 @@
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 14,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "COLOR_0",
-          "type": "VEC4",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "TEXCOORD_0",
-          "type": "VEC2",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 11916,
-      "sha256": "6b50c7af05e64525905004498964d9f90d765949a665bf1586911262f5211883"
-    },
-    {
-      "mesh": "geometry_0",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 14,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "COLOR_0",
-          "type": "VEC4",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "TEXCOORD_0",
-          "type": "VEC2",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 2307,
-      "sha256": "fa67535b1e19aebc7c3c4ad6b539358e2ac61d007a67a311103525981c94a60b"
-    },
-    {
-      "mesh": "geometry_0",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 14,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "COLOR_0",
-          "type": "VEC4",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "TEXCOORD_0",
-          "type": "VEC2",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 114,
-      "sha256": "0f20bc5f241bda4795cba5ee38a25df045f69b4b43491980a215427875c14b87"
-    },
-    {
-      "mesh": "geometry_0",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 14,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "COLOR_0",
-          "type": "VEC4",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "TEXCOORD_0",
-          "type": "VEC2",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 481,
-      "sha256": "4377b6863e367c9b887ce218bad6ffae03d6138a05e9d1b71e0bee6feec7db2e"
-    },
-    {
-      "mesh": "geometry_0",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 13,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 5,
+        "layerSourcePrimitive": 5
+      },
+      "material": 7,
       "mode": 4,
       "attributes": [
         {
@@ -560,14 +662,17 @@
           "normalized": false
         }
       ],
-      "triangles": 23,
-      "sha256": "fcfe0eed7490da7bfe9c2b37760d2c714d2bd091be1c8b13ad83293e2da97c0e"
+      "triangles": 12,
+      "sha256": "d5b2538b90c669877336fc558c419fa6226a2a78ebbb7c91f760f8f50f7d84f6"
     },
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 15,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 6,
+        "layerSourcePrimitive": 6
+      },
+      "material": 8,
       "mode": 4,
       "attributes": [
         {
@@ -601,8 +706,11 @@
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 15,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 7,
+        "layerSourcePrimitive": 7
+      },
+      "material": 8,
       "mode": 4,
       "attributes": [
         {
@@ -636,8 +744,11 @@
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 15,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 8,
+        "layerSourcePrimitive": 8
+      },
+      "material": 8,
       "mode": 4,
       "attributes": [
         {
@@ -671,8 +782,11 @@
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 15,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 9,
+        "layerSourcePrimitive": 9
+      },
+      "material": 8,
       "mode": 4,
       "attributes": [
         {
@@ -706,8 +820,11 @@
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 16,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 10,
+        "layerSourcePrimitive": 10
+      },
+      "material": 9,
       "mode": 4,
       "attributes": [
         {
@@ -733,10 +850,181 @@
       "sha256": "0e9729a25ee05786dd7a426416185189ed54ff3e306a5d1538baa24ba9c026c4"
     },
     {
-      "mesh": "",
+      "mesh": "geometry_0",
+      "extras": {},
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 16,
+        "layerSourcePrimitive": 15
+      },
+      "material": 8,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_1",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 4123,
+      "sha256": "01b572b8f7130eae09c5cb3adbf18aa6d5a373ce56551f5e3374f1d763371461"
+    },
+    {
+      "mesh": "geometry_0",
+      "extras": {},
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 17,
+        "layerSourcePrimitive": 16
+      },
+      "material": 14,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_2",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 777,
+      "sha256": "db562ac96f2e8041763658845b86095b05da6a6fa9718de5ba2fc5805933b879"
+    },
+    {
+      "mesh": "geometry_0",
       "extras": {},
       "primitiveExtras": {},
-      "material": 12,
+      "material": 7,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 129,
+      "sha256": "45ba9df879d020c8f2993905ec593baf2449422bde18705caa59cdb77ed39d3c"
+    },
+    {
+      "mesh": "geometry_0",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 14,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_2",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 174,
+      "sha256": "8e1897c27422d4039c3400ef9ae4eec6348cb266ea7956c001b20cec70ca339d"
+    },
+    {
+      "mesh": "geometry_0",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 18,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 261,
+      "sha256": "7cc69f3bb183b1a052bea878af3d0a284c414938615553edf82f6af52c6e045b"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -764,8 +1052,10 @@
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -793,8 +1083,10 @@
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 1
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -822,8 +1114,10 @@
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 2
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -851,8 +1145,10 @@
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 3
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -880,7 +1176,9 @@
     {
       "mesh": "DrukV7_Approved_BoneSword_Mesh",
       "extras": {},
-      "primitiveExtras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
       "material": 0,
       "mode": 4,
       "attributes": [
@@ -904,13 +1202,15 @@
         }
       ],
       "triangles": 40000,
-      "sha256": "2d59a34abdac674aeb8655952ac875c4e123f67c1f1587642dfe552e73a89dc4"
+      "sha256": "d2eea6885433cbb6e2f4364db1d387a0b2c362a041a85759fd6df92ec6f808d2"
     },
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -938,8 +1238,10 @@
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 12,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 6,
       "mode": 4,
       "attributes": [
         {
@@ -965,362 +1267,12 @@
       "sha256": "4aeb481915019c57d47892fb40c95fe6629fe3e2f109b28ee6c90db02d77b285"
     },
     {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 2,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 384,
-      "sha256": "1c3649696f9f352809138e4e8a73aa99da431ad44fa109863878a3b163d10439"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 3,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 384,
-      "sha256": "36fca47180c134a2a1a8f5da8bd118827ee7455c6671b1a5ae005ebff6fb49e1"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 2,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 384,
-      "sha256": "0447873d92a2460373f28f17a91c281c8a066a84647529b169157717a7481436"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 2,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 384,
-      "sha256": "075531ca9c17315f9be1c1575c328b1fb2cece14f35750dfd29dffda746897b1"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 3,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 384,
-      "sha256": "a8d21f817c9bfea13c2850a6b2b30798fd46213ccbac02a29b316b24d6b19067"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 2,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 384,
-      "sha256": "247930c9551b7180b984ac323d42e053c96cbb431928913e90b18bfb89dba75d"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 2,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 192,
-      "sha256": "903d8931240db7209a31bc6196cee2a9969e6020bc908afd646652cce1360ac4"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 4,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "COLOR_0",
-          "type": "VEC4",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 12096,
-      "sha256": "1111ba239c5df3b9410606a336e16f2df86c38e97b96d18b01c7de6a6042dab3"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 5,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "COLOR_0",
-          "type": "VEC4",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 45,
-      "sha256": "1e582626c96584d29ea333d2b02b5eb96aecaf5cd4b674af99b32a2c19f0f74a"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 5,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "COLOR_0",
-          "type": "VEC4",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 45,
-      "sha256": "58894d35ed22ca161409f39e2b3a30b0b0847232262682d888823b6d7b97a80f"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 5,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "COLOR_0",
-          "type": "VEC4",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 45,
-      "sha256": "93360757a0936c71dae55a16d55dbd74ac460643a4049aba03b1d6494094cf10"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 5,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "COLOR_0",
-          "type": "VEC4",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 45,
-      "sha256": "7da318ac2ef8db1d88c93b526825b67a4f6c655a178fdba85a85675ed97bdfa3"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 3,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 1808,
-      "sha256": "69f7239509e652a25a7ae34d77deaf778b502ffacc7ff86f786eb45ecc7a3cb5"
-    },
-    {
-      "mesh": "",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 6,
-      "mode": 4,
-      "attributes": [
-        {
-          "semantic": "NORMAL",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        }
-      ],
-      "triangles": 96,
-      "sha256": "2c3457111e2e2893ae695067ad15bab1bbcbad0d051d4bd188ae5e68b56e2dbc"
-    },
-    {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 7,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 2,
       "mode": 4,
       "attributes": [
         {
@@ -1343,13 +1295,15 @@
         }
       ],
       "triangles": 46692,
-      "sha256": "322f9b0250548dcb482e7b6cac67010381337ad91a35b5885ff8276c0cff6bc3"
+      "sha256": "a3fe08bf324ce660830f6cd14b550647ac083e90fd6a730b7de27936501024a3"
     },
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 8,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 1
+      },
+      "material": 2,
       "mode": 4,
       "attributes": [
         {
@@ -1372,13 +1326,15 @@
         }
       ],
       "triangles": 103308,
-      "sha256": "627317f5ecf4bc43fd651f89b1a5bb2a218223e3344bee8da7a4d0dacba6ebf9"
+      "sha256": "32e504dbb8d610381f9d4658551a52b08b6726c5394f64062a4ef966ab54cc48"
     },
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 7,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 2,
       "mode": 4,
       "attributes": [
         {
@@ -1401,13 +1357,15 @@
         }
       ],
       "triangles": 46692,
-      "sha256": "322f9b0250548dcb482e7b6cac67010381337ad91a35b5885ff8276c0cff6bc3"
+      "sha256": "a3fe08bf324ce660830f6cd14b550647ac083e90fd6a730b7de27936501024a3"
     },
     {
       "mesh": "geometry_0",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 8,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 1
+      },
+      "material": 2,
       "mode": 4,
       "attributes": [
         {
@@ -1430,13 +1388,15 @@
         }
       ],
       "triangles": 103308,
-      "sha256": "627317f5ecf4bc43fd651f89b1a5bb2a218223e3344bee8da7a4d0dacba6ebf9"
+      "sha256": "32e504dbb8d610381f9d4658551a52b08b6726c5394f64062a4ef966ab54cc48"
     },
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 9,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 3,
       "mode": 4,
       "attributes": [
         {
@@ -1458,8 +1418,10 @@
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 9,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 3,
       "mode": 4,
       "attributes": [
         {
@@ -1481,8 +1443,10 @@
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 9,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 3,
       "mode": 4,
       "attributes": [
         {
@@ -1504,8 +1468,10 @@
     {
       "mesh": "",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 9,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 3,
       "mode": 4,
       "attributes": [
         {
@@ -1527,8 +1493,11 @@
     {
       "mesh": "Recessed_Neck_Closure",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 10,
+      "primitiveExtras": {
+        "sourcePrimitiveIndex": 0,
+        "layerSourcePrimitive": 0
+      },
+      "material": 4,
       "mode": 4,
       "attributes": [
         {
@@ -1544,14 +1513,16 @@
           "normalized": false
         }
       ],
-      "triangles": 3246,
-      "sha256": "ecded707a1ea183d798c3442fd05e1d85554aa307987287d674b90e0e21cc3fa"
+      "triangles": 2197,
+      "sha256": "9dd703b7c57f6e8f36ac667c11af31b2c401189c413b5f0880ae70f5670973d5"
     },
     {
       "mesh": "Druk_Natural_Multiview_Head",
       "extras": {},
-      "primitiveExtras": {},
-      "material": 11,
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 5,
       "mode": 4,
       "attributes": [
         {
@@ -1580,13 +1551,393 @@
         }
       ],
       "triangles": 238548,
-      "sha256": "e1e665e9181cbe8b64133e269d80260998468de64508cfdc33578f65f2106446"
+      "sha256": "76ce320b9489e3f8d66b81c8ce610a1d3e1c49519641705bbbe4b447e7bb5ff0"
     },
     {
-      "mesh": "Pinned_Rear_Neck_Repair",
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 10,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "sha256": "1c3649696f9f352809138e4e8a73aa99da431ad44fa109863878a3b163d10439"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 11,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "sha256": "36fca47180c134a2a1a8f5da8bd118827ee7455c6671b1a5ae005ebff6fb49e1"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 10,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "sha256": "0447873d92a2460373f28f17a91c281c8a066a84647529b169157717a7481436"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 10,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "sha256": "075531ca9c17315f9be1c1575c328b1fb2cece14f35750dfd29dffda746897b1"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 11,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "sha256": "a8d21f817c9bfea13c2850a6b2b30798fd46213ccbac02a29b316b24d6b19067"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 10,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 384,
+      "sha256": "247930c9551b7180b984ac323d42e053c96cbb431928913e90b18bfb89dba75d"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 10,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 192,
+      "sha256": "903d8931240db7209a31bc6196cee2a9969e6020bc908afd646652cce1360ac4"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 13,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 12096,
+      "sha256": "bbab86551360e233a004df5987ebd30bbec91c959970c5dbbe78e5e5166fb425"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 13,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 45,
+      "sha256": "bcc6543f8b6ab5df4663efbedb9d411f30182173f91a61bdb7f82c1ccfea075c"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 13,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 45,
+      "sha256": "3c296b83dff80c1e21459fff9386fcfa50b5a4519fb611b6e6684ddfdd023069"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 13,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 45,
+      "sha256": "7b4691ac83277a3c6821f8bea3e5cfab11d00a95b10450daa22882a6baf78296"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 13,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 45,
+      "sha256": "40481cda9fbef28e2074a5c67e10b4d5e4575d445553699b38b62c85e2acff16"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 11,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 1808,
+      "sha256": "69f7239509e652a25a7ae34d77deaf778b502ffacc7ff86f786eb45ecc7a3cb5"
+    },
+    {
+      "mesh": "",
+      "extras": {},
+      "primitiveExtras": {
+        "layerSourcePrimitive": 0
+      },
+      "material": 12,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 96,
+      "sha256": "2c3457111e2e2893ae695067ad15bab1bbcbad0d051d4bd188ae5e68b56e2dbc"
+    },
+    {
+      "mesh": "Druk short beard base",
       "extras": {},
       "primitiveExtras": {},
-      "material": 1,
+      "material": 16,
       "mode": 4,
       "attributes": [
         {
@@ -1614,11 +1965,345 @@
           "normalized": false
         }
       ],
-      "triangles": 6107,
-      "sha256": "f29a80f90e2ba560b810da58e6f7af1bc73efadd8adaa75dd5ba46b048b3aeec"
+      "triangles": 1816,
+      "sha256": "cae37fc84d47a4013f07c5bcef9440febce654baec09d9d75323681efbe66079"
     },
     {
-      "mesh": "Pinned_Rear_Neck_Repair",
+      "mesh": "Druk short beard hair",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 17,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "COLOR_0",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 155220,
+      "sha256": "31e40c29a859be15a396b42128e07ea4054ae097381d66515fe56e7e25f66af6"
+    },
+    {
+      "mesh": "Anatomical sloping shoulder support",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 8,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TANGENT",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_1",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 7704,
+      "sha256": "4499211256c923e7474c2e91d1b70000478c3253dd55a0700e0bf7cd472e53c9"
+    },
+    {
+      "mesh": "Continuous chainmail torso shoulders and neckline.001",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 20,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TANGENT",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_1",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 13440,
+      "sha256": "dfbb3a1266093fcd8b3f926dc1738699099072179201efe9b4e86d24bcf0fa13"
+    },
+    {
+      "mesh": "Fitted low chainmail collar with bound edge",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 20,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TANGENT",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_1",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 4800,
+      "sha256": "9e81d22d9a8108773417d5dfe8113e016c24780a928353ff562d6c9c3d8a2651"
+    },
+    {
+      "mesh": "Fitted low chainmail collar with bound edge",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 21,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TANGENT",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_1",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 960,
+      "sha256": "e5f1b85416cda83ff4f4db186cc833cfd9eaf216f53807f487afecd99129bef9"
+    },
+    {
+      "mesh": "Druk pauldron surfaces - smooth material seam only",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 19,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TANGENT",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_1",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_2",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 14811,
+      "sha256": "eda6514a61ec41eb3cfe427b0d44918fd1381be3de2ae63ef963a6af0a286edd"
+    },
+    {
+      "mesh": "Druk pauldron surfaces - smooth material seam only",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 19,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TANGENT",
+          "type": "VEC4",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_1",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_2",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 22256,
+      "sha256": "c0f80e2a100d09f02f5e94f97cc1cd702e6da8c784d7a1db98a842ebcebc33c5"
+    },
+    {
+      "mesh": "Druk pauldron surfaces - smooth material seam only",
+      "extras": {},
+      "primitiveExtras": {},
+      "material": 20,
+      "mode": 4,
+      "attributes": [
+        {
+          "semantic": "NORMAL",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "POSITION",
+          "type": "VEC3",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_0",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_1",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        },
+        {
+          "semantic": "TEXCOORD_2",
+          "type": "VEC2",
+          "component": 5126,
+          "normalized": false
+        }
+      ],
+      "triangles": 1600,
+      "sha256": "5125b4c9dcbebccb3574b3d2f95ba981bd4fec5db9a42d2b08429a88b9cc3da5"
+    },
+    {
+      "mesh": "Druk pauldron surfaces - smooth material seam only",
       "extras": {},
       "primitiveExtras": {},
       "material": 14,
@@ -1641,39 +2326,22 @@
           "type": "VEC2",
           "component": 5126,
           "normalized": false
-        }
-      ],
-      "triangles": 1140,
-      "sha256": "a617986acbdfe4978089b6fb2bf0aebef52ef14e6bed4769926eeecd4005cf45"
-    },
-    {
-      "mesh": "Pinned_Rear_Neck_Repair",
-      "extras": {},
-      "primitiveExtras": {},
-      "material": 14,
-      "mode": 4,
-      "attributes": [
+        },
         {
-          "semantic": "NORMAL",
-          "type": "VEC3",
+          "semantic": "TEXCOORD_1",
+          "type": "VEC2",
           "component": 5126,
           "normalized": false
         },
         {
-          "semantic": "POSITION",
-          "type": "VEC3",
-          "component": 5126,
-          "normalized": false
-        },
-        {
-          "semantic": "TEXCOORD_0",
+          "semantic": "TEXCOORD_2",
           "type": "VEC2",
           "component": 5126,
           "normalized": false
         }
       ],
-      "triangles": 55,
-      "sha256": "950c80c987e683213a6de8febe3d2912f54700b220af4fcdb27d8f7b57e93a9f"
+      "triangles": 406,
+      "sha256": "cf45ea83d681a496379c6e67b7ef05ec4f89e9806e504546bdb5087ea41b538f"
     }
   ],
   "verified": {
@@ -1687,8 +2355,8 @@
   },
   "schemaVersion": 1,
   "id": "druk",
-  "sourceUrl": "review:druk-materials-v29-strap-wraps-left-hand.glb",
-  "sourceSha256": "c6e4f267253b2a48efd53d40b235535aace62b7076485a3378de4359171bf497",
-  "url": "/miniatures/druk-approved-63d53c563552.glb",
-  "triangles": 880377
+  "sourceUrl": "assets/miniatures/runtime-provenance/druk-v10/chainmail-boundary-20261022/final/druk-high-source.glb",
+  "sourceSha256": "77cb574f0a29a10835b9415ee61ce40b6b6097c2f7022438ea3e185ccfe4001f",
+  "url": "/miniatures/druk-approved-ce4503a37a81.glb",
+  "triangles": 1079213
 }

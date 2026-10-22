@@ -1,35 +1,36 @@
 {
-  "approvedSourceSha256": "c6e4f267253b2a48efd53d40b235535aace62b7076485a3378de4359171bf497",
-  "approvedReviewBytes": 44329896,
-  "fullStandaloneBytes": 43967664,
-  "triangles": 880377,
+  "approvedSourceSha256": "77cb574f0a29a10835b9415ee61ce40b6b6097c2f7022438ea3e185ccfe4001f",
+  "approvedReviewBytes": 87936000,
+  "fullStandaloneBytes": 87936000,
+  "triangles": 1079213,
   "tiers": [
     {
       "tier": "high",
-      "url": "/miniatures/druk-high-shared-fb24aaa49290.glb",
-      "bytes": 13678260,
-      "triangles": 880377
+      "url": "/miniatures/druk-high-shared-2fe21414a051.glb",
+      "bytes": 21336104,
+      "triangles": 1079213
     },
     {
       "tier": "balanced",
-      "url": "/miniatures/druk-balanced-shared-98df17b5a79f.glb",
-      "bytes": 5973284,
-      "triangles": 283065
+      "url": "/miniatures/druk-balanced-shared-43e2b535c40d.glb",
+      "bytes": 12818908,
+      "triangles": 454903
     },
     {
       "tier": "low",
-      "url": "/miniatures/druk-low-shared-497965d8af51.glb",
-      "bytes": 3699556,
-      "triangles": 147925
+      "url": "/miniatures/druk-low-shared-24c0742f04f7.glb",
+      "bytes": 9868592,
+      "triangles": 287251
     },
     {
       "tier": "battlefield",
-      "url": "/miniatures/druk-battlefield-shared-db9e82d4852e.glb",
-      "bytes": 1710180,
-      "triangles": 67543
+      "url": "/miniatures/druk-battlefield-shared-3c06f1e45caa.glb",
+      "bytes": 8271404,
+      "triangles": 194641
     }
   ],
-  "uniqueTextureBytes": 30290219,
+  "uniqueTextureBytes": 66601642,
   "texturesSharedAcrossAllTiers": true,
-  "allTiersRebuiltFromApprovedModel": true
+  "allTiersRebuiltFromApprovedModel": true,
+  "rebuildCommand": "node scripts/token-assets/install-approved-druk-boundary.mjs"
 }

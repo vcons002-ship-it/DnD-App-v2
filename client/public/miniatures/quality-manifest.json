@@ -4,28 +4,28 @@
     {
       "id": "druk",
       "profile": "balanced",
-      "url": "/miniatures/druk-balanced-shared-98df17b5a79f.glb",
-      "sha256": "98df17b5a79fd86ac9cca6d7d3d9998cf2e96a75ea44d17e9a0ca7b46cb1742f",
-      "bytes": 5973284,
-      "triangles": 283065,
-      "sourceUrl": "/miniatures/druk-approved-63d53c563552.glb",
-      "sourceSha256": "63d53c563552b6c7a24ceabf83284f2345027227cda02616f4a5f58e8ae92824",
+      "url": "/miniatures/druk-balanced-shared-43e2b535c40d.glb",
+      "sha256": "43e2b535c40d3f47980f2358fbdeddcaf9177f6e526d942ffbefede3ecfa7eb9",
+      "bytes": 12818908,
+      "triangles": 454903,
+      "sourceUrl": "/miniatures/druk-approved-ce4503a37a81.glb",
+      "sourceSha256": "ce4503a37a819d1c5a474539b7a197a232d96f9cf97cd338c8bb701097c57021",
       "receipt": "assets/miniatures/character-reduction/druk-balanced.json",
       "sharedTextureReceipt": "assets/miniatures/shared-textures/druk-balanced.json",
-      "sharedTextureReceiptSha256": "280d5d0171190956727556854779aa3df056b0c2a3616f3eaa829b17033ebe95"
+      "sharedTextureReceiptSha256": "abac01646ae58d7ab21b658df57f5ae05186cd46961a0f768c2d86260b122bbd"
     },
     {
       "id": "druk",
       "profile": "low",
-      "url": "/miniatures/druk-low-shared-497965d8af51.glb",
-      "sha256": "497965d8af51a795ba48fef40860c0249fa8632c9fb8f4fd1c59d9abb88bb658",
-      "bytes": 3699556,
-      "triangles": 147925,
-      "sourceUrl": "/miniatures/druk-approved-63d53c563552.glb",
-      "sourceSha256": "63d53c563552b6c7a24ceabf83284f2345027227cda02616f4a5f58e8ae92824",
+      "url": "/miniatures/druk-low-shared-24c0742f04f7.glb",
+      "sha256": "24c0742f04f7d42386ddc3ea31d6496ddb1f63b091c8010d5ca5c802558f854a",
+      "bytes": 9868592,
+      "triangles": 287251,
+      "sourceUrl": "/miniatures/druk-approved-ce4503a37a81.glb",
+      "sourceSha256": "ce4503a37a819d1c5a474539b7a197a232d96f9cf97cd338c8bb701097c57021",
       "receipt": "assets/miniatures/character-reduction/druk-light.json",
       "sharedTextureReceipt": "assets/miniatures/shared-textures/druk-low.json",
-      "sharedTextureReceiptSha256": "73e8bd5607f4fd3dae4e42194cb9868e08f4eab1bc873f77dfe43f69b349911a"
+      "sharedTextureReceiptSha256": "6e09ac70b831b088ceb5f19b527eac474fc7cc35ad6c844549a92ae7e4c91d55"
     },
     {
       "id": "varis",
@@ -58,28 +58,28 @@
     {
       "id": "vanec",
       "profile": "balanced",
-      "url": "/miniatures/vanec-balanced-shared-bbc92756d593.glb",
-      "sha256": "bbc92756d5939663c3407e203c2a4028707efe0fbc044aeebee5066b3b503ed8",
+      "url": "/miniatures/vanec-tail-balanced-shared-86f0baef5cb6.glb",
+      "sha256": "86f0baef5cb6e5052ad3642e1480921c12895bc7ba65305c3f38994efead5af3",
       "bytes": 10456572,
       "triangles": 355589,
-      "sourceUrl": "/miniatures/vanec-7f57d87ce42f.glb",
-      "sourceSha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
-      "receipt": "assets/miniatures/character-reduction/vanec-balanced.json",
-      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-balanced.json",
-      "sharedTextureReceiptSha256": "89f93ecd4358c6d1d0877d9655db1e4f33087e8dcde619208825d44150dcac1a"
+      "sourceUrl": "/miniatures/vanec-tail-high-57d680b34a48.glb",
+      "sourceSha256": "57d680b34a48eb124f8f096e96adfc843be7ebfbfdc17be3d5b0d2d91ed9bcfd",
+      "receipt": "assets/miniatures/character-reduction/vanec-tail-balanced-20261022.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-balanced-20261022.json",
+      "sharedTextureReceiptSha256": "66dd7aef04797ae9c3654bad38a6bc248a69598aeba5e6d027d62acc27b4ceae"
     },
     {
       "id": "vanec",
       "profile": "low",
-      "url": "/miniatures/vanec-low-shared-d1371882ee98.glb",
-      "sha256": "d1371882ee984c01010c50456dca497f925726fd778bc85b0a2d5dd8c95605b2",
+      "url": "/miniatures/vanec-tail-low-shared-3512f25137d4.glb",
+      "sha256": "3512f25137d42fbf5abd9dd8581b5ee00090487630bc7df72a4d43c040ac973d",
       "bytes": 7599952,
       "triangles": 207975,
-      "sourceUrl": "/miniatures/vanec-7f57d87ce42f.glb",
-      "sourceSha256": "7f57d87ce42f599d58244aab25c19e6477658f28926c2230b8e21d30849a36d7",
-      "receipt": "assets/miniatures/character-reduction/vanec-light.json",
-      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-low.json",
-      "sharedTextureReceiptSha256": "e2fd733c3b159a3b7f7aef3681b5dff67dab57b4df5bd5f91e44b4b124da3f38"
+      "sourceUrl": "/miniatures/vanec-tail-high-57d680b34a48.glb",
+      "sourceSha256": "57d680b34a48eb124f8f096e96adfc843be7ebfbfdc17be3d5b0d2d91ed9bcfd",
+      "receipt": "assets/miniatures/character-reduction/vanec-tail-low-20261022.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-low-20261022.json",
+      "sharedTextureReceiptSha256": "7ef549b22c37635310fcbca52c8416c9d93ea5fa6979ccb67acfaddeba3d038d"
     }
   ]
 }
