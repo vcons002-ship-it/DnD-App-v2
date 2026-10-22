@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'assets/miniatures/**'
+      - 'client/public/miniatures/**'
       - 'scripts/token-assets/**'
       - 'docs/token-generation/**'
       - '.gitattributes'
@@ -23,7 +24,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - name: Validate verifier guardrails
-        run: node --test scripts/token-assets/validate.test.mjs
-      - name: Verify accepted model hashes and GLB structure
-        run: node scripts/token-assets/validate.mjs
+        run: node --test scripts/token-assets/validate.test.mjs scripts/token-assets/shared-character-textures.test.mjs
+      # validate.mjs describes the original static review-only package. The
+      # runtime now includes animated models, shared textures and quality tiers.
+      - name: Verify current runtime models and quality tiers
+        run: |
+          node scripts/token-assets/validate-runtime.mjs
+          node scripts/token-assets/validate-quality-models.mjs
+          node scripts/token-assets/validate-battlefield-lod.mjs
+      - name: Reproduce approved Vanec tail texture and deliveries
+        run: node scripts/token-assets/rebuild-vanec-tail.mjs --out "${{ runner.temp }}/vanec-tail-reproduction"

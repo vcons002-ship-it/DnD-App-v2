@@ -33,7 +33,9 @@ jobs:
         run: npm run build
 
   e2e:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 supports Ubuntu 24.04; ubuntu-latest now selects 26.04,
+    # where its browser dependency installer exits before any test can run.
+    runs-on: ubuntu-24.04
     # Runners have no GPU: WebGL is software-rendered and the suite's budgets
     # widen 4x (e2e/helpers/test.ts). The functional gate (109 tests) runs in
     # two shards to keep the wall clock short.

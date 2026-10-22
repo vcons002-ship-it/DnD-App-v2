@@ -7,16 +7,16 @@
     "detailRatio": 0.45,
     "error": 0.001
   },
-  "sourceUrl": "/miniatures/druk-approved-63d53c563552.glb",
-  "sourceSha256": "63d53c563552b6c7a24ceabf83284f2345027227cda02616f4a5f58e8ae92824",
-  "sourceBytes": 43967664,
-  "sourceTriangles": 880377,
-  "sourceGeometryBytes": 27736272,
-  "geometryBytes": 11030498,
-  "filename": "druk-balanced-4d13118e5ef1.glb",
-  "sha256": "4d13118e5ef1eab8a445215749da0a7049493fb6bb0a66e752366248c2aeb777",
-  "bytes": 36262700,
-  "triangles": 283065,
+  "sourceUrl": "/miniatures/druk-approved-ce4503a37a81.glb",
+  "sourceSha256": "ce4503a37a819d1c5a474539b7a197a232d96f9cf97cd338c8bb701097c57021",
+  "sourceBytes": 87936000,
+  "sourceTriangles": 1079213,
+  "sourceGeometryBytes": 41677338,
+  "geometryBytes": 24054866,
+  "filename": "druk-balanced-3253c973ab5f.glb",
+  "sha256": "3253c973ab5f725adbe9f69bf66b84747e8952cfee60d333f55c7d2d2978b21a",
+  "bytes": 79418868,
+  "triangles": 454903,
   "baseCenter": [
     0.03537392616271973,
     -1.1119999885559082,
@@ -24,7 +24,7 @@
   ],
   "baseDiameter": 1.3600000143051147,
   "baseTextureUrl": "/miniatures/druk-basalt-e19b0a12af0c.png",
-  "textureBytes": 30290219,
+  "textureBytes": 66601642,
   "textures": [
     {
       "name": "",
@@ -34,69 +34,57 @@
     },
     {
       "name": "Image_0",
-      "mime": "image/jpeg",
-      "sha256": "c0450fd4d74af6190fdb0b9bc4ede0f4be016e591cf0d6f0636c5382bed5047b",
-      "bytes": 1003217
+      "mime": "image/webp",
+      "sha256": "36bf698ffb5b9330679c4de0f40082940fac73371a36d0c275391f4f0ba83df3",
+      "bytes": 204392
     },
     {
       "name": "Image_1",
       "mime": "image/webp",
-      "sha256": "6a9e31d057247a1bb8cbba82d9d761e3f0faf1c1b35d10fdd8d799770e4823e3",
-      "bytes": 2169794
+      "sha256": "40735b7405009985bc9ad640b023c4fc9d30c61d0b5ec197c9e9d77d63047bb7",
+      "bytes": 93490
     },
     {
       "name": "",
       "mime": "image/webp",
-      "sha256": "e85d82105645088b528f5d3953da6018515f5172ccb6dd2e0c010fead4ecd0c1",
-      "bytes": 1978226
+      "sha256": "a872f770330a0565b0a6d9b5dda87b3252afb783df884c81f759c75b16ac8dae",
+      "bytes": 2019132
     },
     {
       "name": "",
       "mime": "image/webp",
-      "sha256": "29d47ab5823d056a27484ff653aa5981f8f8e5c023b1b7898a2f2ef09443d088",
-      "bytes": 2139574
+      "sha256": "a8f93c5aea0aaa9152f0886f03b19c57ddf9c46d4fd9271119a40f24cce531f1",
+      "bytes": 2380258
     },
     {
       "name": "Generated walnut leather hand wraps",
       "mime": "image/webp",
-      "sha256": "80a2bdc55872dd4491afbc2c921e7dfdc44850909300b986c1d7f3e8c5cc09de",
-      "bytes": 2407086
+      "sha256": "7c53a8d973f0eb1d7522c4293f23d797369806c082289c4950be479f41f1816f",
+      "bytes": 2394628
     },
     {
       "name": "Leather edge and grain normals",
       "mime": "image/webp",
-      "sha256": "4723a6cff6ed4e007567542baa685d6c954f3b1122d021496e16ed2db0ab0372",
-      "bytes": 2916660
+      "sha256": "6365b72f56842aba84b41d87e3341213d10e16495b1a907461c9df81c0eecacd",
+      "bytes": 2923172
     },
     {
       "name": "Nonmetallic worn leather roughness",
       "mime": "image/webp",
-      "sha256": "18d30d42f1d5ec43c66d2b517495e3793fcce9d937f0d502167bc05fb7445b46",
-      "bytes": 348518
-    },
-    {
-      "name": "body-material-corrections-albedo-v7.png",
-      "mime": "image/webp",
-      "sha256": "5ab1d153c6fc0db0ac5b27ca23b3caba9c3deab66ff1720a183914410f4a39fb",
-      "bytes": 6662976
+      "sha256": "6bf1c75477e2c64d5a01f73fbdd704e2cccbfed44c968043f6af821a126fb7a1",
+      "bytes": 344770
     },
     {
       "name": "body-material-corrections-mr-v7.png",
       "mime": "image/webp",
-      "sha256": "a628f3c2698c2cdc71be9f493d602439ead9bfaeed40ef69094931858ebd64ad",
-      "bytes": 6634492
+      "sha256": "8e23442f359ba289981d6eb821236041449212363f7f6e574445eb77ea69082f",
+      "bytes": 9646708
     },
     {
       "name": "chainmail-relief-v6.png",
       "mime": "image/webp",
-      "sha256": "64c0d2a29d8f80a438b45ce43f459e203f59b4c123e0c45c7244786dfc0bd30d",
-      "bytes": 1510736
-    },
-    {
-      "name": "Fine steel microfinish",
-      "mime": "image/webp",
-      "sha256": "a451ba9cd7e1f73557c28867559665f5e7630756b0659c6008ab20fcef2338ac",
-      "bytes": 109408
+      "sha256": "02263c097e6d9724d1b6bb809c6b5e048f9f915e3835b238a77aabe66f26b6fc",
+      "bytes": 1511234
     },
     {
       "name": "Torso mail pattern reused on right sleeve",
@@ -115,6 +103,102 @@
       "mime": "image/webp",
       "sha256": "b196cf414535e0c535c7853ccfad3f6aaa7706228fb05ef89058d56a0a9d31b8",
       "bytes": 210880
+    },
+    {
+      "name": "Head_MetallicRoughness",
+      "mime": "image/webp",
+      "sha256": "4f2cbda22bc3a57666206b25bda9580f626028105df4fe476ad09c33442f1c29",
+      "bytes": 1041686
+    },
+    {
+      "name": "Head_Normal",
+      "mime": "image/webp",
+      "sha256": "3382697bc2c132fd8ca595c72cdc6a2ce5a7fbf6f184ce9410cd296bd0794725",
+      "bytes": 1535166
+    },
+    {
+      "name": "Sword_Normal",
+      "mime": "image/webp",
+      "sha256": "4bcb8e22bdf287edeaa5e2c58e8c56be51d4c3ca149111d72cacb3f9439706c6",
+      "bytes": 212728
+    },
+    {
+      "name": "Axe_MetallicRoughness",
+      "mime": "image/webp",
+      "sha256": "e061f22934ed5ad0c5f4bbcf7fdb069e72f2a4efcb1df73605ab93d10186e67c",
+      "bytes": 755842
+    },
+    {
+      "name": "Axe_Normal",
+      "mime": "image/webp",
+      "sha256": "9fc60d5bff1b4aba466bc344eae5425e251625c0edb78cae1a8079a04fa6411e",
+      "bytes": 1323922
+    },
+    {
+      "name": "Current High lava rock",
+      "mime": "image/webp",
+      "sha256": "1e0ecd116c7ccf8fbfee62cf6d6f51ce83597c7af1d065b47eaab95daecb9119",
+      "bytes": 2566498
+    },
+    {
+      "name": "Blender clone-painted upper back paint-0",
+      "mime": "image/webp",
+      "sha256": "d47afb0b25c49e91ce4fbebc096d4b79680c6ae339c71c28108c9acbff82280b",
+      "bytes": 124466
+    },
+    {
+      "name": "Clone-painted back PBR paint-0",
+      "mime": "image/webp",
+      "sha256": "c25a91204888245c4f2cf487a8abd02b01caf7afd0b33c96d94a7df39239791c",
+      "bytes": 97488
+    },
+    {
+      "name": "Blender clone-painted upper back paint-1",
+      "mime": "image/webp",
+      "sha256": "9a4b72398f2c34a0a06253b17ff017182c75d3b89a543f7708c38708afab7361",
+      "bytes": 205280
+    },
+    {
+      "name": "Clone-painted back PBR paint-1",
+      "mime": "image/webp",
+      "sha256": "b7006a228269e06890be26cf1b8099476196d52123ed75eb76731467a430263d",
+      "bytes": 22016
+    },
+    {
+      "name": "body-material-corrections-mr-v7.png",
+      "mime": "image/webp",
+      "sha256": "a628f3c2698c2cdc71be9f493d602439ead9bfaeed40ef69094931858ebd64ad",
+      "bytes": 6634492
+    },
+    {
+      "name": "chainmail-relief-v6.png",
+      "mime": "image/webp",
+      "sha256": "64c0d2a29d8f80a438b45ce43f459e203f59b4c123e0c45c7244786dfc0bd30d",
+      "bytes": 1510736
+    },
+    {
+      "name": "body-material-corrections-albedo-v7.png",
+      "mime": "image/webp",
+      "sha256": "5ab1d153c6fc0db0ac5b27ca23b3caba9c3deab66ff1720a183914410f4a39fb",
+      "bytes": 6662976
+    },
+    {
+      "name": "Darker satin steel microfinish",
+      "mime": "image/webp",
+      "sha256": "46b05df1f79c5155e0a228d9b25ee783eb56437a4ba996cbc0a9af471e901d94",
+      "bytes": 83910
+    },
+    {
+      "name": "Darker shinguards - existing body atlas",
+      "mime": "image/webp",
+      "sha256": "967da88bd034ee778ee1a5ee2e7f306ed261301c0b7c435754f798fa0cda1c83",
+      "bytes": 10244524
+    },
+    {
+      "name": "Satin shinguards - existing body atlas",
+      "mime": "image/webp",
+      "sha256": "6b8e54316dc68f85d75211f757d4e5766ad214b445ab8a3397a0bbc923217688",
+      "bytes": 9652596
     }
   ],
   "primitives": [
@@ -123,10 +207,16 @@
         "DrukV9_Dense_Body_REVIEW_CANDIDATE"
       ],
       "material": "Druk original-shape corrected body PBR",
-      "before": 183787,
-      "after": 40433,
+      "before": 177326,
+      "after": 39010,
       "detail": false,
-      "actualError": 0.0003286575374659151
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.0003397970285732299
     },
     {
       "nodes": [
@@ -137,6 +227,12 @@
       "after": 2,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -147,7 +243,13 @@
       "before": 8354,
       "after": 3758,
       "detail": true,
-      "actualError": 0.0007089336286298931
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
+      "actualError": 0.0007105167023837566
     },
     {
       "nodes": [
@@ -155,8 +257,14 @@
       ],
       "material": "Druk manually mapped leather hand wraps",
       "before": 2781,
-      "after": 1665,
+      "after": 1677,
       "detail": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
       "actualError": 0.0009929267689585686
     },
     {
@@ -165,61 +273,31 @@
       ],
       "material": "Druk manually mapped leather hand wraps",
       "before": 5051,
-      "after": 2285,
+      "after": 2271,
       "detail": true,
-      "actualError": 0.000997035065665841
-    },
-    {
-      "nodes": [
-        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
-      ],
-      "material": "Druk formed satin-polished steel: unified pauldrons v24",
-      "before": 11916,
-      "after": 2676,
-      "detail": false,
-      "actualError": 0.000995728885754943
-    },
-    {
-      "nodes": [
-        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
-      ],
-      "material": "Druk formed satin-polished steel: unified pauldrons v24",
-      "before": 2307,
-      "after": 903,
-      "detail": false,
-      "actualError": 0.0009965787176042795
-    },
-    {
-      "nodes": [
-        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
-      ],
-      "material": "Druk formed satin-polished steel: unified pauldrons v24",
-      "before": 114,
-      "after": 114,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
-      ],
-      "material": "Druk formed satin-polished steel: unified pauldrons v24",
-      "before": 481,
-      "after": 481,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
+      "actualError": 0.000998426810838282
     },
     {
       "nodes": [
         "DrukV9_Dense_Body_REVIEW_CANDIDATE"
       ],
       "material": "Druk original-shape corrected body PBR",
-      "before": 23,
-      "after": 23,
+      "before": 12,
+      "after": 12,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -228,8 +306,14 @@
       ],
       "material": "Druk right chainmail sleeve - satin links, no plate glare",
       "before": 2297,
-      "after": 1173,
+      "after": 1169,
       "detail": false,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0.0009924499318003654
     },
     {
@@ -241,6 +325,12 @@
       "after": 781,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -252,6 +342,12 @@
       "after": 199,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -263,6 +359,12 @@
       "after": 211,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -273,7 +375,97 @@
       "before": 14925,
       "after": 3283,
       "detail": false,
-      "actualError": 0.0008084683795459569
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.000790553109254688
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk right chainmail sleeve - satin links, no plate glare",
+      "before": 4123,
+      "after": 1677,
+      "detail": false,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.000987972947768867
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk Blender texture paint paint-0",
+      "before": 777,
+      "after": 777,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk original-shape corrected body PBR",
+      "before": 129,
+      "after": 129,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk Blender texture paint paint-0",
+      "before": 174,
+      "after": 174,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "DrukV9_Dense_Body_REVIEW_CANDIDATE"
+      ],
+      "material": "Druk original-shape corrected body PBR",
+      "before": 261,
+      "after": 261,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
     },
     {
       "nodes": [
@@ -281,9 +473,15 @@
       ],
       "material": "Druk manually mapped leather hand wraps",
       "before": 15396,
-      "after": 7110,
+      "after": 7098,
       "detail": true,
-      "actualError": 0.000994901405647397
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
+      "actualError": 0.000997993629425764
     },
     {
       "nodes": [
@@ -293,6 +491,12 @@
       "before": 11139,
       "after": 5011,
       "detail": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
       "actualError": 0.0009915324626490474
     },
     {
@@ -301,8 +505,14 @@
       ],
       "material": "Druk manually mapped leather hand wraps",
       "before": 3960,
-      "after": 2146,
+      "after": 2142,
       "detail": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
       "actualError": 0.0009995211148634553
     },
     {
@@ -314,6 +524,12 @@
       "after": 502,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -325,6 +541,12 @@
       "after": 251,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -335,7 +557,13 @@
       "before": 40000,
       "after": 8800,
       "detail": false,
-      "actualError": 0.00047194334911182523
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.0003341927658766508
     },
     {
       "nodes": [
@@ -346,6 +574,12 @@
       "after": 6728,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -357,159 +591,12 @@
       "after": 2352,
       "detail": true,
       "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Rim_0"
-      ],
-      "material": "Dark_Charcoal_Brown_Base_Rim",
-      "before": 384,
-      "after": 384,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Brass_1"
-      ],
-      "material": "Restrained_Aged_Brass_Trim",
-      "before": 384,
-      "after": 384,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Rim_2"
-      ],
-      "material": "Dark_Charcoal_Brown_Base_Rim",
-      "before": 384,
-      "after": 384,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Rim_3"
-      ],
-      "material": "Dark_Charcoal_Brown_Base_Rim",
-      "before": 384,
-      "after": 384,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Brass_4"
-      ],
-      "material": "Restrained_Aged_Brass_Trim",
-      "before": 384,
-      "after": 384,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Rim_5"
-      ],
-      "material": "Dark_Charcoal_Brown_Base_Rim",
-      "before": 384,
-      "after": 384,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Underside"
-      ],
-      "material": "Dark_Charcoal_Brown_Base_Rim",
-      "before": 192,
-      "after": 192,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Earthy_Stone_Moss_Top"
-      ],
-      "material": "Earth_Stone_Moss_Vertex_Color",
-      "before": 12096,
-      "after": 2660,
-      "detail": false,
-      "actualError": 0.0003383269067853689
-    },
-    {
-      "nodes": [
-        "Druk_Base_Low_Stone_1"
-      ],
-      "material": "Weathered_Stone_Vertex_Color",
-      "before": 45,
-      "after": 45,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Low_Stone_2"
-      ],
-      "material": "Weathered_Stone_Vertex_Color",
-      "before": 45,
-      "after": 45,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Low_Stone_3"
-      ],
-      "material": "Weathered_Stone_Vertex_Color",
-      "before": 45,
-      "after": 45,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Low_Stone_4"
-      ],
-      "material": "Weathered_Stone_Vertex_Color",
-      "before": 45,
-      "after": 45,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Subtle_Brass_Orb_And_Angular_Accents"
-      ],
-      "material": "Restrained_Aged_Brass_Trim",
-      "before": 1808,
-      "after": 1808,
-      "detail": false,
-      "preserved": true,
-      "actualError": 0
-    },
-    {
-      "nodes": [
-        "Druk_Base_Matte_Olive_Orb_Inset"
-      ],
-      "material": "Matte_Olive_Orb_Inset",
-      "before": 96,
-      "after": 96,
-      "detail": false,
-      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -520,17 +607,29 @@
       "before": 46692,
       "after": 10272,
       "detail": false,
-      "actualError": 0.0002431936445645988
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.00024028628831729293
     },
     {
       "nodes": [
         "DrukV9_Left_Hip_Handaxe"
       ],
-      "material": "Wood_and_Dark_Leather",
+      "material": "Weathered_Steel",
       "before": 103308,
       "after": 22726,
       "detail": false,
-      "actualError": 0.00009405122546013445
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.00009405211312696338
     },
     {
       "nodes": [
@@ -540,17 +639,29 @@
       "before": 46692,
       "after": 10272,
       "detail": false,
-      "actualError": 0.0002431936445645988
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.00024028628831729293
     },
     {
       "nodes": [
         "DrukV9_Right_Hip_Handaxe"
       ],
-      "material": "Wood_and_Dark_Leather",
+      "material": "Weathered_Steel",
       "before": 103308,
       "after": 22726,
       "detail": false,
-      "actualError": 0.00009405122546013445
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.00009405211312696338
     },
     {
       "nodes": [
@@ -561,6 +672,12 @@
       "after": 512,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -572,6 +689,12 @@
       "after": 12,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -583,6 +706,12 @@
       "after": 512,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -594,6 +723,12 @@
       "after": 12,
       "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -601,10 +736,16 @@
         "DrukV9_Recessed_Front_Neck_Closure"
       ],
       "material": "Druk_Recessed_Collar_Dark_Lining",
-      "before": 3246,
-      "after": 3246,
+      "before": 2197,
+      "after": 2197,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
@@ -615,43 +756,420 @@
       "before": 238548,
       "after": 107346,
       "detail": true,
-      "actualError": 0.0007720236317254603
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
+      "actualError": 0.000772037950810045
     },
     {
       "nodes": [
-        "DrukV9_Pinned_Rear_Neck_Repair"
+        "Druk_Base_Rim_0"
       ],
-      "material": "Original_Atlas_Darkened_Rear_Hair",
-      "before": 6107,
-      "after": 6107,
-      "detail": true,
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
       "nodes": [
-        "DrukV9_Pinned_Rear_Neck_Repair"
+        "Druk_Base_Brass_1"
       ],
-      "material": "Druk formed satin-polished steel: unified pauldrons v24",
-      "before": 1140,
-      "after": 1140,
-      "detail": true,
+      "material": "Restrained_Aged_Brass_Trim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     },
     {
       "nodes": [
-        "DrukV9_Pinned_Rear_Neck_Repair"
+        "Druk_Base_Rim_2"
       ],
-      "material": "Druk formed satin-polished steel: unified pauldrons v24",
-      "before": 55,
-      "after": 55,
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Rim_3"
+      ],
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Brass_4"
+      ],
+      "material": "Restrained_Aged_Brass_Trim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Rim_5"
+      ],
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 384,
+      "after": 384,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Underside"
+      ],
+      "material": "Dark_Charcoal_Brown_Base_Rim",
+      "before": 192,
+      "after": 192,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Earthy_Stone_Moss_Top"
+      ],
+      "material": "Current High lava-rock presentation",
+      "before": 12096,
+      "after": 2660,
+      "detail": false,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.000333467498421669
+    },
+    {
+      "nodes": [
+        "Druk_Base_Low_Stone_1"
+      ],
+      "material": "Current High lava-rock presentation",
+      "before": 45,
+      "after": 45,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Low_Stone_2"
+      ],
+      "material": "Current High lava-rock presentation",
+      "before": 45,
+      "after": 45,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Low_Stone_3"
+      ],
+      "material": "Current High lava-rock presentation",
+      "before": 45,
+      "after": 45,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Low_Stone_4"
+      ],
+      "material": "Current High lava-rock presentation",
+      "before": 45,
+      "after": 45,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Subtle_Brass_Orb_And_Angular_Accents"
+      ],
+      "material": "Restrained_Aged_Brass_Trim",
+      "before": 1808,
+      "after": 1808,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Base_Matte_Olive_Orb_Inset"
+      ],
+      "material": "Matte_Olive_Orb_Inset",
+      "before": 96,
+      "after": 96,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk short beard base"
+      ],
+      "material": "Druk beard - original head hair PBR base",
+      "before": 1816,
+      "after": 1816,
       "detail": true,
       "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk short beard hair"
+      ],
+      "material": "Druk beard - original head hair PBR hair",
+      "before": 155220,
+      "after": 127446,
+      "detail": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.45,
+        "error": 0.001
+      },
+      "actualError": 0.0009765471331775188
+    },
+    {
+      "nodes": [
+        "Druk_Chainmail_Shoulder_Closure"
+      ],
+      "material": "Druk right chainmail sleeve - satin links, no plate glare",
+      "before": 7704,
+      "after": 7704,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Connected_Chainmail_Shoulder_Yoke"
+      ],
+      "material": "Druk fitted shoulder mail - matched chest shade",
+      "before": 13440,
+      "after": 3446,
+      "detail": false,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.0009948998922482133
+    },
+    {
+      "nodes": [
+        "Druk_Defined_Chainmail_Collar"
+      ],
+      "material": "Druk fitted shoulder mail - matched chest shade",
+      "before": 4800,
+      "after": 2356,
+      "detail": false,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0.0009760120883584023
+    },
+    {
+      "nodes": [
+        "Druk_Defined_Chainmail_Collar"
+      ],
+      "material": "Druk chainmail collar - dark folded edge",
+      "before": 960,
+      "after": 960,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Pauldrons_Size_Preserved_Flush_Edges"
+      ],
+      "material": "Druk formed satin-polished steel: unified pauldrons v24",
+      "before": 14811,
+      "after": 14811,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Pauldrons_Size_Preserved_Flush_Edges"
+      ],
+      "material": "Druk formed satin-polished steel: unified pauldrons v24",
+      "before": 22256,
+      "after": 22256,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Pauldrons_Size_Preserved_Flush_Edges"
+      ],
+      "material": "Druk fitted shoulder mail - matched chest shade",
+      "before": 1600,
+      "after": 1600,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
+      "actualError": 0
+    },
+    {
+      "nodes": [
+        "Druk_Pauldrons_Size_Preserved_Flush_Edges"
+      ],
+      "material": "Druk Blender texture paint paint-0",
+      "before": 406,
+      "after": 406,
+      "detail": false,
+      "preserved": true,
+      "seamSafeBody": false,
+      "seamSafeHead": false,
+      "reduction": {
+        "ratio": 0.22,
+        "error": 0.001
+      },
       "actualError": 0
     }
   ],
-  "elapsedMs": 1122.0849,
+  "elapsedMs": 1456.2453,
   "verified": {
     "texturesByteExact": true,
     "materialsPreserved": true,

@@ -1,0 +1,29 @@
+{
+  "method": "Tail UV region paint in OKLab; transfer facial skin chroma and median luminance, preserve 95 percent of tail local luminance variation and 10 percent of original chroma variation. No geometry or material changes.",
+  "targetSrgb": [
+    151,
+    131,
+    144
+  ],
+  "sourceTailMedianOklab": [
+    0.43756519206684585,
+    0.07715920326912154,
+    0.003844411705333284
+  ],
+  "targetOklab": [
+    0.6322905251759546,
+    0.028501439468582357,
+    -0.010963575991381758
+  ],
+  "corePixels": 35052,
+  "coreProtectedOverlap": 196,
+  "paintPixels": 45731,
+  "changedPixels": 45731,
+  "width": 2048,
+  "height": 2048,
+  "outsidePaintMaskPixelsExact": true,
+  "allNonTailUvPixelsExact": true,
+  "alphaExact": true,
+  "sourceDecodedRgbaSha256": "de4a6abf04fb023d96af73503a8b932466430352e4c6329e9fdfd2a9e848e968",
+  "editedDecodedRgbaSha256": "143d9ecc1bc32e810c88c967e4470a67db803ac51413c332f2eca97df608beb9"
+}
