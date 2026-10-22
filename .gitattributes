@@ -94,3 +94,5 @@ assets/miniatures/runtime-provenance/druk-v10/chainmail-boundary-20261022/final/
 assets/miniatures/runtime-provenance/druk-v10/chainmail-boundary-20261022/final/*.md -filter diff merge text eol=lf
 assets/miniatures/runtime-provenance/vanec-tail-skin-20261022/*.json -filter diff merge -text whitespace=cr-at-eol
 assets/miniatures/runtime-provenance/vanec-tail-skin-20261022/*.md -filter diff merge text eol=lf
+assets/miniatures/runtime-provenance/vanec-tail-skin-20261022/root-coverage-02/*.json -filter diff merge -text whitespace=cr-at-eol
+assets/miniatures/runtime-provenance/vanec-tail-skin-20261022/root-coverage-02/*.md -filter diff merge text eol=lf

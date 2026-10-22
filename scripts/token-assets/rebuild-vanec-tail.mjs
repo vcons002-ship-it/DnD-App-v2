@@ -9,7 +9,15 @@ import sharp from 'sharp';
 import {sha256,parseGlb,restoreSharedGlb,shareGlbTextures} from './shared-character-textures.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
-const provenance=path.join(root,'assets/miniatures/runtime-provenance/vanec-tail-skin-20261022');
+const folder=path.join(root,'client/public/miniatures');
+const read=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+const high=read(path.join(folder,'manifest.json')).models.find(m=>m.id==='vanec');
+assert(high,'Vanec High manifest entry is missing');
+const deliveryReceipt=read(path.join(root,high.optimizationReceipt));
+const paintPath=path.resolve(root,deliveryReceipt.tailRecolor.paintReceipt);
+const provenanceRoot=path.join(root,'assets/miniatures/runtime-provenance/vanec-tail-skin-20261022');
+assert(paintPath.startsWith(provenanceRoot+path.sep),'Vanec paint receipt must stay in its tracked provenance folder');
+const provenance=path.dirname(paintPath);
 const args=process.argv.slice(2);
 if(args.length!==2||args[0]!=='--out')throw Error('Usage: node scripts/token-assets/rebuild-vanec-tail.mjs --out <separate-output-directory>');
 const out=path.resolve(args[1]);
@@ -18,8 +26,7 @@ for(const folder of ['assets','client','scripts','server','shared']){
  const protectedPath=path.join(root,folder);assert(out!==protectedPath&&!out.startsWith(protectedPath+path.sep),'Output must stay outside source asset and application directories');
 }
 fs.mkdirSync(out,{recursive:true});
-const read=p=>JSON.parse(fs.readFileSync(p,'utf8'));
-const receipt=read(path.join(provenance,'paint-receipt.json'));
+const receipt=read(paintPath);
 const decode=async p=>(await sharp(p).ensureAlpha().raw().toBuffer({resolveWithObject:true}));
 const source=await decode(path.join(provenance,'body-original-exact.png'));
 assert.equal(sha256(source.data),receipt.sourceDecodedRgbaSha256,'Original atlas pixels changed');
@@ -73,8 +80,6 @@ function replaceImage(bytes,payload){
  }
  view.byteLength=payload.length;json.images[0].mimeType='image/webp';const next=Buffer.concat([bin.subarray(0,start),padded,bin.subarray(end)]);json.buffers[0].byteLength=next.length;return pack(json,next);
 }
-const folder=path.join(root,'client/public/miniatures');
-const high=read(path.join(folder,'manifest.json')).models.find(m=>m.id==='vanec');
 const quality=read(path.join(folder,'quality-manifest.json')).models.filter(m=>m.id==='vanec');
 const battlefield=read(path.join(folder,'battlefield-manifest.json')).models.find(m=>m.id==='vanec');
 assert.equal(quality.length,2);const entries=[{tier:'high',entry:high},...quality.map(entry=>({tier:entry.profile,entry})),{tier:'battlefield',entry:battlefield}];

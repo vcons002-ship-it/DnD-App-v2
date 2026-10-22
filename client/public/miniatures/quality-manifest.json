@@ -58,28 +58,28 @@
     {
       "id": "vanec",
       "profile": "balanced",
-      "url": "/miniatures/vanec-tail-balanced-shared-86f0baef5cb6.glb",
-      "sha256": "86f0baef5cb6e5052ad3642e1480921c12895bc7ba65305c3f38994efead5af3",
+      "url": "/miniatures/vanec-tail-root-balanced-shared-53e16b642f1d.glb",
+      "sha256": "53e16b642f1d1d88c40801334a92919c6009420a0a7805b507ccc2e223f67e19",
       "bytes": 10456572,
       "triangles": 355589,
-      "sourceUrl": "/miniatures/vanec-tail-high-57d680b34a48.glb",
-      "sourceSha256": "57d680b34a48eb124f8f096e96adfc843be7ebfbfdc17be3d5b0d2d91ed9bcfd",
-      "receipt": "assets/miniatures/character-reduction/vanec-tail-balanced-20261022.json",
-      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-balanced-20261022.json",
-      "sharedTextureReceiptSha256": "66dd7aef04797ae9c3654bad38a6bc248a69598aeba5e6d027d62acc27b4ceae"
+      "sourceUrl": "/miniatures/vanec-tail-root-high-8c1552047083.glb",
+      "sourceSha256": "8c1552047083a7b6c77e42ad17844d2df0cb160f37f40086f6eb5f10fe09621f",
+      "receipt": "assets/miniatures/character-reduction/vanec-tail-root-balanced-20261022.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-root-balanced-20261022.json",
+      "sharedTextureReceiptSha256": "ecbb894be5cc2229e1eb3177993b92039b3fe57312591bc6d9ce9c34d4352c6e"
     },
     {
       "id": "vanec",
       "profile": "low",
-      "url": "/miniatures/vanec-tail-low-shared-3512f25137d4.glb",
-      "sha256": "3512f25137d42fbf5abd9dd8581b5ee00090487630bc7df72a4d43c040ac973d",
+      "url": "/miniatures/vanec-tail-root-low-shared-54193adbf01e.glb",
+      "sha256": "54193adbf01e261a7d7dafee760aec6187480f1c0595173d52dfff27d01c4b5e",
       "bytes": 7599952,
       "triangles": 207975,
-      "sourceUrl": "/miniatures/vanec-tail-high-57d680b34a48.glb",
-      "sourceSha256": "57d680b34a48eb124f8f096e96adfc843be7ebfbfdc17be3d5b0d2d91ed9bcfd",
-      "receipt": "assets/miniatures/character-reduction/vanec-tail-low-20261022.json",
-      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-low-20261022.json",
-      "sharedTextureReceiptSha256": "7ef549b22c37635310fcbca52c8416c9d93ea5fa6979ccb67acfaddeba3d038d"
+      "sourceUrl": "/miniatures/vanec-tail-root-high-8c1552047083.glb",
+      "sourceSha256": "8c1552047083a7b6c77e42ad17844d2df0cb160f37f40086f6eb5f10fe09621f",
+      "receipt": "assets/miniatures/character-reduction/vanec-tail-root-low-20261022.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-root-low-20261022.json",
+      "sharedTextureReceiptSha256": "8392dd027a6dd50232609dc0f6c984bcbee1c1a675ea6cf5e1f137cc69191df3"
     }
   ]
 }
