@@ -142,8 +142,8 @@
     },
     {
       "id": "vanec",
-      "url": "/miniatures/vanec-tail-high-shared-bb819190f4f0.glb",
-      "sha256": "bb819190f4f0fa9495b3432141b6a0dfb6fe0ded577231017f10fad25ec23dec",
+      "url": "/miniatures/vanec-tail-root-high-shared-312f58a9ae16.glb",
+      "sha256": "312f58a9ae16420840569321622cdb3d5fe18dbe95dafc11180d0e8f55c1d2f6",
       "bytes": 20907872,
       "triangles": 1138771,
       "baseCenter": [
@@ -152,13 +152,13 @@
         0.019209861755371094
       ],
       "baseDiameter": 1.1495295763015747,
-      "sourceVersion": "assets/miniatures/runtime-provenance/vanec-tail-skin-20261022/vanec-tail-high-source.glb",
-      "sourceSha256": "57d680b34a48eb124f8f096e96adfc843be7ebfbfdc17be3d5b0d2d91ed9bcfd",
+      "sourceVersion": "assets/miniatures/runtime-provenance/vanec-tail-skin-20261022/root-coverage-02/vanec-tail-high-source.glb",
+      "sourceSha256": "8c1552047083a7b6c77e42ad17844d2df0cb160f37f40086f6eb5f10fe09621f",
       "sourceTriangles": 1138771,
       "compression": "EXT_meshopt_compression",
       "originalTextures": true,
       "sourceImageHashes": [
-        "2c4b4fe3ca9426fad01bf34f8593b4432906afb078822ed2991b84e4e322b75a",
+        "d638e014edf4d0310bdeead4de86ca28856cf96fb586e21827360fbea9824d8e",
         "307c937d5af4179e422626d89a5d5c381a69ca5a1dc96271a5d42af04dc75e51",
         "535fc6523fe768e6f21bd3ca783f6ebe8124ff381f1479ca2cf948e52425755c",
         "b30a611ec580eb03d5a00413260db23873da0a6912db1a55dd847e47901de161",
@@ -171,7 +171,7 @@
       "fxUrl": "/miniatures/vanec-fx-2e60effcfd99.json",
       "deliveryOptimization": "lossless-textures-and-mesh",
       "runtimeImageHashes": [
-        "24908f0a14a181901cbbdb1832bd3be727f024946c80b230d0f11778c7649067",
+        "5bf3fb6ad02879c65142abb5fb0cae4f10ed59f187f6055033ec810f29995052",
         "307c937d5af4179e422626d89a5d5c381a69ca5a1dc96271a5d42af04dc75e51",
         "15305a76867a779b0a2b741b3ef18c81ea695e83a4d7a2bb9794d03a84867e36",
         "1be3790da59c94b5f3a336d2c5fb6512524dc61b221ee61a9e3a08c4b84770ec",
@@ -181,10 +181,10 @@
         "46604c7131a83bd4b1a54c68bfd3ec3745ac5b47360aa1399647515417b31f07",
         "7581a45d5676c80700db208b6534e4796e0086fb5f78f53f46b4f867f082db69"
       ],
-      "optimizationReceipt": "assets/miniatures/character-compression/vanec-tail-20261022.json",
-      "optimizationReceiptSha256": "ac99a542b7c76c1125e63f40e682720337c44efd74077a3f03521cf05c542f35",
-      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-high-20261022.json",
-      "sharedTextureReceiptSha256": "e51e1a952748a04f0efb394c50ba27cc162b3abc4097d1d6083db95f3dcc5c44"
+      "optimizationReceipt": "assets/miniatures/character-compression/vanec-tail-root-20261022.json",
+      "optimizationReceiptSha256": "16f24c66fc54e8cf5f38333b0819fc75f3fe9e84ebe349ecc2a4b43a2d923428",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-root-high-20261022.json",
+      "sharedTextureReceiptSha256": "8ad97af4c1a2deb80a21dc5f6d6d768b982dcce3d89de2d202b7c0e593517d45"
     }
   ],
   "files": [

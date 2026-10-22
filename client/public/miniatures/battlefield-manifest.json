@@ -36,8 +36,8 @@
     },
     {
       "id": "vanec",
-      "url": "/miniatures/vanec-tail-battlefield-shared-de2e340c454c.glb",
-      "sha256": "de2e340c454c827e347d9d80d28b475848ed9f41c1b53caac2e1f6be9fd3a9b9",
+      "url": "/miniatures/vanec-tail-root-battlefield-shared-2986291dfb35.glb",
+      "sha256": "2986291dfb357320bfcd7d39303d9d5209a85990330ac275d6dcf6f7f4236178",
       "bytes": 7005820,
       "triangles": 179963,
       "baseCenter": [
@@ -47,9 +47,9 @@
       ],
       "baseDiameter": 1.1495295763015747,
       "fxUrl": "/miniatures/vanec-fx-2e60effcfd99.json",
-      "receipt": "assets/miniatures/battlefield-lod/vanec-tail-20261022.json",
-      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-battlefield-20261022.json",
-      "sharedTextureReceiptSha256": "e0e1ad18554f5315c27a80c28be3820492b4f0fc805721a9e9c4c4ece76f9ec4"
+      "receipt": "assets/miniatures/battlefield-lod/vanec-tail-root-20261022.json",
+      "sharedTextureReceipt": "assets/miniatures/shared-textures/vanec-tail-root-battlefield-20261022.json",
+      "sharedTextureReceiptSha256": "db388c4a33ba4b6e09336b179f9dd666c2f9dfb26391ecb367a2e3fe83e67cd6"
     }
   ]
 }
