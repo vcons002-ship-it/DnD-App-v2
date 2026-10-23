@@ -32,10 +32,15 @@ function withReviewedHigh<T extends {sha256?:string;highDetail?:MiniatureDetailA
 /** Four-view Hunyuan reconstruction, shared by all defeated creature markers. */
 export const DEATH_SKULL: MiniatureDefinition = {id:'death-skull',url:'/miniatures/objects/death-skull-c1d9470a2def.glb',baseDiameter:1,baseCenter:[0,0,0]};
 export const SPIRITUAL_WEAPON: MiniatureDefinition = {id:'spiritual-weapon',url:'builtin:spiritual-weapon',baseDiameter:1,baseCenter:[0,0,0]};
-export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models, ...monsters.variants, ...objects.models].map(model => [model.id, withReviewedHigh(model)])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
+// Druk's approved Battlefield sculpt is the runtime choice at every preset and
+// distance. Retain the original detail manifests for authoring and comparisons.
+const fixedBattlefieldModels=new Map(battlefieldManifest.models.filter(m=>m.id==='druk').map(m=>[m.id,m]));
+export const MINIATURES = Object.fromEntries([...manifest.models, ...monsters.models, ...monsters.variants, ...objects.models].map(model => [model.id, fixedBattlefieldModels.get(model.id)??withReviewedHigh(model)])) as unknown as Record<MiniatureDefinition['id'], MiniatureDefinition>;
 const generated: Record<string, MiniatureDefinition> = Object.create(null);
-const qualityModels=new Map(qualityManifest.models.map(m=>[`${m.id}:${m.profile}`,{...MINIATURES[m.id],url:m.url,fallbackUrl:MINIATURES[m.id].url}]));
-const battlefieldModels=new Map(battlefieldManifest.models.map(m=>[m.id,{...MINIATURES[m.id],url:m.url,fallbackUrl:qualityModels.get(`${m.id}:low`)?.url??MINIATURES[m.id].url}]));
+// Fixed choices have no alternate tier or denser fallback. Excluding them from
+// these maps also leaves generated/uploaded models with the same ID alone.
+const qualityModels=new Map(qualityManifest.models.filter(m=>!fixedBattlefieldModels.has(m.id)).map(m=>[`${m.id}:${m.profile}`,{...MINIATURES[m.id],url:m.url,fallbackUrl:MINIATURES[m.id].url}]));
+const battlefieldModels=new Map(battlefieldManifest.models.filter(m=>!fixedBattlefieldModels.has(m.id)).map(m=>[m.id,{...MINIATURES[m.id],url:m.url,fallbackUrl:qualityModels.get(`${m.id}:low`)?.url??MINIATURES[m.id].url}]));
 /** Character variants share the original bases, FX and art. Other families stay
  * on their existing, already reduced geometry. */
 export function miniatureForLod(model:MiniatureDefinition,level:MiniatureLod,quality?:MiniatureLodBudget):MiniatureDefinition{
