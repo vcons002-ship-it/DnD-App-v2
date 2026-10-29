@@ -10,6 +10,18 @@ const frame=(id:string,sides:number[],values:number[],extra:Partial<LiveDiceFram
 const damage=(expr:string,faces:number[]):RollReveal=>({physical:true,kind:'damage',attacker:'Varis',outcome:'none',damageDice:[{label:expr,value:faces.reduce((a,b)=>a+b,0),faces}]});
 
 describe('authoritative dice appearance at the result handoff',()=>{
+ it('retains Vanec ordinary d20 art through motion, calculation and result handoff',()=>{
+  const reveal:RollReveal={physical:true,kind:'dice',attacker:'Vanec',outcome:'none',damageDice:[{label:'1d20',value:12,faces:[12]}]};
+  const settled=frame('vanec-d20',[20],[12],{roller:'Vanec',className:'Sorcerer'});
+  const rolling={...settled,done:false,values:[null]};
+  const calculation={...settled,calculation:reveal};
+  for(const current of [rolling,calculation]){
+   expect(rollThemeForPresentation(current,current.calculation,undefined,[],[]).id).toBe('sorcerer');
+  }
+  const retained=resultTrayFor([settled],reveal);
+  expect(retained).toBe(settled);
+  expect(rollThemeForPresentation(retained,reveal,undefined,[],[]).id).toBe('sorcerer');
+ });
  it('retains Vanec percentile art without relying on a local roll log or roster',()=>{
   const percentile=frame('percentile',[10,10],[4,8],{roller:'Vanec',className:'Sorcerer',percentile:['tens','ones']});
   const reveal={...damage('1d100',[37]),attacker:'Vanec'};
@@ -19,10 +31,10 @@ describe('authoritative dice appearance at the result handoff',()=>{
   // A similarly named creature cannot override the server's player material.
   expect(rollThemeForPresentation(retained,reveal,'Vanec',[],[{name:'Vanec'}]).id).toBe('sorcerer');
  });
- it('keeps DM and creature percentile trays purple even when a name matches a PC',()=>{
-  for(const roller of ['DM','Goblin']){
-   const percentile=frame('dm-percentile',[10,10],[1,1],{roller,className:'',dmDice:true,percentile:['tens','ones']});
-   expect(rollThemeForPresentation(percentile,{...damage('1d100',[100]),attacker:roller},roller,[{name:roller,className:'Fighter'}],[]).id).toBe('dm-neutral-roll');
+ it('keeps DM and creature d20 and percentile trays purple even when a name matches a PC',()=>{
+  for(const roller of ['DM','Goblin'])for(const percentile of [false,true]){
+   const authoritative=frame('dm-roll',percentile?[10,10]:[20],percentile?[1,1]:[12],{roller,className:'',dmDice:true,percentile:percentile?['tens','ones']:[null]});
+   expect(rollThemeForPresentation(authoritative,{...damage(percentile?'1d100':'1d20',[percentile?100:12]),attacker:roller},roller,[{name:roller,className:'Fighter'}],[]).id).toBe('dm-neutral-roll');
   }
  });
  it('preserves explicit gold art and supports historical rolls without a retained tray',()=>{
