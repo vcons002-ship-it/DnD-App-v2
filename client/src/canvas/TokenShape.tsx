@@ -461,7 +461,7 @@ function TokenShapeInner({
     const body=tokenBody.current;if(!body)return;
     body.clearCache();body.filters([]);
     if(sharedDarkvision&&!serverSprite?.grayscale&&!miniatureReady&&!miniaturePending){
-      body.cache({pixelRatio:2});
+      body.cache({pixelRatio:Math.min(2,Konva.pixelRatio||1)});
       body.filters([(data:ImageData)=>{
         for(let i=0;i<data.data.length;i+=4){
           const l=(data.data[i]*.2126+data.data[i+1]*.7152+data.data[i+2]*.0722)/255;
@@ -536,7 +536,7 @@ function TokenShapeInner({
     // also bakes suppressed names and rebuilds health/name art on selection.
     if(cacheArtwork&&!(serverBody&&serverHud)&&!miniatureReady&&!miniaturePending&&(!activeTurn||reducedEffects)){
       const rect=art.getClientRect({skipTransform:true});
-      if(rect.width>0&&rect.height>0&&rect.width*rect.height<4_000_000)art.cache({pixelRatio:Math.min(window.devicePixelRatio||1,1.5)});
+      if(rect.width>0&&rect.height>0&&rect.width*rect.height<4_000_000)art.cache({pixelRatio:Math.min(Konva.pixelRatio||window.devicePixelRatio||1,1.5)});
     }
     invalidateRetainedToken(art);art.getLayer()?.batchDraw();
     return()=>{art.clearCache();};

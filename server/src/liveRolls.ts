@@ -207,7 +207,7 @@ export async function runLiveCommand(run:()=>void,publish:(f:LiveDiceFrame,info?
     if(meta.review&&!approved&&hiddenRollNeedsApproval(results))throw new NeedApproval(results);
     if(approved&&JSON.stringify(results)!==approvedResults)throw new Error('The hidden roll context changed. Nothing was applied; roll again to review the new result.');
    }))))();
-   for(const effect of pass.effects)effect();return;
+   for(const effect of pass.effects)await effect();return;
   }catch(e){
    undoHp();undoReactions();
    if(e instanceof NeedApproval){

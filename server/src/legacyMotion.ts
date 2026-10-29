@@ -49,10 +49,11 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
   rawViews.push({...after,...authorized,partyView:undefined,legacyMotion:undefined,
    exploredTerrain:index===LEGACY_MOTION_STEPS?after.exploredTerrain:unionTerrain([before.exploredTerrain??[],...routes.flatMap(r=>t>=.5&&r.half?[r.half]:[])])});
  }
+ const hasFullGeometry=(s:StateSnapshot)=>!!s.legacyGeometry&&!s.visionRaster&&!s.visionTiles&&(!needsVisibilityLayer(s.map,s.playerVision)||s.legacyGeometry.sight.length>0||s.legacyGeometry.near.length>0||s.legacyGeometry.lights.length>0||(s.legacyGeometry.memory?.length??0)>0);
  const prepared=await Promise.all(rawViews.map(async(view,index)=>{
   if(options?.current&&!options.current())return view;
-  if(index===LEGACY_MOTION_STEPS&&after.legacyGeometry)view.legacyGeometry=after.legacyGeometry;
-  else if(index===0&&before.legacyGeometry&&first.tokens.length===before.tokens.length)view.legacyGeometry=before.legacyGeometry;
+  if(index===LEGACY_MOTION_STEPS&&hasFullGeometry(after))view.legacyGeometry=after.legacyGeometry;
+  else if(index===0&&hasFullGeometry(before)&&first.tokens.length===before.tokens.length)view.legacyGeometry=before.legacyGeometry;
   else if(view.playerVision&&needsVisibilityLayer(view.map,view.playerVision))view.legacyGeometry=await visibilityWorkers.run({mapId:view.map!.id,vision:view.playerVision,wallFog:usesMapVision(view.map),explored:view.exploredTerrain,tokens:view.tokens},timing?span=>timing.workers.push(span):undefined);
   else view.legacyGeometry={sight:[],near:[],lights:[],memory:[],affinity:view.tokens.filter(t=>!t.sharedSightOnly).map(t=>t.id)};
   if(view.playerVision)view.tokenSprites=await tokenSprites(id,view,true);

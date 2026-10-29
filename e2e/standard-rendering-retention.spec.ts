@@ -21,7 +21,7 @@ for(const mode of ['2d','3d'])test(`standard ${mode} retains static artwork whil
   for(let i=0;i<8;i++)admin.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:260+i%4*250,y:300+Math.floor(i/4)*300});
   const environment={enabled:true,lighting:'dungeon',shadows:true,mist:false,weather:'none',particles:'none',lights:[{id:'lamp',x:350,y:400,radiusFt:40,heightFt:8,color:'warm',intensity:1,flicker:false,visibleTorch:true}]};
   admin.emit('map:setEnvironment',{mapId:map.id,settings:environment});s=await state();const token=s.tokens[0];
-  await page.addInitScript(mode=>{localStorage.setItem('dnd.playerId','retention');localStorage.setItem('dnd-environment-quality','balanced');localStorage.setItem('dnd.monsterTokenView:retention',mode);localStorage.setItem('dnd.battlefieldView:retention','tilted');},mode);
+  await page.addInitScript(mode=>{Object.defineProperty(window,'devicePixelRatio',{value:2,configurable:true});localStorage.setItem('dnd.playerId','retention');localStorage.setItem('dnd-environment-quality','balanced');localStorage.setItem('dnd.monsterTokenView:retention',mode);localStorage.setItem('dnd.battlefieldView:retention','tilted');},mode);
   await page.setViewportSize({width:1500,height:1000});await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   const models=page.getByTestId('miniature-layer');await expect(models).toHaveAttribute('data-miniature-status','ready',{timeout:60000});
   await expect(models).toHaveAttribute('data-miniature-count',mode==='3d'?'8':'0',{timeout:60000});
@@ -67,10 +67,11 @@ for(const mode of ['2d','3d'])test(`standard ${mode} retains static artwork whil
   if(mode==='3d')await expect.poll(()=>count('name-texture-updates')).toBeGreaterThan(healthTextures);
   admin.emit('monster:update',{monsterId:token.refId,name:'Renamed Goblin'});await state();
   if(mode==='3d')await expect.poll(()=>node().then(n=>n?.label)).toBe('Renamed Goblin');
-  if(mode==='3d')for(const quality of ['low','high']){
+  for(const [quality,ratio] of [['low',1],['balanced',1.5],['high',2]] as const){
    await page.evaluate(quality=>{localStorage.setItem('dnd-environment-quality',quality);window.dispatchEvent(new Event('dnd-environment-quality-change'));},quality);
-   await expect(models).toHaveAttribute('data-graphics-quality',quality);await expect(models).toHaveAttribute('data-miniature-count','8');
-   await expect(models).toHaveAttribute('data-local-shadow-method',quality==='high'?'cube':'floor');
+   await expect.poll(()=>page.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);const layers=stage.getLayers();const buffers=layers.map((l:any)=>l.getAttr('retainedPerspectiveBuffer')).filter(Boolean);return{layerRatios:[...new Set(layers.map((l:any)=>l.getCanvas().getPixelRatio()))],bufferCount:buffers.length,bufferRatios:[...new Set(buffers.map((b:any)=>b.getPixelRatio()))]};})).toEqual({layerRatios:[ratio],bufferCount:5,bufferRatios:[ratio]});
+   if(mode==='3d'){await expect(models).toHaveAttribute('data-graphics-quality',quality);await expect(models).toHaveAttribute('data-miniature-count','8');
+   await expect(models).toHaveAttribute('data-local-shadow-method',quality==='high'?'cube':'floor');}
   }
   await pixels();
   admin.emit('measure:add',{kind:'ruler',origin:{x:500,y:500},target:{x:750,y:650}});await state();await page.waitForTimeout(150);await pixels();

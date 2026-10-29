@@ -1455,15 +1455,18 @@ function MapStageInner({
     // Legacy uses an unrotated, untilted stage. Native Konva canvases and input
     // avoid allocating the oversized scene/hit/warp buffers needed for 3D orbit.
     if (!stage) return;
+    for (const layer of stage.getLayers()) if (layer.getCanvas().getPixelRatio() !== konvaPixelRatio) layer.getCanvas().setPixelRatio(konvaPixelRatio);
+    const tilt = legacy ? 0 : projectionState.current.tilt, rotation = legacy ? 0 : projectionState.current.rotation;
     const perspectiveLayers=legacy?[]:[layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current,spellAreaLayerRef.current].filter((layer):layer is Konva.Layer=>!!layer);
-    const canvases=perspectiveLayers.map(layer=>installPerspectiveCanvas(layer,size.w,size.h,tiltDegrees,rotationDegrees));
+    const canvases=perspectiveLayers.map(layer=>installPerspectiveCanvas(layer,size.w,size.h,tilt,rotation));
     projectionCanvases.current=canvases;
-    const input=legacy?undefined:installPerspectiveInput(stage,size.w,size.h,tiltDegrees,rotationDegrees,()=>projectionState.current);
+    const input=legacy?undefined:installPerspectiveInput(stage,size.w,size.h,tilt,rotation,()=>projectionState.current);
     const retainedLayers=retained?[groundTokenLayerRef.current,sharedTokenLayerRef.current,...(legacy?[]:[tokenLayerRef.current])].filter((l):l is Konva.Layer=>!!l).map(layer=>installRetainedTokenLayer(layer,canvases[perspectiveLayers.indexOf(layer)]?.buffer)):[];
+    for (const layer of stage.getLayers()) layer.draw();
     // Dispose wrappers in reverse order: the retained paint delegates to the
     // perspective buffer, whose padding must remain valid until it is removed.
     return () => {retainedLayers.forEach(dispose=>dispose());input?.();canvases.forEach(dispose=>dispose());projectionCanvases.current=[];};
-  }, [size.w, size.h, dprKey, legacy, retained, map?.id, map?.slidesUrl, map?.imagePath]);
+  }, [size.w, size.h, dprKey, konvaPixelRatio, legacy, retained, map?.id, map?.slidesUrl, map?.imagePath]);
 
   const selectionBox = useBoxSelection({
     enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,

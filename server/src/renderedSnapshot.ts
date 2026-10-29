@@ -67,7 +67,7 @@ export async function renderedSnapshot(id:string,s:StateSnapshot,legacy:boolean,
 }
 /** Only inputs that affect artwork or visibility; chat/roll/panel updates reuse it. */
 export function renderingInputKey(s:StateSnapshot){
- const layer=(view:StateSnapshot)=>[view.map,view.tokens,view.playerVision,view.exploredTerrain,view.mapImages,view.tokens.map(t=>resolveToken(view,t))];
+ const layer=(view:StateSnapshot)=>[view.map,view.tokens,view.playerVision,view.exploredTerrain,view.mapImages,view.serverRendering?.enabled,view.tokens.map(t=>resolveToken(view,t))];
  return JSON.stringify([layer(s),s.partyView?layer({...s,...s.partyView,partyView:undefined}):null]);
 }
 export function reuseRenderedSnapshot(next:StateSnapshot,ready:StateSnapshot):StateSnapshot{
