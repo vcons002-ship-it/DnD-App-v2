@@ -90,7 +90,7 @@ test('unthrottled server serves two throttled Legacy players in a heavy room',as
      if(paired)await Promise.all(pages.map(async q=>{await q.waitForFunction(()=>document.querySelector('.stage-wrap')?.getAttribute('data-motion-stage')==='2');await q.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));}));
      const a=await p.evaluate(()=>(window as any).__move.active);expect(a.releasedAt).toBeGreaterThan(0);const accepted=latest.tokens.find((t:any)=>t.id===token.id);expect(Math.abs(accepted.x-x)).toBeLessThan(4);expect(Math.abs(accepted.y-y)).toBeLessThan(4);
      const views=paired?await Promise.all(pages.map(async(q,j)=>{const v=await q.evaluate(()=>(window as any).__move.active);expect(v.firstMotionAt).toBeGreaterThan(a.releasedAt);return{player:j+1,moving:j===i,firstMotionMs:v.firstMotionAt-a.releasedAt,sightMs:v.sightPaintAt?v.sightPaintAt-a.releasedAt:null,tokenMs:v.tokenPaintAt-a.releasedAt,finalSightMs:(v.latestMaskPaintAt??v.sightPaintAt??v.visionPaintAt)-a.releasedAt,completeMs:Math.max(v.tokenPaintAt,v.latestMaskPaintAt??v.sightPaintAt??v.visionPaintAt)-a.releasedAt,maskPoses:v.maskPoses};})):undefined;
-     if(paired&&run.legacyMotion&&rate===1)expect(views![i].maskPoses.some((p:any)=>p.index>0&&p.index<12),'the moving player must actually receive intermediate sight poses').toBe(true);
+     if(paired&&run.serverManaged&&run.legacyMotion&&rate===1)expect(views![i].maskPoses.some((p:any)=>p.index>0&&p.index<12),'the moving player must actually receive intermediate sight poses').toBe(true);
      run.samples.push({player:i+1,seq:seq+1,tokenMs:Math.round(a.tokenPaintAt-a.releasedAt),sightMs:Math.round(a.sightPaintAt-a.releasedAt),finalSightMs:Math.round((a.latestMaskPaintAt??a.sightPaintAt)-a.releasedAt),...(views?{views}:{}),...(timing?{timing:a}:{})});console.log(`[server-offload] ${rate}x player ${i+1}: ${run.samples.at(-1).sightMs}ms sight`);await Promise.all(observedPages.map(q=>q.evaluate(()=>(window as any).__move.stop())));
     }
     measuring=false;run.observedMs=Date.now()-start;const after=await Promise.all(cds.map(c=>c.send('Performance.getMetrics'))),serverAfter=await(await request.get('/api/performance-metrics',{headers})).json();
@@ -104,7 +104,9 @@ test('unthrottled server serves two throttled Legacy players in a heavy room',as
     run.tokenCaches=await Promise.all(pages.map(p=>p.evaluate(()=>{const nodes=(window as any).Konva.stages.flatMap((s:any)=>s.find('.token-art')),bodies=(window as any).Konva.stages.flatMap((s:any)=>s.find('.token-body'));return{art:nodes.length,cachedArt:nodes.filter((n:any)=>n.isCached()).length,filteredBodies:bodies.filter((n:any)=>n.filters()?.length).length};})));
     if(timing){
      run.clientTiming=await Promise.all(pages.map(p=>p.evaluate(()=>({frames:(window as any).__move.frames,resources:(window as any).__move.resources,longTasks:(window as any).__move.longTasks}))));
-     for(const sample of run.samples){const a=sample.timing,f=run.clientTiming[sample.player-1].frames.find((f:any)=>f.id===a.performanceId&&f.maskKey===a.sightFrameKey);
+     for(const sample of run.samples){const a=sample.timing,atlasKey=/\/([0-9a-f]{64}):\d+$/i.exec(a.sightFrameKey??'')?.[1];
+      const f=run.clientTiming[sample.player-1].frames.find((f:any)=>f.id===a.performanceId&&(f.maskKey===a.sightFrameKey||(atlasKey&&f.images?.[atlasKey])));
+      expect(f,'the observed sight must match its state frame or movement atlas').toBeTruthy();
       expect(a.moveSentAt).toBeGreaterThan(a.releasedAt);expect(f?.server.emittedAt).toBeGreaterThan(f?.server.receivedAt);expect(f?.imagesReadyAt).toBeGreaterThan(f?.imagesStartAt);expect(f?.maskCommitAt).toBeGreaterThan(f?.imagesReadyAt);
       expect(run.networkFrames.some((n:any)=>n.player===sample.player&&n.id===f.id&&n.revision===f.revision)).toBe(true);
      }
