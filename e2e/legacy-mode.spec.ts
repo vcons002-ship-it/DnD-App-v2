@@ -47,9 +47,19 @@ test('startup gates both roles before campaign imports and persists the chosen l
  for(const path of ['/dm','/join']){
   await page.goto(path);
   await expect(page.getByRole('main',{name:'Choose rendering mode'})).toBeVisible();
+  const advice=page.getByLabel('When to use server managed rendering');
+  await advice.click();
+  await expect(page.locator('.server-rendering-advice-panel')).toContainText('Compare both settings on the same map');
+  await page.getByRole('button',{name:'Close advice'}).click();
   if(path==='/dm')await page.screenshot({path:'test-results/legacy-startup-choice.png'});
   expect(requests.filter(u=>graphicsRequest(u)||/\/(DmRoute|PlayerRoute)-/.test(u))).toEqual([]);
  }
+ await page.setViewportSize({width:390,height:844});
+ await page.getByLabel('When to use server managed rendering').click();
+ const box=(await page.getByRole('region',{name:'Server rendering advice'}).boundingBox())!;
+ expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(390);
+ await page.keyboard.press('Escape');await expect(page.getByRole('region',{name:'Server rendering advice'})).toBeHidden();
+ await page.setViewportSize({width:1280,height:720});
  await page.getByRole('button',{name:'Start in legacy mode',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Join Game',exact:true})).toBeVisible();
  expect(await page.evaluate(()=>localStorage.getItem('dnd-environment-quality'))).toBe('legacy');
