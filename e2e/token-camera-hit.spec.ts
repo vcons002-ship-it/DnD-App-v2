@@ -58,7 +58,6 @@ for(const mode of ['legacy','2d','3d'] as const)for(const assisted of [false,tru
   // still inspect the hit map immediately after the drag/zoom/rotation.
   await expect.poll(async()=>{const hits=await tokenHits(page);return hits.length===3&&hits.every(h=>h.hit===h.id);},{timeout:20000}).toBe(true);
   const check=async()=>{const hits=await tokenHits(page);expect(hits.map(h=>({id:h.id,hit:h.hit})),JSON.stringify(hits)).toEqual(hits.map(h=>({id:h.id,hit:h.id})));};
-  await check();
   await page.evaluate(()=>{
    const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
    (window as any).__cameraDragged=[];
