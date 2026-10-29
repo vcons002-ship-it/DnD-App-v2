@@ -1028,7 +1028,8 @@ function MapStageInner({
   const gridRef=useRef<Konva.Group>(null);
   const privateDrag = useRef(false);
   const [doorDragPreview,setDoorDragPreview]=useState<{tokenId:string;ids:string[]}|null>(null);
-  useEffect(()=>setDoorDragPreview(null),[map?.id,mySocketId]);
+  const [doorApproachTokenId,setDoorApproachTokenId]=useState<string|null>(null);
+  useEffect(()=>{setDoorDragPreview(null);setDoorApproachTokenId(null);},[map?.id,mySocketId]);
   const handleDragActive = useStableCallback((active: boolean) => {
     privateDrag.current=active;
     for(const line of gridRef.current?.getChildren()??[]){line.setAttrs({stroke:active||measureActive?'#ffffffcc':'#ffffff5c',strokeWidth:active||measureActive?1.5:1});}
@@ -1057,6 +1058,7 @@ function MapStageInner({
     nudgeRightPanel(); // and pop the right drawer open (collapsed on phones)
   });
   const handleTokenMove = useStableCallback((tok: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => {
+    if(actualDm)setDoorApproachTokenId(tok.id);
     onMoveToken(tok.id, x, y, placed);
     if (isDm) {
       if (selectedIds.length <= 1 || !selectedIds.includes(tok.id)) onSelectToken(tok, false);
@@ -1065,7 +1067,7 @@ function MapStageInner({
   });
   const handleTokenDragPreview = useStableCallback((tok: Token, point: {x:number;y:number;facing:number}|null) => {
     miniatureRef.current?.previewMove(tok.id, point);
-    if(!point||isDm||tok.kind!=='pc'||!snapshot.characters.some(c=>c.id===tok.refId&&c.claimedBy===mySocketId)){
+    if(!point||(!actualDm&&(tok.kind!=='pc'||!snapshot.characters.some(c=>c.id===tok.refId&&c.claimedBy===mySocketId)))||doors.some(d=>d.tokenId===tok.id)){
       setDoorDragPreview(old=>old?.tokenId===tok.id?null:old);return;
     }
     const ids=doors.filter(d=>doorVisible(d)&&doorInReach({...tok,...point},d,pxPerFoot)).map(d=>d.id);
@@ -1274,8 +1276,8 @@ function MapStageInner({
   }, [view, size, groundScaleY]);
 
   const doors=(map?.walls??[]).filter(w=>w.door);
-  const doorVisible=(door:typeof doors[number])=>isDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
-  const nearbyDoors=doors.filter(d=>doorVisible(d)&&(isDm?d.id===selectedDoor:snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
+  const doorVisible=(door:typeof doors[number])=>actualDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
+  const nearbyDoors=doors.filter(d=>doorVisible(d)&&(actualDm?d.id===selectedDoor||sourceSnapshot.tokens.some(t=>t.id===doorApproachTokenId&&!doors.some(door=>door.tokenId===t.id)&&doorInReach(t,d,pxPerFoot)):snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
   const nearbyDoorKey=nearbyDoors.map(d=>d.id).sort().join('|');
   useEffect(()=>{
     // Leaving a door's reach clears its dismissal; snapshots and camera changes do not.
@@ -1283,7 +1285,7 @@ function MapStageInner({
     setDismissedDoors(old=>{const next=old.filter(id=>ids.has(id));return next.length===old.length?old:next;});
   },[nearbyDoorKey]);
   const activeDoorControls=nearbyDoors.filter(d=>!dismissedDoors.includes(d.id));
-  const dismissDoorControls=()=>{setDismissedDoors(old=>[...new Set([...old,...nearbyDoors.map(d=>d.id)])]);if(isDm)setSelectedDoor(null);};
+  const dismissDoorControls=()=>{setDismissedDoors(old=>[...new Set([...old,...nearbyDoors.map(d=>d.id)])]);if(actualDm)setSelectedDoor(null);};
   const operateDoor=(id:string,open:boolean)=>{if(map)useStore.getState().socket?.emit('map:setDoor',{mapId:map.id,doorId:id,open});};
   const miniatureVisibleAt = useMemo(() => {
     const ownerId = useStore.getState().socket?.id;
@@ -2760,7 +2762,8 @@ function MapStageInner({
                 {wallPointer&&wallTool!=='edit'&&<Circle x={wallPointer.x} y={wallPointer.y} radius={4/view.scale} fill={wallTool==='erase'||wallTool==='erase-area'?'#ff6677':'#fff1c2'}/>}
               </Group>}
               {doors.filter(doorVisible).map(d=>{
-                const token=snapshot.tokens.find(t=>t.id===d.tokenId),object=snapshot.monsters.find(m=>m.id===token?.refId);
+                const doorSnapshot=actualDm?sourceSnapshot:snapshot;
+                const token=doorSnapshot.tokens.find(t=>t.id===d.tokenId),object=doorSnapshot.monsters.find(m=>m.id===token?.refId);
                 const locked=!!object?.conditions.some(c=>c.label.toLowerCase()==='locked'),hidden=!!token?.isHidden;
                 const previewed=!!doorDragPreview?.ids.includes(d.id);
                 const approached=nearbyDoors.some(door=>door.id===d.id);
@@ -2776,7 +2779,7 @@ function MapStageInner({
                 }else{
                   faces=wallBoundarySegments(d).map(({a,b})=>[a.x,a.y,b.x,b.y]);
                 }
-                const activate=()=>{if(isDm||nearbyDoors.some(door=>door.id===d.id))openDoorControls(d.id);else notify('Move your character’s footprint within 5 ft of this door’s approach area to open it or pick its lock.');};
+                const activate=()=>{if(actualDm||nearbyDoors.some(door=>door.id===d.id))openDoorControls(d.id);else notify('Move your character’s footprint within 5 ft of this door’s approach area to open it or pick its lock.');};
                 return <Group key={d.id} name="wall-door-marker" doorId={d.id} doorState={label} doorPreview={previewed} opacity={hidden ? .45 : 1} listening={!wallActive}
                   onMouseDown={e=>{e.cancelBubble=true;}} onTouchStart={e=>{e.cancelBubble=true;}} onClick={e=>{e.cancelBubble=true;activate();}} onTap={e=>{e.cancelBubble=true;activate();}}>
                   <Line name="door-approach-area" points={wallVertices(doorInteractionArea(d,pxPerFoot)).flatMap(p=>[p.x,p.y])} closed listening={false}
@@ -2840,9 +2843,9 @@ function MapStageInner({
           {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
           {!wallActive&&activeDoorControls.length>0&&!doorDragPreview&&<section data-testid="door-controls" className="nearby-door-controls" role="region" aria-label="Door controls">
             <header><strong>Door controls</strong><button className="btn tiny" aria-label="Close door controls" title="Close — click a nearby door or leave and return to reopen" onClick={dismissDoorControls}>×</button></header>
-            <div className="nearby-door-list">{activeDoorControls.map(d=>{const token=snapshot.tokens.find(t=>t.id===d.tokenId);return <div className="nearby-door" key={d.id}>
+            <div className="nearby-door-list">{activeDoorControls.map(d=>{const doorSnapshot=actualDm?sourceSnapshot:snapshot,token=doorSnapshot.tokens.find(t=>t.id===d.tokenId);return <div className="nearby-door" key={d.id}>
               <strong>Door {doors.indexOf(d)+1}</strong>
-              {token?<><ObjectControls snapshot={snapshot} token={token} editable={isDm} compact/>{isDm&&<button className="btn tiny" onClick={()=>onSelectToken(token)}>Door details</button>}</>:<button className="btn" onClick={()=>operateDoor(d.id,!d.open)}>{d.open?'Close':'Open'} door</button>}
+              {token?<><ObjectControls snapshot={doorSnapshot} token={token} editable={actualDm} compact/>{actualDm&&<button className="btn tiny" onClick={()=>onSelectToken(token)}>Door details</button>}</>:<button className="btn" onClick={()=>operateDoor(d.id,!d.open)}>{d.open?'Close':'Open'} door</button>}
             </div>;})}</div>
           </section>}
           {wallActive&&<div data-testid="wall-drawing-hint" style={{position:'absolute',bottom:88,left:'50%',transform:'translateX(-50%)',zIndex:5,background:'#161b23ee',color:'#ffe5b3',padding:'8px 12px',border:'1px solid #aa8550',borderRadius:6,fontSize:13,display:'flex',gap:10,alignItems:'center',maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}}>

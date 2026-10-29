@@ -84,7 +84,8 @@ export function FogMenu({
         <>
           <div className="popover-backdrop" onClick={() => setOpen(false)} />
           <div className="measure-menu" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
-            <div className="measure-label">Automatic fog of war</div>
+            <div className="measure-label">Automatic visibility</div>
+            <div className="measure-label">These switches hide things behind walls or closed doors. With none on the map, there is no wall concealment. Darkness can still limit sight separately.</div>
             <label className="measure-row">Revealed areas
               <select aria-label="Revealed areas" value={explorationMode} onChange={e=>onExplorationMode(e.target.value as 'remembered'|'revealed')}>
                 <option value="remembered">Remembered (grayscale)</option>
@@ -93,12 +94,12 @@ export function FogMenu({
             </label>
             <div className="measure-label">{explorationMode==='revealed'?'Keeps explored map and last-seen figures in color. Heavy-darkness range still applies. Unseen figures cannot be targeted.':'Explored map stays dim and grayscale; enemies disappear when the party loses sight.'}</div>
             <button className={`measure-row ${mapVisionEnabled?'on':''}`} aria-pressed={mapVisionEnabled} onClick={()=>onToggleVision('map')}>
-              <span>Map fog of war</span><span className="muted">{mapVisionEnabled?'on':'off'}</span>
+              <span>Hide map behind walls</span><span className="muted">{mapVisionEnabled?'on':'off'}</span>
             </button>
             <button className={`measure-row ${tokenVisionEnabled?'on':''}`} aria-pressed={tokenVisionEnabled} onClick={()=>onToggleVision('tokens')}>
-              <span>Token fog of war</span><span className="muted">{tokenVisionEnabled?'on':'off'}</span>
+              <span>Hide tokens behind walls</span><span className="muted">{tokenVisionEnabled?'on':'off'}</span>
             </button>
-            <div className="measure-label">Controls wall concealment. Heavy-darkness sight range still applies. Walls and closed doors always block movement and targeting.</div>
+            <div className="measure-label">Hiding the map behind walls also hides tokens there, even if the token switch is off. Walls and closed doors still block movement and targeting.</div>
             <button className="measure-row" onClick={()=>{
               if(!confirmReset){setConfirmReset(true);return;}
               onResetExploration();setConfirmReset(false);setOpen(false);
