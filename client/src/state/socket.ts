@@ -1,9 +1,16 @@
 import {prepareHpFeedback,scheduleHpFeedback,hpNumberStacks,hpStackEnd,hpImpactId,type ScheduledHpEvent} from '../lib/hpFeedback';
+import {movementTiming} from '../lib/movementTiming';
 import {partySpell} from '../../../shared/partySpells';
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import {resultTrayFor} from '../lib/rollTrayPresentation';
 import {spellAreaFor,type SpellArea} from '../../../shared/spellAreas';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
+import {readGraphicsQuality} from '../lib/useEnvironmentQuality';
+import {readDiceRenderingMode} from '../lib/useDiceRendering';
+import {readServerRendering} from '../lib/useServerRendering';
+import {prepareRenderImages} from '../lib/renderImages';
+import {retainedRenderingEnabled} from '../lib/retainedRendering';
+import {applySnapshotDelta} from '../../../shared/stateDelta';
 import type { ClassRosterEntry, LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from '../../../shared/levelingTypes';
 import type { CoreClass } from '../../../shared/characterProgression';
 import type { SmiteChoice } from '../../../shared/smite';
@@ -237,6 +244,7 @@ type Store = {
   /** DM: set the map list's order (ids in display order). */
   reorderMaps: (orderedIds: string[]) => void;
   setMapEnvironment: (mapId: string, settings: Partial<MapEnvironment>) => void;
+  placeMapLight: (mapId:string,x:number,y:number,lightId?:string) => void;
   editMapWalls: (mapId:string, edit:import('../../../shared/mapWalls').WallEdit)=>void;
   setMapGrid: (
     mapId: string,
@@ -859,6 +867,7 @@ export const useStore = create<Store>((set, get) => ({
       if(!get().showRollAnim&&!frame.awaitingStart){socket.emit('dice:ready',{id:frame.id});return;}
       const previous=get().liveDice;
       if(previous?.id===frame.id && previous.seq>=frame.seq)return;
+      if(readDiceRenderingMode()==='2d'&&previous?.id===frame.id&&!frame.done&&!frame.calculation&&frame.awaitingStart===previous.awaitingStart)return;
       if(previous?.id!==frame.id)get().dismissRollFx();
       if(frame.done)completedLiveTrays.set(frame.id,frame);
       set({liveDice:frame});
@@ -874,7 +883,8 @@ export const useStore = create<Store>((set, get) => ({
     });
     socket.on('fx:initiative', ({mapId}) => set({initiativeFx: {id: Date.now(), mapId}}));
     socket.on('fx:rest', ({kind}) => set({restFx: {id: Date.now(), kind}}));
-    socket.on('state:snapshot', (snapshot) => {
+    let wireSnapshot:StateSnapshot|null=null,wireRevision=0;
+    const acceptSnapshot = (snapshot:StateSnapshot) => {
       // Audio cues + the reveal animation for a newly-arrived roll-log entry. The
       // log is oldest-first, so a new entry is the first one not yet seen.
       const log = snapshot.rollLog ?? [];
@@ -926,8 +936,41 @@ export const useStore = create<Store>((set, get) => ({
       dragGhostTimers.clear();
       set({ snapshot, dragGhosts: {} });
       explainLethargy(snapshot);
+    };
+    let renderSerial=0,renderFailures=0,renderPending=false;
+    const renderHpQueue:Parameters<ServerToClientEvents['fx:hp']>[0][]=[];
+    let flushRenderHp=()=>{};
+    const acceptRendered=(snapshot:StateSnapshot,timing?:{id:string;revision:number})=>{
+      const serial=++renderSerial;
+      if(!snapshot.tokenSprites&&!snapshot.visionRaster&&!snapshot.visionTiles){renderPending=false;acceptSnapshot(snapshot);flushRenderHp();return;}
+      renderPending=true;
+      if(timing)movementTiming('imagesStart',timing);
+      void prepareRenderImages(snapshot,get().chatAccessToken,timing).then(()=>{
+        if(timing)movementTiming('imagesReady',timing);
+        if(serial===renderSerial&&socket.connected&&get().socket===socket){
+          renderFailures=0;renderPending=false;if(timing)movementTiming('acceptStart',timing);
+          acceptSnapshot(snapshot);flushRenderHp();
+          if(timing)movementTiming('acceptEnd',timing);
+        }else if(timing)movementTiming('discarded',timing);
+      }).catch(()=>{
+        // Never combine a new position with a stale visibility image. Retain the
+        // last complete frame and request a fresh private image set.
+        if(serial!==renderSerial||!socket.connected||get().socket!==socket)return;
+        if(++renderFailures<=3)setTimeout(()=>{if(serial===renderSerial&&socket.connected&&get().socket===socket)socket.emit('state:resync');},1000*renderFailures);
+        else get().notify('Could not load the server-rendered view. Your last complete view is retained. Refresh to retry.',{durationMs:10000});
+      });
+    };
+    socket.on('state:snapshot',acceptRendered);
+    socket.on('state:frame',frame=>{
+      const timing=frame.timing?{id:frame.timing.id,revision:frame.revision}:undefined;
+      if(timing)movementTiming('frameReceived',{...timing,server:frame.timing});
+      if('full' in frame){wireSnapshot=frame.full;wireRevision=frame.revision;}
+      else if(wireSnapshot&&frame.base===wireRevision){wireSnapshot=applySnapshotDelta(wireSnapshot,frame.delta);wireRevision=frame.revision;}
+      else{socket.emit('state:resync');return;}
+      if(timing)movementTiming('deltaApplied',{...timing,maskKey:wireSnapshot.visionTiles?.key??wireSnapshot.visionRaster?.key});
+      acceptRendered(wireSnapshot,timing);
     });
-    socket.on('fx:hp', ({ events }) => {
+    const handleRenderedHp=({events}:Parameters<ServerToClientEvents['fx:hp']>[0])=>{
       const added: HpFloater[] = events.map((e) => ({ ...e, id: nextFloaterId++ }));
       const current = get().rollFx;
       const immediate: HpFloater[] = [];
@@ -945,7 +988,9 @@ export const useStore = create<Store>((set, get) => ({
       get().presentHpFx(immediate);
       if (immediate.some((e) => e.delta < 0 &&
         (!get().showRollAnim || !e.rollId || current?.rollId !== e.rollId))) playHit();
-    });
+    };
+    flushRenderHp=()=>{for(const payload of renderHpQueue.splice(0))handleRenderedHp(payload);};
+    socket.on('fx:hp',payload=>{if(renderPending){if(renderHpQueue.length<128)renderHpQueue.push(payload);}else handleRenderedHp(payload);});
     // Live drag preview from another user — update the ghost and (re)arm its
     // expiry. Visible tethers clear ~0.3 s after updates stop; concealment lasts
     // until a visible preview or authoritative snapshot restores the token.
@@ -1073,9 +1118,10 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('connect', () => {
       socket.emit(
         'join',
-        { sessionCode: code, role, dmPassphrase, playerId: getPlayerId() },
+          { sessionCode: code, role, dmPassphrase, playerId: getPlayerId(),stateProtocol:1,renderProtocol:retainedRenderingEnabled()?3:1,legacyRendering:readGraphicsQuality()==='legacy',serverRendering:readServerRendering(),legacyMotion:true,compactMotion:true },
         (ack: JoinAck) => {
           if (ack.ok) {
+            wireSnapshot=null;wireRevision=0;renderSerial++;renderFailures=0;renderPending=false;renderHpQueue.length=0;
             // Seed the roll-cue set from the (re)join snapshot so a roll that
             // landed while we were away — or the existing backlog — doesn't replay
             // its reveal + hit/miss sound as if it just happened on the next
@@ -1103,6 +1149,7 @@ export const useStore = create<Store>((set, get) => ({
     // Keep the last snapshot on screen during a blip; flag reconnecting unless we
     // intentionally left (disconnect()/leave sets status to 'idle' separately).
     socket.on('disconnect', (reason) => {
+      renderSerial++;renderPending=false;renderHpQueue.length=0;
       set({hiddenRollReview:null,hiddenRollSubmitting:false});
       completedLiveTrays.clear();
       set({liveDice:null,resolvingDice:null, skippedLiveDiceId:null, areaCast:null,spellAreaPreviews:{},teleportCast:null, chatAccessToken: null});
@@ -1139,6 +1186,7 @@ export const useStore = create<Store>((set, get) => ({
   renameMap: (mapId, name) => get().socket?.emit('map:rename', { mapId, name }),
   reorderMaps: (orderedIds) => get().socket?.emit('map:reorder', { orderedIds }),
   setMapEnvironment: (mapId, settings) => get().socket?.emit('map:setEnvironment', {mapId, settings}),
+  placeMapLight: (mapId,x,y,lightId) => get().socket?.emit('map:placeLight',{mapId,x,y,lightId}),
   editMapWalls: (mapId,edit)=>get().socket?.emit('map:editWalls',{mapId,...edit}),
   setMapGrid: (mapId, gridSizePx, feetPerSquare, widthFt, opts) =>
     get().socket?.emit('map:setGrid', {

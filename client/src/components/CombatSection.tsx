@@ -1,6 +1,6 @@
 import {advancedSpell} from '../../../shared/advancedSpells';
 import {partySpell} from '../../../shared/partySpells';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo,useRef, useState } from 'react';
 import type {
   Character,
   Monster,
@@ -8,7 +8,7 @@ import type {
   Token,
   TokenKind,
 } from '../../../shared/types';
-import { healTargets, validTargets, targetLabel } from '../lib/targets';
+import { targetLists, targetLabel } from '../lib/targets';
 import {ShowDeadTargets} from './ShowDeadTargets';
 import { useWeaponAttackOptions } from '../lib/useWeaponAttackOptions';
 import { useStore } from '../state/socket';
@@ -20,7 +20,8 @@ import { WeaponButtons } from './WeaponButtons';
 import { effectiveSheetAbility, isCanonicalHasteProfile } from '../../../shared/spellExecution';
 import { spellCombatSupport } from '../../../shared/spellSupport';
 import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../../shared/spellSlotPools';
-import { confirmConcentration, spellBaseLevel, upcastable } from '../lib/spellcasting';
+import { confirmConcentration, spellBaseLevel, upcastable,isCastSpell } from '../lib/spellcasting';
+import {SpellCastControl} from './SpellCastControl';
 import { SpellCombatSupportBadge } from './SpellCombatSupport';
 import { activeHasteCondition, spellActionBlock, spellActionBlockMessage } from '../../../shared/spellBuffs';
 import {ActiveSpellActions} from './ActiveSpellActions';
@@ -103,7 +104,7 @@ export function CombatSection({
   };
 
   const showDead = useStore(s => s.showDeadTargets);
-  const targets = validTargets(snapshot, attacker, showDead);
+  const {attack:targets,heal:healList}=useMemo(()=>targetLists(snapshot,attacker,showDead),[snapshot,attacker,showDead]);
   const validDefault =
     defaultTargetId && targets.some((t) => t.id === defaultTargetId)
       ? defaultTargetId
@@ -129,7 +130,6 @@ export function CombatSection({
   }, [combatTarget]);
 
   // Heals pick from allies instead (self first = default) and apply on cast.
-  const healList = healTargets(snapshot, attacker, showDead);
   const hasHeal = abilities.some((a) => effectiveSheetAbility(a).roll?.kind === 'heal');
   const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
   const buffList = healList.filter(token => token.mapId === attacker.mapId && !token.sharedSightOnly);
@@ -291,7 +291,7 @@ export function CombatSection({
       />
       {summonAbilities.length > 0 && (
         <div className="combat-summon-row">
-          {summonAbilities.map((a) => <div key={a.id} className="combat-ability-row">
+          {summonAbilities.map((a) => isCastSpell(a)?<div key={a.id} className="combat-ability-row"><SpellCastControl ability={a} caster={caster} kind={kind}/></div>:<div key={a.id} className="combat-ability-row">
             <button
               className="btn tiny"
               disabled={!!actionBlock}

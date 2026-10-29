@@ -1,0 +1,866 @@
+{
+  "at": "2026-10-28T10:52:04.029Z",
+  "finalBuildIndexSha256": "07c03399b580ab732cc082ff972426402d3bedc3561dd0c628b912d5d48f3c70",
+  "reports": {
+    "before": {
+      "at": "2026-10-28T10:31:58.175Z",
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "method": "Two independent player contexts claim Varis and Druk. Both browser CPUs throttled before initial campaign load and throughout six alternating real drags (three per player). GPU/accelerated Canvas2D disabled, WebGL blocked. Node server unrestricted on same host. No network delay or RAM cap. Event-driven draw/SVG probes, two RAF paint opportunities; captures pointer-release to local committed token and sight update. Wire bytes from CDP websocket frames (no browser instrumentation loop). Recording adds overhead. CPU totals from Node process.cpuUsage include worker threads.",
+      "runs": [
+        {
+          "rate": 12,
+          "status": "passed",
+          "loads": [
+            {
+              "player": 1,
+              "loadToUsableMs": 18443
+            },
+            {
+              "player": 2,
+              "loadToUsableMs": 18983
+            }
+          ],
+          "samples": [
+            {
+              "player": 1,
+              "seq": 1,
+              "tokenMs": 618,
+              "sightMs": 1591
+            },
+            {
+              "player": 2,
+              "seq": 2,
+              "tokenMs": 606,
+              "sightMs": 1526
+            },
+            {
+              "player": 1,
+              "seq": 3,
+              "tokenMs": 590,
+              "sightMs": 1591
+            },
+            {
+              "player": 2,
+              "seq": 4,
+              "tokenMs": 839,
+              "sightMs": 2585
+            },
+            {
+              "player": 1,
+              "seq": 5,
+              "tokenMs": 518,
+              "sightMs": 1727
+            },
+            {
+              "player": 2,
+              "seq": 6,
+              "tokenMs": 938,
+              "sightMs": 2842
+            }
+          ],
+          "wire": [
+            {
+              "bytes": 671990,
+              "events": {
+                "state:snapshot": 6,
+                "fx:cursor": 6,
+                "fx:cursorHide": 6
+              }
+            },
+            {
+              "bytes": 671490,
+              "events": {
+                "fx:cursor": 6,
+                "fx:cursorHide": 6,
+                "state:snapshot": 6
+              }
+            }
+          ],
+          "observedMs": 27996,
+          "server": {
+            "cpuMs": 1328,
+            "rssMiB": 296,
+            "details": {
+              "cpu": {
+                "user": 4843000,
+                "system": 828000
+              },
+              "uptime": 72.1386694,
+              "memory": {
+                "rss": 309944320,
+                "heapTotal": 179716096,
+                "heapUsed": 127637864,
+                "external": 13012798,
+                "arrayBuffers": 8508918
+              }
+            }
+          },
+          "clients": [
+            {
+              "player": 1,
+              "mainThreadBusyMs": 13163,
+              "scriptMs": 7511,
+              "medianTokenMs": 590,
+              "medianSightMs": 1591,
+              "webglAttempts": 0,
+              "geometrySource": null,
+              "errors": [],
+              "graphicsRequests": []
+            },
+            {
+              "player": 2,
+              "mainThreadBusyMs": 16417,
+              "scriptMs": 9248,
+              "medianTokenMs": 839,
+              "medianSightMs": 2585,
+              "webglAttempts": 0,
+              "geometrySource": null,
+              "errors": [],
+              "graphicsRequests": []
+            }
+          ]
+        },
+        {
+          "rate": 20,
+          "status": "passed",
+          "loads": [
+            {
+              "player": 1,
+              "loadToUsableMs": 30327
+            },
+            {
+              "player": 2,
+              "loadToUsableMs": 28964
+            }
+          ],
+          "samples": [
+            {
+              "player": 1,
+              "seq": 1,
+              "tokenMs": 1364,
+              "sightMs": 2886
+            },
+            {
+              "player": 2,
+              "seq": 2,
+              "tokenMs": 1084,
+              "sightMs": 3126
+            },
+            {
+              "player": 1,
+              "seq": 3,
+              "tokenMs": 322,
+              "sightMs": 2921
+            },
+            {
+              "player": 2,
+              "seq": 4,
+              "tokenMs": 1053,
+              "sightMs": 4368
+            },
+            {
+              "player": 1,
+              "seq": 5,
+              "tokenMs": 1386,
+              "sightMs": 4195
+            },
+            {
+              "player": 2,
+              "seq": 6,
+              "tokenMs": 1124,
+              "sightMs": 4576
+            }
+          ],
+          "wire": [
+            {
+              "bytes": 673672,
+              "events": {
+                "state:snapshot": 6,
+                "fx:cursor": 6,
+                "fx:cursorHide": 6
+              }
+            },
+            {
+              "bytes": 673172,
+              "events": {
+                "fx:cursor": 6,
+                "fx:cursorHide": 6,
+                "state:snapshot": 6
+              }
+            }
+          ],
+          "observedMs": 51583,
+          "server": {
+            "cpuMs": 561,
+            "rssMiB": 358,
+            "details": {
+              "cpu": {
+                "user": 6015000,
+                "system": 921000
+              },
+              "uptime": 188.6433424,
+              "memory": {
+                "rss": 375586816,
+                "heapTotal": 240844800,
+                "heapUsed": 150432712,
+                "external": 12288029,
+                "arrayBuffers": 7785623
+              }
+            }
+          },
+          "clients": [
+            {
+              "player": 1,
+              "mainThreadBusyMs": 26336,
+              "scriptMs": 15223,
+              "medianTokenMs": 1364,
+              "medianSightMs": 2921,
+              "webglAttempts": 0,
+              "geometrySource": null,
+              "errors": [],
+              "graphicsRequests": []
+            },
+            {
+              "player": 2,
+              "mainThreadBusyMs": 28852,
+              "scriptMs": 17132,
+              "medianTokenMs": 1084,
+              "medianSightMs": 4368,
+              "webglAttempts": 0,
+              "geometrySource": null,
+              "errors": [],
+              "graphicsRequests": []
+            }
+          ]
+        }
+      ]
+    },
+    "after": {
+      "at": "2026-10-28T10:43:04.090Z",
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "method": "Two independent player contexts claim Varis and Druk. Both browser CPUs throttled before initial campaign load and throughout six alternating real drags (three per player). GPU/accelerated Canvas2D disabled, WebGL blocked. Node server unrestricted on same host. No network delay or RAM cap. Event-driven draw/SVG probes, two RAF paint opportunities; captures pointer-release to local committed token and sight update. Wire bytes from CDP websocket frames (no browser instrumentation loop). Recording adds overhead. CPU totals from Node process.cpuUsage include worker threads.",
+      "runs": [
+        {
+          "rate": 12,
+          "status": "passed",
+          "loads": [
+            {
+              "player": 1,
+              "loadToUsableMs": 16500
+            },
+            {
+              "player": 2,
+              "loadToUsableMs": 16952
+            }
+          ],
+          "samples": [
+            {
+              "player": 1,
+              "seq": 1,
+              "tokenMs": 553,
+              "sightMs": 1330
+            },
+            {
+              "player": 2,
+              "seq": 2,
+              "tokenMs": 1240,
+              "sightMs": 1816
+            },
+            {
+              "player": 1,
+              "seq": 3,
+              "tokenMs": 590,
+              "sightMs": 1603
+            },
+            {
+              "player": 2,
+              "seq": 4,
+              "tokenMs": 540,
+              "sightMs": 1484
+            },
+            {
+              "player": 1,
+              "seq": 5,
+              "tokenMs": 600,
+              "sightMs": 2560
+            },
+            {
+              "player": 2,
+              "seq": 6,
+              "tokenMs": 812,
+              "sightMs": 1892
+            }
+          ],
+          "wire": [
+            {
+              "bytes": 281315,
+              "events": {
+                "state:frame": 6,
+                "fx:cursor": 6,
+                "fx:cursorHide": 6
+              }
+            },
+            {
+              "bytes": 282267,
+              "events": {
+                "fx:cursor": 6,
+                "fx:cursorHide": 6,
+                "state:frame": 6
+              }
+            }
+          ],
+          "observedMs": 28387,
+          "server": {
+            "cpuMs": 1187,
+            "rssMiB": 337,
+            "details": {
+              "cpu": {
+                "user": 5765000,
+                "system": 1093000
+              },
+              "uptime": 73.5311546,
+              "memory": {
+                "rss": 353083392,
+                "heapTotal": 194228224,
+                "heapUsed": 117497144,
+                "external": 11991978,
+                "arrayBuffers": 7488098
+              },
+              "workers": {
+                "jobs": 52,
+                "failed": 0,
+                "computeMs": 132.96660000003612,
+                "maxComputeMs": 37.48440000000119,
+                "maxQueue": 1
+              },
+              "delivery": {
+                "full": 2,
+                "delta": 16,
+                "fullBytes": 3367715,
+                "wireBytes": 1087234,
+                "coalesced": 0,
+                "stale": 0,
+                "failed": 0
+              },
+              "eventLoop": {
+                "idle": 68026.1609,
+                "active": 4283.330699977014,
+                "utilization": 0.059236078213255966,
+                "p99Ms": 54.067199,
+                "maxMs": 2858.418175
+              }
+            }
+          },
+          "clients": [
+            {
+              "player": 1,
+              "mainThreadBusyMs": 14855,
+              "scriptMs": 8767,
+              "medianTokenMs": 590,
+              "medianSightMs": 1603,
+              "webglAttempts": 0,
+              "geometrySource": "server",
+              "errors": [],
+              "graphicsRequests": []
+            },
+            {
+              "player": 2,
+              "mainThreadBusyMs": 15215,
+              "scriptMs": 8354,
+              "medianTokenMs": 812,
+              "medianSightMs": 1816,
+              "webglAttempts": 0,
+              "geometrySource": "server",
+              "errors": [],
+              "graphicsRequests": []
+            }
+          ]
+        },
+        {
+          "rate": 20,
+          "status": "passed",
+          "loads": [
+            {
+              "player": 1,
+              "loadToUsableMs": 34379
+            },
+            {
+              "player": 2,
+              "loadToUsableMs": 33570
+            }
+          ],
+          "samples": [
+            {
+              "player": 1,
+              "seq": 1,
+              "tokenMs": 1470,
+              "sightMs": 3209
+            },
+            {
+              "player": 2,
+              "seq": 2,
+              "tokenMs": 196,
+              "sightMs": 2511
+            },
+            {
+              "player": 1,
+              "seq": 3,
+              "tokenMs": 1179,
+              "sightMs": 3179
+            },
+            {
+              "player": 2,
+              "seq": 4,
+              "tokenMs": 1257,
+              "sightMs": 2983
+            },
+            {
+              "player": 1,
+              "seq": 5,
+              "tokenMs": 1125,
+              "sightMs": 3559
+            },
+            {
+              "player": 2,
+              "seq": 6,
+              "tokenMs": 1185,
+              "sightMs": 4264
+            }
+          ],
+          "wire": [
+            {
+              "bytes": 284590,
+              "events": {
+                "state:frame": 6,
+                "fx:cursor": 6,
+                "fx:cursorHide": 6
+              }
+            },
+            {
+              "bytes": 285538,
+              "events": {
+                "fx:cursor": 6,
+                "fx:cursorHide": 6,
+                "state:frame": 6
+              }
+            }
+          ],
+          "observedMs": 50191,
+          "server": {
+            "cpuMs": 859,
+            "rssMiB": 340,
+            "details": {
+              "cpu": {
+                "user": 7078000,
+                "system": 1171000
+              },
+              "uptime": 194.9973091,
+              "memory": {
+                "rss": 356044800,
+                "heapTotal": 183377920,
+                "heapUsed": 131203384,
+                "external": 12026733,
+                "arrayBuffers": 7524327
+              },
+              "workers": {
+                "jobs": 109,
+                "failed": 0,
+                "computeMs": 165.84109999998327,
+                "maxComputeMs": 37.48440000000119,
+                "maxQueue": 1
+              },
+              "delivery": {
+                "full": 4,
+                "delta": 34,
+                "fullBytes": 6987412,
+                "wireBytes": 2188047,
+                "coalesced": 0,
+                "stale": 0,
+                "failed": 0
+              },
+              "eventLoop": {
+                "idle": 188304.9021,
+                "active": 5470.728700008767,
+                "utilization": 0.028232284304392105,
+                "p99Ms": 50.888703,
+                "maxMs": 2858.418175
+              }
+            }
+          },
+          "clients": [
+            {
+              "player": 1,
+              "mainThreadBusyMs": 23487,
+              "scriptMs": 13396,
+              "medianTokenMs": 1179,
+              "medianSightMs": 3209,
+              "webglAttempts": 0,
+              "geometrySource": "server",
+              "errors": [],
+              "graphicsRequests": []
+            },
+            {
+              "player": 2,
+              "mainThreadBusyMs": 29360,
+              "scriptMs": 16385,
+              "medianTokenMs": 1185,
+              "medianSightMs": 2983,
+              "webglAttempts": 0,
+              "geometrySource": "server",
+              "errors": [],
+              "graphicsRequests": []
+            }
+          ]
+        }
+      ]
+    },
+    "control": {
+      "at": "2026-10-28T10:49:31.622Z",
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "method": "Two independent player contexts claim Varis and Druk. Both browser CPUs throttled before initial campaign load and throughout six alternating real drags (three per player). GPU/accelerated Canvas2D disabled, WebGL blocked. Node server unrestricted on same host. No network delay or RAM cap. Event-driven draw/SVG probes, two RAF paint opportunities; captures pointer-release to local committed token and sight update. Wire bytes from CDP websocket frames (no browser instrumentation loop). Recording adds overhead. CPU totals from Node process.cpuUsage include worker threads.",
+      "runs": [
+        {
+          "rate": 20,
+          "compatibility": true,
+          "status": "passed",
+          "loads": [
+            {
+              "player": 1,
+              "loadToUsableMs": 33771
+            },
+            {
+              "player": 2,
+              "loadToUsableMs": 32732
+            }
+          ],
+          "samples": [
+            {
+              "player": 1,
+              "seq": 1,
+              "tokenMs": 1093,
+              "sightMs": 3186
+            },
+            {
+              "player": 2,
+              "seq": 2,
+              "tokenMs": 1440,
+              "sightMs": 3658
+            },
+            {
+              "player": 1,
+              "seq": 3,
+              "tokenMs": 1278,
+              "sightMs": 4452
+            },
+            {
+              "player": 2,
+              "seq": 4,
+              "tokenMs": 1278,
+              "sightMs": 3312
+            },
+            {
+              "player": 1,
+              "seq": 5,
+              "tokenMs": 1479,
+              "sightMs": 4541
+            },
+            {
+              "player": 2,
+              "seq": 6,
+              "tokenMs": 1121,
+              "sightMs": 3110
+            }
+          ],
+          "wire": [
+            {
+              "bytes": 671990,
+              "events": {
+                "state:snapshot": 6,
+                "fx:cursor": 6,
+                "fx:cursorHide": 6
+              }
+            },
+            {
+              "bytes": 671490,
+              "events": {
+                "fx:cursor": 6,
+                "fx:cursorHide": 6,
+                "state:snapshot": 6
+              }
+            }
+          ],
+          "observedMs": 53181,
+          "server": {
+            "cpuMs": 1124,
+            "rssMiB": 302,
+            "details": {
+              "cpu": {
+                "user": 4921000,
+                "system": 921000
+              },
+              "uptime": 126.666955,
+              "memory": {
+                "rss": 316383232,
+                "heapTotal": 181817344,
+                "heapUsed": 128288424,
+                "external": 13087318,
+                "arrayBuffers": 8583438
+              },
+              "workers": {
+                "jobs": 0,
+                "failed": 0,
+                "computeMs": 0,
+                "maxComputeMs": 0,
+                "maxQueue": 0
+              },
+              "delivery": {
+                "full": 0,
+                "delta": 0,
+                "fullBytes": 0,
+                "wireBytes": 0,
+                "coalesced": 0,
+                "stale": 0,
+                "failed": 0
+              },
+              "eventLoop": {
+                "idle": 122090.0582,
+                "active": 3140.0726000087743,
+                "utilization": 0.02507441763375172,
+                "p99Ms": 51.216383,
+                "maxMs": 1900.019711
+              }
+            }
+          },
+          "clients": [
+            {
+              "player": 1,
+              "mainThreadBusyMs": 28423,
+              "scriptMs": 17329,
+              "medianTokenMs": 1278,
+              "medianSightMs": 4452,
+              "webglAttempts": 0,
+              "geometrySource": "client",
+              "errors": [],
+              "graphicsRequests": []
+            },
+            {
+              "player": 2,
+              "mainThreadBusyMs": 30198,
+              "scriptMs": 17525,
+              "medianTokenMs": 1278,
+              "medianSightMs": 3312,
+              "webglAttempts": 0,
+              "geometrySource": "client",
+              "errors": [],
+              "graphicsRequests": []
+            }
+          ]
+        }
+      ]
+    },
+    "final": {
+      "at": "2026-10-28T10:52:04.029Z",
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "method": "Two independent player contexts claim Varis and Druk. Both browser CPUs throttled before initial campaign load and throughout six alternating real drags (three per player). GPU/accelerated Canvas2D disabled, WebGL blocked. Node server unrestricted on same host. No network delay or RAM cap. Event-driven draw/SVG probes, two RAF paint opportunities; captures pointer-release to local committed token and sight update. Wire bytes from CDP websocket frames (no browser instrumentation loop). Recording adds overhead. CPU totals from Node process.cpuUsage include worker threads.",
+      "runs": [
+        {
+          "rate": 20,
+          "compatibility": false,
+          "status": "passed",
+          "loads": [
+            {
+              "player": 1,
+              "loadToUsableMs": 29482
+            },
+            {
+              "player": 2,
+              "loadToUsableMs": 30362
+            }
+          ],
+          "samples": [
+            {
+              "player": 1,
+              "seq": 1,
+              "tokenMs": 1546,
+              "sightMs": 3754
+            },
+            {
+              "player": 2,
+              "seq": 2,
+              "tokenMs": 1120,
+              "sightMs": 2640
+            },
+            {
+              "player": 1,
+              "seq": 3,
+              "tokenMs": 1393,
+              "sightMs": 4645
+            },
+            {
+              "player": 2,
+              "seq": 4,
+              "tokenMs": 1098,
+              "sightMs": 2967
+            },
+            {
+              "player": 1,
+              "seq": 5,
+              "tokenMs": 1191,
+              "sightMs": 4570
+            },
+            {
+              "player": 2,
+              "seq": 6,
+              "tokenMs": 1185,
+              "sightMs": 3232
+            }
+          ],
+          "wire": [
+            {
+              "bytes": 281315,
+              "events": {
+                "state:frame": 6,
+                "fx:cursor": 6,
+                "fx:cursorHide": 6
+              }
+            },
+            {
+              "bytes": 282267,
+              "events": {
+                "fx:cursor": 6,
+                "fx:cursorHide": 6,
+                "state:frame": 6
+              }
+            }
+          ],
+          "observedMs": 53960,
+          "server": {
+            "cpuMs": 1125,
+            "rssMiB": 318,
+            "details": {
+              "cpu": {
+                "user": 5906000,
+                "system": 1312000
+              },
+              "uptime": 125.5327648,
+              "memory": {
+                "rss": 333045760,
+                "heapTotal": 181018624,
+                "heapUsed": 112796120,
+                "external": 12040897,
+                "arrayBuffers": 7537086
+              },
+              "workers": {
+                "jobs": 52,
+                "failed": 0,
+                "computeMs": 118.84760000004462,
+                "maxComputeMs": 28.271300000000338,
+                "maxQueue": 1
+              },
+              "delivery": {
+                "full": 2,
+                "delta": 16,
+                "fullBytes": 3367715,
+                "wireBytes": 1087234,
+                "coalesced": 0,
+                "stale": 0,
+                "failed": 0
+              },
+              "eventLoop": {
+                "idle": 119711.4159,
+                "active": 3991.207299999325,
+                "utilization": 0.03226453244687011,
+                "p99Ms": 51.347455,
+                "maxMs": 2575.302655
+              }
+            }
+          },
+          "clients": [
+            {
+              "player": 1,
+              "mainThreadBusyMs": 31802,
+              "scriptMs": 18358,
+              "medianTokenMs": 1393,
+              "medianSightMs": 4570,
+              "webglAttempts": 0,
+              "geometrySource": "server",
+              "errors": [],
+              "graphicsRequests": []
+            },
+            {
+              "player": 2,
+              "mainThreadBusyMs": 26493,
+              "scriptMs": 14363,
+              "medianTokenMs": 1120,
+              "medianSightMs": 2967,
+              "webglAttempts": 0,
+              "geometrySource": "server",
+              "errors": [],
+              "graphicsRequests": []
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

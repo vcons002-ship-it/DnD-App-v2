@@ -34,7 +34,7 @@ export default defineConfig({
   // Run the server (which serves the prebuilt client dist) against a temp DB.
   // The client is built by the `test:e2e` script before playwright starts.
   webServer: {
-    command: 'node --import tsx src/index.ts',
+    command: process.env.E2E_CLIENT_DIST?'node --import tsx ../e2e/serve-isolated-client.mts':'node --import tsx src/index.ts',
     cwd: serverDir,
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: false,
@@ -52,6 +52,8 @@ export default defineConfig({
       HUNYUAN_PAINT_URL: 'http://127.0.0.1:1',
       GEMINI_API_KEY: '',
       AI_MODE: 'local',
+      E2E_PERFORMANCE_METRICS: process.env.E2E_PERFORMANCE_METRICS ?? '0',
+      ...(process.env.E2E_CLIENT_DIST?{E2E_CLIENT_DIST:path.resolve(process.env.E2E_CLIENT_DIST)}:{}),
       // Model files are Git LFS objects; a checkout without them gets a stand-in
       // figure so the miniature pipeline (load, preload, reveal) still runs.
       PLACEHOLDER_MODELS: '1',

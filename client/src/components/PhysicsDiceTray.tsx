@@ -1,6 +1,7 @@
 import {diceFlightPoint,diceFlightKeyframes,DIE_FLASH_MS,DIE_REVEAL_MS} from '../lib/diceFlightPosition';
 import {useContext,useEffect,useRef,useState,type CSSProperties} from 'react';
-import {DiceThemeContext} from './ThreeDie';
+import {DiceThemeContext,ThreeDie} from './ThreeDie';
+import {useDiceRendering,reportDiceGraphicsFailure} from '../lib/useDiceRendering';
 import {physicalDice,diceRevealTimes,dieResultEmphasis,dieResultTier,dieResultLabel,type TrayDie,type Toss,type DiceEntrySide} from '../lib/diceTrayTypes';
 import './PhysicsDiceTray.css';
 import {createDiceSound,rollingSpeeds} from '../lib/diceSfx';
@@ -9,6 +10,7 @@ import type {RollComparison} from '../../../shared/types';
 // Presentation pacing only; the precomputed gravity/contact simulation is unchanged.
 const ROLL_PLAYBACK_RATE=.6;
 export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rollKey,entrySide='bottom'}:{dice:TrayDie[];onSettled:(index:number,set:number)=>void;label?:string;comparison?:RollComparison;rollKey?:string;entrySide?:DiceEntrySide}){
+  const {mode}=useDiceRendering(),[localFallback,setLocalFallback]=useState(false),twoDimensional=mode==='2d'||localFallback;
   const resultStyle=(d:TrayDie)=>({'--roll-strength':dieResultEmphasis(d),'--arrival-scale':1.12+dieResultEmphasis(d)*.5,'--arrival-glow':`${5+Math.pow(dieResultEmphasis(d),3)*28}px`} as CSSProperties);
   const theme=useContext(DiceThemeContext),canvas=useRef<HTMLCanvasElement>(null),callback=useRef(onSettled);callback.current=onSettled;
   const root=useRef<HTMLDivElement>(null), flights=useRef<(HTMLSpanElement|null)[]>([]), boxes=useRef<(HTMLSpanElement|null)[]>([]);
@@ -23,9 +25,13 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
     setStatus('loading');setArrived([]);
     flights.current.forEach(el=>{if(el){el.style.opacity='0';delete el.dataset.phase;}});
     const complete=()=>{if(dead||completed)return;completed=true;dice.forEach(d=>callback.current(d.index,d.set));};
-    const fallback=()=>{if(dead)return;setStatus('fallback');complete();};
+    const fallback=()=>{if(dead)return;setLocalFallback(true);};
     const media=matchMedia('(prefers-reduced-motion: reduce)');
-    if(expanded.length>40||expanded.some(d=>![4,6,8,10,12,20].includes(d.sides))){setStatus('fallback');queueMicrotask(complete);return()=>{dead=true;};}
+    if(twoDimensional){
+      setStatus('rolling');const stop=setTimeout(()=>setStatus('settled'),media.matches?0:900),finish=setTimeout(complete,media.matches?0:1260);
+      return()=>{dead=true;clearTimeout(stop);clearTimeout(finish);};
+    }
+    if(expanded.length>40||expanded.some(d=>![4,6,8,10,12,20].includes(d.sides))){fallback();return()=>{dead=true;};}
     if(media.matches){setStatus('settled');queueMicrotask(complete);return()=>{dead=true;};}
     const timeout=setTimeout(()=>{worker?.terminate();fallback();},20000);
     try{
@@ -56,7 +62,7 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
             if(node.width!==Math.round(width*dpr)){node.width=Math.round(width*dpr);node.height=Math.round(height*dpr);}
             try{
               renderer!.draw(ctx,width,height,dpr,Math.min(elapsed*ROLL_PLAYBACK_RATE,toss.duration),now);
-            }catch{fallback();return;}
+            }catch{reportDiceGraphicsFailure();fallback();return;}
             const simNow=Math.min(elapsed*ROLL_PLAYBACK_RATE,toss.duration);
             if(sound){
               const due=impacts.filter(i=>i.t>heard&&i.t<=simNow);
@@ -98,16 +104,17 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
             if(!completed&&elapsed>=finishAt&&delivered.size===expanded.length){setStatus('settled');complete();}
             raf=requestAnimationFrame(draw);
           };raf=requestAnimationFrame(draw);
-        }catch{fallback();}
+        }catch{reportDiceGraphicsFailure();fallback();}
       };
       const seed=new Uint32Array(1);crypto.getRandomValues(seed);
       if(rollKey){seed[0]=2166136261;for(const char of rollKey)seed[0]=Math.imul(seed[0]^char.charCodeAt(0),16777619)>>>0;}
       worker.postMessage({dice:expanded,seed:seed[0],entrySide});
     }catch{fallback();}
     return()=>{dead=true;sound?.stop();clearTimeout(timeout);worker?.terminate();cancelAnimationFrame(raf);flightAnimations.forEach(a=>a.cancel());renderer?.dispose();};
-  },[key,theme,rollKey,comparison?.kept,entrySide]);
+  },[key,theme,rollKey,comparison?.kept,entrySide,twoDimensional]);
   const expanded=physicalDice(dice),landed=status==='settled'||status==='fallback';
-  return <div ref={root} className="physics-dice-tray" data-entry-side={entrySide} data-status={status} data-theme={theme.id} data-material={status==='loading'?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id.startsWith('dm-')?'purple-resin':'forest-resin'} role="group" aria-label={label}>
+  return <div ref={root} className="physics-dice-tray" data-renderer={twoDimensional?'2d':'3d'} data-entry-side={entrySide} data-status={status} data-theme={theme.id} data-material={twoDimensional?'canvas2d':status==='loading'?'loading':theme.id==='sorcerer'?'volumetric-glass':theme.id==='fighter'?'obsidian-gold':theme.id.startsWith('dm-')?'purple-resin':'forest-resin'} role="group" aria-label={label}>
+    {twoDimensional&&<div className="dice-2d-animation" data-testid="dice-2d-animation">{dice.slice(0,24).map((d,i)=><ThreeDie forceCanvas2d key={i} sides={d.sides} value={d.value} rolling={!landed} crit={d.crit}/>)}</div>}
     <canvas ref={canvas} className="dice-tray-canvas" aria-label="Overhead physics dice tray"/>
     {status==='loading'&&<div className="dice-tray-status">Preparing toss…</div>}
     {status==='fallback'&&<div className="dice-tray-status">Roll result · 3D tray unavailable</div>}

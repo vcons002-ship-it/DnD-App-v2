@@ -21,6 +21,7 @@ export type SessionBundle = {
   tokens: Row[];
   encounterTags?: Row[];
   exploredTerrain?: Row[];
+  renderingPolicies?: Row[];
   characters: Row[];
   monsters: Row[];
   measurements: Row[];
@@ -82,6 +83,7 @@ export function exportSession(code: string): SessionBundle | null {
     ),
     encounterTags: all('SELECT t.* FROM encounter_tags t JOIN maps m ON t.map_id = m.id WHERE m.session_id = ?', sid),
     exploredTerrain: all('SELECT t.* FROM explored_terrain t JOIN maps m ON t.map_id = m.id WHERE m.session_id = ?', sid),
+    renderingPolicies: all('SELECT * FROM rendering_policies WHERE session_id = ?', sid),
     characters: all('SELECT * FROM characters WHERE session_id = ?', sid),
     monsters: all('SELECT * FROM monsters WHERE session_id = ?', sid),
     measurements: all('SELECT * FROM measurements WHERE session_id = ?', sid),
@@ -326,6 +328,11 @@ const importSessionRows = db.transaction(
       const map = newRef(tag.map_id, mapIds);
       if (!map) continue;
       insertRow('encounter_tags', tag, { map_id: map, token_id: newRef(tag.token_id, tokIds) ?? newId() });
+    }
+
+    for(const policy of data.renderingPolicies??[]){
+      const target=policy.scope==='board'?newRef(policy.target_id,mapIds):policy.scope==='player'?policy.target_id:null;
+      if(typeof target==='string'&&['on','off'].includes(String(policy.value)))insertRow('rendering_policies',policy,{session_id:sid,target_id:target});
     }
 
     // 7. Per-map extras + the session-wide logs.

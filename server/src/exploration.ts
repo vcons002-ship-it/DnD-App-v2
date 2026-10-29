@@ -1,55 +1,24 @@
 import clipping from 'polygon-clipping';
 import {db} from './db.js';
-import {createPlayerVision,lightCoverage,type PlayerVision} from '../../shared/playerVision.js';
-import {wallVisibilityPolygon,SIGHT_EXTENT} from '../../shared/mapWalls.js';
+import {createPlayerVision} from '../../shared/playerVision.js';
 import type {ExploredTerrain} from '../../shared/exploration.js';
 import type {MapState,MapImage,Token,MonsterPublic} from '../../shared/types.js';
 
-// Boolean intersections also introduce fractional vertices into saved history.
-// Normalize BOTH old history and new sight before the next union, otherwise
-// successive thick-door openings can leave near-coincident dangling edges.
-const quantize=(shape:ExploredTerrain):ExploredTerrain=>shape.map(p=>p.map(r=>r.map(([x,y])=>[Math.round(x*64)/64,Math.round(y*64)/64])));
-const union=(parts:ExploredTerrain[])=>parts.length?clipping.union(quantize(parts[0]),...parts.slice(1).map(quantize)):[];
-const polygon=(vision:PlayerVision,point:{x:number;y:number},radius:number):ExploredTerrain=>
- // Quantize below a displayed pixel before Boolean operations. Near-identical
- // corner rays at the very distant daylight boundary otherwise accumulate
- // floating-point slivers when consecutive visibility polygons are merged.
- [[wallVisibilityPolygon(point,vision.walls??[],radius).map(p=>[Math.round(p.x*64)/64,Math.round(p.y*64)/64])]];
-
-/** Match current sight: nearby darkness plus distant lit areas, all wall-clipped. */
-export function visibleTerrain(vision:PlayerVision):ExploredTerrain {
- if(!vision.origins.length)return [];
- const sight=union(vision.origins.map(o=>polygon(vision,o,SIGHT_EXTENT)));
- if(!vision.heavy)return sight;
- const nearby=union(vision.origins.map(o=>polygon(vision,o,vision.radius)));
- const lights=union(vision.lights.map(l=>{
-  let lo=0,hi=l.radius*1.5;
-  for(let i=0;i<24;i++){const mid=(lo+hi)/2;if(lightCoverage(mid,l)>.10)lo=mid;else hi=mid;}
-  return polygon(vision,l,lo);
- }));
- return union([nearby,...(lights.length?[clipping.intersection(sight,lights)]:[])]);
-}
-
-/** Merge horizontal fog runs before clipping to avoid one polygon per grid cell. */
-function fogArea(map:MapState):ExploredTerrain {
- const rows=new Map<number,number[]>();
- for(const key of map.mapFogRevealed){const [x,y]=key.split(',').map(Number);if(!Number.isFinite(x)||!Number.isFinite(y))continue;const row=rows.get(y)??[];row.push(x);rows.set(y,row);}
- const parts:ExploredTerrain[]=[];const g=map.gridSizePx;
- for(const [y,cols] of rows){const xs=[...new Set(cols)].sort((a,b)=>a-b);let i=0;
-  while(i<xs.length){const start=xs[i];let end=start;while(i+1<xs.length&&xs[i+1]===end+1)end=xs[++i];i++;
-   parts.push([[[[start*g,y*g],[(end+1)*g,y*g],[(end+1)*g,(y+1)*g],[start*g,(y+1)*g]]]]);}}
- return union(parts);
-}
+import {visibleTerrain,unionTerrain as union,fogTerrain as fogArea} from '../../shared/explorationSight.js';
+export {visibleTerrain} from '../../shared/explorationSight.js';
 
 // Camera motion/flame flicker do not write history. Only changed authoritative
 // sight does; the bounded cache avoids repeated clipping on unrelated snapshots.
 const cache=new Map<string,{key:string;terrain:ExploredTerrain}>();
+const generations=new Map<string,number>();
+export const explorationGeneration=(mapId:string)=>generations.get(mapId)??0;
 export function clearExplorationCache(){cache.clear();}
 
 /** Forget this map's party history. Current sight is relearned on the next snapshot. */
 export function resetExploration(sessionId:string,mapId:string):boolean {
  if(!db.prepare('SELECT id FROM maps WHERE id=? AND session_id=?').get(mapId,sessionId))return false;
  db.prepare('DELETE FROM explored_terrain WHERE map_id=?').run(mapId);
+ generations.set(mapId,explorationGeneration(mapId)+1);
  cache.delete(mapId);
  return true;
 }
@@ -88,6 +57,17 @@ export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lig
 
 export type RevealedFigure={token:Token;monster?:MonsterPublic};
 const explorationKey=(map:MapState,tiles:MapImage[])=>JSON.stringify([map.imagePath,map.slidesUrl,tiles.map(t=>[t.imagePath,t.x,t.y,t.w,t.h,t.z])]);
+export const terrainIdentity=explorationKey;
+/** Merge one completed worker sweep into the latest history, preserving other
+ * simultaneous walkers. The caller checks map identity and reset generation. */
+export function mergeWalkingTerrain(map:MapState,tiles:MapImage[],seen:ExploredTerrain){
+ if(!seen.length)return;
+ const key=explorationKey(map,tiles),row=db.prepare('SELECT terrain_key,geometry FROM explored_terrain WHERE map_id=?').get(map.id) as {terrain_key:string;geometry:string}|undefined;
+ const saved:ExploredTerrain=row?.terrain_key===key?JSON.parse(row.geometry):[];
+ const result=union([saved,seen]);
+ db.prepare(`INSERT INTO explored_terrain(map_id,terrain_key,geometry) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET token_memory=CASE WHEN explored_terrain.terrain_key=excluded.terrain_key THEN explored_terrain.token_memory ELSE '[]' END,terrain_key=excluded.terrain_key,geometry=excluded.geometry`).run(map.id,key,JSON.stringify(result));
+ cache.delete(map.id);
+}
 /** Only true party sightings update these frozen display records. No unseen
  * movement, HP, conditions, or appearance changes are sent to players. */
 export function rememberFigures(map:MapState,tiles:MapImage[],tokens:Token[],seen:(token:Token)=>boolean,seenPoint:(x:number,y:number)=>boolean,display:(token:Token)=>MonsterPublic|undefined,readOnly=false):RevealedFigure[]{

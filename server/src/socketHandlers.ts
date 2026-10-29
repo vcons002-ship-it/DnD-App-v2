@@ -1,5 +1,8 @@
+import {traceMovement,movementApplied} from './movementTiming.js';
 import {diceArtForSaveOwner} from '../../shared/diceThemes.js';
 import {resetExploration} from './exploration.js';
+import {recordWalkingMove} from './walking.js';
+import {hasPlayerConnection} from './connections.js';
 import {createGuidedCharacter,rollCreatorStats} from './characterCreator.js';
 import {CORE_CLASSES_2024} from '../../shared/characterProgression.js';
 import {assetQueue} from './assets/production.js';
@@ -25,6 +28,10 @@ import {chatImageForSend} from './chatImages.js';
 import {doorApproachPoints,hasLineOfSight} from '../../shared/mapWalls.js';
 import {doorInReach} from '../../shared/doorInteraction.js';
 import {visionContains} from '../../shared/playerVision.js';
+import {pendingGeometry,resyncDelivery,resetDelivery} from './stateDelivery.js';
+import {visibilityWorkers} from './visibilityWorkers.js';
+import {lastSnapshotFor,withRenderingState} from './connections.js';
+import {changeRenderingPolicy,renderingState} from './renderingPolicy.js';
 import {areaPlacementError} from './areaSpells.js';
 import {liveRollTarget,type LiveTargetRef} from '../../shared/liveRollTarget.js';
 import {editMapWalls,setWallDoor} from './mapWalls.js';
@@ -46,6 +53,7 @@ import { listRipostes } from './reactions.js';
 import { config } from './config.js';
 import { invokeSafely } from './safeHandler.js';
 import { newId,db } from './db.js';
+import {DEFAULT_MAP_ENVIRONMENT,newMapLightSettings} from '../../shared/mapEnvironment.js';
 import { parseRollCommand, rollDice, isValidDiceExpression } from '../../shared/dice.js';
 import { diceReveal } from '../../shared/rollReveal.js';
 import { effectiveSheetAbility, spellDamageTypeChoices } from '../../shared/spellExecution.js';
@@ -396,13 +404,13 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           // Resolve elapsed durations before this action reads AC, movement or
           // spell conditions. Within a live roll these writes are staged and
           // replayed with the rest of the command, never published early.
-          if(sid && !['cursor:move','cursor:hide','chat:typing','token:drag'].includes(event) && expireTimedSpellEffects(sid))
+          if(sid && !['cursor:move','cursor:hide','chat:typing','token:drag','token:preview','state:resync','client:rendering','client:serverRendering','client:serverRendering'].includes(event) && expireTimedSpellEffects(sid))
             afterRollCommit(()=>broadcastSnapshots(io,sid));
           return handler(...args);
         };
         const moving=event==='token:move'?getToken((args[0] as any)?.tokenId):undefined;
         const isRoll=!!(moving&&sid&&spikeConditions(sid).some(c=>c.combatEffect?.spikeArea?.mapId===moving.mapId))||liveEvents.has(event)||(event==='chat:send'&&!(args[0] as any)?.whisperTo&&!!parseRollCommand(String((args[0] as any)?.text??'')));
-        if(options.livePhysics!==false && sid && (isRoll||rollInProgress(sid)) && !['join','disconnect','cursor:move','cursor:hide','chat:typing','token:drag'].includes(event)){
+        if(options.livePhysics!==false && sid && (isRoll||rollInProgress(sid)) && !['join','disconnect','cursor:move','cursor:hide','chat:typing','token:drag','token:preview','state:resync','client:rendering','client:serverRendering','client:serverRendering'].includes(event)){
           enqueueRoll(sid,async()=>{
             if(!socket.connected||commandConnection()?.sessionId!==sid){if(areaCommand)areaPreview.clear();return;}
             if(!isRoll){await runHandler();return;}
@@ -418,10 +426,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             const sourceEntry=payload?.rollId?getRollEntry(payload.rollId,sid):undefined;
             const pending=sourceEntry?.pending;
             const requestedToken=payload?.attackerTokenId?getToken(payload.attackerTokenId):undefined;
+            const claimedActorId=!isDm()?getClaimedCharacterId(sid,commandSocketId()):null;
             const actor=pending?.attacker.kind==='pc'?getCharacter(pending.attacker.refId)
               :requestedToken?.kind==='pc'?getCharacter(requestedToken.refId)
               :payload?.characterId?getCharacter(payload.characterId)
-              :payload?.kind==='pc'&&abilityOwner?getCharacter(abilityOwner.id):listCharacters(sid).find(c=>c.name===roller);
+              :payload?.kind==='pc'&&abilityOwner?getCharacter(abilityOwner.id)
+              :claimedActorId?getCharacter(claimedActorId):undefined;
             const rolledToken=payload?.tokenId?getToken(payload.tokenId):undefined;
             const npc=pending?.attacker.kind==='monster'?getMonster(pending.attacker.refId)
               :requestedToken?.kind==='monster'?getMonster(requestedToken.refId)
@@ -574,7 +584,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         }
         try{invokeSafely(runHandler,failed);}finally{if(areaCommand)areaPreview.clear();}
       };
-      domainHandlers.set(event,handler);commandDispatch.set(event,wrapped);rawOn(event,wrapped);
+      const dispatch=event==='token:move'?((...args:unknown[])=>traceMovement(args[0],()=>wrapped(...args))):wrapped;
+      domainHandlers.set(event,handler);commandDispatch.set(event,dispatch);rawOn(event,dispatch);
     }) as typeof socket.on;
 
     const isDm = () => commandConnection()?.role === 'dm';
@@ -617,6 +628,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           ? payload.playerId.slice(0, 64)
           : null;
       setConn(socket.id, {
+        renderProtocol:payload.renderProtocol===3?3:payload.renderProtocol===2?2:payload.renderProtocol===1?1:undefined,
+        serverRendering:payload.serverRendering!==false,
+        stateProtocol:payload.stateProtocol===1?1:undefined,
+        legacyRendering:payload.legacyRendering===true,
+        legacyMotion:payload.legacyMotion===true,
+        compactMotion:payload.compactMotion===true,
         sessionId: session.id,
         role: payload.role,
         viewMapId: session.activeMapId,
@@ -643,12 +660,35 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           error: { code: 'NO_SNAPSHOT', message: 'Could not load session' },
         });
       }
-      ack({ ok: true, snapshot, chatAccessToken:chatAccessToken(socket.id) });
+      const prepared=withRenderingState(snapshot,getConn(socket.id)!);
+      const initial=payload.stateProtocol===1&&payload.legacyRendering===true&&prepared.serverRendering?.enabled?pendingGeometry(prepared):prepared;
+      // New Legacy browsers mount the token layer once its server artwork is
+      // ready, avoiding an expensive throwaway draw of every fallback label.
+      ack({ ok: true, snapshot:(payload.renderProtocol===1||payload.renderProtocol===2||payload.renderProtocol===3)&&payload.legacyRendering===true&&prepared.serverRendering?.enabled?{...initial,tokens:[]}:initial, chatAccessToken:chatAccessToken(socket.id) });
       // Let everyone else see the (possibly) re-taken character.
       broadcastSnapshots(io, session.id);
     });
 
     // ---- DM-only: map prep & promotion ----
+
+    on('client:rendering',legacy=>{
+      const conn=getConn(socket.id);if(!conn||typeof legacy!=='boolean')return;
+      if(conn.legacyRendering===legacy)return;conn.legacyRendering=legacy;resetDelivery(socket.id);sendSnapshot(io,socket.id);
+    });
+    on('client:legacyMotion',enabled=>{
+      const conn=getConn(socket.id);if(!conn||typeof enabled!=='boolean'||conn.legacyMotion===enabled)return;
+      conn.legacyMotion=enabled;resetDelivery(socket.id);sendSnapshot(io,socket.id);
+    });
+    on('client:serverRendering',enabled=>{
+      const conn=getConn(socket.id);if(!conn||typeof enabled!=='boolean')return;
+      if(conn.serverRendering===enabled)return;
+      conn.serverRendering=enabled;resetDelivery(socket.id);broadcastSnapshots(io,conn.sessionId);
+    });
+    on('rendering:policy',change=>{
+      const conn=getConn(socket.id);if(!conn||conn.role!=='dm')return;
+      if(changeRenderingPolicy(conn.sessionId,change))broadcastSnapshots(io,conn.sessionId);
+    });
+    on('state:resync',()=>{if(!getConn(socket.id))return;resyncDelivery(socket.id);sendSnapshot(io,socket.id);});
 
     on('dm:partyView', enabled => {
       const conn=getConn(socket.id);
@@ -728,6 +768,19 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const sid = sessionId();
       if (!sid || !isDm() || !p || typeof p.mapId !== 'string') return;
       if (updateMapEnvironment(sid, p.mapId, p.settings)) afterChange();
+    });
+
+    // Append using the current saved map, so rapid clicks never replace lights
+    // using a client snapshot that has not received the preceding placement yet.
+    on('map:placeLight',p=>{
+      const sid=sessionId();
+      if(!sid||!isDm()||!p||typeof p.mapId!=='string'||typeof p.x!=='number'||!Number.isFinite(p.x)||typeof p.y!=='number'||!Number.isFinite(p.y))return;
+      const map=getMap(p.mapId);if(!map||map.sessionId!==sid)return;
+      const settings=map.environment??DEFAULT_MAP_ENVIRONMENT;
+      if(p.lightId!==undefined&&(typeof p.lightId!=='string'||!settings.lights.some(l=>l.id===p.lightId)))return;
+      const lights=p.lightId?settings.lights.map(l=>l.id===p.lightId?{...l,x:p.x,y:p.y}:l):
+        [...settings.lights,{...newMapLightSettings(settings),id:newId(),x:p.x,y:p.y}];
+      if(updateMapEnvironment(sid,map.id,{lights}))afterChange();
     });
 
     on('map:setGrid', (p) => {
@@ -1058,9 +1111,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     on('fog:paint', ({ mapId, layer, cells, reveal }) => {
-      if (!isDm() || !getMap(mapId) || !Array.isArray(cells)) return;
-      paintFog(mapId, layer, cells, reveal);
-      afterChange();
+      const map=isDm()?getMap(mapId):undefined;
+      if (!map || map.sessionId!==sessionId() || !Array.isArray(cells)) return;
+      if(paintFog(mapId, layer, cells, reveal))afterChange();
     });
 
     on('fog:cover', ({ mapId, layer }) => {
@@ -1103,7 +1156,21 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
 
     // ---- Shared: anyone in the session may move/resize tokens (per spec) ----
 
-    on('token:move', ({ tokenId, x, y }, placed) => {
+    let previewBusy=false,lastPreviewAt=0;
+    on('token:preview',(point,ack)=>{
+      if(typeof ack!=='function')return;
+      const conn=getConn(socket.id),snapshot=lastSnapshotFor(socket.id);
+      if(!conn||!snapshot||!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||typeof point.tokenId!=='string'||previewBusy||Date.now()-lastPreviewAt<150){ack(null);return;}
+      if(!renderingState(conn.sessionId,snapshot.map?.id,conn.role==='player'?conn.playerId:null,conn.serverRendering!==false).enabled){ack(null);return;}
+      const token=snapshot.tokens.find(t=>t.id===point.tokenId&&!t.isHidden&&!t.sharedSightOnly);
+      const allowed=token&&(conn.role==='dm'||token.kind==='pc'&&snapshot.characters.some(c=>c.id===token.refId&&c.claimedBy===socket.id)||token.kind==='monster'&&snapshot.monsters.some(m=>m.id===token.refId&&m.disposition==='friendly'&&!('objectKind' in m&&m.objectKind)));
+      if(!token||!allowed||token.mapId!==snapshot.map?.id){ack(null);return;}
+      previewBusy=true;lastPreviewAt=Date.now();const connection=conn;
+      void visibilityWorkers.run({token,map:snapshot.map,vision:snapshot.playerVision,zones:snapshot.measurements.filter(m=>m.spellName==='Spike Growth'&&m.spellArea).map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),x:Math.max(-100000,Math.min(100000,point.x)),y:Math.max(-100000,Math.min(100000,point.y)),dm:conn.role==='dm'})
+        .then(result=>ack(getConn(socket.id)===connection&&lastSnapshotFor(socket.id)===snapshot?result:null),()=>ack(null)).finally(()=>{previewBusy=false;});
+    });
+
+    on('token:move', ({ tokenId, x, y, movement }, placed) => {
       const moving=getToken(tokenId);
       if (!sessionId()||!moving||getMap(moving.mapId)?.sessionId!==sessionId()) return;
       if(getMap(moving.mapId)?.walls?.some(w=>w.tokenId===moving.id))return;
@@ -1143,9 +1210,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           return;
         }
       }
-      const moved = moveToken(tokenId, x, y, !isDm());
-      afterChange();
-      if (moved && typeof placed === 'function') placed({x:moved.x,y:moved.y});
+      const dmMove=isDm(),sid=sessionId()!,relocate=dmMove&&movement==='relocate',moved=moveToken(tokenId,x,y,!dmMove);
+      movementApplied();
+      expireTimedSpellEffects(sid);
+      return afterRollCommit(async()=>{if(moved)try{await recordWalkingMove(moving,moved,hasPlayerConnection(sid),relocate);}catch(error){console.warn('Could not remember walking route:',String(error));}finishInitiative(sid);broadcastSnapshots(io,sid);if(moved&&typeof placed==='function')placed({x:moved.x,y:moved.y});});
     });
 
     // Live, throttled drag preview (no DB write / snapshot) — same sender gate

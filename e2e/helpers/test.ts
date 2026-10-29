@@ -34,13 +34,14 @@ const disableWebgl=()=>{
  }
 };
 
-export const test=base.extend<{slowBudget:void}>({
+export const test=base.extend<{slowBudget:void},{skipRenderingChoice:boolean}>({
+ skipRenderingChoice:[true,{option:true,scope:'worker'}],
  // Every context a spec opens (the default one and `browser.newContext()`
  // alike) gets the WebGL switch before any page script runs.
- browser:async({browser},use)=>{
-  if(webglDisabled){
+ browser:async({browser,skipRenderingChoice},use)=>{
+  if(webglDisabled||skipRenderingChoice){
    const newContext=browser.newContext.bind(browser);
-   browser.newContext=(async(options?:Parameters<typeof newContext>[0])=>{const context=await newContext(options);await context.addInitScript(disableWebgl);return context;}) as typeof browser.newContext;
+   browser.newContext=(async(options?:Parameters<typeof newContext>[0])=>{const context=await newContext(options);if(webglDisabled)await context.addInitScript(disableWebgl);if(skipRenderingChoice)await context.addInitScript(()=>sessionStorage.setItem('dnd.rendering-started','1'));return context;}) as typeof browser.newContext;
   }
   await use(browser);
  },

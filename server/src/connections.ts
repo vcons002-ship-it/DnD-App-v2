@@ -1,4 +1,5 @@
 import {visionContains,visionInSight} from '../../shared/playerVision.js';
+import {deliverState,resetDelivery} from './stateDelivery.js';
 import {spellAreaFlashes} from '../../shared/spellImpact.js';
 import {fogVisionContains,usesTokenVision} from '../../shared/playerVision.js';
 import {randomBytes} from 'node:crypto';
@@ -11,6 +12,8 @@ import type {
   ServerToClientEvents,
 } from '../../shared/types.js';
 import { buildSnapshot, createSnapshotBuilder } from './visibility.js';
+import {renderingState,renderingOverride} from './renderingPolicy.js';
+import {resetRenderAssets} from './renderAssets.js';
 import { addChatMessage, drainHpFx, getActiveMapId, getMap, getCharacter, getMonster } from './sessions.js';
 import type { StateSnapshot, Token } from '../../shared/types.js';
 
@@ -18,6 +21,12 @@ export type IOServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
 /** Per-connection state we track for routing snapshots. */
 export type Conn = {
+  legacyMotion?:boolean;
+  compactMotion?:boolean;
+  renderProtocol?:1|2|3;
+  serverRendering?:boolean;
+  stateProtocol?:1;
+  legacyRendering?:boolean;
   sessionId: string;
   role: Role;
   /** DM's currently-selected map for prep (players ignore this). */
@@ -29,11 +38,25 @@ export type Conn = {
 };
 
 const conns = new Map<string, Conn>();
+export function withRenderingState(snapshot:StateSnapshot,conn:Conn):StateSnapshot{
+ const state=renderingState(conn.sessionId,snapshot.map?.id,conn.role==='player'?conn.playerId:null,conn.serverRendering!==false);
+ if(conn.role==='dm'){
+  const players=new Map<string,NonNullable<import('../../shared/serverRendering.js').ServerRenderingState['players']>[number]>();
+  for(const [socketId,p] of conns)if(p.sessionId===conn.sessionId&&p.role==='player'&&p.playerId){
+   const names=snapshot.characters.filter(c=>c.claimedBy===socketId).map(c=>c.name);
+   const effective=renderingState(conn.sessionId,snapshot.activeMapId,p.playerId,p.serverRendering!==false);
+   players.set(p.playerId,{id:p.playerId,name:names.join(', ')||`Player ${p.playerId.slice(0,8)}`,override:renderingOverride(conn.sessionId,'player',p.playerId),enabled:effective.enabled,boardForced:effective.forcedBy==='board'});
+  }
+  return {...snapshot,serverRendering:{...state,players:[...players.values()]}};
+ }
+ return {...snapshot,serverRendering:state};
+}
 // The last role-shaped snapshot sent to each connection: exactly what that
 // viewer can currently see. High-rate ephemeral fan-outs (live drag previews)
 // gate on it instead of rebuilding every snapshot for every packet. Cleared
 // whenever the connection's role/session/view changes.
 const lastSent = new Map<string, StateSnapshot>();
+export const lastSnapshotFor=(socketId:string)=>lastSent.get(socketId);
 // Connection-scoped credentials never enter shared snapshots or image URLs.
 const mediaTokens=new Map<string,string>();
 export const chatAccessToken=(socketId:string):string|undefined=>mediaTokens.get(socketId);
@@ -62,6 +85,8 @@ export function broadcastAiStatus(io: IOServer, message: string): void {
 }
 
 export const setConn = (socketId: string, conn: Conn): void => {
+  resetRenderAssets(socketId);
+  resetDelivery(socketId);
   const previous=conns.get(socketId);
   conns.set(socketId, conn);
   lastSent.delete(socketId);
@@ -69,7 +94,10 @@ export const setConn = (socketId: string, conn: Conn): void => {
     mediaTokens.set(socketId,randomBytes(32).toString('hex'));
 };
 export const getConn = (socketId: string): Conn | undefined => conns.get(socketId);
+export const hasPlayerConnection=(sessionId:string)=>[...conns.values()].some(c=>c.sessionId===sessionId&&c.role==='player');
 export const dropConn = (socketId: string): void => {
+  resetRenderAssets(socketId);
+  resetDelivery(socketId);
   conns.delete(socketId);
   mediaTokens.delete(socketId);
   lastSent.delete(socketId);
@@ -137,14 +165,14 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
   if (!build) return;
   for (const [socketId, conn] of conns) {
     if (conn.sessionId !== sessionId) continue;
-    const snapshot = build(
+    const rawSnapshot = build(
       conn.role,
       conn.role === 'dm' ? conn.viewMapId : null,
       socketId,
       conn.playerId,
       conn.role === 'dm' && conn.partyView === true,
     );
-    io.to(socketId).emit('state:snapshot', snapshot);
+    const snapshot=withRenderingState(rawSnapshot,conn);
     lastSent.set(socketId, snapshot);
     const visibleRolls = new Set(snapshot.rollLog.filter((roll) => roll.reveal).map((roll) => roll.id));
     const publicRolls = new Set(snapshot.rollLog.filter(roll=>!roll.outcomeOnly).map(roll=>roll.id));
@@ -173,7 +201,7 @@ export function broadcastSnapshots(io: IOServer, sessionId: string): void {
       const { rollId: _hiddenRollId, impact: _hiddenImpact, ...uncorrelated } = event;
       return {...uncorrelated,...(event.rollId&&visibleRolls.has(event.rollId)?{rollId:event.rollId}:{}),...(visibleImpact&&event.impact?{impact:event.impact}:{})};
     });
-    if (visible.length) io.to(socketId).emit('fx:hp', { events: visible });
+    deliverState(io,socketId,snapshot,{...conn,serverRendering:snapshot.serverRendering?.enabled},()=>{if(visible.length)io.to(socketId).emit('fx:hp',{events:visible});});
   }
 }
 
@@ -298,7 +326,8 @@ export function sendSnapshot(io: IOServer, socketId: string): void {
     conn.role === 'dm' && conn.partyView === true,
   );
   if (snapshot) {
-    io.to(socketId).emit('state:snapshot', snapshot);
+    const prepared=withRenderingState(snapshot,conn);
+    deliverState(io,socketId,prepared,{...conn,serverRendering:prepared.serverRendering?.enabled});
     lastSent.set(socketId, snapshot);
   }
 }

@@ -1,7 +1,7 @@
 import { tokenDistanceFt } from '../../../shared/distance';
 import {hasLineOfSight} from '../../../shared/mapWalls';
 import {visionContains} from '../../../shared/playerVision';
-import { resolveToken } from './entities';
+import { resolveToken,tokenEntityIndex } from './entities';
 import type { StateSnapshot, Token } from '../../../shared/types';
 
 /**
@@ -10,21 +10,30 @@ import type { StateSnapshot, Token } from '../../../shared/types';
  * monsters) — the DM may target anyone. Shared by weapon and spell attack UIs so
  * the target list can't drift between them.
  */
-export function validTargets(snapshot: StateSnapshot, attacker: Token, showDead = false): Token[] {
-  return snapshot.tokens.filter(
-    (t) =>
-      t.mapId === attacker.mapId && t.id !== attacker.id &&
-      !(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.modelType==='spiritual-weapon') &&
-      (showDead || !resolveToken(snapshot, t).dead) &&
-      hasLineOfSight(attacker,t,snapshot.map?.walls) &&
-      (snapshot.role!=='player'||visionContains(snapshot.playerVision,t.x,t.y)) &&
-      (snapshot.role !== 'player' || (!t.sharedSightOnly && !isFriendly(snapshot, t))),
-  ).sort((a, b) => tokenDistanceFt(attacker, a, snapshot.map) - tokenDistanceFt(attacker, b, snapshot.map) || targetLabel(snapshot, a).localeCompare(targetLabel(snapshot, b)));
+function eligible(snapshot:StateSnapshot,attacker:Token,showDead:boolean){
+ const entities=tokenEntityIndex(snapshot);
+ const tokens=snapshot.tokens.filter(t=>t.id!==attacker.id&&t.mapId===attacker.mapId&&
+  !(snapshot.role==='player'&&t.sharedSightOnly)&&
+  !(t.kind==='monster'&&entities.monsters.get(t.refId)?.modelType==='spiritual-weapon')&&
+  (showDead||!resolveToken(snapshot,t).dead)&&hasLineOfSight(attacker,t,snapshot.map?.walls)&&
+  (snapshot.role!=='player'||visionContains(snapshot.playerVision,t.x,t.y)));
+ return tokens;
+}
+function attackList(snapshot:StateSnapshot,attacker:Token,tokens:Token[]){
+ return tokens.filter(t=>snapshot.role!=='player'||!isFriendly(snapshot,t))
+  .sort((a,b)=>tokenDistanceFt(attacker,a,snapshot.map)-tokenDistanceFt(attacker,b,snapshot.map)||targetLabel(snapshot,a).localeCompare(targetLabel(snapshot,b)));
+}
+export function validTargets(snapshot:StateSnapshot,attacker:Token,showDead=false){return attackList(snapshot,attacker,eligible(snapshot,attacker,showDead));}
+/** Combat uses this once per relevant update, sharing its wall/vision checks
+ * between attack and heal controls without retaining stale entity results. */
+export function targetLists(snapshot:StateSnapshot,attacker:Token,showDead=false){
+ const tokens=eligible(snapshot,attacker,showDead);
+ return {attack:attackList(snapshot,attacker,tokens),heal:[...((showDead||!resolveToken(snapshot,attacker).dead)?[attacker]:[]),...tokens.filter(t=>snapshot.role!=='player'||isFriendly(snapshot,t))]};
 }
 
 const isFriendly = (snapshot: StateSnapshot, t: Token): boolean => {
   if (t.kind === 'pc') return true;
-  return snapshot.monsters.find((m) => m.id === t.refId)?.disposition === 'friendly';
+  return tokenEntityIndex(snapshot).monsters.get(t.refId)?.disposition === 'friendly';
 };
 
 /**
@@ -35,15 +44,7 @@ const isFriendly = (snapshot: StateSnapshot, t: Token): boolean => {
 export function healTargets(snapshot: StateSnapshot, caster: Token, showDead = false): Token[] {
   return [
     ...((showDead || !resolveToken(snapshot, caster).dead) ? [caster] : []),
-    ...snapshot.tokens.filter(
-      (t) =>
-        t.id !== caster.id && t.mapId === caster.mapId &&
-        !(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.modelType==='spiritual-weapon') &&
-        (showDead || !resolveToken(snapshot, t).dead) &&
-        hasLineOfSight(caster,t,snapshot.map?.walls) &&
-        (snapshot.role!=='player'||visionContains(snapshot.playerVision,t.x,t.y)) &&
-        (snapshot.role !== 'player' || (!t.sharedSightOnly && isFriendly(snapshot, t))),
-    ),
+    ...eligible(snapshot,caster,showDead).filter(t=>snapshot.role!=='player'||isFriendly(snapshot,t)),
   ];
 }
 

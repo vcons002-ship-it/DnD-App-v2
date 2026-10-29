@@ -22,9 +22,23 @@ import { useImage } from './useImage';
 import { facingAfterMove } from '../../../shared/tokenFacing';
 import { moveDistanceFt, tokenMoveDuration, tokenMoveProgress } from './tokenMotion';
 import type {TokenPresentation} from './tokenPresentation';
+import {renderedImage} from '../lib/renderImages';
+import {invalidateRetainedToken} from './retainedTokenLayer';
 
 const isImageIcon = (icon: string): boolean =>
   icon.startsWith('/') || icon.startsWith('http');
+let sharedMeasureText: Konva.Text | null = null;
+const glyphWidthCache = new Map<string, number>();
+function measureTokenTextWidth(text: string, fontSize: number): number {
+  const key = `${fontSize}:${text}`, cached = glyphWidthCache.get(key);
+  if (cached !== undefined) return cached;
+  if (!sharedMeasureText) sharedMeasureText = new Konva.Text({ wrap: 'none' });
+  sharedMeasureText.fontSize(fontSize); sharedMeasureText.text(text);
+  const width = sharedMeasureText.getTextWidth();
+  if (glyphWidthCache.size >= 2048) glyphWidthCache.delete(glyphWidthCache.keys().next().value!);
+  glyphWidthCache.set(key, width);
+  return width;
+}
 
 /** Battlefield disposition dot colours. */
 export const DISPOSITION_HEX: Record<string, string> = {
@@ -34,6 +48,9 @@ export const DISPOSITION_HEX: Record<string, string> = {
 };
 
 type Props = {
+  serverLayer?:boolean;
+  serverSprite?:NonNullable<import('../../../shared/types').StateSnapshot['tokenSprites']>[string];
+  cacheArtwork?:boolean;
   token: Token;
   presentation?: TokenPresentation;
   sharedDarkvision?: boolean;
@@ -44,6 +61,7 @@ type Props = {
   draggable: boolean;
   selected: boolean;
   activeTurn: boolean;
+  reducedEffects?: boolean;
   /** 1-based position in initiative order (not the raw roll), or null. */
   initiativeRank: number | null;
   /** When false (e.g. a measure tool is active), the token ignores all pointer
@@ -56,6 +74,7 @@ type Props = {
   viewRotation?: number;
   miniatureDiameterFt?: number;
   movementWalls?: readonly MapWall[];
+  onServerPreview?:(token:Token,x:number,y:number,done:(result:import('../../../shared/movementPreview').MovementPreview|null)=>void)=>void;
   /** A hint, rather than a hard cap; the table handles accumulated movement. */
   movementAllowanceFt?: number;
   terrainZones?: readonly {x:number;y:number;radiusFt:number}[];
@@ -84,6 +103,9 @@ const isAdditive = (e: KonvaEventObject<Event>): boolean => {
 };
 
 function TokenShapeInner({
+  serverLayer=false,
+  serverSprite,
+  cacheArtwork=false,
   token,
   presentation,
   sharedDarkvision=false,
@@ -93,6 +115,7 @@ function TokenShapeInner({
   draggable,
   selected,
   activeTurn,
+  reducedEffects=false,
   initiativeRank,
   listening = true,
   miniatureReady = false,
@@ -101,6 +124,7 @@ function TokenShapeInner({
   viewRotation = 0,
   miniatureDiameterFt,
   movementWalls,
+  onServerPreview,
   movementAllowanceFt,
   terrainZones,
   onSelect,
@@ -121,7 +145,9 @@ function TokenShapeInner({
   const fill = token.kind === 'pc' ? '#2d6cdf' : '#b1432f';
   const hasImageIcon = !!display.icon && isImageIcon(display.icon);
   const hasEmojiIcon = !!display.icon && !hasImageIcon;
-  const iconImg = useImage(hasImageIcon ? display.icon : null);
+  const preparedPortrait=hasImageIcon?renderedImage(serverSprite?.body.key):undefined;
+  const originalPortrait=useImage(hasImageIcon&&!preparedPortrait&&!serverLayer?display.icon:null);
+  const iconImg=preparedPortrait??originalPortrait;
   const hpFrac =
     display.maxHp && display.maxHp > 0 && display.curHp !== undefined
       ? Math.max(0, Math.min(1, display.curHp / display.maxHp))
@@ -145,10 +171,12 @@ function TokenShapeInner({
   const committed = useRef({x:token.x,y:token.y});
   const dragging = useRef(false);
   const cancelled = useRef(false);
+  const serverPreview=useRef({serial:0,lastAt:0,valid:false,timer:undefined as ReturnType<typeof setTimeout>|undefined,x:0,y:0});
   const latest = useRef({token,onVisualMove,onDragPreview,onDragActive,isVisibleAt});
   latest.current = {token,onVisualMove,onDragPreview,onDragActive,isVisibleAt};
 
   const clearPreview = () => {
+    serverPreview.current.serial++;serverPreview.current.valid=false;clearTimeout(serverPreview.current.timer);serverPreview.current.timer=undefined;
     dragOverlay.current?.visible(false);
     tokenArt.current?.position({x:0,y:0});
     onDragPreview?.(token,null);
@@ -202,6 +230,7 @@ function TokenShapeInner({
     window.addEventListener('keydown',escape);
     return ()=>{
       window.removeEventListener('keydown',escape);
+      serverPreview.current.serial++;clearTimeout(serverPreview.current.timer);
       cancelAnimationFrame(motion.current);
       const live=latest.current;
       if(motion.current)live.onVisualMove?.(live.token,live.token.x,live.token.y,true);
@@ -212,6 +241,29 @@ function TokenShapeInner({
   const paintDrag = (cx: number, cy: number) => {
     const origin=committed.current;
     tokenArt.current?.position({x:origin.x-cx,y:origin.y-cy});
+    if(onServerPreview){
+      // Keep the pointer responsive, but delegate collision, terrain cost and sight.
+      const state=serverPreview.current;state.x=cx;state.y=cy;
+      if(!state.valid){previewBase.current?.visible(false);tether.current?.points([origin.x,origin.y,cx,cy]);}
+      if(distText.current&&!state.valid){distText.current.text('Checking move…');distText.current.position({x:(origin.x+cx)/2,y:(origin.y+cy)/2-16});}
+      if(state.timer===undefined)state.timer=setTimeout(()=>{
+        state.timer=undefined;state.lastAt=performance.now();const requestSerial=++state.serial;
+        onServerPreview(token,state.x,state.y,result=>{
+          if(!result||!dragging.current||serverPreview.current.serial!==requestSerial)return;
+          state.valid=true;
+          const facing=facingAfterMove(origin.x,origin.y,result.x,result.y,token.facing);
+          onDragPreview?.(token,result.visible?{x:result.x,y:result.y,facing}:null);
+          previewBase.current?.position(result);previewBase.current?.visible(result.visible);
+          previewArrow.current?.rotation(-facingAfterMove(origin.x,origin.y,result.x,result.y,token.facing)*180/Math.PI);
+          tether.current?.points([origin.x,origin.y,result.x,result.y]);
+          distText.current?.text(`${result.distanceFt} ft${result.costFt>result.distanceFt+.01?` · costs ${result.costFt} ft`:''}${movementAllowanceFt===undefined?'':` / ${movementAllowanceFt} ft`}`);
+          distText.current?.fill(movementAllowanceFt!==undefined&&result.costFt>movementAllowanceFt?'#ff9276':'#ffd21a');
+          distText.current?.position({x:(origin.x+result.x)/2,y:(origin.y+result.y)/2-16});
+          invalidateRetainedToken(dragOverlay.current);dragOverlay.current?.getLayer()?.batchDraw();
+        });
+      },Math.max(0,200-(performance.now()-state.lastAt)));
+      invalidateRetainedToken(dragOverlay.current);dragOverlay.current?.getLayer()?.batchDraw();return;
+    }
     tether.current?.points([origin.x,origin.y,cx,cy]);
     const facing=facingAfterMove(origin.x,origin.y,cx,cy,token.facing);
     const visible=isVisibleAt?.(token.id,cx,cy)!==false;
@@ -228,11 +280,12 @@ function TokenShapeInner({
       distText.current.fill(movementAllowanceFt !== undefined && cost > movementAllowanceFt ? '#ff9276' : '#ffd21a');
       distText.current.position({x:(origin.x+cx)/2,y:(origin.y+cy)/2-distText.current.fontSize()*1.1});
     }
-    dragOverlay.current?.getLayer()?.batchDraw();
+    invalidateRetainedToken(dragOverlay.current);dragOverlay.current?.getLayer()?.batchDraw();
   };
 
   const handleDragStart = () => {
-    clearLongPress();cancelled.current=false;dragging.current=true;
+    clearLongPress();lastTap.current=null;tapCandidate.current=null;
+    cancelled.current=false;dragging.current=true;
     cancelAnimationFrame(motion.current);motion.current=0;
     pose.current={...committed.current};
     onVisualMove?.(token,token.x,token.y,true);
@@ -241,7 +294,7 @@ function TokenShapeInner({
     dragOverlay.current?.moveToTop();
     paintDrag(tokenNode.current!.x(),tokenNode.current!.y());
   };
-  const constrainMove=(x:number,y:number)=>stopAtWalls(committed.current,{x,y},wallCollisionRadiusFt(token.widthFt)*pxPerFoot,movementWalls);
+  const constrainMove=(x:number,y:number)=>onServerPreview?{x,y}:stopAtWalls(committed.current,{x,y},wallCollisionRadiusFt(token.widthFt)*pxPerFoot,movementWalls);
   const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
     const p=constrainMove(e.target.x(),e.target.y());e.target.position(p);paintDrag(p.x,p.y);
   };
@@ -262,10 +315,9 @@ function TokenShapeInner({
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const menuOpened = useRef(false); // long-press fired this touch → swallow the tap
-  // Manual double-tap detection: Konva's synthesized `dbltap` is unreliable next
-  // to these long-press handlers, so we track the previous touch ourselves and
-  // de-dupe against `dbltap` in case it DOES fire for the same gesture.
+  // Count completed taps only: a second touch can still become a drag or hold.
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
+  const tapCandidate=useRef<{t:number;x:number;y:number}|null>(null);
   const lastActivate = useRef(0);
   const activate = () => {
     if (Date.now() - lastActivate.current < 600) return; // already fired
@@ -291,29 +343,17 @@ function TokenShapeInner({
   };
 
   const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
+    clearLongPress();menuOpened.current=false;
+    if(e.evt.touches.length!==1){lastTap.current=null;tapCandidate.current=null;return;}
     const t = e.evt.touches[0];
     if (!t) return;
     const { clientX, clientY } = t;
-    // Two quick nearby touches = a double-tap → activate (select + open the
-    // details/right panel) instead of arming another long-press.
-    const prev = lastTap.current;
-    lastTap.current = { t: Date.now(), x: clientX, y: clientY };
-    if (
-      prev &&
-      Date.now() - prev.t < 350 &&
-      Math.hypot(clientX - prev.x, clientY - prev.y) < 30
-    ) {
-      clearLongPress();
-      lastTap.current = null;
-      activate();
-      return;
-    }
+    tapCandidate.current={t:Date.now(),x:clientX,y:clientY};
+    touchStart.current={x:clientX,y:clientY};
     if (!onContextMenu) return;
-    clearLongPress();
-    menuOpened.current = false;
-    touchStart.current = { x: clientX, y: clientY };
     longPress.current = setTimeout(() => {
       menuOpened.current = true; // opened by hold — the release tap must not act
+      tapCandidate.current=null;lastTap.current=null;
       openMenu(clientX, clientY);
     }, 500);
   };
@@ -321,10 +361,18 @@ function TokenShapeInner({
   // On lift: if the hold opened the menu, swallow the synthesized tap/click so
   // the token doesn't re-select (and the menu's open-grace keeps it visible).
   const handleTouchEnd = (e: KonvaEventObject<TouchEvent>) => {
+    const candidate=tapCandidate.current;tapCandidate.current=null;
     if (menuOpened.current) {
       e.evt.preventDefault();
       e.cancelBubble = true;
       menuOpened.current = false;
+      lastTap.current=null;
+    }else if(candidate&&Date.now()-candidate.t<350&&e.evt.touches.length===0){
+      const previous=lastTap.current,now=Date.now();
+      if(previous&&now-previous.t<350&&Math.hypot(candidate.x-previous.x,candidate.y-previous.y)<30){lastTap.current=null;activate();}
+      else lastTap.current={...candidate,t:now};
+    }else{
+      lastTap.current=null;
     }
     clearLongPress();
   };
@@ -336,6 +384,7 @@ function TokenShapeInner({
     // Cancel only once the finger has clearly moved (a real drag), not on jitter.
     if (Math.hypot(t.clientX - start.x, t.clientY - start.y) > 12) {
       clearLongPress();
+      tapCandidate.current=null;
       lastTap.current = null; // a drag is not the first tap of a double-tap
     }
   };
@@ -351,7 +400,7 @@ function TokenShapeInner({
   const turnRing = useRef<Konva.Circle>(null);
   useEffect(() => {
     const node = turnRing.current;
-    if (!activeTurn || !node) return;
+    if (!activeTurn || !node || reducedEffects) return;
     const layer = node.getLayer();
     let last = 0;
     // The ring shares the main token layer, so an animation bound to that layer
@@ -365,25 +414,36 @@ function TokenShapeInner({
       node.radius(turnRingR + t * 6);
       node.strokeWidth(5 + t * 4);
       node.opacity(0.65 + t * 0.35);
+      invalidateRetainedToken(node);
       layer?.batchDraw();
     });
     anim.start();
     return () => {
       anim.stop();
     };
-  }, [activeTurn, turnRingR, miniatureReady]);
+  }, [activeTurn, turnRingR, miniatureReady,reducedEffects]);
 
-  const playerNameSize = Math.max(11, Math.min(18, radius * .4));
+  const preferredPlayerNameSize = Math.max(11, Math.min(18, radius * .4));
   const monsterNameSize = Math.max(10, Math.min(14, gridSizePx * .14));
-  const labelFontSize = token.kind === 'pc' ? playerNameSize : monsterNameSize;
   const monsterLabelWidth = Math.max(64, Math.min(130, radius * 2.6));
   const tagWidth = token.revealTag ? (token.revealTag.length + 2) * monsterNameSize * 0.65 : 0;
-  const nameWidth = useMemo(() => {
-    const measure = new Konva.Text({ text: display.name, fontSize: labelFontSize });
-    const width = measure.getTextWidth();
-    measure.destroy();
-    return Math.min(token.kind === 'pc' ? radius * 4 : monsterLabelWidth, width + 2);
-  }, [display.name, labelFontSize, token.kind, radius, monsterLabelWidth]);
+  const {nameWidth,playerNameSize,labelText} = useMemo(() => {
+    const player=token.kind==='pc';
+    const text=player?display.name.replace(/\s+/g,' ').trim():display.name;
+    const preferredSize=player?preferredPlayerNameSize:monsterNameSize;
+    const maxWidth=player?Math.max(.001,radius*4):monsterLabelWidth;
+    const width = measureTokenTextWidth(text, preferredSize);
+
+
+    // Fit the complete name using actual glyph width. The old minimum font
+    // could force even "Vanec" onto two lines on a small token. Leave room
+    // for the outline and rounding, without measuring on movement frames.
+    const available=Math.max(maxWidth*.5,maxWidth-4);
+    const fittedSize=player&&width>available?preferredSize*available/width:preferredSize;
+    return {nameWidth:Math.min(maxWidth,width*fittedSize/preferredSize+2),
+      playerNameSize:player?fittedSize:preferredPlayerNameSize,labelText:text};
+  }, [display.name, preferredPlayerNameSize, monsterNameSize, token.kind, radius, monsterLabelWidth]);
+  const labelFontSize = token.kind === 'pc' ? playerNameSize : monsterNameSize;
   const roleBadgeR = Math.max(11, radius * 0.36);
   const labelY = radius + Math.max(hpFrac !== null ? 14 : 4,
     token.combatRole ? roleBadgeR - radius * .28 + 4 : 4);
@@ -400,8 +460,8 @@ function TokenShapeInner({
   useLayoutEffect(()=>{
     const body=tokenBody.current;if(!body)return;
     body.clearCache();body.filters([]);
-    if(sharedDarkvision&&!miniatureReady&&!miniaturePending){
-      body.cache({pixelRatio:2});
+    if(sharedDarkvision&&!serverSprite?.grayscale&&!miniatureReady&&!miniaturePending){
+      body.cache({pixelRatio:Math.min(2,Konva.pixelRatio||1)});
       body.filters([(data:ImageData)=>{
         for(let i=0;i<data.data.length;i+=4){
           const l=(data.data[i]*.2126+data.data[i+1]*.7152+data.data[i+2]*.0722)/255;
@@ -411,7 +471,7 @@ function TokenShapeInner({
       }]);
     }
     body.getLayer()?.batchDraw();
-  },[sharedDarkvision,miniatureReady,miniaturePending,iconImg,display,shape,radius,selected,isDead]);
+  },[sharedDarkvision,serverSprite?.grayscale,miniatureReady,miniaturePending,iconImg,display.icon,display.dead,shape,radius,selected,isDead]);
   const strokeColor = selected ? '#ffffff' : '#1118';
   const strokeW = selected ? 4 : 2;
   // Clip path for an image icon, matched to the silhouette.
@@ -447,14 +507,51 @@ function TokenShapeInner({
     return <Circle radius={radius} {...p} />;
   };
 
+  const initiativeBadge=!isDead && initiativeRank !== null && (
+        <Group name="token-initiative-rank" x={initiativeX} y={nameY + (labelFontSize - initiativeHeight) / 2} listening={false}>
+          <Rect width={initiativeWidth} height={initiativeHeight} cornerRadius={3} fill="#17130ee6" stroke="#c5a65a" strokeWidth={.8} />
+          <Text
+            text={String(initiativeRank)}
+            fontSize={initiativeFontSize}
+            fontStyle="bold"
+            fill="#f2d58b"
+            width={initiativeWidth}
+            height={initiativeHeight}
+            align="center"
+            verticalAlign="middle"
+          />
+        </Group>
+      );
+  const serverBody=!miniatureReady&&!miniaturePending?renderedImage(serverSprite?.body.key):undefined;
+  const serverHud=serverBody?renderedImage(serverSprite?.hud.key):undefined;
+  // External/vector portraits retain their own bitmap fallback. Prepared flat
+  // art and GPU miniature labels already have independent reusable pixels.
+  const conditionAppearanceKey = display.conditions.map(c => `${c.id}:${c.label}:${c.aura ?? ''}:${c.isConcentration ? 1 : 0}`).join('|');
+  const appearance = `${display.name}|${display.curHp ?? ''}|${display.maxHp ?? ''}|${display.tempHp ?? ''}|${display.disposition ?? ''}|${display.dead ? 1 : 0}|${display.icon}|${conditionAppearanceKey}|${shape}|${radius}|${selected ? 1 : 0}|${isDead ? 1 : 0}|${activeTurn ? 1 : 0}|${initiativeRank ?? ''}|${hideAffinity ? 1 : 0}|${viewRotation}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}|${sharedDarkvision ? 1 : 0}|${token.revealTag ?? ''}|${token.combatRole ?? ''}|${(token.markLabels ?? []).join(',')}|${token.invisible ? 1 : 0}`;
+  useLayoutEffect(()=>{
+    const art=tokenArt.current;if(!art)return;
+    art.clearCache();
+    // Prepared bodies/HUDs are already reusable bitmaps in every graphics mode.
+    // Miniature names have their own GPU texture cache; caching their parent
+    // also bakes suppressed names and rebuilds health/name art on selection.
+    if(cacheArtwork&&!(serverBody&&serverHud)&&!miniatureReady&&!miniaturePending&&(!activeTurn||reducedEffects)){
+      const rect=art.getClientRect({skipTransform:true});
+      if(rect.width>0&&rect.height>0&&rect.width*rect.height<4_000_000)art.cache({pixelRatio:Math.min(Konva.pixelRatio||window.devicePixelRatio||1,1.5)});
+    }
+    invalidateRetainedToken(art);art.getLayer()?.batchDraw();
+    return()=>{art.clearCache();};
+  },[cacheArtwork,appearance,iconImg,serverBody,serverHud,reducedEffects]);
+
   return (
     <>
     <Group
       ref={tokenNode}
       name="token"
       tokenId={token.id}
+      retainedRadius={radius*1.4+4}
       miniatureReady={miniatureReady}
       miniaturePending={miniaturePending}
+      tokenLabelVersion={`${display.name}|${token.kind}|${isDead ? 1 : 0}|${radius}|${nameY}|${nameWidth}|${tagWidth}|${labelY}|${labelFontSize}|${playerNameSize}|${monsterNameSize}|${token.revealTag ?? ''}|${hpFrac ?? ''}|${display.tempHp ?? ''}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}`}
       x={presentation?.position(token.id)?.x??token.x}
       y={presentation?.position(token.id)?.y??token.y}
       listening={listening}
@@ -474,7 +571,6 @@ function TokenShapeInner({
         if ((e.evt as MouseEvent).button !== 0) return;
         activate();
       }}
-      onDblTap={() => activate()}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
@@ -482,6 +578,7 @@ function TokenShapeInner({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
+      onTouchCancel={()=>{clearLongPress();tapCandidate.current=null;lastTap.current=null;}}
       onMouseOver={handleMouseOver}
       onMouseMove={handleMouseMove}
       onMouseOut={handleMouseOut}
@@ -511,6 +608,9 @@ function TokenShapeInner({
           shadowOpacity={0.95}
         />
       )}
+      {serverLayer&&selected&&<Silhouette outlineOnly/>}
+      {serverLayer&&<Group rotation={-viewRotation}>{initiativeBadge}</Group>}
+      {!serverLayer&&<>
       {miniaturePending && <Group name="token-miniature-loading" listening={false}>
         <Circle radius={Math.min(radius * .3, 12)} stroke="#c9bb9b" strokeWidth={1.5} dash={[3, 3]} />
         <Text text="Loading 3D..." x={-45} y={16} width={90} align="center" fontSize={11} fill="#e8ddc6" stroke="#111" strokeWidth={2} fillAfterStrokeEnabled />
@@ -519,6 +619,7 @@ function TokenShapeInner({
         {iconImg?<KonvaImage image={iconImg} x={-radius} y={-radius} width={radius*2} height={radius*2}/>:<><Silhouette fill={fill}/><Text text={display.icon||display.name.slice(0,2)} x={-radius} y={-radius} width={radius*2} height={radius*2} fontSize={radius} align="center" verticalAlign="middle"/></>}
       </Group>)}
       <Group ref={tokenBody} name="token-body" visible={!miniatureReady && !miniaturePending}>
+      {serverBody&&serverSprite?<><KonvaImage name="server-token-body" image={serverBody} x={serverSprite.body.x} y={serverSprite.body.y} width={serverSprite.body.width/serverSprite.body.scale} height={serverSprite.body.height/serverSprite.body.scale}/>{selected&&<Silhouette outlineOnly/>}</>:<>
       {hasImageIcon && iconImg ? (
         shape === 'image' ? (
           // Pasted art: draw the whole image as-is (no clip), with an outline
@@ -574,8 +675,10 @@ function TokenShapeInner({
           )}
         </>
       )}
+      </>}
       </Group>
       <Group name="token-upright-hud" rotation={-viewRotation}>
+      {serverHud&&serverSprite?<KonvaImage name="server-token-hud" image={serverHud} x={serverSprite.hud.x} y={serverSprite.hud.y} width={serverSprite.hud.width/serverSprite.hud.scale} height={serverSprite.hud.height/serverSprite.hud.scale}/>:<>
           {!miniatureReady && !token.sharedSightOnly && token.markLabels?.some(label=>/hunter.s mark/i.test(label)) && <Group y={-radius-22} listening={false} name="hunters-mark-sigil">
         <RegularPolygon sides={4} radius={14} stroke="#ffe7a1" strokeWidth={2} fill="#352106" rotation={0} shadowColor="#ffa62b" shadowBlur={8}/>
         <Circle radius={4} fill="#fff5d2"/>
@@ -600,15 +703,15 @@ function TokenShapeInner({
         fillAfterStrokeEnabled
         lineJoin="round"
         name="token-label"
-        text={display.name}
-        fontSize={token.kind === 'pc' ? playerNameSize : monsterNameSize}
+        text={labelText}
+        fontSize={labelFontSize}
         fill="#fff"
         align="center"
         width={token.kind === 'pc' ? radius * 4 : nameWidth}
         offsetX={token.kind === 'pc' ? radius * 2 : (nameWidth + tagWidth) / 2}
-        wrap={token.kind === 'pc' ? 'word' : 'none'}
+        wrap="none"
         ellipsis={token.kind !== 'pc'}
-        height={token.kind === 'pc' ? undefined : monsterNameSize * 1.25}
+        height={labelFontSize * 1.25}
         // Monster names clear the base, health bar and combat badge; PC layout stays compact.
         y={nameY}
       />}
@@ -675,24 +778,11 @@ function TokenShapeInner({
           />
         </Group>
       )}
-      {!isDead && initiativeRank !== null && (
-        <Group name="token-initiative-rank" x={initiativeX} y={nameY + (labelFontSize - initiativeHeight) / 2} listening={false}>
-          <Rect width={initiativeWidth} height={initiativeHeight} cornerRadius={3} fill="#17130ee6" stroke="#c5a65a" strokeWidth={.8} />
-          <Text
-            text={String(initiativeRank)}
-            fontSize={initiativeFontSize}
-            fontStyle="bold"
-            fill="#f2d58b"
-            width={initiativeWidth}
-            height={initiativeHeight}
-            align="center"
-            verticalAlign="middle"
-          />
-        </Group>
-      )}
+      </>}
+      {initiativeBadge}
       {/* The crown distinguishes 2D player-character tokens. A ready miniature
           provides its own silhouette, so it keeps only the health/status HUD. */}
-      {!isDead && token.kind === 'pc' && !miniatureReady && !miniaturePending &&
+      {!serverHud && !isDead && token.kind === 'pc' && !miniatureReady && !miniaturePending &&
         (() => {
           const crown = Math.min(22, Math.max(14, radius * 0.6));
           return (
@@ -709,6 +799,7 @@ function TokenShapeInner({
           );
         })()}
       </Group>
+      </>}
       </Group>
       {/* One hit-only node follows the actual body silhouette, without padding
           from labels, shadows, selected outlines or decorative rings. The empty
@@ -816,6 +907,7 @@ export const TokenShape = memo(
   TokenShapeInner,
   (p, n) =>
     sameTokenFields(p.token, n.token) &&
+    p.serverLayer===n.serverLayer && p.serverSprite?.body.key === n.serverSprite?.body.key && p.serverSprite?.hud.key === n.serverSprite?.hud.key && p.serverSprite?.grayscale===n.serverSprite?.grayscale && p.cacheArtwork===n.cacheArtwork &&
     p.presentation === n.presentation &&
     p.sharedDarkvision === n.sharedDarkvision &&
     sameTokenDisplay(p.display, n.display) &&
@@ -823,7 +915,7 @@ export const TokenShape = memo(
     p.pxPerFoot === n.pxPerFoot &&
     p.draggable === n.draggable &&
     p.selected === n.selected &&
-    p.activeTurn === n.activeTurn &&
+    p.activeTurn === n.activeTurn && p.reducedEffects===n.reducedEffects &&
     p.initiativeRank === n.initiativeRank &&
     p.listening === n.listening &&
     p.miniatureReady === n.miniatureReady &&
@@ -832,6 +924,7 @@ export const TokenShape = memo(
     p.viewRotation === n.viewRotation &&
     p.miniatureDiameterFt === n.miniatureDiameterFt &&
     p.movementWalls === n.movementWalls &&
+    p.onServerPreview === n.onServerPreview &&
     p.movementAllowanceFt === n.movementAllowanceFt && p.terrainZones===n.terrainZones &&
     p.onSelect === n.onSelect &&
     p.onActivate === n.onActivate &&

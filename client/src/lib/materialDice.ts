@@ -1,4 +1,5 @@
 import {classResinDeclarations,classResinIntegration} from './classDiceResin';
+import {reportDiceGraphicsFailure} from './useDiceRendering';
 import * as THREE from 'three';
 import {classDiceArt} from '../../../shared/classDiceArt';
 import {classDiceShader} from './classDiceShader';
@@ -39,6 +40,7 @@ function drawDieNumeral(ctx:CanvasRenderingContext2D,text:string,x:number,y:numb
 function dieNumeralFont(text:string,tens:boolean,sides:number){return sides===4?120:tens?132:text.length>1?140:152;}
 function makeStage() {
   const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, preserveDrawingBuffer:true});
+  renderer.domElement.addEventListener('webglcontextlost',()=>{stage=undefined;reportDiceGraphicsFailure();});
   renderer.setPixelRatio(1);
   renderer.setSize(256,256);
   renderer.setClearColor(0x000000,0);

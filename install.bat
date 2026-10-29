@@ -81,9 +81,17 @@ goto code_ready
 :do_update
 echo.
 echo Updating existing install at "%INSTALL_DIR%" ...
+REM A local build deploys reviewed working files without resetting unpublished fixes.
+if /i "%~1"=="--local" goto code_ready
 pushd "%INSTALL_DIR%"
+REM Never discard local app edits or mix old tracked code with new source files.
+git diff --quiet HEAD -- . ":(exclude)package-lock.json"
+if errorlevel 1 goto local_changes
+for /f "delims=" %%F in ('git ls-files --others --exclude-standard -- client/src server/src shared') do goto local_changes
 git fetch origin %BRANCH%
 if errorlevel 1 goto update_failed
+git merge-base --is-ancestor HEAD origin/%BRANCH%
+if errorlevel 1 goto local_changes
 REM Force the working tree to EXACTLY match the remote branch. Only tracked
 REM source is touched -- your .env, the sessions DB and uploads live in
 REM gitignored folders (server\data, server\uploads) and are never altered.
@@ -100,15 +108,24 @@ echo Updated to latest (!LOCAL_HEAD:~0,7!).
 popd
 goto code_ready
 
+:local_changes
+popd
+echo.
+echo [STOPPED] This checkout contains local app changes or unpublished commits.
+echo Updating from GitHub would overwrite them, so the source was preserved.
+echo To build and deploy the current local fixes, run:
+echo    install.bat --local
+echo Publish or save the local work before updating from GitHub.
+pause
+exit /b 1
+
 :update_failed
 popd
 echo.
 echo [ERROR] Could not update the existing install to the latest code.
 echo This usually means the folder is owned by a different (admin) account, or
-echo git is otherwise blocked. Easiest fix: close this window, delete the folder
-echo    %INSTALL_DIR%
-echo and run this installer again for a clean copy. Your sessions live in the
-echo server's data folder and are unaffected by reinstalling the code.
+echo git is otherwise blocked. Keep this folder and resolve the Git error above.
+echo Before any manual reinstall, back up .env, server\data and server\uploads.
 pause
 exit /b 1
 
@@ -163,6 +180,15 @@ REM ----- The always-on service runs the server only and does NOT rebuild, so
 REM ----- the build has to happen here for an update to actually take effect. -----
 echo.
 echo Building the app...
+REM Check both halves before replacing the client served by the running service.
+call npm run typecheck
+if !errorlevel! neq 0 (
+  echo.
+  echo [ERROR] Typecheck failed. The served client build was not replaced.
+  popd
+  pause
+  exit /b 1
+)
 call npm run build
 if !errorlevel! neq 0 (
   echo.
@@ -202,7 +228,8 @@ exit /b 0
 echo.
 echo Restarting the always-on server service (DnDServer) to load the update...
 echo Windows will ask for administrator permission.
-powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-Command','Restart-Service DnDServer'"
+powershell -NoProfile -Command "try { $restart = Start-Process powershell -WindowStyle Hidden -Verb RunAs -Wait -PassThru -ArgumentList '-NoProfile','-Command','try { Restart-Service DnDServer -ErrorAction Stop; exit 0 } catch { exit 1 }'; exit $restart.ExitCode } catch { Write-Error $_; exit 1 }"
+if errorlevel 1 goto restart_failed
 echo.
 echo ============================================
 echo    Updated + restarted the DnD server service.
@@ -212,6 +239,14 @@ echo ============================================
 echo.
 pause
 exit /b 0
+
+:restart_failed
+echo.
+echo [ERROR] The app built, but the server service was not restarted.
+echo The administrator prompt may have been canceled or Windows denied access.
+echo The running backend has not been confirmed to use the new source.
+pause
+exit /b 1
 
 REM ===== helper: delete a PR test folder if its launcher is gone =====
 :clean_stale_pr

@@ -1,6 +1,8 @@
 import {test,expect} from './helpers/test';
 import {io} from 'socket.io-client';
 import {DM_SECRET,PORT} from './playwright.config';
+import {applySnapshotDelta,type StateFrame} from '../shared/stateDelta';
+import type {StateSnapshot} from '../shared/types';
 
 test('Ice Knife saves precede damage, stay private to the DM, and never replay afterward',async({page,request})=>{
  test.setTimeout(120000);
@@ -22,9 +24,19 @@ test('Ice Knife saves precede damage, stay private to the DM, and never replay a
   dm.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:500,y:300});
   dm.emit('token:spawn',{mapId:map.id,kind:'monster',refId:template.id,x:550,y:300});await snapshot();
   const playerFrames:any[]=[],playerStates:any[]=[],dmFrames:any[]=[];
+  let wireState:StateSnapshot|null=null,wireRevision=0;
   page.on('websocket',ws=>ws.on('framereceived',({payload})=>{
    const text=String(payload);if(!text.startsWith('42'))return;
-   try{const [event,data]=JSON.parse(text.slice(2));if(event==='dice:frame')playerFrames.push(data);if(event==='state:snapshot')playerStates.push(data);}catch{}
+   let message:any[];try{message=JSON.parse(text.slice(2));}catch{return;}
+   const [event,data]=message;
+   if(event==='dice:frame')playerFrames.push(data);
+   if(event==='state:snapshot')playerStates.push(data);
+   if(event==='state:frame'){
+    const frame=data as StateFrame;
+    if('full' in frame)wireState=frame.full;
+    else{expect(frame.base).toBe(wireRevision);expect(wireState).not.toBeNull();wireState=applySnapshotDelta(wireState!,frame.delta);}
+    wireRevision=frame.revision;playerStates.push(wireState);
+   }
   }));
   dm.on('dice:frame',(frame:any)=>dmFrames.push(frame));
   await page.setViewportSize({width:1440,height:900});await page.goto(`/join?code=${code}`);

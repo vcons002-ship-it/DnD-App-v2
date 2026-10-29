@@ -888,11 +888,23 @@ export type RiposteOpportunity = {
 };
 
 export type StateSnapshot = {
+  explorationEpoch?:number;
+  legacyMotion?:import('./legacyMotion.js').LegacyMotion;
+  serverRendering?: import('./serverRendering.js').ServerRenderingState;
+  tokenSprites?: Record<string,{body:import('./serverRendering.js').RasterAsset;hud:import('./serverRendering.js').RasterAsset;grayscale?:boolean}>;
+  visionRaster?: import('./serverRendering.js').RasterAsset|null;
+  visionTiles?: import('./serverRendering.js').RasterTiles;
+  /** Server-graded map artwork: grayscale unlit ground, full-color light. */
+  terrainRaster?: import('./serverRendering.js').RasterAsset;
+  tokenLayerRaster?:import('./serverRendering.js').RasterAsset;
+  tokenLayerIds?:string[];
+  /** Ready-to-draw server geometry. null means pending; absent supports older servers. */
+  legacyGeometry?: import('./legacyVision.js').LegacyGeometry|null;
   /** Asset-only family list for background preparation; no token IDs, counts,
    * positions, creature names or statistics. Token visibility stays role-shaped. */
   miniaturePreloadFamilies?: string[];
   /** Requested DM-only, read-only union of party sight. Never sent to players. */
-  partyView?: Pick<StateSnapshot,'map'|'tokens'|'monsters'|'playerVision'|'exploredTerrain'>;
+  partyView?: Pick<StateSnapshot,'map'|'tokens'|'monsters'|'playerVision'|'exploredTerrain'|'legacyGeometry'|'tokenSprites'|'visionRaster'|'visionTiles'|'terrainRaster'|'tokenLayerRaster'|'tokenLayerIds'|'legacyMotion'|'explorationEpoch'>;
   /** Shared party exploration, saved per map; current sight remains personal. */
   exploredTerrain?: import('./exploration.js').ExploredTerrain;
   /** Server-authored personal dungeon visibility; independent of graphics quality. */
@@ -1293,6 +1305,12 @@ export type SessionSummary = {
 // ---- Socket.IO event payloads ----
 
 export type JoinPayload = {
+  legacyMotion?:boolean;
+  compactMotion?:boolean;
+  renderProtocol?:1|2|3;
+  serverRendering?: boolean;
+  stateProtocol?: 1;
+  legacyRendering?: boolean;
   sessionCode: string;
   role: Role;
   /** Required when role === 'dm' and a DM passphrase is configured. */
@@ -1302,7 +1320,7 @@ export type JoinPayload = {
   playerId?: string;
 };
 
-export type TokenMovePayload = { tokenId: string; x: number; y: number };
+export type TokenMovePayload = { tokenId: string; x: number; y: number; movement?:'walk'|'relocate' };
 export type TokenResizePayload = { tokenId: string; widthFt: number; miniature?: boolean };
 export type TokenSetShapePayload = { tokenId: string; shape: TokenShape };
 export type TokenDeletePayload = { tokenId: string };
@@ -1766,6 +1784,12 @@ export type HiddenRollCancelKind = 'cast'|'attack'|'damage'|'effect'|'roll';
 export type HiddenRollReview = {id:string;label:string;cancelKind?:HiddenRollCancelKind;results:HiddenRollResult[];dice:HiddenRollDice[];manual?:boolean};
 
 export interface ClientToServerEvents {
+  'client:legacyMotion':(enabled:boolean)=>void;
+  'client:serverRendering':(enabled:boolean)=>void;
+  'rendering:policy':(change:import('./serverRendering.js').RenderingPolicyChange)=>void;
+  'token:preview':(point:TokenMovePayload,ack:(result:import('./movementPreview.js').MovementPreview|null)=>void)=>void;
+  'client:rendering': (legacy:boolean)=>void;
+  'state:resync': ()=>void;
   'dice:confirmHidden': (payload:{id:string;apply?:boolean;decision?:HiddenRollDecision}) => void;
   'dice:ready': (payload:{id:string}) => void;
   'dice:begin': (payload:{id:string}) => void;
@@ -1779,6 +1803,7 @@ export interface ClientToServerEvents {
   'map:reorder': (payload: MapReorderPayload) => void;
   'map:setGrid': (payload: MapSetGridPayload) => void;
   'map:setEnvironment': (payload: {mapId: string; settings: Partial<MapEnvironment>}) => void;
+  'map:placeLight': (payload: {mapId:string;x:number;y:number;lightId?:string}) => void;
   'map:editWalls': (payload: {mapId: string} & import('./mapWalls.js').WallEdit) => void;
   'map:deleteFeatures': (payload:{mapId:string;wallIds:string[];lightIds:string[]})=>void;
   'map:setDoor': (payload:{mapId:string;doorId:string;open:boolean})=>void;
@@ -2012,6 +2037,7 @@ export type HpFxEvent = {
 };
 
 export interface ServerToClientEvents {
+  'state:frame': (frame:import('./stateDelta.js').StateFrame)=>void;
   'fx:spellArea': (payload:{id:string;preview:SpellAreaPreview|null}) => void;
   'dice:hiddenReview': (review:HiddenRollReview|null)=>void;
   'dice:frame': (frame:import('./liveDiceTypes.js').LiveDiceFrame)=>void;

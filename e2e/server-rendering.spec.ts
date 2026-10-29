@@ -1,0 +1,66 @@
+import {test,expect} from './helpers/test';
+import {io} from 'socket.io-client';
+import sharp from 'sharp';
+import {DM_SECRET,PORT} from './playwright.config';
+test.use({trace:'off',actionTimeout:15000});
+async function view(page:import('@playwright/test').Page){const button=page.getByRole('button',{name:'View',exact:true});if(await button.count())await button.click();}
+test('server rendering defaults, player choice, owner enforcement, private assets and unchanged token controls',async({page,browser,request})=>{
+ test.setTimeout(180000);
+ const headers={'x-dm-passphrase':DM_SECRET};
+ const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Server rendering controls'}})).json();
+ const image=await sharp({create:{width:900,height:600,channels:3,background:'#6c604c'}}).png().toBuffer();
+ const map=await(await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{name:'Room',image:{name:'room.png',mimeType:'image/png',buffer:image}}})).json();
+ const admin=io(`http://localhost:${PORT}`,{transports:['websocket']});
+ const state=async()=>(await admin.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET})).snapshot;
+ const first=await state(),pc=first.characters.find((c:any)=>c.name==='Druk');
+ admin.emit('map:setActive',{mapId:map.id});admin.emit('token:spawn',{mapId:map.id,kind:'pc',refId:pc.id,x:250,y:300});
+ for(const layer of ['map','tokens'])admin.emit('fog:setLayer',{mapId:map.id,layer,enabled:false});
+ admin.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dungeon',heavyDarkness:true,lights:[{id:'lamp',x:250,y:300,radiusFt:30,heightFt:6,color:'warm',intensity:1,flicker:false,visibleTorch:true}]}});
+ await state();
+ const ownerContext=await browser.newContext({viewport:{width:1500,height:1000}}),owner=await ownerContext.newPage();
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));owner.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>localStorage.setItem('dnd-environment-quality','legacy'));
+ try{
+  await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();
+  await page.locator('.claim-row').filter({hasText:'Druk'}).click();await expect(page.getByTestId('player-hud')).toBeVisible();
+  const vision=page.getByTestId('legacy-vision');await expect(vision).toHaveAttribute('data-render-source','server-raster');
+  await expect.poll(async()=>Number(await vision.getAttribute('data-mask-tiles'))).toBeGreaterThan(0);
+  const sprites=()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.server-token-body, .server-token-layer')).length);
+  await expect.poll(sprites).toBeGreaterThan(0);
+  const imageUrl=await vision.locator('img').first().getAttribute('src');expect(imageUrl).toContain('/api/render/');
+  expect((await request.get(imageUrl!)).status()).toBe(200);
+  expect((await request.get(imageUrl!.replace(/\/render\/[^/]+\//,`/render/${'0'.repeat(64)}/`))).status()).toBe(404);
+  await view(page);
+  const toggle=page.getByRole('checkbox',{name:'Server managed rendering',exact:true});await expect(toggle).toBeChecked();
+  await toggle.uncheck();await expect(vision).toHaveAttribute('data-geometry-source','client');await expect.poll(sprites).toBe(0);
+  await toggle.check();await expect(vision).toHaveAttribute('data-render-source','server-raster');
+  await owner.goto(`/dm?code=${code}`);await owner.locator('input[type=password]').fill(DM_SECRET);await owner.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  await view(owner);
+  await owner.locator('.server-rendering-owner summary').click();
+  await expect(owner.getByLabel('Board server rendering')).toHaveValue('inherit');
+  expect(await owner.evaluate(()=>localStorage.getItem('dnd-environment-quality'))).toBeNull(); // unsaved default is Low
+  await expect(owner.getByLabel('Server rendering for Druk',{exact:true})).toBeVisible();
+  await owner.getByLabel('Server rendering for Druk',{exact:true}).selectOption('off');
+  await expect(toggle).not.toBeChecked();await expect(toggle).toBeDisabled();await expect(vision).toHaveAttribute('data-geometry-source','client');
+  await owner.getByLabel('Board server rendering').selectOption('on');await expect(toggle).toBeChecked();await expect(toggle).toBeDisabled();await expect(vision).toHaveAttribute('data-render-source','server-raster');
+  await owner.getByLabel('Board server rendering').selectOption('inherit');await owner.getByLabel('Server rendering for Druk',{exact:true}).selectOption('inherit');await expect(toggle).toBeEnabled();await expect(toggle).toBeChecked();
+  // Local choice survives a forced policy, and a reload re-joins with that choice.
+  await toggle.uncheck();await expect(vision).toHaveAttribute('data-geometry-source','client');
+  await page.reload();await expect(page.getByTestId('player-hud')).toBeVisible();await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','client');
+  await view(page);await page.getByRole('checkbox',{name:'Server managed rendering',exact:true}).check();await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-render-source','server-raster');
+  await view(page);
+  const point=await page.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),n=stage.find('.token')[0],r=stage.getContent().getBoundingClientRect();const p=n.getAbsolutePosition(),target=n.getParent().getAbsoluteTransform().point({x:300,y:350});return{x:r.left+p.x,y:r.top+p.y,tx:r.left+target.x,ty:r.top+target.y};});
+  await page.mouse.click(point.x,point.y,{button:'right'});await expect(page.locator('.floating-menu')).toBeVisible();await page.keyboard.press('Escape');
+  await page.mouse.move(point.x,point.y);await page.mouse.down();await page.mouse.move(point.tx,point.ty,{steps:5});await page.mouse.up();
+  await expect.poll(async()=>Math.abs((await state()).tokens.find((t:any)=>t.kind==='pc')?.x-300)).toBeLessThan(1);
+  await page.getByRole('checkbox',{name:'Legacy mode',exact:true}).uncheck();
+  await expect(page.locator('.stage-wrap')).toHaveAttribute('data-render-mode','standard');
+  await expect(page.getByTestId('player-vision')).toHaveAttribute('data-wall-geometry-source','server');
+  await expect(page.getByRole('checkbox',{name:'Server managed rendering',exact:true})).toBeChecked();
+  await page.getByRole('checkbox',{name:'Server managed rendering',exact:true}).uncheck();
+  await expect(page.getByTestId('player-vision')).toHaveAttribute('data-wall-geometry-source','client');
+  await page.getByRole('checkbox',{name:'Server managed rendering',exact:true}).check();
+  await expect(page.getByTestId('player-vision')).toHaveAttribute('data-wall-geometry-source','server');
+  expect(errors).toEqual([]);
+ }finally{admin.disconnect();await ownerContext.close();}
+});

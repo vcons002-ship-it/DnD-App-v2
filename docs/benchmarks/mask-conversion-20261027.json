@@ -1,0 +1,93 @@
+{
+  "measuredAt": "2026-10-28T02:18:11.762Z",
+  "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+  "logicalCpus": 16,
+  "node": "v24.16.0",
+  "method": "Actual server mask converter on synthetic PNGs, three runs each. Excludes AI generation and HTTP. Event-loop maximum includes the 10 ms monitor interval. This host is not an old-CPU benchmark.",
+  "results": [
+    {
+      "fixture": "four-rooms",
+      "width": 800,
+      "height": 650,
+      "samples": [
+        {
+          "elapsedMs": 167,
+          "cpuMs": 220,
+          "maxEventLoopDelayMs": 132,
+          "wallPieces": 4,
+          "wallEdges": 80
+        },
+        {
+          "elapsedMs": 157,
+          "cpuMs": 328,
+          "maxEventLoopDelayMs": 122,
+          "wallPieces": 4,
+          "wallEdges": 80
+        },
+        {
+          "elapsedMs": 151,
+          "cpuMs": 218,
+          "maxEventLoopDelayMs": 131,
+          "wallPieces": 4,
+          "wallEdges": 80
+        }
+      ]
+    },
+    {
+      "fixture": "thirty-rooms",
+      "width": 800,
+      "height": 650,
+      "samples": [
+        {
+          "elapsedMs": 312,
+          "cpuMs": 563,
+          "maxEventLoopDelayMs": 141,
+          "wallPieces": 30,
+          "wallEdges": 510
+        },
+        {
+          "elapsedMs": 264,
+          "cpuMs": 891,
+          "maxEventLoopDelayMs": 132,
+          "wallPieces": 30,
+          "wallEdges": 510
+        },
+        {
+          "elapsedMs": 237,
+          "cpuMs": 454,
+          "maxEventLoopDelayMs": 118,
+          "wallPieces": 30,
+          "wallEdges": 510
+        }
+      ]
+    },
+    {
+      "fixture": "narrow-gap-stress",
+      "width": 800,
+      "height": 650,
+      "samples": [
+        {
+          "elapsedMs": 132,
+          "cpuMs": 187,
+          "maxEventLoopDelayMs": 102,
+          "wallPieces": 13,
+          "wallEdges": 66
+        },
+        {
+          "elapsedMs": 117,
+          "cpuMs": 140,
+          "maxEventLoopDelayMs": 99,
+          "wallPieces": 13,
+          "wallEdges": 66
+        },
+        {
+          "elapsedMs": 108,
+          "cpuMs": 140,
+          "maxEventLoopDelayMs": 90,
+          "wallPieces": 13,
+          "wallEdges": 66
+        }
+      ]
+    }
+  ]
+}

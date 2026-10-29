@@ -17,6 +17,8 @@ export type MapEnvironment = {
   lights: MapEnvironmentLight[];
   /** Color used by the DM's next manually placed light, saved separately per map. */
   newLightColor?: MapLightColor;
+  /** Placement defaults, saved per map independently of existing lights. */
+  newLightDefaults?: Partial<MapLightDefaults>;
   enabled: boolean;
   shadows: boolean;
   /** Fixed map-light direction, separate from shadows cast by torches/lanterns. */
@@ -42,7 +44,12 @@ export function mapLightColorHex(value:unknown):string {
   return color.startsWith('#')?color:MAP_LIGHT_COLOR_PRESETS[color as keyof typeof MAP_LIGHT_COLOR_PRESETS];
 }
 export type MapEnvironmentLight = {id:string;x:number;y:number;radiusFt:number;heightFt:number;color:MapLightColor;intensity:number;flicker:boolean;visibleTorch?:boolean;fixture?:'torch'|'lantern'};
-export type EnvironmentQuality = 'auto' | 'high' | 'balanced' | 'low' | 'off';
+export type MapLightDefaults = Omit<MapEnvironmentLight,'id'|'x'|'y'|'color'>;
+export const DEFAULT_LIGHT_DEFAULTS:Readonly<MapLightDefaults>={radiusFt:15,heightFt:6,intensity:1,flicker:true,visibleTorch:true,fixture:'torch'};
+export function newMapLightSettings(settings:Pick<MapEnvironment,'newLightColor'|'newLightDefaults'>){
+  return {...DEFAULT_LIGHT_DEFAULTS,...settings.newLightDefaults,color:settings.newLightColor??'warm'};
+}
+export type EnvironmentQuality = 'auto' | 'high' | 'balanced' | 'low' | 'off' | 'legacy';
 export const DEFAULT_MAP_ENVIRONMENT: Readonly<MapEnvironment> = {
   lighting:'day',lightLevel:1,sceneTint:'#ffffff',sceneTintStrength:0,heavyDarkness:false,weather:'none',weatherIntensity:.5,particles:'none',particleIntensity:.5,mistColor:'natural',lightning:false,groundWetness:0,windDirectionDegrees:20,windStrength:.4,lights:[],newLightColor:'warm',
   enabled: false, shadows: true, mapShadows: true, shadowDirectionDegrees: 55, shadowLength: 1.05,
@@ -64,6 +71,15 @@ export function sanitizeMapEnvironment(input: unknown, previous: Readonly<MapEnv
   const result = {...previous};
   if (!input || typeof input !== 'object' || Array.isArray(input)) return result;
   const source = input as Record<string, unknown>;
+  if(source.newLightDefaults&&typeof source.newLightDefaults==='object'&&!Array.isArray(source.newLightDefaults)){
+    const v=source.newLightDefaults as Record<string,unknown>,defaults={...DEFAULT_LIGHT_DEFAULTS,...previous.newLightDefaults};
+    for(const [key,min,max] of [['radiusFt',3,60],['heightFt',.5,30],['intensity',.1,2]] as const){
+      if(typeof v[key]==='number'&&Number.isFinite(v[key]))defaults[key]=Math.max(min,Math.min(max,v[key]));
+    }
+    for(const key of ['flicker','visibleTorch'] as const)if(typeof v[key]==='boolean')defaults[key]=v[key];
+    if(v.fixture==='torch'||v.fixture==='lantern')defaults.fixture=v.fixture;
+    result.newLightDefaults=defaults;
+  }
   if(source.newLightColor==='warm'||source.newLightColor==='cool'||source.newLightColor==='green'||
     typeof source.newLightColor==='string'&&/^#[0-9a-f]{6}$/i.test(source.newLightColor))result.newLightColor=sanitizeMapLightColor(source.newLightColor);
   for (const key of ['enabled', 'heavyDarkness', 'lightning', 'shadows', 'mapShadows', 'mist', 'mistShadows', 'mistInteraction'] as const) {

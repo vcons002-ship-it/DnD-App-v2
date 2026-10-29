@@ -52,8 +52,8 @@ test('Misty Step and Pass without Trace use visible map controls and preserve sp
  const f=await setup(request,page);
  await page.getByRole('button',{name:'2D player tokens',exact:true}).click();
  await page.locator('.compact-player-combat').getByRole('button',{name:/Misty Step/}).click();
- const prompt=page.getByRole('region',{name:'Misty Step destination'});await expect(prompt).toBeVisible();await expect(prompt.getByRole('button',{name:'Teleport',exact:true})).toBeDisabled();
- let point=await f.mapPoint(350,300);await page.mouse.click(point.x,point.y);await expect(prompt.getByRole('button',{name:'Teleport',exact:true})).toBeEnabled();await prompt.getByRole('button',{name:'Teleport',exact:true}).click();
+ const prompt=page.getByRole('region',{name:'Misty Step destination'});await expect(prompt).toBeVisible();await expect(prompt.getByRole('button',{name:/^Cast Misty Step · Level 2 slot/})).toBeDisabled();
+ let point=await f.mapPoint(350,300);await page.mouse.click(point.x,point.y);await expect(prompt.getByRole('button',{name:/^Cast Misty Step · Level 2 slot/})).toBeEnabled();await prompt.getByRole('button',{name:/^Cast Misty Step · Level 2 slot/}).click();
  await expect.poll(async()=>(await f.snapshot()).tokens.find(t=>t.id===f.actor.id)?.x).toBeCloseTo(350,0);expect((await f.character()).spellSlots.L2.used).toBe(1);
  await page.locator('.compact-player-combat').getByRole('button',{name:/Pass without Trace/}).click();
  const aura=page.getByRole('region',{name:'Place spell area'});await expect(aura).toContainText('Choose allies');await expect(aura).toContainText('Varis');await aura.getByRole('checkbox',{name:/Test sentry/}).uncheck();await aura.getByRole('button',{name:/Confirm area/}).click();
@@ -84,14 +84,14 @@ test('Command offers custom words by default, respects DM opt-out, and shows nex
  const choice=page.getByRole('dialog',{name:'Choose Command'});await expect(choice).toBeVisible();
  for(const word of ['Approach','Drop','Flee','Grovel','Halt'])await expect(choice.getByRole('button',{name:word,exact:true})).toBeVisible();
  await expect(choice.getByRole('button',{name:'Custom word',exact:true})).toBeVisible();
- await choice.getByRole('button',{name:'Custom word',exact:true}).click();await choice.getByLabel('Custom Command word').fill('Dance');await expect(choice.getByRole('button',{name:'Cast Command',exact:true})).toBeEnabled();
+ await choice.getByRole('button',{name:'Custom word',exact:true}).click();await choice.getByLabel('Custom Command word').fill('Dance');await expect(choice.getByRole('button',{name:/^Cast Command ·/})).toBeEnabled();
  f.socket.emit('session:setCommandCustomWords',{enabled:false});await expect.poll(async()=>(await f.snapshot()).commandCustomWords).toBe(false);await expect(choice.getByRole('button',{name:'Custom word',exact:true})).toHaveCount(0);
  await choice.getByRole('button',{name:'Halt',exact:true}).click();
- await choice.getByRole('button',{name:'Cast Command',exact:true}).click();
+ await choice.getByRole('button',{name:/^Cast Command ·/}).click();
  await expect.poll(async()=>(await f.character()).spellSlots.L1.used,{timeout:60000}).toBe(1); // spent when the live save commits
  await expect.poll(async()=>(await f.snapshot()).monsters.find(m=>m.id===f.enemy.refId)?.conditions.some(c=>c.label==='Command: Halt')).toBe(true);
  f.socket.emit('session:setCommandCustomWords',{enabled:true});await expect.poll(async()=>(await f.snapshot()).commandCustomWords).toBe(true);
- await page.locator('.compact-player-combat').getByRole('button',{name:/Command/}).click();await choice.getByRole('button',{name:'Custom word',exact:true}).click();await choice.getByLabel('Custom Command word').fill('Dance away');await expect(choice.getByRole('button',{name:'Cast Command',exact:true})).toBeDisabled();await choice.getByLabel('Custom Command word').fill('Dance');await choice.getByRole('button',{name:'Cancel',exact:true}).click();expect((await f.character()).spellSlots.L1.used).toBe(1);
+ await page.locator('.compact-player-combat').getByRole('button',{name:/Command/}).click();await choice.getByRole('button',{name:'Custom word',exact:true}).click();await choice.getByLabel('Custom Command word').fill('Dance away');await expect(choice.getByRole('button',{name:/^Cast Command ·/})).toBeDisabled();await choice.getByLabel('Custom Command word').fill('Dance');await choice.getByRole('button',{name:'Cancel',exact:true}).click();expect((await f.character()).spellSlots.L1.used).toBe(1);
  // A real creature casting Command on the PC exercises the owner-facing reminder.
  f.socket.emit('ability:set',{kind:'monster',refId:f.enemy.refId,ability:{id:'command-npc',name:'Command',type:'spell',source:'srd',level:1,description:'Command',roll:{kind:'save',save:'WIS',saveDamage:'none',dc:30}}});
  f.socket.emit('initiative:set',{tokenId:f.enemy.id,initiative:20});f.socket.emit('initiative:set',{tokenId:f.actor.id,initiative:10});f.socket.emit('initiative:setRound',{round:1});f.socket.emit('initiative:next');

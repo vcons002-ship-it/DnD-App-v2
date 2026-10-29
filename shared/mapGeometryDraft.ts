@@ -1,5 +1,6 @@
 import type {MapFeatureCheck} from './mapFeatureGate.js';
 import {sanitizeWalls,type MapWall,type WallPoint} from './mapWalls.js';
+export type WallAnalysisPass='both'|'structural'|'natural';
 /** Version 1: footprints in normalized ORIGINAL-image coordinates.
  * Heights are estimates in feet, independent of image resolution or camera tilt. */
 export type GeometrySuggestion = {

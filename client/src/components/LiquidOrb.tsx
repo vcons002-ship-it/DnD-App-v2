@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
+import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
 import { liquidImpact, stepLiquidFill } from '../../../shared/liquidOrbMotion';
 import { LIQUID_ORB_FRAGMENT } from './liquid-orb-shader';
 import './liquid-orb-effects.css';
@@ -18,6 +19,8 @@ export const LiquidOrb = memo(function LiquidOrb({
   maxAmount?: number;
   temporary?: boolean;
 }) {
+  const {budget}=useEnvironmentQuality();
+  const staticArt=budget.resolved==='legacy'||budget.resolved==='low'||budget.resolved==='off';
   const canvas = useRef<HTMLCanvasElement>(null);
   const value = useRef(fraction);
   value.current = Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0;
@@ -35,7 +38,7 @@ export const LiquidOrb = memo(function LiquidOrb({
     const before = previousAmount.current;
     previousAmount.current = amount;
     if (amount === undefined || before === undefined || !Number.isFinite(amount) || !Number.isFinite(before) || amount === before) return;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden) {
+    if (staticArt || matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden) {
       impulse.current.strength = 0;
       setEffect('idle');
       return;
@@ -52,9 +55,10 @@ export const LiquidOrb = memo(function LiquidOrb({
       setEffect('idle');
     }, 1800);
     return () => window.clearTimeout(timer);
-  }, [amount]);
+  }, [amount,staticArt]);
 
   useEffect(() => {
+    if(staticArt)return;
     const el = canvas.current;
     if (!el) return;
     const gl = el.getContext('webgl', {
@@ -200,14 +204,14 @@ export const LiquidOrb = memo(function LiquidOrb({
       gl.deleteShader(vertex);
       gl.deleteShader(fragment);
     };
-  }, [temporary]);
+  }, [temporary,staticArt]);
   useEffect(() => requestStaticDraw.current?.(), [fraction]);
   return (
     <span
-      className={`liquid-orb liquid-orb-effects${temporary ? ' temporary' : ''}${fallback ? ' fallback' : ''}`}
+      className={`liquid-orb liquid-orb-effects${temporary ? ' temporary' : ''}${fallback||staticArt ? ' fallback' : ''}`}
       aria-hidden="true"
-      data-liquid-renderer={fallback ? 'fallback' : 'webgl'}
-      data-liquid-motion={paused ? 'paused' : reducedMotion ? 'reduced' : 'animated'}
+      data-liquid-renderer={fallback||staticArt ? 'fallback' : 'webgl'}
+      data-liquid-motion={staticArt?'static':paused ? 'paused' : reducedMotion ? 'reduced' : 'animated'}
       data-liquid-effect={effect}
       data-liquid-translucent="true"
       data-liquid-empty={value.current === 0 ? 'true' : undefined}

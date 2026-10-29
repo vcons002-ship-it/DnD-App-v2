@@ -1,0 +1,174 @@
+{
+  "at": "2026-10-28T03:20:40.197Z",
+  "probeVersion": 3,
+  "movesPerRate": 6,
+  "host": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+    "browser": "156.0.8078.49",
+    "logicalCpus": 16,
+    "memoryGiB": 31
+  },
+  "buildIndexSha256": "e16d55656d0f5a1f649b2ec4e38180a7164b53cdbb8df3c0217ae72eaf9aeac4",
+  "fixture": {
+    "roomFeet": [
+      240,
+      160
+    ],
+    "mapPixels": [
+      3840,
+      2560
+    ],
+    "monsters": 140,
+    "pcs": 3,
+    "tokens": 143,
+    "lights": 48,
+    "walls": 28,
+    "wallEdges": 112
+  },
+  "method": "Two independent Legacy browser contexts. Initial join/setup unthrottled; clients throttled per run.cpuSlowdown (DM) and run.playerCpuSlowdown (Player, defaults to DM rate) before DM enables Player view and during movement. Software Canvas2D, WebGL blocked throughout. Server unthrottled on same host; no network delay/RAM cap. Epoch timestamps on same host; release-to-token/sight latency includes server communication plus two RAF paint opportunities. Event-driven cached token layer draw handler and SVG MutationObserver; no polling or continuous RAF probe. Separate idle-with-instrumentation baseline. Recording and probes add overhead. Both documents kept visible. Private drag previews do not move the DM view until a committed drop.",
+  "runs": [
+    {
+      "cpuSlowdown": 20,
+      "playerCpuSlowdown": 1,
+      "status": "passed",
+      "samples": [
+        {
+          "seq": 1,
+          "x": 1840,
+          "y": 1360,
+          "releasedAt": 1793157659871.4,
+          "playerTokenMs": 51.800048828125,
+          "playerSightMs": 710.699951171875,
+          "dmTokenMs": 1719.400146484375,
+          "dmSightMs": 1845.10009765625
+        },
+        {
+          "seq": 2,
+          "x": 1840,
+          "y": 1440,
+          "releasedAt": 1793157663349,
+          "playerTokenMs": 51.099853515625,
+          "playerSightMs": 204.89990234375,
+          "dmTokenMs": 1417.39990234375,
+          "dmSightMs": 1543.39990234375
+        },
+        {
+          "seq": 3,
+          "x": 2080,
+          "y": 1440,
+          "releasedAt": 1793157666437.4,
+          "playerTokenMs": 48.900146484375,
+          "playerSightMs": 232.900146484375,
+          "dmTokenMs": 1742.10009765625,
+          "dmSightMs": 2199.699951171875
+        },
+        {
+          "seq": 4,
+          "x": 2080,
+          "y": 1280,
+          "releasedAt": 1793157671041.2,
+          "playerTokenMs": 69.89990234375,
+          "playerSightMs": 610.39990234375,
+          "dmTokenMs": 2359.199951171875,
+          "dmSightMs": 2493.800048828125
+        },
+        {
+          "seq": 5,
+          "x": 2000,
+          "y": 1280,
+          "releasedAt": 1793157675557.5999,
+          "playerTokenMs": 53.900146484375,
+          "playerSightMs": 637.800048828125,
+          "dmTokenMs": 1238.5,
+          "dmSightMs": 1365.900146484375
+        },
+        {
+          "seq": 6,
+          "x": 1920,
+          "y": 1280,
+          "releasedAt": 1793157678461.4,
+          "playerTokenMs": 49.699951171875,
+          "playerSightMs": 209.60009765625,
+          "dmTokenMs": 1246.900146484375,
+          "dmSightMs": 1373.300048828125
+        }
+      ],
+      "enablePlayerViewPageMs": 3508.900000035763,
+      "probeIdle": [
+        {
+          "role": "DM",
+          "observedMs": 2019,
+          "mainThreadBusyMs": 2
+        },
+        {
+          "role": "Player",
+          "observedMs": 2019,
+          "mainThreadBusyMs": 2
+        }
+      ],
+      "movementStartEpochMs": 1793157658711,
+      "movementStartPageMs": 16421.30000001192,
+      "movementEndEpochMs": 1793157680840,
+      "latency": {
+        "playerTokenMs": {
+          "samples": 6,
+          "medianMs": 51,
+          "p95Ms": 70,
+          "maxMs": 70
+        },
+        "playerSightMs": {
+          "samples": 6,
+          "medianMs": 422,
+          "p95Ms": 711,
+          "maxMs": 711
+        },
+        "dmTokenMs": {
+          "samples": 6,
+          "medianMs": 1568,
+          "p95Ms": 2359,
+          "maxMs": 2359
+        },
+        "dmSightMs": {
+          "samples": 6,
+          "medianMs": 1694,
+          "p95Ms": 2494,
+          "maxMs": 2494
+        }
+      },
+      "clients": [
+        {
+          "role": "DM",
+          "documentHidden": false,
+          "observedMs": 22129,
+          "mainThreadBusyMs": 16054,
+          "scriptMs": 4983,
+          "jsHeapMiB": 24,
+          "longTasks": {
+            "count": 24,
+            "totalMs": 8247,
+            "maxMs": 1058
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        },
+        {
+          "role": "Player",
+          "documentHidden": false,
+          "observedMs": 22129,
+          "mainThreadBusyMs": 2310,
+          "scriptMs": 1724,
+          "jsHeapMiB": 19,
+          "longTasks": {
+            "count": 2,
+            "totalMs": 102,
+            "maxMs": 52
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        }
+      ]
+    }
+  ]
+}

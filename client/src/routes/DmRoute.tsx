@@ -1,3 +1,4 @@
+import {LegacyModeControl} from '../components/LegacyModeControl';
 import {confirmAction} from '../lib/dialogs';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -228,6 +229,7 @@ export function DmRoute() {
 
   return (
     <div className="entry">
+      <LegacyModeControl/>
       <h1>DM Console</h1>
       <p>Start a new session or rejoin an existing one.</p>
 

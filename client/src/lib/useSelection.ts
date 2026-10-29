@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StateSnapshot, Token } from '../../../shared/types';
 import { useStore } from '../state/socket';
+import {useStableCallback} from './useStableCallback';
 
 /**
  * Token selection shared by the DM and player views. Supports additive
@@ -60,7 +61,7 @@ export function useSelection(snapshot: StateSnapshot | null, syncKey?: string) {
     });
   }, []);
 
-  const handleMove = useCallback(
+  const handleMove = useStableCallback(
     (tokenId: string, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => {
       const tokens = snapshot?.tokens ?? [];
       const moved = tokens.find((t) => t.id === tokenId);
@@ -77,7 +78,6 @@ export function useSelection(snapshot: StateSnapshot | null, syncKey?: string) {
         moveTokenSocket(tokenId, x, y, placed);
       }
     },
-    [snapshot, selectedIds, moveTokenSocket],
   );
 
   const primaryId = selectedIds[selectedIds.length - 1] ?? null;

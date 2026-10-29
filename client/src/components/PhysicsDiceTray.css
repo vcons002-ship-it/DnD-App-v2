@@ -1,4 +1,7 @@
 .physics-dice-tray{position:relative;width:100%;min-width:0;margin:10px 0;}
+.dice-2d-animation{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:center;align-items:center;justify-content:center;gap:8px;padding:12px;overflow:auto;background:#14251e;border:1px solid #776548;border-radius:10px;}
+.physics-dice-tray>.dice-2d-animation{position:relative;min-height:160px;}
+.physics-dice-tray[data-renderer="2d"] :is(.dice-tray-canvas,.dice-tray-transition,.tray-trigger-links){visibility:hidden;}
 .roll-overlay-presence{position:fixed;inset:0;z-index:60;pointer-events:none;animation:roll-overlay-enter 180ms ease-out;}
 .roll-overlay-presence.is-leaving{opacity:0;transition:opacity 180ms ease-out;}
 .spell-calculating{position:fixed;top:100px;left:50%;transform:translateX(-50%);z-index:61;display:flex;align-items:center;gap:10px;padding:12px 22px;border:1px solid #b69a60;border-radius:9px;background:#10131bef;color:#f6e2b2;font:600 20px/1.4 system-ui;box-shadow:0 5px 25px #0008;pointer-events:none;}

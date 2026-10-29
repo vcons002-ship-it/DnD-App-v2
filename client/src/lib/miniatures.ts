@@ -66,6 +66,7 @@ export function miniatureForPreload(model:MiniatureDefinition,quality:MiniatureL
 }
 /** Stable IDs/base measurements keep effects, hit areas and facing identical across tiers. */
 export function miniatureForQuality(model:MiniatureDefinition|null,quality:EnvironmentQuality):MiniatureDefinition|null{
+  if(quality==='legacy')return null;
   if(!model||quality==='high'||quality==='auto')return model;
   return qualityModels.get(`${model.id}:${quality==='balanced'?'balanced':'low'}`)??model;
 }
@@ -98,9 +99,10 @@ export async function refreshMiniatureCatalog() {
 let users = 0, timer: ReturnType<typeof setInterval> | undefined;
 const refreshWhenVisible = () => { if (document.visibilityState === 'visible') void refreshMiniatureCatalog(); };
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
-export function useMiniatureCatalog() {
+export function useMiniatureCatalog(enabled=true) {
   const current = useSyncExternalStore(subscribe, () => revision);
   useEffect(() => {
+    if(!enabled)return;
     users++;
     // The server pushes `assets:catalog` when a model is published; this slow
     // poll is only a fallback for a missed push (it used to run every 5 s on
@@ -111,7 +113,7 @@ export function useMiniatureCatalog() {
       document.addEventListener('visibilitychange', refreshWhenVisible);
     }
     return () => { users--; if (!users) { clearInterval(timer); document.removeEventListener('visibilitychange', refreshWhenVisible); } };
-  }, []);
+  }, [enabled]);
   return current;
 }
 export function miniatureFamilies() { return [...new Set([...monsters.models.map(m => m.id), ...Object.keys(generated)])]; }

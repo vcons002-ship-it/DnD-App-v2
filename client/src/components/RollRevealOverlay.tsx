@@ -1,6 +1,8 @@
 import {NaturalTwentyCelebration} from './NaturalTwentyCelebration';
+import {useLegacyMode} from '../lib/useEnvironmentQuality';
+import {useDiceRendering} from '../lib/useDiceRendering';
 import {HiddenRollReview} from './HiddenRollReview';
-import {diceTriggerForTray} from '../lib/rollTrayPresentation';
+import {diceTriggerForTray,rollThemeForPresentation} from '../lib/rollTrayPresentation';
 import {dicePreloadPlan} from '../lib/dicePreloadPlan';
 import {physicalRollTimeline,liveNaturalCritical,liveNaturalTwenty} from '../lib/diceFinaleTiming';
 import {DICE_TRIGGER_HOLD_MS} from '../../../shared/diceTriggers';
@@ -11,7 +13,6 @@ import {diceEntrySide} from '../lib/diceEntrySide';
 import type {DiceEntrySide} from '../lib/diceTrayTypes';
 import { PhysicsDiceTray } from './PhysicsDiceTray';
 import type { TrayDie } from '../lib/diceTrayTypes';
-import { diceThemeForRoll } from '../../../shared/diceThemes';
 import { flattenDamageDice } from '../../../shared/diceVisuals';
 import { memo, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -139,7 +140,11 @@ function ComparedDice({ comparison, locked, stopping, tick, onSettled }: {
  * Non-blocking (the map stays interactive); click / tap / Esc skips it. Mechanics
  * already applied server-side — this is purely cosmetic.
  */
-export const RollRevealOverlay = memo(function RollRevealOverlay() {
+export function RollRevealOverlay(){
+  return <FullRollRevealOverlay/>;
+}
+const FullRollRevealOverlay = memo(function FullRollRevealOverlay() {
+  const legacy=useLegacyMode(),{mode:diceMode}=useDiceRendering();
   const player = useStore(s => s.snapshot?.role === 'player');
   const [reducedMotion, setReducedMotion] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
   useEffect(() => {
@@ -156,7 +161,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const rollAnimations = useStore(s => s.showRollAnim);
   const preloadBusy = useStore(s => !!s.liveDice || !!s.rollFx);
   useEffect(() => {
-    if (!rollAnimations || reducedMotion || preloadBusy || !preloadContext) return;
+    if (legacy || diceMode==='2d' || !rollAnimations || reducedMotion || preloadBusy || !preloadContext) return;
     let cancelled = false;
     // Start as soon as the session loads, including the character chooser.
     // Yield UI paint and avoid starting another theme during an active roll.
@@ -172,10 +177,10 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
       }).catch(() => {});
     }, 0);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [preloadContext, preloadThemes, reducedMotion, rollAnimations, preloadBusy]);
+  }, [legacy,diceMode,preloadContext, preloadThemes, reducedMotion, rollAnimations, preloadBusy]);
   const preparationRoll=useStore(s=>s.rollFx?.backgroundPrepared&&!s.rollFx.impactReady?s.rollFx.rollId:'');
   useEffect(()=>{
-    if(!preparationRoll||!preloadContext||reducedMotion)return;
+    if(legacy||diceMode==='2d'||!preparationRoll||!preloadContext||reducedMotion)return;
     let cancelled=false;
     const timer=setTimeout(()=>{void import('../lib/diceTrayRenderer').then(async m=>{
       const canStart=()=>!cancelled&&!useStore.getState().liveDice&&useStore.getState().rollFx?.rollId===preparationRoll&&!useStore.getState().rollFx?.impactReady;
@@ -184,7 +189,7 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
       }
     }).catch(()=>{});},32);
     return()=>{cancelled=true;clearTimeout(timer);};
-  },[preparationRoll,preloadContext,preloadThemes,reducedMotion]);
+  },[legacy,diceMode,preparationRoll,preloadContext,preloadThemes,reducedMotion]);
   const liveDice = useStore(s=>s.liveDice);
   const resolvingDice = useStore(s=>s.resolvingDice);
   const rollFx = useStore((s) => s.rollFx);
@@ -193,12 +198,10 @@ export const RollRevealOverlay = memo(function RollRevealOverlay() {
   const staticReveal = reducedMotion || !!visibleRollFx?.reveal.physical;
   const dismiss = useStore((s) => s.dismissRollFx);
   const rollTheme = useStore(s => {
-    const name = s.rollFx?.reveal.attacker;
+    const frame = s.liveDice ?? s.rollFx?.tray;
     const roller = s.snapshot?.rollLog.find(r => r.id === s.rollFx?.rollId)?.roller;
-    const direct = s.snapshot?.characters.filter(c => c.name === name) ?? [];
-    const matches = direct.length ? direct : s.snapshot?.characters.filter(c => c.name === roller) ?? [];
-    const npc=s.snapshot?.monsters.find(m=>m.name===name||name?.startsWith(m.name+' ')||m.name===roller);
-    return diceThemeForRoll(matches.length===1?matches[0].className:'',!!npc||(!matches.length&&roller==='DM'),npc?.disposition);
+    return rollThemeForPresentation(frame,s.liveDice?.calculation??s.rollFx?.reveal,roller,
+      s.snapshot?.characters??[],s.snapshot?.monsters??[]);
   });
   const entrySide = useStore(s => {
     const roller = s.snapshot?.rollLog.find(r => r.id === s.rollFx?.rollId)?.roller;

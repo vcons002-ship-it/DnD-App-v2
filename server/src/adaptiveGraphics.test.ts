@@ -69,6 +69,14 @@ describe('sustained automatic rendering budgets',()=>{
     expect(climbs[0]).toBeGreaterThan(90000+10*60000-1000);
     expect(climbs[1]-climbs[0]).toBeGreaterThan(20*60000);
   });
+  it('downgrades severely struggling low-end hardware below 13 FPS and through >250ms frame hitches',()=>{
+    const auto=createAdaptiveGraphics('high');
+    const cost=(tier:string)=>tier==='high'?320:tier==='balanced'?110:22;
+    run(auto,100,8000,cost);
+    expect(auto.tier).toBe('balanced');
+    run(auto,8000,46000,cost);
+    expect(auto.tier).toBe('low');
+  });
 });
 
 describe('cached light visibility and doors',()=>{

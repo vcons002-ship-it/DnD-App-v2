@@ -12,6 +12,8 @@ import {
   type V3,
 } from '../../../shared/diceGeometry';
 import './three-die.css';
+import {useDiceRendering,reportDiceGraphicsFailure} from '../lib/useDiceRendering';
+import {useLegacyMode} from '../lib/useEnvironmentQuality';
 import { DICE_THEMES } from '../../../shared/diceThemes';
 export const DiceThemeContext = createContext(DICE_THEMES.neutral);
 
@@ -46,6 +48,7 @@ const MeshDie = memo(function MeshDie({
   percentileOnes,
   percentileValue,
   onSettled,
+  forceCanvas2d,
 }: {
   sides: number;
   value: number;
@@ -56,8 +59,10 @@ const MeshDie = memo(function MeshDie({
   percentileOnes?: boolean;
   percentileValue?: number;
   onSettled?: () => void;
+  forceCanvas2d?: boolean;
 }) {
   const theme = useContext(DiceThemeContext);
+  const {mode:preferredMode}=useDiceRendering(),legacy=useLegacyMode(),mode=forceCanvas2d?'2d':preferredMode;
   const movingResin = ['sorcerer','ranger','fighter'].includes(theme.id) || theme.id.startsWith('dm-') && !crit;
   const ref = useRef<HTMLCanvasElement>(null);
   const state = useRef({ value, rolling, percentileValue });
@@ -72,18 +77,18 @@ const MeshDie = memo(function MeshDie({
     if (!ctx) return;
     let materialDie: import('../lib/materialDice').MaterialDieHandle | undefined;
     let destroyed = false;
-    let materialPending = true;
-    canvas.dataset.material = 'loading';
-    void import('../lib/materialDice').then(({createMaterialDie}) => {
+    let materialPending = mode!=='2d';
+    canvas.dataset.material = mode==='2d'?'canvas2d':'loading';
+    if(mode!=='2d')void import('../lib/materialDice').then(({createMaterialDie}) => {
       if (destroyed) return;
       try { materialDie = createMaterialDie(sides,theme,!!crit,!!tens,!!percentileOnes); }
-      catch { canvas.dataset.material = 'fallback'; }
+      catch { canvas.dataset.material = 'canvas2d';reportDiceGraphicsFailure(); }
       materialPending = false;
       repaint.current?.();
     }).catch(() => {
       if (destroyed) return;
       materialPending = false;
-      canvas.dataset.material = 'fallback';
+      canvas.dataset.material = 'canvas2d';reportDiceGraphicsFailure();
       repaint.current?.();
     });
     const mesh = faceForwardMesh(dieMesh(sides)),
@@ -107,7 +112,7 @@ const MeshDie = memo(function MeshDie({
     let stopped = false;
     let reportedSettled = false;
     const size = Math.max(big ? 116 : 68, canvas.getBoundingClientRect().width);
-    const dpr = Math.min(Math.max(devicePixelRatio, 2), 3);
+    const dpr = legacy?1:Math.min(Math.max(devicePixelRatio, 2), 3);
     canvas.width = size * dpr;
     canvas.height = size * dpr;
     const draw = (now: number) => {
@@ -324,7 +329,7 @@ const MeshDie = memo(function MeshDie({
       document.removeEventListener('visibilitychange', restart);
       reduced.removeEventListener('change', restart);
     };
-  }, [sides, big, crit, tens, percentileOnes, theme]);
+  }, [sides, big, crit, tens, percentileOnes, theme,mode,legacy]);
   // Start landing on the prop update, not on a separate 100ms polling clock.
   useEffect(() => { repaint.current?.(); }, [value, rolling]);
   return (
@@ -348,6 +353,8 @@ export function ThreeDie(props: {
   rolling?: boolean;
   crit?: boolean;
   onSettled?: () => void;
+  percentilePart?: 'tens'|'ones';
+  forceCanvas2d?: boolean;
 }) {
   const landed = useRef(new Set<string>());
   if (props.rolling) landed.current.clear();
@@ -367,5 +374,5 @@ export function ThreeDie(props: {
       </span>
     );
   }
-  return <MeshDie {...props} />;
+  return <MeshDie {...props} tens={props.percentilePart==='tens'} percentileOnes={props.percentilePart==='ones'} />;
 }

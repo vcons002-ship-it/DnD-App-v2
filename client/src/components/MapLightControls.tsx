@@ -1,5 +1,5 @@
 import type {MapState} from '../../../shared/types';
-import {DEFAULT_MAP_ENVIRONMENT,mapLightColorHex,sanitizeMapLightColor,type MapLightColor,type MapEnvironment} from '../../../shared/mapEnvironment';
+import {DEFAULT_MAP_ENVIRONMENT,newMapLightSettings,mapLightColorHex,sanitizeMapLightColor,type MapLightDefaults,type MapLightColor,type MapEnvironment} from '../../../shared/mapEnvironment';
 import {useStore} from '../state/socket';
 import {useEnvironmentEditor} from '../lib/useEnvironmentEditor';
 import {SettingSlider} from './MapSettingSlider';
@@ -18,9 +18,18 @@ export function MapLightControls({map,onPlace}:{map:MapState;onPlace:(lightId?:s
   const save=useStore(s=>s.setMapEnvironment);
   const {placement,place}=useEnvironmentEditor();
   const update=(patch:Partial<MapEnvironment>)=>save(map.id,patch);
+  const defaults=newMapLightSettings(settings);
+  const updateDefaults=(patch:Partial<MapLightDefaults>)=>update({newLightDefaults:patch});
   return <div className="map-light-controls">
+        <strong>New light settings</strong>
         <LightColorControl label="New light color" caption="New light color" color={settings.newLightColor??'warm'} onChange={color=>update({newLightColor:color})}/>
-        <small>Used for new lights on this map. Changing a light's color also selects it for your next placement.</small>
+        <SettingSlider label="New light lit radius" value={defaults.radiusFt} min={3} max={60} suffix=" ft" onCommit={radiusFt=>updateDefaults({radiusFt})}/>
+        <SettingSlider label="New light height" value={defaults.heightFt} min={.5} max={30} step={.5} suffix=" ft" onCommit={heightFt=>updateDefaults({heightFt})}/>
+        <SettingSlider label="New light strength" value={defaults.intensity*100} min={10} max={200} suffix="%" onCommit={v=>updateDefaults({intensity:v/100})}/>
+        <label className="environment-toggle"><input aria-label="New light gentle flicker" type="checkbox" checked={defaults.flicker} onChange={e=>updateDefaults({flicker:e.target.checked})}/>Gentle flicker</label>
+        <label>Model <select aria-label="New light model" value={defaults.fixture} onChange={e=>updateDefaults({fixture:e.target.value as 'torch'|'lantern'})}><option value="torch">Torch</option><option value="lantern">Lantern</option></select></label>
+        <label className="environment-toggle"><input aria-label="New light show 3D fixture" type="checkbox" checked={!!defaults.visibleTorch} onChange={e=>updateDefaults({visibleTorch:e.target.checked})}/>Show 3D fixture</label>
+        <small>Saved for every new light on this map. Click repeatedly to add lights; press Escape or Done to finish.</small>
         {placement?.mapId===map.id?<button className="btn tiny" onClick={()=>place(null)}>Cancel light placement</button>:<button className="btn tiny" onClick={()=>onPlace()}>Place light on map</button>}
         <div className="environment-light-list">{settings.lights.map((light,index)=>{
           const edit=(patch:Partial<typeof light>)=>update({lights:settings.lights.map(l=>l.id===light.id?{...l,...patch}:l)});

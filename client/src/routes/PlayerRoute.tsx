@@ -1,3 +1,4 @@
+import {LegacyModeControl} from '../components/LegacyModeControl';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStore, loadSavedSession } from '../state/socket';
@@ -40,6 +41,7 @@ export function PlayerRoute() {
 
   return (
     <div className="entry">
+      <LegacyModeControl/>
       <h1>Join Game</h1>
       <p>Enter the session code your DM shared.</p>
       <input

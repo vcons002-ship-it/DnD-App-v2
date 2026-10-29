@@ -24,7 +24,7 @@ async function fixture(page:Page,request:APIRequestContext){
   await route.fulfill({json:{version:1,id:'browser-arches',source,maskImagePath:map.imagePath,arches:[{id:'ai-arch-1',kind:'rectangle',ax:250,ay:250,bx:450,by:290}],uncertain:[{id:'uncertain-arch-1',kind:'rectangle',ax:600,ay:250,bx:700,by:290}]}});
  });
  await page.setViewportSize({width:1440,height:1000});await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
- await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'AI analysis',exact:true}).click();await page.getByRole('button',{name:'Suggest arches / overpasses',exact:true}).click();
+ await page.getByRole('button',{name:'Map features',exact:true}).click();await page.getByRole('button',{name:'AI analysis',exact:true}).click();await page.getByRole('button',{name:'Suggest arches / overpasses',exact:true}).click();
  const options=page.getByRole('dialog',{name:'Map analysis options'});await expect(options.getByRole('checkbox',{name:'Arches / overpasses',exact:true})).toBeChecked();await expect(options.getByRole('checkbox',{name:'Walls',exact:true})).not.toBeChecked();expect(calls).toBe(0);
  await options.getByRole('button',{name:'Analyze selected features',exact:true}).click();
  const review=page.getByRole('dialog',{name:'Map setup draft'});await expect(review.getByLabel('Arch / overpass 1',{exact:true})).toBeChecked();expect(automatic).toBe(false);
@@ -36,7 +36,7 @@ test('arch review applies only confirmed spans; normal editing deletes the arch 
  await f.review.getByRole('button',{name:'Apply selected setup',exact:true}).click();await expect(f.review).toBeHidden();
  const saved=(await f.snapshot()).map.walls;expect(saved).toHaveLength(2);expect(saved.filter((w:any)=>w.arch)).toHaveLength(1);expect(hasLineOfSight({x:350,y:200},{x:350,y:350},saved)).toBe(true);
  await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();await page.getByRole('button',{name:'Fit',exact:true}).click();await page.waitForTimeout(400);
- await page.getByRole('button',{name:'Walls',exact:true}).click();await page.getByRole('button',{name:'Adjust existing walls, doors, windows & lights',exact:true}).click();
+ await page.getByRole('button',{name:'Map features',exact:true}).click();await page.getByRole('button',{name:'Adjust existing walls, doors, windows & lights',exact:true}).click();
  const p=await page.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),token=stage.find('.token')[0],p=token.getParent().getAbsoluteTransform().point({x:350,y:270}),r=stage.getContent().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};});
  await page.mouse.click(p.x,p.y);await expect(page.getByTestId('delete-map-features')).toHaveText('Delete 1 selected');await page.keyboard.press('Delete');
  await expect.poll(async()=>((await f.snapshot()).map.walls.length)).toBe(1);expect(hasLineOfSight({x:350,y:200},{x:350,y:350},(await f.snapshot()).map.walls)).toBe(false);

@@ -1,10 +1,11 @@
 import {CanvasTexture,DoubleSide,Mesh,MeshBasicMaterial,PlaneGeometry,Scene,SRGBColorSpace,type DepthTexture,type Vector2} from 'three';
 import type {MiniatureNameLabel} from './miniatureNameLabels';
 
-/** Glyph pixels share the miniature depth mask. Covered strokes remain faint;
- * uncovered strokes retain their full opacity, even within the same letter. */
+/** Name and health HUD pixels share the miniature depth mask. Covered pixels
+ * remain faint; uncovered pixels retain their full opacity. */
 export function createMiniatureNameLayer(scene:Scene,depth:DepthTexture,resolution:{value:Vector2}) {
-  const labels=new Map<string,{mesh:Mesh<PlaneGeometry,MeshBasicMaterial>;texture:CanvasTexture;canvas:HTMLCanvasElement;covered:{value:number}}>();
+  const labels=new Map<string,{mesh:Mesh<PlaneGeometry,MeshBasicMaterial>;texture:CanvasTexture;canvas:HTMLCanvasElement;covered:{value:number};points:number[]}>();
+  let textureUpdates=0,positionUpdates=0;
   const remove=(id:string)=>{
     const entry=labels.get(id);if(!entry)return;
     scene.remove(entry.mesh);entry.mesh.geometry.dispose();entry.mesh.material.dispose();entry.texture.dispose();labels.delete(id);
@@ -32,21 +33,27 @@ export function createMiniatureNameLayer(scene:Scene,depth:DepthTexture,resoluti
           material.customProgramCacheKey=()=> 'miniature-name-depth-v1';
           const mesh=new Mesh(new PlaneGeometry(1,1),material);
           mesh.name='miniature-name';mesh.renderOrder=10000;mesh.frustumCulled=false;mesh.raycast=()=>{};
-          scene.add(mesh);entry={mesh,texture,canvas:label.canvas,covered};labels.set(label.id,entry);
+          scene.add(mesh);entry={mesh,texture,canvas:label.canvas,covered,points:[]};labels.set(label.id,entry);textureUpdates++;
         }
         if(entry.canvas!==label.canvas){
           entry.texture.dispose();entry.texture=new CanvasTexture(label.canvas);entry.texture.colorSpace=SRGBColorSpace;
-          entry.canvas=label.canvas;entry.mesh.material.map=entry.texture;
+          entry.canvas=label.canvas;entry.mesh.material.map=entry.texture;textureUpdates++;
         }
         entry.covered.value=label.emphasized?1:.22;
         entry.mesh.layers.set(shared.has(label.id)?4:0);
         entry.mesh.material.opacity=label.opacity;
         const position=entry.mesh.geometry.getAttribute('position');
-        label.points.forEach((p,i)=>position.setXYZ(i,p.x,0,p.y));position.needsUpdate=true;
+        // Keep exact map-space points separately from the Float32 GPU buffer.
+        // Stationary labels need no geometry upload during lighting animation.
+        if(label.points.some((p,i)=>entry!.points[i*2]!==p.x||entry!.points[i*2+1]!==p.y)){
+          label.points.forEach((p,i)=>{position.setXYZ(i,p.x,0,p.y);entry!.points[i*2]=p.x;entry!.points[i*2+1]=p.y;});
+          position.needsUpdate=true;positionUpdates++;
+        }
       }
       for(const id of labels.keys())if(!rendered.has(id))remove(id);
       return rendered;
     },
     dispose(){for(const id of labels.keys())remove(id);},
+    get state(){return {nameTextureUpdates:textureUpdates,namePositionUpdates:positionUpdates};},
   };
 }

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import type { Character, StateSnapshot } from '../../../shared/types';
+import { memo,useEffect, useRef, useState } from 'react';
+import type { Character } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { LiquidOrb } from './LiquidOrb';
 import { TemporaryHpShield } from './TemporaryHpShield';
@@ -43,7 +43,6 @@ function CharacterWindow({
   character,
   overflowCustomResources,
   onCustomResourceVisibilityChange,
-  snapshot,
   tab,
   setTab,
   onClose,
@@ -52,13 +51,13 @@ function CharacterWindow({
   character: Character;
   overflowCustomResources: readonly string[];
   onCustomResourceVisibilityChange: (name: string, show: boolean) => void;
-  snapshot: StateSnapshot;
   tab: WindowTab;
   setTab: (tab: WindowTab) => void;
   onClose: () => void;
   onRelease: () => void;
 }) {
   const updateCharacter = useStore((s) => s.updateCharacter);
+  const snapshot=useStore(s=>s.snapshot);
   const classSummary = multiclassClassSummary(character);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -66,6 +65,7 @@ function CharacterWindow({
     el?.showModal();
     return () => el?.close();
   }, []);
+  if(!snapshot)return null;
   return (
     <dialog
       className="character-window fantasy-window"
@@ -143,8 +143,9 @@ function CharacterWindow({
           <>
             <h3>Spells & abilities</h3>
             <p className="muted">
-              Manage and read abilities here. The combat panel retains every
-              spell, mastery, maneuver and roll control. Saved spell text may
+              Use Cast beside a spell to choose its slot and targets. Nothing is
+              spent while browsing or choosing options. The combat panel also
+              has direct Cast buttons and the controls for masteries and maneuvers. Saved spell text may
               use 2014, 2024 or custom rules; check each description. No saved
               entries are converted.
             </p>
@@ -193,10 +194,9 @@ function CharacterWindow({
   );
 }
 
-export function PlayerHud({
+function PlayerHudInner({
   character,
   resourceLayout,
-  snapshot,
   placing,
   isPlaced,
   onPlace,
@@ -204,7 +204,6 @@ export function PlayerHud({
 }: {
   character: Character;
   resourceLayout: ResourceLayout;
-  snapshot: StateSnapshot;
   placing: boolean;
   isPlaced: boolean;
   onPlace: () => void;
@@ -384,7 +383,6 @@ export function PlayerHud({
           character={character}
           overflowCustomResources={overflowCustomResources}
           onCustomResourceVisibilityChange={setCustomResourceVisibility}
-          snapshot={snapshot}
           tab={windowTab}
           setTab={setWindowTab}
           onClose={() => setWindowTab(null)}
@@ -397,3 +395,4 @@ export function PlayerHud({
     </div>
   );
 }
+export const PlayerHud=memo(PlayerHudInner);

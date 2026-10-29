@@ -3,7 +3,7 @@ import {useMemo,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {MapState} from '../../../shared/types';
 import type {MapSetupDrafts,MapSetupSelection,MapSetupStep} from '../../../shared/mapSetupDraft';
-import {draftWallShape} from '../../../shared/mapGeometryDraft';
+import {draftWallShape,type WallAnalysisPass} from '../../../shared/mapGeometryDraft';
 import {fitDoorMarker} from '../../../shared/doorMaskFit';
 import {wallSvgPath} from '../../../shared/wallGeometry';
 import {apiFetch} from '../lib/api';
@@ -28,16 +28,19 @@ export function MapSetupDraft({map,onClose,scope='full',only}:{map:MapState;onCl
   const [tab,setTab]=useState<MapSetupStep>(only??'walls'),[mask,setMask]=useState(false),[applying,setApplying]=useState(false),[error,setError]=useState('');
   const [wallMaskStage,setWallMaskStage]=useState('combined');
   const [started,setStarted]=useState(false),[enabled,setEnabled]=useState<Record<MapSetupStep,boolean>>(()=>({walls:!only||only==='walls',doors:!only||only==='doors',windows:!only||only==='windows',lights:!only||only==='lights',arches:only==='arches'}));
-  const [naturalBoundaries,setNaturalBoundaries]=useState(true),[regions,setRegions]=useState<MapAnalysisRegion[]>([]);
+  const [wallPass,setWallPass]=useState<WallAnalysisPass>('both'),[regions,setRegions]=useState<MapAnalysisRegion[]>([]);
   const running=started&&steps.some(s=>enabled[s]&&(progress[s].state==='running'||progress[s].state==='waiting')),busy=running||applying;
   const runStep=async(step:MapSetupStep,automatic=false)=>{
     setProgress(old=>({...old,[step]:{state:'running'}}));setError('');
     setDrafts(old=>({...old,[step]:undefined}));setSelected(old=>({...old,[step]:[]}));
     try{
       const regionOptions=scope==='regions'?{regions}:{};
-      const response=await apiFetch(`/api/maps/${map.id}/${endpoints[step]}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(step==='walls'?{automatic,method:'ai',options:{naturalBoundaries,...regionOptions}}:{automatic,...regionOptions})});
+      const naturalOnly=step==='walls'&&wallPass==='natural';
+      const response=await apiFetch(`/api/maps/${map.id}/${naturalOnly?'natural-boundary-draft':endpoints[step]}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(step==='walls'?{automatic:automatic&&wallPass!=='natural',method:'ai',options:{naturalBoundaries:wallPass!=='structural',...(wallPass==='natural'?{structuralWalls:false}:{}),...regionOptions}}:{automatic,...regionOptions})});
+      if(naturalOnly&&response.status===404)throw Error('Natural boundaries only requires the pending server update. No structural-wall analysis was requested.');
       const data=await response.json();if(!response.ok)throw Error(data.error||`${names[step]} analysis failed.`);
       setDrafts(old=>({...old,[step]:data}));
+      if(step==='walls')setWallMaskStage('combined');
       const ids=step==='walls'?data.items.filter((i:{kind:string;confidence:number})=>i.kind==='wall'&&i.confidence>=.75):step==='doors'?data.doors:step==='windows'?data.windows:step==='arches'?data.arches:data.lights;
       setSelected(old=>({...old,[step]:ids.map((i:{id:string})=>i.id)}));
       setProgress(old=>({...old,[step]:{state:data.qwenChecks?.length&&data.qwenChecks.every((c:{allowed:boolean})=>!c.allowed)?'skipped':'ready'}}));
@@ -91,7 +94,7 @@ export function MapSetupDraft({map,onClose,scope='full',only}:{map:MapState;onCl
     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><strong>{scope==='regions'?'Analyze selected regions':'Analyze full map'} - {map.name}</strong><button className="btn" onClick={onClose}>Close</button></div>
     {analysis.loading&&<small role="status">Preparing the assembled map and image tiles...</small>}{analysis.error&&<p role="alert">{analysis.error}</p>}{!analysis.loading&&!analysis.error&&<small>{analysis.source?.tileCount??0} image tiles included</small>}<p style={{margin:0}}>Choose what to generate before starting. Unchecked features make no API requests. Automatic analysis uses local Qwen to skip absent features; individual retries bypass Qwen. Review all suggestions before applying.</p>
     <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>{steps.map(s=><label key={s}><input type="checkbox" checked={enabled[s]} onChange={e=>setEnabled(old=>({...old,[s]:e.target.checked}))}/>{names[s]}</label>)}
-      <label><input type="checkbox" checked={naturalBoundaries} disabled={!enabled.walls} onChange={e=>setNaturalBoundaries(e.target.checked)}/>Cave boundaries (second wall pass)</label>
+      <label>Wall analysis <select aria-label="Wall analysis" value={wallPass} disabled={!enabled.walls} onChange={e=>setWallPass(e.target.value as WallAnalysisPass)}><option value="both">Structural walls and natural boundaries</option><option value="structural">Structural walls only</option><option value="natural">Natural boundaries only</option></select></label>
     </div>
     {!enabled.walls&&(enabled.doors||enabled.windows||enabled.arches)&&<p style={{margin:0,color:'#ffd39a'}}>Doors, windows and arches will fit to existing walls. Add walls first if this map has none.</p>}
     <div style={{flex:1,minHeight:0,overflow:'auto'}}>{!analysis.loading&&!analysis.error&&(scope==='regions'?<MapAnalysisRegionPicker image={analysis.imagePath!} regions={regions} onChange={setRegions}/>:<img src={analysis.imagePath!} alt="Map to analyze" style={{display:'block',maxWidth:'100%',maxHeight:'100%',margin:'auto'}}/>)}</div>
@@ -99,7 +102,7 @@ export function MapSetupDraft({map,onClose,scope='full',only}:{map:MapState;onCl
   </div>,document.body);
   return createPortal(<div role="dialog" aria-modal="true" aria-label="Map setup draft" style={{position:'fixed',inset:16,zIndex:1100,background:'#131820',border:'1px solid #aa8550',borderRadius:8,padding:16,display:'flex',flexDirection:'column',gap:10,boxShadow:'0 0 0 100vmax #000b'}}>
     <div style={{display:'flex',justifyContent:'space-between',gap:12}}><strong>Map features - {map.name}</strong><button className="btn" disabled={busy} onClick={onClose}>Close</button></div>
-    <p style={{margin:0}}>Separate wall, door, window, arch and light workflows. Arches keep their side supports blocked and allow movement and sight through the center. Their original artwork fades over figures passing underneath. Windows let sight and light through but block movement. Deselect mistaken windows here, or remove them afterward in the Walls menu.</p>
+    <p style={{margin:0}}>Separate wall, door, window, arch and light workflows. Arches keep their side supports blocked and allow movement and sight through the center. Their original artwork fades over figures passing underneath. Windows let sight and light through but block movement. Deselect mistaken windows here, or remove them afterward in the Map features menu.</p>
     <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{steps.map(step=><button key={step} className={`btn ${tab===step?'on':''}`} aria-label={`${names[step]} draft`} aria-pressed={tab===step} onClick={()=>setTab(step)}>{names[step]}: {progress[step].state==='ready'?`${counts[step]} found`:progress[step].state==='error'?'Needs attention':progress[step].state==='skipped'?'Skipped':progress[step].state==='running'?'Analyzing...':'Starting...'}</button>)}</div>
     <div role="status">{applying?'Saving selected map features...':running?'Analyzing the map. Completed results appear below while the other masks finish.':'Review complete masks below. Doors and windows fit to your selected walls; lights use the existing map art.'}</div>
     {steps.filter(s=>progress[s].state==='error').map(step=><div key={step} role="alert" style={{color:'#ffd39a'}}>{names[step]}: {progress[step].error} <button className="btn tiny" disabled={busy} onClick={()=>void runStep(step)}>Retry {names[step].toLowerCase()}</button></div>)}
@@ -115,7 +118,7 @@ export function MapSetupDraft({map,onClose,scope='full',only}:{map:MapState;onCl
       <button className="btn" disabled={busy} onClick={()=>setStarted(false)}>Change analysis options</button>
       <button className="btn" disabled={busy||!drafts[tab]} onClick={()=>setSelected(old=>({...old,[tab]:[]}))}>Deselect {tab}</button>
       <label><input type="checkbox" disabled={!drafts[tab]?.maskImagePath} checked={mask} onChange={e=>setMask(e.target.checked)}/>Show {tab} mask</label>
-      {mask&&tab==='walls'&&drafts.walls?.wallMaskImagePath&&<label>Mask view <select aria-label="Wall mask stage" value={wallMaskStage} onChange={e=>setWallMaskStage(e.target.value)}><option value="combined">Combined mask used for walls</option><option value="walls">Pass 1: structural walls (raw API)</option>{drafts.walls.naturalMaskImagePath&&<option value="natural">Pass 2: natural boundaries (raw API)</option>}</select></label>}
+      {mask&&tab==='walls'&&(drafts.walls?.wallMaskImagePath||drafts.walls?.naturalMaskImagePath)&&<label>Mask view <select aria-label="Wall mask stage" value={wallMaskStage} onChange={e=>setWallMaskStage(e.target.value)}><option value="combined">Mask used for walls</option>{drafts.walls.wallMaskImagePath&&<option value="walls">Structural walls (raw API)</option>}{drafts.walls.naturalMaskImagePath&&<option value="natural">Natural boundaries (raw API)</option>}</select></label>}
     </div>
     <p className="muted" style={{margin:0}}>{tab==='walls'?'Check wall alignment and keep real passages open. Deselecting a wall updates opening fitting.':tab==='doors'?'Check that each suggestion is a real door. Doors without both adjoining walls are skipped. Applied doors start closed and unlocked.':tab==='arches'?'Magenta spans can be applied. Orange spans are uncertain and remain review-only. Removing an applied arch restores the original wall blocking.':tab==='windows'?'Check each blue opening. Remove false positives individually; removing a window restores the opaque wall.':'Check emitter positions. Lights start warm, with a 20 ft radius, gentle flicker and no added 3D fixture.'}</p>
     <div style={{display:'flex',gap:16,flex:1,minHeight:0,overflow:'auto',flexWrap:'wrap'}}>

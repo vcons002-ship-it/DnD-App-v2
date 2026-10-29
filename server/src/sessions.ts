@@ -352,19 +352,24 @@ export function paintFog(
   layer: FogLayer,
   cells: string[],
   reveal: boolean,
-): void {
-  const map = getMap(mapId);
-  if (!map) return;
-  const current =
-    layer === 'map' ? map.mapFogRevealed : map.tokenFogRevealed;
-  const set = new Set(current);
+): boolean {
+  const column=FOG_COLS[layer]?.revealed;
+  if(!column)return false;
+  // Brush batches only need this column, not a complete decoded map.
+  const row=db.prepare(`SELECT ${column} AS cells FROM maps WHERE id=?`).get(mapId) as {cells:string}|undefined;
+  if(!row)return false;
+  const set = new Set<string>(JSON.parse(row.cells));
+  let changed=false;
   for (const c of cells) {
-    if (reveal) set.add(c);
-    else set.delete(c);
+    if(typeof c!=='string'||!/^[-]?\d+,[-]?\d+$/.test(c))continue;
+    if (reveal) {if(!set.has(c)){set.add(c);changed=true;}}
+    else if(set.delete(c))changed=true;
   }
+  if(!changed)return false;
   db.prepare(
     `UPDATE maps SET ${FOG_COLS[layer].revealed} = ? WHERE id = ?`,
   ).run(JSON.stringify([...set]), mapId);
+  return true;
 }
 
 /** Re-cover the entire map on one fog layer (clear that layer's revealed cells). */

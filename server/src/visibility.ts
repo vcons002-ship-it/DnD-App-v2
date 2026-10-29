@@ -5,7 +5,7 @@ import {heldCasts,eligibleCounterspellers} from './counterspell.js';
 import {doorApproachPoints} from '../../shared/mapWalls.js';
 import {chatForViewer} from './privateChat.js';
 import {activeMarks} from './marks.js';
-import {rememberTerrain,rememberFigures} from './exploration.js';
+import {rememberTerrain,rememberFigures,explorationGeneration} from './exploration.js';
 import {createPlayerVision,visionContains,fogVisionContains,usesMapVision,usesTokenVision} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
@@ -241,6 +241,7 @@ type MapData = {
  */
 export function createSnapshotBuilder(
   sessionId: string,
+  preview?:{positions:ReadonlyMap<string,{x:number;y:number}>;owned:ReadonlySet<string>},
 ):
   | ((
       role: Role,
@@ -375,21 +376,22 @@ export function createSnapshotBuilder(
       (wantId ? mapById.get(wantId) : null) ??
       (role === 'dm' && activeMapId ? mapById.get(activeMapId) : null) ??
       null;
-    const data: MapData = map
+    const loaded: MapData = map
       ? loadMapData(map.id)
       : { tokens: [], measurements: [], annotations: [], mapImages: [] };
+    const data=preview?{...loaded,tokens:loaded.tokens.map(t=>preview.positions.has(t.id)?{...t,...preview.positions.get(t.id)!}:t)}:loaded;
 
-    const owned=partyPreview?new Set(data.tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId)):new Set(characters.filter(c=>c.claimedBy===socketId||(!!playerId&&!c.claimedBy&&c.ownerId===playerId)).map(c=>c.id));
+    const owned=preview?new Set(preview.owned):partyPreview?new Set(data.tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId)):new Set(characters.filter(c=>c.claimedBy===socketId||(!!playerId&&!c.claimedBy&&c.ownerId===playerId)).map(c=>c.id));
     const lightMapFog=map?.mapFogEnabled?new Set(map.mapFogRevealed):null;
     const lightTokenFog=map?.tokenFogEnabled?new Set(map.tokenFogRevealed):null;
     const playerVision=role==='dm'?undefined:createPlayerVision(map,data.tokens,owned,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc'&&owned.has(t.refId),foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
       mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}));
     let viewerTerrain=exploredTerrain;
-    if(role==='player'&&map){
+    if(role==='player'&&map&&!preview){
       const terrain=()=>rememberTerrain(map!,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
-      mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}),partyPreview);
+      mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}),partyPreview||!!preview);
       viewerTerrain=partyPreview?terrain():(exploredTerrain??=terrain());
     }
     let tokens = data.tokens;
@@ -412,7 +414,7 @@ export function createSnapshotBuilder(
         lights:map.environment.lights.filter(light=>mapFog.has(`${Math.floor(light.x/grid)},${Math.floor(light.y/grid)}`))}};
       const manualVisible=(t:Token)=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y});
       const partySees=(t:Token)=>manualVisible(t)&&fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&party.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
-      const remembered=map?rememberFigures(map,data.mapImages,data.tokens,partySees,(x,y)=>fogVisionContains(partyVision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?toPlayerMonster(m):undefined;},partyPreview):[];
+      const remembered=map?rememberFigures(map,data.mapImages,data.tokens,partySees,(x,y)=>fogVisionContains(partyVision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?toPlayerMonster(m):undefined;},partyPreview||!!preview):[];
       const rememberedById=new Map(remembered.map(r=>[r.token.id,r]));
       const retainedDisplays=new Map<string,MonsterPublic>();
       tokens = tokens.flatMap(t => {
@@ -547,7 +549,7 @@ export function createSnapshotBuilder(
     const snapshot:StateSnapshot = {
       role,
       ...(playerVision?{playerVision}:{}),
-      ...(role==='player'?{exploredTerrain:viewerTerrain??[]}:{}),
+      ...(role==='player'?{exploredTerrain:viewerTerrain??[],explorationEpoch:map?explorationGeneration(map.id):0}:{}),
       initiativePending: session.initiativePending,
       counterspellCasts:heldCasts(sessionId).flatMap(c=>{
         const caster=data.tokens.find(t=>t.id===c.casterTokenId),mine=!!caster&&caster.kind==='pc'&&owned.has(caster.refId);
@@ -601,7 +603,7 @@ export function createSnapshotBuilder(
     };
     if(role==='dm'&&includePartyView){
       const party=forViewer('player',map?.id,undefined,undefined,false,true);
-      snapshot.partyView={map:party.map,tokens:party.tokens,monsters:party.monsters,playerVision:party.playerVision,exploredTerrain:party.exploredTerrain};
+      snapshot.partyView={map:party.map,tokens:party.tokens,monsters:party.monsters,playerVision:party.playerVision,exploredTerrain:party.exploredTerrain,explorationEpoch:party.explorationEpoch};
     }
     return snapshot;
   };

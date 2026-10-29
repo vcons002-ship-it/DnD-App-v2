@@ -1,0 +1,101 @@
+import {afterEach,it,expect,vi} from 'vitest';
+import sharp from 'sharp';
+import {effectiveServerRendering} from '../../shared/serverRendering.js';
+import {legacyMaskSvg} from '../../shared/legacyMaskSvg.js';
+import {changeRenderingPolicy,renderingState} from './renderingPolicy.js';
+import {createSession,createMap,setActiveMap,getSessionByCode,listMaps} from './sessions.js';
+import {exportSession,importSession} from './backup.js';
+import {renderAssetFor,rasterAsset,resetRenderAssets} from './renderAssets.js';
+import {visibilityWorkers} from './visibilityWorkers.js';
+import {tokenSprites} from './tokenSprites.js';
+import {registerSocketHandlers} from './socketHandlers.js';
+import {setConn,dropConn,type IOServer} from './connections.js';
+import type {StateSnapshot} from '../../shared/types.js';
+import {renderedSnapshot} from './renderedSnapshot.js';
+import {applySnapshotDelta,diffSnapshot} from '../../shared/stateDelta.js';
+import {wallVisibilityPolygon,SIGHT_EXTENT} from '../../shared/mapWalls.js';
+afterEach(async()=>{dropConn('policy-player');resetRenderAssets('viewer');resetRenderAssets('other');await visibilityWorkers.close();});
+it('defaults to on, preserves choice, and enforces board before individual overrides',()=>{
+ expect(effectiveServerRendering(true,'inherit','inherit')).toEqual({enabled:true});
+ expect(effectiveServerRendering(false,'inherit','inherit')).toEqual({enabled:false});
+ expect(effectiveServerRendering(false,'inherit','on')).toEqual({enabled:true,forcedBy:'player'});
+ expect(effectiveServerRendering(true,'off','on')).toEqual({enabled:false,forcedBy:'board'});
+ const s=createSession('Rendering policy'),map=createMap(s.id,{name:'Room'}),foreign=createMap(createSession('Foreign policy').id,{name:'Other'});
+ expect(changeRenderingPolicy(s.id,{mapId:foreign.id,value:'off'})).toBe(false);
+ expect(changeRenderingPolicy(s.id,{mapId:map.id,playerId:'p',value:'off'})).toBe(false);
+ changeRenderingPolicy(s.id,{playerId:'p',value:'on'});changeRenderingPolicy(s.id,{mapId:map.id,value:'off'});
+ expect(renderingState(s.id,map.id,'p',false)).toMatchObject({enabled:false,forcedBy:'board'});
+ changeRenderingPolicy(s.id,{mapId:map.id,value:'inherit'});
+ expect(renderingState(s.id,map.id,'p',false)).toMatchObject({enabled:true,forcedBy:'player'});
+});
+it('backs up durable choices and remaps the board without changing the original campaign',()=>{
+ const s=createSession('Policy backup'),map=createMap(s.id,{name:'Room'});setActiveMap(s.id,map.id);
+ changeRenderingPolicy(s.id,{mapId:map.id,value:'off'});changeRenderingPolicy(s.id,{playerId:'browser',value:'on'});
+ const restored=getSessionByCode(importSession(exportSession(s.code)!).code)!;
+ expect(renderingState(restored.id,listMaps(restored.id)[0].id,'browser')).toMatchObject({board:'off',player:'on',enabled:false});
+ expect(renderingState(s.id,map.id,'browser').board).toBe('off');
+});
+it('player policy packets cannot override owner settings',async()=>{
+ const s=createSession('Policy auth'),map=createMap(s.id,{name:'Room'});setActiveMap(s.id,map.id);
+ changeRenderingPolicy(s.id,{mapId:map.id,value:'on'});
+ let connect!:(socket:any)=>void;
+ const io={on:(_:string,handler:typeof connect)=>connect=handler,to:()=>({emit:vi.fn()})};
+ registerSocketHandlers(io as unknown as IOServer,{livePhysics:false});
+ const handlers=new Map<string,(...args:any[])=>unknown>();
+ connect({id:'policy-player',connected:true,on:(event:string,fn:(...args:any[])=>unknown)=>handlers.set(event,fn),emit:vi.fn()});
+ setConn('policy-player',{sessionId:s.id,viewMapId:map.id,role:'player',playerId:'browser',serverRendering:true});
+ await handlers.get('rendering:policy')!({mapId:map.id,value:'off'});
+ await handlers.get('client:serverRendering')!(false);
+ expect(renderingState(s.id,map.id,'browser',false)).toMatchObject({enabled:true,forcedBy:'board'});
+});
+it('rasterizes visibility in workers with transparent current sight, dim memory and opaque unseen floor',async()=>{
+ const g={sight:['M0 0H20V40H0Z'],near:[],lights:[],memory:['M20 0H40V40H20Z'],affinity:[]};
+ const asset=await rasterAsset('viewer',legacyMaskSvg(g,{width:60,height:40,x:0,y:0,scale:1,wallFog:true,heavy:false,daylight:true,keepRevealed:false}),{width:60,height:40,x:0,y:0,scale:1});
+ expect(renderAssetFor('other',asset.key)).toBeUndefined();
+ const {data,info}=await sharp(renderAssetFor('viewer',asset.key)!).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+ const alpha=(x:number)=>data[(10*info.width+x)*4+3];
+ expect(alpha(10)).toBe(0);expect(alpha(30)).toBeGreaterThan(50);expect(alpha(30)).toBeLessThan(200);expect(alpha(50)).toBe(255);
+ resetRenderAssets('viewer');expect(renderAssetFor('viewer',asset.key)).toBeUndefined();
+});
+it('caches appearance across movement and keeps private HP out of player sprites',async()=>{
+ const map={id:'map',gridSizePx:50,feetPerSquare:5};
+ const base={map,characters:[],tokens:[{id:'t',kind:'monster',refId:'m',widthFt:5,x:20,y:20}],monsters:[{id:'m',name:'Enemy',conditions:[],disposition:'enemy',icon:'G',dead:false}]} as unknown as StateSnapshot;
+ const a=await tokenSprites('viewer',base),b=await tokenSprites('other',{...base,tokens:[{...base.tokens[0],x:100,y:50}]});
+ expect(a.t).toEqual(b.t);expect(renderAssetFor('other',a.t.body.key)).toBeDefined();
+ const dm=await tokenSprites('viewer',{...base,monsters:[{...base.monsters[0],curHp:7,maxHp:20} as any]});
+ expect(dm.t.body.key).toBe(a.t.body.key);expect(dm.t.hud.key).not.toBe(a.t.hud.key);
+ const dead=await tokenSprites('viewer',{...base,monsters:[{...base.monsters[0],dead:true} as any]});expect(dead.t.hud.key).not.toBe(a.t.hud.key);
+});
+it('prepares reusable shared-sight grayscale body pixels while retaining the ordinary HUD and alpha',async()=>{
+ const s={map:{id:'dark',gridSizePx:50,feetPerSquare:5},characters:[],tokens:[{id:'g',kind:'monster',refId:'g',widthFt:5,x:100,y:100,sharedSightOnly:true}],monsters:[{id:'g',name:'Goblin',conditions:[],disposition:'enemy',icon:'G',dead:false}],playerVision:{heavy:true}} as unknown as StateSnapshot;
+ const normal=await tokenSprites('viewer',{...s,playerVision:{...s.playerVision!,heavy:false}},true),dark=await tokenSprites('viewer',s,true);
+ expect((await tokenSprites('other',s)).g.grayscale).toBeUndefined();
+ expect(dark.g.grayscale).toBe(true);expect(dark.g.hud.key).toBe(normal.g.hud.key);expect(dark.g.body.key).not.toBe(normal.g.body.key);
+ const raw=async(key:string)=>sharp(renderAssetFor('viewer',key)!).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+ const a=await raw(normal.g.body.key),b=await raw(dark.g.body.key),p=(Math.floor(a.info.height/2)*a.info.width+Math.floor(a.info.width/2)+10)*4;
+ const expected=a.data[p]*.2126+a.data[p+1]*.7152+a.data[p+2]*.0722;
+ for(let c=0;c<3;c++)expect(Math.abs(b.data[p+c]-expected)).toBeLessThan(3);expect(b.data[p+3]).toBe(a.data[p+3]);
+});
+it('paints Legacy tokens into a single transparent layer and excludes linked door tokens',async()=>{
+ const s={map:{id:'room',imagePath:null,gridSizePx:50,feetPerSquare:5,walls:[{id:'door',door:{open:false},tokenId:'door-token'}]},characters:[],tokens:[{id:'t',kind:'monster',refId:'m',widthFt:5,x:150,y:150},{id:'door-token',kind:'monster',refId:'m',widthFt:5,x:400,y:150}],monsters:[{id:'m',name:'Goblin',conditions:[],disposition:'enemy',icon:'G',dead:false}]} as unknown as StateSnapshot;
+ const result=await renderedSnapshot('viewer',s,true,true);
+ expect(result.tokenLayerIds).toEqual(['t']);
+ const {data,info}=await sharp(renderAssetFor('viewer',result.tokenLayerRaster!.key)!).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+ const r=result.tokenLayerRaster!,alpha=(x:number,y:number)=>data[(Math.floor((y-r.y)*r.scale)*info.width+Math.floor((x-r.x)*r.scale))*4+3];
+ expect(alpha(150,150)).toBeGreaterThan(200);expect(alpha(400,150)).toBe(0);
+});
+it('deltas retain static server outlines and sprite references while removing concealed images',()=>{
+ const body={key:'body',x:0,y:0,width:10,height:10,scale:1},pair={body,hud:body},staticShape={x:0,y:0,points:[{x:0,y:0},{x:10,y:0}]};
+ const a={tokens:[],tokenSprites:{a:pair,hidden:pair},legacyGeometry:{sight:[],near:[],lights:[],memory:[],affinity:[],outlines:{wallsKey:'walls',shapes:{lamp:staticShape,pc:staticShape}}}} as unknown as StateSnapshot;
+ const b={...a,tokenSprites:{a:pair},legacyGeometry:{...a.legacyGeometry!,outlines:{wallsKey:'walls',shapes:{lamp:staticShape,pc:{...staticShape,x:5}}}}};
+ const patch=diffSnapshot(a,b),next=applySnapshotDelta(a,patch);
+ expect(patch.outlines?.set).not.toHaveProperty('lamp');expect(next).toEqual(b);
+ expect(next.tokenSprites?.a).toBe(pair);expect(next.tokenSprites).not.toHaveProperty('hidden');expect(next.legacyGeometry?.outlines?.shapes.lamp).toBe(staticShape);
+});
+it('prepares detailed wall outlines for standard mode without changing collision geometry',async()=>{
+ const vision={rangeFt:60 as const,radius:60,heavy:true,origins:[{id:'pc',x:100,y:100}],walls:[{id:'wall',kind:'rectangle' as const,ax:200,ay:0,bx:215,by:400}],lights:[{id:'lamp',x:120,y:100,radius:100,height:10,strength:1}]};
+ const g=await visibilityWorkers.run({mapId:'detailed',vision,wallFog:true,detailed:true,tokens:[]});
+ expect(g.outlines?.shapes['pc:60'].points.length).toBeGreaterThan(3);
+ const lamp=Object.entries(g.outlines!.shapes).find(([key])=>key.startsWith('lamp:'))![1];
+ expect(lamp.points).toEqual(wallVisibilityPolygon(vision.lights[0],vision.walls,SIGHT_EXTENT));
+});

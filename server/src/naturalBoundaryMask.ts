@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 
-export const NATURAL_BOUNDARY_PROMPT='Draw one continuous bright green (#00FF00) line along the top edge of the visible interior cave walls. Keep the wall faces and built-in features such as the hearth inside the boundary. Leave entrances and passages open. Keep the rest of the image unchanged.';
+export const NATURAL_BOUNDARY_PROMPT='Draw one continuous bright green (#00FF00) line along the top edge of the visible interior cave walls. Mark the irregular rock boundaries of natural caverns, tunnels and rock pillars only. Do not outline straight masonry walls, constructed rooms or corridors. Any existing yellow wall annotations must remain yellow and completely unchanged: never recolor them green, trace them, extend them or use them as a template. Add green markings only to previously unmarked natural rock boundaries. Keep the wall faces and built-in features such as the hearth inside the boundary. Leave entrances and passages open. Keep the rest of the image unchanged. If no natural boundaries are present, return the image unchanged.';
 
 const green=(r:number,g:number,b:number)=>g>165&&r<135&&b<135&&g>r*1.8&&g>b*1.8;
 const yellow=(r:number,g:number,b:number)=>r>25&&g>20&&r>b*1.8&&g>b*1.8;

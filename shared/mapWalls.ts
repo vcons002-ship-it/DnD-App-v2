@@ -112,6 +112,13 @@ function sightGeometry(input:readonly MapWall[]):SightGeometry{
   });
   const geometry={edges:wallEdges(walls),solid};sightCache.set(input,geometry);return geometry;
 }
+/** Cheap, conservative mask gate. Opening markers do not block on their own.
+ * Keep masks for any solid wall rather than building window/arch cut polygons
+ * just to decide whether to avoid visibility work. Actual sight still uses
+ * sightGeometry and its precise cuts below. */
+export function hasPotentialSightBlockers(walls:readonly MapWall[]=[]):boolean {
+  return walls.some(w=>!w.window&&!w.arch&&!(w.door&&w.open));
+}
 const insideSolid=(p:WallPoint,s:SightGeometry['solid'][number])=>p.x>=s.minX&&p.x<=s.maxX&&p.y>=s.minY&&p.y<=s.maxY&&insideWallGeometry(p,s.wall);
 export function hasLineOfSight(a: WallPoint, b: WallPoint, walls: readonly MapWall[] = []): boolean {
   if(!walls.length)return true;

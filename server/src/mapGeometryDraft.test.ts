@@ -27,6 +27,37 @@ async function fixture(){
   return {session,map,draft};
 }
 describe('map geometry draft',()=>{
+  it('forces natural boundaries alone from original art and preserves saved walls when applied',async()=>{
+    const f=await fixture(),oldKey=config.geminiApiKey;config.geminiApiKey='test';
+    editMapWalls(f.session.id,f.map.id,{add:{id:'existing-masonry',ax:20,ay:20,bx:20,by:120}});
+    const name='forced-natural-'+f.session.id+'.png';
+    await sharp(Buffer.from('<svg width="1000" height="600"><rect width="1000" height="600" fill="#777"/><circle cx="700" cy="300" r="120" fill="none" stroke="#00ff00" stroke-width="15"/></svg>')).png().toFile(path.join(config.uploadsDir,name));
+    try{
+      vi.mocked(gateMapFeature).mockResolvedValue({allowed:false} as never);
+      vi.mocked(generateApiImage).mockResolvedValue({path:'/uploads/'+name});
+      const draft=await suggestMapGeometry(f.map.id,'ai',{automatic:true,structuralWalls:false,naturalBoundaries:true});
+      expect(gateMapFeature).not.toHaveBeenCalled();expect(generateApiImage).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(generateApiImage).mock.calls[0][0]).toContain('never recolor them green');
+      expect(draft.wallMaskImagePath).toBeUndefined();expect(draft.naturalMaskImagePath).toBe('/uploads/'+name);
+      expect(draft.items).toHaveLength(1);expect(getMap(f.map.id)!.walls).toHaveLength(1);
+      await applyGeometryDraft(f.map.id,draft,draft.items.map(i=>i.id));
+      expect(getMap(f.map.id)!.walls).toHaveLength(2);expect(getMap(f.map.id)!.walls![0].id).toBe('existing-masonry');
+      expect(getMap(f.map.id)!.imagePath).toBe(f.map.imagePath);
+    }finally{config.geminiApiKey=oldKey;vi.mocked(gateMapFeature).mockResolvedValue({allowed:true} as never);}
+  });
+  it('explains an empty natural result instead of silently treating retraced masonry as cave walls',async()=>{
+    const f=await fixture(),oldKey=config.geminiApiKey;config.geminiApiKey='test';
+    const first=`retrace-first-${f.map.id}.png`,second=`retrace-second-${f.map.id}.png`;
+    for(const [name,color] of [[first,'#ffff00'],[second,'#00ff00']])await sharp(Buffer.from(`<svg width="1000" height="600"><rect width="1000" height="600" fill="#222"/><rect x="450" y="60" width="20" height="420" fill="${color}"/></svg>`)).png().toFile(path.join(config.uploadsDir,name));
+    try{
+      vi.mocked(generateApiImage).mockResolvedValueOnce({path:'/uploads/'+first}).mockResolvedValueOnce({path:'/uploads/'+second});
+      const draft=await suggestMapGeometry(f.map.id);
+      expect(generateApiImage).toHaveBeenCalledTimes(2);expect(draft.items).toHaveLength(1);
+      expect(draft.maskWarnings?.join(' ')).toContain('added no usable new boundaries');
+      expect(draft.maskWarnings?.join(' ')).toContain('Natural boundaries only');
+      expect(getMap(f.map.id)!.walls).toEqual([]);
+    }finally{config.geminiApiKey=oldKey;}
+  });
   it('runs natural interiors without a structural API mask when only the cave gate is positive',async()=>{
     const f=await fixture(),oldKey=config.geminiApiKey;config.geminiApiKey='test';
     const name='natural-only-'+f.session.id+'.png';

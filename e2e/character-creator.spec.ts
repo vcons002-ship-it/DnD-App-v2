@@ -173,10 +173,12 @@ test('player manually rolls abilities, can roll all 24 dice, and creates a chara
   await page.evaluate(()=>{document.title='Character Stat Rolls AV1';});
   const capture=process.env.CREATOR_CAPTURE?await startAv1Capture(page,path.join(evidence,'stat-rolls-av1.mp4'),{title:'Character Stat Rolls AV1',width:1500,height:1066}):null;
   const dieCounts=new Set<number>();f.socket.on('dice:frame',frame=>{if(frame?.sides)dieCounts.add(frame.sides.length);});
+  // Software-GPU clients use the animated 2D tray; its unused WebGL canvas stays hidden.
+  const animatedDice=page.locator('.dice-tray-canvas:visible, [data-testid="dice-2d-animation"]:visible');
   try{
     for(const index of [1,2]){
       await guide.getByRole('button',{name:`Roll score ${index}`,exact:true}).click();
-      await expect(guide).not.toBeVisible();await expect(page.locator('.dice-tray-canvas')).toBeVisible({timeout:20000});
+      await expect(guide).not.toBeVisible();await expect(animatedDice).toBeVisible({timeout:20000});
       await expect(guide).toBeVisible({timeout:60000});
     }
     await expect(guide.getByRole('button',{name:'Roll score 3',exact:true})).toBeEnabled();
@@ -185,7 +187,7 @@ test('player manually rolls abilities, can roll all 24 dice, and creates a chara
     await expect(guide).toBeVisible();
     await guide.getByRole('button',{name:'Roll all (new set)',exact:true}).click();
     await expect(guide).not.toBeVisible();
-    await expect(page.locator('.dice-tray-canvas')).toBeVisible({timeout:20000});
+    await expect(animatedDice).toBeVisible({timeout:20000});
     await expect(guide).toBeVisible({timeout:90000});
     await expect(guide.locator('.creator-roll-results>div')).toHaveCount(6);
     expect(dieCounts.has(4)).toBe(true);expect(dieCounts.has(24)).toBe(true);

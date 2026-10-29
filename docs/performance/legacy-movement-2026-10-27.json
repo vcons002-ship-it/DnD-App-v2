@@ -1,0 +1,599 @@
+{
+  "at": "2026-10-28T03:15:32.270Z",
+  "probeVersion": 3,
+  "movesPerRate": 6,
+  "host": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+    "browser": "156.0.8078.49",
+    "logicalCpus": 16,
+    "memoryGiB": 31
+  },
+  "buildIndexSha256": "e16d55656d0f5a1f649b2ec4e38180a7164b53cdbb8df3c0217ae72eaf9aeac4",
+  "fixture": {
+    "roomFeet": [
+      240,
+      160
+    ],
+    "mapPixels": [
+      3840,
+      2560
+    ],
+    "monsters": 140,
+    "pcs": 3,
+    "tokens": 143,
+    "lights": 48,
+    "walls": 28,
+    "wallEdges": 112
+  },
+  "method": "Two independent Legacy browser contexts. Initial join/setup unthrottled; both clients throttled to stated CDP rate before DM enables Player view and during movement. Software Canvas2D, WebGL blocked throughout. Server unthrottled on same host; no network delay/RAM cap. Epoch timestamps on same host; release-to-token/sight latency includes server communication plus two RAF paint opportunities. Event-driven cached token layer draw handler and SVG MutationObserver; no polling or continuous RAF probe. Separate idle-with-instrumentation baseline. Recording and probes add overhead. Both documents kept visible. Private drag previews do not move the DM view until a committed drop.",
+  "runs": [
+    {
+      "cpuSlowdown": 1,
+      "status": "passed",
+      "samples": [
+        {
+          "seq": 1,
+          "x": 1840,
+          "y": 1360,
+          "releasedAt": 1793157345016.5,
+          "playerTokenMs": 61.599853515625,
+          "playerSightMs": 641,
+          "dmTokenMs": 207,
+          "dmSightMs": 226.800048828125
+        },
+        {
+          "seq": 2,
+          "x": 1840,
+          "y": 1440,
+          "releasedAt": 1793157346480.5,
+          "playerTokenMs": 53.300048828125,
+          "playerSightMs": 252.89990234375,
+          "dmTokenMs": 187.300048828125,
+          "dmSightMs": 211.60009765625
+        },
+        {
+          "seq": 3,
+          "x": 2080,
+          "y": 1440,
+          "releasedAt": 1793157347577.7,
+          "playerTokenMs": 49.300048828125,
+          "playerSightMs": 230.10009765625,
+          "dmTokenMs": 181.5,
+          "dmSightMs": 207.800048828125
+        },
+        {
+          "seq": 4,
+          "x": 2080,
+          "y": 1280,
+          "releasedAt": 1793157348707.7,
+          "playerTokenMs": 71.199951171875,
+          "playerSightMs": 688.89990234375,
+          "dmTokenMs": 295.10009765625,
+          "dmSightMs": 322.900146484375
+        },
+        {
+          "seq": 5,
+          "x": 2000,
+          "y": 1280,
+          "releasedAt": 1793157350374.0999,
+          "playerTokenMs": 72.400146484375,
+          "playerSightMs": 619.60009765625,
+          "dmTokenMs": 289.500244140625,
+          "dmSightMs": 313.500244140625
+        },
+        {
+          "seq": 6,
+          "x": 1920,
+          "y": 1280,
+          "releasedAt": 1793157352255.4,
+          "playerTokenMs": 73.199951171875,
+          "playerSightMs": 626.699951171875,
+          "dmTokenMs": 392.500244140625,
+          "dmSightMs": 392.60009765625
+        }
+      ],
+      "enablePlayerViewPageMs": 2161.100000023842,
+      "probeIdle": [
+        {
+          "role": "DM",
+          "observedMs": 2007,
+          "mainThreadBusyMs": 1
+        },
+        {
+          "role": "Player",
+          "observedMs": 2007,
+          "mainThreadBusyMs": 2
+        }
+      ],
+      "movementStartEpochMs": 1793157344561,
+      "movementStartPageMs": 6755.100000023842,
+      "movementEndEpochMs": 1793157353380,
+      "latency": {
+        "playerTokenMs": {
+          "samples": 6,
+          "medianMs": 66,
+          "p95Ms": 73,
+          "maxMs": 73
+        },
+        "playerSightMs": {
+          "samples": 6,
+          "medianMs": 623,
+          "p95Ms": 689,
+          "maxMs": 689
+        },
+        "dmTokenMs": {
+          "samples": 6,
+          "medianMs": 248,
+          "p95Ms": 393,
+          "maxMs": 393
+        },
+        "dmSightMs": {
+          "samples": 6,
+          "medianMs": 270,
+          "p95Ms": 393,
+          "maxMs": 393
+        }
+      },
+      "clients": [
+        {
+          "role": "DM",
+          "documentHidden": false,
+          "observedMs": 8819,
+          "mainThreadBusyMs": 431,
+          "scriptMs": 105,
+          "jsHeapMiB": 26,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        },
+        {
+          "role": "Player",
+          "documentHidden": false,
+          "observedMs": 8819,
+          "mainThreadBusyMs": 2594,
+          "scriptMs": 1969,
+          "jsHeapMiB": 41,
+          "longTasks": {
+            "count": 6,
+            "totalMs": 370,
+            "maxMs": 67
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        }
+      ]
+    },
+    {
+      "cpuSlowdown": 6,
+      "status": "passed",
+      "samples": [
+        {
+          "seq": 1,
+          "x": 1840,
+          "y": 1360,
+          "releasedAt": 1793157381974.6,
+          "playerTokenMs": 382.10009765625,
+          "playerSightMs": 940.199951171875,
+          "dmTokenMs": 582.5,
+          "dmSightMs": 610.60009765625
+        },
+        {
+          "seq": 2,
+          "x": 1840,
+          "y": 1440,
+          "releasedAt": 1793157386088.7002,
+          "playerTokenMs": 540.199951171875,
+          "playerSightMs": 1115.699951171875,
+          "dmTokenMs": 934.5,
+          "dmSightMs": 946.39990234375
+        },
+        {
+          "seq": 3,
+          "x": 2080,
+          "y": 1440,
+          "releasedAt": 1793157390505.2002,
+          "playerTokenMs": 400.099853515625,
+          "playerSightMs": 955.099853515625,
+          "dmTokenMs": 597.099853515625,
+          "dmSightMs": 627.199951171875
+        },
+        {
+          "seq": 4,
+          "x": 2080,
+          "y": 1280,
+          "releasedAt": 1793157393763.8,
+          "playerTokenMs": 348.900146484375,
+          "playerSightMs": 899.60009765625,
+          "dmTokenMs": 529.400146484375,
+          "dmSightMs": 558
+        },
+        {
+          "seq": 5,
+          "x": 2000,
+          "y": 1280,
+          "releasedAt": 1793157396972.1,
+          "playerTokenMs": 361.89990234375,
+          "playerSightMs": 909.300048828125,
+          "dmTokenMs": 528.300048828125,
+          "dmSightMs": 555
+        },
+        {
+          "seq": 6,
+          "x": 1920,
+          "y": 1280,
+          "releasedAt": 1793157401193.9001,
+          "playerTokenMs": 700.699951171875,
+          "playerSightMs": 1283.5,
+          "dmTokenMs": 960.699951171875,
+          "dmSightMs": 1016.89990234375
+        }
+      ],
+      "enablePlayerViewPageMs": 20587.600000023842,
+      "probeIdle": [
+        {
+          "role": "DM",
+          "observedMs": 2021,
+          "mainThreadBusyMs": 3
+        },
+        {
+          "role": "Player",
+          "observedMs": 2021,
+          "mainThreadBusyMs": 10
+        }
+      ],
+      "movementStartEpochMs": 1793157379859,
+      "movementStartPageMs": 25499.19999998808,
+      "movementEndEpochMs": 1793157403201,
+      "latency": {
+        "playerTokenMs": {
+          "samples": 6,
+          "medianMs": 391,
+          "p95Ms": 701,
+          "maxMs": 701
+        },
+        "playerSightMs": {
+          "samples": 6,
+          "medianMs": 948,
+          "p95Ms": 1284,
+          "maxMs": 1284
+        },
+        "dmTokenMs": {
+          "samples": 6,
+          "medianMs": 590,
+          "p95Ms": 961,
+          "maxMs": 961
+        },
+        "dmSightMs": {
+          "samples": 6,
+          "medianMs": 619,
+          "p95Ms": 1017,
+          "maxMs": 1017
+        }
+      },
+      "clients": [
+        {
+          "role": "DM",
+          "documentHidden": false,
+          "observedMs": 23342,
+          "mainThreadBusyMs": 3143,
+          "scriptMs": 1032,
+          "jsHeapMiB": 23,
+          "longTasks": {
+            "count": 13,
+            "totalMs": 1560,
+            "maxMs": 242
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        },
+        {
+          "role": "Player",
+          "documentHidden": false,
+          "observedMs": 23342,
+          "mainThreadBusyMs": 18253,
+          "scriptMs": 13744,
+          "jsHeapMiB": 20,
+          "longTasks": {
+            "count": 66,
+            "totalMs": 15525,
+            "maxMs": 504
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        }
+      ]
+    },
+    {
+      "cpuSlowdown": 12,
+      "status": "passed",
+      "samples": [
+        {
+          "seq": 1,
+          "x": 1840,
+          "y": 1360,
+          "releasedAt": 1793157439807.5,
+          "playerTokenMs": 901,
+          "playerSightMs": 1929.300048828125,
+          "dmTokenMs": 1220.199951171875,
+          "dmSightMs": 1281.300048828125
+        },
+        {
+          "seq": 2,
+          "x": 1840,
+          "y": 1440,
+          "releasedAt": 1793157447804.9001,
+          "playerTokenMs": 1140.199951171875,
+          "playerSightMs": 2166.599853515625,
+          "dmTokenMs": 1553.499755859375,
+          "dmSightMs": 1623.999755859375
+        },
+        {
+          "seq": 3,
+          "x": 2080,
+          "y": 1440,
+          "releasedAt": 1793157454811.6,
+          "playerTokenMs": 879.39990234375,
+          "playerSightMs": 2572.300048828125,
+          "dmTokenMs": 1214.89990234375,
+          "dmSightMs": 1277.5
+        },
+        {
+          "seq": 4,
+          "x": 2080,
+          "y": 1280,
+          "releasedAt": 1793157463238.1,
+          "playerTokenMs": 1014.89990234375,
+          "playerSightMs": 2219.5,
+          "dmTokenMs": 1348.099853515625,
+          "dmSightMs": 1409.89990234375
+        },
+        {
+          "seq": 5,
+          "x": 2000,
+          "y": 1280,
+          "releasedAt": 1793157470888.7,
+          "playerTokenMs": 1100.400146484375,
+          "playerSightMs": 1769.400146484375,
+          "dmTokenMs": 2018.60009765625,
+          "dmSightMs": 2092.5
+        },
+        {
+          "seq": 6,
+          "x": 1920,
+          "y": 1280,
+          "releasedAt": 1793157478963.6,
+          "playerTokenMs": 879.5,
+          "playerSightMs": 1750.699951171875,
+          "dmTokenMs": 1175.7998046875,
+          "dmSightMs": 1240.5
+        }
+      ],
+      "enablePlayerViewPageMs": 20669.19999998808,
+      "probeIdle": [
+        {
+          "role": "DM",
+          "observedMs": 2117,
+          "mainThreadBusyMs": 4
+        },
+        {
+          "role": "Player",
+          "observedMs": 2117,
+          "mainThreadBusyMs": 117
+        }
+      ],
+      "movementStartEpochMs": 1793157434364,
+      "movementStartPageMs": 29402.400000035763,
+      "movementEndEpochMs": 1793157481443,
+      "latency": {
+        "playerTokenMs": {
+          "samples": 6,
+          "medianMs": 958,
+          "p95Ms": 1140,
+          "maxMs": 1140
+        },
+        "playerSightMs": {
+          "samples": 6,
+          "medianMs": 2048,
+          "p95Ms": 2572,
+          "maxMs": 2572
+        },
+        "dmTokenMs": {
+          "samples": 6,
+          "medianMs": 1284,
+          "p95Ms": 2019,
+          "maxMs": 2019
+        },
+        "dmSightMs": {
+          "samples": 6,
+          "medianMs": 1346,
+          "p95Ms": 2093,
+          "maxMs": 2093
+        }
+      },
+      "clients": [
+        {
+          "role": "DM",
+          "documentHidden": false,
+          "observedMs": 47079,
+          "mainThreadBusyMs": 8688,
+          "scriptMs": 2447,
+          "jsHeapMiB": 22,
+          "longTasks": {
+            "count": 19,
+            "totalMs": 3907,
+            "maxMs": 499
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        },
+        {
+          "role": "Player",
+          "documentHidden": false,
+          "observedMs": 47079,
+          "mainThreadBusyMs": 40557,
+          "scriptMs": 29739,
+          "jsHeapMiB": 18,
+          "longTasks": {
+            "count": 75,
+            "totalMs": 34382,
+            "maxMs": 983
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        }
+      ]
+    },
+    {
+      "cpuSlowdown": 20,
+      "status": "passed",
+      "samples": [
+        {
+          "seq": 1,
+          "x": 1840,
+          "y": 1360,
+          "releasedAt": 1793157526394.5,
+          "playerTokenMs": 1768.7998046875,
+          "playerSightMs": 4679.199951171875,
+          "dmTokenMs": 2548.7001953125,
+          "dmSightMs": 2685.60009765625
+        },
+        {
+          "seq": 2,
+          "x": 1840,
+          "y": 1440,
+          "releasedAt": 1793157541655.0999,
+          "playerTokenMs": 2374.5,
+          "playerSightMs": 4400.60009765625,
+          "dmTokenMs": 3083.7001953125,
+          "dmSightMs": 3172.600341796875
+        },
+        {
+          "seq": 3,
+          "x": 2080,
+          "y": 1440,
+          "releasedAt": 1793157556461.7,
+          "playerTokenMs": 2576.39990234375,
+          "playerSightMs": 5268.199951171875,
+          "dmTokenMs": 2878.900146484375,
+          "dmSightMs": 2896.10009765625
+        },
+        {
+          "seq": 4,
+          "x": 2080,
+          "y": 1280,
+          "releasedAt": 1793157571444.0999,
+          "playerTokenMs": 1764.800048828125,
+          "playerSightMs": 4557.699951171875,
+          "dmTokenMs": 3171.2001953125,
+          "dmSightMs": 3313.100341796875
+        },
+        {
+          "seq": 5,
+          "x": 2000,
+          "y": 1280,
+          "releasedAt": 1793157587000.7,
+          "playerTokenMs": 3050,
+          "playerSightMs": 6197.599853515625,
+          "dmTokenMs": 3154.60009765625,
+          "dmSightMs": 3176.400146484375
+        },
+        {
+          "seq": 6,
+          "x": 1920,
+          "y": 1280,
+          "releasedAt": 1793157603826.4,
+          "playerTokenMs": 2167.699951171875,
+          "playerSightMs": 4689.5,
+          "dmTokenMs": 3082.7001953125,
+          "dmSightMs": 3233.10009765625
+        }
+      ],
+      "enablePlayerViewPageMs": 19797.100000023842,
+      "probeIdle": [
+        {
+          "role": "DM",
+          "observedMs": 2133,
+          "mainThreadBusyMs": 2
+        },
+        {
+          "role": "Player",
+          "observedMs": 2133,
+          "mainThreadBusyMs": 119
+        }
+      ],
+      "movementStartEpochMs": 1793157515821,
+      "movementStartPageMs": 30967,
+      "movementEndEpochMs": 1793157609945,
+      "latency": {
+        "playerTokenMs": {
+          "samples": 6,
+          "medianMs": 2271,
+          "p95Ms": 3050,
+          "maxMs": 3050
+        },
+        "playerSightMs": {
+          "samples": 6,
+          "medianMs": 4684,
+          "p95Ms": 6198,
+          "maxMs": 6198
+        },
+        "dmTokenMs": {
+          "samples": 6,
+          "medianMs": 3083,
+          "p95Ms": 3171,
+          "maxMs": 3171
+        },
+        "dmSightMs": {
+          "samples": 6,
+          "medianMs": 3175,
+          "p95Ms": 3313,
+          "maxMs": 3313
+        }
+      },
+      "clients": [
+        {
+          "role": "DM",
+          "documentHidden": false,
+          "observedMs": 94124,
+          "mainThreadBusyMs": 18097,
+          "scriptMs": 6509,
+          "jsHeapMiB": 23,
+          "longTasks": {
+            "count": 21,
+            "totalMs": 9531,
+            "maxMs": 1331
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        },
+        {
+          "role": "Player",
+          "documentHidden": false,
+          "observedMs": 94124,
+          "mainThreadBusyMs": 85394,
+          "scriptMs": 62956,
+          "jsHeapMiB": 19,
+          "longTasks": {
+            "count": 101,
+            "totalMs": 73929,
+            "maxMs": 2022
+          },
+          "webglAttempts": 0,
+          "graphicsRequests": [],
+          "errors": []
+        }
+      ]
+    }
+  ]
+}

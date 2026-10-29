@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Group, Path } from 'react-konva';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Group, Path, Image as KonvaImage } from 'react-konva';
 import {footstepLayout} from './footstepLayout';
 import {tokenMoveDuration, tokenMoveProgress} from './tokenMotion';
 import type { Token } from '../../../shared/types';
@@ -45,12 +45,19 @@ export function FootprintLayer({
   isVisibleAt,
   onMarks,
   renderFallback = true,
+  compact = false,
+  movementDurationMs,
+  visualPosition,
 }: {
   tokens: Token[];
   pxPerFoot: number;
   isVisibleAt?: (id:string,x:number,y:number)=>boolean;
   onMarks?: (marks:FootprintMark[])=>void;
   renderFallback?: boolean;
+  /** Legacy: bounded stamps on a separate layer, with a slower fade clock. */
+  compact?: boolean;
+  movementDurationMs?: number;
+  visualPosition?: (id:string)=>{x:number;y:number}|undefined;
 }) {
   const [trails, setTrails] = useState<Trail[]>([]);
   const [now, setNow] = useState(() => Date.now());
@@ -76,7 +83,7 @@ export function FootprintLayer({
           widthFt: t.widthFt,
           n: steps.length,
           steps,
-          duration: tokenMoveDuration(moved, pxPerFoot),
+          duration: movementDurationMs??tokenMoveDuration(moved, pxPerFoot),
         });
       }
     }
@@ -88,9 +95,10 @@ export function FootprintLayer({
       // Cap the active (non-expiring) trails; bump the oldest excess into a
       // short graceful fade-out instead of dropping them instantly.
       const active = next.filter((t) => t.expireAt == null);
-      if (active.length > MAX_TRAILS) {
+      const limit=compact?2:MAX_TRAILS;
+      if (active.length > limit) {
         const bumped = new Set(
-          active.slice(0, active.length - MAX_TRAILS).map((t) => t.id),
+          active.slice(0, active.length - limit).map((t) => t.id),
         );
         next = next.map((t) =>
           bumped.has(t.id) ? { ...t, expireAt: t0 + EXPIRE_FADE } : t,
@@ -98,7 +106,7 @@ export function FootprintLayer({
       }
       return next.slice(-12);
     });
-  }, [tokens, pxPerFoot]);
+  }, [tokens, pxPerFoot, compact, movementDurationMs]);
 
   // Self-tick the fade and prune fully-gone trails while any is still alive.
   const anyLive = trails.some((t) => alive(t, Date.now()));
@@ -108,9 +116,9 @@ export function FootprintLayer({
       const at = Date.now();
       setNow(at);
       setTrails((cur) => cur.filter((t) => alive(t, at)));
-    }, TICK_MS);
+    }, compact?100:TICK_MS);
     return () => clearInterval(iv);
-  }, [anyLive]);
+  }, [anyLive,compact]);
 
   const marks:FootprintMark[] = trails.flatMap((tr) => {
         const dx = tr.to.x - tr.from.x;
@@ -129,11 +137,13 @@ export function FootprintLayer({
         const spread = foot * .42;
         const n = tr.n;
         const marks:FootprintMark[] = [];
+        const position=visualPosition?.(tr.tokenId);
+        const progress=elapsed>=tr.duration?1:position?Math.max(0,Math.min(1,((position.x-tr.from.x)*dx+(position.y-tr.from.y)*dy)/(len*len))):tr.duration?tokenMoveProgress(elapsed,tr.duration):1;
         for (let i = 0; i < n; i++) {
           // The whole trail holds at BASE for HOLD ms, then prints fade oldest-first.
           const {fraction: f, side} = tr.steps[i];
           // Do not show a footfall ahead of the moving figure.
-          if (f > tokenMoveProgress(elapsed, tr.duration)) continue;
+          if (f > progress) continue;
           const localT = elapsed - tr.duration - HOLD - i * STAGGER;
           const natural = localT < 0 ? BASE : BASE * (1 - localT / FADE);
           const op = Math.max(0, natural) * capFade;
@@ -143,10 +153,18 @@ export function FootprintLayer({
           marks.push({id:`${tr.id}-${i}`,tokenId:tr.tokenId,x,y,angle:angle+side*6,foot,side,opacity:op});
         }
         return marks;
-      });
+      }).slice(compact?-96:0);
+  const stamp=useMemo(()=>{
+    if(!compact)return undefined;
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
+    const c=canvas.getContext('2d')!;c.translate(64,64);c.scale(96,96);
+    c.fillStyle='#fff3d8';c.strokeStyle='#181b20';c.lineWidth=.085;
+    const shape=new Path2D(BOOT_SHAPE);c.fill(shape);c.stroke(shape);
+    c.strokeStyle='#514c43';c.lineWidth=.055;c.globalAlpha=.8;c.stroke(new Path2D(BOOT_TREAD));return canvas;
+  },[compact]);
   useEffect(()=>{onMarks?.(marks);},[trails,now,pxPerFoot,isVisibleAt,onMarks,renderFallback]);
   useEffect(()=>()=>onMarks?.([]),[onMarks]);
-  return <>{renderFallback&&marks.map(m=><Group key={m.id} name="footstep" x={m.x} y={m.y}
+  return <>{renderFallback&&marks.map(m=>stamp?<KonvaImage key={m.id} name="footstep" tokenId={m.tokenId} image={stamp} x={m.x} y={m.y} rotation={m.angle} offsetX={64} offsetY={64} scaleX={m.foot/96} scaleY={m.foot*m.side/96} opacity={m.opacity} listening={false} perfectDrawEnabled={false}/>:<Group key={m.id} name="footstep" x={m.x} y={m.y}
     rotation={m.angle} scaleX={m.foot} scaleY={m.foot*m.side} opacity={m.opacity} listening={false}>
     <Path data={BOOT_SHAPE} fill="#fff3d8" stroke="#181b20" strokeWidth={.085}/>
     <Path data={BOOT_TREAD} stroke="#514c43" strokeWidth={.055} opacity={.8}/>

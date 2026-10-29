@@ -1,8 +1,20 @@
+import {renderedImage} from '../lib/renderImages';
+import {spellCastCost} from '../lib/spellcasting';
+import {explicitTokenInspection} from '../lib/tokenInspection';
+import {retainedRenderingEnabled} from '../lib/retainedRendering';
+import {installRetainedTokenLayer,invalidateRetainedToken} from './retainedTokenLayer';
+import {sameBoardSnapshot} from '../../../shared/boardSnapshot';
+import {LegacyVisionOverlay} from './LegacyVisionOverlay';
+import {LegacyModeControl} from '../components/LegacyModeControl';
+import {useLegacyMovement} from '../lib/useLegacyMovement';
+import {ServerRenderingOwnerControls} from '../components/ServerRenderingControl';
 import {apiFetch} from '../lib/api';
 import {MapArtwork} from './MapArtwork';
 import {useMapAnimation} from '../lib/useMapAnimation';
 import {requestText} from '../lib/dialogs';
 import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
+import {createLatestFrame} from '../lib/latestFrame';
+import {ManualFog,type ManualFogHandle} from './ManualFog';
 import {mirrorImageCount} from '../../../shared/linkedSpells';
 import {tokenInSpellArea,areaExcludesCaster,areaOrigin,type SpellAreaPlacement} from '../../../shared/spellAreas';
 import {tokenDistanceFt} from '../../../shared/distance';
@@ -18,7 +30,7 @@ import {WallMenu,type WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
 import {doorInReach,doorInteractionArea} from '../../../shared/doorInteraction';
 import {wallVertices,wallCenter,wallSvgPath,wallBoundarySegments,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
-import {fogVisionContains,visionShowsAffinity,usesMapVision,usesTokenVision} from '../../../shared/playerVision';
+import {fogVisionContains,visionShowsAffinity,needsVisibilityLayer,usesMapVision,usesTokenVision} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
@@ -26,11 +38,11 @@ import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance
 import { productionFamily } from '../../../shared/assetProduction';
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Stage, Layer, Group, Line, Rect, Shape, Circle, Text, Label, Tag, Path } from 'react-konva';
+import { Stage, Layer, Group, Line, Rect, Circle, Text, Label, Tag, Path, Image as KonvaImage } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
-import type Konva from 'konva';
-import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
+import Konva from 'konva';
+import type { AbilityRollPayload, FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape, DISPOSITION_HEX } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
@@ -50,7 +62,7 @@ import { SpeechBubbles } from './SpeechBubbles';
 import { CursorPointers } from './CursorPointers';
 import { useContentStable } from '../lib/useContentStable';
 import { FootprintLayer, type FootprintMark } from './FootprintTrails';
-import { resolveToken } from '../lib/entities';
+import { resolveToken,tokenEntityIndex } from '../lib/entities';
 import { safeSetItem } from '../lib/storage';
 import { cropImage, removeBackground } from '../lib/imageEdit';
 import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
@@ -400,7 +412,7 @@ function DecalImage({
   );
 }
 
-export function MapStage({
+function MapStageInner({
   snapshot: sourceSnapshot,
   draggableTokens: sourceDraggableTokens,
   selectedIds,
@@ -412,18 +424,27 @@ export function MapStage({
   fullChatVisible = false,
   focusRequest,
 }: Props) {
+  const {quality:environmentQuality,budget:graphics}=useEnvironmentQuality();
+  const legacy=graphics.legacy;
+  const retained=retainedRenderingEnabled();
+  const konvaPixelRatio=legacy?1:Math.min(window.devicePixelRatio||1,graphics.pixelRatioCap);
+  Konva.pixelRatio=konvaPixelRatio;
   const [dmViewMode,setDmViewMode]=useState<'dm'|'scene'|'player'>('dm');
   const actualDm=sourceSnapshot.role==='dm';
   const partyPreview=actualDm&&dmViewMode==='player';
   const setDmPartyView=useStore(s=>s.setDmPartyView);
   const previewSocketId=useStore(s=>s.socket?.id);
+  useEffect(()=>{useStore.getState().socket?.emit('client:rendering',legacy);},[legacy,previewSocketId]);
   useEffect(()=>{if(actualDm)setDmPartyView(partyPreview);},[actualDm,partyPreview,previewSocketId,setDmPartyView]);
-  const snapshot=useMemo(()=>partyPreview?{...sourceSnapshot,...(sourceSnapshot.partyView??{
+  const sourceViewSnapshot=useMemo(()=>partyPreview?{...sourceSnapshot,...(sourceSnapshot.partyView??{
     tokens:[],monsters:[],exploredTerrain:[],playerVision:{rangeFt:60 as const,radius:0,heavy:true,origins:[],lights:[],walls:sourceSnapshot.map?.walls},
   }),role:'player' as const}:sourceSnapshot,[sourceSnapshot,partyPreview]);
-  const draggableTokens=!partyPreview&&sourceDraggableTokens;
+  const legacyMovement=useLegacyMovement(sourceViewSnapshot,legacy&&sourceSnapshot.serverRendering?.enabled===true);
+  const snapshot=legacyMovement.snapshot;
+  // Player visibility changes what the DM sees, not who controls the map.
+  const draggableTokens=sourceDraggableTokens;
   const onPlaceAt=partyPreview?undefined:sourceOnPlaceAt;
-  const miniatureCatalogRevision = useMiniatureCatalog();
+  const miniatureCatalogRevision = useMiniatureCatalog(!legacy);
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
   const spellAreaLayerRef = useRef<Konva.Layer|null>(null);
@@ -437,12 +458,13 @@ export function MapStage({
   const readFootprints=useCallback(()=>footprintMarks.current,[]);
   const updateFootprints=useCallback((marks:FootprintMark[])=>{footprintMarks.current=marks;miniatureRef.current?.setFootprints(marks);},[]);
   const visionRef=useRef<PlayerVisionHandle>(null);
-  // Both fog layers off in daylight need no SVG light/sight masks. Keep
-  // darkness grading/range and server wall movement/targeting rules intact.
-  const renderPlayerVision=!!snapshot.playerVision&&(!snapshot.playerVision.daylight||usesMapVision(snapshot.map)||usesTokenVision(snapshot.map));
+  // Skip dynamic sight/light composition only when it cannot conceal terrain.
+  // Painted fog, token filtering, movement and targeting remain independent.
+  const renderPlayerVision=needsVisibilityLayer(snapshot.map,snapshot.playerVision);
   const memoryTerrainCanvas=useCallback(()=>visionRef.current?.memoryCanvas()??null,[]);
   const visionCoverFrame=useCallback(()=>visionRef.current?.cover(),[]);
   const presentation=useRef(new TokenPresentation()).current;
+  const presentationSnapshot=useMemo(()=>snapshot,[snapshot.map,snapshot.tokens,snapshot.playerVision,snapshot.exploredTerrain,snapshot.role]);
   // Retain the simpler flash experiment for repeatable measurements only.
   const spellColorOverlay=new URLSearchParams(window.location.search).get('spellColorOverlay')==='1';
   const spellMist=new URLSearchParams(window.location.search).get('spellMist')!=='off';
@@ -468,31 +490,34 @@ export function MapStage({
   }, []);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const viewPreferenceKey = `dnd.battlefieldView:${getPlayerId()}`;
-  const [tilted, setTilted] = useState(() => {
+  const [preferredTilted, setTilted] = useState(() => {
     try { return localStorage.getItem(viewPreferenceKey) === 'tilted'; }
     catch { return false; }
   });
-  const [tiltDegrees, setTiltDegrees] = useState(() => tilted ? BATTLEFIELD_TILT_DEGREES : 0);
+  const [savedTiltDegrees, setTiltDegrees] = useState(() => preferredTilted ? BATTLEFIELD_TILT_DEGREES : 0);
   const rotationKey = `dnd.battlefieldRotation:${getPlayerId()}`;
-  const [rotationDegrees, setRotationDegrees] = useState(() => {
+  const [savedRotationDegrees, setRotationDegrees] = useState(() => {
     try { const saved=Number(localStorage.getItem(rotationKey));return Number.isFinite(saved)?saved%360:0; } catch { return 0; }
   });
+  const tilted=!legacy&&preferredTilted, tiltDegrees=legacy?0:savedTiltDegrees, rotationDegrees=legacy?0:savedRotationDegrees;
   const viewAnimation=useRef(0);
   const projectionState=useRef({tilt:tiltDegrees,rotation:rotationDegrees});
   const projectionCanvases=useRef<ReturnType<typeof installPerspectiveCanvas>[]>([]);
   const rotationLabel=useRef<HTMLButtonElement>(null);
   const rotationGesture=useRef<{x:number;start:number;angle:number;pointerId:number;frame:number;view:View}|null>(null);
   useEffect(()=>()=>{cancelBattlefieldFrame(viewAnimation.current);if(rotationGesture.current)cancelBattlefieldFrame(rotationGesture.current.frame);},[]);
+  useLayoutEffect(()=>{cancelBattlefieldFrame(viewAnimation.current);projectionState.current={tilt:tiltDegrees,rotation:rotationDegrees};},[legacy]);
   const tokenPreferenceKey = `dnd.tokenView:${getPlayerId()}`;
-  const [use3dTokens, setUse3dTokens] = useState(() => {
+  const [preferred3dTokens, setUse3dTokens] = useState(() => {
     try { return localStorage.getItem(tokenPreferenceKey) !== '2d'; }
     catch { return true; }
   });
   const monsterPreferenceKey = `dnd.monsterTokenView:${getPlayerId()}`;
-  const [use3dMonsters, setUse3dMonsters] = useState(() => {
+  const [preferred3dMonsters, setUse3dMonsters] = useState(() => {
     try { return (localStorage.getItem(monsterPreferenceKey) ?? localStorage.getItem(tokenPreferenceKey)) !== '2d'; }
     catch { return true; }
   });
+  const use3dTokens=!legacy&&preferred3dTokens, use3dMonsters=!legacy&&preferred3dMonsters;
   const groundScaleY = groundYScale(tiltDegrees);
   const [menu, setMenu] = useState<{ token: Token; x: number; y: number } | null>(
     null,
@@ -508,14 +533,15 @@ export function MapStage({
     if (menu && !ids.has(menu.token.id)) setMenu(null);
     if (hover && !ids.has(hover.token.id)) setHover(null);
   }, [snapshot.tokens, menu, hover]);
-  const map = snapshot.map;
+  // Keep authoring data and permissions while rendering the party sight snapshot.
+  const map = actualDm ? sourceSnapshot.map : snapshot.map;
   const {placement:lightPlacement,place:placeLight,editMapId,edit:requestFeatureEdit}=useEnvironmentEditor();
-  const placingLight=snapshot.role==='dm'&&lightPlacement?.mapId===map?.id&&!!lightPlacement;
+  const placingLight=actualDm&&lightPlacement?.mapId===map?.id&&!!lightPlacement;
   useEffect(()=>{
-    if(lightPlacement&&(lightPlacement.mapId!==map?.id||snapshot.role!=='dm'))placeLight(null);
+    if(lightPlacement&&(lightPlacement.mapId!==map?.id||!actualDm))placeLight(null);
     const cancel=(event:KeyboardEvent)=>{if(lightPlacement&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();placeLight(null);}};
     window.addEventListener('keydown',cancel,true);return()=>window.removeEventListener('keydown',cancel,true);
-  },[map?.id,snapshot.role,lightPlacement,placeLight]);
+  },[map?.id,actualDm,lightPlacement,placeLight]);
 
   // DM: paste an image from the clipboard → upload → choose Object or Decal.
   // Falls back to <img>/image-URL pastes (e.g. copying art out of a web page
@@ -657,7 +683,7 @@ export function MapStage({
   // single-image map the box is just (0,0)→(baseW,baseH), unchanged.
   const tiles = snapshot.mapImages;
   const mapAnimation=useMapAnimation();
-  const animateMap=mapAnimation.enabled;
+  const animateMap=!legacy&&mapAnimation.enabled;
   const baseW = image?.naturalWidth ?? 0;
   const baseH = image?.naturalHeight ?? 0;
   const extX0 = Math.min(0, ...tiles.map((t) => t.x));
@@ -676,7 +702,13 @@ export function MapStage({
   const orbTarget = useStore(s => s.orbTarget);
   const setOrbTarget = useStore(s => s.setOrbTarget);
   const saveResolve = useStore((s) => s.saveResolve);
+  const resolvingRoll=useStore(s=>saveResolve?s.snapshot?.rollLog.find(r=>r.id===saveResolve.rollId):undefined);
   const teleportCast=useStore(s=>s.teleportCast),clearTeleportCast=useStore(s=>s.clearTeleportCast);
+  const pendingSpellCost=(payload:AbilityRollPayload)=>{
+    const caster=(payload.kind==='pc'?snapshot.characters:snapshot.monsters).find(c=>c.id===payload.refId);
+    const ability=caster&&'sheetAbilities'in caster?caster.sheetAbilities.find(a=>a.id===payload.abilityId):undefined;
+    return caster&&'sheetAbilities'in caster&&ability?spellCastCost(caster,ability,payload.castLevel,payload.slotPool):undefined;
+  };
   const [teleportPoint,setTeleportPoint]=useState<Pt|null>(null);
   const teleportActor=teleportCast?snapshot.tokens.find(t=>t.kind===teleportCast.kind&&t.refId===teleportCast.refId):undefined;
   useEffect(()=>{setTeleportPoint(null);},[teleportCast]);
@@ -769,6 +801,7 @@ export function MapStage({
   const removeMapImage = useStore((s) => s.removeMapImage);
   // Tile-arrange mode: tiles become draggable/resizable on the map.
   const [tilesMode, setTilesMode] = useState(false);
+  const legacyTerrain=legacy&&renderPlayerVision&&!!snapshot.terrainRaster&&!tilesMode;
   // Annotation tool: a freehand pen or text-label placer, with a colour.
   const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
   const [annoColor, setAnnoColor] = useState('#ffd166');
@@ -787,12 +820,12 @@ export function MapStage({
   const setWallSelection=(id:string|null)=>setFeatureSelection(id?[`wall:${id}`]:[]);
   const wallStroke=useRef<Pt[]>([]);
   const wallGesture=useRef<{mode:'move'|'rotate';wall:MapWall;start:Pt}|null>(null);
-  const wallActive=isDm&&wallTool!=='off';
+  const wallActive=actualDm&&wallTool!=='off';
   const selectedWall=wallPreview??map?.walls?.find(w=>w.id===wallSelection);
   const rotationHandle=(w:MapWall)=>{const c=wallCenter(w),r=Math.max(...wallVertices(w).map(p=>Math.hypot(p.x-c.x,p.y-c.y)))+26/view.scale,a=((w.rotation??0)-90)*Math.PI/180;return {x:c.x+Math.cos(a)*r,y:c.y+Math.sin(a)*r};};
   const cancelWallStroke=()=>{setWallAnchor(null);setWallPointer(null);setWallPreview(null);wallGesture.current=null;wallStroke.current=[];};
   useEffect(()=>{cancelWallStroke();setWallSelection(null);},[wallTool,map?.id]);
-  useEffect(()=>{if(editMapId===map?.id&&isDm){setWallTool('edit');requestFeatureEdit(null);}},[editMapId,map?.id,isDm,requestFeatureEdit]);
+  useEffect(()=>{if(editMapId===map?.id&&actualDm){setWallTool('edit');requestFeatureEdit(null);}},[editMapId,map?.id,actualDm,requestFeatureEdit]);
   useEffect(()=>{if(wallActive){if(onSelectTokens)onSelectTokens([]);else onSelectToken(null);}},[wallActive]);
   const pickFeature=(p:Pt):string|null=>{
     const light=map?.environment?.lights.filter(l=>Math.hypot(l.x-p.x,l.y-p.y)<14/view.scale).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];
@@ -802,7 +835,7 @@ export function MapStage({
   };
   const selectFeature=(id:string|null,additive=false)=>setFeatureSelection(old=>!id?additive?old:[]:additive?old.includes(id)?old.filter(x=>x!==id):[...old,id]:[id]);
   const deleteFeatures=useStableCallback(()=>{
-    if(!isDm||!map||!featureSelection.length)return;
+    if(!actualDm||!map||!featureSelection.length)return;
     useStore.getState().socket?.emit('map:deleteFeatures',{mapId:map.id,wallIds:featureSelection.filter(id=>id.startsWith('wall:')).map(id=>id.slice(5)),lightIds:featureSelection.filter(id=>id.startsWith('light:')).map(id=>id.slice(6))});
     setFeatureSelection([]);cancelWallStroke();
   });
@@ -854,20 +887,37 @@ export function MapStage({
     () => new Set(map?.tokenFogRevealed ?? []),
     [map?.tokenFogRevealed],
   );
-  const fogActive = isDm && fogBrush !== 'off';
+  const fogActive = actualDm && fogBrush !== 'off';
   const paintingRef = useRef(false);
   const strokeRef = useRef<Set<string>>(new Set());
-  // Fog-brush cells are accumulated and flushed on a short timer so a fast sweep
-  // coalesces into ~1 broadcast per 120 ms — each fog:paint triggers a full
-  // server-side snapshot rebuild + broadcast, so per-mousemove emits saturate the
-  // event loop and stutter every player's map.
+  // Preview immediately for the DM; persist/broadcast at most four batches per
+  // second while brushing. Stroke release always flushes the final cells.
+  const mapFogMask=useRef<ManualFogHandle>(null),tokenFogMask=useRef<ManualFogHandle>(null);
   const pendingFogRef = useRef<string[]>([]);
+  const pendingFogContext=useRef<{mapId:string;layer:FogLayer;reveal:boolean}>();
   const fogFlushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Emit the accumulated fog cells as ONE paint (a stroke is a single
+   *  layer/direction, so those are constant across the batch). */
+  const flushFog = () => {
+    if (fogFlushRef.current) {
+      clearTimeout(fogFlushRef.current);
+      fogFlushRef.current = null;
+    }
+    const cells = pendingFogRef.current;
+    const context=pendingFogContext.current;
+    if (cells.length && context) {
+      pendingFogRef.current = [];
+      pendingFogContext.current=undefined;
+      paintFog(context.mapId, context.layer, cells, context.reveal);
+    }
+  };
+
+
   useEffect(
     () => () => {
-      if (fogFlushRef.current) clearTimeout(fogFlushRef.current);
+      flushFog();strokeRef.current.clear();paintingRef.current=false;
     },
-    [],
+    [map?.id],
   );
 
   // ---- Map scale ----------------------------------------------------------
@@ -885,20 +935,21 @@ export function MapStage({
   // Pixels per foot — tokens are sized by their real width in feet, so they keep
   // their footprint when only the visual grid cell changes.
   const pxPerFoot = fpp > 0 ? 1 / fpp : grid / 5;
-  presentation.sync(snapshot,pxPerFoot,performance.now(),window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const {quality:environmentQuality,budget:graphics}=useEnvironmentQuality();
+  // Assisted Legacy needs an authorized mask sequence before interpolating.
+  // Local Legacy computes sight at the displayed pose, just like local 2D/3D.
+  presentation.sync(presentationSnapshot,pxPerFoot,performance.now(),legacy&&snapshot.legacyGeometry!==undefined&&!legacyMovement.playback||window.matchMedia('(prefers-reduced-motion: reduce)').matches,legacyMovement.playback);
   const dmSceneLighting=dmViewMode!=='dm';
   const environment = useMemo<EnvironmentPreviewSettings|undefined>(()=>{
-    const saved=map?.environment??DEFAULT_MAP_ENVIRONMENT;
+    const saved=snapshot.map?.environment??DEFAULT_MAP_ENVIRONMENT;
     const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden&&!t.sharedSightOnly).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
-    if(!map || (!saved.enabled&&!carriedLanterns.length) || map.slidesUrl)return undefined;
+    if(legacy||!map || (!saved.enabled&&!carriedLanterns.length) || map.slidesUrl)return undefined;
     const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
     return {...settings,dmVisibility:isDm&&!dmSceneLighting,...(snapshot.playerVision&&!snapshot.playerVision.daylight?{darkvisionTerrain:[...(map.imagePath&&baseW&&baseH?[{url:map.imagePath,videoPath:animateMap?map.videoPath:undefined,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,videoPath:animateMap?t.videoPath:undefined,x:t.x,y:t.y,w:t.w,h:t.h}))],darkvisionGrid:{size:map.gridHidden?0:grid,x:map.gridOffsetX??0,y:map.gridOffsetY??0}}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
       walls:map.walls,lights:[...settings.lights,...(snapshot.playerVision?.lights??[]).filter(l=>!settings.lights.some(s=>s.id===l.id)&&!carriedLanterns.some(c=>c.id===l.id)).map(l=>({id:l.id,x:l.x,y:l.y,radiusFt:l.radius/pxPerFoot,heightFt:l.height/pxPerFoot,intensity:l.strength,color:'warm' as const,flicker:false,visibleTorch:false}))],
       ...(environmentQuality==='off'?{mist:false,weather:'none' as const,particles:'none' as const,lightning:false,groundWetness:0,shadows:false}:{}),
       scenery:false,pixelsPerFoot:pxPerFoot,mistCoverage:'map',mistHeight:settings.mistHeightFt*pxPerFoot,mistQuality:graphics.mistQuality,particleScale:graphics.particleScale,mapShadowSize:graphics.mapShadowSize,
       fog:!isDm&&mapFogEnabled?{grid,revealed:map.mapFogRevealed}:undefined};
-  },[animateMap,map?.videoPath,map?.walls,map?.environment,map?.imagePath,map?.gridHidden,map?.gridOffsetX,map?.gridOffsetY,baseW,baseH,tiles,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,graphics.resolved,extX0,extY0,imgW,imgH,pxPerFoot,isDm,dmSceneLighting,mapFogEnabled,grid,map?.mapFogRevealed]);
+  },[legacy,snapshot.map?.environment,animateMap,map?.videoPath,map?.walls,map?.environment,map?.imagePath,map?.gridHidden,map?.gridOffsetX,map?.gridOffsetY,baseW,baseH,tiles,map?.slidesUrl,snapshot.playerVision,snapshot.tokens,environmentQuality,graphics.resolved,extX0,extY0,imgW,imgH,pxPerFoot,isDm,dmSceneLighting,mapFogEnabled,grid,map?.mapFogRevealed]);
 
 
   // ---- Measuring tools: a "Measure" dropdown with standard + custom shapes ----
@@ -974,17 +1025,18 @@ export function MapStage({
   const measureActive = !!areaCast || wallActive || !!tool || removeMode || scaleMode || matchMode || !!annotate;
   useEffect(()=>{if(tool||removeMode||scaleMode||matchMode||annotate||fogActive||tilesMode||placingLight||orbTarget){setWallTool('off');setWallAnchor(null);}},[tool,removeMode,scaleMode,matchMode,annotate,fogActive,tilesMode,placingLight,orbTarget]);
   // While a token is dragging (or measuring) the grid brightens for alignment.
-  const [draggingToken, setDraggingToken] = useState(false);
+  const gridRef=useRef<Konva.Group>(null);
   const privateDrag = useRef(false);
   const [doorDragPreview,setDoorDragPreview]=useState<{tokenId:string;ids:string[]}|null>(null);
   useEffect(()=>setDoorDragPreview(null),[map?.id,mySocketId]);
   const handleDragActive = useStableCallback((active: boolean) => {
     privateDrag.current=active;
-    setDraggingToken(active);
+    for(const line of gridRef.current?.getChildren()??[]){line.setAttrs({stroke:active||measureActive?'#ffffffcc':'#ffffff5c',strokeWidth:active||measureActive?1.5:1});}
+    gridRef.current?.getLayer()?.batchDraw();
     // A shared DM pointer must not disclose the otherwise private destination.
     if(active){hideCursor();setHover(null);}
   });
-  const gridHot = draggingToken || measureActive;
+  const gridHot = measureActive;
 
   // Identity-stable token handlers so the memoized TokenShape only re-renders
   // when its own token/display actually changes (not on every snapshot).
@@ -994,7 +1046,7 @@ export function MapStage({
     if (orbTarget) setOrbTarget({...orbTarget,targetId:tok.id});
     else if (saveResolve) resolveSaveAt(tok.id);
     else onSelectToken(tok, additive);
-    if(resolveToken(snapshot,tok).dead && !orbTarget && !saveResolve){setDetailsExpanded(true);nudgeRightPanel();}
+    if(resolveToken(snapshot,tok).dead && !orbTarget && !saveResolve&&!explicitTokenInspection()){setDetailsExpanded(true);nudgeRightPanel();}
   });
   const handleTokenActivate = useStableCallback((tok: Token) => {
     if(areaCast)return;
@@ -1008,7 +1060,7 @@ export function MapStage({
     onMoveToken(tok.id, x, y, placed);
     if (isDm) {
       if (selectedIds.length <= 1 || !selectedIds.includes(tok.id)) onSelectToken(tok, false);
-      nudgeRightPanel();
+      if(!explicitTokenInspection())nudgeRightPanel();
     }
   });
   const handleTokenDragPreview = useStableCallback((tok: Token, point: {x:number;y:number;facing:number}|null) => {
@@ -1017,6 +1069,7 @@ export function MapStage({
       setDoorDragPreview(old=>old?.tokenId===tok.id?null:old);return;
     }
     const ids=doors.filter(d=>doorVisible(d)&&doorInReach({...tok,...point},d,pxPerFoot)).map(d=>d.id);
+    if(!ids.length){setDoorDragPreview(old=>old===null?old:null);return;}
     // Enter/leave updates only: pointer motion within the same doorway zone
     // should not rerender the battlefield on every frame.
     setDoorDragPreview(old=>old?.tokenId===tok.id&&old.ids.join('|')===ids.join('|')?old:{tokenId:tok.id,ids});
@@ -1240,6 +1293,9 @@ export function MapStage({
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
+      // Accepted Legacy positions have already passed per-viewer server filtering.
+      // Avoid repeating wall/light raycasts for every token during a flat redraw.
+      if(legacy&&snapshot.legacyGeometry!==undefined)return !!token;
       // Area art is pixel-clipped to the player's sight and revealed fog in the 3D layer,
       // so it plays wherever any part of it is in view (the server already checked).
       if(!token&&(id.startsWith('area:')||id.startsWith('spike-area:')))return true;
@@ -1247,20 +1303,27 @@ export function MapStage({
         (token.owned || fogVisionContains(presentation.personalVision(),x,y,usesTokenVision(snapshot.map))) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
     };
-  }, [snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
+  }, [legacy,snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
   const visibleAtRef = useRef(miniatureVisibleAt);
   visibleAtRef.current = miniatureVisibleAt;
   // Keep TokenShape's memo stable across unrelated snapshots while reading current fog.
   const tokenVisibleAtPosition = useCallback((id: string, x: number, y: number) => visibleAtRef.current(id, x, y), []);
+  const requestMovementPreview=useCallback((token:Token,x:number,y:number,done:(result:import('../../../shared/movementPreview').MovementPreview|null)=>void)=>{
+    const socket=useStore.getState().socket;if(!socket?.connected){done(null);return;}
+    socket.timeout(1500).emit('token:preview',{tokenId:token.id,x,y},(error,result)=>done(error?null:result));
+  },[]);
+  const legacyAffinity=useMemo(()=>new Set(snapshot.legacyGeometry?.affinity??[]),[snapshot.legacyGeometry?.affinity]);
 
   // One RAF drives all anchors, including stationary enemies becoming visible.
   // Keeping this above individual layers also survives a 2D -> 3D or shared-sight
   // remount without restarting (or skipping) the moving figure's animation.
   useLayoutEffect(()=>{
-    let frame=0;
-    const tokens=new Map(snapshot.tokens.map(t=>[t.id,t]));
+    let frame=0,lastPaint=-Infinity;
+    const tokens=new Map(presentationSnapshot.tokens.map(t=>[t.id,t]));
     const paint=()=>{
-      presentation.advance(performance.now());
+      const now=performance.now();
+      if(legacy&&legacyMovement.playback&&now-lastPaint<1000/60){frame=requestAnimationFrame(paint);return;}
+      lastPaint=now;presentation.advance(now);
       const moving=presentation.moving();
       for(const node of stageRef.current?.find<Konva.Group>('.token')??[]){
         const token=tokens.get(node.getAttr('tokenId'));if(!token)continue;
@@ -1272,11 +1335,11 @@ export function MapStage({
         if(changed)node.getLayer()?.batchDraw();
         miniatureRef.current?.moveToken(token.id,p.x,p.y,!moving,token.facing);
       }
-      visionRef.current?.frame();
+      visionRef.current?.frame(now);
       if(moving)frame=requestAnimationFrame(paint);
     };
     paint();return ()=>cancelAnimationFrame(frame);
-  },[snapshot,readyMiniatures,presentation,tokenVisibleAtPosition]);
+  },[presentationSnapshot,readyMiniatures,presentation,tokenVisibleAtPosition,legacy,legacyMovement.playback?.id,legacyMovement.playback?.start]);
 
   // Prepare map art before a door opens. Only role-filtered tokens below can
   // create an instance; this deduplicated art list contains no hidden positions.
@@ -1299,6 +1362,7 @@ export function MapStage({
   const terrainZones=useContentStable(useMemo(()=>snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({...m.origin,radiusFt:m.spellArea!.spec.sizeFt})),[snapshot.measurements]));
   const movementWalls=useContentStable(map?.walls);
   const miniatureTokens = useMemo<MiniatureToken[]>(() => snapshot.tokens.flatMap((token) => {
+    if(legacy)return [];
     if(map?.walls?.some(w=>w.tokenId===token.id))return [];
     if (!(token.kind === 'pc' ? use3dTokens : use3dMonsters)) return [];
     // Only role-filtered tokens can create instances; background assets have no positions.
@@ -1322,7 +1386,7 @@ export function MapStage({
       activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
       selected: !token.sharedSightOnly && (orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id)),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, hiddenGhosts, miniatureCatalogRevision, graphics.modelQuality]);
+  }), [legacy,snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, hiddenGhosts, miniatureCatalogRevision, graphics.modelQuality]);
   const miniatureIds=useMemo(()=>new Set(miniatureTokens.map(m=>m.id)),[miniatureTokens]);
   const doorTokenIds=new Set(doors.flatMap(d=>d.tokenId?[d.tokenId]:[]));
   useEffect(() => {
@@ -1342,8 +1406,8 @@ export function MapStage({
     return [...(!event.suppressSpellVisual&&spellImpactStyle(event)?[{...input,id:event.id,startAt:event.numberStartAt===undefined?undefined:event.numberStartAt+weaponTravelMs(event)}]:[]),
       ...(weaponImpactStyle(event)?[{...input,id:`weapon-${event.id}`,weaponOnly:true,startAt:event.numberStartAt}]:[])];
   };
-  const preparedSpellImpacts=preparedHpFx.flatMap(mapSpellEvent);
-  const spellImpacts=useMemo<SpellImpact[]>(()=>[...hpFx.flatMap(mapSpellEvent),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
+  const preparedSpellImpacts=legacy?[]:preparedHpFx.flatMap(mapSpellEvent);
+  const spellImpacts=useMemo<SpellImpact[]>(()=>legacy?[]:[...hpFx.flatMap(mapSpellEvent),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
     if(token.sharedSightOnly||(!isDm&&token.isHidden))return [];
     return resolveToken(snapshot,token).conditions.flatMap(condition=>{
       const spell=persistentSpellVisual(condition);if(!spell||isRollImpactPending(condition.combatEffect?.visualRollId))return [];
@@ -1351,7 +1415,7 @@ export function MapStage({
         diameter:miniatureTokens.find(t=>t.id===token.id)?.diameter??token.widthFt*pxPerFoot,
         event:{kind:token.kind,refId:token.refId,delta:0,spell}}];
     });
-  })],[hpFx,snapshot,miniatureTokens,pxPerFoot,isDm,spellRollFx]);
+  })],[legacy,hpFx,snapshot,miniatureTokens,pxPerFoot,isDm,spellRollFx]);
   const readSharedNames=useMemo(()=>createMiniatureNameReader(),[]);
   const miniatureNameLabels = useStableCallback(() => [...readMiniatureNames(tokenLayerRef.current,
     id=>selectedIds.includes(id)||hover?.token.id===id||orbTarget?.targetId===id), ...readSharedNames(sharedTokenLayerRef.current,()=>false)]);
@@ -1362,6 +1426,16 @@ export function MapStage({
     }
   },[]);
 
+  const paintPan = useStableCallback((position:Pt) => {
+    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
+      if (layer) { layer.position(position); layer.draw(); }
+    }
+    miniatureRef.current?.setView({ ...view, ...position });
+    visionRef.current?.camera({view:{...view,...position}});
+  });
+  const panFrames=useMemo(()=>createLatestFrame(paintPan,run=>requestBattlefieldFrame(run,'camera'),cancelBattlefieldFrame),[paintPan]);
+  useEffect(()=>()=>panFrames.cancel(),[panFrames,map?.id,legacy]);
+
   // Flat tokens belong to the ground plane, beneath miniature geometry.
   // Only ready miniature HUDs and shared tools belong above WebGL. Konva
   // keeps all hit regions so changing visual depth never changes input ownership.
@@ -1369,23 +1443,30 @@ export function MapStage({
     const background = layerRef.current?.getNativeCanvasElement();
     const groundTokens = groundTokenLayerRef.current?.getNativeCanvasElement();
     const foreground = tokenLayerRef.current?.getNativeCanvasElement();
-    if (background) background.style.zIndex = '0';
-    if (groundTokens) groundTokens.style.zIndex = '0';
+    if (background) background.style.zIndex = legacyTerrain?'1':'0';
+    if (groundTokens) groundTokens.style.zIndex = legacyTerrain?'1':'0';
     if (foreground) foreground.style.zIndex = '2';
     const shared=sharedTokenLayerRef.current?.getNativeCanvasElement();
     if(shared){shared.style.zIndex='4';shared.style.filter=map?.explorationMode==='revealed'?'none':'grayscale(1)';shared.style.opacity=map?.explorationMode==='revealed'?'1':'.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
-  }, [dprKey, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode]);
+  }, [dprKey, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode,legacyTerrain]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const stage = stageRef.current;
+    // Legacy uses an unrotated, untilted stage. Native Konva canvases and input
+    // avoid allocating the oversized scene/hit/warp buffers needed for 3D orbit.
     if (!stage) return;
-    const canvases = [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]
-      .filter((layer): layer is Konva.Layer => !!layer)
-      .map(layer => installPerspectiveCanvas(layer, size.w, size.h, tiltDegrees, rotationDegrees));
+    for (const layer of stage.getLayers()) if (layer.getCanvas().getPixelRatio() !== konvaPixelRatio) layer.getCanvas().setPixelRatio(konvaPixelRatio);
+    const tilt = legacy ? 0 : projectionState.current.tilt, rotation = legacy ? 0 : projectionState.current.rotation;
+    const perspectiveLayers=legacy?[]:[layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current,spellAreaLayerRef.current].filter((layer):layer is Konva.Layer=>!!layer);
+    const canvases=perspectiveLayers.map(layer=>installPerspectiveCanvas(layer,size.w,size.h,tilt,rotation));
     projectionCanvases.current=canvases;
-    const input=installPerspectiveInput(stage,size.w,size.h,tiltDegrees,rotationDegrees,()=>projectionState.current);
-    return () => {input();canvases.forEach(dispose=>dispose());projectionCanvases.current=[];};
-  }, [size.w, size.h, dprKey, map?.id, map?.slidesUrl, map?.imagePath]);
+    const input=legacy?undefined:installPerspectiveInput(stage,size.w,size.h,tilt,rotation,()=>projectionState.current);
+    const retainedLayers=retained?[groundTokenLayerRef.current,sharedTokenLayerRef.current,...(legacy?[]:[tokenLayerRef.current])].filter((l):l is Konva.Layer=>!!l).map(layer=>installRetainedTokenLayer(layer,canvases[perspectiveLayers.indexOf(layer)]?.buffer)):[];
+    for (const layer of stage.getLayers()) layer.draw();
+    // Dispose wrappers in reverse order: the retained paint delegates to the
+    // perspective buffer, whose padding must remain valid until it is removed.
+    return () => {retainedLayers.forEach(dispose=>dispose());input?.();canvases.forEach(dispose=>dispose());projectionCanvases.current=[];};
+  }, [size.w, size.h, dprKey, konvaPixelRatio, legacy, retained, map?.id, map?.slidesUrl, map?.imagePath]);
 
   const selectionBox = useBoxSelection({
     enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,
@@ -1408,7 +1489,7 @@ export function MapStage({
   const mapOverlays = (
     <>
       {showRollOverlay && !fullChatVisible && (
-        <RollLogOverlay rollLog={snapshot.rollLog} chat={snapshot.chat} />
+        <BoardRollFeed/>
       )}
       {showDiceButton && <DiceButtonOverlay selectedIds={selectedIds} />}
       {isDm && <DamagePrompt />}
@@ -1421,6 +1502,10 @@ export function MapStage({
   // the screen centre is a fixed point of that projection, so centring solves
   // directly for the view.
   const focusNonce = useRef<number>();
+  // Keep hooks above the Slides/empty-map returns so switching map kinds
+  // preserves React's hook order.
+  const serverTokenLayerSet=useMemo(()=>new Set(snapshot.tokenLayerIds??[]),[snapshot.tokenLayerIds]);
+  const selectedIdSet=useMemo(()=>new Set(selectedIds),[selectedIds]);
   useEffect(() => {
     if (!focusRequest || focusRequest.nonce === focusNonce.current) return;
     focusNonce.current = focusRequest.nonce;
@@ -1438,7 +1523,7 @@ export function MapStage({
   // Google Slides maps render as an embedded iframe instead of a canvas.
   if (map?.slidesUrl && !map.imagePath) {
     return (
-      <div className="stage-wrap" ref={containerRef}>
+      <div className="stage-wrap" data-render-mode={legacy?'legacy':'standard'} data-retained-rendering={String(retained)} ref={containerRef}>
         <iframe
           title={map.name}
           src={map.slidesUrl}
@@ -1483,24 +1568,14 @@ export function MapStage({
       }
     }
     if (fresh.length) {
+      const context={mapId:map.id,layer:paintLayer,reveal:fogBrush==='reveal'},old=pendingFogContext.current;
+      if(old&&(old.mapId!==context.mapId||old.layer!==context.layer||old.reveal!==context.reveal))flushFog();
+      pendingFogContext.current=context;
+      (paintLayer==='map'?mapFogMask:tokenFogMask).current?.preview(fresh,fogBrush==='reveal');
       pendingFogRef.current.push(...fresh);
-      if (!fogFlushRef.current) fogFlushRef.current = setTimeout(flushFog, 120);
+      if (!fogFlushRef.current) fogFlushRef.current = setTimeout(flushFog, 250);
     }
   };
-  /** Emit the accumulated fog cells as ONE paint (a stroke is a single
-   *  layer/direction, so those are constant across the batch). */
-  const flushFog = () => {
-    if (fogFlushRef.current) {
-      clearTimeout(fogFlushRef.current);
-      fogFlushRef.current = null;
-    }
-    const cells = pendingFogRef.current;
-    if (cells.length && map) {
-      pendingFogRef.current = [];
-      paintFog(map.id, paintLayer, cells, fogBrush === 'reveal');
-    }
-  };
-
   // Place/size a measurement. Custom = drag; standard circle/square = one click;
   // standard cone/line = click-anchor then rotate then click; emanation = click a
   // token (then optionally drag the radius for custom).
@@ -1617,10 +1692,8 @@ export function MapStage({
     if(placingLight&&map&&lightPlacement&&(!('button' in e.evt)||e.evt.button===0)){
       const pos=pointerToImage(stage);
       if(pos){
-        const settings=map.environment??DEFAULT_MAP_ENVIRONMENT;
-        const lights=lightPlacement.lightId?settings.lights.map(light=>light.id===lightPlacement.lightId?{...light,x:pos.x,y:pos.y}:light):
-          [...settings.lights,{id:crypto.randomUUID(),x:pos.x,y:pos.y,radiusFt:15,heightFt:6,color:settings.newLightColor??'warm' as const,intensity:1,flicker:true,visibleTorch:true}];
-        useStore.getState().setMapEnvironment(map.id,{lights});placeLight(null);
+        useStore.getState().placeMapLight(map.id,pos.x,pos.y,lightPlacement.lightId);
+        if(lightPlacement.lightId)placeLight(null);
       }
       return;
     }
@@ -1951,16 +2024,23 @@ export function MapStage({
   const panning = !placingLight && !onPlaceAt && !fogActive && !measureActive && !pinching;
   const handleLayerDragMove = (e: KonvaEventObject<DragEvent>) => {
     if (e.target.getClassName() !== 'Layer') return;
-    const position = { x: e.target.x(), y: e.target.y() };
-    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
-      if (layer) { layer.position(position); layer.draw(); }
-    }
-    miniatureRef.current?.setView({ ...view, ...position });
-    visionRef.current?.camera({view:{...view,...position}});
+    const position={x:e.target.x(),y:e.target.y()};
+    // Legacy's precomputed mask/terrain only need cheap DOM transforms here.
+    // Keep them aligned immediately; defer the canvas redraws to one RAF.
+    if(legacy)visionRef.current?.camera({view:{...view,...position}});
+    panFrames.push(position);
   };
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
     // dragend bubbles; only react to the layer itself panning, not token drags.
     if (e.target.getClassName() !== 'Layer') return;
+    panFrames.push({x:e.target.x(),y:e.target.y()});panFrames.flush();
+    // Pan synchronizes several layers, while Konva's release paint refreshes
+    // only the directly dragged layer. Retained hit maps skipped paints during
+    // the drag, so refresh every synchronized layer before the next pointer
+    // event. Their scene pixels are already current; only input needs repaint.
+    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
+      layer?.drawHit();
+    }
     userAdjusted.current = true;
     setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }));
   };
@@ -1979,7 +2059,7 @@ export function MapStage({
       if(!layer)continue;
       if(previous.tilt!==tilt){layer.position({x:nextView.x,y:nextView.y});layer.scale({x:nextView.scale,y:nextView.scale*groundYScale(tilt)});}
       const labels=layer.find('.token-upright-hud');
-      for(const label of labels)label.rotation(-rotation);
+      for(const label of labels){label.rotation(-rotation);invalidateRetainedToken(label);}
       if(previous.tilt!==tilt || labels.length)layer.draw();
     }
     miniatureRef.current?.setProjection(tilt,rotation,nextView);
@@ -1991,6 +2071,7 @@ export function MapStage({
     safeSetItem(rotationKey,String(rotation%360));
   };
   const animateView = (nextTilt: number, nextRotation: number) => {
+    if(legacy)return;
     cancelBattlefieldFrame(viewAnimation.current);userAdjusted.current=true;
     const {tilt:startTilt,rotation:startRotation}=projectionState.current,startView=view;
     const targetRotation=startRotation+((nextRotation-startRotation+180)%360+360)%360-180;
@@ -2011,7 +2092,8 @@ export function MapStage({
     animateView(next?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation);
   };
   const rotateStart=(event:React.PointerEvent<HTMLDivElement>)=>{
-    if(event.button!==2 || !(event.target instanceof HTMLCanvasElement) || !event.target.closest('.konvajs-content'))return false;
+    const target=event.target;
+    if(legacy||event.button!==2 || !(target instanceof Element) || !(target.closest('.konvajs-content')||target===event.currentTarget))return false;
     const stage=stageRef.current;stage?.setPointersPositions(event.nativeEvent);
     const point=stage?.getPointerPosition();
     if(point && stage?.getIntersection(point)?.findAncestor('.token',true))return false;
@@ -2034,11 +2116,12 @@ export function MapStage({
     if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);return true;
   };
 
+  const entities=tokenEntityIndex(snapshot),myClaimedCharId=snapshot.characters.find(ch=>ch.claimedBy===mySocketId)?.id;
   const renderTokens = (miniatures: boolean, shared = false) => snapshot.tokens.filter(t=>!!t.sharedSightOnly===shared).filter(t=>!doorTokenIds.has(t.id)).filter((token) =>
     !hiddenGhosts.has(token.id) && (readyMiniatures.has(token.id) && miniatureIds.has(token.id)) === miniatures,
   ).map((t) => {
     const d = resolveToken(snapshot, t);
-    const creature = t.kind === 'pc' ? snapshot.characters.find(c => c.id === t.refId) : snapshot.monsters.find(m => m.id === t.refId);
+    const creature = t.kind === 'pc' ? entities.characters.get(t.refId) : entities.monsters.get(t.refId);
     const movementSpeed = creature && 'speed' in creature ? walkingSpeedFeet(creature) : undefined;
     const hasteDash = creature && activeHasteCondition(creature)?.combatEffect?.hasteActionUsed === 'dash';
     // Players may drag only their side: PCs + friendly creatures,
@@ -2046,31 +2129,36 @@ export function MapStage({
     // this the drag succeeds locally (a ghost move on the player's
     // screen) even though the server rejects it.
     const movable =
-      isDm ||
+      actualDm ||
       t.kind === 'pc' ||
-      (d.disposition === 'friendly' && (!d.objectKind || !!creature && 'modelType' in creature && creature.modelType==='spiritual-weapon' && creature.conditions.some(c=>c.combatEffect?.casterId===snapshot.characters.find(ch=>ch.claimedBy===mySocketId)?.id)));
+      (d.disposition === 'friendly' && (!d.objectKind || !!creature && 'modelType' in creature && creature.modelType==='spiritual-weapon' && creature.conditions.some(c=>c.combatEffect?.casterId===myClaimedCharId)));
     return (
       <TokenShape
         key={t.id}
         token={t}
+        serverLayer={legacy&&!!snapshot.tokenLayerRaster&&serverTokenLayerSet.has(t.id)}
+        serverSprite={snapshot.tokenSprites?.[t.id]}
+        cacheArtwork={snapshot.serverRendering?.enabled===true}
         presentation={presentation}
+        reducedEffects={legacy}
         sharedDarkvision={!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy&&map?.explorationMode!=='revealed'}
         display={d}
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
         miniatureReady={miniatures}
         miniaturePending={!miniatures && !miniaturesUnavailable && !failedMiniatures.has(t.id) && miniatureIds.has(t.id)}
-        hideAffinity={!!t.sharedSightOnly || !visionShowsAffinity(snapshot.playerVision,t.x,t.y)}
+        hideAffinity={!!t.sharedSightOnly || (snapshot.serverRendering?.enabled&&snapshot.legacyGeometry!==undefined?!legacyAffinity.has(t.id):!visionShowsAffinity(snapshot.playerVision,t.x,t.y))}
         viewRotation={rotationDegrees}
-        miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name })}
-        movementWalls={isDm?undefined:movementWalls}
+        miniatureDiameterFt={miniatureBaseWidthFt(t, t.kind === 'monster' ? entities.monsters.get(t.refId) : { name: d.name })}
+        movementWalls={actualDm?undefined:movementWalls}
+        onServerPreview={snapshot.serverRendering?.enabled&&snapshot.legacyGeometry!==undefined?requestMovementPreview:undefined}
         terrainZones={terrainZones}
         movementAllowanceFt={movementSpeed === undefined ? undefined : movementSpeed * (hasteDash ? 2 : 1)}
         draggable={
-          !t.sharedSightOnly && draggableTokens && movable && (isDm || !speedIsZero(creature ?? {})) && !fogActive && !measureActive && !saveResolve && !orbTarget
+          !t.sharedSightOnly && draggableTokens && movable && (actualDm || !speedIsZero(creature ?? {})) && !fogActive && !measureActive && !saveResolve && !orbTarget
         }
         listening={!t.sharedSightOnly && !measureActive}
-        selected={!t.sharedSightOnly && (orbTarget ? orbTarget.targetId === t.id : selectedIds.includes(t.id))}
+        selected={!t.sharedSightOnly && (orbTarget ? orbTarget.targetId === t.id : selectedIdSet.has(t.id))}
         activeTurn={!t.sharedSightOnly && t.id === activeTurnTokenId}
         initiativeRank={initiativeRank.get(t.id) ?? null}
         onSelect={handleTokenSelect}
@@ -2088,17 +2176,20 @@ export function MapStage({
   });
 
   return (
-    <div className="stage-wrap" ref={containerRef} {...activeSelectionBox.handlers}
+    <div className="stage-wrap" data-motion-stage={legacyMovement.playback?'playing':'2'} data-render-mode={legacy?'legacy':'standard'} data-retained-rendering={String(retained)} ref={containerRef} {...activeSelectionBox.handlers}
       onPointerDownCapture={e=>{if(!rotateStart(e))activeSelectionBox.handlers.onPointerDownCapture(e);}}
       onPointerMoveCapture={e=>{if(!rotateMove(e))activeSelectionBox.handlers.onPointerMoveCapture(e);}}
       onPointerUpCapture={e=>{if(!rotateEnd(e))activeSelectionBox.handlers.onPointerUpCapture(e);}}
       onPointerCancelCapture={e=>{if(!rotateEnd(e))activeSelectionBox.handlers.onPointerCancelCapture();}}
       onLostPointerCapture={e=>{if(!rotateEnd(e))activeSelectionBox.handlers.onLostPointerCapture();}}
-      onContextMenuCapture={e=>{if((e.target as HTMLElement).closest?.('.konvajs-content'))e.preventDefault();}}>
+      // Safari may retarget contextmenu to this wrapper while it owns pointer
+      // capture. Cover that target too, preserving token context-menu bubbling.
+      onContextMenuCapture={e=>{const target=e.target;if(target instanceof Element&&(target===e.currentTarget||target.closest('.konvajs-content')||target instanceof HTMLCanvasElement))e.preventDefault();}}
+      onDragStartCapture={e=>{if(e.target instanceof HTMLCanvasElement)e.preventDefault();}}>
       {activeSelectionBox.box && <div className="dm-selection-box" data-testid="dm-selection-box" aria-hidden="true"
         style={{ left: Math.min(activeSelectionBox.box.start.x, activeSelectionBox.box.end.x), top: Math.min(activeSelectionBox.box.start.y, activeSelectionBox.box.end.y),
           width: Math.abs(activeSelectionBox.box.end.x - activeSelectionBox.box.start.x), height: Math.abs(activeSelectionBox.box.end.y - activeSelectionBox.box.start.y) }} />}
-      {placingLight&&<div className="environment-placement-hint" role="status">Click map to {lightPlacement?.lightId?'move':'place'} light · <button onClick={()=>placeLight(null)}>Cancel</button></div>}
+      {placingLight&&<div className="environment-placement-hint" role="status">{lightPlacement?.lightId?'Click map to move light':'Click repeatedly to place lights'} · <button onClick={()=>placeLight(null)}>Done</button></div>}
       {!map && <div className="stage-empty">No active map yet.</div>}
       {map && (
         <>
@@ -2121,7 +2212,17 @@ export function MapStage({
             <button className="btn tiny" onClick={resetView} title="Fit to window">
               Fit
             </button>
+            <span className="map-rotation-controls" role="group" aria-label="Map rotation">
+              <button className="btn tiny" aria-label="Rotate map left" disabled={legacy}
+                title={legacy?'Legacy mode uses a fixed overhead view':'Rotate view left 15°'}
+                onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation-15)}>↶</button>
+              <button className="btn tiny" aria-label="Rotate map right" disabled={legacy}
+                title={legacy?'Legacy mode uses a fixed overhead view':'Rotate view right 15°'}
+                onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation+15)}>↷</button>
+            </span>
             <CompactToolbarMenu label="View">
+            <LegacyModeControl/>
+            <ServerRenderingOwnerControls/>
             <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
               <span className="muted">Your view</span>
               {actualDm&&<select className="btn tiny" aria-label="Battlefield visibility" value={dmViewMode}
@@ -2131,26 +2232,22 @@ export function MapStage({
               </select>}
               {partyPreview&&<span className="muted" role="status">{sourceSnapshot.partyView?'Combined party sight':'Loading party sight…'}</span>}
               <button className={`btn tiny ${tilted ? 'on' : ''}`} aria-pressed={tilted}
-                aria-label="Tilted battlefield view" title="45° tilt — only changes your view"
+                aria-label="Tilted battlefield view" disabled={legacy} title="45° tilt — only changes your view"
                 onClick={() => chooseTilt(true)}>45°</button>
               <button className={`btn tiny ${!tilted ? 'on' : ''}`} aria-pressed={!tilted}
                 aria-label="Flat battlefield view" title="Flat overhead view — only changes your view"
                 onClick={() => chooseTilt(false)}>Overhead</button>
               <button ref={rotationLabel} className="btn tiny" hidden={Math.abs(rotationDegrees%360)<.01} aria-label="Reset battlefield rotation" title="Reset the map's rotation. Hold right mouse button and drag empty space to rotate freely."
                 onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,0)}>Reset rotation</button>
-              <span className="touch-rotation-controls">
-                <button className="btn tiny" aria-label="Rotate map left" onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,rotationDegrees-15)}>↶ Rotate</button>
-                <button className="btn tiny" aria-label="Rotate map right" onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,rotationDegrees+15)}>Rotate ↷</button>
-              </span>
             </div>
-            {(map?.videoPath||tiles.some(t=>t.videoPath))&&<button className={`btn tiny ${animateMap?'on':''}`} aria-label="Toggle map animation" aria-pressed={animateMap} title="Animate the map in your view, or use its still image for better performance" onClick={()=>mapAnimation.setEnabled(!mapAnimation.enabled)}>Map animation: {animateMap?'On':'Off'}</button>}
+            {!legacy&&(map?.videoPath||tiles.some(t=>t.videoPath))&&<button className={`btn tiny ${animateMap?'on':''}`} aria-label="Toggle map animation" aria-pressed={animateMap} title="Animate the map in your view, or use its still image for better performance" onClick={()=>mapAnimation.setEnabled(!mapAnimation.enabled)}>Map animation: {animateMap?'On':'Off'}</button>}
             {([
               { label: 'Players', kind: 'player', enabled: use3dTokens, set: setUse3dTokens, key: tokenPreferenceKey },
               { label: 'Monsters', kind: 'monster', enabled: use3dMonsters, set: setUse3dMonsters, key: monsterPreferenceKey },
             ] as const).map(group => <div key={group.kind} className="battlefield-view-options token-appearance-options" role="group" aria-label={`${group.label} token appearance`}>
               <span className="muted">{group.label}</span>
               {[false, true].map(enabled => (
-                <button key={String(enabled)} className={`btn tiny ${group.enabled === enabled ? 'on' : ''}`}
+                <button disabled={legacy&&enabled} key={String(enabled)} className={`btn tiny ${group.enabled === enabled ? 'on' : ''}`}
                   aria-label={`${enabled ? '3D' : '2D'} ${group.kind} tokens`} aria-pressed={group.enabled === enabled}
                   title={group.kind === 'monster' ? 'Changes monsters, chests and traps in your view' : 'Only changes player tokens in your view'}
                   onClick={() => {
@@ -2176,7 +2273,7 @@ export function MapStage({
                   snap={snap}
                   removeMode={removeMode}
                   hasMeasurements={snapshot.measurements.length > 0}
-                  isDm={isDm}
+                  isDm={actualDm}
                   onPick={(shape, sz) => {
                     setRemoveMode(false);
                     pendingRef.current = false;
@@ -2206,7 +2303,7 @@ export function MapStage({
                       setDraft(null);
                       setAnnotate(next);
                     }}/>
-                  {isDm && comfyOk && (
+                  {actualDm && comfyOk && (
                     <>
                       <button
                         className={`btn tiny ${sceneOpen ? 'on' : ''}`}
@@ -2245,7 +2342,7 @@ export function MapStage({
                       Clear mine
                     </button>
                   )}
-                  {isDm && snapshot.annotations.length > 0 && (
+                  {actualDm && snapshot.annotations.length > 0 && (
                     <button
                       className="btn tiny"
                       title="Clear everyone's annotations"
@@ -2254,7 +2351,7 @@ export function MapStage({
                       Clear all
                     </button>
                   )}
-                  {isDm && snapshot.annotations.some((a) => a.kind === 'image') && (
+                  {actualDm && snapshot.annotations.some((a) => a.kind === 'image') && (
                     <>
                       <button
                         className={`btn tiny ${decalsLocked ? 'on' : ''}`}
@@ -2277,7 +2374,7 @@ export function MapStage({
                     </>
                   )}
                 </div>
-                {isDm && (
+                {actualDm && (
                   <>
                     <ScaleMenu
                       feetPerSquare={derivedFtPerSquare}
@@ -2358,7 +2455,7 @@ export function MapStage({
             )}
           <Stage
             ref={stageRef}
-            key={dprKey}
+            key={`${dprKey}:${legacy}`}
             width={size.w}
             height={size.h}
             onMouseDown={handleMouseDown}
@@ -2393,13 +2490,13 @@ export function MapStage({
                 y={panBg.y}
                 width={panBg.w}
                 height={panBg.h}
-                fill={CANVAS_BG}
+                fill={legacyTerrain?'rgba(0,0,0,0)':CANVAS_BG}
               />
               {/* Base image at the origin, at its own natural size. */}
-              {image && map?.imagePath && <MapArtwork url={map.imagePath} videoPath={animateMap?map.videoPath:undefined} onPlaybackError={()=>notify('Animated map could not play; its still image is being used. Try an MP4 (H.264) or WebM video.')} width={baseW} height={baseH} />}
+              {!legacyTerrain && image && map?.imagePath && <MapArtwork url={map.imagePath} videoPath={animateMap?map.videoPath:undefined} onPlaybackError={()=>notify('Animated map could not play; its still image is being used. Try an MP4 (H.264) or WebM video.')} width={baseW} height={baseH} />}
               {/* Extra image tiles (bottom-to-top by z). DM drags/resizes them in
                   arrange mode; otherwise they're inert map background. */}
-              {tiles.map((t) => (
+              <Group opacity={legacyTerrain?0:1}>{tiles.map((t) => (
                 <DecalImage
                   key={t.id}
                   url={t.imagePath}
@@ -2418,11 +2515,11 @@ export function MapStage({
                   onMove={(x, y) => moveMapImage(t.id, x, y)}
                   onResize={(w, h) => resizeMapImage(t.id, t.x, t.y, w, h)}
                 />
-              ))}
+              ))}</Group>
               {!image && tiles.length === 0 && (
                 <Rect width={imgW} height={imgH} fill="#2a2f3a" />
               )}
-              {gridLines.map((pts, i) => (
+              <Group ref={gridRef} name="battlefield-grid" listening={false}>{gridLines.map((pts, i) => (
                 <Line
                   key={i}
                   points={pts}
@@ -2430,54 +2527,23 @@ export function MapStage({
                   strokeWidth={gridHot ? 1.5 : 1}
                   listening={false}
                 />
-              ))}
+              ))}</Group>
               {/* Map fog: covered terrain. For players the cover is opaque and
                   EXACTLY the off-map backdrop colour (CANVAS_BG), so a covered
                   area is indistinguishable from empty space beyond the map — no
                   grid, image, or tell-tale darker rectangle leaks through. The DM
                   sees a translucent dark wash so they can still work under it. */}
               {mapFogEnabled && (
-                <Shape
-                  listening={false}
-                  opacity={isDm ? 0.5 : 1}
-                  sceneFunc={(ctx: Konva.Context) => {
-                    ctx.fillStyle = isDm ? '#04060a' : CANVAS_BG;
-                    // For the opaque player cover, overlap cells by 1px so the
-                    // grid never bleeds through sub-pixel seams. (No overlap for
-                    // the DM's translucent wash — it would darken at seams.)
-                    const pad = isDm ? 0 : 1;
-                    for (let c = colMin; c < colMax; c++) {
-                      for (let r = rowMin; r < rowMax; r++) {
-                        if (!mapRevealed.has(`${c},${r}`)) {
-                          ctx.fillRect(
-                            c * grid - pad,
-                            r * grid - pad,
-                            grid + pad * 2,
-                            grid + pad * 2,
-                          );
-                        }
-                      }
-                    }
-                  }}
-                />
+                <ManualFog key={`map-fog:${map?.id}`} ref={mapFogMask} name="manual-map-fog" id={map?.id??''} grid={grid}
+                  bounds={{left:colMin,top:rowMin,right:colMax,bottom:rowMax}} revealed={mapRevealed}
+                  color={isDm?'#04060a':CANVAS_BG} opacity={isDm?.5:1}/>
               )}
               {/* Token fog: a DM-only purple marker of where tokens are hidden
                   (players just don't receive those tokens). */}
               {tokenFogEnabled && isDm && (
-                <Shape
-                  listening={false}
-                  opacity={0.35}
-                  sceneFunc={(ctx: Konva.Context) => {
-                    ctx.fillStyle = '#7a3df0';
-                    for (let c = colMin; c < colMax; c++) {
-                      for (let r = rowMin; r < rowMax; r++) {
-                        if (!tokenRevealed.has(`${c},${r}`)) {
-                          ctx.fillRect(c * grid, r * grid, grid, grid);
-                        }
-                      }
-                    }
-                  }}
-                />
+                <ManualFog key={`token-fog:${map?.id}`} ref={tokenFogMask} name="manual-token-fog" id={map?.id??''} grid={grid}
+                  bounds={{left:colMin,top:rowMin,right:colMax,bottom:rowMax}} revealed={tokenRevealed}
+                  color="#7a3df0" opacity={.35}/>
               )}
               {/* Image decals (scenery) sit UNDER tokens; the DM drags to
                   reposition / corner-drags to resize, removes one via the
@@ -2523,14 +2589,19 @@ export function MapStage({
                     }
                   />
                 ))}
-              <FootprintLayer key={map?.id}
+              {!legacy&&<FootprintLayer key={map?.id}
                 onMarks={updateFootprints}
                 renderFallback={miniaturesUnavailable||!(miniatureTokens.length>0||preloadMiniatures.length>0||environment||spellImpacts.length>0)}
                 isVisibleAt={tokenVisibleAtPosition}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
-              />
+              />}
             </Layer>
+            {legacy&&<Layer name="legacy-footsteps" listening={false} x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale}
+              ref={layer=>{if(layer){const canvas=layer.getNativeCanvasElement();canvas.style.zIndex=legacyTerrain?'1':'0';canvas.style.pointerEvents='none';canvas.dataset.testid='legacy-footsteps';}}}>
+              <FootprintLayer key={map?.id} compact tokens={snapshot.tokens} pxPerFoot={pxPerFoot} isVisibleAt={tokenVisibleAtPosition}
+                movementDurationMs={legacyMovement.playback?.durationMs??(snapshot.legacyGeometry!==undefined?0:undefined)} visualPosition={presentation.position}/>
+            </Layer>}
             <Layer
               ref={groundTokenLayerRef}
               name="ground-token-layer"
@@ -2542,6 +2613,7 @@ export function MapStage({
               onDragMove={handleLayerDragMove}
               onDragEnd={handleLayerDragEnd}
             >
+              {legacy&&snapshot.tokenLayerRaster&&<KonvaImage name="server-token-layer" image={renderedImage(snapshot.tokenLayerRaster.key)} x={snapshot.tokenLayerRaster.x} y={snapshot.tokenLayerRaster.y} width={snapshot.tokenLayerRaster.width/snapshot.tokenLayerRaster.scale} height={snapshot.tokenLayerRaster.height/snapshot.tokenLayerRaster.scale} listening={false} perfectDrawEnabled={false}/>}
               {renderTokens(false)}
             </Layer>
             <Layer
@@ -2720,20 +2792,20 @@ export function MapStage({
                 gridSizePx={grid}
               />
               {/* Chat bubbles over PC tokens (typing "•••" + spoken words). */}
-              <SpeechBubbles
+              {!legacy&&<SpeechBubbles
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
                 gridSizePx={grid}
-              />
+              />}
               {/* Floating ±X damage/heal numbers — topmost, click-through. */}
-              <HpFxLayer
+              {!legacy&&<HpFxLayer
                 spellEffects3D={!miniaturesUnavailable}
                 floaters={hpFx2d}
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
-              />
+              />}
               {/* Live "laser pointers" for everyone else on this map. */}
-              {showCursors && (
+              {!legacy&&showCursors && (
                 <CursorPointers currentMapId={map?.id} scale={view.scale} />
               )}
             </Layer>
@@ -2752,19 +2824,19 @@ export function MapStage({
               if(!layer)return;const canvas=layer.getNativeCanvasElement();
               canvas.style.zIndex='5';canvas.style.pointerEvents='none';canvas.dataset.testid='hp-number-canvas';
             }}>
-              <HpNumberLayer floaters={hpFx} tokens={snapshot.tokens} pxPerFoot={pxPerFoot} gridSizePx={grid}
+              <HpNumberLayer floaters={legacy?[]:hpFx} tokens={snapshot.tokens} pxPerFoot={pxPerFoot} gridSizePx={grid}
                 headPosition={hpHeadPosition}
                 view={view} width={size.w} height={size.h} tilt={tiltDegrees} rotation={rotationDegrees}/>
             </Layer>
           </Stage>
-          {(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer preparedSpellImpacts={preparedSpellImpacts} spellColorOverlay={spellColorOverlay} spellMist={spellMist} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={!!snapshot.playerVision&&(usesMapVision(map)||snapshot.playerVision.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
+          {!legacy&&(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
+            <MiniatureLayer preparedSpellImpacts={preparedSpellImpacts} spellColorOverlay={spellColorOverlay} spellMist={spellMist} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={renderPlayerVision&&(usesMapVision(map)||!!snapshot.playerVision?.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} spellFog={spellFog} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas} visionCoverFrame={visionCoverFrame}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?lights=>visionRef.current?.prepareLights(lights):undefined} />
           </Suspense></MiniatureFallback>}
-          {renderPlayerVision&&snapshot.playerVision&&<PlayerVisionOverlay spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
-            terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>}
+          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay ref={visionRef} presentation={presentation} terrainRaster={legacyTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+            terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}
           {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
           {!wallActive&&activeDoorControls.length>0&&!doorDragPreview&&<section data-testid="door-controls" className="nearby-door-controls" role="region" aria-label="Door controls">
             <header><strong>Door controls</strong><button className="btn tiny" aria-label="Close door controls" title="Close — click a nearby door or leave and return to reopen" onClick={dismissDoorControls}>×</button></header>
@@ -2808,9 +2880,10 @@ export function MapStage({
             />
           )}
           {mapOverlays}
-          {teleportCast&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Misty Step destination" style={{zIndex:30}}><strong>Misty Step ? 30 ft</strong><span>Click a visible, unoccupied destination, then confirm.</span>{teleportError&&<span role="alert">{teleportError}</span>}<button className="btn" disabled={!teleportPoint||!!teleportError} onClick={()=>{if(teleportPoint&&map)useStore.getState().rollAbility({...teleportCast,destination:{mapId:map.id,...teleportPoint}});clearTeleportCast();}}>Teleport</button><button className="btn" onClick={clearTeleportCast}>Cancel (Esc)</button></div>}
+          {teleportCast&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Misty Step destination" style={{zIndex:30}}><strong>Misty Step · 30 ft</strong><span>Click a visible, unoccupied destination. No slot is spent until you confirm the cast below.</span>{teleportError&&<span role="alert">{teleportError}</span>}<button className="btn" disabled={!teleportPoint||!!teleportError||pendingSpellCost(teleportCast)?.unavailable} onClick={()=>{if(teleportPoint&&map)useStore.getState().rollAbility({...teleportCast,destination:{mapId:map.id,...teleportPoint}});clearTeleportCast();}}>Cast Misty Step · {pendingSpellCost(teleportCast)?.label}</button><button className="btn" onClick={clearTeleportCast}>Cancel (Esc)</button></div>}
           {areaCast&&areaActor&&map&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Place spell area" style={{flexWrap:'wrap',maxWidth:'min(760px,calc(100% - 30px))',zIndex:30,borderColor:'#e0be6b'}}>
             <strong>{areaCast.name} · {areaCast.spec.sizeFt} ft {['sphere','cylinder','emanation'].includes(areaCast.spec.kind)?'radius':areaCast.spec.kind}</strong>
+            <span>{areaCast.repeat?'Repeat use · no additional spell slot.':`${pendingSpellCost(areaCast.payload)?.label??'Spell casting'} · no slot is spent until you confirm this area.`}</span>
             <span>{areaCast.name.toLowerCase()==='pass without trace'?'Choose allies to share your moving Stealth aura.':areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Overlapping combat footprints are affected; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
             {areaRangeError&&<span role="alert">Choose an origin within {areaCast.spec.rangeFt} ft and outside Total Cover.</span>}
             <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} visible targets{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
@@ -2823,10 +2896,10 @@ export function MapStage({
               }));
               setAreaAngle(next);setAreaDirectionLocked(true);
             }}/></label>}
-            <button className="btn tiny" disabled={!areaPoints.length||!!areaRangeError||!!areaCast.spec.maxTargets&&areaTargets.filter(t=>!areaExcluded.includes(t.id)).length>areaCast.spec.maxTargets||['line','cone'].includes(areaCast.spec.kind)&&!areaDirectionLocked} onClick={()=>{
+            <button className="btn tiny" disabled={!areaCast.repeat&&pendingSpellCost(areaCast.payload)?.unavailable||!areaPoints.length||!!areaRangeError||!!areaCast.spec.maxTargets&&areaTargets.filter(t=>!areaExcluded.includes(t.id)).length>areaCast.spec.maxTargets||['line','cone'].includes(areaCast.spec.kind)&&!areaDirectionLocked} onClick={()=>{
               const placement={...areaPlacement,...(areaCast.spec.selective?{selected:areaTargets.filter(t=>!areaExcluded.includes(t.id)).map(t=>t.id)}:{})};
               if(areaCast.repeat)useStore.getState().repeatSpell({...areaCast.repeat,area:placement});else useStore.getState().rollAbility({...areaCast.payload,area:placement});clearAreaCast();
-            }}>Confirm area · {areaCast.spec.ongoing&&!areaCast.spec.initialEffect?'Place':'Roll'}</button>
+            }}>Confirm area · {areaCast.repeat?'Repeat · no slot':`Cast · ${pendingSpellCost(areaCast.payload)?.label??areaCast.name}`}</button>
             <button className="btn tiny" onClick={()=>{setAreaPoints(old=>old.slice(0,-1));setAreaDirectionLocked(false);}}>Undo placement</button>
             <button className="btn tiny" onClick={clearAreaCast}>Cancel (Esc)</button>
           </div>}
@@ -2835,7 +2908,7 @@ export function MapStage({
               <span>
                 {saveResolve.save
                   ? `Apply ${saveResolve.label} — click targets to roll DC ${saveResolve.dc} ${saveResolve.save} saves`
-                  : `Apply ${saveResolve.label} — click targets to apply ${snapshot.rollLog.find(r => r.id === saveResolve.rollId)?.apply?.healing ? 'healing' : 'damage'}`}
+                  : `Apply ${saveResolve.label} — click targets to apply ${resolvingRoll?.apply?.healing ? 'healing' : 'damage'}`}
               </span>
               <button className="btn tiny" onClick={clearSaveResolve}>
                 Done (Esc)
@@ -3035,6 +3108,17 @@ export function MapStage({
     </div>
   );
 }
+
+/** Feed updates remain live without rerendering the canvas tree. */
+const BoardRollFeed=memo(function BoardRollFeed(){
+  const logs=useStore(s=>s.snapshot?.rollLog),chat=useStore(s=>s.snapshot?.chat);
+  return logs&&chat?<RollLogOverlay rollLog={logs} chat={chat}/>:null;
+});
+export const MapStage=memo(MapStageInner,(a,b)=>{
+  if(!retainedRenderingEnabled())return false;
+  const keys=new Set([...Object.keys(a),...Object.keys(b)]);
+  return [...keys].every(key=>key==='snapshot'?sameBoardSnapshot(a.snapshot,b.snapshot):a[key as keyof Props]===b[key as keyof Props]);
+});
 
 /** Other casters' live spell-area aims (~14 updates/s each while aiming).
  *  Subscribed here so those packets re-render only this layer, not the map. */

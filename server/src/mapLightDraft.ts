@@ -26,7 +26,7 @@ export async function suggestMapLights(mapId:string,rawRegions?:unknown,automati
  if(qwenChecks.some(check=>!check.allowed))return {version:1,id:randomUUID(),source,qwenChecks,maskImagePath:source.previewImagePath??map.imagePath!,lights:[]};
  reportAi('Marking visible light emitters with the image API. This is separate from wall drafting.');
  const preview=await sharp(image).rotate().png().toBuffer();
- const result=regions?await generateMapRegionMask(LIGHT_MASK_PROMPT,image,source.width,source.height,regions):await generateApiImage(LIGHT_MASK_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width)},[{mimeType:'image/png',data:preview.toString('base64')}]);
+ const result=regions?await generateMapRegionMask(LIGHT_MASK_PROMPT,image,source.width,source.height,regions):await generateApiImage(LIGHT_MASK_PROMPT,{width:2048,height:Math.round(2048*source.height/source.width),preserveMapFraming:true},[{mimeType:'image/png',data:preview.toString('base64')}]);
  if('error' in result)throw new Error(result.error);
  const root=path.resolve(config.uploadsDir),file=path.resolve(root,result.path.slice('/uploads/'.length));
  if(!result.path.startsWith('/uploads/')||!file.startsWith(root+path.sep))throw new Error('Invalid mask path.');

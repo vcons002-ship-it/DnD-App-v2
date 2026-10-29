@@ -30,7 +30,7 @@ test('Invisibility has a touch-target chooser, spends a slot and ends on a hosti
  test.setTimeout(120000);const f=await setup(request,page);
  await page.locator('.compact-player-combat').getByRole('button',{name:/Invisibility/}).click();
  const chooser=page.getByRole('region',{name:'Invisibility targets'});await expect(chooser).toContainText('Vanec');
- await chooser.getByRole('button',{name:'Cast Invisibility',exact:true}).click();
+ await chooser.getByRole('button',{name:/^Cast Invisibility ·/}).click();
  await expect.poll(async()=>(await f.character()).conditions.some(c=>c.label==='Invisible')).toBe(true);
  expect((await f.character()).spellSlots.L2.used).toBe(1);
  await page.locator('.compact-player-combat').getByRole('button',{name:/Fire Bolt/}).click();
@@ -75,7 +75,7 @@ test('Dispel Magic targets a spell area through the real chooser and spends a sl
  await expect.poll(async()=>(await f.snapshot()).measurements.some(m=>m.spellName==='Spike Growth')).toBe(true);
  const zone=(await f.snapshot()).measurements.find(m=>m.spellName==='Spike Growth')!;
  await page.locator('.compact-player-combat').getByRole('button',{name:/Dispel Magic/}).click();
- const chooser=page.getByRole('region',{name:'Dispel Magic target'});await chooser.getByLabel('Dispel target',{exact:true}).selectOption(`effect:${zone.id}`);await chooser.getByRole('button',{name:'Cast Dispel Magic',exact:true}).click();
+ const chooser=page.getByRole('region',{name:'Dispel Magic target'});await chooser.getByLabel('Dispel target',{exact:true}).selectOption(`effect:${zone.id}`);await chooser.getByRole('button',{name:/^Cast Dispel Magic ·/}).click();
  await expect.poll(async()=>(await f.snapshot()).measurements.some(m=>m.spellName==='Spike Growth')).toBe(false);
  expect((await f.character()).spellSlots.L3.used).toBe(1);
  expect((await f.snapshot()).rollLog.some(r=>r.label==='Dispel Magic check')).toBe(false);
@@ -86,7 +86,7 @@ test('Dispel Magic removes a creature buff and applies its linked cleanup',async
  await page.locator('.compact-player-combat').getByRole('button',{name:/Haste/}).click();
  await expect.poll(async()=>(await f.character()).conditions.some(c=>c.label==='Haste')).toBe(true);
  await page.locator('.compact-player-combat').getByRole('button',{name:/Dispel Magic/}).click();
- const chooser=page.getByRole('region',{name:'Dispel Magic target'});await chooser.getByLabel('Dispel target',{exact:true}).selectOption(f.actor.id);await chooser.getByRole('button',{name:'Cast Dispel Magic',exact:true}).click();
+ const chooser=page.getByRole('region',{name:'Dispel Magic target'});await chooser.getByLabel('Dispel target',{exact:true}).selectOption(f.actor.id);await chooser.getByRole('button',{name:/^Cast Dispel Magic ·/}).click();
  await expect.poll(async()=>(await f.character()).conditions.some(c=>c.label==='Haste')).toBe(false);
  expect((await f.character()).conditions.some(c=>c.label==='Haste lethargy')).toBe(true);
  expect((await f.character()).spellSlots.L3.used).toBe(2);

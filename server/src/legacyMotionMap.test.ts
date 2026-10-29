@@ -1,0 +1,7 @@
+import {it,expect} from 'vitest';
+import type {StateSnapshot} from '../../shared/types.js';
+import {walkingMapKey} from './legacyMotionMap.js';
+const map=()=>({id:'map',mapFogEnabled:true,mapFogRevealed:['1,2'],walls:[{id:'wall',ax:0,ay:0,bx:20,by:40}],environment:{enabled:true,heavyDarkness:true,lights:[{id:'torch',x:10,y:20,radiusFt:30,visibleTorch:true}]}} as unknown as NonNullable<StateSnapshot['map']>);
+it('permits per-viewer torch artwork to enter/leave sight during a walk',()=>{const before=map(),after=structuredClone(before);after.environment!.lights[0].visibleTorch=false;expect(walkingMapKey(after)).toBe(walkingMapKey(before));expect(before.environment!.lights[0].visibleTorch).toBe(true);});
+it('still rejects changed light geometry and added lights',()=>{for(const edit of [(m:ReturnType<typeof map>)=>m.environment!.lights[0].x++,(m:ReturnType<typeof map>)=>m.environment!.lights[0].radiusFt++,(m:ReturnType<typeof map>)=>m.environment!.lights.push({...m.environment!.lights[0],id:'new'})]){const before=map(),after=structuredClone(before);edit(after);expect(walkingMapKey(after)).not.toBe(walkingMapKey(before));}});
+it('still rejects wall, darkness and manual fog changes',()=>{for(const edit of [(m:ReturnType<typeof map>)=>m.walls![0].bx++,(m:ReturnType<typeof map>)=>{m.environment!.heavyDarkness=false;},(m:ReturnType<typeof map>)=>m.mapFogRevealed.push('3,4')]){const before=map(),after=structuredClone(before);edit(after);expect(walkingMapKey(after)).not.toBe(walkingMapKey(before));}});

@@ -1,0 +1,213 @@
+{
+  "method": "Eight actual player drags per rate, separate disposable courtyard for each rate. Player and DM both throttled after startup; server unthrottled on the same PC. WebGL blocked, 30 fps smooth Legacy enabled, no video recording, no network/RAM limit. Epoch clocks share the host. First-paint estimate includes two RAF opportunities; this is not physical display scanout. CDP slowdown is not a complete emulation of old hardware.",
+  "host": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+    "logicalCpus": 16,
+    "browser": "156.0.8078.49"
+  },
+  "medianDefinition": "Conventional median, mean of middle two values for eight samples. Raw run.summary uses upper middle; this comparison recomputes both sides consistently.",
+  "rows": [
+    {
+      "cpuSlowdown": 1,
+      "role": "Player",
+      "beforeMedianMs": 1018.7000732421875,
+      "afterMedianMs": 625.1500244140625,
+      "reductionPercent": 38.63257293931319,
+      "beforeMaxMs": 1298.199951171875,
+      "afterMaxMs": 700.2001953125,
+      "beforePoses": [
+        12,
+        11,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "afterPoses": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "maxAlignmentPixels": 4.547473508864641e-13,
+      "beforeTransferMedianBytes": 5330019.5,
+      "afterTransferMedianBytes": 1169711
+    },
+    {
+      "cpuSlowdown": 1,
+      "role": "DM",
+      "beforeMedianMs": 1035.7001953125,
+      "afterMedianMs": 628.9500732421875,
+      "reductionPercent": 39.272959869200804,
+      "beforeMaxMs": 1299.199951171875,
+      "afterMaxMs": 696.2001953125,
+      "beforePoses": [
+        12,
+        11,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "afterPoses": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "maxAlignmentPixels": 4.547473508864641e-13,
+      "beforeTransferMedianBytes": 5331109,
+      "afterTransferMedianBytes": 1171334.5
+    },
+    {
+      "cpuSlowdown": 6,
+      "role": "Player",
+      "beforeMedianMs": 1079.1998291015625,
+      "afterMedianMs": 696.650146484375,
+      "reductionPercent": 35.44752994778191,
+      "beforeMaxMs": 1375.099853515625,
+      "afterMaxMs": 773.60009765625,
+      "beforePoses": [
+        12,
+        12,
+        12,
+        11,
+        12,
+        12,
+        12,
+        12
+      ],
+      "afterPoses": [
+        12,
+        11,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "maxAlignmentPixels": 6.821210263296962e-13,
+      "beforeTransferMedianBytes": 5330019.5,
+      "afterTransferMedianBytes": 1169711
+    },
+    {
+      "cpuSlowdown": 6,
+      "role": "DM",
+      "beforeMedianMs": 1080.3499755859375,
+      "afterMedianMs": 684.4500732421875,
+      "reductionPercent": 36.645523329514596,
+      "beforeMaxMs": 1490.800048828125,
+      "afterMaxMs": 773.699951171875,
+      "beforePoses": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "afterPoses": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "maxAlignmentPixels": 4.547473508864641e-13,
+      "beforeTransferMedianBytes": 5331109,
+      "afterTransferMedianBytes": 1171334.5
+    },
+    {
+      "cpuSlowdown": 20,
+      "role": "Player",
+      "beforeMedianMs": 1611.0499267578125,
+      "afterMedianMs": 1187.1998291015625,
+      "reductionPercent": 26.308936217093848,
+      "beforeMaxMs": 1934.89990234375,
+      "afterMaxMs": 1247.5,
+      "beforePoses": [
+        2,
+        4,
+        3,
+        2,
+        2,
+        3,
+        3,
+        3
+      ],
+      "afterPoses": [
+        2,
+        4,
+        2,
+        3,
+        3,
+        2,
+        3,
+        3
+      ],
+      "maxAlignmentPixels": 5.684341886080801e-13,
+      "beforeTransferMedianBytes": 5330019.5,
+      "afterTransferMedianBytes": 1169711
+    },
+    {
+      "cpuSlowdown": 20,
+      "role": "DM",
+      "beforeMedianMs": 1723,
+      "afterMedianMs": 1237.64990234375,
+      "reductionPercent": 28.168897136172376,
+      "beforeMaxMs": 2099.5,
+      "afterMaxMs": 1292.199951171875,
+      "beforePoses": [
+        2,
+        4,
+        2,
+        3,
+        2,
+        3,
+        3,
+        3
+      ],
+      "afterPoses": [
+        2,
+        4,
+        2,
+        3,
+        2,
+        2,
+        4,
+        3
+      ],
+      "maxAlignmentPixels": 7.958078640513122e-13,
+      "beforeTransferMedianBytes": 5331109,
+      "afterTransferMedianBytes": 1171334.5
+    }
+  ],
+  "health": {
+    "samples": 24,
+    "medianMs": 1.4844499999962864,
+    "maxMs": 9.512699999999313
+  },
+  "sources": [
+    "motion-latency-before-20261028/results.json",
+    "motion-latency-before20-20261028/results.json",
+    "motion-latency-final-20261028/results.json"
+  ]
+}

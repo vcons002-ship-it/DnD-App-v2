@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '../state/socket';
 import { DamagePrompt, smiteOptionsFor } from './DamagePrompt';
+import { safeSetItem } from '../lib/storage';
 import './player-damage-prompt.css';
 
 /** Action dock, outside the map's stacking context. These are the
@@ -36,30 +37,43 @@ export function PlayerDamagePrompt() {
   const saveOnly = !!apply?.save && apply.amount === 0 && !darts;
   const alreadyApplied = !attacks && !darts && !apply?.save && !apply?.healing && !!apply?.consumedTargets?.length;
   const active = armed?.rollId === spell?.id && !!armed;
-  const showSpell = !!spell && !!apply && !completed && (active || (!alreadyApplied && !dismissed.has(spell.id)));
+  // Dismiss this cast's automatic dock, without consuming its damage or
+  // preventing a deliberate reopen from the log. Scope to campaign and role
+  // so sharing a browser does not dismiss another viewer's prompts.
+  const dismissalKey = snapshot && spell
+    ? `dnd.spell-prompt-dismissed.v1:${snapshot.sessionCode}:${snapshot.role}:${spell.id}`
+    : undefined;
+  const savedDismissal = useMemo(() => {
+    try { return !!dismissalKey && localStorage.getItem(dismissalKey) === '1'; }
+    catch { return false; }
+  }, [dismissalKey]);
+  const close = useCallback(() => {
+    if (dismissalKey) {
+      safeSetItem(dismissalKey, '1');
+      setDismissed((previous) => new Set(previous).add(dismissalKey));
+    }
+    clear();
+  }, [dismissalKey, clear]);
+  const showSpell = !!spell && !!apply && !completed &&
+    (active || (!alreadyApplied && !savedDismissal && !dismissed.has(dismissalKey!)));
   // Another client may finish a dart budget while this player is targeting.
   // Never leave an invisible targeting mode behind a completed prompt.
   useEffect(() => {
     if (armed && (!spell || completed)) clear();
   }, [armed, spell, completed, clear]);
   useEffect(() => {
-    if (!active || !spell) return;
+    if (!showSpell || !spell) return;
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      setDismissed((previous) => new Set(previous).add(spell.id));
-      clear();
+      close();
     };
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
-  }, [active, spell, clear]);
+  }, [showSpell, spell, close]);
   if (!hit && !showSpell) return null;
   // A deliberate active targeting mode stays visible even with an older hit.
   if (hit && (!armed || hit.pending?.sourceRollId === armed.rollId)) return <div className="player-damage-dock" aria-label="Damage action"><DamagePrompt /></div>;
   if (!spell || !apply || !showSpell) return null;
-  const close = () => {
-    if (active) clear();
-    setDismissed((previous) => new Set(previous).add(spell.id));
-  };
   return <section className="player-damage-dock spell-damage-dock" aria-label="Damage action">
     <div className={`damage-prompt spell-prompt${active ? ' targeting' : ''}`}>
       <button type="button" className="damage-prompt-btn" onClick={() => arm({
@@ -74,7 +88,7 @@ export function PlayerDamagePrompt() {
           <span className="dp-sub">{spell.label || spell.expr}{attacks ? ` · ${remainingAttacks} attack${remainingAttacks === 1 ? '' : 's'} left` : darts ? ` · ${remaining} dart${remaining === 1 ? '' : 's'} left` : `${saveOnly ? '' : ` · ${apply.amount} ${apply.healing ? 'HP' : 'damage'}`}${apply.save ? ` · DC ${apply.dc} ${apply.save}` : ''}${targetsLeft !== undefined ? ` · ${targetsLeft} targets left` : ''}`}</span>
         </span>
       </button>
-      <button type="button" className="damage-prompt-dismiss" onClick={close} title="Close this prompt; the spell remains available in the roll log">{active ? 'Done' : 'Close'}</button>
+      <button type="button" className="damage-prompt-dismiss" onClick={close} title="Dismiss this prompt permanently in this browser; reopen it from the roll log">{active ? 'Done' : 'Close'}</button>
     </div>
   </section>;
 }

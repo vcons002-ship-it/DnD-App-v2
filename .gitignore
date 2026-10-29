@@ -10,6 +10,7 @@ client/dice-review-dist/
 client/dice-comparison-dist/
 client/dice-models-dist/
 build/
+/artifacts/
 
 # Local game state & uploads (never commit)
 server/data/
@@ -37,6 +38,7 @@ tools/*
 !tools/preview-nine-resource-rings.cjs
 !tools/wall-benchmark.ts
 !tools/benchmark-walls.mts
+!tools/benchmark-mask-conversion.mts
 !tools/audit-spell-support.ts
 !tools/publish-dice-roller.mjs
 

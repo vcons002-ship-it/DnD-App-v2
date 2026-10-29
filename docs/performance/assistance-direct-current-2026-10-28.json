@@ -1,0 +1,3384 @@
+{
+  "at": "2026-10-28T23:20:36.030Z",
+  "method": "Legacy fixed, two players, 143 tokens / 48 lights / 28 wall pieces. Snap trials compare assistance on/off at 1x/20x; assisted smooth runs are supplemental. Snap is forced only by a test-only capability override, with no user-facing animation toggle. New disposable server and campaign per run. Both clients settle before the next move and before ending the CPU window. No video, CPU profiler, Playwright tracing or phase timing. GPU/accelerated Canvas2D disabled and WebGL blocked.",
+  "build": {
+    "clientIndexSha256": "91D0A2B16FA2BAB2B85BAD5F4963183DADBF47DCA5DB456533FA529B8A5E5EE6",
+    "gitHead": "1fdd031ce9fda469be87c8674f912089d9b5a1df"
+  },
+  "host": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+    "logicalCpus": 16,
+    "memoryGiB": 31,
+    "browser": "156.0.8078.49"
+  },
+  "fixture": {
+    "tokens": 143,
+    "lights": 48,
+    "walls": 28,
+    "wallEdges": 112,
+    "roomFeet": [
+      240,
+      160
+    ]
+  },
+  "groups": [
+    {
+      "smooth": false,
+      "rate": 1,
+      "assistance": false,
+      "runs": 1,
+      "moves": 6,
+      "meanSightMs": 582.8333333333334,
+      "medianSightMs": 532,
+      "maxSightMs": 921,
+      "meanFirstMotionMs": 263.0332845052083,
+      "medianFirstMotionMs": 229.3499755859375,
+      "meanBothViewsCompleteMs": 582.7166341145834,
+      "medianBothViewsCompleteMs": 531.949951171875,
+      "meanLoadMs": 830,
+      "meanBrowserBusyMs": 1205,
+      "meanBrowserScriptMs": 591,
+      "meanWindowMs": 4799,
+      "meanServerCpuMs": 1781,
+      "meanHttpBytes": 0,
+      "meanHttpRequests": 0
+    },
+    {
+      "smooth": false,
+      "rate": 1,
+      "assistance": true,
+      "runs": 1,
+      "moves": 6,
+      "meanSightMs": 529.5,
+      "medianSightMs": 502,
+      "maxSightMs": 610,
+      "meanFirstMotionMs": 545.9666748046875,
+      "medianFirstMotionMs": 522.5499267578125,
+      "meanBothViewsCompleteMs": 565.5833740234375,
+      "medianBothViewsCompleteMs": 522.5999755859375,
+      "meanLoadMs": 1930.5,
+      "meanBrowserBusyMs": 954,
+      "meanBrowserScriptMs": 290,
+      "meanWindowMs": 4681,
+      "meanServerCpuMs": 5969,
+      "meanHttpBytes": 2319061,
+      "meanHttpRequests": 225
+    },
+    {
+      "smooth": false,
+      "rate": 20,
+      "assistance": false,
+      "runs": 1,
+      "moves": 6,
+      "meanSightMs": 3652.6666666666665,
+      "medianSightMs": 3513.5,
+      "maxSightMs": 4154,
+      "meanFirstMotionMs": 3414.333292643229,
+      "medianFirstMotionMs": 3289.25,
+      "meanBothViewsCompleteMs": 3652.4833170572915,
+      "medianBothViewsCompleteMs": 3513.550048828125,
+      "meanLoadMs": 31952,
+      "meanBrowserBusyMs": 56184,
+      "meanBrowserScriptMs": 32745,
+      "meanWindowMs": 49232,
+      "meanServerCpuMs": 2281,
+      "meanHttpBytes": 0,
+      "meanHttpRequests": 0
+    },
+    {
+      "smooth": false,
+      "rate": 20,
+      "assistance": true,
+      "runs": 1,
+      "moves": 6,
+      "meanSightMs": 2433.8333333333335,
+      "medianSightMs": 2386,
+      "maxSightMs": 2714,
+      "meanFirstMotionMs": 2493.7333170572915,
+      "medianFirstMotionMs": 2441.6500244140625,
+      "meanBothViewsCompleteMs": 2494.066691080729,
+      "medianBothViewsCompleteMs": 2442.0001220703125,
+      "meanLoadMs": 24600,
+      "meanBrowserBusyMs": 42790,
+      "meanBrowserScriptMs": 15730,
+      "meanWindowMs": 37645,
+      "meanServerCpuMs": 6593,
+      "meanHttpBytes": 2235021,
+      "meanHttpRequests": 204
+    },
+    {
+      "smooth": true,
+      "rate": 1,
+      "assistance": true,
+      "runs": 1,
+      "moves": 6,
+      "meanSightMs": 1630.3333333333333,
+      "medianSightMs": 1617,
+      "maxSightMs": 1758,
+      "meanFirstMotionMs": 1653.3000081380208,
+      "medianFirstMotionMs": 1639.4000244140625,
+      "meanBothViewsCompleteMs": 2021.949951171875,
+      "medianBothViewsCompleteMs": 1989.1500244140625,
+      "meanLoadMs": 1956.5,
+      "meanBrowserBusyMs": 1915,
+      "meanBrowserScriptMs": 733,
+      "meanWindowMs": 13500,
+      "meanServerCpuMs": 20734,
+      "meanHttpBytes": 14495054,
+      "meanHttpRequests": 251
+    },
+    {
+      "smooth": true,
+      "rate": 20,
+      "assistance": true,
+      "runs": 1,
+      "moves": 6,
+      "meanSightMs": 2836.8333333333335,
+      "medianSightMs": 2812.5,
+      "maxSightMs": 2983,
+      "meanFirstMotionMs": 3067.516642252604,
+      "medianFirstMotionMs": 2949.199951171875,
+      "meanBothViewsCompleteMs": 3860.433308919271,
+      "medianBothViewsCompleteMs": 3800.35009765625,
+      "meanLoadMs": 25399,
+      "meanBrowserBusyMs": 53829,
+      "meanBrowserScriptMs": 19989,
+      "meanWindowMs": 44977,
+      "meanServerCpuMs": 21219,
+      "meanHttpBytes": 14339725,
+      "meanHttpRequests": 228
+    }
+  ],
+  "changes": [
+    {
+      "rate": 1,
+      "sightMeanReductionPercent": 9.150700600514728,
+      "sightMedianReductionPercent": 5.6390977443609,
+      "browserBusyReductionPercent": 20.829875518672203,
+      "browserScriptReductionPercent": 50.93062605752961,
+      "loadReductionPercent": -132.59036144578312
+    },
+    {
+      "rate": 20,
+      "sightMeanReductionPercent": 33.36831538601934,
+      "sightMedianReductionPercent": 32.09050804041554,
+      "browserBusyReductionPercent": 23.839527267549478,
+      "browserScriptReductionPercent": 51.96213162314858,
+      "loadReductionPercent": 23.009514271407106
+    }
+  ],
+  "runs": [
+    {
+      "name": "trial1-on-1x-snap",
+      "trial": 1,
+      "rate": 1,
+      "assistance": true,
+      "smooth": false,
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "loadMs": [
+        2443,
+        1418
+      ],
+      "sightMs": [
+        606,
+        610,
+        514,
+        487,
+        490,
+        470
+      ],
+      "firstMotionMs": [
+        622.800048828125,
+        621.400146484375,
+        540.39990234375,
+        500.699951171875,
+        504.699951171875,
+        485.800048828125
+      ],
+      "completionMs": [
+        740.400146484375,
+        621.400146484375,
+        540.39990234375,
+        500.699951171875,
+        504.800048828125,
+        485.800048828125
+      ],
+      "observedMs": 4681,
+      "browserBusyMs": 954,
+      "browserScriptMs": 290,
+      "serverCpuMs": 5969,
+      "serverRssMiB": 663,
+      "httpBytes": 2319061,
+      "httpRequests": 225,
+      "serverDetails": {
+        "cpu": {
+          "user": 9906000,
+          "system": 2765000
+        },
+        "uptime": 14.5881705,
+        "memory": {
+          "rss": 694693888,
+          "heapTotal": 274800640,
+          "heapUsed": 176639456,
+          "external": 29173128,
+          "arrayBuffers": 24662030
+        },
+        "workers": {
+          "jobs": 307,
+          "failed": 0,
+          "computeMs": 5062.754299999997,
+          "maxComputeMs": 236.3251999999993,
+          "maxQueue": 1
+        },
+        "rendering": {
+          "renders": 434,
+          "hits": 3718,
+          "bytes": 3557569
+        },
+        "delivery": {
+          "full": 2,
+          "delta": 15,
+          "fullBytes": 2650170,
+          "wireBytes": 985792,
+          "coalesced": 0,
+          "stale": 1,
+          "failed": 0
+        },
+        "eventLoop": {
+          "idle": 10191.4826,
+          "active": 3132.218200001622,
+          "utilization": 0.23508620067490862,
+          "p99Ms": 89.915391,
+          "maxMs": 1918.894079
+        }
+      },
+      "maskPoses": [
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ]
+      ],
+      "samples": [
+        {
+          "player": 1,
+          "seq": 1,
+          "tokenMs": 623,
+          "sightMs": 606,
+          "finalSightMs": 606,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 622.800048828125,
+              "sightMs": 605.5,
+              "tokenMs": 622.900146484375,
+              "finalSightMs": 605.5,
+              "completeMs": 622.900146484375,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 740.400146484375,
+              "sightMs": 723.80029296875,
+              "tokenMs": 740.400146484375,
+              "finalSightMs": 723.80029296875,
+              "completeMs": 740.400146484375,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 2,
+          "tokenMs": 621,
+          "sightMs": 610,
+          "finalSightMs": 610,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 471.39990234375,
+              "sightMs": 457.300048828125,
+              "tokenMs": 471.39990234375,
+              "finalSightMs": 457.300048828125,
+              "completeMs": 471.39990234375,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 621.400146484375,
+              "sightMs": 609.800048828125,
+              "tokenMs": 621.400146484375,
+              "finalSightMs": 609.800048828125,
+              "completeMs": 621.400146484375,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 3,
+          "tokenMs": 540,
+          "sightMs": 514,
+          "finalSightMs": 514,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 540.39990234375,
+              "sightMs": 513.89990234375,
+              "tokenMs": 540.39990234375,
+              "finalSightMs": 513.89990234375,
+              "completeMs": 540.39990234375,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 480.699951171875,
+              "sightMs": 465.5,
+              "tokenMs": 480.699951171875,
+              "finalSightMs": 465.5,
+              "completeMs": 480.699951171875,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 4,
+          "tokenMs": 501,
+          "sightMs": 487,
+          "finalSightMs": 487,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 463.800048828125,
+              "sightMs": 446.599853515625,
+              "tokenMs": 463.800048828125,
+              "finalSightMs": 446.599853515625,
+              "completeMs": 463.800048828125,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 500.699951171875,
+              "sightMs": 486.60009765625,
+              "tokenMs": 500.699951171875,
+              "finalSightMs": 486.60009765625,
+              "completeMs": 500.699951171875,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 5,
+          "tokenMs": 505,
+          "sightMs": 490,
+          "finalSightMs": 490,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 504.699951171875,
+              "sightMs": 490.10009765625,
+              "tokenMs": 504.699951171875,
+              "finalSightMs": 490.10009765625,
+              "completeMs": 504.699951171875,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 504.800048828125,
+              "sightMs": 490.2001953125,
+              "tokenMs": 504.800048828125,
+              "finalSightMs": 490.2001953125,
+              "completeMs": 504.800048828125,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 6,
+          "tokenMs": 486,
+          "sightMs": 470,
+          "finalSightMs": 470,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 453.60009765625,
+              "sightMs": 436.89990234375,
+              "tokenMs": 453.60009765625,
+              "finalSightMs": 436.89990234375,
+              "completeMs": 453.60009765625,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 485.800048828125,
+              "sightMs": 470.10009765625,
+              "tokenMs": 485.800048828125,
+              "finalSightMs": 470.10009765625,
+              "completeMs": 485.800048828125,
+              "maskPoses": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "trial1-off-20x-snap",
+      "trial": 1,
+      "rate": 20,
+      "assistance": false,
+      "smooth": false,
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "loadMs": [
+        31801,
+        32103
+      ],
+      "sightMs": [
+        3390,
+        3501,
+        3522,
+        3505,
+        4154,
+        3844
+      ],
+      "firstMotionMs": [
+        3121.7998046875,
+        3250,
+        3288.5,
+        3290,
+        3916.89990234375,
+        3618.800048828125
+      ],
+      "completionMs": [
+        3389.7998046875,
+        3500.699951171875,
+        3521.900146484375,
+        3505.199951171875,
+        4153.800048828125,
+        3843.5
+      ],
+      "observedMs": 49232,
+      "browserBusyMs": 56184,
+      "browserScriptMs": 32745,
+      "serverCpuMs": 2281,
+      "serverRssMiB": 379,
+      "httpBytes": 0,
+      "httpRequests": 0,
+      "serverDetails": {
+        "cpu": {
+          "user": 5531000,
+          "system": 1156000
+        },
+        "uptime": 119.3446114,
+        "memory": {
+          "rss": 397271040,
+          "heapTotal": 181051392,
+          "heapUsed": 111698168,
+          "external": 12195350,
+          "arrayBuffers": 7689652
+        },
+        "workers": {
+          "jobs": 6,
+          "failed": 0,
+          "computeMs": 616.3557999999757,
+          "maxComputeMs": 141.011599999998,
+          "maxQueue": 1
+        },
+        "rendering": {
+          "renders": 0,
+          "hits": 0,
+          "bytes": 0
+        },
+        "delivery": {
+          "full": 2,
+          "delta": 16,
+          "fullBytes": 2008938,
+          "wireBytes": 816982,
+          "coalesced": 0,
+          "stale": 0,
+          "failed": 0
+        },
+        "eventLoop": {
+          "idle": 114954.1887,
+          "active": 3144.5300999486935,
+          "utilization": 0.02662628461935575,
+          "p99Ms": 32.227327,
+          "maxMs": 1906.311167
+        }
+      },
+      "maskPoses": [
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ]
+      ],
+      "samples": [
+        {
+          "player": 1,
+          "seq": 1,
+          "tokenMs": 3122,
+          "sightMs": 3390,
+          "finalSightMs": 3390,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 3121.7998046875,
+              "sightMs": 3390.099853515625,
+              "tokenMs": 3122.099853515625,
+              "finalSightMs": 3389.7998046875,
+              "completeMs": 3389.7998046875,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 1962.39990234375,
+              "sightMs": null,
+              "tokenMs": 1962.499755859375,
+              "finalSightMs": 2035.699951171875,
+              "completeMs": 2035.699951171875,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 2,
+          "tokenMs": 3250,
+          "sightMs": 3501,
+          "finalSightMs": 3501,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 1139.900146484375,
+              "sightMs": null,
+              "tokenMs": 1141.300048828125,
+              "finalSightMs": 1218,
+              "completeMs": 1218,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 3250,
+              "sightMs": 3501.199951171875,
+              "tokenMs": 3250.199951171875,
+              "finalSightMs": 3500.699951171875,
+              "completeMs": 3500.699951171875,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 3,
+          "tokenMs": 3289,
+          "sightMs": 3522,
+          "finalSightMs": 3522,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 3288.5,
+              "sightMs": 3522.10009765625,
+              "tokenMs": 3288.800048828125,
+              "finalSightMs": 3521.900146484375,
+              "completeMs": 3521.900146484375,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 1308.300048828125,
+              "sightMs": null,
+              "tokenMs": 1308.5,
+              "finalSightMs": 1387.39990234375,
+              "completeMs": 1387.39990234375,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 4,
+          "tokenMs": 3290,
+          "sightMs": 3505,
+          "finalSightMs": 3505,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 1111.300048828125,
+              "sightMs": null,
+              "tokenMs": 1111.300048828125,
+              "finalSightMs": 1180.400146484375,
+              "completeMs": 1180.400146484375,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 3290,
+              "sightMs": 3505.199951171875,
+              "tokenMs": 3290,
+              "finalSightMs": 3505.199951171875,
+              "completeMs": 3505.199951171875,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 5,
+          "tokenMs": 3917,
+          "sightMs": 4154,
+          "finalSightMs": 4154,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 3916.89990234375,
+              "sightMs": 4154,
+              "tokenMs": 3916.89990234375,
+              "finalSightMs": 4153.800048828125,
+              "completeMs": 4153.800048828125,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 1036.199951171875,
+              "sightMs": null,
+              "tokenMs": 1036.199951171875,
+              "finalSightMs": 1115.699951171875,
+              "completeMs": 1115.699951171875,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 6,
+          "tokenMs": 3619,
+          "sightMs": 3844,
+          "finalSightMs": 3844,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 1087.5,
+              "sightMs": null,
+              "tokenMs": 1087.5,
+              "finalSightMs": 1162.10009765625,
+              "completeMs": 1162.10009765625,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 3618.800048828125,
+              "sightMs": 3843.5,
+              "tokenMs": 3618.800048828125,
+              "finalSightMs": 3843.5,
+              "completeMs": 3843.5,
+              "maskPoses": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "trial1-on-20x-snap",
+      "trial": 1,
+      "rate": 20,
+      "assistance": true,
+      "smooth": false,
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "loadMs": [
+        24279,
+        24921
+      ],
+      "sightMs": [
+        2629,
+        2714,
+        2454,
+        2318,
+        2291,
+        2197
+      ],
+      "firstMotionMs": [
+        2666.199951171875,
+        2782.5,
+        2488.300048828125,
+        2395,
+        2359.800048828125,
+        2270.599853515625
+      ],
+      "completionMs": [
+        2666.89990234375,
+        2782.60009765625,
+        2488.60009765625,
+        2395.400146484375,
+        2360,
+        2270.89990234375
+      ],
+      "observedMs": 37645,
+      "browserBusyMs": 42790,
+      "browserScriptMs": 15730,
+      "serverCpuMs": 6593,
+      "serverRssMiB": 478,
+      "httpBytes": 2235021,
+      "httpRequests": 204,
+      "serverDetails": {
+        "cpu": {
+          "user": 10640000,
+          "system": 2515000
+        },
+        "uptime": 93.0051343,
+        "memory": {
+          "rss": 501723136,
+          "heapTotal": 180781056,
+          "heapUsed": 109019384,
+          "external": 15828467,
+          "arrayBuffers": 11324243
+        },
+        "workers": {
+          "jobs": 332,
+          "failed": 0,
+          "computeMs": 5488.3527000000095,
+          "maxComputeMs": 240.26059999999416,
+          "maxQueue": 1
+        },
+        "rendering": {
+          "renders": 434,
+          "hits": 3718,
+          "bytes": 3557569
+        },
+        "delivery": {
+          "full": 2,
+          "delta": 16,
+          "fullBytes": 2799888,
+          "wireBytes": 1084042,
+          "coalesced": 0,
+          "stale": 0,
+          "failed": 0
+        },
+        "eventLoop": {
+          "idle": 88270.3758,
+          "active": 3472.9706999795017,
+          "utilization": 0.037855286867917746,
+          "p99Ms": 32.440319,
+          "maxMs": 1918.894079
+        }
+      },
+      "maskPoses": [
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ]
+      ],
+      "samples": [
+        {
+          "player": 1,
+          "seq": 1,
+          "tokenMs": 2667,
+          "sightMs": 2629,
+          "finalSightMs": 2628,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 2666.199951171875,
+              "sightMs": 2628.599853515625,
+              "tokenMs": 2666.89990234375,
+              "finalSightMs": 2628.199951171875,
+              "completeMs": 2666.89990234375,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 2137.2998046875,
+              "sightMs": 1727.39990234375,
+              "tokenMs": 2137.89990234375,
+              "finalSightMs": 1727,
+              "completeMs": 2137.89990234375,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 2,
+          "tokenMs": 2783,
+          "sightMs": 2714,
+          "finalSightMs": 2713,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 1853.400146484375,
+              "sightMs": 1402.400146484375,
+              "tokenMs": 1853.60009765625,
+              "finalSightMs": 1402.400146484375,
+              "completeMs": 1853.60009765625,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 2782.5,
+              "sightMs": 2713.5,
+              "tokenMs": 2782.60009765625,
+              "finalSightMs": 2713.300048828125,
+              "completeMs": 2782.60009765625,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 3,
+          "tokenMs": 2489,
+          "sightMs": 2454,
+          "finalSightMs": 2454,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 2488.300048828125,
+              "sightMs": 2453.800048828125,
+              "tokenMs": 2488.60009765625,
+              "finalSightMs": 2453.60009765625,
+              "completeMs": 2488.60009765625,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 1483.199951171875,
+              "sightMs": 1415.300048828125,
+              "tokenMs": 1483.699951171875,
+              "finalSightMs": 1415.300048828125,
+              "completeMs": 1483.699951171875,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 4,
+          "tokenMs": 2395,
+          "sightMs": 2318,
+          "finalSightMs": 2318,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 1356.2001953125,
+              "sightMs": 1292.10009765625,
+              "tokenMs": 1356.400146484375,
+              "finalSightMs": 1292.10009765625,
+              "completeMs": 1356.400146484375,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 2395,
+              "sightMs": 2318.300048828125,
+              "tokenMs": 2395.400146484375,
+              "finalSightMs": 2317.900146484375,
+              "completeMs": 2395.400146484375,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 5,
+          "tokenMs": 2360,
+          "sightMs": 2291,
+          "finalSightMs": 2290,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 2359.800048828125,
+              "sightMs": 2290.60009765625,
+              "tokenMs": 2360,
+              "finalSightMs": 2290.39990234375,
+              "completeMs": 2360,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 1335.39990234375,
+              "sightMs": 1277.300048828125,
+              "tokenMs": 1335.5,
+              "finalSightMs": 1277.300048828125,
+              "completeMs": 1335.5,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 6,
+          "tokenMs": 2271,
+          "sightMs": 2197,
+          "finalSightMs": 2197,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 1250.5,
+              "sightMs": 1163.89990234375,
+              "tokenMs": 1250.5,
+              "finalSightMs": 1163.89990234375,
+              "completeMs": 1250.5,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 2270.599853515625,
+              "sightMs": 2197.300048828125,
+              "tokenMs": 2270.89990234375,
+              "finalSightMs": 2197.199951171875,
+              "completeMs": 2270.89990234375,
+              "maskPoses": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "trial1-off-1x-snap",
+      "trial": 1,
+      "rate": 1,
+      "assistance": false,
+      "smooth": false,
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "loadMs": [
+        874,
+        786
+      ],
+      "sightMs": [
+        921,
+        413,
+        631,
+        426,
+        673,
+        433
+      ],
+      "firstMotionMs": [
+        445.39990234375,
+        211.39990234375,
+        212.800048828125,
+        226.60009765625,
+        249.89990234375,
+        232.099853515625
+      ],
+      "completionMs": [
+        921.39990234375,
+        412.599853515625,
+        630.800048828125,
+        425.800048828125,
+        672.60009765625,
+        433.099853515625
+      ],
+      "observedMs": 4799,
+      "browserBusyMs": 1205,
+      "browserScriptMs": 591,
+      "serverCpuMs": 1781,
+      "serverRssMiB": 491,
+      "httpBytes": 0,
+      "httpRequests": 0,
+      "serverDetails": {
+        "cpu": {
+          "user": 4859000,
+          "system": 906000
+        },
+        "uptime": 12.4175305,
+        "memory": {
+          "rss": 514441216,
+          "heapTotal": 269139968,
+          "heapUsed": 174108400,
+          "external": 24911523,
+          "arrayBuffers": 20400425
+        },
+        "workers": {
+          "jobs": 6,
+          "failed": 0,
+          "computeMs": 548.7174000000005,
+          "maxComputeMs": 133.40629999999965,
+          "maxQueue": 1
+        },
+        "rendering": {
+          "renders": 0,
+          "hits": 0,
+          "bytes": 0
+        },
+        "delivery": {
+          "full": 2,
+          "delta": 16,
+          "fullBytes": 2008938,
+          "wireBytes": 816982,
+          "coalesced": 0,
+          "stale": 0,
+          "failed": 0
+        },
+        "eventLoop": {
+          "idle": 8268.3725,
+          "active": 2882.916500034333,
+          "utilization": 0.2585276464474606,
+          "p99Ms": 104.267775,
+          "maxMs": 1929.379839
+        }
+      },
+      "maskPoses": [
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ],
+        [
+          [],
+          []
+        ]
+      ],
+      "samples": [
+        {
+          "player": 1,
+          "seq": 1,
+          "tokenMs": 445,
+          "sightMs": 921,
+          "finalSightMs": 921,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 445.39990234375,
+              "sightMs": 921.39990234375,
+              "tokenMs": 445.39990234375,
+              "finalSightMs": 921.39990234375,
+              "completeMs": 921.39990234375,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 445.500244140625,
+              "sightMs": null,
+              "tokenMs": 445.500244140625,
+              "finalSightMs": 445.500244140625,
+              "completeMs": 445.500244140625,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 2,
+          "tokenMs": 211,
+          "sightMs": 413,
+          "finalSightMs": 413,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 211.499755859375,
+              "sightMs": null,
+              "tokenMs": 211.499755859375,
+              "finalSightMs": 280.099853515625,
+              "completeMs": 280.099853515625,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 211.39990234375,
+              "sightMs": 412.699951171875,
+              "tokenMs": 211.39990234375,
+              "finalSightMs": 412.599853515625,
+              "completeMs": 412.599853515625,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 3,
+          "tokenMs": 213,
+          "sightMs": 631,
+          "finalSightMs": 631,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 212.800048828125,
+              "sightMs": 630.800048828125,
+              "tokenMs": 212.800048828125,
+              "finalSightMs": 630.800048828125,
+              "completeMs": 630.800048828125,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 212.900146484375,
+              "sightMs": null,
+              "tokenMs": 212.900146484375,
+              "finalSightMs": 269.7001953125,
+              "completeMs": 269.7001953125,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 4,
+          "tokenMs": 227,
+          "sightMs": 426,
+          "finalSightMs": 426,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 226.599853515625,
+              "sightMs": null,
+              "tokenMs": 226.599853515625,
+              "finalSightMs": 284.7998046875,
+              "completeMs": 284.7998046875,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 226.60009765625,
+              "sightMs": 425.800048828125,
+              "tokenMs": 226.60009765625,
+              "finalSightMs": 425.800048828125,
+              "completeMs": 425.800048828125,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 5,
+          "tokenMs": 250,
+          "sightMs": 673,
+          "finalSightMs": 673,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 249.89990234375,
+              "sightMs": 672.60009765625,
+              "tokenMs": 249.89990234375,
+              "finalSightMs": 672.60009765625,
+              "completeMs": 672.60009765625,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 222.000244140625,
+              "sightMs": null,
+              "tokenMs": 222.000244140625,
+              "finalSightMs": 296.30029296875,
+              "completeMs": 296.30029296875,
+              "maskPoses": []
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 6,
+          "tokenMs": 232,
+          "sightMs": 433,
+          "finalSightMs": 433,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 220.899658203125,
+              "sightMs": null,
+              "tokenMs": 220.899658203125,
+              "finalSightMs": 305.599853515625,
+              "completeMs": 305.599853515625,
+              "maskPoses": []
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 232.099853515625,
+              "sightMs": 433.099853515625,
+              "tokenMs": 232.099853515625,
+              "finalSightMs": 433.099853515625,
+              "completeMs": 433.099853515625,
+              "maskPoses": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "smooth-on-20x",
+      "trial": 1,
+      "rate": 20,
+      "assistance": true,
+      "smooth": true,
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "loadMs": [
+        25518,
+        25280
+      ],
+      "sightMs": [
+        2983,
+        2886,
+        2804,
+        2821,
+        2781,
+        2746
+      ],
+      "firstMotionMs": [
+        3422.39990234375,
+        2970.199951171875,
+        2891.7001953125,
+        2928.199951171875,
+        3369.699951171875,
+        2822.89990234375
+      ],
+      "completionMs": [
+        4275.199951171875,
+        3786.5,
+        3814.2001953125,
+        3727.2998046875,
+        3835.5,
+        3723.89990234375
+      ],
+      "observedMs": 44977,
+      "browserBusyMs": 53829,
+      "browserScriptMs": 19989,
+      "serverCpuMs": 21219,
+      "serverRssMiB": 834,
+      "httpBytes": 14339725,
+      "httpRequests": 228,
+      "serverDetails": {
+        "cpu": {
+          "user": 24015000,
+          "system": 4406000
+        },
+        "uptime": 102.0449119,
+        "memory": {
+          "rss": 874627072,
+          "heapTotal": 280514560,
+          "heapUsed": 131869032,
+          "external": 41822721,
+          "arrayBuffers": 37318497
+        },
+        "workers": {
+          "jobs": 502,
+          "failed": 0,
+          "computeMs": 15060.507000000025,
+          "maxComputeMs": 876.9851999999955,
+          "maxQueue": 2
+        },
+        "rendering": {
+          "renders": 455,
+          "hits": 42288,
+          "bytes": 15648208
+        },
+        "delivery": {
+          "full": 2,
+          "delta": 16,
+          "fullBytes": 5271619,
+          "wireBytes": 3555773,
+          "coalesced": 0,
+          "stale": 0,
+          "failed": 0
+        },
+        "eventLoop": {
+          "idle": 95545.6585,
+          "active": 5236.0589000143955,
+          "utilization": 0.05195445200870974,
+          "p99Ms": 39.321599,
+          "maxMs": 1925.185535
+        }
+      },
+      "maskPoses": [
+        [
+          [
+            {
+              "at": 1793229554159.7002,
+              "index": 7
+            },
+            {
+              "at": 1793229554193.7002,
+              "index": 9
+            },
+            {
+              "at": 1793229554353.8,
+              "index": 12
+            }
+          ],
+          [
+            {
+              "at": 1793229553976.3,
+              "index": 7
+            },
+            {
+              "at": 1793229554008.4,
+              "index": 8
+            },
+            {
+              "at": 1793229554173.4,
+              "index": 12
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229562061.3,
+              "index": 7
+            },
+            {
+              "at": 1793229562115.9001,
+              "index": 9
+            },
+            {
+              "at": 1793229562295.3,
+              "index": 12
+            }
+          ],
+          [
+            {
+              "at": 1793229562491.0999,
+              "index": 8
+            },
+            {
+              "at": 1793229562523.9,
+              "index": 9
+            },
+            {
+              "at": 1793229562705,
+              "index": 12
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229569781.6,
+              "index": 4
+            },
+            {
+              "at": 1793229569805.7002,
+              "index": 6
+            },
+            {
+              "at": 1793229569968,
+              "index": 10
+            },
+            {
+              "at": 1793229570097.4001,
+              "index": 12
+            }
+          ],
+          [
+            {
+              "at": 1793229569319.5999,
+              "index": 5
+            },
+            {
+              "at": 1793229569357.2,
+              "index": 7
+            },
+            {
+              "at": 1793229569527.5,
+              "index": 12
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229576360.7002,
+              "index": 5
+            },
+            {
+              "at": 1793229576415.1,
+              "index": 7
+            },
+            {
+              "at": 1793229576585.8,
+              "index": 12
+            }
+          ],
+          [
+            {
+              "at": 1793229576896.2,
+              "index": 6
+            },
+            {
+              "at": 1793229576938.5,
+              "index": 7
+            },
+            {
+              "at": 1793229577133.8,
+              "index": 12
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229583870.8,
+              "index": 5
+            },
+            {
+              "at": 1793229583897.5,
+              "index": 6
+            },
+            {
+              "at": 1793229584082.6,
+              "index": 11
+            }
+          ],
+          [
+            {
+              "at": 1793229583409.5999,
+              "index": 5
+            },
+            {
+              "at": 1793229583457.4,
+              "index": 7
+            },
+            {
+              "at": 1793229583624.2,
+              "index": 12
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229590803.1,
+              "index": 5
+            },
+            {
+              "at": 1793229590849.8,
+              "index": 6
+            },
+            {
+              "at": 1793229591022.5,
+              "index": 11
+            }
+          ],
+          [
+            {
+              "at": 1793229591397.4,
+              "index": 6
+            },
+            {
+              "at": 1793229591422.7,
+              "index": 8
+            },
+            {
+              "at": 1793229591610.9,
+              "index": 12
+            }
+          ]
+        ]
+      ],
+      "samples": [
+        {
+          "player": 1,
+          "seq": 1,
+          "tokenMs": 4275,
+          "sightMs": 2983,
+          "finalSightMs": 4275,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 3422.39990234375,
+              "sightMs": 2983.10009765625,
+              "tokenMs": 4274.699951171875,
+              "finalSightMs": 4275.199951171875,
+              "completeMs": 4275.199951171875,
+              "maskPoses": [
+                {
+                  "at": 1793229554159.7002,
+                  "index": 7
+                },
+                {
+                  "at": 1793229554193.7002,
+                  "index": 9
+                },
+                {
+                  "at": 1793229554353.8,
+                  "index": 12
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 3416.499755859375,
+              "sightMs": 2802.699951171875,
+              "tokenMs": 3719.599853515625,
+              "finalSightMs": 3609.2998046875,
+              "completeMs": 3719.599853515625,
+              "maskPoses": [
+                {
+                  "at": 1793229553976.3,
+                  "index": 7
+                },
+                {
+                  "at": 1793229554008.4,
+                  "index": 8
+                },
+                {
+                  "at": 1793229554173.4,
+                  "index": 12
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 2,
+          "tokenMs": 3786,
+          "sightMs": 2886,
+          "finalSightMs": 3787,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 2715.300048828125,
+              "sightMs": 2476.2001953125,
+              "tokenMs": 2878.5,
+              "finalSightMs": 2874.400146484375,
+              "completeMs": 2878.5,
+              "maskPoses": [
+                {
+                  "at": 1793229562061.3,
+                  "index": 7
+                },
+                {
+                  "at": 1793229562115.9001,
+                  "index": 9
+                },
+                {
+                  "at": 1793229562295.3,
+                  "index": 12
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 2970.199951171875,
+              "sightMs": 2885.699951171875,
+              "tokenMs": 3786.300048828125,
+              "finalSightMs": 3786.5,
+              "completeMs": 3786.5,
+              "maskPoses": [
+                {
+                  "at": 1793229562491.0999,
+                  "index": 8
+                },
+                {
+                  "at": 1793229562523.9,
+                  "index": 9
+                },
+                {
+                  "at": 1793229562705,
+                  "index": 12
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 3,
+          "tokenMs": 3814,
+          "sightMs": 2804,
+          "finalSightMs": 3804,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 2891.7001953125,
+              "sightMs": 2804.400146484375,
+              "tokenMs": 3814.2001953125,
+              "finalSightMs": 3803.800048828125,
+              "completeMs": 3814.2001953125,
+              "maskPoses": [
+                {
+                  "at": 1793229569781.6,
+                  "index": 4
+                },
+                {
+                  "at": 1793229569805.7002,
+                  "index": 6
+                },
+                {
+                  "at": 1793229569968,
+                  "index": 10
+                },
+                {
+                  "at": 1793229570097.4001,
+                  "index": 12
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 2577.800048828125,
+              "sightMs": 2363.800048828125,
+              "tokenMs": 2880.39990234375,
+              "finalSightMs": 2811.699951171875,
+              "completeMs": 2880.39990234375,
+              "maskPoses": [
+                {
+                  "at": 1793229569319.5999,
+                  "index": 5
+                },
+                {
+                  "at": 1793229569357.2,
+                  "index": 7
+                },
+                {
+                  "at": 1793229569527.5,
+                  "index": 12
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 4,
+          "tokenMs": 3727,
+          "sightMs": 2821,
+          "finalSightMs": 3727,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 2495.699951171875,
+              "sightMs": 2271.900146484375,
+              "tokenMs": 2788.800048828125,
+              "finalSightMs": 2716.400146484375,
+              "completeMs": 2788.800048828125,
+              "maskPoses": [
+                {
+                  "at": 1793229576360.7002,
+                  "index": 5
+                },
+                {
+                  "at": 1793229576415.1,
+                  "index": 7
+                },
+                {
+                  "at": 1793229576585.8,
+                  "index": 12
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 2928.199951171875,
+              "sightMs": 2820.699951171875,
+              "tokenMs": 3727.2998046875,
+              "finalSightMs": 3727.2998046875,
+              "completeMs": 3727.2998046875,
+              "maskPoses": [
+                {
+                  "at": 1793229576896.2,
+                  "index": 6
+                },
+                {
+                  "at": 1793229576938.5,
+                  "index": 7
+                },
+                {
+                  "at": 1793229577133.8,
+                  "index": 12
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 5,
+          "tokenMs": 3836,
+          "sightMs": 2781,
+          "finalSightMs": 3828,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 3369.699951171875,
+              "sightMs": 2780.89990234375,
+              "tokenMs": 3835.5,
+              "finalSightMs": 3827.89990234375,
+              "completeMs": 3835.5,
+              "maskPoses": [
+                {
+                  "at": 1793229583870.8,
+                  "index": 5
+                },
+                {
+                  "at": 1793229583897.5,
+                  "index": 6
+                },
+                {
+                  "at": 1793229584082.6,
+                  "index": 11
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 2534.099853515625,
+              "sightMs": 2322.7998046875,
+              "tokenMs": 2817.2998046875,
+              "finalSightMs": 2744.19970703125,
+              "completeMs": 2817.2998046875,
+              "maskPoses": [
+                {
+                  "at": 1793229583409.5999,
+                  "index": 5
+                },
+                {
+                  "at": 1793229583457.4,
+                  "index": 7
+                },
+                {
+                  "at": 1793229583624.2,
+                  "index": 12
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 6,
+          "tokenMs": 3724,
+          "sightMs": 2746,
+          "finalSightMs": 3724,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 2360.300048828125,
+              "sightMs": 2157.300048828125,
+              "tokenMs": 2635.2001953125,
+              "finalSightMs": 2567.5,
+              "completeMs": 2635.2001953125,
+              "maskPoses": [
+                {
+                  "at": 1793229590803.1,
+                  "index": 5
+                },
+                {
+                  "at": 1793229590849.8,
+                  "index": 6
+                },
+                {
+                  "at": 1793229591022.5,
+                  "index": 11
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 2822.89990234375,
+              "sightMs": 2745.699951171875,
+              "tokenMs": 3723.699951171875,
+              "finalSightMs": 3723.89990234375,
+              "completeMs": 3723.89990234375,
+              "maskPoses": [
+                {
+                  "at": 1793229591397.4,
+                  "index": 6
+                },
+                {
+                  "at": 1793229591422.7,
+                  "index": 8
+                },
+                {
+                  "at": 1793229591610.9,
+                  "index": 12
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "smooth-on-1x",
+      "trial": 1,
+      "rate": 1,
+      "assistance": true,
+      "smooth": true,
+      "host": {
+        "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+        "logicalCpus": 16,
+        "memoryGiB": 31,
+        "browser": "156.0.8078.49"
+      },
+      "fixture": {
+        "tokens": 143,
+        "lights": 48,
+        "walls": 28,
+        "wallEdges": 112,
+        "roomFeet": [
+          240,
+          160
+        ]
+      },
+      "loadMs": [
+        2463,
+        1450
+      ],
+      "sightMs": [
+        1615,
+        1575,
+        1758,
+        1619,
+        1586,
+        1629
+      ],
+      "firstMotionMs": [
+        1635.199951171875,
+        1602.699951171875,
+        1789.199951171875,
+        1647.300048828125,
+        1601.800048828125,
+        1643.60009765625
+      ],
+      "completionMs": [
+        2148.499755859375,
+        1955.5,
+        2131.2998046875,
+        1985.900146484375,
+        1918.10009765625,
+        1992.39990234375
+      ],
+      "observedMs": 13500,
+      "browserBusyMs": 1915,
+      "browserScriptMs": 733,
+      "serverCpuMs": 20734,
+      "serverRssMiB": 987,
+      "httpBytes": 14495054,
+      "httpRequests": 251,
+      "serverDetails": {
+        "cpu": {
+          "user": 22812000,
+          "system": 4390000
+        },
+        "uptime": 23.4179135,
+        "memory": {
+          "rss": 1034797056,
+          "heapTotal": 361897984,
+          "heapUsed": 238415304,
+          "external": 58432497,
+          "arrayBuffers": 53921399
+        },
+        "workers": {
+          "jobs": 477,
+          "failed": 0,
+          "computeMs": 14775.122600000028,
+          "maxComputeMs": 917.5776000000005,
+          "maxQueue": 2
+        },
+        "rendering": {
+          "renders": 455,
+          "hits": 42288,
+          "bytes": 15648208
+        },
+        "delivery": {
+          "full": 2,
+          "delta": 15,
+          "fullBytes": 5121901,
+          "wireBytes": 3457523,
+          "coalesced": 0,
+          "stale": 1,
+          "failed": 0
+        },
+        "eventLoop": {
+          "idle": 17390.5225,
+          "active": 4774.156500020028,
+          "utilization": 0.21539479547688078,
+          "p99Ms": 86.441983,
+          "maxMs": 1925.185535
+        }
+      },
+      "maskPoses": [
+        [
+          [
+            {
+              "at": 1793229607373.6,
+              "index": 1
+            },
+            {
+              "at": 1793229607416,
+              "index": 2
+            },
+            {
+              "at": 1793229607450.7002,
+              "index": 3
+            },
+            {
+              "at": 1793229607478.7002,
+              "index": 4
+            },
+            {
+              "at": 1793229607507,
+              "index": 5
+            },
+            {
+              "at": 1793229607543.4001,
+              "index": 6
+            },
+            {
+              "at": 1793229607573.2002,
+              "index": 7
+            },
+            {
+              "at": 1793229607615.9001,
+              "index": 8
+            },
+            {
+              "at": 1793229607648.2002,
+              "index": 9
+            },
+            {
+              "at": 1793229607682.2002,
+              "index": 10
+            },
+            {
+              "at": 1793229607714.5,
+              "index": 11
+            }
+          ],
+          [
+            {
+              "at": 1793229607505,
+              "index": 1
+            },
+            {
+              "at": 1793229607537.2,
+              "index": 2
+            },
+            {
+              "at": 1793229607571.1,
+              "index": 3
+            },
+            {
+              "at": 1793229607629.9,
+              "index": 4
+            },
+            {
+              "at": 1793229607638.9,
+              "index": 5
+            },
+            {
+              "at": 1793229607671.5,
+              "index": 6
+            },
+            {
+              "at": 1793229607730.3,
+              "index": 7
+            },
+            {
+              "at": 1793229607766.9,
+              "index": 8
+            },
+            {
+              "at": 1793229607807.2,
+              "index": 10
+            },
+            {
+              "at": 1793229607841,
+              "index": 11
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229609492.8,
+              "index": 1
+            },
+            {
+              "at": 1793229609545.2002,
+              "index": 2
+            },
+            {
+              "at": 1793229609566,
+              "index": 3
+            },
+            {
+              "at": 1793229609602.6,
+              "index": 4
+            },
+            {
+              "at": 1793229609627.4001,
+              "index": 5
+            },
+            {
+              "at": 1793229609657.9001,
+              "index": 6
+            },
+            {
+              "at": 1793229609695.8,
+              "index": 7
+            },
+            {
+              "at": 1793229609741.7002,
+              "index": 8
+            },
+            {
+              "at": 1793229609778.1,
+              "index": 9
+            },
+            {
+              "at": 1793229609807.6,
+              "index": 10
+            },
+            {
+              "at": 1793229609839.8,
+              "index": 11
+            }
+          ],
+          [
+            {
+              "at": 1793229609711.5,
+              "index": 1
+            },
+            {
+              "at": 1793229609741.9,
+              "index": 2
+            },
+            {
+              "at": 1793229609777.2,
+              "index": 3
+            },
+            {
+              "at": 1793229609808.1,
+              "index": 4
+            },
+            {
+              "at": 1793229609847.2,
+              "index": 5
+            },
+            {
+              "at": 1793229609877.1,
+              "index": 6
+            },
+            {
+              "at": 1793229609915,
+              "index": 7
+            },
+            {
+              "at": 1793229609945.2,
+              "index": 8
+            },
+            {
+              "at": 1793229609980.8,
+              "index": 9
+            },
+            {
+              "at": 1793229610010.7,
+              "index": 10
+            },
+            {
+              "at": 1793229610047.7,
+              "index": 11
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229612088,
+              "index": 1
+            },
+            {
+              "at": 1793229612120.7002,
+              "index": 2
+            },
+            {
+              "at": 1793229612154.8,
+              "index": 3
+            },
+            {
+              "at": 1793229612197.6,
+              "index": 4
+            },
+            {
+              "at": 1793229612231.6,
+              "index": 5
+            },
+            {
+              "at": 1793229612253.4001,
+              "index": 6
+            },
+            {
+              "at": 1793229612293.2002,
+              "index": 7
+            },
+            {
+              "at": 1793229612324.7002,
+              "index": 8
+            },
+            {
+              "at": 1793229612356.4001,
+              "index": 9
+            },
+            {
+              "at": 1793229612388.3,
+              "index": 10
+            },
+            {
+              "at": 1793229612418.4001,
+              "index": 11
+            },
+            {
+              "at": 1793229612456.2002,
+              "index": 12
+            }
+          ],
+          [
+            {
+              "at": 1793229611733.6,
+              "index": 1
+            },
+            {
+              "at": 1793229611776.8,
+              "index": 2
+            },
+            {
+              "at": 1793229611800,
+              "index": 3
+            },
+            {
+              "at": 1793229611838.2,
+              "index": 4
+            },
+            {
+              "at": 1793229611870.5,
+              "index": 5
+            },
+            {
+              "at": 1793229611901.8,
+              "index": 6
+            },
+            {
+              "at": 1793229611933.9,
+              "index": 7
+            },
+            {
+              "at": 1793229611967.3,
+              "index": 8
+            },
+            {
+              "at": 1793229611998,
+              "index": 9
+            },
+            {
+              "at": 1793229612036.7,
+              "index": 10
+            },
+            {
+              "at": 1793229612071.2,
+              "index": 11
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229614110.2002,
+              "index": 1
+            },
+            {
+              "at": 1793229614162.4001,
+              "index": 2
+            },
+            {
+              "at": 1793229614182.7002,
+              "index": 3
+            },
+            {
+              "at": 1793229614217.3,
+              "index": 4
+            },
+            {
+              "at": 1793229614251.2002,
+              "index": 5
+            },
+            {
+              "at": 1793229614281.3,
+              "index": 6
+            },
+            {
+              "at": 1793229614330.4001,
+              "index": 7
+            },
+            {
+              "at": 1793229614357.3,
+              "index": 8
+            },
+            {
+              "at": 1793229614374.4001,
+              "index": 9
+            },
+            {
+              "at": 1793229614422.6,
+              "index": 10
+            },
+            {
+              "at": 1793229614467.9001,
+              "index": 11
+            }
+          ],
+          [
+            {
+              "at": 1793229614290.4,
+              "index": 1
+            },
+            {
+              "at": 1793229614323.1,
+              "index": 2
+            },
+            {
+              "at": 1793229614388,
+              "index": 3
+            },
+            {
+              "at": 1793229614394.6,
+              "index": 4
+            },
+            {
+              "at": 1793229614425.1,
+              "index": 5
+            },
+            {
+              "at": 1793229614463.2,
+              "index": 6
+            },
+            {
+              "at": 1793229614494,
+              "index": 7
+            },
+            {
+              "at": 1793229614524,
+              "index": 8
+            },
+            {
+              "at": 1793229614558.9,
+              "index": 9
+            },
+            {
+              "at": 1793229614592.1,
+              "index": 10
+            },
+            {
+              "at": 1793229614621.9,
+              "index": 11
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229616438.4001,
+              "index": 1
+            },
+            {
+              "at": 1793229616471.6,
+              "index": 2
+            },
+            {
+              "at": 1793229616515.5,
+              "index": 3
+            },
+            {
+              "at": 1793229616540.9001,
+              "index": 4
+            },
+            {
+              "at": 1793229616579.5,
+              "index": 5
+            },
+            {
+              "at": 1793229616609.2002,
+              "index": 6
+            },
+            {
+              "at": 1793229616639.9001,
+              "index": 7
+            },
+            {
+              "at": 1793229616672.6,
+              "index": 8
+            },
+            {
+              "at": 1793229616717.5,
+              "index": 9
+            },
+            {
+              "at": 1793229616747.8,
+              "index": 10
+            },
+            {
+              "at": 1793229616779.1,
+              "index": 11
+            }
+          ],
+          [
+            {
+              "at": 1793229616266.5,
+              "index": 1
+            },
+            {
+              "at": 1793229616307,
+              "index": 2
+            },
+            {
+              "at": 1793229616342.3,
+              "index": 3
+            },
+            {
+              "at": 1793229616394.8,
+              "index": 4
+            },
+            {
+              "at": 1793229616413.9,
+              "index": 5
+            },
+            {
+              "at": 1793229616434.1,
+              "index": 6
+            },
+            {
+              "at": 1793229616496,
+              "index": 7
+            },
+            {
+              "at": 1793229616503,
+              "index": 8
+            },
+            {
+              "at": 1793229616541.5,
+              "index": 9
+            },
+            {
+              "at": 1793229616577.6,
+              "index": 10
+            },
+            {
+              "at": 1793229616622.4,
+              "index": 11
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "at": 1793229618379.7002,
+              "index": 1
+            },
+            {
+              "at": 1793229618427.5,
+              "index": 2
+            },
+            {
+              "at": 1793229618447.3,
+              "index": 3
+            },
+            {
+              "at": 1793229618484,
+              "index": 4
+            },
+            {
+              "at": 1793229618523.4001,
+              "index": 5
+            },
+            {
+              "at": 1793229618546.1,
+              "index": 6
+            },
+            {
+              "at": 1793229618580.7002,
+              "index": 7
+            },
+            {
+              "at": 1793229618617.4001,
+              "index": 8
+            },
+            {
+              "at": 1793229618646.5,
+              "index": 9
+            },
+            {
+              "at": 1793229618683.9001,
+              "index": 10
+            },
+            {
+              "at": 1793229618729.4001,
+              "index": 11
+            }
+          ],
+          [
+            {
+              "at": 1793229618649.2,
+              "index": 1
+            },
+            {
+              "at": 1793229618681.8,
+              "index": 2
+            },
+            {
+              "at": 1793229618716.8,
+              "index": 3
+            },
+            {
+              "at": 1793229618749.1,
+              "index": 4
+            },
+            {
+              "at": 1793229618787,
+              "index": 5
+            },
+            {
+              "at": 1793229618814.6,
+              "index": 6
+            },
+            {
+              "at": 1793229618852.1,
+              "index": 7
+            },
+            {
+              "at": 1793229618884.1,
+              "index": 8
+            },
+            {
+              "at": 1793229618929.9,
+              "index": 9
+            },
+            {
+              "at": 1793229618947.3,
+              "index": 10
+            },
+            {
+              "at": 1793229618979.6,
+              "index": 11
+            }
+          ]
+        ]
+      ],
+      "samples": [
+        {
+          "player": 1,
+          "seq": 1,
+          "tokenMs": 2031,
+          "sightMs": 1615,
+          "finalSightMs": 2003,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 1635.199951171875,
+              "sightMs": 1614.599853515625,
+              "tokenMs": 2030.699951171875,
+              "finalSightMs": 2003.099853515625,
+              "completeMs": 2030.699951171875,
+              "maskPoses": [
+                {
+                  "at": 1793229607373.6,
+                  "index": 1
+                },
+                {
+                  "at": 1793229607416,
+                  "index": 2
+                },
+                {
+                  "at": 1793229607450.7002,
+                  "index": 3
+                },
+                {
+                  "at": 1793229607478.7002,
+                  "index": 4
+                },
+                {
+                  "at": 1793229607507,
+                  "index": 5
+                },
+                {
+                  "at": 1793229607543.4001,
+                  "index": 6
+                },
+                {
+                  "at": 1793229607573.2002,
+                  "index": 7
+                },
+                {
+                  "at": 1793229607615.9001,
+                  "index": 8
+                },
+                {
+                  "at": 1793229607648.2002,
+                  "index": 9
+                },
+                {
+                  "at": 1793229607682.2002,
+                  "index": 10
+                },
+                {
+                  "at": 1793229607714.5,
+                  "index": 11
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 1801.69970703125,
+              "sightMs": 1771.2998046875,
+              "tokenMs": 2148.499755859375,
+              "finalSightMs": 2134.69970703125,
+              "completeMs": 2148.499755859375,
+              "maskPoses": [
+                {
+                  "at": 1793229607505,
+                  "index": 1
+                },
+                {
+                  "at": 1793229607537.2,
+                  "index": 2
+                },
+                {
+                  "at": 1793229607571.1,
+                  "index": 3
+                },
+                {
+                  "at": 1793229607629.9,
+                  "index": 4
+                },
+                {
+                  "at": 1793229607638.9,
+                  "index": 5
+                },
+                {
+                  "at": 1793229607671.5,
+                  "index": 6
+                },
+                {
+                  "at": 1793229607730.3,
+                  "index": 7
+                },
+                {
+                  "at": 1793229607766.9,
+                  "index": 8
+                },
+                {
+                  "at": 1793229607807.2,
+                  "index": 10
+                },
+                {
+                  "at": 1793229607841,
+                  "index": 11
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 2,
+          "tokenMs": 1956,
+          "sightMs": 1575,
+          "finalSightMs": 1956,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 1388.900146484375,
+              "sightMs": 1375.2001953125,
+              "tokenMs": 1805.400146484375,
+              "finalSightMs": 1773.400146484375,
+              "completeMs": 1805.400146484375,
+              "maskPoses": [
+                {
+                  "at": 1793229609492.8,
+                  "index": 1
+                },
+                {
+                  "at": 1793229609545.2002,
+                  "index": 2
+                },
+                {
+                  "at": 1793229609566,
+                  "index": 3
+                },
+                {
+                  "at": 1793229609602.6,
+                  "index": 4
+                },
+                {
+                  "at": 1793229609627.4001,
+                  "index": 5
+                },
+                {
+                  "at": 1793229609657.9001,
+                  "index": 6
+                },
+                {
+                  "at": 1793229609695.8,
+                  "index": 7
+                },
+                {
+                  "at": 1793229609741.7002,
+                  "index": 8
+                },
+                {
+                  "at": 1793229609778.1,
+                  "index": 9
+                },
+                {
+                  "at": 1793229609807.6,
+                  "index": 10
+                },
+                {
+                  "at": 1793229609839.8,
+                  "index": 11
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 1602.699951171875,
+              "sightMs": 1575.199951171875,
+              "tokenMs": 1955.5,
+              "finalSightMs": 1955.5,
+              "completeMs": 1955.5,
+              "maskPoses": [
+                {
+                  "at": 1793229609711.5,
+                  "index": 1
+                },
+                {
+                  "at": 1793229609741.9,
+                  "index": 2
+                },
+                {
+                  "at": 1793229609777.2,
+                  "index": 3
+                },
+                {
+                  "at": 1793229609808.1,
+                  "index": 4
+                },
+                {
+                  "at": 1793229609847.2,
+                  "index": 5
+                },
+                {
+                  "at": 1793229609877.1,
+                  "index": 6
+                },
+                {
+                  "at": 1793229609915,
+                  "index": 7
+                },
+                {
+                  "at": 1793229609945.2,
+                  "index": 8
+                },
+                {
+                  "at": 1793229609980.8,
+                  "index": 9
+                },
+                {
+                  "at": 1793229610010.7,
+                  "index": 10
+                },
+                {
+                  "at": 1793229610047.7,
+                  "index": 11
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 3,
+          "tokenMs": 2127,
+          "sightMs": 1758,
+          "finalSightMs": 2131,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 1789.199951171875,
+              "sightMs": 1757.5,
+              "tokenMs": 2127.39990234375,
+              "finalSightMs": 2131.2998046875,
+              "completeMs": 2131.2998046875,
+              "maskPoses": [
+                {
+                  "at": 1793229612088,
+                  "index": 1
+                },
+                {
+                  "at": 1793229612120.7002,
+                  "index": 2
+                },
+                {
+                  "at": 1793229612154.8,
+                  "index": 3
+                },
+                {
+                  "at": 1793229612197.6,
+                  "index": 4
+                },
+                {
+                  "at": 1793229612231.6,
+                  "index": 5
+                },
+                {
+                  "at": 1793229612253.4001,
+                  "index": 6
+                },
+                {
+                  "at": 1793229612293.2002,
+                  "index": 7
+                },
+                {
+                  "at": 1793229612324.7002,
+                  "index": 8
+                },
+                {
+                  "at": 1793229612356.4001,
+                  "index": 9
+                },
+                {
+                  "at": 1793229612388.3,
+                  "index": 10
+                },
+                {
+                  "at": 1793229612418.4001,
+                  "index": 11
+                },
+                {
+                  "at": 1793229612456.2002,
+                  "index": 12
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 1415.2998046875,
+              "sightMs": 1406.69970703125,
+              "tokenMs": 1789.19970703125,
+              "finalSightMs": 1789.2998046875,
+              "completeMs": 1789.2998046875,
+              "maskPoses": [
+                {
+                  "at": 1793229611733.6,
+                  "index": 1
+                },
+                {
+                  "at": 1793229611776.8,
+                  "index": 2
+                },
+                {
+                  "at": 1793229611800,
+                  "index": 3
+                },
+                {
+                  "at": 1793229611838.2,
+                  "index": 4
+                },
+                {
+                  "at": 1793229611870.5,
+                  "index": 5
+                },
+                {
+                  "at": 1793229611901.8,
+                  "index": 6
+                },
+                {
+                  "at": 1793229611933.9,
+                  "index": 7
+                },
+                {
+                  "at": 1793229611967.3,
+                  "index": 8
+                },
+                {
+                  "at": 1793229611998,
+                  "index": 9
+                },
+                {
+                  "at": 1793229612036.7,
+                  "index": 10
+                },
+                {
+                  "at": 1793229612071.2,
+                  "index": 11
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 4,
+          "tokenMs": 1974,
+          "sightMs": 1619,
+          "finalSightMs": 1986,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 1449.000244140625,
+              "sightMs": 1441.000244140625,
+              "tokenMs": 1832.80029296875,
+              "finalSightMs": 1832.80029296875,
+              "completeMs": 1832.80029296875,
+              "maskPoses": [
+                {
+                  "at": 1793229614110.2002,
+                  "index": 1
+                },
+                {
+                  "at": 1793229614162.4001,
+                  "index": 2
+                },
+                {
+                  "at": 1793229614182.7002,
+                  "index": 3
+                },
+                {
+                  "at": 1793229614217.3,
+                  "index": 4
+                },
+                {
+                  "at": 1793229614251.2002,
+                  "index": 5
+                },
+                {
+                  "at": 1793229614281.3,
+                  "index": 6
+                },
+                {
+                  "at": 1793229614330.4001,
+                  "index": 7
+                },
+                {
+                  "at": 1793229614357.3,
+                  "index": 8
+                },
+                {
+                  "at": 1793229614374.4001,
+                  "index": 9
+                },
+                {
+                  "at": 1793229614422.6,
+                  "index": 10
+                },
+                {
+                  "at": 1793229614467.9001,
+                  "index": 11
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 1647.300048828125,
+              "sightMs": 1619.10009765625,
+              "tokenMs": 1973.60009765625,
+              "finalSightMs": 1985.900146484375,
+              "completeMs": 1985.900146484375,
+              "maskPoses": [
+                {
+                  "at": 1793229614290.4,
+                  "index": 1
+                },
+                {
+                  "at": 1793229614323.1,
+                  "index": 2
+                },
+                {
+                  "at": 1793229614388,
+                  "index": 3
+                },
+                {
+                  "at": 1793229614394.6,
+                  "index": 4
+                },
+                {
+                  "at": 1793229614425.1,
+                  "index": 5
+                },
+                {
+                  "at": 1793229614463.2,
+                  "index": 6
+                },
+                {
+                  "at": 1793229614494,
+                  "index": 7
+                },
+                {
+                  "at": 1793229614524,
+                  "index": 8
+                },
+                {
+                  "at": 1793229614558.9,
+                  "index": 9
+                },
+                {
+                  "at": 1793229614592.1,
+                  "index": 10
+                },
+                {
+                  "at": 1793229614621.9,
+                  "index": 11
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 1,
+          "seq": 5,
+          "tokenMs": 1918,
+          "sightMs": 1586,
+          "finalSightMs": 1918,
+          "views": [
+            {
+              "player": 1,
+              "moving": true,
+              "firstMotionMs": 1601.800048828125,
+              "sightMs": 1585.5,
+              "tokenMs": 1918.10009765625,
+              "finalSightMs": 1918.10009765625,
+              "completeMs": 1918.10009765625,
+              "maskPoses": [
+                {
+                  "at": 1793229616438.4001,
+                  "index": 1
+                },
+                {
+                  "at": 1793229616471.6,
+                  "index": 2
+                },
+                {
+                  "at": 1793229616515.5,
+                  "index": 3
+                },
+                {
+                  "at": 1793229616540.9001,
+                  "index": 4
+                },
+                {
+                  "at": 1793229616579.5,
+                  "index": 5
+                },
+                {
+                  "at": 1793229616609.2002,
+                  "index": 6
+                },
+                {
+                  "at": 1793229616639.9001,
+                  "index": 7
+                },
+                {
+                  "at": 1793229616672.6,
+                  "index": 8
+                },
+                {
+                  "at": 1793229616717.5,
+                  "index": 9
+                },
+                {
+                  "at": 1793229616747.8,
+                  "index": 10
+                },
+                {
+                  "at": 1793229616779.1,
+                  "index": 11
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": false,
+              "firstMotionMs": 1431.599853515625,
+              "sightMs": 1412.89990234375,
+              "tokenMs": 1823.699951171875,
+              "finalSightMs": 1793.099853515625,
+              "completeMs": 1823.699951171875,
+              "maskPoses": [
+                {
+                  "at": 1793229616266.5,
+                  "index": 1
+                },
+                {
+                  "at": 1793229616307,
+                  "index": 2
+                },
+                {
+                  "at": 1793229616342.3,
+                  "index": 3
+                },
+                {
+                  "at": 1793229616394.8,
+                  "index": 4
+                },
+                {
+                  "at": 1793229616413.9,
+                  "index": 5
+                },
+                {
+                  "at": 1793229616434.1,
+                  "index": 6
+                },
+                {
+                  "at": 1793229616496,
+                  "index": 7
+                },
+                {
+                  "at": 1793229616503,
+                  "index": 8
+                },
+                {
+                  "at": 1793229616541.5,
+                  "index": 9
+                },
+                {
+                  "at": 1793229616577.6,
+                  "index": 10
+                },
+                {
+                  "at": 1793229616622.4,
+                  "index": 11
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "player": 2,
+          "seq": 6,
+          "tokenMs": 1992,
+          "sightMs": 1629,
+          "finalSightMs": 1992,
+          "views": [
+            {
+              "player": 1,
+              "moving": false,
+              "firstMotionMs": 1372.10009765625,
+              "sightMs": 1365.10009765625,
+              "tokenMs": 1754.800048828125,
+              "finalSightMs": 1743.5,
+              "completeMs": 1754.800048828125,
+              "maskPoses": [
+                {
+                  "at": 1793229618379.7002,
+                  "index": 1
+                },
+                {
+                  "at": 1793229618427.5,
+                  "index": 2
+                },
+                {
+                  "at": 1793229618447.3,
+                  "index": 3
+                },
+                {
+                  "at": 1793229618484,
+                  "index": 4
+                },
+                {
+                  "at": 1793229618523.4001,
+                  "index": 5
+                },
+                {
+                  "at": 1793229618546.1,
+                  "index": 6
+                },
+                {
+                  "at": 1793229618580.7002,
+                  "index": 7
+                },
+                {
+                  "at": 1793229618617.4001,
+                  "index": 8
+                },
+                {
+                  "at": 1793229618646.5,
+                  "index": 9
+                },
+                {
+                  "at": 1793229618683.9001,
+                  "index": 10
+                },
+                {
+                  "at": 1793229618729.4001,
+                  "index": 11
+                }
+              ]
+            },
+            {
+              "player": 2,
+              "moving": true,
+              "firstMotionMs": 1643.60009765625,
+              "sightMs": 1628.800048828125,
+              "tokenMs": 1992.39990234375,
+              "finalSightMs": 1992.39990234375,
+              "completeMs": 1992.39990234375,
+              "maskPoses": [
+                {
+                  "at": 1793229618649.2,
+                  "index": 1
+                },
+                {
+                  "at": 1793229618681.8,
+                  "index": 2
+                },
+                {
+                  "at": 1793229618716.8,
+                  "index": 3
+                },
+                {
+                  "at": 1793229618749.1,
+                  "index": 4
+                },
+                {
+                  "at": 1793229618787,
+                  "index": 5
+                },
+                {
+                  "at": 1793229618814.6,
+                  "index": 6
+                },
+                {
+                  "at": 1793229618852.1,
+                  "index": 7
+                },
+                {
+                  "at": 1793229618884.1,
+                  "index": 8
+                },
+                {
+                  "at": 1793229618929.9,
+                  "index": 9
+                },
+                {
+                  "at": 1793229618947.3,
+                  "index": 10
+                },
+                {
+                  "at": 1793229618979.6,
+                  "index": 11
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

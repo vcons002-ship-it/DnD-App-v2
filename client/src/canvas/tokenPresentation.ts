@@ -2,6 +2,8 @@ import type {StateSnapshot} from '../../../shared/types.js';
 import type {ExploredTerrain} from '../../../shared/exploration.js';
 import {createPlayerVision, type PlayerVision} from '../../../shared/playerVision.js';
 import {tokenMoveDuration, tokenMoveProgress} from './tokenMotion.js';
+import type {LegacyPlayback} from '../../../shared/legacyMotion.js';
+import {legacyMotionIndex} from '../../../shared/legacyMotion.js';
 
 type Point = {x:number;y:number};
 type Move = {from:Point;to:Point;start:number;duration:number};
@@ -16,9 +18,15 @@ export class TokenPresentation {
   private personal?: PlayerVision;
   private party?: PlayerVision;
   private visionDirty = true;
+  private reducedMotion = false;
+  private playbackId?:string;
+  private playback?:LegacyPlayback;
 
-  sync(snapshot:StateSnapshot, pxPerFoot:number, now:number, reducedMotion=false) {
-    if(this.snapshot===snapshot)return;
+  sync(snapshot:StateSnapshot, pxPerFoot:number, now:number, reducedMotion=false,playback?:LegacyPlayback) {
+    if(this.snapshot===snapshot&&this.reducedMotion===reducedMotion&&this.playbackId===playback?.id)return;
+    const newPlayback=playback&&playback.id!==this.playbackId;this.playbackId=playback?.id;
+    this.playback=playback;
+    this.reducedMotion=reducedMotion;
     const previous=this.snapshot;
     const sameMap=previous?.map?.id===snapshot.map?.id;
     if(!sameMap)this.moves.clear();
@@ -26,8 +34,13 @@ export class TokenPresentation {
     const ids=new Set(snapshot.tokens.map(t=>t.id));
     for(const id of this.moves.keys())if(!ids.has(id))this.moves.delete(id);
     for(const token of snapshot.tokens){
+      const planned=playback?.moves[token.id];
+      if(newPlayback&&planned&&!reducedMotion){this.moves.set(token.id,{from:planned.from,to:planned.to,start:playback.start,duration:playback.durationMs});continue;}
       const old=this.moves.get(token.id);
-      if(old&&old.to.x===token.x&&old.to.y===token.y)continue;
+      if(old&&old.to.x===token.x&&old.to.y===token.y){
+        if(reducedMotion&&old.duration)this.moves.set(token.id,{from:{x:token.x,y:token.y},to:{x:token.x,y:token.y},start:now,duration:0});
+        continue;
+      }
       const from=old?this.position(token.id)!:token;
       const teleported=token.teleportedAt!==undefined&&token.teleportedAt!==previous?.tokens.find(t=>t.id===token.id)?.teleportedAt;
       const duration=old&&!reducedMotion&&!teleported?tokenMoveDuration(Math.hypot(token.x-from.x,token.y-from.y),pxPerFoot):0;
@@ -44,6 +57,7 @@ export class TokenPresentation {
 
   advance(now:number) {
     const changing=this.moving();
+    const p=this.playback;if(p?.atlas)now=p.start+legacyMotionIndex(now,p.start,p.durationMs,p.atlas.count)/(p.atlas.count-1)*p.durationMs;
     this.time=Math.max(this.time,now);
     if(changing)this.visionDirty=true;
     if(!this.moving())this.memory=this.snapshot?.exploredTerrain;

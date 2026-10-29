@@ -1,0 +1,3564 @@
+{
+  "at": "2026-10-28T12:00:13.752Z",
+  "isolation": {
+    "at": "2026-10-28T11:55:14.187Z",
+    "host": {
+      "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+      "logicalCpus": 16,
+      "memoryGiB": 31,
+      "browser": "156.0.8078.49"
+    },
+    "fixture": {
+      "tokens": 143,
+      "lights": 48,
+      "walls": 28,
+      "wallEdges": 112,
+      "roomFeet": [
+        240,
+        160
+      ]
+    },
+    "method": "Two independent player contexts claim Varis and Druk. Both browser CPUs throttled before initial campaign load and throughout six alternating real drags (three per player). GPU/accelerated Canvas2D disabled, WebGL blocked. Node server unrestricted on same host. No network delay or RAM cap. Event-driven draw/SVG probes, two RAF paint opportunities; captures pointer-release to local committed token and sight update. Wire bytes from CDP websocket frames (no browser instrumentation loop). Recording adds overhead. CPU totals from Node process.cpuUsage include worker threads.",
+    "runs": [
+      {
+        "rate": 20,
+        "compatibility": false,
+        "diagnostic": "normal",
+        "status": "passed",
+        "loads": [
+          {
+            "player": 1,
+            "loadToUsableMs": 27753
+          },
+          {
+            "player": 2,
+            "loadToUsableMs": 23090
+          }
+        ],
+        "samples": [
+          {
+            "player": 1,
+            "seq": 1,
+            "tokenMs": 1216,
+            "sightMs": 2551
+          },
+          {
+            "player": 2,
+            "seq": 2,
+            "tokenMs": 1205,
+            "sightMs": 2711
+          },
+          {
+            "player": 1,
+            "seq": 3,
+            "tokenMs": 1002,
+            "sightMs": 2582
+          },
+          {
+            "player": 2,
+            "seq": 4,
+            "tokenMs": 1040,
+            "sightMs": 2528
+          },
+          {
+            "player": 1,
+            "seq": 5,
+            "tokenMs": 997,
+            "sightMs": 2908
+          },
+          {
+            "player": 2,
+            "seq": 6,
+            "tokenMs": 974,
+            "sightMs": 2477
+          }
+        ],
+        "wire": [
+          {
+            "bytes": 281315,
+            "events": {
+              "state:frame": 6,
+              "fx:cursor": 6,
+              "fx:cursorHide": 6
+            }
+          },
+          {
+            "bytes": 282267,
+            "events": {
+              "fx:cursor": 6,
+              "fx:cursorHide": 6,
+              "state:frame": 6
+            }
+          }
+        ],
+        "instrumentation": {
+          "playwrightTrace": false,
+          "video": false,
+          "cpuProfile": false
+        },
+        "observedMs": 35815,
+        "server": {
+          "cpuMs": 1095,
+          "rssMiB": 322,
+          "details": {
+            "cpu": {
+              "user": 5375000,
+              "system": 1250000
+            },
+            "uptime": 98.460759,
+            "memory": {
+              "rss": 337575936,
+              "heapTotal": 181178368,
+              "heapUsed": 132794736,
+              "external": 12136565,
+              "arrayBuffers": 7632685
+            },
+            "workers": {
+              "jobs": 48,
+              "failed": 0,
+              "computeMs": 119.07259999994676,
+              "maxComputeMs": 29.93239999999787,
+              "maxQueue": 1
+            },
+            "delivery": {
+              "full": 2,
+              "delta": 16,
+              "fullBytes": 3367715,
+              "wireBytes": 1087234,
+              "coalesced": 0,
+              "stale": 0,
+              "failed": 0
+            },
+            "eventLoop": {
+              "idle": 93252.1512,
+              "active": 3928.917900022323,
+              "utilization": 0.0404288400653273,
+              "p99Ms": 42.893311,
+              "maxMs": 2709.520383
+            }
+          }
+        },
+        "clients": [
+          {
+            "player": 1,
+            "mainThreadBusyMs": 18941,
+            "scriptMs": 11702,
+            "medianTokenMs": 1002,
+            "medianSightMs": 2582,
+            "webglAttempts": 0,
+            "geometrySource": "server",
+            "errors": [],
+            "graphicsRequests": []
+          },
+          {
+            "player": 2,
+            "mainThreadBusyMs": 19387,
+            "scriptMs": 12197,
+            "medianTokenMs": 1040,
+            "medianSightMs": 2528,
+            "webglAttempts": 0,
+            "geometrySource": "server",
+            "errors": [],
+            "graphicsRequests": []
+          }
+        ]
+      },
+      {
+        "rate": 20,
+        "compatibility": false,
+        "diagnostic": "hide-mask",
+        "status": "passed",
+        "loads": [
+          {
+            "player": 1,
+            "loadToUsableMs": 26168
+          },
+          {
+            "player": 2,
+            "loadToUsableMs": 27100
+          }
+        ],
+        "samples": [
+          {
+            "player": 1,
+            "seq": 1,
+            "tokenMs": 980,
+            "sightMs": 2310
+          },
+          {
+            "player": 2,
+            "seq": 2,
+            "tokenMs": 1092,
+            "sightMs": 2554
+          },
+          {
+            "player": 1,
+            "seq": 3,
+            "tokenMs": 1321,
+            "sightMs": 1885
+          },
+          {
+            "player": 2,
+            "seq": 4,
+            "tokenMs": 1074,
+            "sightMs": 2993
+          },
+          {
+            "player": 1,
+            "seq": 5,
+            "tokenMs": 933,
+            "sightMs": 3115
+          },
+          {
+            "player": 2,
+            "seq": 6,
+            "tokenMs": 1628,
+            "sightMs": 3069
+          }
+        ],
+        "wire": [
+          {
+            "bytes": 284588,
+            "events": {
+              "state:frame": 6,
+              "fx:cursor": 6,
+              "fx:cursorHide": 6
+            }
+          },
+          {
+            "bytes": 285538,
+            "events": {
+              "fx:cursor": 6,
+              "fx:cursorHide": 6,
+              "state:frame": 6
+            }
+          }
+        ],
+        "instrumentation": {
+          "playwrightTrace": false,
+          "video": false,
+          "cpuProfile": false
+        },
+        "observedMs": 39883,
+        "server": {
+          "cpuMs": 718,
+          "rssMiB": 383,
+          "details": {
+            "cpu": {
+              "user": 6765000,
+              "system": 1343000
+            },
+            "uptime": 194.2717202,
+            "memory": {
+              "rss": 401383424,
+              "heapTotal": 242569216,
+              "heapUsed": 156756264,
+              "external": 11797963,
+              "arrayBuffers": 7295557
+            },
+            "workers": {
+              "jobs": 102,
+              "failed": 0,
+              "computeMs": 154.20949999994446,
+              "maxComputeMs": 29.93239999999787,
+              "maxQueue": 1
+            },
+            "delivery": {
+              "full": 4,
+              "delta": 33,
+              "fullBytes": 6872394,
+              "wireBytes": 2187750,
+              "coalesced": 2,
+              "stale": 3,
+              "failed": 0
+            },
+            "eventLoop": {
+              "idle": 187850.9447,
+              "active": 5141.060100021656,
+              "utilization": 0.02663872063171126,
+              "p99Ms": 44.269567,
+              "maxMs": 2709.520383
+            }
+          }
+        },
+        "clients": [
+          {
+            "player": 1,
+            "mainThreadBusyMs": 20283,
+            "scriptMs": 12458,
+            "medianTokenMs": 980,
+            "medianSightMs": 2310,
+            "webglAttempts": 0,
+            "geometrySource": "server",
+            "errors": [],
+            "graphicsRequests": []
+          },
+          {
+            "player": 2,
+            "mainThreadBusyMs": 22344,
+            "scriptMs": 13741,
+            "medianTokenMs": 1092,
+            "medianSightMs": 2993,
+            "webglAttempts": 0,
+            "geometrySource": "server",
+            "errors": [],
+            "graphicsRequests": []
+          }
+        ]
+      },
+      {
+        "rate": 20,
+        "compatibility": false,
+        "diagnostic": "hide-token-art",
+        "status": "passed",
+        "loads": [
+          {
+            "player": 1,
+            "loadToUsableMs": 25943
+          },
+          {
+            "player": 2,
+            "loadToUsableMs": 27427
+          }
+        ],
+        "samples": [
+          {
+            "player": 1,
+            "seq": 1,
+            "tokenMs": 789,
+            "sightMs": 1578
+          },
+          {
+            "player": 2,
+            "seq": 2,
+            "tokenMs": 775,
+            "sightMs": 1698
+          },
+          {
+            "player": 1,
+            "seq": 3,
+            "tokenMs": 548,
+            "sightMs": 1785
+          },
+          {
+            "player": 2,
+            "seq": 4,
+            "tokenMs": 501,
+            "sightMs": 557
+          },
+          {
+            "player": 1,
+            "seq": 5,
+            "tokenMs": 556,
+            "sightMs": 2133
+          },
+          {
+            "player": 2,
+            "seq": 6,
+            "tokenMs": 575,
+            "sightMs": 1696
+          }
+        ],
+        "wire": [
+          {
+            "bytes": 272522,
+            "events": {
+              "state:frame": 6,
+              "fx:cursor": 6,
+              "fx:cursorHide": 6
+            }
+          },
+          {
+            "bytes": 273482,
+            "events": {
+              "fx:cursor": 6,
+              "fx:cursorHide": 6,
+              "state:frame": 6
+            }
+          }
+        ],
+        "instrumentation": {
+          "playwrightTrace": false,
+          "video": false,
+          "cpuProfile": false
+        },
+        "observedMs": 25046,
+        "server": {
+          "cpuMs": 640,
+          "rssMiB": 388,
+          "details": {
+            "cpu": {
+              "user": 7843000,
+              "system": 1562000
+            },
+            "uptime": 276.6426288,
+            "memory": {
+              "rss": 406347776,
+              "heapTotal": 244445184,
+              "heapUsed": 128126920,
+              "external": 12219806,
+              "arrayBuffers": 7717400
+            },
+            "workers": {
+              "jobs": 153,
+              "failed": 0,
+              "computeMs": 187.52249999991,
+              "maxComputeMs": 29.93239999999787,
+              "maxQueue": 1
+            },
+            "delivery": {
+              "full": 6,
+              "delta": 52,
+              "fullBytes": 10688942,
+              "wireBytes": 3264598,
+              "coalesced": 4,
+              "stale": 3,
+              "failed": 0
+            },
+            "eventLoop": {
+              "idle": 269022.8989,
+              "active": 6340.016000004893,
+              "utilization": 0.02302421879252405,
+              "p99Ms": 47.644671,
+              "maxMs": 2709.520383
+            }
+          }
+        },
+        "clients": [
+          {
+            "player": 1,
+            "mainThreadBusyMs": 13765,
+            "scriptMs": 7376,
+            "medianTokenMs": 556,
+            "medianSightMs": 1785,
+            "webglAttempts": 0,
+            "geometrySource": "server",
+            "errors": [],
+            "graphicsRequests": []
+          },
+          {
+            "player": 2,
+            "mainThreadBusyMs": 12310,
+            "scriptMs": 6384,
+            "medianTokenMs": 575,
+            "medianSightMs": 1696,
+            "webglAttempts": 0,
+            "geometrySource": "server",
+            "errors": [],
+            "graphicsRequests": []
+          }
+        ]
+      }
+    ]
+  },
+  "cleanProfile": {
+    "method": "CDP sampled JavaScript profiles: self time by leaf sample, inclusive time includes descendants and must not be summed across functions. Trace durations are inclusive event time and may overlap/nest. Profiles add overhead and CPU throttling affects wall-clock sampled durations.",
+    "profiles": [
+      {
+        "file": "player-1-20x.cpuprofile",
+        "durationMs": 51295.574,
+        "sampledMs": 51294.680000000226,
+        "stackAttribution": [
+          {
+            "category": "Idle",
+            "ms": 22859.374999999938,
+            "percent": 44.564806720696645
+          },
+          {
+            "category": "Browser / native / unattributed",
+            "ms": 13417.133000000105,
+            "percent": 26.1569679350764
+          },
+          {
+            "category": "Konva canvas redraw (including native calls)",
+            "ms": 9475.761000000019,
+            "percent": 18.473184743525014
+          },
+          {
+            "category": "Konva scene / input",
+            "ms": 2080.4089999999987,
+            "percent": 4.055798768995127
+          },
+          {
+            "category": "React / reconciliation / scheduler",
+            "ms": 1276.5630000000003,
+            "percent": 2.48868498643523
+          },
+          {
+            "category": "Application state / UI / shared logic",
+            "ms": 984.8749999999992,
+            "percent": 1.9200334225693483
+          },
+          {
+            "category": "Application canvas logic",
+            "ms": 555.1469999999996,
+            "percent": 1.0822701301577418
+          },
+          {
+            "category": "Garbage collection",
+            "ms": 454.302,
+            "percent": 0.8856707947100909
+          },
+          {
+            "category": "Other libraries",
+            "ms": 191.11499999999998,
+            "percent": 0.37258249783408165
+          }
+        ],
+        "categories": [
+          {
+            "category": "Idle",
+            "selfMs": 22859.374999999938,
+            "percent": 44.564806720696645
+          },
+          {
+            "category": "Browser / native / unattributed",
+            "selfMs": 17176.409000000043,
+            "percent": 33.48575134887276
+          },
+          {
+            "category": "Konva scene / input",
+            "selfMs": 7650.079999999989,
+            "percent": 14.91398328247677
+          },
+          {
+            "category": "React / reconciliation / scheduler",
+            "selfMs": 1276.5629999999992,
+            "percent": 2.488684986435228
+          },
+          {
+            "category": "Application state / UI / shared logic",
+            "selfMs": 984.8749999999998,
+            "percent": 1.920033422569349
+          },
+          {
+            "category": "Application canvas logic",
+            "selfMs": 701.961,
+            "percent": 1.3684869464045726
+          },
+          {
+            "category": "Garbage collection",
+            "selfMs": 454.302,
+            "percent": 0.8856707947100909
+          },
+          {
+            "category": "Other libraries",
+            "selfMs": 191.11499999999998,
+            "percent": 0.37258249783408165
+          }
+        ],
+        "topSelf": [
+          {
+            "function": "(idle)",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 22859.374999999938,
+            "inclusiveMs": 22859.374999999938,
+            "category": "Idle"
+          },
+          {
+            "function": "(program)",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 12412.86100000007,
+            "inclusiveMs": 12412.86100000007,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "(garbage collector)",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 454.302,
+            "inclusiveMs": 454.302,
+            "category": "Garbage collection"
+          },
+          {
+            "function": "drawImage",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 356.32799999999963,
+            "inclusiveMs": 356.32799999999963,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "setAttr",
+            "source": "../../../node_modules/konva/lib/Context.js",
+            "line": 186,
+            "column": 4,
+            "selfMs": 338.383,
+            "inclusiveMs": 338.383,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "setAttr",
+            "source": "../../../node_modules/konva/lib/Context.js",
+            "line": 186,
+            "column": 4,
+            "selfMs": 320.7599999999999,
+            "inclusiveMs": 320.7599999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 304.78799999999995,
+            "inclusiveMs": 304.78799999999995,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 222.62600000000003,
+            "inclusiveMs": 222.62600000000003,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "fillText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 190.74900000000008,
+            "inclusiveMs": 190.74900000000008,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "fillText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 161.336,
+            "inclusiveMs": 161.336,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "scale",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 151.34500000000006,
+            "inclusiveMs": 151.34500000000006,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "scale",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 150.396,
+            "inclusiveMs": 150.396,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "strokeText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 132.69300000000004,
+            "inclusiveMs": 132.69300000000004,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "strokeText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 132.192,
+            "inclusiveMs": 132.192,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 127.12500000000007,
+            "inclusiveMs": 4715.199999999997,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 117.78699999999998,
+            "inclusiveMs": 2040.8870000000009,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 114.65800000000004,
+            "inclusiveMs": 2450.8310000000006,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_sceneFunc",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 100,
+            "column": 4,
+            "selfMs": 95.08500000000005,
+            "inclusiveMs": 1289.5269999999966,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 93.85700000000004,
+            "inclusiveMs": 1900.1380000000006,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 92.19800000000004,
+            "inclusiveMs": 92.19800000000004,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "getContext",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 88.53899999999999,
+            "inclusiveMs": 88.53899999999999,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "createInstance",
+            "source": "../../../node_modules/react-konva/es/ReactKonvaHostConfig.js",
+            "line": 18,
+            "column": 16,
+            "selfMs": 84.421,
+            "inclusiveMs": 626.8000000000001,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "t",
+            "source": "../../src/canvas/MapStage.tsx",
+            "line": 2060,
+            "column": 9,
+            "selfMs": 78.798,
+            "inclusiveMs": 195.02499999999998,
+            "category": "Application canvas logic"
+          },
+          {
+            "function": "data",
+            "source": "../../src/canvas/TokenShape.tsx",
+            "line": 432,
+            "column": 21,
+            "selfMs": 76.67,
+            "inclusiveMs": 76.67,
+            "category": "Application canvas logic"
+          },
+          {
+            "function": "getImageData",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 73.85900000000001,
+            "inclusiveMs": 73.85900000000001,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "on",
+            "source": "../../../node_modules/konva/lib/Node.js",
+            "line": 269,
+            "column": 4,
+            "selfMs": 73.55199999999999,
+            "inclusiveMs": 73.55199999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "get",
+            "source": "../../../node_modules/konva/lib/Context.js",
+            "line": 379,
+            "column": 8,
+            "selfMs": 73.40700000000002,
+            "inclusiveMs": 73.40700000000002,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "save",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 73.266,
+            "inclusiveMs": 73.266,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "_sceneFunc",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 100,
+            "column": 4,
+            "selfMs": 71.18699999999998,
+            "inclusiveMs": 1178.8929999999998,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "setAttr",
+            "source": "../../../node_modules/konva/lib/Context.js",
+            "line": 186,
+            "column": 4,
+            "selfMs": 70.462,
+            "inclusiveMs": 70.462,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 70.08200000000001,
+            "inclusiveMs": 4995.828000000007,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 70.00200000000001,
+            "inclusiveMs": 70.00200000000001,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "transform",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 68.968,
+            "inclusiveMs": 68.968,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "transform",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 67.747,
+            "inclusiveMs": 67.747,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "setAttr",
+            "source": "../../../node_modules/konva/lib/Context.js",
+            "line": 186,
+            "column": 4,
+            "selfMs": 63.769,
+            "inclusiveMs": 63.769,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_",
+            "source": "../../../node_modules/konva/lib/Canvas.js",
+            "line": 27,
+            "column": 4,
+            "selfMs": 62.349000000000004,
+            "inclusiveMs": 113.92800000000001,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "t",
+            "source": "../../src/canvas/MapStage.tsx",
+            "line": 2060,
+            "column": 9,
+            "selfMs": 60.333999999999996,
+            "inclusiveMs": 200.913,
+            "category": "Application canvas logic"
+          },
+          {
+            "function": "q",
+            "source": "../../../node_modules/react/cjs/react-jsx-runtime.production.min.js",
+            "line": 11,
+            "column": 9,
+            "selfMs": 59.748999999999995,
+            "inclusiveMs": 59.748999999999995,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "drawImage",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 59.639999999999986,
+            "inclusiveMs": 59.639999999999986,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "setHeight",
+            "source": "../../../node_modules/konva/lib/Canvas.js",
+            "line": 61,
+            "column": 4,
+            "selfMs": 57.21699999999999,
+            "inclusiveMs": 207.613,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_getCanvasCache",
+            "source": "../../../node_modules/konva/lib/Node.js",
+            "line": 78,
+            "column": 4,
+            "selfMs": 56.757000000000005,
+            "inclusiveMs": 56.757000000000005,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_setTextData",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 283,
+            "column": 4,
+            "selfMs": 56.262,
+            "inclusiveMs": 124.22900000000008,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 53.72299999999999,
+            "inclusiveMs": 5867.795999999988,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "getImageData",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 51.73099999999999,
+            "inclusiveMs": 51.73099999999999,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Node.js",
+            "line": 394,
+            "column": 36,
+            "selfMs": 51.240000000000016,
+            "inclusiveMs": 86.74499999999998,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "fillText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 51.06399999999999,
+            "inclusiveMs": 51.06399999999999,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "save",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 50.434000000000005,
+            "inclusiveMs": 50.434000000000005,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "fillText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 50.406000000000006,
+            "inclusiveMs": 50.406000000000006,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "q",
+            "source": "../../../node_modules/react/cjs/react-jsx-runtime.production.min.js",
+            "line": 11,
+            "column": 9,
+            "selfMs": 49.393,
+            "inclusiveMs": 49.393,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 49.163,
+            "inclusiveMs": 49.163,
+            "category": "Browser / native / unattributed"
+          }
+        ],
+        "topInclusive": [
+          {
+            "function": "(program)",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 12412.86100000007,
+            "inclusiveMs": 12412.86100000007,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Util.js",
+            "line": 362,
+            "column": 30,
+            "selfMs": 0.033,
+            "inclusiveMs": 8521.402999999977,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Util.js",
+            "line": 359,
+            "column": 16,
+            "selfMs": 0,
+            "inclusiveMs": 8521.402999999977,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "draw",
+            "source": "../../../node_modules/konva/lib/Node.js",
+            "line": 1220,
+            "column": 4,
+            "selfMs": 3.3230000000000004,
+            "inclusiveMs": 8521.369999999977,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Layer.js",
+            "line": 188,
+            "column": 41,
+            "selfMs": 0,
+            "inclusiveMs": 8521.369999999977,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Layer.js",
+            "line": 248,
+            "column": 4,
+            "selfMs": 0.26,
+            "inclusiveMs": 8304.998999999973,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 6.163,
+            "inclusiveMs": 8296.862999999974,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 11.542,
+            "inclusiveMs": 8290.699999999975,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 16.479,
+            "inclusiveMs": 5905.788999999986,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 53.72299999999999,
+            "inclusiveMs": 5867.795999999988,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 22.563000000000006,
+            "inclusiveMs": 5152.642000000006,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 20.004,
+            "inclusiveMs": 5114.770000000005,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 70.08200000000001,
+            "inclusiveMs": 4995.828000000007,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 127.12500000000007,
+            "inclusiveMs": 4715.199999999997,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 266,
+            "column": 250,
+            "selfMs": 3.073,
+            "inclusiveMs": 4323.852999999999,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "jg",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 127,
+            "column": 9,
+            "selfMs": 1.538,
+            "inclusiveMs": 4320.78,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Ek",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 272,
+            "column": 145,
+            "selfMs": 0,
+            "inclusiveMs": 4319.242,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Wk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 281,
+            "column": 9,
+            "selfMs": 1.327,
+            "inclusiveMs": 2975.162000000001,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Pk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 280,
+            "column": 336,
+            "selfMs": 0,
+            "inclusiveMs": 2975.162000000001,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "ik",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 259,
+            "column": 9,
+            "selfMs": 1.566,
+            "inclusiveMs": 2885.5960000000005,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "hk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 258,
+            "column": 416,
+            "selfMs": 0,
+            "inclusiveMs": 2885.5960000000005,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "kk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 260,
+            "column": 9,
+            "selfMs": 1.54,
+            "inclusiveMs": 2884.0300000000007,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "ik",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 259,
+            "column": 9,
+            "selfMs": 0,
+            "inclusiveMs": 2884.0300000000007,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Qj",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 243,
+            "column": 204,
+            "selfMs": 1.551,
+            "inclusiveMs": 2882.4900000000007,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/react-konva/es/ReactKonvaCore.js",
+            "line": 69,
+            "column": 26,
+            "selfMs": 4.587,
+            "inclusiveMs": 2683.4060000000013,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Pa.L.updateContainer",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 231,
+            "column": 67,
+            "selfMs": 0,
+            "inclusiveMs": 2672.649000000001,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "af",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 175,
+            "column": 9,
+            "selfMs": 0,
+            "inclusiveMs": 2672.649000000001,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Lh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 182,
+            "column": 145,
+            "selfMs": 1.545,
+            "inclusiveMs": 2671.132000000001,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "ad",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 41,
+            "column": 9,
+            "selfMs": 0,
+            "inclusiveMs": 2671.132000000001,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 114.65800000000004,
+            "inclusiveMs": 2450.8310000000006,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 44.64199999999998,
+            "inclusiveMs": 2115.847000000001,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 117.78699999999998,
+            "inclusiveMs": 2040.8870000000009,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 93.85700000000004,
+            "inclusiveMs": 1900.1380000000006,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 231,
+            "column": 77,
+            "selfMs": 0,
+            "inclusiveMs": 1763.6039999999994,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 7.725,
+            "inclusiveMs": 1655.897999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 3.067,
+            "inclusiveMs": 1645.1039999999991,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 231,
+            "column": 77,
+            "selfMs": 10.745999999999999,
+            "inclusiveMs": 1642.0369999999991,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 3.0380000000000003,
+            "inclusiveMs": 1557.285999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 3.033,
+            "inclusiveMs": 1545.0169999999991,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 231,
+            "column": 77,
+            "selfMs": 1.553,
+            "inclusiveMs": 1541.9839999999992,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "bi",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 191,
+            "column": 9,
+            "selfMs": 1.539,
+            "inclusiveMs": 1541.275999999999,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Wh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 190,
+            "column": 336,
+            "selfMs": 0,
+            "inclusiveMs": 1541.275999999999,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 12.353,
+            "inclusiveMs": 1534.259999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "Tk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 279,
+            "column": 299,
+            "selfMs": 6.164,
+            "inclusiveMs": 1344.0800000000004,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Ik",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 279,
+            "column": 108,
+            "selfMs": 0,
+            "inclusiveMs": 1344.0800000000004,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "_sceneFunc",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 100,
+            "column": 4,
+            "selfMs": 95.08500000000005,
+            "inclusiveMs": 1289.5269999999966,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "Xs",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 289,
+            "column": 3,
+            "selfMs": 30.907000000000004,
+            "inclusiveMs": 1288.0729999999999,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 3.059,
+            "inclusiveMs": 1261.793999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 231,
+            "column": 77,
+            "selfMs": 4.6129999999999995,
+            "inclusiveMs": 1258.734999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "cj",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 196,
+            "column": 198,
+            "selfMs": 3.11,
+            "inclusiveMs": 1192.186999999999,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Nh",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 160,
+            "column": 9,
+            "selfMs": 25.761,
+            "inclusiveMs": 1184.477999999999,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "_sceneFunc",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 100,
+            "column": 4,
+            "selfMs": 71.18699999999998,
+            "inclusiveMs": 1178.8929999999998,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "gh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 166,
+            "column": 9,
+            "selfMs": 1.539,
+            "inclusiveMs": 1131.2259999999985,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "dh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 164,
+            "column": 465,
+            "selfMs": 0,
+            "inclusiveMs": 1131.2259999999985,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "eh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 165,
+            "column": 9,
+            "selfMs": 0,
+            "inclusiveMs": 1131.2259999999985,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Zh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 189,
+            "column": 299,
+            "selfMs": 9.164,
+            "inclusiveMs": 1126.7969999999996,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Ph",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 189,
+            "column": 108,
+            "selfMs": 0,
+            "inclusiveMs": 1126.7969999999996,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Ng",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 151,
+            "column": 343,
+            "selfMs": 3.0439999999999996,
+            "inclusiveMs": 1121.9989999999987,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../src/canvas/TokenShape.tsx",
+            "line": 427,
+            "column": 18,
+            "selfMs": 4.595,
+            "inclusiveMs": 1105.1999999999991,
+            "category": "Application canvas logic"
+          },
+          {
+            "function": "cache",
+            "source": "../../../node_modules/konva/lib/Node.js",
+            "line": 97,
+            "column": 4,
+            "selfMs": 19.485999999999997,
+            "inclusiveMs": 1079.6919999999996,
+            "category": "Konva scene / input"
+          }
+        ]
+      },
+      {
+        "file": "player-2-20x.cpuprofile",
+        "durationMs": 48091.103,
+        "sampledMs": 48090.197999999735,
+        "stackAttribution": [
+          {
+            "category": "Idle",
+            "ms": 20325.745000000334,
+            "percent": 42.26587921305802
+          },
+          {
+            "category": "Browser / native / unattributed",
+            "ms": 13864.064000000208,
+            "percent": 28.82929282179351
+          },
+          {
+            "category": "Konva canvas redraw (including native calls)",
+            "ms": 8812.770999999988,
+            "percent": 18.325503671247176
+          },
+          {
+            "category": "Konva scene / input",
+            "ms": 1568.7539999999972,
+            "percent": 3.262107592071062
+          },
+          {
+            "category": "React / reconciliation / scheduler",
+            "ms": 1082.1829999999984,
+            "percent": 2.2503192854394243
+          },
+          {
+            "category": "Garbage collection",
+            "ms": 922.2589999999992,
+            "percent": 1.9177691886400723
+          },
+          {
+            "category": "Application state / UI / shared logic",
+            "ms": 767.1569999999995,
+            "percent": 1.5952460832039073
+          },
+          {
+            "category": "Application canvas logic",
+            "ms": 559.056,
+            "percent": 1.1625154880834616
+          },
+          {
+            "category": "Other libraries",
+            "ms": 188.20899999999997,
+            "percent": 0.3913666564650056
+          }
+        ],
+        "categories": [
+          {
+            "category": "Idle",
+            "selfMs": 20325.745000000334,
+            "percent": 42.26587921305802
+          },
+          {
+            "category": "Browser / native / unattributed",
+            "selfMs": 17355.83900000018,
+            "percent": 36.09017995725506
+          },
+          {
+            "category": "Konva scene / input",
+            "selfMs": 6701.280999999988,
+            "percent": 13.934816820675234
+          },
+          {
+            "category": "React / reconciliation / scheduler",
+            "selfMs": 1082.1829999999989,
+            "percent": 2.250319285439425
+          },
+          {
+            "category": "Garbage collection",
+            "selfMs": 922.2589999999992,
+            "percent": 1.9177691886400723
+          },
+          {
+            "category": "Application state / UI / shared logic",
+            "selfMs": 767.157,
+            "percent": 1.5952460832039081
+          },
+          {
+            "category": "Application canvas logic",
+            "selfMs": 747.525,
+            "percent": 1.5544227952648566
+          },
+          {
+            "category": "Other libraries",
+            "selfMs": 188.20899999999997,
+            "percent": 0.3913666564650056
+          }
+        ],
+        "topSelf": [
+          {
+            "function": "(idle)",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 20325.745000000334,
+            "inclusiveMs": 20325.745000000334,
+            "category": "Idle"
+          },
+          {
+            "function": "(program)",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 13110.907000000178,
+            "inclusiveMs": 13110.907000000178,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "(garbage collector)",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 922.2589999999992,
+            "inclusiveMs": 922.2589999999992,
+            "category": "Garbage collection"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 282.7070000000001,
+            "inclusiveMs": 282.7070000000001,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "setAttr",
+            "source": "../../../node_modules/konva/lib/Context.js",
+            "line": 186,
+            "column": 4,
+            "selfMs": 252.95799999999997,
+            "inclusiveMs": 252.95799999999997,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawImage",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 243.35399999999993,
+            "inclusiveMs": 243.35399999999993,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "setAttr",
+            "source": "../../../node_modules/konva/lib/Context.js",
+            "line": 186,
+            "column": 4,
+            "selfMs": 226.98899999999995,
+            "inclusiveMs": 226.98899999999995,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 193.32099999999994,
+            "inclusiveMs": 193.32099999999994,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "fillText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 155.282,
+            "inclusiveMs": 155.282,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "setAttr",
+            "source": "../../../node_modules/konva/lib/Context.js",
+            "line": 186,
+            "column": 4,
+            "selfMs": 153.22100000000003,
+            "inclusiveMs": 153.22100000000003,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "setAttr",
+            "source": "../../../node_modules/konva/lib/Context.js",
+            "line": 186,
+            "column": 4,
+            "selfMs": 151.84400000000005,
+            "inclusiveMs": 151.84400000000005,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "fillText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 146.11600000000004,
+            "inclusiveMs": 146.11600000000004,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "data",
+            "source": "../../src/canvas/TokenShape.tsx",
+            "line": 432,
+            "column": 21,
+            "selfMs": 123.81500000000004,
+            "inclusiveMs": 123.81500000000004,
+            "category": "Application canvas logic"
+          },
+          {
+            "function": "getImageData",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 117.04700000000005,
+            "inclusiveMs": 117.04700000000005,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "strokeText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 108.998,
+            "inclusiveMs": 108.998,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "_sceneFunc",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 100,
+            "column": 4,
+            "selfMs": 104.51300000000002,
+            "inclusiveMs": 945.1489999999993,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 101.793,
+            "inclusiveMs": 1512.3429999999983,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawImage",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 101.36500000000004,
+            "inclusiveMs": 101.36500000000004,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "strokeText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 101.35500000000003,
+            "inclusiveMs": 101.35500000000003,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 101.08800000000004,
+            "inclusiveMs": 3559.0779999999913,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "scale",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 100.85700000000004,
+            "inclusiveMs": 100.85700000000004,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "scale",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 100.29900000000006,
+            "inclusiveMs": 100.29900000000006,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 93.16700000000002,
+            "inclusiveMs": 1764.8579999999995,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "strokeText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 89.23500000000003,
+            "inclusiveMs": 89.23500000000003,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "fillText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 84.75399999999998,
+            "inclusiveMs": 84.75399999999998,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "scale",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 79.64900000000002,
+            "inclusiveMs": 79.64900000000002,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "fillText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 79.585,
+            "inclusiveMs": 79.585,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "strokeText",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 74.41899999999998,
+            "inclusiveMs": 74.41899999999998,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "getContext",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 69.05900000000003,
+            "inclusiveMs": 69.05900000000003,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 68.62400000000002,
+            "inclusiveMs": 1210.0279999999998,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "transform",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 67.07799999999999,
+            "inclusiveMs": 67.07799999999999,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "t",
+            "source": "../../src/canvas/MapStage.tsx",
+            "line": 2060,
+            "column": 9,
+            "selfMs": 62.365999999999985,
+            "inclusiveMs": 163.814,
+            "category": "Application canvas logic"
+          },
+          {
+            "function": "transform",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 61.45499999999998,
+            "inclusiveMs": 61.45499999999998,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 61.339,
+            "inclusiveMs": 1589.1439999999982,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "save",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 61.258,
+            "inclusiveMs": 61.258,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "t",
+            "source": "../../src/canvas/MapStage.tsx",
+            "line": 2060,
+            "column": 9,
+            "selfMs": 59.739000000000004,
+            "inclusiveMs": 183.05399999999997,
+            "category": "Application canvas logic"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 59.41,
+            "inclusiveMs": 59.41,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "q",
+            "source": "../../../node_modules/react/cjs/react-jsx-runtime.production.min.js",
+            "line": 11,
+            "column": 9,
+            "selfMs": 57.67799999999998,
+            "inclusiveMs": 57.67799999999998,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 56.689,
+            "inclusiveMs": 993.148,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 55.116,
+            "inclusiveMs": 55.116,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "q",
+            "source": "../../../node_modules/react/cjs/react-jsx-runtime.production.min.js",
+            "line": 11,
+            "column": 9,
+            "selfMs": 55.038999999999994,
+            "inclusiveMs": 55.038999999999994,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "restore",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 53.33199999999999,
+            "inclusiveMs": 53.33199999999999,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "transform",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 52.42199999999999,
+            "inclusiveMs": 52.42199999999999,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "_sceneFunc",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 100,
+            "column": 4,
+            "selfMs": 52.06699999999999,
+            "inclusiveMs": 895.7339999999998,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "getImageData",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 49.90700000000002,
+            "inclusiveMs": 49.90700000000002,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 49.794,
+            "inclusiveMs": 3847.02699999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "data",
+            "source": "../../src/canvas/TokenShape.tsx",
+            "line": 432,
+            "column": 21,
+            "selfMs": 47.745,
+            "inclusiveMs": 47.745,
+            "category": "Application canvas logic"
+          },
+          {
+            "function": "_sceneFunc",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 100,
+            "column": 4,
+            "selfMs": 45.995999999999995,
+            "inclusiveMs": 624.509,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "setHeight",
+            "source": "../../../node_modules/konva/lib/Canvas.js",
+            "line": 61,
+            "column": 4,
+            "selfMs": 44.842999999999996,
+            "inclusiveMs": 147.24000000000004,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 44.696999999999996,
+            "inclusiveMs": 4400.0259999999935,
+            "category": "Konva scene / input"
+          }
+        ],
+        "topInclusive": [
+          {
+            "function": "(program)",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 13110.907000000178,
+            "inclusiveMs": 13110.907000000178,
+            "category": "Browser / native / unattributed"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Util.js",
+            "line": 362,
+            "column": 30,
+            "selfMs": 0.087,
+            "inclusiveMs": 8369.246999999972,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Util.js",
+            "line": 359,
+            "column": 16,
+            "selfMs": 0,
+            "inclusiveMs": 8369.246999999972,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Layer.js",
+            "line": 188,
+            "column": 41,
+            "selfMs": 1.526,
+            "inclusiveMs": 8369.159999999973,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "draw",
+            "source": "../../../node_modules/konva/lib/Node.js",
+            "line": 1220,
+            "column": 4,
+            "selfMs": 3.896,
+            "inclusiveMs": 8367.633999999973,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Layer.js",
+            "line": 248,
+            "column": 4,
+            "selfMs": 3.075,
+            "inclusiveMs": 8142.414999999975,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 4.127000000000001,
+            "inclusiveMs": 8132.5359999999755,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 9.242999999999999,
+            "inclusiveMs": 8126.866999999976,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 18.532,
+            "inclusiveMs": 4432.444999999992,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 44.696999999999996,
+            "inclusiveMs": 4400.0259999999935,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 23.032000000000004,
+            "inclusiveMs": 3952.6749999999906,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 16.862,
+            "inclusiveMs": 3919.8009999999904,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 49.794,
+            "inclusiveMs": 3847.02699999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 101.08800000000004,
+            "inclusiveMs": 3559.0779999999913,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 231,
+            "column": 77,
+            "selfMs": 2.614,
+            "inclusiveMs": 3370.5159999999983,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 9.261,
+            "inclusiveMs": 3145.4359999999983,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 7.645,
+            "inclusiveMs": 3124.839999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 231,
+            "column": 77,
+            "selfMs": 10.828,
+            "inclusiveMs": 3117.194999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "Ek",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 272,
+            "column": 145,
+            "selfMs": 1.527,
+            "inclusiveMs": 3064.1809999999955,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 266,
+            "column": 250,
+            "selfMs": 0,
+            "inclusiveMs": 3064.1809999999955,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "jg",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 127,
+            "column": 9,
+            "selfMs": 0,
+            "inclusiveMs": 3064.1809999999955,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 12.532,
+            "inclusiveMs": 2926.5889999999986,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 7.7059999999999995,
+            "inclusiveMs": 2903.259999999998,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 231,
+            "column": 77,
+            "selfMs": 4.141,
+            "inclusiveMs": 2892.4279999999976,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 37.37200000000001,
+            "inclusiveMs": 2859.1399999999976,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 9.216,
+            "inclusiveMs": 2360.735999999997,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 231,
+            "column": 77,
+            "selfMs": 44.097999999999985,
+            "inclusiveMs": 2339.273999999998,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "Pk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 280,
+            "column": 336,
+            "selfMs": 1.536,
+            "inclusiveMs": 1897.9139999999963,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Wk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 281,
+            "column": 9,
+            "selfMs": 1.55,
+            "inclusiveMs": 1894.8409999999963,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "ik",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 259,
+            "column": 9,
+            "selfMs": 1.496,
+            "inclusiveMs": 1836.7809999999968,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "hk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 258,
+            "column": 416,
+            "selfMs": 0,
+            "inclusiveMs": 1836.7809999999968,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Qj",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 243,
+            "column": 204,
+            "selfMs": 1.547,
+            "inclusiveMs": 1833.744999999997,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "ik",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 259,
+            "column": 9,
+            "selfMs": 0,
+            "inclusiveMs": 1833.744999999997,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "kk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 260,
+            "column": 9,
+            "selfMs": 0,
+            "inclusiveMs": 1833.744999999997,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 93.16700000000002,
+            "inclusiveMs": 1764.8579999999995,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 27.3,
+            "inclusiveMs": 1664.4579999999983,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/react-konva/es/ReactKonvaCore.js",
+            "line": 69,
+            "column": 26,
+            "selfMs": 3.021,
+            "inclusiveMs": 1649.3219999999972,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "ad",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 41,
+            "column": 9,
+            "selfMs": 1.532,
+            "inclusiveMs": 1638.7689999999973,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Pa.L.updateContainer",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 231,
+            "column": 67,
+            "selfMs": 0,
+            "inclusiveMs": 1638.7689999999973,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "af",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 175,
+            "column": 9,
+            "selfMs": 0,
+            "inclusiveMs": 1638.7689999999973,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Lh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 182,
+            "column": 145,
+            "selfMs": 0,
+            "inclusiveMs": 1637.2369999999974,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 61.339,
+            "inclusiveMs": 1589.1439999999982,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 101.793,
+            "inclusiveMs": 1512.3429999999983,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 68.62400000000002,
+            "inclusiveMs": 1210.0279999999998,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "Tk",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 279,
+            "column": 299,
+            "selfMs": 4.5969999999999995,
+            "inclusiveMs": 1164.7400000000005,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Ik",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 279,
+            "column": 108,
+            "selfMs": 0,
+            "inclusiveMs": 1164.7400000000005,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Xs",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 289,
+            "column": 3,
+            "selfMs": 13.758,
+            "inclusiveMs": 1100.134,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "Wh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 190,
+            "column": 336,
+            "selfMs": 0,
+            "inclusiveMs": 1099.7289999999998,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "bi",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 191,
+            "column": 9,
+            "selfMs": 0,
+            "inclusiveMs": 1099.7289999999998,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 165,
+            "column": 4,
+            "selfMs": 19.979999999999997,
+            "inclusiveMs": 1077.4279999999999,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "_drawChildren",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 200,
+            "column": 4,
+            "selfMs": 6.169,
+            "inclusiveMs": 1028.255,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(anonymous)",
+            "source": "../../../node_modules/konva/lib/Container.js",
+            "line": 231,
+            "column": 77,
+            "selfMs": 24.340999999999998,
+            "inclusiveMs": 1020.5380000000001,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "cj",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 196,
+            "column": 198,
+            "selfMs": 1.535,
+            "inclusiveMs": 995.1299999999985,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "drawScene",
+            "source": "../../../node_modules/konva/lib/Shape.js",
+            "line": 319,
+            "column": 4,
+            "selfMs": 56.689,
+            "inclusiveMs": 993.148,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "Nh",
+            "source": "../../../node_modules/react-dom/cjs/react-dom.production.min.js",
+            "line": 160,
+            "column": 9,
+            "selfMs": 26.174,
+            "inclusiveMs": 989.2809999999984,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "_sceneFunc",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 100,
+            "column": 4,
+            "selfMs": 104.51300000000002,
+            "inclusiveMs": 945.1489999999993,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "(garbage collector)",
+            "source": "(native)",
+            "line": 0,
+            "column": -1,
+            "selfMs": 922.2589999999992,
+            "inclusiveMs": 922.2589999999992,
+            "category": "Garbage collection"
+          },
+          {
+            "function": "_sceneFunc",
+            "source": "../../../node_modules/konva/lib/shapes/Text.js",
+            "line": 100,
+            "column": 4,
+            "selfMs": 52.06699999999999,
+            "inclusiveMs": 895.7339999999998,
+            "category": "Konva scene / input"
+          },
+          {
+            "function": "gh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 166,
+            "column": 9,
+            "selfMs": 1.511,
+            "inclusiveMs": 812.7569999999996,
+            "category": "React / reconciliation / scheduler"
+          },
+          {
+            "function": "dh",
+            "source": "../../../node_modules/react-reconciler/cjs/react-reconciler.production.min.js",
+            "line": 164,
+            "column": 465,
+            "selfMs": 0,
+            "inclusiveMs": 812.7569999999996,
+            "category": "React / reconciliation / scheduler"
+          }
+        ]
+      }
+    ],
+    "trace": [
+      {
+        "file": "browser-20x.trace.json",
+        "events": 38838,
+        "metadata": [
+          {
+            "name": "TracingStartedInBrowser",
+            "args": {
+              "data": {
+                "frameTreeNodeId": 3,
+                "frames": [
+                  {
+                    "frame": "77B309751DF45435E9F77F97B3BCE7FE",
+                    "isInPrimaryMainFrame": true,
+                    "isOutermostMainFrame": true,
+                    "name": "",
+                    "processId": 34384,
+                    "url": "http://localhost:4120/join?code=WBEB"
+                  }
+                ],
+                "persistentIds": true
+              }
+            }
+          }
+        ],
+        "main": [
+          {
+            "pid": 46220,
+            "tid": 51316,
+            "events": [
+              {
+                "name": "RunTask",
+                "count": 1686,
+                "totalMs": 28667.56000000026,
+                "maxMs": 4305.781
+              },
+              {
+                "name": "v8.callFunction",
+                "count": 833,
+                "totalMs": 17283.54699999997,
+                "maxMs": 892.224
+              },
+              {
+                "name": "FunctionCall",
+                "count": 833,
+                "totalMs": 13807.46400000001,
+                "maxMs": 866.966
+              },
+              {
+                "name": "FireAnimationFrame",
+                "count": 62,
+                "totalMs": 8627.772,
+                "maxMs": 855.941
+              },
+              {
+                "name": "Commit",
+                "count": 67,
+                "totalMs": 6574.011000000004,
+                "maxMs": 339.788
+              },
+              {
+                "name": "CpuProfiler::StartProfiling",
+                "count": 1,
+                "totalMs": 4301.739,
+                "maxMs": 4301.739
+              },
+              {
+                "name": "EventDispatch",
+                "count": 94,
+                "totalMs": 1286.3959999999995,
+                "maxMs": 424.71
+              },
+              {
+                "name": "MajorGC",
+                "count": 5,
+                "totalMs": 733.655,
+                "maxMs": 414.122
+              },
+              {
+                "name": "V8.GC_MARK_COMPACTOR",
+                "count": 5,
+                "totalMs": 728.568,
+                "maxMs": 412.306
+              },
+              {
+                "name": "V8.GC_HEAP_EMBEDDER_TRACING_EPILOGUE",
+                "count": 5,
+                "totalMs": 502.16900000000004,
+                "maxMs": 343.532
+              },
+              {
+                "name": "V8.GCFinalizeMCReduceMemory",
+                "count": 1,
+                "totalMs": 412.506,
+                "maxMs": 412.506
+              },
+              {
+                "name": "V8.GCFinalizeMC",
+                "count": 4,
+                "totalMs": 316.682,
+                "maxMs": 141.204
+              },
+              {
+                "name": "TimerFire",
+                "count": 85,
+                "totalMs": 196.10599999999994,
+                "maxMs": 15.228
+              },
+              {
+                "name": "EvaluateScript",
+                "count": 1,
+                "totalMs": 165.191,
+                "maxMs": 165.191
+              },
+              {
+                "name": "HitTest",
+                "count": 74,
+                "totalMs": 115.53699999999998,
+                "maxMs": 4.345
+              },
+              {
+                "name": "MinorGC",
+                "count": 21,
+                "totalMs": 114.569,
+                "maxMs": 10.941
+              },
+              {
+                "name": "V8.GCScavenger",
+                "count": 21,
+                "totalMs": 99.79599999999999,
+                "maxMs": 9.567
+              },
+              {
+                "name": "V8.GC_SCAVENGER",
+                "count": 21,
+                "totalMs": 90.37999999999998,
+                "maxMs": 9.559
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE",
+                "count": 21,
+                "totalMs": 84.63900000000001,
+                "maxMs": 9.351
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE",
+                "count": 10,
+                "totalMs": 76.193,
+                "maxMs": 21.103
+              },
+              {
+                "name": "Paint",
+                "count": 27,
+                "totalMs": 74.623,
+                "maxMs": 8.286
+              },
+              {
+                "name": "PrePaint",
+                "count": 125,
+                "totalMs": 70.22000000000003,
+                "maxMs": 3.247
+              },
+              {
+                "name": "Layout",
+                "count": 15,
+                "totalMs": 56.747,
+                "maxMs": 29.027
+              },
+              {
+                "name": "Layerize",
+                "count": 67,
+                "totalMs": 49.29900000000003,
+                "maxMs": 8.686
+              },
+              {
+                "name": "UpdateLayoutTree",
+                "count": 15,
+                "totalMs": 47.80499999999999,
+                "maxMs": 12.524
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_UPDATE_POINTERS",
+                "count": 5,
+                "totalMs": 46.916,
+                "maxMs": 17.252
+              },
+              {
+                "name": "V8.GCIncrementalMarking",
+                "count": 91,
+                "totalMs": 40.074000000000005,
+                "maxMs": 5.662
+              },
+              {
+                "name": "V8.GC_MC_MARK",
+                "count": 5,
+                "totalMs": 39.515,
+                "maxMs": 13.353
+              },
+              {
+                "name": "V8.GC_MC_INCREMENTAL",
+                "count": 91,
+                "totalMs": 38.359999999999985,
+                "maxMs": 5.66
+              },
+              {
+                "name": "V8.GCIncrementalMarkingStart",
+                "count": 5,
+                "totalMs": 33.36,
+                "maxMs": 10.51
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_PARALLEL_PHASE",
+                "count": 21,
+                "totalMs": 31.63900000000001,
+                "maxMs": 5.218
+              },
+              {
+                "name": "V8.GC_MC_INCREMENTAL_START",
+                "count": 5,
+                "totalMs": 30.512,
+                "maxMs": 10.104
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_UPDATE_POINTERS_TO_NEW_ROOTS",
+                "count": 5,
+                "totalMs": 27.936,
+                "maxMs": 10.755
+              },
+              {
+                "name": "V8.GC_MC_INCREMENTAL_EMBEDDER_TRACING",
+                "count": 82,
+                "totalMs": 26.74300000000001,
+                "maxMs": 5.454
+              },
+              {
+                "name": "V8.GC_MC_MARK_FULL_CLOSURE_PARALLEL",
+                "count": 5,
+                "totalMs": 26.064,
+                "maxMs": 9.313
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_COPY",
+                "count": 5,
+                "totalMs": 25.442,
+                "maxMs": 9.101
+              },
+              {
+                "name": "UpdateLayer",
+                "count": 372,
+                "totalMs": 23.738000000000095,
+                "maxMs": 2.115
+              },
+              {
+                "name": "V8.GC_MC_MARK_WEAK_CLOSURE_EPHEMERON_MARKING",
+                "count": 49,
+                "totalMs": 23.177,
+                "maxMs": 8.103
+              },
+              {
+                "name": "V8.GC_MC_CLEAR",
+                "count": 5,
+                "totalMs": 22.415,
+                "maxMs": 6.478
+              },
+              {
+                "name": "V8.GC_MC_MARK_EMBEDDER_TRACING",
+                "count": 46,
+                "totalMs": 18.46500000000002,
+                "maxMs": 6.688
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_COPY_PARALLEL",
+                "count": 4,
+                "totalMs": 17.692,
+                "maxMs": 7.682
+              },
+              {
+                "name": "V8.DeoptimizeCode",
+                "count": 51,
+                "totalMs": 16.467999999999996,
+                "maxMs": 1.212
+              },
+              {
+                "name": "V8.GC_HEAP_EPILOGUE_SAFEPOINT",
+                "count": 26,
+                "totalMs": 16.046000000000006,
+                "maxMs": 15.597
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_FINALIZE",
+                "count": 21,
+                "totalMs": 15.831,
+                "maxMs": 2.419
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_ROOTS",
+                "count": 21,
+                "totalMs": 15.135000000000002,
+                "maxMs": 1.415
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_UPDATE_POINTERS_POINTER_TABLES",
+                "count": 5,
+                "totalMs": 13.65,
+                "maxMs": 5.073
+              },
+              {
+                "name": "V8.GC_MC_MARK_ROOTS",
+                "count": 15,
+                "totalMs": 9.986999999999998,
+                "maxMs": 1.623
+              },
+              {
+                "name": "V8.GC_MC_CLEAR_JOIN_JOB",
+                "count": 5,
+                "totalMs": 8.523000000000001,
+                "maxMs": 3.236
+              },
+              {
+                "name": "V8.GC_HEAP_ENSURE_SWEEPING_COMPLETED",
+                "count": 25,
+                "totalMs": 8.339,
+                "maxMs": 4.068
+              },
+              {
+                "name": "V8.GC_MC_MARK_EMBEDDER_PROLOGUE",
+                "count": 10,
+                "totalMs": 8.105,
+                "maxMs": 2.621
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_IDENTIFY",
+                "count": 21,
+                "totalMs": 7.8999999999999995,
+                "maxMs": 1.008
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_PARALLEL",
+                "count": 16,
+                "totalMs": 7.48,
+                "maxMs": 4.936
+              },
+              {
+                "name": "V8.GC_SCAVENGER_FREE_REMEMBERED_SET",
+                "count": 21,
+                "totalMs": 6.314000000000001,
+                "maxMs": 1.416
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_PROCESS",
+                "count": 21,
+                "totalMs": 5.369,
+                "maxMs": 0.607
+              },
+              {
+                "name": "V8.GC_HEAP_EXTERNAL_PROLOGUE",
+                "count": 26,
+                "totalMs": 5.279999999999999,
+                "maxMs": 0.813
+              }
+            ]
+          },
+          {
+            "pid": 34384,
+            "tid": 54512,
+            "events": [
+              {
+                "name": "RunTask",
+                "count": 1189,
+                "totalMs": 30569.360000000197,
+                "maxMs": 3762.32
+              },
+              {
+                "name": "v8.callFunction",
+                "count": 805,
+                "totalMs": 20872.331999999988,
+                "maxMs": 1537.148
+              },
+              {
+                "name": "FunctionCall",
+                "count": 805,
+                "totalMs": 15845.300000000001,
+                "maxMs": 1512.874
+              },
+              {
+                "name": "FireAnimationFrame",
+                "count": 51,
+                "totalMs": 8666.699999999999,
+                "maxMs": 990.043
+              },
+              {
+                "name": "Commit",
+                "count": 47,
+                "totalMs": 6402.627999999999,
+                "maxMs": 287.524
+              },
+              {
+                "name": "CpuProfiler::StartProfiling",
+                "count": 1,
+                "totalMs": 3753.583,
+                "maxMs": 3753.583
+              },
+              {
+                "name": "EventDispatch",
+                "count": 94,
+                "totalMs": 1931.9319999999996,
+                "maxMs": 421.291
+              },
+              {
+                "name": "MajorGC",
+                "count": 5,
+                "totalMs": 309.86400000000003,
+                "maxMs": 122.112
+              },
+              {
+                "name": "V8.GC_MARK_COMPACTOR",
+                "count": 5,
+                "totalMs": 305.973,
+                "maxMs": 120.698
+              },
+              {
+                "name": "V8.GCFinalizeMC",
+                "count": 4,
+                "totalMs": 247.98000000000002,
+                "maxMs": 121.106
+              },
+              {
+                "name": "EvaluateScript",
+                "count": 1,
+                "totalMs": 226.93,
+                "maxMs": 226.93
+              },
+              {
+                "name": "TimerFire",
+                "count": 81,
+                "totalMs": 186.41799999999998,
+                "maxMs": 10.698
+              },
+              {
+                "name": "MinorGC",
+                "count": 21,
+                "totalMs": 156.15499999999997,
+                "maxMs": 12.129
+              },
+              {
+                "name": "V8.GCScavenger",
+                "count": 21,
+                "totalMs": 136.66200000000003,
+                "maxMs": 11.112
+              },
+              {
+                "name": "HitTest",
+                "count": 72,
+                "totalMs": 123.52,
+                "maxMs": 5.837
+              },
+              {
+                "name": "V8.GC_SCAVENGER",
+                "count": 21,
+                "totalMs": 117.50200000000001,
+                "maxMs": 9.191
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE",
+                "count": 21,
+                "totalMs": 111.61699999999998,
+                "maxMs": 8.584
+              },
+              {
+                "name": "V8.GC_HEAP_EMBEDDER_TRACING_EPILOGUE",
+                "count": 5,
+                "totalMs": 81.7,
+                "maxMs": 45.319
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE",
+                "count": 10,
+                "totalMs": 77.05700000000002,
+                "maxMs": 21.443
+              },
+              {
+                "name": "Layout",
+                "count": 15,
+                "totalMs": 71.248,
+                "maxMs": 32.706
+              },
+              {
+                "name": "PrePaint",
+                "count": 103,
+                "totalMs": 64.93299999999999,
+                "maxMs": 4.065
+              },
+              {
+                "name": "V8.GC_MC_MARK",
+                "count": 5,
+                "totalMs": 61.462999999999994,
+                "maxMs": 39.989
+              },
+              {
+                "name": "V8.GCFinalizeMCReduceMemory",
+                "count": 1,
+                "totalMs": 58.821,
+                "maxMs": 58.821
+              },
+              {
+                "name": "Paint",
+                "count": 27,
+                "totalMs": 56.98100000000001,
+                "maxMs": 6.509
+              },
+              {
+                "name": "UpdateLayoutTree",
+                "count": 15,
+                "totalMs": 50.987,
+                "maxMs": 9.289
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_UPDATE_POINTERS",
+                "count": 5,
+                "totalMs": 48.371,
+                "maxMs": 16.959
+              },
+              {
+                "name": "V8.GCIncrementalMarking",
+                "count": 30,
+                "totalMs": 47.17700000000001,
+                "maxMs": 5.461
+              },
+              {
+                "name": "V8.GC_MC_INCREMENTAL",
+                "count": 30,
+                "totalMs": 44.327000000000005,
+                "maxMs": 5.261
+              },
+              {
+                "name": "Layerize",
+                "count": 47,
+                "totalMs": 40.732000000000006,
+                "maxMs": 7.298
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_PARALLEL_PHASE",
+                "count": 21,
+                "totalMs": 39.894999999999996,
+                "maxMs": 3.072
+              },
+              {
+                "name": "V8.GC_MC_MARK_FULL_CLOSURE_PARALLEL",
+                "count": 5,
+                "totalMs": 39.464999999999996,
+                "maxMs": 32.727
+              },
+              {
+                "name": "V8.GCIncrementalMarkingStart",
+                "count": 5,
+                "totalMs": 37.937000000000005,
+                "maxMs": 9.1
+              },
+              {
+                "name": "V8.GC_MC_MARK_WEAK_CLOSURE_EPHEMERON_MARKING",
+                "count": 35,
+                "totalMs": 37.021000000000015,
+                "maxMs": 30.908
+              },
+              {
+                "name": "V8.GC_MC_INCREMENTAL_START",
+                "count": 5,
+                "totalMs": 33.18,
+                "maxMs": 8.079
+              },
+              {
+                "name": "V8.GC_MC_MARK_EMBEDDER_TRACING",
+                "count": 34,
+                "totalMs": 31.15600000000001,
+                "maxMs": 30.101
+              },
+              {
+                "name": "V8.GC_MC_INCREMENTAL_EMBEDDER_TRACING",
+                "count": 30,
+                "totalMs": 30.446,
+                "maxMs": 4.442
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_UPDATE_POINTERS_TO_NEW_ROOTS",
+                "count": 5,
+                "totalMs": 29.537000000000003,
+                "maxMs": 10.317
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_ROOTS",
+                "count": 21,
+                "totalMs": 23.980000000000004,
+                "maxMs": 2.062
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_FINALIZE",
+                "count": 21,
+                "totalMs": 21.695999999999994,
+                "maxMs": 1.828
+              },
+              {
+                "name": "V8.GC_HEAP_ENSURE_SWEEPING_COMPLETED",
+                "count": 25,
+                "totalMs": 21.422,
+                "maxMs": 6.285
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_COPY",
+                "count": 5,
+                "totalMs": 21.331999999999997,
+                "maxMs": 7.677
+              },
+              {
+                "name": "V8.GC_MC_CLEAR",
+                "count": 5,
+                "totalMs": 21.07,
+                "maxMs": 6.262
+              },
+              {
+                "name": "UpdateLayer",
+                "count": 286,
+                "totalMs": 17.622,
+                "maxMs": 0.806
+              },
+              {
+                "name": "V8.DeoptimizeCode",
+                "count": 49,
+                "totalMs": 16.419999999999998,
+                "maxMs": 1.418
+              },
+              {
+                "name": "V8.GC_MC_MARK_ROOTS",
+                "count": 15,
+                "totalMs": 14.747,
+                "maxMs": 3.035
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_UPDATE_POINTERS_POINTER_TABLES",
+                "count": 5,
+                "totalMs": 13.625000000000002,
+                "maxMs": 4.594
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_COPY_PARALLEL",
+                "count": 3,
+                "totalMs": 12.165,
+                "maxMs": 6.063
+              },
+              {
+                "name": "V8.GC_HEAP_EPILOGUE_SAFEPOINT",
+                "count": 26,
+                "totalMs": 10.536,
+                "maxMs": 9.097
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_IDENTIFY",
+                "count": 21,
+                "totalMs": 10.399000000000003,
+                "maxMs": 1.014
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_WEAK_GLOBAL_HANDLES_PROCESS",
+                "count": 21,
+                "totalMs": 8.713,
+                "maxMs": 1.022
+              },
+              {
+                "name": "V8.GC_SCAVENGER_FREE_REMEMBERED_SET",
+                "count": 21,
+                "totalMs": 7.099000000000001,
+                "maxMs": 0.803
+              },
+              {
+                "name": "V8.GC_MC_MARK_EMBEDDER_PROLOGUE",
+                "count": 10,
+                "totalMs": 5.119,
+                "maxMs": 1.078
+              },
+              {
+                "name": "V8.GC_MC_EVACUATE_EPILOGUE",
+                "count": 4,
+                "totalMs": 5.114999999999999,
+                "maxMs": 2.836
+              },
+              {
+                "name": "V8.GC_SCAVENGER_SCAVENGE_COLLECT_OLD_TO_NEW_PAGES",
+                "count": 21,
+                "totalMs": 4.888999999999999,
+                "maxMs": 0.828
+              },
+              {
+                "name": "V8.GC_MC_CLEAR_JOIN_JOB",
+                "count": 5,
+                "totalMs": 4.872,
+                "maxMs": 1.423
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "rasterization": {
+    "at": "2026-10-28T12:00:13.752Z",
+    "input": "C:\\Users\\vcons\\DnD-App-v2\\artifacts\\legacy-cpu-profile-clean-20261028\\mask-1-20x.svg",
+    "svgBytes": 158395,
+    "originalPixels": [
+      1440,
+      825
+    ],
+    "method": "Unthrottled Node/Sharp rasterization of one actual captured player mask. 2 warmups then 7 sequential samples per size/format. Includes SVG parsing, rasterization and image encoding; excludes network, client decoding and display. Lower resolutions are a prototype quality tradeoff, not a production visibility policy.",
+    "results": [
+      {
+        "width": 1440,
+        "height": 825,
+        "format": "png",
+        "bytes": 84047,
+        "medianEncodeMs": 33.1456,
+        "maxEncodeMs": 34.012400000000014,
+        "twoUpdatesPerSecondBytes": 168094
+      },
+      {
+        "width": 1440,
+        "height": 825,
+        "format": "webp",
+        "bytes": 26328,
+        "medianEncodeMs": 56.95760000000007,
+        "maxEncodeMs": 57.7423,
+        "twoUpdatesPerSecondBytes": 52656
+      },
+      {
+        "width": 960,
+        "height": 550,
+        "format": "png",
+        "bytes": 49106,
+        "medianEncodeMs": 20.054199999999923,
+        "maxEncodeMs": 21.303099999999972,
+        "twoUpdatesPerSecondBytes": 98212
+      },
+      {
+        "width": 960,
+        "height": 550,
+        "format": "webp",
+        "bytes": 17538,
+        "medianEncodeMs": 31.350299999999834,
+        "maxEncodeMs": 34.00299999999993,
+        "twoUpdatesPerSecondBytes": 35076
+      },
+      {
+        "width": 720,
+        "height": 413,
+        "format": "png",
+        "bytes": 33522,
+        "medianEncodeMs": 14.41879999999992,
+        "maxEncodeMs": 15.699799999999868,
+        "twoUpdatesPerSecondBytes": 67044
+      },
+      {
+        "width": 720,
+        "height": 413,
+        "format": "webp",
+        "bytes": 13218,
+        "medianEncodeMs": 21.754799999999932,
+        "maxEncodeMs": 22.536200000000008,
+        "twoUpdatesPerSecondBytes": 26436
+      }
+    ]
+  },
+  "display": {
+    "at": "2026-10-28T12:01:22.498Z",
+    "method": "Installed Chrome, 20x CPU slowdown, GPU and accelerated Canvas2D disabled. Binary Blob prepared before timer; 5 new Image/Blob-URL samples per static mask. Timed image.decode plus two RAF display opportunities. Excludes network, Socket.IO, app state, token work and data deserialization. Repeated image content can benefit from browser caches; these are isolated display feasibility measurements, not end-to-end app latency.",
+    "results": [
+      {
+        "filename": "mask-1440.png",
+        "bytes": 84047,
+        "samples": [
+          {
+            "decodeMs": 43,
+            "decodeAndTwoRafMs": 68.10000002384186
+          },
+          {
+            "decodeMs": 14.900000035762787,
+            "decodeAndTwoRafMs": 30.69999998807907
+          },
+          {
+            "decodeMs": 11.199999988079071,
+            "decodeAndTwoRafMs": 30.599999964237213
+          },
+          {
+            "decodeMs": 12.5,
+            "decodeAndTwoRafMs": 31.900000035762787
+          },
+          {
+            "decodeMs": 16.600000023841858,
+            "decodeAndTwoRafMs": 47.30000001192093
+          }
+        ]
+      },
+      {
+        "filename": "mask-1440.webp",
+        "bytes": 26328,
+        "samples": [
+          {
+            "decodeMs": 17.400000035762787,
+            "decodeAndTwoRafMs": 35.40000003576279
+          },
+          {
+            "decodeMs": 11.299999952316284,
+            "decodeAndTwoRafMs": 33.19999998807907
+          },
+          {
+            "decodeMs": 11.800000011920929,
+            "decodeAndTwoRafMs": 30.30000001192093
+          },
+          {
+            "decodeMs": 10.5,
+            "decodeAndTwoRafMs": 31.599999964237213
+          },
+          {
+            "decodeMs": 10.800000011920929,
+            "decodeAndTwoRafMs": 30.899999976158142
+          }
+        ]
+      },
+      {
+        "filename": "mask-720.png",
+        "bytes": 33522,
+        "samples": [
+          {
+            "decodeMs": 12.300000011920929,
+            "decodeAndTwoRafMs": 37.30000001192093
+          },
+          {
+            "decodeMs": 8.399999976158142,
+            "decodeAndTwoRafMs": 31.30000001192093
+          },
+          {
+            "decodeMs": 8.700000047683716,
+            "decodeAndTwoRafMs": 31.900000035762787
+          },
+          {
+            "decodeMs": 9,
+            "decodeAndTwoRafMs": 31.69999998807907
+          },
+          {
+            "decodeMs": 10.5,
+            "decodeAndTwoRafMs": 32.89999997615814
+          }
+        ]
+      },
+      {
+        "filename": "mask-720.webp",
+        "bytes": 13218,
+        "samples": [
+          {
+            "decodeMs": 8.299999952316284,
+            "decodeAndTwoRafMs": 27.299999952316284
+          },
+          {
+            "decodeMs": 7.899999976158142,
+            "decodeAndTwoRafMs": 30.80000001192093
+          },
+          {
+            "decodeMs": 8.899999976158142,
+            "decodeAndTwoRafMs": 31.899999976158142
+          },
+          {
+            "decodeMs": 7.600000023841858,
+            "decodeAndTwoRafMs": 33.69999998807907
+          },
+          {
+            "decodeMs": 9.699999988079071,
+            "decodeAndTwoRafMs": 29.80000001192093
+          }
+        ]
+      },
+      {
+        "filename": "mask-960.png",
+        "bytes": 49106,
+        "samples": [
+          {
+            "decodeMs": 12.899999976158142,
+            "decodeAndTwoRafMs": 35.39999997615814
+          },
+          {
+            "decodeMs": 8.899999976158142,
+            "decodeAndTwoRafMs": 31.69999998807907
+          },
+          {
+            "decodeMs": 9.599999964237213,
+            "decodeAndTwoRafMs": 30.69999998807907
+          },
+          {
+            "decodeMs": 9.900000035762787,
+            "decodeAndTwoRafMs": 32.5
+          },
+          {
+            "decodeMs": 8.800000011920929,
+            "decodeAndTwoRafMs": 31.899999976158142
+          }
+        ]
+      },
+      {
+        "filename": "mask-960.webp",
+        "bytes": 17538,
+        "samples": [
+          {
+            "decodeMs": 9.099999964237213,
+            "decodeAndTwoRafMs": 38
+          },
+          {
+            "decodeMs": 8.300000011920929,
+            "decodeAndTwoRafMs": 32.19999998807907
+          },
+          {
+            "decodeMs": 9,
+            "decodeAndTwoRafMs": 32
+          },
+          {
+            "decodeMs": 9.100000023841858,
+            "decodeAndTwoRafMs": 32.30000001192093
+          },
+          {
+            "decodeMs": 8.399999976158142,
+            "decodeAndTwoRafMs": 32.69999998807907
+          }
+        ]
+      }
+    ]
+  }
+}
