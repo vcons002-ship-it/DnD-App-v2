@@ -1,0 +1,1826 @@
+{
+  "measuredAt": "2026-10-28T02:42:54.906Z",
+  "host": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+    "logicalCpus": 16,
+    "memoryGiB": 31,
+    "browser": "156.0.8078.49"
+  },
+  "method": "One fresh browser context/cold HTTP cache per throttle. CDP main-thread CPU slowdown, software Canvas2D, WebGL blocked, local unthrottled disposable server, 1440×900 viewport. Video recording enabled. Times are observed wall-clock/client input-to-painted-frame, not hardware equivalence or FPS. No network latency or RAM cap emulation.",
+  "fixture": {
+    "mapPixels": [
+      3840,
+      2560
+    ],
+    "roomFeet": [
+      240,
+      160
+    ],
+    "initialMonsters": 120,
+    "partyMembers": 3,
+    "lights": 48,
+    "wallPieces": 28,
+    "wallEdges": 112,
+    "addedViaRealUi": 20,
+    "imageBytes": 336128
+  },
+  "buildIndexSha256": "2e182a092bc4cafec871811c7121d8f00d0b1be5bdcb9b68fd3ca1ded367995c",
+  "runs": [
+    {
+      "cpuSlowdown": 1,
+      "status": "passed",
+      "startupScreenMs": 83,
+      "graphicsRequestsBeforeChoice": 0,
+      "choiceToLoginMs": 115,
+      "joinToPaintedMapMs": 723,
+      "renderedDmTokens": 123,
+      "playerPreviewMs": 540,
+      "renderedPreviewTokens": 116,
+      "idle": {
+        "observedMs": 5025,
+        "mainThreadBusyMs": 11,
+        "scriptMs": 1,
+        "visibilityRedraws": 0,
+        "jsHeapMiB": 48
+      },
+      "addTwentyWallMs": 1848,
+      "placement": {
+        "samples": 20,
+        "medianMs": 69,
+        "p95Ms": 100,
+        "maxMs": 106
+      },
+      "placementSamplesMs": [
+        88,
+        63,
+        68,
+        84,
+        69,
+        70,
+        65,
+        71,
+        81,
+        64,
+        63,
+        69,
+        66,
+        85,
+        79,
+        64,
+        69,
+        68,
+        106,
+        100
+      ],
+      "finalDmTokens": 143,
+      "postAdditionPreviewMs": 574,
+      "webglAttempts": 0,
+      "longTasks": {
+        "count": 5,
+        "maxMs": 153,
+        "totalMs": 433
+      },
+      "longTaskSamples": [
+        {
+          "start": 338.10000002384186,
+          "ms": 153,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 624.1000000238419,
+          "ms": 73,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 796.1000000238419,
+          "ms": 79,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 878.6000000238419,
+          "ms": 62,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 1005,
+          "ms": 66,
+          "phase": "Initial map / token load"
+        }
+      ],
+      "graphicsRequests": [],
+      "pageErrors": []
+    },
+    {
+      "cpuSlowdown": 6,
+      "status": "passed",
+      "startupScreenMs": 370,
+      "graphicsRequestsBeforeChoice": 0,
+      "choiceToLoginMs": 432,
+      "joinToPaintedMapMs": 5793,
+      "renderedDmTokens": 123,
+      "playerPreviewMs": 762,
+      "renderedPreviewTokens": 116,
+      "idle": {
+        "observedMs": 5086,
+        "mainThreadBusyMs": 86,
+        "scriptMs": 4,
+        "visibilityRedraws": 0,
+        "jsHeapMiB": 29
+      },
+      "addTwentyWallMs": 7452,
+      "placement": {
+        "samples": 20,
+        "medianMs": 273,
+        "p95Ms": 298,
+        "maxMs": 347
+      },
+      "placementSamplesMs": [
+        291,
+        251,
+        243,
+        243,
+        250,
+        347,
+        293,
+        286,
+        298,
+        255,
+        267,
+        251,
+        261,
+        279,
+        273,
+        270,
+        278,
+        258,
+        281,
+        289
+      ],
+      "finalDmTokens": 143,
+      "postAdditionPreviewMs": 1172,
+      "webglAttempts": 0,
+      "longTasks": {
+        "count": 70,
+        "maxMs": 1350,
+        "totalMs": 11764
+      },
+      "longTaskSamples": [
+        {
+          "start": 81,
+          "ms": 71,
+          "phase": "Startup"
+        },
+        {
+          "start": 424.19999998807907,
+          "ms": 58,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 635.5,
+          "ms": 60,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 721.3000000119209,
+          "ms": 71,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 853.8000000119209,
+          "ms": 55,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 1081.300000011921,
+          "ms": 1350,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 2458.600000023842,
+          "ms": 419,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 2903,
+          "ms": 55,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 3039,
+          "ms": 123,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 3189.399999976158,
+          "ms": 306,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 3495.800000011921,
+          "ms": 147,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 3653.399999976158,
+          "ms": 479,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 4168.300000011921,
+          "ms": 340,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 4541.199999988079,
+          "ms": 227,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 4789.399999976158,
+          "ms": 383,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 5190.300000011921,
+          "ms": 436,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 5659.399999976158,
+          "ms": 518,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 6237.899999976158,
+          "ms": 512,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 7260.600000023842,
+          "ms": 50,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 7331.300000011921,
+          "ms": 60,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 7391.600000023842,
+          "ms": 50,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 7496.600000023842,
+          "ms": 248,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 7744.800000011921,
+          "ms": 170,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 7926.600000023842,
+          "ms": 113,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 14433.399999976158,
+          "ms": 69,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 14530.600000023842,
+          "ms": 516,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 15046.800000011921,
+          "ms": 239,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 15453.699999988079,
+          "ms": 132,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 15611.800000011921,
+          "ms": 87,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 15764.300000011921,
+          "ms": 131,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 16120.699999988079,
+          "ms": 86,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 16207.800000011921,
+          "ms": 402,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 17127.100000023842,
+          "ms": 53,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 17192.69999998808,
+          "ms": 95,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 17471.80000001192,
+          "ms": 52,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 17537,
+          "ms": 95,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 17806.30000001192,
+          "ms": 50,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 17869.899999976158,
+          "ms": 93,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 18204.19999998808,
+          "ms": 96,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 18503.80000001192,
+          "ms": 50,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 18566.600000023842,
+          "ms": 100,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 18873.30000001192,
+          "ms": 55,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 18944.30000001192,
+          "ms": 108,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 19068.899999976158,
+          "ms": 50,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 19326.19999998808,
+          "ms": 60,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 19402.5,
+          "ms": 104,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 19792.399999976158,
+          "ms": 102,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 20088.69999998808,
+          "ms": 53,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 20155.5,
+          "ms": 130,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 20537.899999976158,
+          "ms": 95,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 20829.899999976158,
+          "ms": 50,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 20894.30000001192,
+          "ms": 95,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 21227,
+          "ms": 101,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 21509.30000001192,
+          "ms": 51,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 21576.899999976158,
+          "ms": 100,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 21942.600000023842,
+          "ms": 103,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 22307.399999976158,
+          "ms": 110,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 22676.100000023842,
+          "ms": 102,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 22978,
+          "ms": 50,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 23042.80000001192,
+          "ms": 104,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 23392.899999976158,
+          "ms": 103,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 23756.899999976158,
+          "ms": 113,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 24072.399999976158,
+          "ms": 50,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 24138.399999976158,
+          "ms": 113,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 24381.600000023842,
+          "ms": 135,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 24991.80000001192,
+          "ms": 61,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 25078,
+          "ms": 63,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 25247.100000023842,
+          "ms": 305,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 25629.19999998808,
+          "ms": 391,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 26041,
+          "ms": 160,
+          "phase": "140 monsters + 3 PCs · complete"
+        }
+      ],
+      "graphicsRequests": [],
+      "pageErrors": []
+    },
+    {
+      "cpuSlowdown": 12,
+      "status": "passed",
+      "startupScreenMs": 1004,
+      "graphicsRequestsBeforeChoice": 0,
+      "choiceToLoginMs": 1099,
+      "joinToPaintedMapMs": 12377,
+      "renderedDmTokens": 123,
+      "playerPreviewMs": 2095,
+      "renderedPreviewTokens": 116,
+      "idle": {
+        "observedMs": 5277,
+        "mainThreadBusyMs": 270,
+        "scriptMs": 5,
+        "visibilityRedraws": 0,
+        "jsHeapMiB": 32
+      },
+      "addTwentyWallMs": 21858,
+      "placement": {
+        "samples": 20,
+        "medianMs": 663,
+        "p95Ms": 1263,
+        "maxMs": 1723
+      },
+      "placementSamplesMs": [
+        694,
+        594,
+        631,
+        585,
+        635,
+        752,
+        1263,
+        654,
+        660,
+        614,
+        778,
+        777,
+        702,
+        679,
+        636,
+        663,
+        642,
+        1261,
+        1723,
+        627
+      ],
+      "finalDmTokens": 143,
+      "postAdditionPreviewMs": 2083,
+      "webglAttempts": 0,
+      "longTasks": {
+        "count": 99,
+        "maxMs": 3762,
+        "totalMs": 29710
+      },
+      "longTaskSamples": [
+        {
+          "start": 211.39999997615814,
+          "ms": 183,
+          "phase": "Startup"
+        },
+        {
+          "start": 413.5999999642372,
+          "ms": 85,
+          "phase": "Startup"
+        },
+        {
+          "start": 1112.199999988079,
+          "ms": 156,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 1629.5999999642372,
+          "ms": 157,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 1868.7999999523163,
+          "ms": 194,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 2245.899999976158,
+          "ms": 156,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 2589.099999964237,
+          "ms": 99,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 2868.2999999523163,
+          "ms": 3762,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 6687.799999952316,
+          "ms": 1058,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 7792.799999952316,
+          "ms": 143,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 7937,
+          "ms": 589,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 8657,
+          "ms": 215,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 8930.799999952316,
+          "ms": 146,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 9093.099999964237,
+          "ms": 928,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 10119.399999976158,
+          "ms": 474,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 10606.299999952316,
+          "ms": 1205,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 11811.699999988079,
+          "ms": 846,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 12657.699999988079,
+          "ms": 51,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 12713.199999988079,
+          "ms": 161,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 12935,
+          "ms": 71,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 13019.5,
+          "ms": 1858,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 14877.599999964237,
+          "ms": 63,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 16037.299999952316,
+          "ms": 148,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 16241.5,
+          "ms": 161,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 16403.399999976158,
+          "ms": 115,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 16652.5,
+          "ms": 755,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 17457,
+          "ms": 446,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 17936.099999964237,
+          "ms": 304,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 18240.299999952316,
+          "ms": 82,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 18941.19999998808,
+          "ms": 209,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 25405.799999952316,
+          "ms": 137,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 25599.599999964237,
+          "ms": 824,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 26423.799999952316,
+          "ms": 362,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 26959.19999998808,
+          "ms": 121,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 27081.299999952316,
+          "ms": 159,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 27391.5,
+          "ms": 241,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 27940.5,
+          "ms": 112,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 28053.799999952316,
+          "ms": 302,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 28783.69999998808,
+          "ms": 68,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 29054.19999998808,
+          "ms": 137,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 29224.799999952316,
+          "ms": 235,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 29861.399999976158,
+          "ms": 122,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 30017.19999998808,
+          "ms": 245,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 30706.5,
+          "ms": 127,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 30865.799999952316,
+          "ms": 259,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 31531.5,
+          "ms": 117,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 31679.899999976158,
+          "ms": 243,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 32302.69999998808,
+          "ms": 124,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 32458.19999998808,
+          "ms": 268,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 33261.19999998808,
+          "ms": 146,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 33407.39999997616,
+          "ms": 377,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 34537.5,
+          "ms": 58,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 34798.09999996424,
+          "ms": 261,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 35180.09999996424,
+          "ms": 596,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 36082,
+          "ms": 57,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 36218.299999952316,
+          "ms": 129,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 36355.799999952316,
+          "ms": 93,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 37523.09999996424,
+          "ms": 119,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 37674.89999997616,
+          "ms": 250,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 38418,
+          "ms": 116,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 38569.5,
+          "ms": 259,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 39397.39999997616,
+          "ms": 144,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 39576.59999996424,
+          "ms": 316,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 40211.59999996424,
+          "ms": 57,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 40378.39999997616,
+          "ms": 156,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 40571.59999996424,
+          "ms": 324,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 41401.09999996424,
+          "ms": 127,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 41560,
+          "ms": 320,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 42439.89999997616,
+          "ms": 122,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 42596.799999952316,
+          "ms": 265,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 43337.19999998808,
+          "ms": 119,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 43456.5,
+          "ms": 288,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 44208.5,
+          "ms": 136,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 44379,
+          "ms": 279,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 45137.5,
+          "ms": 120,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 45291.89999997616,
+          "ms": 265,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 46068.19999998808,
+          "ms": 231,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 46416.799999952316,
+          "ms": 571,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 47179,
+          "ms": 55,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 47720.5,
+          "ms": 50,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 47878.799999952316,
+          "ms": 162,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 48157.19999998808,
+          "ms": 54,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 48224.799999952316,
+          "ms": 55,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 48280,
+          "ms": 168,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 48494,
+          "ms": 874,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 49449,
+          "ms": 61,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 49905.09999996424,
+          "ms": 120,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 50058.799999952316,
+          "ms": 278,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 50608,
+          "ms": 68,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 50676.19999998808,
+          "ms": 345,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 51311.19999998808,
+          "ms": 52,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 51364.299999952316,
+          "ms": 81,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 52225.39999997616,
+          "ms": 160,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 52454.09999996424,
+          "ms": 185,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 52639.69999998808,
+          "ms": 121,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 52930.5,
+          "ms": 754,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 53745.39999997616,
+          "ms": 416,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 54192.799999952316,
+          "ms": 244,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 54437.799999952316,
+          "ms": 83,
+          "phase": "140 monsters + 3 PCs · complete"
+        }
+      ],
+      "graphicsRequests": [],
+      "pageErrors": []
+    },
+    {
+      "cpuSlowdown": 20,
+      "status": "passed",
+      "startupScreenMs": 2017,
+      "graphicsRequestsBeforeChoice": 0,
+      "choiceToLoginMs": 2248,
+      "joinToPaintedMapMs": 22379,
+      "renderedDmTokens": 123,
+      "playerPreviewMs": 4666,
+      "renderedPreviewTokens": 116,
+      "idle": {
+        "observedMs": 5327,
+        "mainThreadBusyMs": 292,
+        "scriptMs": 3,
+        "visibilityRedraws": 0,
+        "jsHeapMiB": 28
+      },
+      "addTwentyWallMs": 37442,
+      "placement": {
+        "samples": 20,
+        "medianMs": 1443,
+        "p95Ms": 1954,
+        "maxMs": 2469
+      },
+      "placementSamplesMs": [
+        1542,
+        583,
+        138,
+        2469,
+        1574,
+        1161,
+        1206,
+        1410,
+        1588,
+        1954,
+        1824,
+        1145,
+        1443,
+        1829,
+        1046,
+        168,
+        1584,
+        1700,
+        1305,
+        1307
+      ],
+      "finalDmTokens": 143,
+      "postAdditionPreviewMs": 3752,
+      "webglAttempts": 0,
+      "longTasks": {
+        "count": 138,
+        "maxMs": 7595,
+        "totalMs": 56646
+      },
+      "longTaskSamples": [
+        {
+          "start": 214.0999999642372,
+          "ms": 55,
+          "phase": "Startup"
+        },
+        {
+          "start": 460.5,
+          "ms": 377,
+          "phase": "Startup"
+        },
+        {
+          "start": 868.3999999761581,
+          "ms": 180,
+          "phase": "Startup"
+        },
+        {
+          "start": 2183.899999976158,
+          "ms": 302,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 3313,
+          "ms": 316,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 3758.399999976158,
+          "ms": 407,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 4399.300000011921,
+          "ms": 69,
+          "phase": "Loading campaign code"
+        },
+        {
+          "start": 4533.899999976158,
+          "ms": 342,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 5176.899999976158,
+          "ms": 55,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 5296.099999964237,
+          "ms": 248,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 5683.899999976158,
+          "ms": 50,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 6025.800000011921,
+          "ms": 7595,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 13621.5,
+          "ms": 95,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 13732.099999964237,
+          "ms": 2255,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 16081.099999964237,
+          "ms": 278,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 16360,
+          "ms": 909,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 17465.5,
+          "ms": 521,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 17993.69999998808,
+          "ms": 345,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 18401.80000001192,
+          "ms": 2037,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 20548.69999998808,
+          "ms": 1726,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 22385.899999976158,
+          "ms": 51,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 22445.19999998808,
+          "ms": 224,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 22674.599999964237,
+          "ms": 2702,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 25547.19999998808,
+          "ms": 305,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 25912.599999964237,
+          "ms": 1299,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 27267.19999998808,
+          "ms": 57,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 27333.5,
+          "ms": 299,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 29525.099999964237,
+          "ms": 63,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 29858.80000001192,
+          "ms": 264,
+          "phase": "Initial map / token load"
+        },
+        {
+          "start": 30760.399999976158,
+          "ms": 240,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 31349,
+          "ms": 242,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 31591.599999964237,
+          "ms": 335,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 32398.80000001192,
+          "ms": 1609,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 34008.30000001192,
+          "ms": 1062,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 35071.09999996424,
+          "ms": 67,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 35171.59999996424,
+          "ms": 713,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 35886.09999996424,
+          "ms": 160,
+          "phase": "Player visibility · 48 lights"
+        },
+        {
+          "start": 44231,
+          "ms": 119,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 44604.89999997616,
+          "ms": 1723,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 46329.5,
+          "ms": 732,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 47062.39999997616,
+          "ms": 74,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 47466.39999997616,
+          "ms": 384,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 47850.5,
+          "ms": 216,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 48309.80000001192,
+          "ms": 452,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 49283.09999996424,
+          "ms": 111,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 49528.19999998808,
+          "ms": 246,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 49775.69999998808,
+          "ms": 574,
+          "phase": "Idle player visibility"
+        },
+        {
+          "start": 51190.59999996424,
+          "ms": 129,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 51537.5,
+          "ms": 336,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 51937.19999998808,
+          "ms": 611,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 52774.89999997616,
+          "ms": 66,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 53666,
+          "ms": 278,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 53944.09999996424,
+          "ms": 112,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 54988.69999998808,
+          "ms": 132,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 55121.09999996424,
+          "ms": 95,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 55433.19999998808,
+          "ms": 160,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 55907.89999997616,
+          "ms": 199,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 56112.19999998808,
+          "ms": 458,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 56626,
+          "ms": 743,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 57478.30000001192,
+          "ms": 56,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 58031.39999997616,
+          "ms": 69,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 58490,
+          "ms": 308,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 58858.69999998808,
+          "ms": 668,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 59619.39999997616,
+          "ms": 63,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 60162,
+          "ms": 66,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 60474.59999996424,
+          "ms": 257,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 60806,
+          "ms": 446,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 61336.39999997616,
+          "ms": 58,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 61798.89999997616,
+          "ms": 62,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 62097.80000001192,
+          "ms": 209,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 62360.80000001192,
+          "ms": 514,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 62917.19999998808,
+          "ms": 54,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 63518.80000001192,
+          "ms": 83,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 63864,
+          "ms": 260,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 64177.80000001192,
+          "ms": 626,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 64943.69999998808,
+          "ms": 80,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 65906.89999997616,
+          "ms": 232,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 66139.59999996424,
+          "ms": 1073,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 67892.39999997616,
+          "ms": 168,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 68061.19999998808,
+          "ms": 92,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 68379.69999998808,
+          "ms": 143,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 68648.89999997616,
+          "ms": 61,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 68765.30000001192,
+          "ms": 262,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 69097.69999998808,
+          "ms": 656,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 69849.69999998808,
+          "ms": 63,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 70498,
+          "ms": 109,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 70610.09999996424,
+          "ms": 52,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 70780,
+          "ms": 73,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 70982.30000001192,
+          "ms": 73,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 71062.59999996424,
+          "ms": 328,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 71456.80000001192,
+          "ms": 768,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 72342.5,
+          "ms": 57,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 72786.09999996424,
+          "ms": 62,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 73084.80000001192,
+          "ms": 272,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 73414.89999997616,
+          "ms": 440,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 73944.30000001192,
+          "ms": 54,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 74374.5,
+          "ms": 60,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 74756.5,
+          "ms": 292,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 75115.89999997616,
+          "ms": 619,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 75829.59999996424,
+          "ms": 58,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 76275,
+          "ms": 59,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 76589,
+          "ms": 333,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 76988.89999997616,
+          "ms": 943,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 77932.39999997616,
+          "ms": 51,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 78114.5,
+          "ms": 90,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 78733.09999996424,
+          "ms": 83,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 79026.30000001192,
+          "ms": 271,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 80631.80000001192,
+          "ms": 183,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 80817.89999997616,
+          "ms": 56,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 81047.69999998808,
+          "ms": 55,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 81259.19999998808,
+          "ms": 276,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 81597.69999998808,
+          "ms": 554,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 82244.59999996424,
+          "ms": 65,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 82872.19999998808,
+          "ms": 99,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 82974.5,
+          "ms": 63,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 83173.69999998808,
+          "ms": 82,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 83403.19999998808,
+          "ms": 62,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 83469.69999998808,
+          "ms": 361,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 83906.39999997616,
+          "ms": 585,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 84589,
+          "ms": 59,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 85076.5,
+          "ms": 60,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 85401.30000001192,
+          "ms": 234,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 85695.69999998808,
+          "ms": 610,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 86393.39999997616,
+          "ms": 52,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 86841.80000001192,
+          "ms": 66,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 87135.39999997616,
+          "ms": 239,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 87446.19999998808,
+          "ms": 615,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 88161.89999997616,
+          "ms": 60,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 88594.30000001192,
+          "ms": 109,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 88703.59999996424,
+          "ms": 699,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 89700.09999996424,
+          "ms": 70,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 89913.59999996424,
+          "ms": 96,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 90012.5,
+          "ms": 130,
+          "phase": "Adding creatures"
+        },
+        {
+          "start": 92327.59999996424,
+          "ms": 366,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 92866.69999998808,
+          "ms": 1293,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 94160,
+          "ms": 1139,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 95364.5,
+          "ms": 556,
+          "phase": "140 monsters + 3 PCs · complete"
+        },
+        {
+          "start": 95921.09999996424,
+          "ms": 172,
+          "phase": "140 monsters + 3 PCs · complete"
+        }
+      ],
+      "graphicsRequests": [],
+      "pageErrors": []
+    }
+  ]
+}

@@ -1,0 +1,591 @@
+{
+  "host": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+    "logicalCpus": 16,
+    "browser": "156.0.8078.49"
+  },
+  "method": "Eight actual player drags per mode/rate, separate disposable courtyard for each condition. Player and DM both throttled after startup; server unthrottled on the same PC. Legacy: smooth, assisted, WebGL blocked. Local 2D: overhead, Low, assist off, flat tokens. Local 3D: 45-degree tilt, Low, assist off, real WebGL/models. No video recording or network/RAM/GPU limit. Epoch clocks share the host. First-motion and sight estimates include two RAF opportunities, not physical display scanout. CDP slowdown is not a complete emulation of old hardware. All modes still use authoritative server movement/filtering/exploration.",
+  "sources": [
+    "artifacts/motion-latency-modes-20261028/results.json",
+    "artifacts/motion-latency-modes-legacy-sight-20261028/results.json"
+  ],
+  "note": "Local rendering means server-managed rendering off on both clients. All modes still use the authoritative server for moves, filtering and exploration. Medians use the mean of the middle two values. Legacy was repeated to make its first-sight metric ignore atlas pose zero (same sight as the old position). Rendering mode and assistance are independent settings.",
+  "rows": [
+    {
+      "mode": "legacy",
+      "slowdown": 1,
+      "role": "Player",
+      "samples": 8,
+      "firstMotionMedianMs": 629.4000244140625,
+      "firstMotionMaxMs": 725.800048828125,
+      "firstSightMedianMs": 629.4000244140625,
+      "completionMedianMs": 981.8001708984375,
+      "serverDeliveryMedianMs": 535.28515625,
+      "renderImageMedianBytes": 1169711,
+      "intermediatePoseCounts": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "sightUpdates": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ]
+    },
+    {
+      "mode": "legacy",
+      "slowdown": 1,
+      "role": "DM",
+      "samples": 8,
+      "firstMotionMedianMs": 625.800048828125,
+      "firstMotionMaxMs": 721.800048828125,
+      "firstSightMedianMs": 625.800048828125,
+      "completionMedianMs": 981.7000732421875,
+      "serverDeliveryMedianMs": 536.363525390625,
+      "renderImageMedianBytes": 1171334.5,
+      "intermediatePoseCounts": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "sightUpdates": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ]
+    },
+    {
+      "mode": "legacy",
+      "slowdown": 6,
+      "role": "Player",
+      "samples": 8,
+      "firstMotionMedianMs": 671.5,
+      "firstMotionMaxMs": 762.800048828125,
+      "firstSightMedianMs": 671.5,
+      "completionMedianMs": 1036.25,
+      "serverDeliveryMedianMs": 570.820556640625,
+      "renderImageMedianBytes": 1169711,
+      "intermediatePoseCounts": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "sightUpdates": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ]
+    },
+    {
+      "mode": "legacy",
+      "slowdown": 6,
+      "role": "DM",
+      "samples": 8,
+      "firstMotionMedianMs": 671.14990234375,
+      "firstMotionMaxMs": 762.7998046875,
+      "firstSightMedianMs": 671.14990234375,
+      "completionMedianMs": 1038.949951171875,
+      "serverDeliveryMedianMs": 572.152099609375,
+      "renderImageMedianBytes": 1171334.5,
+      "intermediatePoseCounts": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ],
+      "sightUpdates": [
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12,
+        12
+      ]
+    },
+    {
+      "mode": "legacy",
+      "slowdown": 20,
+      "role": "Player",
+      "samples": 8,
+      "firstMotionMedianMs": 1167.9000244140625,
+      "firstMotionMaxMs": 1298.39990234375,
+      "firstSightMedianMs": 1167.800048828125,
+      "completionMedianMs": 1364.5999755859375,
+      "serverDeliveryMedianMs": 588.66357421875,
+      "renderImageMedianBytes": 1169711,
+      "intermediatePoseCounts": [
+        1,
+        3,
+        3,
+        3,
+        4,
+        3,
+        3,
+        3
+      ],
+      "sightUpdates": [
+        3,
+        5,
+        4,
+        4,
+        5,
+        4,
+        5,
+        4
+      ]
+    },
+    {
+      "mode": "legacy",
+      "slowdown": 20,
+      "role": "DM",
+      "samples": 8,
+      "firstMotionMedianMs": 1199.85009765625,
+      "firstMotionMaxMs": 1302,
+      "firstSightMedianMs": 1199.75,
+      "completionMedianMs": 1412.10009765625,
+      "serverDeliveryMedianMs": 589.6429443359375,
+      "renderImageMedianBytes": 1171334.5,
+      "intermediatePoseCounts": [
+        2,
+        4,
+        3,
+        3,
+        3,
+        2,
+        3,
+        4
+      ],
+      "sightUpdates": [
+        4,
+        6,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5
+      ]
+    },
+    {
+      "mode": "local-2d",
+      "slowdown": 1,
+      "role": "Player",
+      "samples": 8,
+      "firstMotionMedianMs": 103.5,
+      "firstMotionMaxMs": 130.699951171875,
+      "firstSightMedianMs": 85.0001220703125,
+      "completionMedianMs": 541.5,
+      "serverDeliveryMedianMs": 62.484375,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        97,
+        103,
+        104,
+        109,
+        109,
+        107,
+        108,
+        108
+      ],
+      "sightUpdates": [
+        106,
+        114,
+        114,
+        117,
+        118,
+        117,
+        119,
+        119
+      ]
+    },
+    {
+      "mode": "local-2d",
+      "slowdown": 1,
+      "role": "DM",
+      "samples": 8,
+      "firstMotionMedianMs": 101.4501953125,
+      "firstMotionMaxMs": 130.60009765625,
+      "firstSightMedianMs": 84.3502197265625,
+      "completionMedianMs": 541.400146484375,
+      "serverDeliveryMedianMs": 63.43896484375,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        99,
+        104,
+        105,
+        109,
+        110,
+        108,
+        108,
+        108
+      ],
+      "sightUpdates": [
+        108,
+        115,
+        116,
+        118,
+        118,
+        118,
+        119,
+        119
+      ]
+    },
+    {
+      "mode": "local-2d",
+      "slowdown": 6,
+      "role": "Player",
+      "samples": 8,
+      "firstMotionMedianMs": 225.6500244140625,
+      "firstMotionMaxMs": 301.699951171875,
+      "firstSightMedianMs": 212,
+      "completionMedianMs": 630.64990234375,
+      "serverDeliveryMedianMs": 80.256591796875,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        10,
+        15,
+        16,
+        18,
+        17,
+        15,
+        17,
+        19
+      ],
+      "sightUpdates": [
+        11,
+        17,
+        19,
+        21,
+        19,
+        17,
+        20,
+        22
+      ]
+    },
+    {
+      "mode": "local-2d",
+      "slowdown": 6,
+      "role": "DM",
+      "samples": 8,
+      "firstMotionMedianMs": 207.8997802734375,
+      "firstMotionMaxMs": 827.499755859375,
+      "firstSightMedianMs": 207.8997802734375,
+      "completionMedianMs": 630.2998046875,
+      "serverDeliveryMedianMs": 81.38037109375,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        10,
+        17,
+        21,
+        22,
+        20,
+        19,
+        21,
+        26
+      ],
+      "sightUpdates": [
+        12,
+        18,
+        22,
+        24,
+        22,
+        20,
+        25,
+        28
+      ]
+    },
+    {
+      "mode": "local-2d",
+      "slowdown": 20,
+      "role": "Player",
+      "samples": 8,
+      "firstMotionMedianMs": 1012.550048828125,
+      "firstMotionMaxMs": 1466.5,
+      "firstSightMedianMs": 1012.199951171875,
+      "completionMedianMs": 1324.7999267578125,
+      "serverDeliveryMedianMs": 90.2525634765625,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        1,
+        1,
+        2,
+        3,
+        2,
+        2,
+        3,
+        3
+      ],
+      "sightUpdates": [
+        2,
+        2,
+        3,
+        4,
+        3,
+        3,
+        4,
+        4
+      ]
+    },
+    {
+      "mode": "local-2d",
+      "slowdown": 20,
+      "role": "DM",
+      "samples": 8,
+      "firstMotionMedianMs": 913.39990234375,
+      "firstMotionMaxMs": 8898.099853515625,
+      "firstSightMedianMs": 912.9498291015625,
+      "completionMedianMs": 1205.4998779296875,
+      "serverDeliveryMedianMs": 90.9771728515625,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        2,
+        2,
+        2,
+        3,
+        2,
+        1,
+        3,
+        3
+      ],
+      "sightUpdates": [
+        3,
+        3,
+        3,
+        4,
+        3,
+        2,
+        4,
+        4
+      ]
+    },
+    {
+      "mode": "local-3d",
+      "slowdown": 1,
+      "role": "Player",
+      "samples": 8,
+      "firstMotionMedianMs": 110.0499267578125,
+      "firstMotionMaxMs": 137.60009765625,
+      "firstSightMedianMs": 97.8499755859375,
+      "completionMedianMs": 543.3499755859375,
+      "serverDeliveryMedianMs": 65.91796875,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        89,
+        96,
+        98,
+        106,
+        93,
+        96,
+        96,
+        105
+      ],
+      "sightUpdates": [
+        95,
+        106,
+        106,
+        114,
+        99,
+        102,
+        105,
+        115
+      ]
+    },
+    {
+      "mode": "local-3d",
+      "slowdown": 1,
+      "role": "DM",
+      "samples": 8,
+      "firstMotionMedianMs": 114.75,
+      "firstMotionMaxMs": 133.10009765625,
+      "firstSightMedianMs": 97.2998046875,
+      "completionMedianMs": 542.800048828125,
+      "serverDeliveryMedianMs": 66.681640625,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        93,
+        95,
+        99,
+        105,
+        94,
+        101,
+        96,
+        102
+      ],
+      "sightUpdates": [
+        99,
+        106,
+        106,
+        114,
+        99,
+        109,
+        107,
+        112
+      ]
+    },
+    {
+      "mode": "local-3d",
+      "slowdown": 6,
+      "role": "Player",
+      "samples": 8,
+      "firstMotionMedianMs": 343.400146484375,
+      "firstMotionMaxMs": 525.800048828125,
+      "firstSightMedianMs": 298.3499755859375,
+      "completionMedianMs": 677.14990234375,
+      "serverDeliveryMedianMs": 66.040283203125,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        3,
+        8,
+        8,
+        13,
+        8,
+        8,
+        10,
+        12
+      ],
+      "sightUpdates": [
+        5,
+        11,
+        10,
+        15,
+        10,
+        11,
+        13,
+        15
+      ]
+    },
+    {
+      "mode": "local-3d",
+      "slowdown": 6,
+      "role": "DM",
+      "samples": 8,
+      "firstMotionMedianMs": 303.39990234375,
+      "firstMotionMaxMs": 569.499755859375,
+      "firstSightMedianMs": 285.7498779296875,
+      "completionMedianMs": 648.4498291015625,
+      "serverDeliveryMedianMs": 67.0631103515625,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        4,
+        9,
+        8,
+        14,
+        10,
+        10,
+        12,
+        16
+      ],
+      "sightUpdates": [
+        5,
+        11,
+        10,
+        16,
+        11,
+        12,
+        14,
+        19
+      ]
+    },
+    {
+      "mode": "local-3d",
+      "slowdown": 20,
+      "role": "Player",
+      "samples": 8,
+      "firstMotionMedianMs": 1424.1500244140625,
+      "firstMotionMaxMs": 2617.2001953125,
+      "firstSightMedianMs": 1423.8499755859375,
+      "completionMedianMs": 1667.1500244140625,
+      "serverDeliveryMedianMs": 68.2120361328125,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        1,
+        2,
+        1,
+        2,
+        1,
+        1,
+        2,
+        1
+      ],
+      "sightUpdates": [
+        2,
+        3,
+        2,
+        3,
+        2,
+        2,
+        3,
+        2
+      ]
+    },
+    {
+      "mode": "local-3d",
+      "slowdown": 20,
+      "role": "DM",
+      "samples": 8,
+      "firstMotionMedianMs": 1338.050048828125,
+      "firstMotionMaxMs": 3514.2001953125,
+      "firstSightMedianMs": 1337.6500244140625,
+      "completionMedianMs": 1518.10009765625,
+      "serverDeliveryMedianMs": 69.0916748046875,
+      "renderImageMedianBytes": 0,
+      "intermediatePoseCounts": [
+        1,
+        1,
+        1,
+        2,
+        1,
+        1,
+        3,
+        2
+      ],
+      "sightUpdates": [
+        2,
+        2,
+        2,
+        3,
+        2,
+        2,
+        4,
+        3
+      ]
+    }
+  ]
+}

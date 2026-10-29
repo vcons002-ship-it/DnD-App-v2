@@ -1,0 +1,769 @@
+﻿{
+    "at":  "2026-10-28T10:22:30.3276515Z",
+    "before":  {
+                   "at":  "2026-10-28T10:15:44.522Z",
+                   "probeVersion":  3,
+                   "movesPerRate":  6,
+                   "host":  {
+                                "cpu":  "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+                                "browser":  "156.0.8078.49",
+                                "logicalCpus":  16,
+                                "memoryGiB":  31
+                            },
+                   "buildIndexSha256":  "e16d55656d0f5a1f649b2ec4e38180a7164b53cdbb8df3c0217ae72eaf9aeac4",
+                   "fixture":  {
+                                   "roomFeet":  [
+                                                    240,
+                                                    160
+                                                ],
+                                   "mapPixels":  [
+                                                     3840,
+                                                     2560
+                                                 ],
+                                   "monsters":  140,
+                                   "pcs":  3,
+                                   "tokens":  143,
+                                   "lights":  48,
+                                   "walls":  28,
+                                   "wallEdges":  112
+                               },
+                   "method":  "Two independent Legacy browser contexts. Initial join/setup unthrottled; clients throttled per run.cpuSlowdown (DM) and run.playerCpuSlowdown (Player, defaults to DM rate) before DM enables Player view and during movement. Software Canvas2D, WebGL blocked throughout. Server unthrottled on same host; no network delay/RAM cap. Epoch timestamps on same host; release-to-token/sight latency includes server communication plus two RAF paint opportunities. Event-driven cached token layer draw handler and SVG MutationObserver; no polling or continuous RAF probe. Separate idle-with-instrumentation baseline. Recording and probes add overhead. Both documents kept visible. Private drag previews do not move the DM view until a committed drop.",
+                   "runs":  [
+                                {
+                                    "cpuSlowdown":  20,
+                                    "playerCpuSlowdown":  1,
+                                    "status":  "passed",
+                                    "samples":  [
+                                                    {
+                                                        "seq":  1,
+                                                        "x":  1840,
+                                                        "y":  1360,
+                                                        "releasedAt":  1793182565953.5,
+                                                        "playerTokenMs":  97.800048828125,
+                                                        "playerSightMs":  641.89990234375,
+                                                        "dmTokenMs":  1917.800048828125,
+                                                        "dmSightMs":  2033.599853515625
+                                                    },
+                                                    {
+                                                        "seq":  2,
+                                                        "x":  1840,
+                                                        "y":  1440,
+                                                        "releasedAt":  1793182569781.4,
+                                                        "playerTokenMs":  63.199951171875,
+                                                        "playerSightMs":  663.699951171875,
+                                                        "dmTokenMs":  2039.10009765625,
+                                                        "dmSightMs":  2087.699951171875
+                                                    },
+                                                    {
+                                                        "seq":  3,
+                                                        "x":  2080,
+                                                        "y":  1440,
+                                                        "releasedAt":  1793182573643.7,
+                                                        "playerTokenMs":  77.10009765625,
+                                                        "playerSightMs":  619.199951171875,
+                                                        "dmTokenMs":  2845.39990234375,
+                                                        "dmSightMs":  3045.39990234375
+                                                    },
+                                                    {
+                                                        "seq":  4,
+                                                        "x":  2080,
+                                                        "y":  1280,
+                                                        "releasedAt":  1793182578670,
+                                                        "playerTokenMs":  58.89990234375,
+                                                        "playerSightMs":  672.699951171875,
+                                                        "dmTokenMs":  1633.599853515625,
+                                                        "dmSightMs":  1825.5
+                                                    },
+                                                    {
+                                                        "seq":  5,
+                                                        "x":  2000,
+                                                        "y":  1280,
+                                                        "releasedAt":  1793182582220.3,
+                                                        "playerTokenMs":  60.5,
+                                                        "playerSightMs":  672.7998046875,
+                                                        "dmTokenMs":  1930.2998046875,
+                                                        "dmSightMs":  2039.099853515625
+                                                    },
+                                                    {
+                                                        "seq":  6,
+                                                        "x":  1920,
+                                                        "y":  1280,
+                                                        "releasedAt":  1793182586272.4,
+                                                        "playerTokenMs":  72,
+                                                        "playerSightMs":  622.900146484375,
+                                                        "dmTokenMs":  645.800048828125,
+                                                        "dmSightMs":  682.300048828125
+                                                    }
+                                                ],
+                                    "enablePlayerViewPageMs":  3958,
+                                    "probeIdle":  [
+                                                      {
+                                                          "role":  "DM",
+                                                          "observedMs":  2016,
+                                                          "mainThreadBusyMs":  1
+                                                      },
+                                                      {
+                                                          "role":  "Player",
+                                                          "observedMs":  2016,
+                                                          "mainThreadBusyMs":  2
+                                                      }
+                                                  ],
+                                    "movementStartEpochMs":  1793182564520,
+                                    "movementStartPageMs":  17277.80000001192,
+                                    "movementEndEpochMs":  1793182588128,
+                                    "latency":  {
+                                                    "playerTokenMs":  {
+                                                                          "samples":  6,
+                                                                          "medianMs":  68,
+                                                                          "p95Ms":  98,
+                                                                          "maxMs":  98
+                                                                      },
+                                                    "playerSightMs":  {
+                                                                          "samples":  6,
+                                                                          "medianMs":  653,
+                                                                          "p95Ms":  673,
+                                                                          "maxMs":  673
+                                                                      },
+                                                    "dmTokenMs":  {
+                                                                      "samples":  6,
+                                                                      "medianMs":  1924,
+                                                                      "p95Ms":  2845,
+                                                                      "maxMs":  2845
+                                                                  },
+                                                    "dmSightMs":  {
+                                                                      "samples":  6,
+                                                                      "medianMs":  2036,
+                                                                      "p95Ms":  3045,
+                                                                      "maxMs":  3045
+                                                                  }
+                                                },
+                                    "clients":  [
+                                                    {
+                                                        "role":  "DM",
+                                                        "documentHidden":  false,
+                                                        "observedMs":  23608,
+                                                        "mainThreadBusyMs":  17402,
+                                                        "scriptMs":  5823,
+                                                        "jsHeapMiB":  26,
+                                                        "longTasks":  {
+                                                                          "count":  25,
+                                                                          "totalMs":  9159,
+                                                                          "maxMs":  1225
+                                                                      },
+                                                        "webglAttempts":  0,
+                                                        "graphicsRequests":  [
+
+                                                                             ],
+                                                        "errors":  [
+
+                                                                   ],
+                                                        "canvases":  {
+                                                                         "viewport":  [
+                                                                                          1440,
+                                                                                          772
+                                                                                      ],
+                                                                         "layers":  [
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2636,
+                                                                                                          1868
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2636,
+                                                                                                        1868
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2636,
+                                                                                                          1868
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2636,
+                                                                                                        1868
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2636,
+                                                                                                          1868
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2636,
+                                                                                                        1868
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2636,
+                                                                                                          1868
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2636,
+                                                                                                        1868
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2636,
+                                                                                                          1868
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2636,
+                                                                                                        1868
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          1440,
+                                                                                                          772
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        1440,
+                                                                                                        772
+                                                                                                    ]
+                                                                                        }
+                                                                                    ],
+                                                                         "sceneAndHitPixels":  51463840
+                                                                     }
+                                                    },
+                                                    {
+                                                        "role":  "Player",
+                                                        "documentHidden":  false,
+                                                        "observedMs":  23608,
+                                                        "mainThreadBusyMs":  2732,
+                                                        "scriptMs":  2040,
+                                                        "jsHeapMiB":  23,
+                                                        "longTasks":  {
+                                                                          "count":  9,
+                                                                          "totalMs":  479,
+                                                                          "maxMs":  62
+                                                                      },
+                                                        "webglAttempts":  0,
+                                                        "graphicsRequests":  [
+
+                                                                             ],
+                                                        "errors":  [
+
+                                                                   ],
+                                                        "canvases":  {
+                                                                         "viewport":  [
+                                                                                          1440,
+                                                                                          825
+                                                                                      ],
+                                                                         "layers":  [
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2798,
+                                                                                                          1983
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2798,
+                                                                                                        1983
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2798,
+                                                                                                          1983
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2798,
+                                                                                                        1983
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2798,
+                                                                                                          1983
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2798,
+                                                                                                        1983
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2798,
+                                                                                                          1983
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2798,
+                                                                                                        1983
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          2798,
+                                                                                                          1983
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        2798,
+                                                                                                        1983
+                                                                                                    ]
+                                                                                        },
+                                                                                        {
+                                                                                            "scene":  [
+                                                                                                          1440,
+                                                                                                          825
+                                                                                                      ],
+                                                                                            "hit":  [
+                                                                                                        1440,
+                                                                                                        825
+                                                                                                    ]
+                                                                                        }
+                                                                                    ],
+                                                                         "sceneAndHitPixels":  57860340
+                                                                     }
+                                                    }
+                                                ]
+                                }
+                            ]
+               },
+    "after":  {
+                  "at":  "2026-10-28T10:18:52.720Z",
+                  "probeVersion":  3,
+                  "movesPerRate":  6,
+                  "host":  {
+                               "cpu":  "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+                               "browser":  "156.0.8078.49",
+                               "logicalCpus":  16,
+                               "memoryGiB":  31
+                           },
+                  "buildIndexSha256":  "884406fd2675b1af87ea74d41ba95bb880524ce7527450d26f68ec307272fb7a",
+                  "fixture":  {
+                                  "roomFeet":  [
+                                                   240,
+                                                   160
+                                               ],
+                                  "mapPixels":  [
+                                                    3840,
+                                                    2560
+                                                ],
+                                  "monsters":  140,
+                                  "pcs":  3,
+                                  "tokens":  143,
+                                  "lights":  48,
+                                  "walls":  28,
+                                  "wallEdges":  112
+                              },
+                  "method":  "Two independent Legacy browser contexts. Initial join/setup unthrottled; clients throttled per run.cpuSlowdown (DM) and run.playerCpuSlowdown (Player, defaults to DM rate) before DM enables Player view and during movement. Software Canvas2D, WebGL blocked throughout. Server unthrottled on same host; no network delay/RAM cap. Epoch timestamps on same host; release-to-token/sight latency includes server communication plus two RAF paint opportunities. Event-driven cached token layer draw handler and SVG MutationObserver; no polling or continuous RAF probe. Separate idle-with-instrumentation baseline. Recording and probes add overhead. Both documents kept visible. Private drag previews do not move the DM view until a committed drop.",
+                  "runs":  [
+                               {
+                                   "cpuSlowdown":  20,
+                                   "playerCpuSlowdown":  1,
+                                   "status":  "passed",
+                                   "samples":  [
+                                                   {
+                                                       "seq":  1,
+                                                       "x":  1840,
+                                                       "y":  1360,
+                                                       "releasedAt":  1793182751697.5999,
+                                                       "playerTokenMs":  35.699951171875,
+                                                       "playerSightMs":  293,
+                                                       "dmTokenMs":  1823.60009765625,
+                                                       "dmSightMs":  1870.7001953125
+                                                   },
+                                                   {
+                                                       "seq":  2,
+                                                       "x":  1840,
+                                                       "y":  1440,
+                                                       "releasedAt":  1793182755365.2,
+                                                       "playerTokenMs":  32.300048828125,
+                                                       "playerSightMs":  275.199951171875,
+                                                       "dmTokenMs":  1688.400146484375,
+                                                       "dmSightMs":  1744.300048828125
+                                                   },
+                                                   {
+                                                       "seq":  3,
+                                                       "x":  2080,
+                                                       "y":  1440,
+                                                       "releasedAt":  1793182759584.9,
+                                                       "playerTokenMs":  33.699951171875,
+                                                       "playerSightMs":  343.300048828125,
+                                                       "dmTokenMs":  1969.800048828125,
+                                                       "dmSightMs":  2029.60009765625
+                                                   },
+                                                   {
+                                                       "seq":  4,
+                                                       "x":  2080,
+                                                       "y":  1280,
+                                                       "releasedAt":  1793182763271.0999,
+                                                       "playerTokenMs":  26,
+                                                       "playerSightMs":  290.300048828125,
+                                                       "dmTokenMs":  1285.900146484375,
+                                                       "dmSightMs":  1326.7001953125
+                                                   },
+                                                   {
+                                                       "seq":  5,
+                                                       "x":  2000,
+                                                       "y":  1280,
+                                                       "releasedAt":  1793182766029.0999,
+                                                       "playerTokenMs":  32,
+                                                       "playerSightMs":  331.800048828125,
+                                                       "dmTokenMs":  1577.000244140625,
+                                                       "dmSightMs":  1632.900146484375
+                                                   },
+                                                   {
+                                                       "seq":  6,
+                                                       "x":  1920,
+                                                       "y":  1280,
+                                                       "releasedAt":  1793182769712.2,
+                                                       "playerTokenMs":  35.699951171875,
+                                                       "playerSightMs":  352.89990234375,
+                                                       "dmTokenMs":  1355.5,
+                                                       "dmSightMs":  1429.300048828125
+                                                   }
+                                               ],
+                                   "enablePlayerViewPageMs":  2358.899999976158,
+                                   "probeIdle":  [
+                                                     {
+                                                         "role":  "DM",
+                                                         "observedMs":  2016,
+                                                         "mainThreadBusyMs":  8
+                                                     },
+                                                     {
+                                                         "role":  "Player",
+                                                         "observedMs":  2016,
+                                                         "mainThreadBusyMs":  2
+                                                     }
+                                                 ],
+                                   "movementStartEpochMs":  1793182750670,
+                                   "movementStartPageMs":  15568.899999976158,
+                                   "movementEndEpochMs":  1793182773047,
+                                   "latency":  {
+                                                   "playerTokenMs":  {
+                                                                         "samples":  6,
+                                                                         "medianMs":  33,
+                                                                         "p95Ms":  36,
+                                                                         "maxMs":  36
+                                                                     },
+                                                   "playerSightMs":  {
+                                                                         "samples":  6,
+                                                                         "medianMs":  312,
+                                                                         "p95Ms":  353,
+                                                                         "maxMs":  353
+                                                                     },
+                                                   "dmTokenMs":  {
+                                                                     "samples":  6,
+                                                                     "medianMs":  1633,
+                                                                     "p95Ms":  1970,
+                                                                     "maxMs":  1970
+                                                                 },
+                                                   "dmSightMs":  {
+                                                                     "samples":  6,
+                                                                     "medianMs":  1689,
+                                                                     "p95Ms":  2030,
+                                                                     "maxMs":  2030
+                                                                 }
+                                               },
+                                   "clients":  [
+                                                   {
+                                                       "role":  "DM",
+                                                       "documentHidden":  false,
+                                                       "observedMs":  22377,
+                                                       "mainThreadBusyMs":  17486,
+                                                       "scriptMs":  4986,
+                                                       "jsHeapMiB":  20,
+                                                       "longTasks":  {
+                                                                         "count":  23,
+                                                                         "totalMs":  7250,
+                                                                         "maxMs":  670
+                                                                     },
+                                                       "webglAttempts":  0,
+                                                       "graphicsRequests":  [
+
+                                                                            ],
+                                                       "errors":  [
+
+                                                                  ],
+                                                       "canvases":  {
+                                                                        "viewport":  [
+                                                                                         1440,
+                                                                                         772
+                                                                                     ],
+                                                                        "layers":  [
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         772
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       772
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         772
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       772
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         772
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       772
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         772
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       772
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         772
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       772
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         772
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       772
+                                                                                                   ]
+                                                                                       }
+                                                                                   ],
+                                                                        "sceneAndHitPixels":  13340160
+                                                                    }
+                                                   },
+                                                   {
+                                                       "role":  "Player",
+                                                       "documentHidden":  false,
+                                                       "observedMs":  22377,
+                                                       "mainThreadBusyMs":  1335,
+                                                       "scriptMs":  614,
+                                                       "jsHeapMiB":  43,
+                                                       "longTasks":  {
+                                                                         "count":  0,
+                                                                         "totalMs":  0,
+                                                                         "maxMs":  0
+                                                                     },
+                                                       "webglAttempts":  0,
+                                                       "graphicsRequests":  [
+
+                                                                            ],
+                                                       "errors":  [
+
+                                                                  ],
+                                                       "canvases":  {
+                                                                        "viewport":  [
+                                                                                         1440,
+                                                                                         825
+                                                                                     ],
+                                                                        "layers":  [
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         825
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       825
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         825
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       825
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         825
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       825
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         825
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       825
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         825
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       825
+                                                                                                   ]
+                                                                                       },
+                                                                                       {
+                                                                                           "scene":  [
+                                                                                                         1440,
+                                                                                                         825
+                                                                                                     ],
+                                                                                           "hit":  [
+                                                                                                       1440,
+                                                                                                       825
+                                                                                                   ]
+                                                                                       }
+                                                                                   ],
+                                                                        "sceneAndHitPixels":  14256000
+                                                                    }
+                                                   }
+                                               ]
+                               }
+                           ]
+              },
+    "gpuPreference":  {
+                          "at":  "2026-10-28T10:19:51.724Z",
+                          "method":  "Fresh installed Chrome per sample; low/high/high/low order. Same 24 goblins, 8 lights, 4 walls, balanced quality, DPR1, 1440x960. 5s warmup after models ready, 7s stationary + 7s accepted token movement. Counts actual distinct painted miniature frames. getContext override only changes powerPreference and records original request, effective attributes and driver. No forced adapter, CPU throttle or recording.",
+                          "runs":  [
+                                       {
+                                           "preference":  "low-power",
+                                           "browser":  "156.0.8078.49",
+                                           "errors":  [
+
+                                                      ],
+                                           "samples":  [
+                                                           {
+                                                               "moving":  false,
+                                                               "elapsedMs":  7027.099999964237,
+                                                               "paintedFrames":  412,
+                                                               "fps":  58.63016037940214,
+                                                               "triangles":  "508720"
+                                                           },
+                                                           {
+                                                               "moving":  true,
+                                                               "elapsedMs":  7802.299999952316,
+                                                               "paintedFrames":  1095,
+                                                               "fps":  140.3432321247186,
+                                                               "triangles":  "508792"
+                                                           }
+                                                       ],
+                                           "context":  [
+                                                           {
+                                                               "requested":  "high-performance",
+                                                               "effective":  "low-power",
+                                                               "gpu":  "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+                                                           }
+                                                       ]
+                                       },
+                                       {
+                                           "preference":  "high-performance",
+                                           "browser":  "156.0.8078.49",
+                                           "errors":  [
+
+                                                      ],
+                                           "samples":  [
+                                                           {
+                                                               "moving":  false,
+                                                               "elapsedMs":  7035.300000011921,
+                                                               "paintedFrames":  412,
+                                                               "fps":  58.561823944864024,
+                                                               "triangles":  "508720"
+                                                           },
+                                                           {
+                                                               "moving":  true,
+                                                               "elapsedMs":  7846.799999952316,
+                                                               "paintedFrames":  1111,
+                                                               "fps":  141.58637916179225,
+                                                               "triangles":  "508792"
+                                                           }
+                                                       ],
+                                           "context":  [
+                                                           {
+                                                               "requested":  "high-performance",
+                                                               "effective":  "high-performance",
+                                                               "gpu":  "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+                                                           }
+                                                       ]
+                                       },
+                                       {
+                                           "preference":  "high-performance",
+                                           "browser":  "156.0.8078.49",
+                                           "errors":  [
+
+                                                      ],
+                                           "samples":  [
+                                                           {
+                                                               "moving":  false,
+                                                               "elapsedMs":  7027.899999976158,
+                                                               "paintedFrames":  411,
+                                                               "fps":  58.4811963746488,
+                                                               "triangles":  "508720"
+                                                           },
+                                                           {
+                                                               "moving":  true,
+                                                               "elapsedMs":  7614.599999964237,
+                                                               "paintedFrames":  1437,
+                                                               "fps":  188.71641320709546,
+                                                               "triangles":  "508792"
+                                                           }
+                                                       ],
+                                           "context":  [
+                                                           {
+                                                               "requested":  "high-performance",
+                                                               "effective":  "high-performance",
+                                                               "gpu":  "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+                                                           }
+                                                       ]
+                                       },
+                                       {
+                                           "preference":  "low-power",
+                                           "browser":  "156.0.8078.49",
+                                           "errors":  [
+
+                                                      ],
+                                           "samples":  [
+                                                           {
+                                                               "moving":  false,
+                                                               "elapsedMs":  7047.800000011921,
+                                                               "paintedFrames":  406,
+                                                               "fps":  57.60662901888721,
+                                                               "triangles":  "508720"
+                                                           },
+                                                           {
+                                                               "moving":  true,
+                                                               "elapsedMs":  7564.300000011921,
+                                                               "paintedFrames":  1647,
+                                                               "fps":  217.73329984233894,
+                                                               "triangles":  "508792"
+                                                           }
+                                                       ],
+                                           "context":  [
+                                                           {
+                                                               "requested":  "high-performance",
+                                                               "effective":  "low-power",
+                                                               "gpu":  "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+                                                           }
+                                                       ]
+                                       }
+                                   ]
+                      }
+}
