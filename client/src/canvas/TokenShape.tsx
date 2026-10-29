@@ -414,17 +414,27 @@ function TokenShapeInner({
     };
   }, [activeTurn, turnRingR, miniatureReady,reducedEffects]);
 
-  const playerNameSize = Math.max(11, Math.min(18, radius * .4));
+  const preferredPlayerNameSize = Math.max(11, Math.min(18, radius * .4));
   const monsterNameSize = Math.max(10, Math.min(14, gridSizePx * .14));
-  const labelFontSize = token.kind === 'pc' ? playerNameSize : monsterNameSize;
   const monsterLabelWidth = Math.max(64, Math.min(130, radius * 2.6));
   const tagWidth = token.revealTag ? (token.revealTag.length + 2) * monsterNameSize * 0.65 : 0;
-  const nameWidth = useMemo(() => {
-    const measure = new Konva.Text({ text: display.name, fontSize: labelFontSize });
+  const {nameWidth,playerNameSize,labelText} = useMemo(() => {
+    const player=token.kind==='pc';
+    const text=player?display.name.replace(/\s+/g,' ').trim():display.name;
+    const preferredSize=player?preferredPlayerNameSize:monsterNameSize;
+    const maxWidth=player?Math.max(.001,radius*4):monsterLabelWidth;
+    const measure = new Konva.Text({ text, fontSize: preferredSize, wrap:'none' });
     const width = measure.getTextWidth();
     measure.destroy();
-    return Math.min(token.kind === 'pc' ? radius * 4 : monsterLabelWidth, width + 2);
-  }, [display.name, labelFontSize, token.kind, radius, monsterLabelWidth]);
+    // Fit the complete name using actual glyph width. The old minimum font
+    // could force even "Vanec" onto two lines on a small token. Leave room
+    // for the outline and rounding, without measuring on movement frames.
+    const available=Math.max(maxWidth*.5,maxWidth-4);
+    const fittedSize=player&&width>available?preferredSize*available/width:preferredSize;
+    return {nameWidth:Math.min(maxWidth,width*fittedSize/preferredSize+2),
+      playerNameSize:player?fittedSize:preferredPlayerNameSize,labelText:text};
+  }, [display.name, preferredPlayerNameSize, monsterNameSize, token.kind, radius, monsterLabelWidth]);
+  const labelFontSize = token.kind === 'pc' ? playerNameSize : monsterNameSize;
   const roleBadgeR = Math.max(11, radius * 0.36);
   const labelY = radius + Math.max(hpFrac !== null ? 14 : 4,
     token.combatRole ? roleBadgeR - radius * .28 + 4 : 4);
@@ -683,15 +693,15 @@ function TokenShapeInner({
         fillAfterStrokeEnabled
         lineJoin="round"
         name="token-label"
-        text={display.name}
-        fontSize={token.kind === 'pc' ? playerNameSize : monsterNameSize}
+        text={labelText}
+        fontSize={labelFontSize}
         fill="#fff"
         align="center"
         width={token.kind === 'pc' ? radius * 4 : nameWidth}
         offsetX={token.kind === 'pc' ? radius * 2 : (nameWidth + tagWidth) / 2}
-        wrap={token.kind === 'pc' ? 'word' : 'none'}
+        wrap="none"
         ellipsis={token.kind !== 'pc'}
-        height={token.kind === 'pc' ? undefined : monsterNameSize * 1.25}
+        height={labelFontSize * 1.25}
         // Monster names clear the base, health bar and combat badge; PC layout stays compact.
         y={nameY}
       />}
