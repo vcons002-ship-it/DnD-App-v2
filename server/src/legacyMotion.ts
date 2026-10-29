@@ -1,7 +1,7 @@
 import type {StateSnapshot} from '../../shared/types.js';
 import type {LegacyMotion,LegacyMotionFrame} from '../../shared/legacyMotion.js';
 import {unionTerrain} from '../../shared/explorationSight.js';
-import {usesMapVision} from '../../shared/playerVision.js';
+import {needsVisibilityLayer,usesMapVision} from '../../shared/playerVision.js';
 import {walkingRoute} from './walking.js';
 import {visibilityWorkers} from './visibilityWorkers.js';
 import {tokenSprites} from './tokenSprites.js';
@@ -47,11 +47,13 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
   if(!authorized||authorized.map?.id!==after.map.id)return;
   const view:StateSnapshot={...after,...authorized,partyView:undefined,legacyMotion:undefined,
    exploredTerrain:index===LEGACY_MOTION_STEPS?after.exploredTerrain:unionTerrain([before.exploredTerrain??[],...routes.flatMap(r=>t>=.5&&r.half?[r.half]:[])])};
-  if(view.playerVision){view.legacyGeometry=await visibilityWorkers.run({mapId:view.map!.id,vision:view.playerVision,wallFog:usesMapVision(view.map),explored:view.exploredTerrain,tokens:view.tokens},timing?span=>timing.workers.push(span):undefined);view.tokenSprites=await tokenSprites(id,view,true);}
+  if(view.playerVision&&needsVisibilityLayer(view.map,view.playerVision))view.legacyGeometry=await visibilityWorkers.run({mapId:view.map!.id,vision:view.playerVision,wallFog:usesMapVision(view.map),explored:view.exploredTerrain,tokens:view.tokens},timing?span=>timing.workers.push(span):undefined);
+  else view.legacyGeometry={sight:[],near:[],lights:[],memory:[],affinity:view.tokens.filter(t=>!t.sharedSightOnly).map(t=>t.id)};
+  if(view.playerVision)view.tokenSprites=await tokenSprites(id,view,true);
   prepared.push(view);
  }
  if(options?.current&&!options.current())return;
- const images=after.playerVision?await legacyTerrainFrames(id,prepared,true,timing,options?.compact===true):undefined;
+ const images=needsVisibilityLayer(after.map,after.playerVision)?await legacyTerrainFrames(id,prepared,true,timing,options?.compact===true):undefined;
  const endpoint=options?.endpoint?await options.endpoint():after;
  for(let index=0;index<prepared.length;index++)output.push(fields(prepared[index],index/LEGACY_MOTION_STEPS,endpoint,moves));
  // Atlas frames are one decoded image each for cover and graded artwork.

@@ -1,7 +1,7 @@
 import {CARRIED_LANTERN_LIGHT_HEIGHT_FT,type LightBeam} from './lightFalloff.js';
 import {lightIrradiance,lightColorCoverage,spellEmissionIrradiance} from './lightFalloff.js';
 import {tokenVisibleAt} from './fog.js';
-import {hasLineOfSight,type MapWall} from './mapWalls.js';
+import {hasLineOfSight,hasPotentialSightBlockers,type MapWall} from './mapWalls.js';
 import type {MapState,Token} from './types.js';
 export type VisionPoint={id:string;x:number;y:number};
 export type VisionLight=VisionPoint&{radius:number;height:number;strength:number;transient?:boolean;beam?:LightBeam};
@@ -13,6 +13,19 @@ export type PlayerVision={rangeFt:60;radius:number;heavy:boolean;origins:VisionP
 /** Map cover also conceals creatures on unseen terrain. Painted cover is separate. */
 export const usesMapVision=(map:Pick<MapState,'mapVisionEnabled'>|null|undefined)=>map?.mapVisionEnabled!==false;
 export const usesTokenVision=(map:Pick<MapState,'mapVisionEnabled'|'tokenVisionEnabled'>|null|undefined)=>usesMapVision(map)||map?.tokenVisionEnabled!==false;
+/** Dynamic sight/light layers only. Painted fog and token authorization remain
+ * independent. Missing origins stay fail-closed when terrain sight is enabled;
+ * dim light, heavy darkness and any actual sight barrier retain their masks. */
+export function needsVisibilityLayer(
+ map:Pick<MapState,'mapVisionEnabled'|'walls'>|null|undefined,
+ vision:PlayerVision|null|undefined,
+):boolean {
+ if(!vision)return false;
+ if(vision.heavy||vision.daylight!==true)return true;
+ if(!usesMapVision(map))return false;
+ if(!vision.origins.length)return true;
+ return hasPotentialSightBlockers(vision.walls??map?.walls);
+}
 /** Dim light has no distance cap. Heavy darkness permits nearby darkvision
  * and distant illuminated areas; walls remain physical targeting obstacles. */
 export function usesDarknessVision(map:Pick<MapState,'environment'>|null|undefined){

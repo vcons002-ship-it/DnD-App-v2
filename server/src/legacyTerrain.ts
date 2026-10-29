@@ -6,7 +6,7 @@ import type {StateSnapshot} from '../../shared/types.js';
 import type {RasterAsset} from '../../shared/serverRendering.js';
 import type {LegacyMotionAtlas} from '../../shared/legacyMotion.js';
 import {legacyMaskSvg,legacyLightSvg} from '../../shared/legacyMaskSvg.js';
-import {usesMapVision} from '../../shared/playerVision.js';
+import {needsVisibilityLayer,usesMapVision} from '../../shared/playerVision.js';
 import {visibilityWorkers} from './visibilityWorkers.js';
 import {grantRenderTile} from './renderAssets.js';
 import type {MovementFrameTiming} from '../../shared/movementTiming.js';
@@ -25,7 +25,7 @@ async function sources(s:StateSnapshot){
 /** Grading and all visibility pixels are prepared on the server. The client
  * only positions decoded images; it does no grayscale or wall calculations. */
 export async function legacyTerrainFrames(id:string,frames:StateSnapshot[],includeMask=false,timing?:MovementFrameTiming,compact=false):Promise<{terrain:RasterAsset;atlas?:LegacyMotionAtlas}|undefined>{
- const first=frames[0];if(!first.map||!first.playerVision||!first.legacyGeometry)return;
+ const first=frames[0];if(!first?.map||!first.playerVision||!first.legacyGeometry||!needsVisibilityLayer(first.map,first.playerVision))return;
  const images=await sources(first);if(!images.length)return;
  const origins=frames.flatMap(f=>f.playerVision?.origins.map(o=>({...o,r:f.playerVision!.radius}))??[]);
  const x=Math.floor(Math.min(0,...images.map(i=>i.x),...origins.map(o=>o.x-o.r))-8),y=Math.floor(Math.min(0,...images.map(i=>i.y),...origins.map(o=>o.y-o.r))-8);

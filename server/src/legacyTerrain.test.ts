@@ -11,6 +11,14 @@ import {legacyTerrainFrames} from './legacyTerrain.js';
 import {renderAssetFor,resetRenderAssets} from './renderAssets.js';
 import type {StateSnapshot} from '../../shared/types.js';
 afterAll(()=>visibilityWorkers.close());
+it('skips daylight terrain rasterization before reading artwork or queueing workers',async()=>{
+ const frame={map:{id:'bright-room',imagePath:'/uploads/not-read-by-fast-path.png',mapVisionEnabled:true},
+  playerVision:{rangeFt:60,radius:60,heavy:false,daylight:true,origins:[{id:'pc',x:0,y:0}],lights:[],walls:[]},
+  legacyGeometry:{sight:[],near:[],lights:[],memory:[],affinity:[]}} as unknown as StateSnapshot;
+ const jobs=visibilityWorkers.metrics.jobs;
+ expect(await legacyTerrainFrames('bright-room',[frame],true)).toBeUndefined();
+ expect(visibilityWorkers.metrics.jobs).toBe(jobs);
+});
 it('shares identical image preparation across viewers but grants every image privately',async()=>{
  await fs.mkdir(config.uploadsDir,{recursive:true});const filename=`terrain-share-${Date.now()}.png`,file=path.join(config.uploadsDir,filename);
  try{

@@ -1,12 +1,30 @@
 import {afterEach,it,expect,vi} from 'vitest';
 import {applySnapshotDelta,diffSnapshot} from '../../shared/stateDelta.js';
-import {deliverState,resetDelivery,resyncDelivery} from './stateDelivery.js';
+import {deliverState,pendingGeometry,resetDelivery,resyncDelivery} from './stateDelivery.js';
 import {VisibilityWorkers,visibilityWorkers} from './visibilityWorkers.js';
 import type {StateSnapshot} from '../../shared/types.js';
 import type {PlayerVision} from '../../shared/playerVision.js';
 const vision:PlayerVision={rangeFt:60,radius:60,heavy:true,origins:[{id:'pc',x:100,y:100}],walls:[{id:'wall',kind:'rectangle',ax:200,ay:-500,bx:215,by:500}],lights:[{id:'lamp',x:120,y:100,radius:100,height:10,strength:1}]};
 const fixture=()=>({role:'player',sessionCode:'TEST',map:{id:'room',mapVisionEnabled:true},tokens:[{id:'pc',x:100,y:100},{id:'enemy',x:120,y:100}],characters:[],monsters:[],maps:[],rollLog:[],chat:[],playerVision:vision,exploredTerrain:[]} as unknown as StateSnapshot);
 afterEach(async()=>{resetDelivery('test');vi.useRealTimers();await visibilityWorkers.close();});
+it('keeps concealed party previews pending independently of an unobstructed DM view',()=>{
+ const base=fixture(),pending=pendingGeometry({...base,role:'dm',playerVision:undefined,
+  partyView:{map:base.map,tokens:base.tokens,monsters:[],playerVision:vision}});
+ expect(pending.legacyGeometry?.sight).toEqual([]);
+ expect(pending.partyView?.legacyGeometry).toBeNull();
+});
+it('unobstructed daylight delivery does not queue visibility workers',async()=>{
+ const snapshot={...fixture(),playerVision:{...vision,heavy:false,daylight:true,walls:[]}};
+ const work=vi.spyOn(visibilityWorkers,'run'),frames:any[]=[];
+ try{
+  deliverState({to:()=>({emit:(_event:any,frame:any)=>frames.push(frame)})},'test',snapshot,
+   {stateProtocol:1,serverRendering:true,legacyRendering:true});
+  await expect.poll(()=>frames.length).toBe(1);
+  expect(work).not.toHaveBeenCalled();
+  expect(frames[0].full.playerVision).toBe(snapshot.playerVision);
+  expect(frames[0].full.legacyGeometry).toMatchObject({sight:[],near:[],lights:[],memory:[],affinity:['pc','enemy']});
+ }finally{work.mockRestore();}
+});
 it('deltas remove newly hidden entities, preserve untouched references and remove optional views',()=>{
  const before={...fixture(),partyView:{map:null,monsters:[],tokens:[]}} as StateSnapshot;
  const after={...before,tokens:[{...before.tokens[0],x:110}],partyView:undefined,playerVision:undefined};

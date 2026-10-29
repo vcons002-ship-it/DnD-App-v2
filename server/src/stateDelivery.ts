@@ -1,6 +1,6 @@
 import type {StateSnapshot} from '../../shared/types.js';
 import {diffSnapshot,type StateFrame} from '../../shared/stateDelta.js';
-import {usesMapVision} from '../../shared/playerVision.js';
+import {needsVisibilityLayer,usesMapVision} from '../../shared/playerVision.js';
 import {visibilityWorkers} from './visibilityWorkers.js';
 import {renderedSnapshot,renderingInputKey,reuseRenderedSnapshot} from './renderedSnapshot.js';
 import {currentMovementTiming,timingClock} from './movementTiming.js';
@@ -21,9 +21,10 @@ function positionsChanged(before:StateSnapshot|undefined,after:StateSnapshot){
  return changed(before,after)||changed(before.partyView,after.partyView);
 }
 /** Join can show a fail-closed mask until its first atomic server frame is ready. */
-export const pendingGeometry=(snapshot:StateSnapshot):StateSnapshot=>({...snapshot,legacyGeometry:null,...(snapshot.partyView?{partyView:{...snapshot.partyView,legacyGeometry:null}}:{})});
+const clearGeometry=(s:Pick<StateSnapshot,'tokens'>)=>({sight:[],near:[],lights:[],memory:[],affinity:s.tokens.filter(t=>!t.sharedSightOnly).map(t=>t.id)});
+export const pendingGeometry=(snapshot:StateSnapshot):StateSnapshot=>({...snapshot,legacyGeometry:needsVisibilityLayer(snapshot.map,snapshot.playerVision)?null:clearGeometry(snapshot),...(snapshot.partyView?{partyView:{...snapshot.partyView,legacyGeometry:needsVisibilityLayer(snapshot.partyView.map,snapshot.partyView.playerVision)?null:clearGeometry(snapshot.partyView)}}:{})});
 async function addGeometry(snapshot:StateSnapshot,detailed=false,timing?:MovementFrameTiming):Promise<StateSnapshot>{
- const layer=async(s:Pick<StateSnapshot,'map'|'playerVision'|'exploredTerrain'|'tokens'>)=>!s.map?undefined:s.playerVision?visibilityWorkers.run({mapId:s.map.id,vision:s.playerVision,wallFog:usesMapVision(s.map),detailed,explored:s.exploredTerrain,tokens:s.tokens.map(({id,x,y,sharedSightOnly})=>({id,x,y,sharedSightOnly}))},timing?span=>timing.workers.push(span):undefined):{sight:[],near:[],lights:[],memory:[],affinity:s.tokens.filter(t=>!t.sharedSightOnly).map(t=>t.id)};
+ const layer=async(s:Pick<StateSnapshot,'map'|'playerVision'|'exploredTerrain'|'tokens'>)=>!s.map?undefined:s.playerVision&&needsVisibilityLayer(s.map,s.playerVision)?visibilityWorkers.run({mapId:s.map.id,vision:s.playerVision,wallFog:usesMapVision(s.map),detailed,explored:s.exploredTerrain,tokens:s.tokens.map(({id,x,y,sharedSightOnly})=>({id,x,y,sharedSightOnly}))},timing?span=>timing.workers.push(span):undefined):clearGeometry(s);
  const [legacyGeometry,party]=await Promise.all([layer(snapshot),snapshot.partyView?layer(snapshot.partyView):undefined]);
  return {...snapshot,legacyGeometry,...(snapshot.partyView?{partyView:{...snapshot.partyView,legacyGeometry:party}}:{})};
 }

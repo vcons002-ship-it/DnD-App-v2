@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import path from 'node:path';
 import type {StateSnapshot} from '../../shared/types.js';
-import {usesMapVision} from '../../shared/playerVision.js';
+import {needsVisibilityLayer,usesMapVision} from '../../shared/playerVision.js';
 import {legacyMaskSvg} from '../../shared/legacyMaskSvg.js';
 import {config} from './config.js';
 import {rasterAsset,renderAssetFor} from './renderAssets.js';
@@ -45,9 +45,10 @@ export async function renderedSnapshot(id:string,s:StateSnapshot,legacy:boolean,
  }
  let visionRaster:StateSnapshot['visionRaster'];
  let visionTiles:StateSnapshot['visionTiles'];
- const terrain=legacy&&s.playerVision&&s.legacyGeometry?await legacyTerrainFrames(id,[s],false,timing).catch(()=>undefined):undefined;
+ const visibilityLayer=needsVisibilityLayer(s.map,s.playerVision);
+ const terrain=legacy&&visibilityLayer&&s.playerVision&&s.legacyGeometry?await legacyTerrainFrames(id,[s],false,timing).catch(()=>undefined):undefined;
  const terrainRaster=terrain?.terrain;
- if(legacy&&s.playerVision&&s.legacyGeometry){
+ if(legacy&&visibilityLayer&&s.playerVision&&s.legacyGeometry){
   if(timing)timing.maskStartAt=timingClock();
   const size=await mapDimensions(s.map.imagePath),v=s.playerVision;
   if(tiled)visionTiles=await prepareVisionTiles(id,s,size,timing,!!terrainRaster);
