@@ -157,9 +157,8 @@ function SelectedTokenPanelInner({
       id: 'abilities',
       label: 'Spells & Abilities',
       node: (
-        // Read-only reference list (collapsible rows → description) so the
-        // player sees everything they added without scrolling; rolling +
-        // toggles live in the Combat section, editing on the left-panel sheet.
+        // The owner's reference list can cast; sheet editing stays in the
+        // character window, while the Combat section keeps direct actions.
         <PlayerSpellReference character={myChar}/>
       ),
     });
@@ -569,7 +568,7 @@ function SelectedTokenPanelInner({
 }
 
 const PlayerSpellReference=memo(function PlayerSpellReference({character}:{character:Character}){
- return <CharacterSpells character={character} editable={false} rollsElsewhere/>;
+ return <CharacterSpells character={character} editable={false} canCast rollsElsewhere/>;
 });
 /** Subscribe to current targeting inputs independently of the reference panel. */
 const LivePlayerCombat=memo(function LivePlayerCombat({characterId,defaultTargetId,compactPlayer}:{characterId:string;defaultTargetId?:string;compactPlayer:boolean}){

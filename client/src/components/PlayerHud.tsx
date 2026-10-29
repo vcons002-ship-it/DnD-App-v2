@@ -143,8 +143,9 @@ function CharacterWindow({
           <>
             <h3>Spells & abilities</h3>
             <p className="muted">
-              Manage and read abilities here. The combat panel retains every
-              spell, mastery, maneuver and roll control. Saved spell text may
+              Use Cast beside a spell to choose its slot and targets. Nothing is
+              spent while browsing or choosing options. The combat panel also
+              has direct Cast buttons and the controls for masteries and maneuvers. Saved spell text may
               use 2014, 2024 or custom rules; check each description. No saved
               entries are converted.
             </p>

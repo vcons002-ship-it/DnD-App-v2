@@ -31,9 +31,11 @@ import {
   confirmConcentration,
   spellBaseLevel,
   upcastable,
+  isCastSpell,
 } from '../lib/spellcasting';
 import { useAbilityToggles } from './AbilityToggles';
 import { Spellbook } from './Spellbook';
+import {SpellCastControl} from './SpellCastControl';
 import { isCanonicalHasteProfile, effectiveSheetAbility, isMultiTargetSpell, spellDamageTypeChoices } from '../../../shared/spellExecution';
 import { spellCombatSupport } from '../../../shared/spellSupport';
 import { SpellCombatSupportBadge, SpellCombatSupportDetails } from './SpellCombatSupport';
@@ -106,6 +108,7 @@ export function CharacterSpells({
   character,
   kind = 'pc',
   editable,
+  canCast = editable,
   snapshot,
   attackerToken,
   defaultTargetId,
@@ -117,6 +120,8 @@ export function CharacterSpells({
   /** Which entity kind, so add/remove/roll route to the right server path. */
   kind?: TokenKind;
   editable: boolean;
+  /** Allow the owner's reference list to cast without exposing sheet editing. */
+  canCast?: boolean;
   /** When provided (the combat console), attack-roll spells pick a target and
    *  resolve to-hit vs its AC like a weapon attack. */
   snapshot?: StateSnapshot;
@@ -491,6 +496,7 @@ export function CharacterSpells({
   /** Render one ability row. `groupIds` drives the ▲/▼ reorder enablement. */
   const renderEntry = (a: SheetAbility, groupIds: string[]) => {
     const support = spellCombatSupport(a);
+    const directSpell=isCastSpell(a);
     const summon = support?.manualCastOnly ? undefined : effectiveSheetAbility(a).summon;
     const lvl = levelFor(a);
     const displayRoll = hitFeature(a) || support?.manualCastOnly || summon ? undefined : effectiveSheetAbility(a, lvl).roll;
@@ -521,6 +527,7 @@ export function CharacterSpells({
             <SpellCombatSupportBadge ability={a} />
           </button>
           <RechargeChip ability={a} kind={kind} refId={character.id} editable={editable} />
+          {canCast&&directSpell&&<SpellCastControl ability={a} caster={character} kind={kind} onMapRequest={onCombatRequest}/>}
 
           {editable && a.type === 'spell' && (a.level ?? 0) > 0 && (
             <button
@@ -603,7 +610,7 @@ export function CharacterSpells({
           )}
 
           {editable &&
-            upcastable(a) &&
+            !directSpell && upcastable(a) &&
             !hitFeature(a) && !rollsElsewhere && (displayRoll || support?.manualCastOnly || summon) && (
               <select
                 className="spell-level"
@@ -624,19 +631,19 @@ export function CharacterSpells({
                 })}
               </select>
             )}
-          {editable && displayRoll && !rollsElsewhere && (
+          {editable && !directSpell && displayRoll && !rollsElsewhere && (
             <button className="btn tiny" disabled={!!actionBlock} title={manualRiderNote(a)} onClick={() => doRoll(a)}>
               {isCanonicalHasteProfile(a) ? 'Cast Haste' : markSpell(a) ? 'Cast mark' : rollLabel(displayRoll)}
             </button>
           )}
-          {editable && hasPactPool && (a.type === 'spell' || a.type === 'stance') && spellBaseLevel(a) > 0 && (!rollsElsewhere || a.summon) && !hitFeature(a) && !isStance(a) && <select className="spell-level" aria-label={`${a.name} slot pool`} value={poolFor(a)} onChange={event => {
+          {editable && !directSpell && hasPactPool && (a.type === 'spell' || a.type === 'stance') && spellBaseLevel(a) > 0 && (!rollsElsewhere || a.summon) && !hitFeature(a) && !isStance(a) && <select className="spell-level" aria-label={`${a.name} slot pool`} value={poolFor(a)} onChange={event => {
             const pool = event.target.value as 'spellcasting' | 'pact';
             setSlotPools(current => ({ ...current, [a.id]: pool }));
             setCastLevel(current => ({ ...current, [a.id]: pool === 'pact' && pactPool ? Number(pactPool[0].slice(1)) : spellBaseLevel(a) }));
           }}>
             <option value="spellcasting">Spellcasting slots</option><option value="pact">Pact Magic{pactPool ? ` · L${pactPool[0].slice(1)} (${Math.max(0, pactPool[1].max - pactPool[1].used)}/${pactPool[1].max})` : ''}</option>
           </select>}
-          {editable && displayRoll && !rollsElsewhere && damageTypes.length > 0 && (
+          {editable && !directSpell && displayRoll && !rollsElsewhere && damageTypes.length > 0 && (
             <select
               className="spell-level spell-damage-type"
               aria-label={`${a.name} damage type`}
@@ -654,7 +661,7 @@ export function CharacterSpells({
             </select>
           )}
           {hitFeature(a) && <span className="muted spell-meta">{hitFeature(a)==='hail of thorns'?'Ranged hit → Hail of Thorns → slot; automatic 5 ft burst':'Offered after a hit, beside Roll damage'}</span>}
-          {editable && !rollsElsewhere && !displayRoll && !hitFeature(a) && support?.manualCastOnly && (
+          {editable && !directSpell && !rollsElsewhere && !displayRoll && !hitFeature(a) && support?.manualCastOnly && (
             <button
               className="btn tiny"
               title="Record this casting and spend its spell slot; resolve its effects manually."
@@ -664,11 +671,11 @@ export function CharacterSpells({
               Cast manually
             </button>
           )}
-          {editable && rollsElsewhere && onCombatRequest && (displayRoll || support?.manualCastOnly || summon || a.smite || hitFeature(a)) &&
+          {editable && !directSpell && rollsElsewhere && onCombatRequest && (displayRoll || support?.manualCastOnly || summon || a.smite || hitFeature(a)) &&
             <button className="btn tiny" onClick={useInCombat} title={a.smite || hitFeature(a) ? 'Attack from Combat; choose this effect after a qualifying hit.' : 'Close the character record and use the Combat panel.'}>Use in Combat</button>}
           {/* Summon-tagged spell/ability: spawn its friendly companion (leveled
               spells spend a slot server-side). Shown even in the combat console. */}
-          {editable && summon && (
+          {editable && !directSpell && summon && (
             <button
               className="btn tiny"
               title={`Summon ${summon.name?.trim() || a.name}${(a.level ?? 0) >= 1 ? ' (spends a spell slot)' : ''}`}
@@ -1111,7 +1118,7 @@ export function CharacterSpells({
           );
         })()}
       {rollsElsewhere && character.sheetAbilities.some((a) => effectiveSheetAbility(a).roll || spellCombatSupport(a)?.manualCastOnly || a.smite || hitFeature(a)) && (
-        <p className="muted spell-tag">Cast and roll from Combat. On-hit spells are offered after a qualifying hit.</p>
+        <p className="muted spell-tag">Use Cast beside any spell to choose its slot and targets. On-hit spells are offered after a qualifying hit.</p>
       )}
       {!rollsElsewhere && snapshot && attackerToken && (hasAttackSpell || hasHealSpell || character.sheetAbilities.some(a=>a.stance?.targeted)) && <ShowDeadTargets/>}
       {!rollsElsewhere && hasAttackSpell && (
@@ -1175,6 +1182,11 @@ export function CharacterSpells({
           {bookOpen && (
             <Spellbook
               onAdd={add}
+              renderCast={hit=>{
+                const learned=character.sheetAbilities.filter(a=>isCastSpell(a)&&a.name.toLowerCase()===hit.name.toLowerCase());
+                const ability=learned.find(a=>a.sourceClass===addClass)??learned[0];
+                return ability?<SpellCastControl ability={ability} caster={character} kind={kind} onMapRequest={onCombatRequest}/>:<button className="btn tiny" disabled title="Add this spell to your sheet before casting it.">Cast · learn first</button>;
+              }}
               onClose={() => setBookOpen(false)}
               ownedNames={
                 new Set(character.sheetAbilities.filter(a => (classRoster?.length ?? 0) <= 1 || a.sourceClass === addClass).map((a) => a.name.toLowerCase()))

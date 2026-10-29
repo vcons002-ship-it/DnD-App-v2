@@ -1,4 +1,5 @@
 import {renderedImage} from '../lib/renderImages';
+import {spellCastCost} from '../lib/spellcasting';
 import {retainedRenderingEnabled} from '../lib/retainedRendering';
 import {installRetainedTokenLayer,invalidateRetainedToken} from './retainedTokenLayer';
 import {sameBoardSnapshot} from '../../../shared/boardSnapshot';
@@ -40,7 +41,7 @@ import { Stage, Layer, Group, Line, Rect, Circle, Text, Label, Tag, Path, Image 
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import Konva from 'konva';
-import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
+import type { AbilityRollPayload, FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape, DISPOSITION_HEX } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
@@ -701,6 +702,11 @@ function MapStageInner({
   const saveResolve = useStore((s) => s.saveResolve);
   const resolvingRoll=useStore(s=>saveResolve?s.snapshot?.rollLog.find(r=>r.id===saveResolve.rollId):undefined);
   const teleportCast=useStore(s=>s.teleportCast),clearTeleportCast=useStore(s=>s.clearTeleportCast);
+  const pendingSpellCost=(payload:AbilityRollPayload)=>{
+    const caster=(payload.kind==='pc'?snapshot.characters:snapshot.monsters).find(c=>c.id===payload.refId);
+    const ability=caster&&'sheetAbilities'in caster?caster.sheetAbilities.find(a=>a.id===payload.abilityId):undefined;
+    return caster&&'sheetAbilities'in caster&&ability?spellCastCost(caster,ability,payload.castLevel,payload.slotPool):undefined;
+  };
   const [teleportPoint,setTeleportPoint]=useState<Pt|null>(null);
   const teleportActor=teleportCast?snapshot.tokens.find(t=>t.kind===teleportCast.kind&&t.refId===teleportCast.refId):undefined;
   useEffect(()=>{setTeleportPoint(null);},[teleportCast]);
@@ -2865,9 +2871,10 @@ function MapStageInner({
             />
           )}
           {mapOverlays}
-          {teleportCast&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Misty Step destination" style={{zIndex:30}}><strong>Misty Step ? 30 ft</strong><span>Click a visible, unoccupied destination, then confirm.</span>{teleportError&&<span role="alert">{teleportError}</span>}<button className="btn" disabled={!teleportPoint||!!teleportError} onClick={()=>{if(teleportPoint&&map)useStore.getState().rollAbility({...teleportCast,destination:{mapId:map.id,...teleportPoint}});clearTeleportCast();}}>Teleport</button><button className="btn" onClick={clearTeleportCast}>Cancel (Esc)</button></div>}
+          {teleportCast&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Misty Step destination" style={{zIndex:30}}><strong>Misty Step · 30 ft</strong><span>Click a visible, unoccupied destination. No slot is spent until you confirm the cast below.</span>{teleportError&&<span role="alert">{teleportError}</span>}<button className="btn" disabled={!teleportPoint||!!teleportError||pendingSpellCost(teleportCast)?.unavailable} onClick={()=>{if(teleportPoint&&map)useStore.getState().rollAbility({...teleportCast,destination:{mapId:map.id,...teleportPoint}});clearTeleportCast();}}>Cast Misty Step · {pendingSpellCost(teleportCast)?.label}</button><button className="btn" onClick={clearTeleportCast}>Cancel (Esc)</button></div>}
           {areaCast&&areaActor&&map&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Place spell area" style={{flexWrap:'wrap',maxWidth:'min(760px,calc(100% - 30px))',zIndex:30,borderColor:'#e0be6b'}}>
             <strong>{areaCast.name} · {areaCast.spec.sizeFt} ft {['sphere','cylinder','emanation'].includes(areaCast.spec.kind)?'radius':areaCast.spec.kind}</strong>
+            <span>{areaCast.repeat?'Repeat use · no additional spell slot.':`${pendingSpellCost(areaCast.payload)?.label??'Spell casting'} · no slot is spent until you confirm this area.`}</span>
             <span>{areaCast.name.toLowerCase()==='pass without trace'?'Choose allies to share your moving Stealth aura.':areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Overlapping combat footprints are affected; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
             {areaRangeError&&<span role="alert">Choose an origin within {areaCast.spec.rangeFt} ft and outside Total Cover.</span>}
             <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} visible targets{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
@@ -2880,10 +2887,10 @@ function MapStageInner({
               }));
               setAreaAngle(next);setAreaDirectionLocked(true);
             }}/></label>}
-            <button className="btn tiny" disabled={!areaPoints.length||!!areaRangeError||!!areaCast.spec.maxTargets&&areaTargets.filter(t=>!areaExcluded.includes(t.id)).length>areaCast.spec.maxTargets||['line','cone'].includes(areaCast.spec.kind)&&!areaDirectionLocked} onClick={()=>{
+            <button className="btn tiny" disabled={!areaCast.repeat&&pendingSpellCost(areaCast.payload)?.unavailable||!areaPoints.length||!!areaRangeError||!!areaCast.spec.maxTargets&&areaTargets.filter(t=>!areaExcluded.includes(t.id)).length>areaCast.spec.maxTargets||['line','cone'].includes(areaCast.spec.kind)&&!areaDirectionLocked} onClick={()=>{
               const placement={...areaPlacement,...(areaCast.spec.selective?{selected:areaTargets.filter(t=>!areaExcluded.includes(t.id)).map(t=>t.id)}:{})};
               if(areaCast.repeat)useStore.getState().repeatSpell({...areaCast.repeat,area:placement});else useStore.getState().rollAbility({...areaCast.payload,area:placement});clearAreaCast();
-            }}>Confirm area · {areaCast.spec.ongoing&&!areaCast.spec.initialEffect?'Place':'Roll'}</button>
+            }}>Confirm area · {areaCast.repeat?'Repeat · no slot':`Cast · ${pendingSpellCost(areaCast.payload)?.label??areaCast.name}`}</button>
             <button className="btn tiny" onClick={()=>{setAreaPoints(old=>old.slice(0,-1));setAreaDirectionLocked(false);}}>Undo placement</button>
             <button className="btn tiny" onClick={clearAreaCast}>Cancel (Esc)</button>
           </div>}

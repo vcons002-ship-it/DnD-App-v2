@@ -20,7 +20,8 @@ import { WeaponButtons } from './WeaponButtons';
 import { effectiveSheetAbility, isCanonicalHasteProfile } from '../../../shared/spellExecution';
 import { spellCombatSupport } from '../../../shared/spellSupport';
 import { spellSlotOptions, selectSpellSlot, type SpellSlotPool } from '../../../shared/spellSlotPools';
-import { confirmConcentration, spellBaseLevel, upcastable } from '../lib/spellcasting';
+import { confirmConcentration, spellBaseLevel, upcastable,isCastSpell } from '../lib/spellcasting';
+import {SpellCastControl} from './SpellCastControl';
 import { SpellCombatSupportBadge } from './SpellCombatSupport';
 import { activeHasteCondition, spellActionBlock, spellActionBlockMessage } from '../../../shared/spellBuffs';
 import {ActiveSpellActions} from './ActiveSpellActions';
@@ -290,7 +291,7 @@ export function CombatSection({
       />
       {summonAbilities.length > 0 && (
         <div className="combat-summon-row">
-          {summonAbilities.map((a) => <div key={a.id} className="combat-ability-row">
+          {summonAbilities.map((a) => isCastSpell(a)?<div key={a.id} className="combat-ability-row"><SpellCastControl ability={a} caster={caster} kind={kind}/></div>:<div key={a.id} className="combat-ability-row">
             <button
               className="btn tiny"
               disabled={!!actionBlock}

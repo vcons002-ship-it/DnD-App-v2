@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState,type ReactNode } from 'react';
 import type { SheetAbility } from '../../../shared/types';
 import { spellCombatSupport } from '../../../shared/spellSupport';
 import { SpellCombatSupportBadge, SpellCombatSupportDetails } from './SpellCombatSupport';
@@ -29,6 +29,7 @@ export function Spellbook({
   learningClasses,
   learningClass,
   onLearningClassChange,
+  renderCast,
 }: {
   onAdd: (s: SpellHit) => void;
   onClose: () => void;
@@ -36,6 +37,7 @@ export function Spellbook({
   learningClasses?: { className: string; level: number }[];
   learningClass?: string;
   onLearningClassChange?: (className: string) => void;
+  renderCast?: (s:SpellHit)=>ReactNode;
 }) {
   const [all, setAll] = useState<SpellHit[]>([]);
   const [q, setQ] = useState('');
@@ -122,6 +124,7 @@ export function Spellbook({
           </label>}
         </div>
         <div className="spellbook-list">
+          {renderCast&&<p className="spellbook-cast-note">Browse and Add do not cast or spend slots. Use Cast for a learned spell to choose its slot and targets.</p>}
           {groups.length === 0 && <p className="muted">No spells match.</p>}
           {groups.map(([lvl, spells]) => (
             <div key={lvl} className="spellbook-group">
@@ -145,6 +148,7 @@ export function Spellbook({
                         </span>
                         <SpellCombatSupportBadge ability={s} />
                       </button>
+                      {renderCast?.(s)}
                       <button
                         className={`btn tiny ${owned ? 'on' : ''}`}
                         disabled={owned || !!(learningClasses && learningClasses.length > 1 && !learningClass)}

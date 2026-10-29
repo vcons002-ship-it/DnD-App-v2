@@ -1646,6 +1646,20 @@ details.sheet-actions-traits[open] > summary::before { content: '▾ '; }
 /* Combat section ability rows: roll button + optional upcast level select. */
 .combat-summon-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .combat-ability-row { display: flex; align-items: center; gap: 4px; }
+.combat-ability-row:has(.spell-cast-summary) { flex-wrap:wrap; }
+.spell-cast-summary { flex-basis:100%; color:var(--muted); font-size:11px; line-height:1.4; }
+.spell-cast-control { display:flex; flex-direction:column; gap:3px; align-items:flex-start; max-width:100%; }
+.spell-cast-control small { color:var(--muted); font-size:11px; }
+.spell-cast-dialog::backdrop { background:#0008; }
+.spell-cast-dialog { width:min(600px,100%); box-sizing:border-box; max-height:calc(100dvh - 24px); overflow:auto; background:var(--panel,#171b24); border:1px solid #b79b64; border-radius:10px; padding:16px; color:var(--text,#eee7d8); box-shadow:0 12px 40px #0008; }
+.spell-cast-dialog header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.spell-cast-dialog h3 { margin:0; }
+.spell-cast-dialog label { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0; }
+.spell-cast-dialog select { max-width:100%; min-height:36px; }
+.spell-cast-dialog .combat-ability-row { margin:14px 0; }
+.spell-cast-dialog .spell-target-dock { position:static; transform:none; width:auto; max-width:100%; margin:12px 0; }
+.spellbook-cast-note { font-size:12px; color:var(--muted); }
+@media(max-width:600px) { .spellbook-row-head { flex-wrap:wrap; } .spellbook-row-head>.spell-toggle { flex-basis:100%; } .spell-cast-dialog .btn { min-height:40px; } }
 .combat-ability-row .attack-row { flex: 1; margin: 3px 0; }
 /* Combat section toggle chips (stances / masteries / maneuvers). */
 .combat-toggles { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }

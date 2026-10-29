@@ -280,7 +280,7 @@ test('editing a profile-only spell preserves upcasting and explicit custom save 
   await f.row('Command').getByRole('button').click();
   // Command asks for its word before casting.
   const choice = page.getByRole('dialog', { name: 'Choose Command' }); await expect(choice).toBeVisible();
-  await choice.getByRole('button', { name: 'Halt', exact: true }).click(); await choice.getByRole('button', { name: 'Cast Command', exact: true }).click();
+  await choice.getByRole('button', { name: 'Halt', exact: true }).click(); await choice.getByRole('button', { name: /^Cast Command ·/ }).click();
   await expect(page.locator('.spell-damage-dock')).toContainText('Roll saving throws',{timeout:LIVE_COMBAT_TIMEOUT});
   const cast = (await f.snapshot()).rollLog.find((roll) => roll.label === 'Command')!;
   expect(cast.apply).toMatchObject({ targetMode: 'multiple', save: 'WIS', dc: 18 });
