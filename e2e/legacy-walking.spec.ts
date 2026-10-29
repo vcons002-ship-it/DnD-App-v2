@@ -50,8 +50,27 @@ for(const role of ['player','dm'] as const)test(`Legacy ${role} animates by defa
   await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.footstep')).some((n:any)=>n.opacity()>0&&n.opacity()<.90)),{timeout:6000}).toBe(true);
   const draws=await page.evaluate(()=>(window as any).__footstepDraws);expect(draws.marks).toBeGreaterThan(0);expect(draws.map).toBe(0);
   await page.getByRole('checkbox',{name:'Server managed rendering',exact:true}).uncheck();await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','client');await page.waitForTimeout(700);
-  const before=await page.evaluate(()=>(window as any).__walkSamples.length);admin.emit('token:move',{tokenId:token.id,x:400,y:800});await expect.poll(x,{timeout:20000}).toBe(400);
-  const snap=await page.evaluate(i=>(window as any).__walkSamples.slice(i),before);expect(snap.every((p:any)=>p.x===400||p.x===1700)).toBe(true);
+  // Unassisted Legacy must interpolate using local sight, without a server
+  // atlas. Sample the actual SVG and Konva pose together on each browser frame.
+  // Let the previous walk's tracks expire: old tracks can re-enter personal
+  // sight while returning, and must not be mistaken for new forward footfalls.
+  await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.footstep')).length),{timeout:15000}).toBe(0);
+  await page.evaluate(id=>{const w=window as any;w.__localWalk=[];w.__localUntil=performance.now()+5000;const oldMarks=new Set(w.Konva.stages.flatMap((s:any)=>s.find('.footstep')).map((n:any)=>n._id));const record=()=>{
+   const n=w.Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id),path=document.querySelector<SVGPathElement>('[data-legacy-paths=near] path');
+   const marks=w.Konva.stages.flatMap((s:any)=>s.find('.footstep')).filter((n:any)=>!oldMarks.has(n._id)).map((n:any)=>n.x());
+   w.__localWalk.push({x:n?.x(),path:path?.getAttribute('d'),inside:path?.isPointInFill(new DOMPoint(n?.x(),n?.y())),marks});
+   if(performance.now()<w.__localUntil)requestAnimationFrame(record);
+  };record();},token.id);
+  admin.emit('token:move',{tokenId:token.id,x:400,y:800});await expect.poll(x,{timeout:20000}).toBe(400);
+  const local=await page.evaluate(()=>{const w=window as any;w.__localUntil=0;return w.__localWalk;});
+  const moving=local.filter((p:any)=>p.x>400&&p.x<1700);
+  expect(moving.length).toBeGreaterThanOrEqual(3);expect(new Set(moving.map((p:any)=>p.path)).size).toBeGreaterThanOrEqual(3);
+  expect(moving.every((p:any)=>p.inside)).toBe(true);
+  expect(moving.some((p:any)=>p.marks.length)).toBe(true);
+  expect(moving.every((p:any)=>p.marks.every((mark:number)=>mark>=p.x))).toBe(true);
+  await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','client');
+  await expect(page.getByTestId('legacy-motion-mask')).toHaveCount(0);
+  await expect(page.getByRole('checkbox',{name:'Server managed rendering',exact:true})).not.toBeChecked();
   expect(errors).toEqual([]);
  }finally{admin.disconnect();await companion?.close();}
 });

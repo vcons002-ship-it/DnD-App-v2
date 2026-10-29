@@ -1,6 +1,6 @@
 # Legacy camera concealment and default movement — 2026-10-28
 
-Legacy movement animation is now automatic when the server provides a valid prepared sequence. The separate animation checkbox and saved movement preference have been removed. A stale saved `dnd-legacy-movement=snap` value is ignored. Browser reduced-motion settings, missing server support, disabled assistance, teleports, fog resets and invalid walking routes retain their safe fallback behavior.
+Legacy movement animation is automatic with server-prepared sequences when assistance is enabled, and with local interpolation when assistance is disabled. The separate animation checkbox and saved movement preference have been removed. A stale saved `dnd-legacy-movement=snap` value is ignored. Browser reduced-motion settings, teleports, fog resets and invalid assisted walking routes retain their safe fallback behavior.
 
 ## Camera concealment fix
 
@@ -14,7 +14,15 @@ The new regression fails against the prior served client with a 414.5-pixel tran
 
 Viewer-shaped snapshots change a placed light's `visibleTorch` artwork flag when its fixture enters/leaves personal sight. Comparing complete map JSON treated this as a structural change and made the moving player's heavy-room animation fall back to snap. The observer could still animate because its personal map did not change.
 
-The map discontinuity key now ignores only that per-viewer display flag. Changes to light positions/radii, added lights, walls, heavy darkness and manual fog remain discontinuities. Focused tests protect that boundary. Player and DM walking regressions include a torch entering sight around a wall, verify intermediate movement/creature visibility and footsteps, and verify fallback after assistance is disabled. The final heavy-room smooth test requires real intermediate sight poses for the moving player's 1x run.
+The map discontinuity key now ignores only that per-viewer display flag. Changes to light positions/radii, added lights, walls, heavy darkness and manual fog remain discontinuities. Focused tests protect that boundary. Player and DM walking regressions include a torch entering sight around a wall, verify intermediate movement/creature visibility and footsteps, and verify local animation after assistance is disabled. The final heavy-room smooth test requires real intermediate sight poses for the moving player's 1x run.
+
+## Follow-up: local Legacy animation
+
+The previous client explicitly forced a snap whenever Legacy lacked an active server playback. That also disabled animation with server management turned off. The snap guard now applies only to assisted Legacy geometry without a prepared sequence. Local Legacy uses the same token presentation clock as local 2D/3D.
+
+The local SVG mask updates its sight, darkvision and carried-light paths at the displayed token pose. Remembered-map geometry stays cached and uses presentation history until the move finishes. Camera placement remains synchronous, map pixels stay retained, and no animation loop is added while stationary. Local footsteps use the ordinary movement duration so they do not appear ahead of the moving token.
+
+Player and DM Player-view regressions verify multiple intermediate positions, changing sight paths enclosing the displayed token, fresh footsteps behind movement, assistance remaining disabled, and no server movement atlas. Old tracks expire before sampling fresh tracks, since previously hidden old tracks can re-enter sight on a return walk. Focused unit tests cover reduced motion, teleports/cancellation, memory timing and visibility. This follow-up is tested in the isolated checkout and is not deployed; the frontend publication described below predates this fix.
 
 ## Validation and deployment
 

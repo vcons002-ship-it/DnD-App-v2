@@ -19,7 +19,7 @@ function snapshot(y=650,shared=false,dark=false):StateSnapshot {
 }
 
 describe('movement-aligned reveal presentation',()=>{
-  it('snaps an in-progress move immediately when legacy mode is selected on the same snapshot',()=>{
+  it('snaps an in-progress move immediately when reduced motion is selected on the same snapshot',()=>{
     const p=new TokenPresentation();p.sync(snapshot(),10,1000);
     const next=snapshot(550);p.sync(next,10,1001);expect(p.moving()).toBe(true);
     p.sync(next,10,1050,true);expect(p.moving()).toBe(false);expect(p.position('varis')).toEqual({x:600,y:550});
