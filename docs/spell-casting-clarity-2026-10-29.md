@@ -17,3 +17,9 @@ The shared control uses a native modal dialog so it remains clickable above the 
 - Two broader checks remain failing: Spike Growth movement damage raises a server dice-context error, and the party-spell Command test times out on the NPC Grovel follow-up after the player cast succeeds. Both failures were reproduced using the unchanged client from **fe1d548e**, with the same backend and disposable fixtures. No backend change or weakened assertion was added to hide them.
 
 All browser tests used disposable sessions/databases with controlled AI endpoints. DnDServer, live campaign data and the installed client were not updated or restarted. Native mobile and Safari testing were not performed.
+
+## Mobile token inspection follow-up
+
+Touch and compact layouts keep the inspector closed during selection and movement, including selection of dead tokens. Double-tap a token or use the Inspect rail button to open it. Completed taps are counted on release; dragging, long presses, multi-touch and cancelled touches discard the pending gesture. An earlier explicit-open request cannot replay when selection changes. An already-open inspector continues to follow selection, and desktop mouse selection retains its existing behavior.
+
+Client/server typechecks and the isolated client build passed. Seven focused browser regressions passed: one Chromium mobile-emulation check with real touch input verifies selection, drag, double-tap release, dead-token selection, explicit Inspect and long press; six desktop camera/token checks cover Legacy, 2D and 3D with server assist on/off. No native iOS/Safari validation or live deployment was performed.

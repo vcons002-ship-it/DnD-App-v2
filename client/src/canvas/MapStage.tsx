@@ -1,5 +1,6 @@
 import {renderedImage} from '../lib/renderImages';
 import {spellCastCost} from '../lib/spellcasting';
+import {explicitTokenInspection} from '../lib/tokenInspection';
 import {retainedRenderingEnabled} from '../lib/retainedRendering';
 import {installRetainedTokenLayer,invalidateRetainedToken} from './retainedTokenLayer';
 import {sameBoardSnapshot} from '../../../shared/boardSnapshot';
@@ -1044,7 +1045,7 @@ function MapStageInner({
     if (orbTarget) setOrbTarget({...orbTarget,targetId:tok.id});
     else if (saveResolve) resolveSaveAt(tok.id);
     else onSelectToken(tok, additive);
-    if(resolveToken(snapshot,tok).dead && !orbTarget && !saveResolve){setDetailsExpanded(true);nudgeRightPanel();}
+    if(resolveToken(snapshot,tok).dead && !orbTarget && !saveResolve&&!explicitTokenInspection()){setDetailsExpanded(true);nudgeRightPanel();}
   });
   const handleTokenActivate = useStableCallback((tok: Token) => {
     if(areaCast)return;
@@ -1058,7 +1059,7 @@ function MapStageInner({
     onMoveToken(tok.id, x, y, placed);
     if (isDm) {
       if (selectedIds.length <= 1 || !selectedIds.includes(tok.id)) onSelectToken(tok, false);
-      nudgeRightPanel();
+      if(!explicitTokenInspection())nudgeRightPanel();
     }
   });
   const handleTokenDragPreview = useStableCallback((tok: Token, point: {x:number;y:number;facing:number}|null) => {

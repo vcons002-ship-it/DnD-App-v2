@@ -6,6 +6,7 @@ import { safeSetItem } from '../lib/storage';
 import {DockableWindowHeader,type WindowSide} from './DockableWindowHeader';
 import { HudIcon } from './HudIcon';
 import {createPortal} from 'react-dom';
+import {explicitTokenInspection} from '../lib/tokenInspection';
 
 type Tool = 'maps' | 'spawn' | 'initiative' | 'chat';
 type Panel = Tool | 'inspect';
@@ -70,10 +71,15 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
     });
   }, [hasSelection]);
   useEffect(() => {
-    if (selectedToken?.id || selectionCount > 1) openPanel('inspect');
+    if (selectedToken?.id || selectionCount > 1) {if(!explicitTokenInspection())openPanel('inspect');}
     else setLayout(current => current.open.includes('inspect') ? { ...current, open: current.open.filter(id => id !== 'inspect') } : current);
   }, [selectedToken?.id, selectionCount, openPanel]);
-  useEffect(() => { if (openSignal) openPanel('inspect'); }, [openSignal, openPanel]);
+  const consumedOpenSignal=useRef(openSignal);
+  useEffect(() => {
+    if(openSignal===consumedOpenSignal.current)return;
+    consumedOpenSignal.current=openSignal;
+    if(openSignal)openPanel('inspect');
+  }, [openSignal, openPanel]);
   useEffect(() => {
     if (pending && window.innerWidth < 1000) setLayout(current => ({ ...current, open: [] }));
   }, [pending]);
@@ -122,6 +128,7 @@ export function DmWorkspace({ snapshot, selectedToken, selectionCount, openSigna
       {tools.map(item => <button key={item.id} id={`dm-tool-${item.id}`} className={`dm-tool ${visibleOpen.includes(item.id) ? 'on' : ''}`}
         disabled={item.id === 'inspect' && !hasSelection}
         aria-label={item.label} aria-expanded={visibleOpen.includes(item.id)} aria-controls={`dm-panel-${item.id}`}
+        title={item.id==='inspect'?'Inspect selected token, or double-tap a token on the map':item.label}
         onClick={() => toggle(item.id)}>
         <HudIcon name={item.icon} /><span>{item.id === 'inspect' ? `Inspect${selectionCount > 1 ? ` (${selectionCount})` : ''}` : item.label}</span>
       </button>)}

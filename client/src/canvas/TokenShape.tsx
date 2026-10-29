@@ -272,7 +272,8 @@ function TokenShapeInner({
   };
 
   const handleDragStart = () => {
-    clearLongPress();cancelled.current=false;dragging.current=true;
+    clearLongPress();lastTap.current=null;tapCandidate.current=null;
+    cancelled.current=false;dragging.current=true;
     cancelAnimationFrame(motion.current);motion.current=0;
     pose.current={...committed.current};
     onVisualMove?.(token,token.x,token.y,true);
@@ -302,10 +303,9 @@ function TokenShapeInner({
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const menuOpened = useRef(false); // long-press fired this touch → swallow the tap
-  // Manual double-tap detection: Konva's synthesized `dbltap` is unreliable next
-  // to these long-press handlers, so we track the previous touch ourselves and
-  // de-dupe against `dbltap` in case it DOES fire for the same gesture.
+  // Count completed taps only: a second touch can still become a drag or hold.
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
+  const tapCandidate=useRef<{t:number;x:number;y:number}|null>(null);
   const lastActivate = useRef(0);
   const activate = () => {
     if (Date.now() - lastActivate.current < 600) return; // already fired
@@ -331,29 +331,17 @@ function TokenShapeInner({
   };
 
   const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
+    clearLongPress();menuOpened.current=false;
+    if(e.evt.touches.length!==1){lastTap.current=null;tapCandidate.current=null;return;}
     const t = e.evt.touches[0];
     if (!t) return;
     const { clientX, clientY } = t;
-    // Two quick nearby touches = a double-tap → activate (select + open the
-    // details/right panel) instead of arming another long-press.
-    const prev = lastTap.current;
-    lastTap.current = { t: Date.now(), x: clientX, y: clientY };
-    if (
-      prev &&
-      Date.now() - prev.t < 350 &&
-      Math.hypot(clientX - prev.x, clientY - prev.y) < 30
-    ) {
-      clearLongPress();
-      lastTap.current = null;
-      activate();
-      return;
-    }
+    tapCandidate.current={t:Date.now(),x:clientX,y:clientY};
+    touchStart.current={x:clientX,y:clientY};
     if (!onContextMenu) return;
-    clearLongPress();
-    menuOpened.current = false;
-    touchStart.current = { x: clientX, y: clientY };
     longPress.current = setTimeout(() => {
       menuOpened.current = true; // opened by hold — the release tap must not act
+      tapCandidate.current=null;lastTap.current=null;
       openMenu(clientX, clientY);
     }, 500);
   };
@@ -361,10 +349,18 @@ function TokenShapeInner({
   // On lift: if the hold opened the menu, swallow the synthesized tap/click so
   // the token doesn't re-select (and the menu's open-grace keeps it visible).
   const handleTouchEnd = (e: KonvaEventObject<TouchEvent>) => {
+    const candidate=tapCandidate.current;tapCandidate.current=null;
     if (menuOpened.current) {
       e.evt.preventDefault();
       e.cancelBubble = true;
       menuOpened.current = false;
+      lastTap.current=null;
+    }else if(candidate&&Date.now()-candidate.t<350&&e.evt.touches.length===0){
+      const previous=lastTap.current,now=Date.now();
+      if(previous&&now-previous.t<350&&Math.hypot(candidate.x-previous.x,candidate.y-previous.y)<30){lastTap.current=null;activate();}
+      else lastTap.current={...candidate,t:now};
+    }else{
+      lastTap.current=null;
     }
     clearLongPress();
   };
@@ -376,6 +372,7 @@ function TokenShapeInner({
     // Cancel only once the finger has clearly moved (a real drag), not on jitter.
     if (Math.hypot(t.clientX - start.x, t.clientY - start.y) > 12) {
       clearLongPress();
+      tapCandidate.current=null;
       lastTap.current = null; // a drag is not the first tap of a double-tap
     }
   };
@@ -561,7 +558,6 @@ function TokenShapeInner({
         if ((e.evt as MouseEvent).button !== 0) return;
         activate();
       }}
-      onDblTap={() => activate()}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
@@ -569,6 +565,7 @@ function TokenShapeInner({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
+      onTouchCancel={()=>{clearLongPress();tapCandidate.current=null;lastTap.current=null;}}
       onMouseOver={handleMouseOver}
       onMouseMove={handleMouseMove}
       onMouseOut={handleMouseOut}
