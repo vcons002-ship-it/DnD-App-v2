@@ -49,7 +49,7 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
    if(timing)timing.startedAt=timingClock();
    let prepared:StateSnapshot,source:StateSnapshot;
    const inputKey=d!.managed?renderingInputKey(next):undefined;
-   const pending=()=>d!.pending;
+   const pending=()=>d!.pending,pendingTiming=()=>d!.pendingTiming;
    const current=()=>deliveries.get(id)===d&&(serial===d!.serial||!!inputKey&&!!pending()&&renderingInputKey(pending()!)===inputKey);
    const prepareMotion=async(sourceView:StateSnapshot,endpoint:()=>Promise<StateSnapshot>)=>{
     if(!d!.legacy||!d!.managed||!sourceView.serverRendering?.enabled||!options.legacyMotion||(options.renderProtocol??0)<3||d!.forceFull||!d!.previous||!positionsChanged(d!.previous,sourceView))return;
@@ -85,7 +85,7 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
    if(deliveries.get(id)!==d)break;
    if(inputKey){d!.inputKey=inputKey;d!.ready=prepared;d!.readySource=source;}
    if(serial!==d!.serial){
-    const latest=pending(),latestTiming=d!.pendingTiming;
+    const latest=pending(),latestTiming=pendingTiming();
     if(inputKey&&latest&&renderingInputKey(latest)===inputKey){
      d!.pending=undefined;d!.pendingTiming=undefined;
      if(latestTiming)timing={...latestTiming,startedAt:timing?.startedAt??timingClock(),reused:true,workers:timing?.workers??latestTiming.workers};
