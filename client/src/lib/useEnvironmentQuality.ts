@@ -16,16 +16,26 @@ export const readGraphicsQuality=():EnvironmentQuality=>{
   try {return parseGraphicsQuality(localStorage.getItem(key));}
   catch {return DEFAULT_GRAPHICS_QUALITY;}
 };
+export function readStandardGraphicsQuality():EnvironmentQuality{
+  try{const saved=parseGraphicsQuality(localStorage.getItem(key+'-standard'));return saved==='legacy'?DEFAULT_GRAPHICS_QUALITY:saved;}
+  catch{return DEFAULT_GRAPHICS_QUALITY;}
+}
 function subscribe(listener:()=>void){
   window.addEventListener(event,listener);window.addEventListener('storage',listener);
   return()=>{window.removeEventListener(event,listener);window.removeEventListener('storage',listener);};
 }
+export function useLegacyMode(){return useSyncExternalStore(subscribe,readGraphicsQuality,()=>DEFAULT_GRAPHICS_QUALITY)==='legacy';}
 export function useEnvironmentQuality(){
   const quality=useSyncExternalStore(subscribe,readGraphicsQuality,()=> DEFAULT_GRAPHICS_QUALITY);
   const viewportWidth=useSyncExternalStore(listener=>{window.addEventListener('resize',listener);return()=>window.removeEventListener('resize',listener);},()=>window.innerWidth,()=>1440);
   const autoTier=useSyncExternalStore(subscribe,()=>adaptive.tier,()=> 'high' as const);
   const setQuality=(value:EnvironmentQuality)=>{
-    try {localStorage.setItem(key,value);}catch {return;}
+    try {
+      const previous=readGraphicsQuality();
+      if(value!=='legacy')localStorage.setItem(key+'-standard',value);
+      else if(previous!=='legacy')localStorage.setItem(key+'-standard',previous);
+      localStorage.setItem(key,value);
+    }catch {return;}
     window.dispatchEvent(new Event(event));
   };
   const budget=useMemo(()=>graphicsBudget(quality,viewportWidth,quality==='auto'?(viewportWidth<900&&autoTier==='high'?'balanced':autoTier):undefined),[quality,viewportWidth,autoTier]);

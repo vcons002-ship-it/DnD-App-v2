@@ -1,6 +1,6 @@
 import {advancedSpell} from '../../../shared/advancedSpells';
 import {partySpell} from '../../../shared/partySpells';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo,useRef, useState } from 'react';
 import type {
   Character,
   Monster,
@@ -8,7 +8,7 @@ import type {
   Token,
   TokenKind,
 } from '../../../shared/types';
-import { healTargets, validTargets, targetLabel } from '../lib/targets';
+import { targetLists, targetLabel } from '../lib/targets';
 import {ShowDeadTargets} from './ShowDeadTargets';
 import { useWeaponAttackOptions } from '../lib/useWeaponAttackOptions';
 import { useStore } from '../state/socket';
@@ -103,7 +103,7 @@ export function CombatSection({
   };
 
   const showDead = useStore(s => s.showDeadTargets);
-  const targets = validTargets(snapshot, attacker, showDead);
+  const {attack:targets,heal:healList}=useMemo(()=>targetLists(snapshot,attacker,showDead),[snapshot,attacker,showDead]);
   const validDefault =
     defaultTargetId && targets.some((t) => t.id === defaultTargetId)
       ? defaultTargetId
@@ -129,7 +129,6 @@ export function CombatSection({
   }, [combatTarget]);
 
   // Heals pick from allies instead (self first = default) and apply on cast.
-  const healList = healTargets(snapshot, attacker, showDead);
   const hasHeal = abilities.some((a) => effectiveSheetAbility(a).roll?.kind === 'heal');
   const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
   const buffList = healList.filter(token => token.mapId === attacker.mapId && !token.sharedSightOnly);

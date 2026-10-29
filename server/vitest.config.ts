@@ -13,6 +13,15 @@ export default defineConfig({
       DATA_ROOT: testRoot,
       DB_PATH: path.join(testRoot, 'game.db'),
       DM_PASSPHRASE: 'test-dm-secret',
+      // dotenv must not import real provider credentials or local AI endpoints.
+      // Tests that exercise providers supply their own mocks explicitly.
+      GEMINI_API_KEY: '',
+      AI_MODE: 'local',
+      OLLAMA_URL: 'http://127.0.0.1:1',
+      COMFY_URL: 'http://127.0.0.1:1',
+      HUNYUAN_URL: 'http://127.0.0.1:1',
+      HUNYUAN_SHAPE_URL: 'http://127.0.0.1:1',
+      HUNYUAN_PAINT_URL: 'http://127.0.0.1:1',
     },
     // The whole suite shares one throwaway SQLite file with
     // no per-file isolation, so running test files in PARALLEL races their

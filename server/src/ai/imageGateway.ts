@@ -5,6 +5,8 @@ import { config } from '../config.js';
 import { generateImage } from './comfy.js';
 import { apiRequest } from './apiRequest.js';
 import { reportAi } from './status.js';
+import {closestImageAspect,padMapReference,restoreMapMask} from './imageFraming.js';
+export {closestImageAspect} from './imageFraming.js';
 
 /** Ordinary art stays local first; miniature references explicitly prefer the API. */
 export async function generateImageWithBackup(prompt:string, options: Parameters<typeof generateImage>[1], prefer: 'local' | 'api' = 'local',signal?:AbortSignal) {
@@ -32,13 +34,18 @@ export async function generateImageWithBackup(prompt:string, options: Parameters
   return generateApiImage(prompt, options,[],signal);
 }
 
-export async function generateApiImage(prompt:string, options: Parameters<typeof generateImage>[1], referenceImages: {mimeType:string;data:string}[] = [],signal?:AbortSignal) {
+export async function generateApiImage(prompt:string, options: (NonNullable<Parameters<typeof generateImage>[1]> & {preserveMapFraming?:boolean})|undefined, referenceImages: {mimeType:string;data:string}[] = [],signal?:AbortSignal) {
+  const framed=options?.preserveMapFraming&&referenceImages.length===1?await padMapReference(Buffer.from(referenceImages[0].data,'base64')):undefined;
+  if(framed){
+    referenceImages=[{mimeType:'image/png',data:framed.image.toString('base64')}];
+    prompt+=' The reference includes dark padding around the map. Preserve the entire canvas and padding exactly; annotate only existing map features. Do not crop, zoom, or stretch the map.';
+  }
   type Result={candidates?:{content?:{parts?:{inlineData?:{mimeType?:string;data?:string}}[]}}[]};
   const result=await apiRequest<Result>(
     `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiImageModel}:generateContent`,
     {method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':config.geminiApiKey},body:JSON.stringify({
       contents:[{parts:[{text:prompt},...referenceImages.map(inlineData=>({inlineData}))]}],
-      generationConfig:{responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:closestImageAspect(options?.width??768,options?.height??768), ...((options?.width ?? 0) >= 2048 ? {imageSize:'2K'} : {})}}
+      generationConfig:{responseModalities:['TEXT','IMAGE'],imageConfig:{aspectRatio:framed?.framing.aspectRatio??closestImageAspect(options?.width??768,options?.height??768), ...((options?.width ?? 0) >= 2048 ? {imageSize:'2K'} : {})}}
     })}, {signal,timeoutMs:180000,label:`Gemini image API (${config.geminiImageModel})`});
   signal?.throwIfAborted();
   const image=result?.data?.candidates?.[0]?.content?.parts?.find(p=>!(p as {thought?:boolean}).thought && p.inlineData?.data)?.inlineData;
@@ -47,20 +54,19 @@ export async function generateApiImage(prompt:string, options: Parameters<typeof
     reportAi('Image generation failed. The image API did not return a usable image.');
     return {error:'The image API did not return a usable image. Check the DM notices and try again.'};
   }
+  let output=Buffer.from(image.data,'base64');
+  if(framed){
+    try{output=await restoreMapMask(output,framed.framing);}
+    catch(error){return {error:error instanceof Error?error.message:'Could not align the AI annotation image. No draft was applied.'};}
+  }
   try {
-    const filename=`${randomUUID()}${ext}`;
+    const filename=`${randomUUID()}${framed?'.png':ext}`;
     await fs.mkdir(config.uploadsDir,{recursive:true});
-    await fs.writeFile(path.join(config.uploadsDir,filename),Buffer.from(image.data,'base64'));
+    await fs.writeFile(path.join(config.uploadsDir,filename),output);
     reportAi(`Gemini image API (${config.geminiImageModel}) completed the image.`);
     return {path:`/uploads/${filename}`};
   } catch {
     reportAi('The API generated an image, but the server could not save it.');
     return {error:'Could not save the generated image.'};
   }
-}
-
-export function closestImageAspect(width:number,height:number):string {
- const ratios=['1:1','2:3','3:2','3:4','4:3','4:5','5:4','9:16','16:9','21:9'];
- const distance=(r:string)=>{const [w,h]=r.split(':').map(Number);return Math.abs(Math.log((width/height)/(w/h)));};
- return ratios.sort((a,b)=>distance(a)-distance(b))[0];
 }

@@ -1,4 +1,6 @@
 import {NaturalTwentyCelebration} from './NaturalTwentyCelebration';
+import {useLegacyMode} from '../lib/useEnvironmentQuality';
+import {LegacyRollOverlay} from './LegacyRollOverlay';
 import {HiddenRollReview} from './HiddenRollReview';
 import {diceTriggerForTray} from '../lib/rollTrayPresentation';
 import {dicePreloadPlan} from '../lib/dicePreloadPlan';
@@ -139,7 +141,11 @@ function ComparedDice({ comparison, locked, stopping, tick, onSettled }: {
  * Non-blocking (the map stays interactive); click / tap / Esc skips it. Mechanics
  * already applied server-side — this is purely cosmetic.
  */
-export const RollRevealOverlay = memo(function RollRevealOverlay() {
+export function RollRevealOverlay(){
+  const legacy=useLegacyMode();
+  return legacy?<LegacyRollOverlay/>:<FullRollRevealOverlay/>;
+}
+const FullRollRevealOverlay = memo(function FullRollRevealOverlay() {
   const player = useStore(s => s.snapshot?.role === 'player');
   const [reducedMotion, setReducedMotion] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
   useEffect(() => {

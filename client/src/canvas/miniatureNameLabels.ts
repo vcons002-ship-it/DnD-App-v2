@@ -1,4 +1,5 @@
 import Konva from 'konva';
+import {invalidateRetainedToken} from './retainedTokenLayer';
 
 export type MiniatureNameLabel = {
   id: string;
@@ -16,17 +17,22 @@ export function setMiniatureNamesRendered(layer:Konva.Layer,ids:ReadonlySet<stri
   let changed=false;
   for(const node of layer.find<Konva.Group>('.token')) {
     const visible=!ids.has(node.getAttr('tokenId'));
+    const version=node.getAttr('tokenLabelVersion');
+    const old=paintSuppression.get(node);
+    if(old?.visible===visible&&old.version===version)continue;
+    paintSuppression.set(node,{visible,version});
     for(const label of node.find('.token-label, .token-tracking-tag')) {
-      if(label.visible()!==visible){label.visible(visible);changed=true;}
+      if(label.visible()!==visible){label.visible(visible);invalidateRetainedToken(node);changed=true;}
     }
   }
   if(changed)layer.batchDraw();
 }
+const paintSuppression=new WeakMap<Konva.Group,{visible:boolean;version:unknown}>();
 
 /** Rasterize the existing name/tag typography only when its content changes.
  * Positions follow the live Konva transforms, including drag and camera rotation. */
 export function createMiniatureNameReader() {
-  const cache=new Map<string,{key:string;canvas:HTMLCanvasElement;bounds:{x:number;y:number;width:number;height:number}}>();
+  const cache=new Map<string,{key:string;node:Konva.Group;hud:Konva.Group;canvas:HTMLCanvasElement;bounds:{x:number;y:number;width:number;height:number}}>();
   return (layer:Konva.Layer|null,emphasized:(id:string)=>boolean):MiniatureNameLabel[]=>{
     if(!layer){cache.clear();return [];}
     const inverse=layer.getAbsoluteTransform().copy().invert();
@@ -36,30 +42,28 @@ export function createMiniatureNameReader() {
     for(const node of layer.find<Konva.Group>('.token')) {
       if(!node.visible()||node.getAbsoluteOpacity()<=0)continue;
       const id=node.getAttr('tokenId') as string;
-      const hud=node.findOne<Konva.Group>('.token-upright-hud');
-      if(!hud)continue;
-      const labels=hud.find('.token-label, .token-tracking-tag');
-      if(!labels.length)continue;
-      present.add(id);
-      // The original Konva labels become invisible after their GPU copy renders.
-      // Normalize scene-paint suppression out of the texture cache key.
-      const key=JSON.stringify([density,...labels.map(label=>{
-        const obj=label.toObject();
-        const {opacity:_opacity,visible:_visible,...attrs}=obj.attrs;
-        obj.attrs={...attrs,opacity:1,visible:true};return obj;
-      })]);
       let entry=cache.get(id);
-      if(!entry||entry.key!==key){
+      const version=node.getAttr('tokenLabelVersion');
+      const key=JSON.stringify([density,version]);
+      const reusable=entry?.node===node&&entry.key===key&&version!==undefined;
+      const hud=reusable?entry!.hud:node.findOne<Konva.Group>('.token-upright-hud');
+      if(!hud)continue;
+      present.add(id);
+      // TokenShape publishes only typography/layout changes. Motion, selection,
+      // HP changes that do not alter layout and torch flicker reuse glyph pixels.
+      if(!reusable){
+        const labels=hud.find('.token-label, .token-tracking-tag');
+        if(!labels.length){cache.delete(id);continue;}
         const group=new Konva.Group({listening:false});
         for(const label of labels)group.add(label.clone({opacity:1,visible:true,listening:false}));
         const b=group.getClientRect();
         const bounds={x:Math.floor(b.x)-1,y:Math.floor(b.y)-1,width:Math.ceil(b.width)+3,height:Math.ceil(b.height)+3};
         const canvas=group.toCanvas({...bounds,pixelRatio:density});
-        group.destroy();entry={key,canvas,bounds};cache.set(id,entry);
+        group.destroy();entry={key,node,hud,canvas,bounds};cache.set(id,entry);
       }
-      const b=entry.bounds,matrix=inverse.copy().multiply(hud.getAbsoluteTransform());
+      const b=entry!.bounds,matrix=inverse.copy().multiply(hud.getAbsoluteTransform());
       const points=[{x:b.x,y:b.y},{x:b.x+b.width,y:b.y},{x:b.x,y:b.y+b.height},{x:b.x+b.width,y:b.y+b.height}].map(p=>matrix.point(p));
-      result.push({id,canvas:entry.canvas,points,opacity:node.getAbsoluteOpacity(),emphasized:emphasized(id)});
+      result.push({id,canvas:entry!.canvas,points,opacity:node.getAbsoluteOpacity(),emphasized:emphasized(id)});
     }
     for(const id of cache.keys())if(!present.has(id))cache.delete(id);
     return result;

@@ -253,6 +253,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
 `);
 
+db.exec(`CREATE TABLE IF NOT EXISTS rendering_policies (
+ session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+ scope TEXT NOT NULL, target_id TEXT NOT NULL, value TEXT NOT NULL,
+ PRIMARY KEY(session_id,scope,target_id)
+)`);
+
 /** Read an app-wide meta value (one-time flags, etc.), or undefined if unset. */
 export function getMeta(key: string): string | undefined {
   return (

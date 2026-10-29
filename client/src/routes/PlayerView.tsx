@@ -23,6 +23,7 @@ import { useSelection } from '../lib/useSelection';
 import {DockableWindowHeader} from '../components/DockableWindowHeader';
 import { usePlayerLayout } from '../lib/usePlayerLayout';
 import {useCompactViewport} from '../lib/useCompactViewport';
+import {useStableCallback} from '../lib/useStableCallback';
 
 export function PlayerView() {
   const snapshot = useStore((s) => s.snapshot);
@@ -95,6 +96,10 @@ export function PlayerView() {
     () => snapshot?.tokens.find((t) => t.id === primaryId) ?? null,
     [snapshot, primaryId],
   );
+  const placeOwnToken=useStableCallback(()=>setPlacing(p=>!p));
+  const release=useStableCallback(()=>{
+    setClaimedId(null);releaseCharacter();if(claimKey)localStorage.removeItem(claimKey);
+  });
 
   if (!snapshot) return <div className="loading">Loading…</div>;
 
@@ -108,11 +113,6 @@ export function PlayerView() {
     selectedToken?.kind === 'monster' &&
     snapshot.monsters.find((m) => m.id === selectedToken.refId)?.objectKind;
   const consoleToken = selectedObject ? myToken : (selectedToken ?? myToken);
-  const release = () => {
-    setClaimedId(null);
-    releaseCharacter();
-    if (claimKey) localStorage.removeItem(claimKey);
-  };
 
   return (
     <div className={`layout player-fantasy resource-layout-${layout.resourceLayout}${chatOpen ? ' chat-open' : ''}${layout.side('chat')==='left'?' chat-docked-left':''}`}
@@ -173,10 +173,9 @@ export function PlayerView() {
             key={mine.id}
             character={mine}
             resourceLayout={layout.resourceLayout}
-            snapshot={snapshot}
             placing={placing}
             isPlaced={alreadyPlaced}
-            onPlace={() => setPlacing((p) => !p)}
+            onPlace={placeOwnToken}
             onRelease={release}
           />
         )}

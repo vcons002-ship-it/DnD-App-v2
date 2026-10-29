@@ -22,6 +22,34 @@ function client(sessionId:string,mapId:string,role:'dm'|'player'){
   return Object.assign((p:unknown)=>handlers.get('map:setEnvironment')!(p),{id,send:(event:string,p:unknown)=>handlers.get(event)!(p)});
 }
 describe('saved map environment',()=>{
+  it('appends rapid placements using saved defaults and restricts placement and movement to the owning DM',()=>{
+    const session=createSession('Rapid placement'),map=createMap(session.id,{name:'Lights'}),other=createMap(createSession('Other').id,{name:'Other'});
+    const dm=client(session.id,map.id,'dm'),player=client(session.id,map.id,'player');
+    dm({mapId:map.id,settings:{newLightColor:'cool',newLightDefaults:{radiusFt:32,heightFt:9,intensity:1.4,flicker:false,visibleTorch:false,fixture:'lantern'}}});
+    for(let i=0;i<5;i++)dm.send('map:placeLight',{mapId:map.id,x:50+i*10,y:80});
+    const lights=getMap(map.id)!.environment!.lights;expect(lights).toHaveLength(5);
+    for(const light of lights)expect(light).toMatchObject({radiusFt:32,heightFt:9,intensity:1.4,flicker:false,color:'cool',fixture:'lantern'});
+    dm.send('map:placeLight',{mapId:map.id,lightId:lights[0].id,x:100,y:110});
+    expect(getMap(map.id)!.environment!.lights).toHaveLength(5);
+    expect(getMap(map.id)!.environment!.lights[0]).toMatchObject({x:100,y:110,radiusFt:32});
+    for(const payload of [{mapId:map.id,x:NaN,y:0},{mapId:map.id,x:0,y:Infinity},{mapId:map.id,x:0,y:0,lightId:'missing'},{mapId:other.id,x:0,y:0}])dm.send('map:placeLight',payload);
+    player.send('map:placeLight',{mapId:map.id,x:10,y:10});
+    expect(getMap(map.id)!.environment!.lights).toHaveLength(5);expect(getMap(other.id)!.environment!.lights).toHaveLength(0);
+  });
+  it('persists all placement defaults per map without changing existing lights, including backup import',()=>{
+    const session=createSession('Placement defaults'),map=createMap(session.id,{name:'Defaults'}),other=createMap(session.id,{name:'Other'});
+    const light={id:'old',x:50,y:80,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true};
+    updateMapEnvironment(session.id,map.id,{lights:[light]});
+    const before=getMap(map.id)!.environment!.lights;
+    const defaults={radiusFt:32,heightFt:9,intensity:1.4,flicker:false,visibleTorch:false,fixture:'lantern'};
+    updateMapEnvironment(session.id,map.id,{newLightDefaults:defaults,newLightColor:'#ABCDEF'});
+    updateMapEnvironment(session.id,map.id,{newLightDefaults:{radiusFt:NaN,flicker:'bad',fixture:'bad'}});
+    expect(getMap(map.id)!.environment).toMatchObject({newLightDefaults:defaults,newLightColor:'#abcdef',lights:before});
+    expect(getMap(other.id)!.environment!.newLightDefaults).toBeUndefined();
+    const restored=importSession(exportSession(session.code)!);
+    expect(listMaps(getSessionByCode(restored.code)!.id).find(m=>m.name==='Defaults')!.environment).toMatchObject({newLightDefaults:defaults,newLightColor:'#abcdef'});
+    expect(sanitizeMapEnvironment({newLightDefaults:{radiusFt:100,heightFt:-5,intensity:50}}).newLightDefaults).toMatchObject({radiusFt:60,heightFt:.5,intensity:2});
+  });
   it('persists the next-light color per map, across atmosphere changes and save import',()=>{
     const session=createSession('Light placement colors'),map=createMap(session.id,{name:'Blue room'}),other=createMap(session.id,{name:'Other room'});
     expect(getMap(map.id)!.environment!.newLightColor).toBe('warm');

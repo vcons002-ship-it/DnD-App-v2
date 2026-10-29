@@ -12,10 +12,14 @@ import { createApiRouter } from './routes.js';
 import { registerSocketHandlers } from './socketHandlers.js';
 import { startBackupScheduler } from './backupScheduler.js';
 import { startTunnel, publicUrl } from './tunnel.js';
-import { broadcastAiStatus, broadcastSnapshots, type IOServer } from './connections.js';
+import { broadcastAiStatus, broadcastSnapshots, mediaSocketId, type IOServer } from './connections.js';
+import {renderAssetFor,renderMetrics} from './renderAssets.js';
 import { setAiReporter } from './ai/status.js';
 import { assetQueue, startAssetProduction } from './assets/production.js';
 import { placeholderModelMiddleware } from './assets/placeholderModel.js';
+import {visibilityWorkers} from './visibilityWorkers.js';
+import {deliveryMetrics} from './stateDelivery.js';
+import {monitorEventLoopDelay,performance} from 'node:perf_hooks';
 
 // Last-resort crash guards. Socket handlers already run inside a per-event
 // try/catch (see socketHandlers.ts) and async routes catch internally, but a
@@ -73,7 +77,20 @@ if (config.placeholderModels) {
 }
 app.use('/uploads', express.static(config.uploadsDir));
 app.use('/api', createApiRouter(io));
+app.get('/api/render/:token/:key',(req,res)=>{
+ const id=mediaSocketId(req.params.token),buffer=id&&renderAssetFor(id,req.params.key);
+ if(!buffer){res.sendStatus(404);return;}
+ res.setHeader('Cache-Control','private, max-age=3600');res.setHeader('Referrer-Policy','no-referrer');res.type(buffer.subarray(0,4).toString()==='RIFF'?'webp':'png').send(buffer);
+});
 app.get('/api/health', (_req, res) => res.json({ ok: true, preview: config.preview }));
+// Opt-in diagnostics for isolated performance runs; never enabled by normal startup.
+if(process.env.E2E_PERFORMANCE_METRICS==='1'){
+ const lag=monitorEventLoopDelay({resolution:20});lag.enable();
+ app.get('/api/performance-metrics',(req,res)=>{
+  if(req.get('x-dm-passphrase')!==config.dmPassphrase){res.sendStatus(403);return;}
+  res.json({cpu:process.cpuUsage(),uptime:process.uptime(),memory:process.memoryUsage(),workers:visibilityWorkers.metrics,rendering:renderMetrics,delivery:deliveryMetrics,eventLoop:{...performance.eventLoopUtilization(),p99Ms:lag.percentile(99)/1e6,maxMs:lag.max/1e6}});
+ });
+}
 
 // Serve the built client (SPA) in production; Vite handles dev separately.
 // Caching matters here: Vite emits content-HASHED asset filenames (safe to

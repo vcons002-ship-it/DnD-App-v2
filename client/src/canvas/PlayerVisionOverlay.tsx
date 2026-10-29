@@ -10,15 +10,16 @@ import type {VisionCoverFrame} from './miniatureVisionComposite';
 import {createVisionLightProjector} from './visionLightEllipse';
 import {createVisionLightMask} from './visionLightMask';
 import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
+import type {LegacyGeometry} from '../../../shared/legacyVision';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
-export type PlayerVisionHandle={cover:()=>VisionCoverFrame|undefined;memoryCanvas:()=>HTMLCanvasElement|null;frame:()=>void;prepareLights:(lights:VisionLight[])=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
+export type PlayerVisionHandle={cover:()=>VisionCoverFrame|undefined;memoryCanvas:()=>HTMLCanvasElement|null;frame:(now?:number)=>void;prepareLights:(lights:VisionLight[])=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
 /** Terrain visibility stays below lifted miniature pixels. The GPU path keeps
  * artwork grading below figures and grades their full silhouette at the base.
  * Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
 type MemoryTerrain={environment?:MapEnvironment;explored?:ExploredTerrain;tiles:TerrainTile[];bounds:{x:number;y:number;w:number;h:number};grid?:{size:number;x:number;y:number}};
-export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;spellLighting?:boolean;mapFogOfWar?:boolean;keepRevealed?:boolean;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
+export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;serverGeometry?:LegacyGeometry|null;spellLighting?:boolean;mapFogOfWar?:boolean;keepRevealed?:boolean;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
  const shade=useRef<HTMLDivElement>(null);
  const nearShade=useRef<HTMLDivElement>(null),nearPaths=useRef<SVGGElement>(null);
  const root=useRef<HTMLDivElement>(null);
@@ -70,7 +71,10 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    const key=`${point.x},${point.y}:${wallsKey}`;
    const cached=polygonCache.current.get(slot);
    if(cached?.key===key)return cached.points;
-   const points=wallVisibilityPolygon(point,vision.walls??[],radius);
+   const supplied=state.current.serverGeometry?.outlines,ready=supplied?.shapes[slot];
+   // Static light clips and accepted sight origins arrive prepared by the server.
+   // Intermediate animation positions retain the existing smooth projection.
+   const points=supplied?.wallsKey===wallsKey&&ready?.x===point.x&&ready?.y===point.y?ready.points:wallVisibilityPolygon(point,vision.walls??[],radius);
    polygonCache.current.set(slot,{key,points});return points;
   };
   const project=(vertices:WallPoint[])=>{
@@ -203,7 +207,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
   fullDraw.current=true;cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},[props]);
  const terrain=props.terrain,b=terrain?.bounds,g=terrain?.grid;
- return <><div ref={root} data-testid="player-vision" data-explored-regions={terrain?.explored?.length??0} data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.heavy?props.vision.rangeFt:'unlimited'} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
+ return <><div ref={root} data-testid="player-vision" data-wall-geometry-source={props.serverGeometry?.outlines?'server':'client'} data-explored-regions={terrain?.explored?.length??0} data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.heavy?props.vision.rangeFt:'unlimited'} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
   style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}}>
   <svg width={props.width} height={props.height} style={{position:'absolute',inset:0}} aria-hidden="true"><defs>
    <clipPath id={sightId} clipPathUnits="userSpaceOnUse" ref={sightPaths}/><g ref={lightClips}/>

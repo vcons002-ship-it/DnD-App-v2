@@ -1,5 +1,6 @@
 import { MonsterAppearanceControl } from './MonsterAppearanceControl';
-import { useEffect, useRef, useState } from 'react';
+import { memo,useEffect, useRef, useState } from 'react';
+import {samePlayerPanelSnapshot,samePanelToken} from '../lib/playerPanelSnapshot';
 import type {
   Character,
   Monster,
@@ -37,7 +38,7 @@ type Props = {
 };
 
 /** Right-side detail panel for the currently selected token (DM + player). */
-export function SelectedTokenPanel({
+function SelectedTokenPanelInner({
   snapshot,
   token,
   selectedIds,
@@ -96,9 +97,6 @@ export function SelectedTokenPanel({
   const myChar = !isDm
     ? snapshot.characters.find((c) => c.claimedBy === mySocketId)
     : undefined;
-  const myToken = myChar
-    ? snapshot.tokens.find((t) => t.kind === 'pc' && t.refId === myChar.id)
-    : undefined;
 
   // A player viewing an object (chest/door/…) sees its state read-only — not a
   // combat console. The DM falls through to the full editable panel below.
@@ -123,19 +121,14 @@ export function SelectedTokenPanel({
   // The compact HUD owns the single combat heading; reference sections remain
   // rearrangeable/collapsible without moving the action controls out of reach.
   if (myChar) {
-    const selectingOwn = !!myToken && token.id === myToken.id;
+    const selectingOwn = token.kind==='pc'&&token.refId===myChar.id;
     const consoleSections: Section[] = [];
-    const combatControls = myToken ? (
-      <CombatSection
-        snapshot={snapshot}
-        attacker={myToken}
-        caster={myChar}
-        kind="pc"
+    const combatControls = (
+      <LivePlayerCombat
+        characterId={myChar.id}
         defaultTargetId={selectingOwn ? undefined : token.id}
         compactPlayer={compactPlayerConsole}
       />
-    ) : (
-      <p className="muted">Place your token on the map to attack.</p>
     );
     // The ONE rolling surface: target dropdown + weapons + rollable abilities.
     // First in the fallback order so it lands on top (existing saved orders
@@ -167,7 +160,7 @@ export function SelectedTokenPanel({
         // Read-only reference list (collapsible rows → description) so the
         // player sees everything they added without scrolling; rolling +
         // toggles live in the Combat section, editing on the left-panel sheet.
-        <CharacterSpells character={myChar} editable={false} rollsElsewhere />
+        <PlayerSpellReference character={myChar}/>
       ),
     });
     // Loot a fallen creature whose loot the DM revealed (server-gated).
@@ -574,6 +567,22 @@ export function SelectedTokenPanel({
     </div>
   );
 }
+
+const PlayerSpellReference=memo(function PlayerSpellReference({character}:{character:Character}){
+ return <CharacterSpells character={character} editable={false} rollsElsewhere/>;
+});
+/** Subscribe to current targeting inputs independently of the reference panel. */
+const LivePlayerCombat=memo(function LivePlayerCombat({characterId,defaultTargetId,compactPlayer}:{characterId:string;defaultTargetId?:string;compactPlayer:boolean}){
+ const snapshot=useStore(s=>s.snapshot),caster=snapshot?.characters.find(c=>c.id===characterId),attacker=snapshot?.tokens.find(t=>t.kind==='pc'&&t.refId===characterId);
+ return snapshot&&caster&&attacker?<CombatSection snapshot={snapshot} attacker={attacker} caster={caster} kind="pc" defaultTargetId={defaultTargetId} compactPlayer={compactPlayer}/>:<p className="muted">Place your token on the map to attack.</p>;
+});
+export const SelectedTokenPanel=memo(SelectedTokenPanelInner,(p,n)=>{
+ const socketId=useStore.getState().socket?.id;
+ if(!p.compactPlayerConsole||!n.compactPlayerConsole||p.snapshot.role!=='player'||n.snapshot.role!=='player'||!socketId||!n.snapshot.characters.some(c=>c.claimedBy===socketId))return false;
+ // Objects retain their live distance/interaction controls in the original path.
+ if(n.token.kind==='monster'&&n.snapshot.monsters.find(m=>m.id===n.token.refId)?.objectKind)return false;
+ return p.selectedIds===n.selectedIds&&samePanelToken(p.token,n.token)&&samePlayerPanelSnapshot(p.snapshot,n.snapshot);
+});
 
 /**
  * A collapsible, read-only "Details" panel for the selected creature, shown at

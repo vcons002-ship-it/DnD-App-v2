@@ -210,16 +210,17 @@ export function createApiRouter(io: IOServer): Router {
     try{const {map,source}=await geometrySource(String(req.params.mapId));res.json({source,imagePath:source.previewImagePath??map.imagePath});}
     catch(error){res.status(422).json({error:error instanceof Error?error.message:'Could not read map images.'});}
   });
-  router.post('/maps/:mapId/wall-draft',async(req,res)=>{
+  router.post(['/maps/:mapId/wall-draft','/maps/:mapId/natural-boundary-draft'],async(req,res)=>{
     if(!requireDm(req,res))return;
     const mapId=String(req.params.mapId);
     if(!getMap(mapId)){res.status(404).json({error:'Map not found.'});return;}
     if(analyzingMaps.has(mapId)){res.status(409).json({error:'This map is already being analyzed.'});return;}
     analyzingMaps.add(mapId);
     try{
-      const method=req.body?.method??'ai';
+      const naturalOnly=req.path.endsWith('/natural-boundary-draft');
+      const method=naturalOnly?'ai':req.body?.method??'ai';
       if(method!=='ai'&&method!=='local'){res.status(400).json({error:'Choose AI or local detection.'});return;}
-      res.json(await suggestMapGeometry(mapId,method,{...req.body?.options,automatic:req.body?.automatic===true}));
+      res.json(await suggestMapGeometry(mapId,method,{...req.body?.options,automatic:!naturalOnly&&req.body?.automatic===true,...(naturalOnly?{structuralWalls:false,naturalBoundaries:true}:{})}));
     }
     catch(error){res.status(422).json({error:error instanceof Error&&!('code' in error)?error.message:'Could not read the map image.'});}
     finally{analyzingMaps.delete(mapId);}

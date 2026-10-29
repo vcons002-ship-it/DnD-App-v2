@@ -9,9 +9,9 @@ export function EnvironmentQualityControl(){
   const {quality,setQuality,budget}=useEnvironmentQuality();
   return <label className="environment-quality">Graphics quality
     <select aria-label="Graphics quality" value={quality} onChange={e=>setQuality(e.target.value as EnvironmentQuality)}>
-      <option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="low">Low</option><option value="off">Effects off</option>
+      <option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="low">Low</option><option value="off">Effects off</option><option value="legacy">Legacy (CPU / integrated graphics)</option>
     </select>
-    <small>Only changes this browser. Balanced is the default and uses reduced figures. High keeps originals. Auto adjusts figures, resolution, shadows and particles for sustained frame performance. Effects off keeps lighting and fog. {quality==='auto'?`Auto: ${budget.resolved}. Adjusts to sustained frame performance.`:''}</small>
+    <small>{budget.legacy?'Legacy uses flat tokens, still maps, static roll results and basic visibility at up to 2 updates per second. Walls, lights and game rules remain available. Other browsers keep their own graphics.':'Only changes this browser. Balanced uses reduced figures. High keeps originals. Auto adjusts graphics for sustained frame performance. Effects off keeps lighting and fog.'} {quality==='auto'?`Auto: ${budget.resolved}.`:''}</small>
   </label>;
 }
 

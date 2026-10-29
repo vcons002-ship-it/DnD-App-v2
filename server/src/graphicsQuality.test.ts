@@ -3,8 +3,8 @@ import {graphicsBudget,parseGraphicsQuality} from '../../shared/graphicsQuality.
 
 describe('local graphics presets',()=>{
   it('retains old preferences and accepts Balanced without accepting unknown values',()=>{
-    for(const quality of ['auto','high','balanced','low','off'] as const)expect(parseGraphicsQuality(quality)).toBe(quality);
-    expect(parseGraphicsQuality('ultra')).toBe('balanced');expect(parseGraphicsQuality(null)).toBe('balanced');expect(parseGraphicsQuality(undefined)).toBe('balanced');
+    for(const quality of ['auto','high','balanced','low','off','legacy'] as const)expect(parseGraphicsQuality(quality)).toBe(quality);
+    expect(parseGraphicsQuality('ultra')).toBe('low');expect(parseGraphicsQuality(null)).toBe('low');expect(parseGraphicsQuality(undefined)).toBe('low');
   });
   it('reduces render pixels, shadow maps and particle work in successive presets',()=>{
     const [high,balanced,low]=['high','balanced','low'].map(q=>graphicsBudget(parseGraphicsQuality(q)));
@@ -23,9 +23,9 @@ describe('local graphics presets',()=>{
     expect(graphicsBudget('auto',1440).resolved).toBe('high');
     expect(graphicsBudget('high',390).resolved).toBe('high');
   });
-  it('lets Auto choose matching model quality and uses Balanced for an unsaved preference',()=>{
+  it('lets Auto choose matching model quality and uses Low for an unsaved preference',()=>{
     for(const tier of ['high','balanced','low'] as const)expect(graphicsBudget('auto',1440,tier).modelQuality).toBe(tier);
-    expect(graphicsBudget(parseGraphicsQuality(null)).modelQuality).toBe('balanced');
+    expect(graphicsBudget(parseGraphicsQuality(null)).modelQuality).toBe('low');
     expect(graphicsBudget('high').modelQuality).toBe('high');
     expect(graphicsBudget('balanced').modelQuality).toBe('balanced');
     expect(graphicsBudget('off').modelQuality).toBe('low');
@@ -39,5 +39,10 @@ describe('local graphics presets',()=>{
   it('Effects off removes decorative budgets without changing any rules fields',()=>{
     const budget=graphicsBudget('off');expect(budget.particleScale).toBe(0);expect(budget.mistQuality).toBe('off');
     expect(budget.localShadowLights).toBe(0);expect(budget).not.toHaveProperty('visionDistance');
+  });
+  it('Legacy explicitly disables optional graphics and caps visibility without altering gameplay rules',()=>{
+    expect(graphicsBudget('legacy')).toMatchObject({legacy:true,modelQuality:'low',visibilityRefreshMs:500,pixelRatioCap:1,particleScale:0,mistQuality:'off',localShadowLights:0});
+    expect(graphicsBudget('balanced').legacy).toBe(false);
+    expect(graphicsBudget('legacy')).not.toHaveProperty('visionDistance');
   });
 });

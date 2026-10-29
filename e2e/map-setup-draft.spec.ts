@@ -31,7 +31,7 @@ async function fixture(page:Page,request:APIRequestContext,failLights=false,star
   // Stub only paid image analysis; auth, UI, source validation and Apply use the
   // real app/server. Separate live API evidence is recorded in the dev preview.
   for(const [step,endpoint] of [['walls','wall-draft'],['doors','door-draft'],['windows','window-draft'],['lights','light-draft']] as const){
-    await page.route(`**/api/maps/${map.id}/${endpoint}`,async route=>{
+    await page.route(step==='walls'?new RegExp(`/api/maps/${map.id}/(?:wall-draft|natural-boundary-draft)$`):`**/api/maps/${map.id}/${endpoint}`,async route=>{
       calls[step]++;bodies.push({step,body:route.request().postDataJSON()});expect(route.request().headers()['x-dm-passphrase']).toBe(DM_SECRET);
       if(step==='lights'&&failLights&&calls.lights===1)await route.fulfill({status:503,json:{error:'Image API connection failed'}});
       else {
@@ -42,7 +42,7 @@ async function fixture(page:Page,request:APIRequestContext,failLights=false,star
   }
   await page.setViewportSize({width:1440,height:1000});await page.goto(`/dm?code=${code}`);
   await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
-  await page.getByRole('button',{name:'Walls',exact:true}).click();
+  await page.getByRole('button',{name:'Map features',exact:true}).click();
   await page.getByRole('button',{name:'AI analysis',exact:true}).click();
   await page.getByRole('button',{name:scope==='regions'?'Analyze selected regions':'Suggest walls, doors, windows & lights',exact:true}).click();
   if(start)await page.getByRole('button',{name:'Analyze selected features',exact:true}).click();
@@ -89,7 +89,7 @@ test('combined Apply requires DM authentication',async({request})=>{
 test('opening full-map setup makes no requests until feature selection; caves and disabled features are skipped',async({page,request})=>{
  const f=await fixture(page,request,false,false),options=page.getByRole('dialog',{name:'Map analysis options'});
  await expect(options).toBeVisible();expect(f.calls).toEqual({walls:0,doors:0,windows:0,lights:0});
- await options.getByRole('checkbox',{name:'Cave boundaries (second wall pass)',exact:true}).uncheck();
+ await options.getByRole('combobox',{name:'Wall analysis',exact:true}).selectOption('structural');
  for(const name of ['Doors','Windows','Lights'])await options.getByRole('checkbox',{name,exact:true}).uncheck();
  await options.getByRole('button',{name:'Analyze selected features',exact:true}).click();
  await expect.poll(()=>f.calls).toEqual({walls:1,doors:0,windows:0,lights:0});expect(f.bodies).toEqual([{step:'walls',body:{automatic:true,method:'ai',options:{naturalBoundaries:false}}}]);
@@ -107,6 +107,52 @@ test('automatic review explains Qwen skips and a direct run bypasses the filter'
  await dialog.getByRole('button',{name:'Run lights directly',exact:true}).click();
  await expect.poll(()=>f.calls.lights).toBe(2);expect(f.bodies.at(-1)?.body.automatic).toBe(false);
  await expect(dialog.getByText(/^Qwen: lights/)).toHaveCount(0);
+});
+
+test('natural-only selection forces one wall workflow and skips every other analysis',async({page,request})=>{
+ const f=await fixture(page,request,false,false),options=page.getByRole('dialog',{name:'Map analysis options'});
+ await options.getByRole('combobox',{name:'Wall analysis',exact:true}).selectOption('natural');
+ for(const name of ['Doors','Windows','Lights'])await options.getByRole('checkbox',{name,exact:true}).uncheck();
+ await options.getByRole('button',{name:'Analyze selected features',exact:true}).click();
+ await expect.poll(()=>f.calls).toEqual({walls:1,doors:0,windows:0,lights:0});
+ expect(f.bodies).toEqual([{step:'walls',body:{automatic:false,method:'ai',options:{naturalBoundaries:true,structuralWalls:false}}}]);
+});
+
+test('dedicated natural-only menu supports review and real Apply without a structural request',async({page,request})=>{
+ const f=await fixture(page,request,false,false);
+ await page.getByRole('dialog',{name:'Map analysis options'}).getByRole('button',{name:'Close',exact:true}).click();
+ await page.getByRole('button',{name:'Map features',exact:true}).click();
+ await page.getByRole('button',{name:'Natural boundaries only',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Wall draft',exact:true});
+ await expect(dialog.getByRole('combobox',{name:'Wall analysis',exact:true})).toHaveValue('natural');
+ expect(f.calls.walls).toBe(0);
+ Object.assign(f.drafts.walls,{wallMaskImagePath:undefined});
+ await dialog.getByRole('button',{name:'Analyze map',exact:true}).click();
+ await expect.poll(()=>f.calls).toEqual({walls:1,doors:0,windows:0,lights:0});
+ expect(f.bodies[0].body.options).toMatchObject({naturalBoundaries:true,structuralWalls:false});
+ await dialog.getByLabel('Show generated yellow annotation behind proposed walls').check();
+ await dialog.getByRole('combobox',{name:'Wall mask stage',exact:true}).selectOption('natural');
+ await expect(dialog.locator('svg image')).toHaveAttribute('href',f.map.imagePath+'?natural');
+ await expect(dialog.getByRole('combobox',{name:'Wall mask stage',exact:true}).locator('option[value=walls]')).toHaveCount(0);
+ const applied=page.waitForResponse(r=>r.url().endsWith('/wall-draft/apply'));
+ await dialog.getByRole('button',{name:'Apply 2 walls',exact:true}).click();expect((await applied).ok()).toBe(true);
+ await expect(dialog).toBeHidden();expect((await f.snapshot()).map!.walls).toHaveLength(2);
+});
+
+test('natural-only analysis on an older backend fails clearly without falling back to structural walls',async({page,request})=>{
+ const f=await fixture(page,request,false,false);
+ await page.getByRole('dialog',{name:'Map analysis options'}).getByRole('button',{name:'Close',exact:true}).click();
+ await page.getByRole('button',{name:'Map features',exact:true}).click();
+ await page.getByRole('button',{name:'Natural boundaries only',exact:true}).click();
+ await page.route('**/natural-boundary-draft',route=>route.fulfill({status:404,body:'Not found'}));
+ const dialog=page.getByRole('dialog',{name:'Wall draft',exact:true});
+ await dialog.getByRole('button',{name:'Analyze map',exact:true}).click();
+ await expect(dialog.getByRole('alert')).toContainText('requires the pending server update');
+ expect(f.calls).toEqual({walls:0,doors:0,windows:0,lights:0});
+});
+
+test('natural-only endpoint requires DM authentication',async({request})=>{
+ const response=await request.post('/api/maps/anything/natural-boundary-draft',{data:{}});expect(response.status()).toBe(403);
 });
 
 test('DM draws separate regions and sends them only to enabled analyses',async({page,request})=>{

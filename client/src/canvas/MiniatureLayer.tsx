@@ -2,10 +2,12 @@ import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame
 import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart,type OutlineRect} from './miniatureSilhouetteOutline';
 import {miniatureLodForPixels,miniatureLodPair,miniatureLodShouldPrepare,type MiniatureLod} from '../../../shared/miniatureLod';
 import {warmMiniatureGpuBuffers} from './miniatureGpuWarmup';
+import {prepareMiniatureLighting} from './miniatureLightingPreparation';
 import {createMiniatureLodTransitions} from './miniatureLodTransitions';
 import {createMiniatureLodVisibility} from './miniatureLodVisibility';
 import {createMiniatureBatches} from './miniatureBatches';
 import {createMiniatureTransform,retainMiniatureLocalTransforms} from './miniatureTransforms';
+import {miniatureAppearanceKey} from './miniatureAppearance';
 import {createMiniatureMovePreviewGeometry} from './miniatureMovePreview';
 import {createMirrorImages} from './mirrorImages';
 import {createMiniatureFootprints} from './miniatureFootprints';
@@ -127,6 +129,7 @@ type FxManifest = {
   keyframes: Array<Record<string, number> & { time: number }>;
 };
 type Instance = {
+  appearanceKey?:string;
   modelId:string;
   mirrors:ReturnType<typeof createMirrorImages>;
   baseDiameter:number;
@@ -201,7 +204,7 @@ function applyFx(instance: Instance, seconds: number) {
 
 /** One renderer for all visible miniatures. Konva remains the sole input owner. */
 function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string[], status: string) => void): Engine {
-  const renderer = new WebGLRenderer({ alpha: true, antialias: true, stencil: true, powerPreference: 'low-power' });
+  const renderer = new WebGLRenderer({ alpha: true, antialias: true, stencil: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0, 0);
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
@@ -470,7 +473,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       for(const [id,fade] of opacityFades){
         const instance=instances.get(id);if(!instance){opacityFades.delete(id);continue;}
         const t=reducedMotion.matches?1:Math.min(1,(now-fade.start)/850),ease=t*t*(3-2*t);fade.value=fade.from+(fade.to-fade.from)*ease;
-        instance.materials.forEach((m,i)=>{if(t<1&&!m.transparent){m.transparent=true;m.needsUpdate=true;}m.opacity=instance.originalOpacity[i]*fade.value;});
+        // A newly loaded, fully opaque figure has no fade. Marking every new
+        // material transparent for 850 ms invalidated the shaders just compiled
+        // above, then compiled them again when lighting changed its appearance.
+        const token=tokenById.get(id),fading=t<1&&fade.from!==fade.to;
+        instance.materials.forEach((m,i)=>{const transparent=!!(instance.originalTransparent[i]||token?.hidden||token?.invisible||fading);if(m.transparent!==transparent){m.transparent=transparent;m.needsUpdate=true;}m.opacity=instance.originalOpacity[i]*fade.value;});
       }
       const staged=props.preparedSpellImpacts??[];
       if(staged.length||spellImpacts.active)syncSpellFog();
@@ -543,12 +550,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // New batch meshes were added after the scene transform preparation.
         for(const child of scene.children)if(child.name==='batched-miniatures')child.updateMatrixWorld();
         host.dataset.miniatureBatches=String(batching.batches);host.dataset.batchedMeshInstances=String(batching.instances);
-        battlefield?.lighting.renderField(renderer);
+        battlefield?.lighting.renderField(renderer,localShadows.revision);
         battlefield?.prepareMist(renderer);
         const visible=new Set([...instances].filter(([,instance])=>instance.root.visible).map(([id])=>id));
         const sharedIds=new Set(props.tokens.filter(t=>t.sharedSightOnly).map(t=>t.id));
         const labels=props.nameLabels?.()??[];
         const renderedNames=names.sync(labels,visible,sharedIds);
+        Object.assign(host.dataset,names.state);
         if ((archArtStudy || archArtLayer.hasArt || props.personalVision || battlefield || renderedNames.size || props.tokens.some(token => token.outline)) &&
           bodyMaskCache.needsRender(outlineMask,scene,camera,true)) {
           const originalLayers = camera.layers.mask;
@@ -763,12 +771,17 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     moves.delete(id);
   };
   const place = (token: MiniatureToken, instance: Instance) => {
+    const appearanceKey=miniatureAppearanceKey(token,!!props.environmentPreview?.enabled&&!!props.environmentPreview.shadows);
+    const appearanceChanged=appearanceKey!==instance.appearanceKey;
+    instance.appearanceKey=appearanceKey;
     const factor = token.diameter / token.definition.baseDiameter;
     const position = {...(moves.get(token.id) ?? token),...props.visualPosition?.(token.id)};
     const visible=props.isVisibleAt?.(token.id,position.x,position.y) ?? true;
     if(battlefield && (instance.root.visible!==visible || instance.root.scale.x!==factor))renderer.shadowMap.needsUpdate=true;
     instance.root.scale.setScalar(factor);
     const model = instance.root.children[0];
+    if(appearanceChanged){
+    host.dataset.bodyAppearanceUpdates=String(Number(host.dataset.bodyAppearanceUpdates??0)+1);
     model.traverse(node=>{
       if(!(node instanceof Mesh)||node.name==='disposition-outline')return;
       node.layers.disable(4);node.layers.disable(5);
@@ -781,6 +794,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     });
     model.position.set(...token.definition.baseCenter.map((value) => -value) as [number, number, number]);
     model.updateMatrix();
+    }
     if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
     instance.hunterMark.visible=!!token.hunterMarked && !token.sharedSightOnly;
     instance.root.visible = visible;
@@ -810,6 +824,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.selectionRing.visible = !!token.selected;
     instance.selectionRing.scale.setScalar(token.definition.baseDiameter);
     instance.selectionRing.material.opacity = token.hidden ? 0.45 : 1;
+    if(appearanceChanged){
     const outlineId=silhouette.slot(token.invisible||token.sharedSightOnly?undefined:token.outline,token.hidden?.45:1);
     const weaponOutlineId=outlineId?silhouette.slot(token.outline,(token.hidden?.45:1)*.25):0;
     model.traverse(node=>{if(node instanceof Mesh)node.userData.outlineId=node.userData.outlineWeapon?weaponOutlineId:outlineId;});
@@ -827,7 +842,6 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       else if(previous.to!==targetOpacity)opacityFades.set(token.id,{start:performance.now(),from:previous.value,to:targetOpacity,value:previous.value});
       material.opacity = instance.originalOpacity[index]*opacityFades.get(token.id)!.value;
     });
-    instance.mirrors.update(token.mirrorImages??0,camera,!!token.sharedSightOnly,token.hidden);
     {
       if(battlefield&&!instance.mistBody)instance.mistBody=instance.measureBody();
       const casts=!!props.environmentPreview?.enabled && props.environmentPreview.shadows && !token.hidden && !token.sharedSightOnly;
@@ -836,6 +850,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         if(node.castShadow !== (casts && opaque))renderer.shadowMap.needsUpdate=true;
         node.castShadow=casts && opaque;node.receiveShadow=casts && opaque;
       }});
+    }
     }
   };
   // Warm parsed models and their textures without creating hidden token instances.
@@ -1146,7 +1161,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // First-use shader linking was blocking the movement frame for hundreds
         // of milliseconds. Compile against the real lighting before drawing the
         // new body; KHR_parallel_shader_compile lets existing figures keep moving.
-        try { await renderer.compileAsync(root,camera,scene); }
+        try { await prepareMiniatureLighting(renderer,root,camera,scene,key); }
         catch(error) {console.warn('Miniature shader preparation failed',error);}
         try{if(instances.has(token.id))await warmMiniatureGpuBuffers(renderer,root,camera,scene,()=>disposed||failed||!wanted());}
         catch(error){console.warn('Miniature buffer preparation failed',error);}
