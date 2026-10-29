@@ -43,21 +43,30 @@ export const sameConditions = (a: Condition[], b: Condition[]): boolean =>
       c.customText === b[i].customText,
   );
 
+const sameStringArray = (a?: string[], b?: string[]): boolean => {
+  if (a === b) return true;
+  const la = a?.length ?? 0, lb = b?.length ?? 0;
+  if (la !== lb) return false;
+  for (let i = 0; i < la; i++) if (a![i] !== b![i]) return false;
+  return true;
+};
+
 export const sameTokenFields = (a: Token, b: Token): boolean =>
-  JSON.stringify(a.markLabels??[]) === JSON.stringify(b.markLabels??[]) &&
-  a.sharedSightOnly === b.sharedSightOnly && a.invisible===b.invisible &&
-  a.id === b.id &&
-  a.kind === b.kind &&
-  a.refId === b.refId &&
   a.x === b.x &&
   a.y === b.y &&
   a.facing === b.facing &&
+  a.id === b.id &&
+  a.kind === b.kind &&
+  a.refId === b.refId &&
+  a.sharedSightOnly === b.sharedSightOnly &&
+  a.invisible === b.invisible &&
   a.revealTag === b.revealTag &&
   a.widthFt === b.widthFt &&
   a.miniatureWidthFt === b.miniatureWidthFt &&
   a.isHidden === b.isHidden &&
   a.combatRole === b.combatRole &&
-  a.shape === b.shape;
+  a.shape === b.shape &&
+  sameStringArray(a.markLabels, b.markLabels);
 
 export const sameTokenDisplay = (a: TokenDisplay, b: TokenDisplay): boolean =>
   a.name === b.name &&

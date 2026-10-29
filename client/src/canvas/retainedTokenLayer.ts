@@ -75,7 +75,7 @@ export function installRetainedTokenLayer(layer:Konva.Layer,perspectiveBuffer?:S
    for(const r of regions){context.clearRect(r.x,r.y,r.width,r.height);context.rect(r.x,r.y,r.width,r.height);stats.scenePixels+=r.width*r.height;}
    context.clip();
    context.translate(offset.x,offset.y);
-   for(const node of children){const rect=entries.get(node)?.scene;if(rect&&regions.some(r=>overlaps(rect,r))){node.drawScene(native,undefined,buffer??perspectiveBuffer);stats.sceneNodes++;}}
+   for(const node of children){const rect=entries.get(node)?.scene;if(rect&&regions.some(r=>overlaps(rect,r))){node.drawScene(native,undefined,buffer??perspectiveBuffer??layer.getAttr('retainedPerspectiveBuffer'));stats.sceneNodes++;}}
    context.restore();
   }
   layer.fire('draw',{node:layer});return layer;

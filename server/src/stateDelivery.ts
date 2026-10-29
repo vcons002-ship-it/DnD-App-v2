@@ -85,9 +85,9 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
    if(serial!==d!.serial){deliveryMetrics.stale++;continue;}
    if(inputKey){d!.inputKey=inputKey;d!.ready=prepared;}
    const revision=++d!.revision,full:StateFrame={revision,full:prepared};let frame:StateFrame=full;
-   const fullBytes=Buffer.byteLength(JSON.stringify(full));
-   if(d!.previous&&!d!.forceFull){const delta:StateFrame={revision,base:revision-1,delta:diffSnapshot(d!.previous,prepared)};if(Buffer.byteLength(JSON.stringify(delta))<fullBytes)frame=delta;}
-   d!.previous=prepared;d!.forceFull=false;d!.lastAt=performance.now();deliveryMetrics.fullBytes+=fullBytes;deliveryMetrics.wireBytes+=Buffer.byteLength(JSON.stringify(frame));deliveryMetrics['full' in frame?'full':'delta']++;
+   const fullBytes=Buffer.byteLength(JSON.stringify(full));let wireBytes=fullBytes;
+   if(d!.previous&&!d!.forceFull){const delta:StateFrame={revision,base:revision-1,delta:diffSnapshot(d!.previous,prepared)};const deltaBytes=Buffer.byteLength(JSON.stringify(delta));if(deltaBytes<fullBytes){frame=delta;wireBytes=deltaBytes;}}
+   d!.previous=prepared;d!.forceFull=false;d!.lastAt=performance.now();deliveryMetrics.fullBytes+=fullBytes;deliveryMetrics.wireBytes+=wireBytes;deliveryMetrics['full' in frame?'full':'delta']++;
    if(timing){timing.emittedAt=timingClock();frame.timing=timing;}
    io.to(id).emit('state:frame',frame);
    for(const effect of d!.effects.splice(0))effect();

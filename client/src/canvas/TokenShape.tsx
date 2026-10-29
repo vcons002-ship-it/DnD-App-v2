@@ -27,6 +27,18 @@ import {invalidateRetainedToken} from './retainedTokenLayer';
 
 const isImageIcon = (icon: string): boolean =>
   icon.startsWith('/') || icon.startsWith('http');
+let sharedMeasureText: Konva.Text | null = null;
+const glyphWidthCache = new Map<string, number>();
+function measureTokenTextWidth(text: string, fontSize: number): number {
+  const key = `${fontSize}:${text}`, cached = glyphWidthCache.get(key);
+  if (cached !== undefined) return cached;
+  if (!sharedMeasureText) sharedMeasureText = new Konva.Text({ wrap: 'none' });
+  sharedMeasureText.fontSize(fontSize); sharedMeasureText.text(text);
+  const width = sharedMeasureText.getTextWidth();
+  if (glyphWidthCache.size >= 2048) glyphWidthCache.delete(glyphWidthCache.keys().next().value!);
+  glyphWidthCache.set(key, width);
+  return width;
+}
 
 /** Battlefield disposition dot colours. */
 export const DISPOSITION_HEX: Record<string, string> = {
@@ -420,9 +432,9 @@ function TokenShapeInner({
     const text=player?display.name.replace(/\s+/g,' ').trim():display.name;
     const preferredSize=player?preferredPlayerNameSize:monsterNameSize;
     const maxWidth=player?Math.max(.001,radius*4):monsterLabelWidth;
-    const measure = new Konva.Text({ text, fontSize: preferredSize, wrap:'none' });
-    const width = measure.getTextWidth();
-    measure.destroy();
+    const width = measureTokenTextWidth(text, preferredSize);
+
+
     // Fit the complete name using actual glyph width. The old minimum font
     // could force even "Vanec" onto two lines on a small token. Leave room
     // for the outline and rounding, without measuring on movement frames.
@@ -459,7 +471,7 @@ function TokenShapeInner({
       }]);
     }
     body.getLayer()?.batchDraw();
-  },[sharedDarkvision,serverSprite?.grayscale,miniatureReady,miniaturePending,iconImg,display,shape,radius,selected,isDead]);
+  },[sharedDarkvision,serverSprite?.grayscale,miniatureReady,miniaturePending,iconImg,display.icon,display.dead,shape,radius,selected,isDead]);
   const strokeColor = selected ? '#ffffff' : '#1118';
   const strokeW = selected ? 4 : 2;
   // Clip path for an image icon, matched to the silhouette.
@@ -514,7 +526,8 @@ function TokenShapeInner({
   const serverHud=serverBody?renderedImage(serverSprite?.hud.key):undefined;
   // External/vector portraits retain their own bitmap fallback. Prepared flat
   // art and GPU miniature labels already have independent reusable pixels.
-  const appearance=JSON.stringify({display,shape,radius,selected,isDead,activeTurn,initiativeRank,hideAffinity,viewRotation,miniatureReady,miniaturePending,sharedDarkvision,tag:token.revealTag,role:token.combatRole,marks:token.markLabels,invisible:token.invisible});
+  const conditionAppearanceKey = display.conditions.map(c => `${c.id}:${c.label}:${c.aura ?? ''}:${c.isConcentration ? 1 : 0}`).join('|');
+  const appearance = `${display.name}|${display.curHp ?? ''}|${display.maxHp ?? ''}|${display.tempHp ?? ''}|${display.disposition ?? ''}|${display.dead ? 1 : 0}|${display.icon}|${conditionAppearanceKey}|${shape}|${radius}|${selected ? 1 : 0}|${isDead ? 1 : 0}|${activeTurn ? 1 : 0}|${initiativeRank ?? ''}|${hideAffinity ? 1 : 0}|${viewRotation}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}|${sharedDarkvision ? 1 : 0}|${token.revealTag ?? ''}|${token.combatRole ?? ''}|${(token.markLabels ?? []).join(',')}|${token.invisible ? 1 : 0}`;
   useLayoutEffect(()=>{
     const art=tokenArt.current;if(!art)return;
     art.clearCache();
@@ -538,7 +551,7 @@ function TokenShapeInner({
       retainedRadius={radius*1.4+4}
       miniatureReady={miniatureReady}
       miniaturePending={miniaturePending}
-      tokenLabelVersion={JSON.stringify([display.name,token.kind,isDead,radius,nameY,nameWidth,tagWidth,labelY,labelFontSize,playerNameSize,monsterNameSize,token.revealTag,hpFrac,display.tempHp,miniatureReady,miniaturePending])}
+      tokenLabelVersion={`${display.name}|${token.kind}|${isDead ? 1 : 0}|${radius}|${nameY}|${nameWidth}|${tagWidth}|${labelY}|${labelFontSize}|${playerNameSize}|${monsterNameSize}|${token.revealTag ?? ''}|${hpFrac ?? ''}|${display.tempHp ?? ''}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}`}
       x={presentation?.position(token.id)?.x??token.x}
       y={presentation?.position(token.id)?.y??token.y}
       listening={listening}

@@ -4,7 +4,21 @@ export type EntityDelta={upsert:Entity[];remove:string[];order:string[]};
 export type SnapshotDelta={set:Partial<StateSnapshot>;unset:(keyof StateSnapshot)[];entities:Partial<Record<keyof StateSnapshot,EntityDelta>>;party?:SnapshotDelta;geometry?:Partial<NonNullable<StateSnapshot['legacyGeometry']>>;maskTiles?:{key:string;bounds:import('./serverRendering.js').RasterTiles['bounds'];set:import('./serverRendering.js').RasterTiles['tiles'];remove:string[]};sprites?:{set:NonNullable<StateSnapshot['tokenSprites']>;remove:string[]};outlines?:{wallsKey:string;set:import('./legacyVision.js').OutlineSet['shapes'];remove:string[]}};
 export type StateFrame=({revision:number;full:StateSnapshot}|{revision:number;base:number;delta:SnapshotDelta})&{timing?:import('./movementTiming.js').MovementFrameTiming};
 const entityKeys=new Set(['tokens','characters','monsters','monsterTemplates','maps','rollLog','chat','measurements','annotations','mapImages']);
-const equal=(a:unknown,b:unknown)=>a===b||JSON.stringify(a)===JSON.stringify(b);
+export function equal(a:unknown,b:unknown):boolean{
+ if(a===b)return true;
+ if(!a||!b||typeof a!=='object'||typeof b!=='object')return false;
+ if(Array.isArray(a)){
+  if(!Array.isArray(b)||a.length!==b.length)return false;
+  for(let i=0;i<a.length;i++)if(!equal(a[i],b[i]))return false;
+  return true;
+ }
+ if(Array.isArray(b))return false;
+ const oa=a as Record<string,unknown>,ob=b as Record<string,unknown>,ka=Object.keys(oa),kb=Object.keys(ob);
+ let countA=0,countB=0;
+ for(let i=0;i<ka.length;i++){const k=ka[i],va=oa[k];if(va!==undefined){countA++;if(!equal(va,ob[k]))return false;}}
+ for(let i=0;i<kb.length;i++)if(ob[kb[i]]!==undefined)countB++;
+ return countA===countB;
+}
 /** Diff already authorized snapshots only. Deleted/hidden entities are explicit removals. */
 export function diffSnapshot(before:StateSnapshot,after:StateSnapshot):SnapshotDelta{
  const patch:SnapshotDelta={set:{},unset:[],entities:{}};

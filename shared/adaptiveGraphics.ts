@@ -31,12 +31,12 @@ export function createAdaptiveGraphics(initial:AutoGraphicsTier){
     sample(now:number,continuous:boolean):AutoGraphicsTier|null{
       if(!continuous){this.pause();return null;}
       const dt=last?now-last:0;last=now;
-      if(dt>=250){this.pause();last=now;epoch=now;return null;}
+      if(dt>=2000){this.pause();last=now;epoch=now;return null;}
       if(!epoch)epoch=now;
-      if(dt>0&&dt<250)samples.push(dt);
+      if(dt>0&&dt<2000)samples.push(dt);
       if(now-epoch<3000)return null;
       const windowMs=now-epoch;epoch=now;
-      if(samples.length<40){samples=[];slow=0;return null;}
+      if(samples.length<8){samples=[];slow=0;return null;}
       samples.sort((a,b)=>a-b);
       const p10=samples[Math.floor((samples.length-1)*.1)],p75=samples[Math.floor((samples.length-1)*.75)];samples=[];
       frameFloor=Math.min(frameFloor,p10);

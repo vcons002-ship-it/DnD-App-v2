@@ -9,6 +9,14 @@ export const renderMetrics={renders:0,hits:0,bytes:0};
 /** Private, bounded in-memory images. A hash is not an authorization credential. */
 export function resetRenderAssets(id:string){grants.delete(id);for(const e of assets.values())e.users.delete(id);}
 export function renderAssetFor(id:string,key:string){return grants.get(id)?.has(key)?assets.get(key)?.buffer:undefined;}
+export function grantCachedAsset(id:string,asset:RasterAsset):boolean{
+ const entry=assets.get(asset.key);if(!entry)return false;
+ assets.delete(asset.key);assets.set(asset.key,entry);renderMetrics.hits++;
+ let allowed=grants.get(id);if(!allowed){allowed=new Set();grants.set(id,allowed);}
+ allowed.delete(asset.key);allowed.add(asset.key);entry.users.add(id);
+ while(allowed.size>4096)allowed.delete(allowed.values().next().value!);
+ return true;
+}
 /** Worker-generated pixel tiles use content keys and the same private grants. */
 export function grantRenderTile(id:string,key:string,buffer:Uint8Array){
  let entry=assets.get(key);

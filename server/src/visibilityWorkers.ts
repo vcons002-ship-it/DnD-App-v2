@@ -1,4 +1,5 @@
 import {Worker} from 'node:worker_threads';
+import os from 'node:os';
 import type {PlayerVision} from '../../shared/playerVision.js';
 import type {ExploredTerrain} from '../../shared/exploration.js';
 import type {LegacyGeometry} from '../../shared/legacyVision.js';
@@ -18,7 +19,7 @@ type Slot={worker:Worker;active?:Task};
 export class VisibilityWorkers{
  private slots:Slot[]=[];private queue:Task[]=[];private serial=0;
  readonly metrics={jobs:0,failed:0,computeMs:0,maxComputeMs:0,maxQueue:0};
- constructor(private count=2){}
+ constructor(private count=Math.max(2,Math.min(4,(os.availableParallelism?.()??os.cpus().length)-1))){}
  private spawn():Slot{
   const worker=new Worker(new URL('./visibilityWorker.mjs',import.meta.url),{execArgv:[]});worker.unref();
   const slot:Slot={worker};this.slots.push(slot);
@@ -28,7 +29,7 @@ export class VisibilityWorkers{
   return slot;
  }
  private pump(){
-  while(this.queue.length){const slot=this.slots.find(s=>!s.active)??(this.slots.length<this.count?this.spawn():undefined);if(!slot)return;const task=this.queue.shift()!;slot.active=task;slot.worker.ref();if(task.observe)task.startedAt=performance.now();task.timer=setTimeout(()=>{this.metrics.failed++;slot.active=undefined;task.reject(new Error('Visibility calculation timed out'));this.slots=this.slots.filter(s=>s!==slot);void slot.worker.terminate();this.pump();},10000);slot.worker.postMessage({id:task.id,job:task.job,...(task.observe?{diagnostic:true}:{})});}
+  while(this.queue.length){const slot=this.slots.find(s=>!s.active)??(this.slots.length<this.count?this.spawn():undefined);if(!slot)return;const interactiveIdx=this.queue.findIndex(t=>'token' in t.job||('vision' in t.job&&!('walkSight' in t.job)));const task=interactiveIdx>=0?this.queue.splice(interactiveIdx,1)[0]!:this.queue.shift()!;slot.active=task;slot.worker.ref();if(task.observe)task.startedAt=performance.now();task.timer=setTimeout(()=>{this.metrics.failed++;slot.active=undefined;task.reject(new Error('Visibility calculation timed out'));this.slots=this.slots.filter(s=>s!==slot);void slot.worker.terminate();this.pump();},10000);slot.worker.postMessage({id:task.id,job:task.job,...(task.observe?{diagnostic:true}:{})});}
  }
  run(job:VisionJob,observe?:Observe):Promise<LegacyGeometry>;
  run(job:TerrainFramesJob,observe?:Observe):Promise<TerrainFramesResult>;
@@ -37,7 +38,7 @@ export class VisibilityWorkers{
  run(job:RasterJob,observe?:Observe):Promise<Uint8Array>;
  run(job:MaskTilesJob,observe?:Observe):Promise<MaskTilesResult>;
  run(job:Job,observe?:Observe):Promise<any>{
-  if(this.queue.length>=64)return Promise.reject(new Error('Visibility queue is full'));
+  if(this.queue.length>=512)return Promise.reject(new Error('Visibility queue is full'));
   return new Promise((resolve,reject)=>{this.queue.push({id:++this.serial,job,resolve,reject,...(observe?{observe,queuedAt:performance.now()}:{})});this.metrics.maxQueue=Math.max(this.metrics.maxQueue,this.queue.length);this.pump();});
  }
  async close(){const slots=this.slots.splice(0);for(const task of this.queue.splice(0))task.reject(new Error('Visibility pool closed'));for(const s of slots)if(s.active){clearTimeout(s.active.timer);s.active.reject(new Error('Visibility pool closed'));}await Promise.all(slots.map(s=>s.worker.terminate()));}
