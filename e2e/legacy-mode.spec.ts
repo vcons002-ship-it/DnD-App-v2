@@ -60,15 +60,18 @@ test('startup gates both roles before campaign imports and persists the chosen l
  expect(await page.evaluate(()=>(window as any).__webglRequests)).toEqual([]);
 });
 
-test('legacy rolls finish with server results and no dice renderer or WebGL initialization',async({page,request})=>{
+test('Legacy 2D dice animate and finish with server results without loading WebGL or 3D graphics',async({page,request})=>{
  const f=await fixture(request),requests:string[]=[];page.on('request',r=>requests.push(r.url()));
  try{
   f.dm.emit('session:setHideDmRolls',{hide:false});await f.snapshot();
+  await page.addInitScript(()=>localStorage.setItem('dnd-dice-rendering','2d'));
   await blockWebgl(page);await page.setViewportSize({width:1500,height:1000});await loginDm(page,f.code);
   await page.getByRole('button',{name:'Roll a d20',exact:true}).click();
-  await expect(page.getByTestId('legacy-roll')).toBeVisible();
+  await expect(page.getByTestId('dice-2d-animation')).toBeVisible();
+  await expect(page.locator('.dice-2d-animation canvas')).toHaveAttribute('data-orientation','rolling');
+  await expect(page.locator('.physics-dice-tray')).toHaveAttribute('data-status','settled',{timeout:20000});
+  await expect(page.locator('.tray-die-result[data-filled="true"]')).toHaveCount(1,{timeout:15000});
   await expect.poll(async()=>(await f.snapshot()).rollLog.length,{timeout:60000}).toBeGreaterThan(0);
-  await expect(page.getByTestId('legacy-roll')).not.toContainText('Rolling…',{timeout:15000});
   const result=(await f.snapshot()).rollLog.at(-1);expect(result.total).toBeGreaterThanOrEqual(1);expect(result.total).toBeLessThanOrEqual(20);
   expect(requests.filter(graphicsRequest)).toEqual([]);expect(await page.evaluate(()=>(window as any).__webglRequests)).toEqual([]);
  }finally{f.dm.disconnect();}

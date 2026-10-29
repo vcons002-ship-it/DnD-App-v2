@@ -12,6 +12,7 @@ import type {DiceTableSeat} from './diceTableCamera';
 import type {StateSnapshot} from '../../../shared/types';
 import {createDiceRendererCache} from './diceRendererCache';
 import {currentGraphicsBudget} from './useEnvironmentQuality';
+import {diceGraphicsGeneration} from './useDiceRendering';
 
 export type DiceAppearanceTest={liquidInk?:boolean;molten?:boolean;lightning?:boolean;dmGlow?:number;denseDm?:boolean;varisTrail?:boolean;mossAgate?:boolean;enchantedAmber?:boolean;woodlandWake?:boolean};
 
@@ -50,7 +51,7 @@ const liveRenderers=createDiceRendererCache<ReturnType<typeof createTrayRenderer
 let liveRendererContext='';
 export function acquireLiveTrayRenderer(context:string,dice:TrayDie[],toss:Toss,theme:DiceTheme,art?:THREE.Texture,dieThemes?:readonly DiceTheme[]){
   if(context!==liveRendererContext){liveRenderers.clear();liveRendererContext=context;}
-  const key=JSON.stringify([currentGraphicsBudget().resolved,theme,dieThemes,toss.radius,toss.trayScale,dice.map(d=>[d.sides,d.set,!!d.crit,!!d.tens,!!d.ones])]);
+  const key=JSON.stringify([diceGraphicsGeneration(),currentGraphicsBudget().resolved,theme,dieThemes,toss.radius,toss.trayScale,dice.map(d=>[d.sides,d.set,!!d.crit,!!d.tens,!!d.ones])]);
   const lease=liveRenderers.acquire(key,dice.length,()=>createTrayRenderer(dice,toss,theme,undefined,art,true,dieThemes));
   if(lease.reused){art?.dispose();lease.value.resetForRoll(toss);}
   return lease;

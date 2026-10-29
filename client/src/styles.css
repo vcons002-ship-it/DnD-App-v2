@@ -1979,6 +1979,8 @@ html[data-render-mode="legacy"] *,html[data-render-mode="legacy"] *::before,html
 html[data-render-mode="legacy"] :is(.dm-window,.player-hud,.damage-prompt-btn,.dm-tool,.orb-ornament) { box-shadow: none !important; }
 .legacy-mode-control { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; }
 .legacy-mode-control small { flex-basis: 100%; color: var(--muted); }
+.dice-rendering-control { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:12px; }
+.dice-rendering-control small { flex-basis:100%; color:var(--muted); }
 .map-view-controls .legacy-mode-control small { display: none; }
 .server-rendering-control { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:12px; }
 .server-rendering-control small { flex-basis:100%; color:var(--muted); }
@@ -1988,7 +1990,6 @@ html[data-render-mode="legacy"] :is(.dm-window,.player-hud,.damage-prompt-btn,.d
 .server-rendering-owner-panel { position:absolute; top:100%; left:0; width:320px; padding:12px; background:var(--panel, #171b24); border:1px solid #7d7054; border-radius:6px; z-index:50; max-height:60vh; overflow:auto; }
 .server-rendering-owner label { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0; }
 .server-rendering-owner small { flex-basis:100%; color:var(--muted); }
-.legacy-roll-card { position: fixed; top: 110px; left: 50%; transform: translateX(-50%); z-index: 55; width: min(380px,calc(100vw - 24px)); max-height: 70vh; overflow: auto; padding: 12px; border: 1px solid #b69a68; background: #171a1f; color: #eee7d8; display: grid; gap: 8px; font-size: 14px; }
 
 .rendering-startup { max-width: 900px; margin: 7vh auto; padding: 24px; color: var(--text); }
 .rendering-startup h1 { font-size: clamp(24px,4vw,36px); }

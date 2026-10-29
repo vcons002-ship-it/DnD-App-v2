@@ -1,6 +1,6 @@
 import {NaturalTwentyCelebration} from './NaturalTwentyCelebration';
 import {useLegacyMode} from '../lib/useEnvironmentQuality';
-import {LegacyRollOverlay} from './LegacyRollOverlay';
+import {useDiceRendering} from '../lib/useDiceRendering';
 import {HiddenRollReview} from './HiddenRollReview';
 import {diceTriggerForTray,rollThemeForPresentation} from '../lib/rollTrayPresentation';
 import {dicePreloadPlan} from '../lib/dicePreloadPlan';
@@ -141,10 +141,10 @@ function ComparedDice({ comparison, locked, stopping, tick, onSettled }: {
  * already applied server-side — this is purely cosmetic.
  */
 export function RollRevealOverlay(){
-  const legacy=useLegacyMode();
-  return legacy?<LegacyRollOverlay/>:<FullRollRevealOverlay/>;
+  return <FullRollRevealOverlay/>;
 }
 const FullRollRevealOverlay = memo(function FullRollRevealOverlay() {
+  const legacy=useLegacyMode(),{mode:diceMode}=useDiceRendering();
   const player = useStore(s => s.snapshot?.role === 'player');
   const [reducedMotion, setReducedMotion] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
   useEffect(() => {
@@ -161,7 +161,7 @@ const FullRollRevealOverlay = memo(function FullRollRevealOverlay() {
   const rollAnimations = useStore(s => s.showRollAnim);
   const preloadBusy = useStore(s => !!s.liveDice || !!s.rollFx);
   useEffect(() => {
-    if (!rollAnimations || reducedMotion || preloadBusy || !preloadContext) return;
+    if (legacy || diceMode==='2d' || !rollAnimations || reducedMotion || preloadBusy || !preloadContext) return;
     let cancelled = false;
     // Start as soon as the session loads, including the character chooser.
     // Yield UI paint and avoid starting another theme during an active roll.
@@ -177,10 +177,10 @@ const FullRollRevealOverlay = memo(function FullRollRevealOverlay() {
       }).catch(() => {});
     }, 0);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [preloadContext, preloadThemes, reducedMotion, rollAnimations, preloadBusy]);
+  }, [legacy,diceMode,preloadContext, preloadThemes, reducedMotion, rollAnimations, preloadBusy]);
   const preparationRoll=useStore(s=>s.rollFx?.backgroundPrepared&&!s.rollFx.impactReady?s.rollFx.rollId:'');
   useEffect(()=>{
-    if(!preparationRoll||!preloadContext||reducedMotion)return;
+    if(legacy||diceMode==='2d'||!preparationRoll||!preloadContext||reducedMotion)return;
     let cancelled=false;
     const timer=setTimeout(()=>{void import('../lib/diceTrayRenderer').then(async m=>{
       const canStart=()=>!cancelled&&!useStore.getState().liveDice&&useStore.getState().rollFx?.rollId===preparationRoll&&!useStore.getState().rollFx?.impactReady;
@@ -189,7 +189,7 @@ const FullRollRevealOverlay = memo(function FullRollRevealOverlay() {
       }
     }).catch(()=>{});},32);
     return()=>{cancelled=true;clearTimeout(timer);};
-  },[preparationRoll,preloadContext,preloadThemes,reducedMotion]);
+  },[legacy,diceMode,preparationRoll,preloadContext,preloadThemes,reducedMotion]);
   const liveDice = useStore(s=>s.liveDice);
   const resolvingDice = useStore(s=>s.resolvingDice);
   const rollFx = useStore((s) => s.rollFx);

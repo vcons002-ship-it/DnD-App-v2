@@ -1,11 +1,12 @@
 import {useEffect,useState,type ReactNode} from 'react';
 import {useEnvironmentQuality,readStandardGraphicsQuality} from '../lib/useEnvironmentQuality';
 import {ServerRenderingControl} from './ServerRenderingControl';
+import {DiceRenderingControl} from './DiceRenderingControl';
 
 /** Available before joining, before any optional scene can start loading. */
 export function LegacyModeControl(){
  const {quality,setQuality}=useEnvironmentQuality();
- return <><label className="legacy-mode-control"><input type="checkbox" checked={quality==='legacy'} onChange={e=>setQuality(e.target.checked?'legacy':readStandardGraphicsQuality())}/>Legacy mode <small>For older CPUs and integrated graphics. Only changes this browser.</small></label><ServerRenderingControl/></>;
+ return <><label className="legacy-mode-control"><input type="checkbox" checked={quality==='legacy'} onChange={e=>setQuality(e.target.checked?'legacy':readStandardGraphicsQuality())}/>Legacy mode <small>For older CPUs and integrated graphics. Only changes this browser.</small></label><ServerRenderingControl/><DiceRenderingControl/></>;
 }
 export function RenderingModeClass(){
  const {budget}=useEnvironmentQuality();
@@ -27,8 +28,9 @@ export function RenderingStartupGate({children}:{children:ReactNode}){
    <h1>Choose how to run this browser</h1>
    <p>Choose before loading a campaign. DMs and players can use different modes at the same table.</p>
    <ServerRenderingControl/>
+   <DiceRenderingControl/>
    <div className="rendering-startup-options">
-     <section><h2>Legacy mode</h2><p>For older CPUs and integrated graphics. Flat tokens, lightweight maps and static dice results. Movement and basic visibility animate together with server assistance.</p>
+     <section><h2>Legacy mode</h2><p>For older CPUs and integrated graphics. Flat tokens and lightweight maps, with animated movement and basic visibility. Dice can use 3D graphics or lightweight 2D animation.</p>
        <p>Includes wall and light editing, fog, targeting and all game rules.</p>
        <button className="btn big" onClick={()=>start(true)}>Start in legacy mode</button>
      </section>

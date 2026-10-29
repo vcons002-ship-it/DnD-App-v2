@@ -6,6 +6,7 @@ import {resultTrayFor} from '../lib/rollTrayPresentation';
 import {spellAreaFor,type SpellArea} from '../../../shared/spellAreas';
 import type {MapEnvironment} from '../../../shared/mapEnvironment';
 import {readGraphicsQuality} from '../lib/useEnvironmentQuality';
+import {readDiceRenderingMode} from '../lib/useDiceRendering';
 import {readServerRendering} from '../lib/useServerRendering';
 import {prepareRenderImages} from '../lib/renderImages';
 import {retainedRenderingEnabled} from '../lib/retainedRendering';
@@ -866,7 +867,7 @@ export const useStore = create<Store>((set, get) => ({
       if(!get().showRollAnim&&!frame.awaitingStart){socket.emit('dice:ready',{id:frame.id});return;}
       const previous=get().liveDice;
       if(previous?.id===frame.id && previous.seq>=frame.seq)return;
-      if(readGraphicsQuality()==='legacy'&&previous?.id===frame.id&&!frame.done&&!frame.calculation&&frame.awaitingStart===previous.awaitingStart)return;
+      if(readGraphicsQuality()==='legacy'&&readDiceRenderingMode()==='2d'&&previous?.id===frame.id&&!frame.done&&!frame.calculation&&frame.awaitingStart===previous.awaitingStart)return;
       if(previous?.id!==frame.id)get().dismissRollFx();
       if(frame.done)completedLiveTrays.set(frame.id,frame);
       set({liveDice:frame});
