@@ -48,6 +48,9 @@ test('server rendering defaults, player choice, owner enforcement, private asset
   await advice.click();await expect(page.getByRole('region',{name:'Server rendering advice'})).toContainText('DM has locked this setting');
   await page.getByRole('button',{name:'Close advice'}).click();await expect(toggle).toBeDisabled();
   await owner.getByLabel('Board server rendering').selectOption('on');await expect(toggle).toBeChecked();await expect(toggle).toBeDisabled();await expect(vision).toHaveAttribute('data-render-source','server-raster');
+  await owner.getByLabel('When to use server managed rendering').click();
+  await expect(owner.getByRole('region',{name:'Server rendering advice'})).toContainText('locked by policy');
+  await owner.getByRole('button',{name:'Close advice'}).click();
   await owner.getByLabel('Board server rendering').selectOption('inherit');await owner.getByLabel('Server rendering for Druk',{exact:true}).selectOption('inherit');await expect(toggle).toBeEnabled();await expect(toggle).toBeChecked();
   // Local choice survives a forced policy, and a reload re-joins with that choice.
   await toggle.uncheck();await expect(vision).toHaveAttribute('data-geometry-source','client');

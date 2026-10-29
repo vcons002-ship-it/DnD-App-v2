@@ -15,7 +15,7 @@ export function ServerRenderingControl(){
     <p><strong>Try it on</strong> if this computer struggles on a complex map with walls or darkness. A capable server and a good connection may make the view smoother.</p>
     <p><strong>Try it off</strong> if tokens or visibility take too long to update after a move. Local rendering can respond faster.</p>
     <p>Compare both settings on the same map: pan and move a token, then keep the setting that feels best. There is no universal cutoff; the map, computer, server and connection all matter.</p>
-    {state?.forcedBy&&<p>The DM has locked this setting, so ask them to change the board or player override to compare.</p>}
+    {state?.forcedBy&&<p>{snapshot?.role==='dm'?'This setting is locked by policy. Change the board or player override to compare.':'The DM has locked this setting, so ask them to change the board or player override to compare.'}</p>}
     <button type="button" className="btn" onClick={e=>{const details=e.currentTarget.closest('details');details?.removeAttribute('open');details?.querySelector('summary')?.focus();}}>Close advice</button>
    </div>
   </details>
