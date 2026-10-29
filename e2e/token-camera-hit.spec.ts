@@ -53,8 +53,11 @@ for(const mode of ['legacy','2d','3d'] as const)for(const assisted of [false,tru
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await expect.poll(()=>tokenHits(page).then(h=>h.length)).toBe(3);
   if(mode==='3d')await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
-  await page.waitForTimeout(1000);
-  const check=async()=>{const hits=await tokenHits(page);expect(hits.map(h=>({id:h.id,hit:h.hit}))).toEqual(hits.map(h=>({id:h.id,hit:h.id})));};
+  // The snapshot can mount tokens before the initial canvas/assets finish.
+  // Establish readiness without forcing a repaint; subsequent camera checks
+  // still inspect the hit map immediately after the drag/zoom/rotation.
+  await expect.poll(async()=>{const hits=await tokenHits(page);return hits.length===3&&hits.every(h=>h.hit===h.id);},{timeout:20000}).toBe(true);
+  const check=async()=>{const hits=await tokenHits(page);expect(hits.map(h=>({id:h.id,hit:h.hit})),JSON.stringify(hits)).toEqual(hits.map(h=>({id:h.id,hit:h.id})));};
   await check();
   await page.evaluate(()=>{
    const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);

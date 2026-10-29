@@ -1502,6 +1502,10 @@ function MapStageInner({
   // the screen centre is a fixed point of that projection, so centring solves
   // directly for the view.
   const focusNonce = useRef<number>();
+  // Keep hooks above the Slides/empty-map returns so switching map kinds
+  // preserves React's hook order.
+  const serverTokenLayerSet=useMemo(()=>new Set(snapshot.tokenLayerIds??[]),[snapshot.tokenLayerIds]);
+  const selectedIdSet=useMemo(()=>new Set(selectedIds),[selectedIds]);
   useEffect(() => {
     if (!focusRequest || focusRequest.nonce === focusNonce.current) return;
     focusNonce.current = focusRequest.nonce;
@@ -2113,8 +2117,6 @@ function MapStageInner({
   };
 
   const entities=tokenEntityIndex(snapshot),myClaimedCharId=snapshot.characters.find(ch=>ch.claimedBy===mySocketId)?.id;
-  const serverTokenLayerSet=useMemo(()=>new Set(snapshot.tokenLayerIds??[]),[snapshot.tokenLayerIds]);
-  const selectedIdSet=useMemo(()=>new Set(selectedIds),[selectedIds]);
   const renderTokens = (miniatures: boolean, shared = false) => snapshot.tokens.filter(t=>!!t.sharedSightOnly===shared).filter(t=>!doorTokenIds.has(t.id)).filter((token) =>
     !hiddenGhosts.has(token.id) && (readyMiniatures.has(token.id) && miniatureIds.has(token.id)) === miniatures,
   ).map((t) => {
