@@ -124,6 +124,21 @@ test('legacy DM edits lights and walls with basic occluded visibility on a throt
  }finally{f.dm.disconnect();}
 });
 
+test('DM can place a character while viewing player visibility',async({page,request})=>{
+ const f=await fixture(request);
+ try{
+  await page.setViewportSize({width:1500,height:1000});await loginDm(page,f.code);
+  await page.getByLabel('Battlefield visibility').selectOption('player');
+  await page.getByRole('button',{name:'Creatures',exact:true}).click();
+  await page.locator('.spawn-row').filter({hasText:'Varis'}).click();
+  await expect(page.locator('.place-banner')).toBeVisible();
+  const before=(await f.snapshot()).tokens.length,p=await position(page,280,400);
+  await page.mouse.click(p.x,p.y);
+  await expect.poll(async()=>(await f.snapshot()).tokens.length).toBe(before+1);
+  await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');
+ }finally{f.dm.disconnect();}
+});
+
 test('a legacy player shares a table with a standard DM without changing map atmosphere or other browser preferences',async({page,browser,request})=>{
  const f=await fixture(request),other=await browser.newContext({viewport:{width:1500,height:1000}}),standard=await other.newPage();
  const legacyRequests:string[]=[];page.on('request',r=>legacyRequests.push(r.url()));await blockWebgl(page);

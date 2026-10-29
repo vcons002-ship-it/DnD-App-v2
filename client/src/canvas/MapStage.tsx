@@ -443,7 +443,7 @@ function MapStageInner({
   const snapshot=legacyMovement.snapshot;
   // Player visibility changes what the DM sees, not who controls the map.
   const draggableTokens=sourceDraggableTokens;
-  const onPlaceAt=partyPreview?undefined:sourceOnPlaceAt;
+  const onPlaceAt=sourceOnPlaceAt;
   const miniatureCatalogRevision = useMiniatureCatalog(!legacy);
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
@@ -548,7 +548,7 @@ function MapStageInner({
   // or Google Slides puts only the image's URL on the clipboard, not pixels) —
   // the server fetches those via /api/icons/from-url.
   useEffect(() => {
-    if (snapshot.role !== 'dm') return;
+    if (!actualDm) return;
     const openWith = openPasteDialog;
     const onPaste = async (e: ClipboardEvent) => {
       const item = [...(e.clipboardData?.items ?? [])].find((i) =>
@@ -628,7 +628,7 @@ function MapStageInner({
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.role]);
+  }, [actualDm]);
 
   const image = useImage(map?.imagePath ?? null);
 
@@ -695,6 +695,7 @@ function MapStageInner({
   const grid = map?.gridSizePx ?? 50;
 
   // ---- Fog of war (two independent layers: map fog + token fog) ----
+  // This flag controls the rendered view, not permission to perform DM actions.
   const isDm = snapshot.role === 'dm';
   const mySocketId = useStore((s) => s.socket?.id);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
@@ -703,14 +704,15 @@ function MapStageInner({
   const setOrbTarget = useStore(s => s.setOrbTarget);
   const saveResolve = useStore((s) => s.saveResolve);
   const resolvingRoll=useStore(s=>saveResolve?s.snapshot?.rollLog.find(r=>r.id===saveResolve.rollId):undefined);
+  const actionSnapshot=actualDm?sourceSnapshot:snapshot;
   const teleportCast=useStore(s=>s.teleportCast),clearTeleportCast=useStore(s=>s.clearTeleportCast);
   const pendingSpellCost=(payload:AbilityRollPayload)=>{
-    const caster=(payload.kind==='pc'?snapshot.characters:snapshot.monsters).find(c=>c.id===payload.refId);
+    const caster=(payload.kind==='pc'?actionSnapshot.characters:actionSnapshot.monsters).find(c=>c.id===payload.refId);
     const ability=caster&&'sheetAbilities'in caster?caster.sheetAbilities.find(a=>a.id===payload.abilityId):undefined;
     return caster&&'sheetAbilities'in caster&&ability?spellCastCost(caster,ability,payload.castLevel,payload.slotPool):undefined;
   };
   const [teleportPoint,setTeleportPoint]=useState<Pt|null>(null);
-  const teleportActor=teleportCast?snapshot.tokens.find(t=>t.kind===teleportCast.kind&&t.refId===teleportCast.refId):undefined;
+  const teleportActor=teleportCast?actionSnapshot.tokens.find(t=>t.kind===teleportCast.kind&&t.refId===teleportCast.refId):undefined;
   useEffect(()=>{setTeleportPoint(null);},[teleportCast]);
   useEffect(()=>{if(!teleportCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearTeleportCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[teleportCast]);
   useEffect(()=>{if(teleportCast&&(!teleportActor||teleportActor.mapId!==map?.id))clearTeleportCast();},[teleportCast,teleportActor?.id,map?.id]);
@@ -718,7 +720,7 @@ function MapStageInner({
   const areaSocketId=useStore(s=>s.socket?.id);
   const areaCast=useStore(s=>s.areaCast),clearAreaCast=useStore(s=>s.clearAreaCast);
   const [areaPoints,setAreaPoints]=useState<Pt[]>([]),[areaPointer,setAreaPointer]=useState<Pt|null>(null),[areaAngle,setAreaAngle]=useState(0),[areaDirectionLocked,setAreaDirectionLocked]=useState(false),[areaExcluded,setAreaExcluded]=useState<string[]>([]);
-  const areaActor=areaCast?snapshot.tokens.find(t=>t.kind===areaCast.payload.kind&&t.refId===areaCast.payload.refId):undefined;
+  const areaActor=areaCast?actionSnapshot.tokens.find(t=>t.kind===areaCast.payload.kind&&t.refId===areaCast.payload.refId):undefined;
   useEffect(()=>{setAreaPoints(areaCast?.spec.kind==='emanation'&&areaCast.spec.self&&areaActor?[{x:areaActor.x,y:areaActor.y}]:[]);setAreaPointer(null);setAreaAngle(0);setAreaDirectionLocked(false);setAreaExcluded([]);},[areaCast]);
   useEffect(()=>{if(areaCast&&(!areaActor||!map||areaActor.mapId!==map.id))clearAreaCast();},[areaCast,areaActor?.mapId,map?.id]);
   useEffect(()=>{if(!areaCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearAreaCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[areaCast]);
@@ -741,9 +743,9 @@ function MapStageInner({
   };
   const areaPlacement:SpellAreaPlacement={mapId:map?.id??'',points:areaPoints,angle:areaAngle};
   const areaPreview=areaCast&&areaActor?{...areaPlacement,points:areaPoints.length?areaPoints:areaCast.spec.self?[areaActor]:areaPointer?[areaPointer]:[]}:areaPlacement;
-  const areaTargets=areaCast&&areaActor&&map?snapshot.tokens.filter(t=>{
-    const e=resolveToken(snapshot,t);
-    return !t.sharedSightOnly&&!e.dead&&!(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.objectKind)&&
+  const areaTargets=areaCast&&areaActor&&map?actionSnapshot.tokens.filter(t=>{
+    const e=resolveToken(actionSnapshot,t);
+    return !t.sharedSightOnly&&!e.dead&&!(t.kind==='monster'&&actionSnapshot.monsters.find(m=>m.id===t.refId)?.objectKind)&&
       !(areaExcludesCaster(areaCast.spec)&&t.id===areaActor.id)&&tokenInSpellArea(areaCast.spec,areaPreview,areaActor,t,map.gridSizePx/map.feetPerSquare)&&
       areaPreview.points.some((_,i)=>hasLineOfSight(areaCast.spec.self?areaActor:areaOrigin(areaCast.spec,areaPreview,areaActor,map.gridSizePx/map.feetPerSquare,i),t,map.walls));
   }):[];
@@ -1060,7 +1062,7 @@ function MapStageInner({
   const handleTokenMove = useStableCallback((tok: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => {
     if(actualDm)setDoorApproachTokenId(tok.id);
     onMoveToken(tok.id, x, y, placed);
-    if (isDm) {
+    if (actualDm) {
       if (selectedIds.length <= 1 || !selectedIds.includes(tok.id)) onSelectToken(tok, false);
       if(!explicitTokenInspection())nudgeRightPanel();
     }
@@ -1092,12 +1094,12 @@ function MapStageInner({
   useEffect(()=>{
     const direct=(id:string)=>snapshot.tokens.some(t=>t.id===id&&!t.sharedSightOnly);
     if(menu&&!direct(menu.token.id))setMenu(null);
-    if(!isDm && selectedIds.some(id=>!direct(id))){
+    if(!actualDm && selectedIds.some(id=>!direct(id))){
       if(onSelectTokens)onSelectTokens(selectedIds.filter(direct));else onSelectToken(null);
     }
     if(hover&&!direct(hover.token.id))setHover(null);
     if(orbTarget?.targetId&&!direct(orbTarget.targetId))setOrbTarget({...orbTarget,targetId:undefined});
-  },[snapshot.tokens,menu,hover,orbTarget,setOrbTarget,isDm,selectedIds,onSelectTokens,onSelectToken]);
+  },[snapshot.tokens,menu,hover,orbTarget,setOrbTarget,actualDm,selectedIds,onSelectTokens,onSelectToken]);
 
   // The map-tool menus (Measure/Scale/Fog) are portaled into a slot in the top
   // toolbar above the map; grab that slot once the toolbar has mounted.
@@ -1471,7 +1473,7 @@ function MapStageInner({
   }, [size.w, size.h, dprKey, konvaPixelRatio, legacy, retained, map?.id, map?.slidesUrl, map?.imagePath]);
 
   const selectionBox = useBoxSelection({
-    enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,
+    enabled: actualDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,
     mapId: map?.id, stageRef, tokens: snapshot.tokens, selectedIds, onSelectTokens, onSelectToken,
     view, width: size.w, height: size.h, tilt: tiltDegrees, rotation: rotationDegrees,
   });
@@ -1494,7 +1496,7 @@ function MapStageInner({
         <BoardRollFeed/>
       )}
       {showDiceButton && <DiceButtonOverlay selectedIds={selectedIds} />}
-      {isDm && <DamagePrompt />}
+      {actualDm && <DamagePrompt />}
     </>
   );
 
@@ -2508,7 +2510,7 @@ function MapStageInner({
                   y={t.y}
                   width={t.w}
                   height={t.h}
-                  draggable={isDm && tilesMode && !measureActive && !fogActive && !scaleMode}
+                  draggable={actualDm && tilesMode && !measureActive && !fogActive && !scaleMode}
                   handleSize={12 / view.scale}
                   // Tiles are part of the map: keep them listening so dragging
                   // over the area they add still PANS (bubbles to the layer),
@@ -2560,11 +2562,11 @@ function MapStageInner({
                     y={a.y ?? 0}
                     width={a.width ?? 100}
                     height={a.height ?? 100}
-                    draggable={isDm && !measureActive && !decalsLocked}
+                    draggable={actualDm && !measureActive && !decalsLocked}
                     handleSize={12 / view.scale}
                     // Players get the decorative 🛒 marker; the DM gets a clickable
                     // shop button instead (onEditShop), so don't double it up.
-                    badge={!isDm && !!a.popup}
+                    badge={!actualDm && !!a.popup}
                     hasShop={!!a.popup}
                     onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
                     onMove={(x, y) => moveAnnotation(a.id, x, y)}
@@ -2574,14 +2576,14 @@ function MapStageInner({
                     // LOCKED, a body click still opens the editor; players click a
                     // shop decal to view it read-only.
                     onEditShop={
-                      isDm && !removeMode && !measureActive && !decalsLocked
+                      actualDm && !removeMode && !measureActive && !decalsLocked
                         ? () => openDecalPopup(a.id)
                         : undefined
                     }
                     onActivate={
                       removeMode || measureActive
                         ? undefined
-                        : isDm
+                        : actualDm
                           ? decalsLocked
                             ? () => openDecalPopup(a.id)
                             : undefined
@@ -2857,7 +2859,7 @@ function MapStageInner({
             {wallTool==='edit'&&featureSelection.length>0&&<button data-testid="delete-map-features" className="btn tiny" onClick={deleteFeatures}>Delete {featureSelection.length} selected</button>}
             <button className="btn tiny" onClick={()=>{setWallTool('off');setWallAnchor(null);}}>Done</button>
           </div>}
-          <DecalPopup snapshot={snapshot} />
+          <DecalPopup snapshot={actualDm?sourceSnapshot:snapshot} />
           {hover && !menu && (
             <TokenHoverCard
               snapshot={snapshot}
@@ -2868,13 +2870,13 @@ function MapStageInner({
           )}
           {menu && (
             <FloatingMenu
-              snapshot={snapshot}
+              snapshot={actualDm?sourceSnapshot:snapshot}
               token={menu.token}
               attacker={floatingAttacker(
-                snapshot,
+                actualDm?sourceSnapshot:snapshot,
                 selectedIds,
                 menu.token,
-                isDm,
+                actualDm,
                 mySocketId,
               )}
               x={menu.x}
@@ -2889,8 +2891,8 @@ function MapStageInner({
             <span>{areaCast.repeat?'Repeat use · no additional spell slot.':`${pendingSpellCost(areaCast.payload)?.label??'Spell casting'} · no slot is spent until you confirm this area.`}</span>
             <span>{areaCast.name.toLowerCase()==='pass without trace'?'Choose allies to share your moving Stealth aura.':areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Overlapping combat footprints are affected; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
             {areaRangeError&&<span role="alert">Choose an origin within {areaCast.spec.rangeFt} ft and outside Total Cover.</span>}
-            <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} visible targets{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
-            {areaCast.spec.selective&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{areaTargets.map(t=>{const e=resolveToken(snapshot,t);return <label key={t.id}><input type="checkbox" checked={!areaExcluded.includes(t.id)} onChange={()=>setAreaExcluded(old=>old.includes(t.id)?old.filter(id=>id!==t.id):[...old,t.id])}/>{e.name}{t.revealTag&&t.revealTag!=='U'?` ${t.revealTag}`:''}</label>;})}</div>}
+            <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} {actualDm?'targets':'visible targets'}{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
+            {areaCast.spec.selective&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{areaTargets.map(t=>{const e=resolveToken(actionSnapshot,t);return <label key={t.id}><input type="checkbox" checked={!areaExcluded.includes(t.id)} onChange={()=>setAreaExcluded(old=>old.includes(t.id)?old.filter(id=>id!==t.id):[...old,t.id])}/>{e.name}{t.revealTag&&t.revealTag!=='U'?` ${t.revealTag}`:''}</label>;})}</div>}
             {['cube','line','cone'].includes(areaCast.spec.kind)&&<label>Direction <input aria-label="Spell area rotation" type="range" min="-180" max="180" step="1" value={areaAngle*180/Math.PI} onChange={e=>{
               const next=+e.target.value*Math.PI/180,delta=next-areaAngle;
               if(areaCast.name.trim().toLowerCase()==='fire storm')setAreaPoints(old=>old.map(p=>{
@@ -2906,7 +2908,7 @@ function MapStageInner({
             <button className="btn tiny" onClick={()=>{setAreaPoints(old=>old.slice(0,-1));setAreaDirectionLocked(false);}}>Undo placement</button>
             <button className="btn tiny" onClick={clearAreaCast}>Cancel (Esc)</button>
           </div>}
-          {isDm && saveResolve && (
+          {actualDm && saveResolve && (
             <div className="save-resolve-banner">
               <span>
                 {saveResolve.save
