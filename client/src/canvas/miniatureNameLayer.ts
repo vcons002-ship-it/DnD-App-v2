@@ -1,8 +1,8 @@
 import {CanvasTexture,DoubleSide,Mesh,MeshBasicMaterial,PlaneGeometry,Scene,SRGBColorSpace,type DepthTexture,type Vector2} from 'three';
 import type {MiniatureNameLabel} from './miniatureNameLabels';
 
-/** Glyph pixels share the miniature depth mask. Covered strokes remain faint;
- * uncovered strokes retain their full opacity, even within the same letter. */
+/** Name and health HUD pixels share the miniature depth mask. Covered pixels
+ * remain faint; uncovered pixels retain their full opacity. */
 export function createMiniatureNameLayer(scene:Scene,depth:DepthTexture,resolution:{value:Vector2}) {
   const labels=new Map<string,{mesh:Mesh<PlaneGeometry,MeshBasicMaterial>;texture:CanvasTexture;canvas:HTMLCanvasElement;covered:{value:number};points:number[]}>();
   let textureUpdates=0,positionUpdates=0;

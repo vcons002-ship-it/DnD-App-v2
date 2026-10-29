@@ -541,7 +541,7 @@ function TokenShapeInner({
       retainedRadius={radius*1.4+4}
       miniatureReady={miniatureReady}
       miniaturePending={miniaturePending}
-      tokenLabelVersion={JSON.stringify([display.name,token.kind,isDead,radius,nameY,nameWidth,tagWidth,labelY,labelFontSize,playerNameSize,monsterNameSize,token.revealTag,miniatureReady,miniaturePending])}
+      tokenLabelVersion={JSON.stringify([display.name,token.kind,isDead,radius,nameY,nameWidth,tagWidth,labelY,labelFontSize,playerNameSize,monsterNameSize,token.revealTag,hpFrac,display.tempHp,miniatureReady,miniaturePending])}
       x={presentation?.position(token.id)?.x??token.x}
       y={presentation?.position(token.id)?.y??token.y}
       listening={listening}

@@ -10,7 +10,9 @@ export type MiniatureNameLabel = {
   emphasized: boolean;
 };
 
-/** GPU names replace only the scene paint; their Konva nodes retain typography
+const depthHudSelector='.token-label, .token-tracking-tag, .token-health';
+
+/** GPU names/health replace only the scene paint; their Konva nodes retain typography
  * and transforms for texture generation. Opacity zero still makes Konva paint
  * stroked text through a full-layer perfect-draw buffer on every movement. */
 export function setMiniatureNamesRendered(layer:Konva.Layer,ids:ReadonlySet<string>) {
@@ -21,7 +23,7 @@ export function setMiniatureNamesRendered(layer:Konva.Layer,ids:ReadonlySet<stri
     const old=paintSuppression.get(node);
     if(old?.visible===visible&&old.version===version)continue;
     paintSuppression.set(node,{visible,version});
-    for(const label of node.find('.token-label, .token-tracking-tag')) {
+    for(const label of node.find(depthHudSelector)) {
       if(label.visible()!==visible){label.visible(visible);invalidateRetainedToken(node);changed=true;}
     }
   }
@@ -29,7 +31,7 @@ export function setMiniatureNamesRendered(layer:Konva.Layer,ids:ReadonlySet<stri
 }
 const paintSuppression=new WeakMap<Konva.Group,{visible:boolean;version:unknown}>();
 
-/** Rasterize the existing name/tag typography only when its content changes.
+/** Rasterize the existing name/tag/health HUD only when its content changes.
  * Positions follow the live Konva transforms, including drag and camera rotation. */
 export function createMiniatureNameReader() {
   const cache=new Map<string,{key:string;node:Konva.Group;hud:Konva.Group;canvas:HTMLCanvasElement;bounds:{x:number;y:number;width:number;height:number}}>();
@@ -49,10 +51,10 @@ export function createMiniatureNameReader() {
       const hud=reusable?entry!.hud:node.findOne<Konva.Group>('.token-upright-hud');
       if(!hud)continue;
       present.add(id);
-      // TokenShape publishes only typography/layout changes. Motion, selection,
-      // HP changes that do not alter layout and torch flicker reuse glyph pixels.
+      // TokenShape publishes typography/layout and visible HP changes. Motion,
+      // selection and torch flicker reuse these HUD pixels.
       if(!reusable){
-        const labels=hud.find('.token-label, .token-tracking-tag');
+        const labels=hud.find(depthHudSelector);
         if(!labels.length){cache.delete(id);continue;}
         const group=new Konva.Group({listening:false});
         for(const label of labels)group.add(label.clone({opacity:1,visible:true,listening:false}));
