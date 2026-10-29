@@ -2,7 +2,7 @@ import {NaturalTwentyCelebration} from './NaturalTwentyCelebration';
 import {useLegacyMode} from '../lib/useEnvironmentQuality';
 import {LegacyRollOverlay} from './LegacyRollOverlay';
 import {HiddenRollReview} from './HiddenRollReview';
-import {diceTriggerForTray} from '../lib/rollTrayPresentation';
+import {diceTriggerForTray,rollThemeForPresentation} from '../lib/rollTrayPresentation';
 import {dicePreloadPlan} from '../lib/dicePreloadPlan';
 import {physicalRollTimeline,liveNaturalCritical,liveNaturalTwenty} from '../lib/diceFinaleTiming';
 import {DICE_TRIGGER_HOLD_MS} from '../../../shared/diceTriggers';
@@ -199,12 +199,10 @@ const FullRollRevealOverlay = memo(function FullRollRevealOverlay() {
   const staticReveal = reducedMotion || !!visibleRollFx?.reveal.physical;
   const dismiss = useStore((s) => s.dismissRollFx);
   const rollTheme = useStore(s => {
-    const name = s.rollFx?.reveal.attacker;
+    const frame = s.liveDice ?? s.rollFx?.tray;
     const roller = s.snapshot?.rollLog.find(r => r.id === s.rollFx?.rollId)?.roller;
-    const direct = s.snapshot?.characters.filter(c => c.name === name) ?? [];
-    const matches = direct.length ? direct : s.snapshot?.characters.filter(c => c.name === roller) ?? [];
-    const npc=s.snapshot?.monsters.find(m=>m.name===name||name?.startsWith(m.name+' ')||m.name===roller);
-    return diceThemeForRoll(matches.length===1?matches[0].className:'',!!npc||(!matches.length&&roller==='DM'),npc?.disposition);
+    return rollThemeForPresentation(frame,s.liveDice?.calculation??s.rollFx?.reveal,roller,
+      s.snapshot?.characters??[],s.snapshot?.monsters??[]);
   });
   const entrySide = useStore(s => {
     const roller = s.snapshot?.rollLog.find(r => r.id === s.rollFx?.rollId)?.roller;

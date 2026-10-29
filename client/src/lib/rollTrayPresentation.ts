@@ -1,6 +1,22 @@
 import type {LiveDiceFrame} from '../../../shared/liveDiceTypes';
 import type {RollReveal} from '../../../shared/types';
 import {flattenDamageDice} from '../../../shared/diceVisuals';
+import {diceThemeForRoll} from '../../../shared/diceThemes';
+
+/** The server's roll appearance survives the live/result handoff, including
+ * percentile pairs. The roller's graphics mode never determines observer art. */
+export function rollThemeForPresentation(
+ frame:LiveDiceFrame|null|undefined,reveal:RollReveal|undefined,roller:string|undefined,
+ characters:readonly {name:string;className:string}[],
+ monsters:readonly {name:string;disposition?:string}[],
+){
+ if(frame)return diceThemeForRoll(frame.className,frame.dmDice,frame.affinity,frame.diceTheme);
+ const name=reveal?.attacker;
+ const direct=characters.filter(c=>c.name===name);
+ const matches=direct.length?direct:characters.filter(c=>c.name===roller);
+ const npc=monsters.find(m=>m.name===name||name?.startsWith(m.name+' ')||m.name===roller);
+ return diceThemeForRoll(matches.length===1?matches[0].className:'',!!npc||(!matches.length&&roller==='DM'),npc?.disposition);
+}
 
 /** Reuse a completed authoritative throw, never a synthetic replacement die.
  * Save batches already present their own arithmetic and cannot be borrowed by

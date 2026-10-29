@@ -426,10 +426,12 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
             const sourceEntry=payload?.rollId?getRollEntry(payload.rollId,sid):undefined;
             const pending=sourceEntry?.pending;
             const requestedToken=payload?.attackerTokenId?getToken(payload.attackerTokenId):undefined;
+            const claimedActorId=!isDm()?getClaimedCharacterId(sid,commandSocketId()):null;
             const actor=pending?.attacker.kind==='pc'?getCharacter(pending.attacker.refId)
               :requestedToken?.kind==='pc'?getCharacter(requestedToken.refId)
               :payload?.characterId?getCharacter(payload.characterId)
-              :payload?.kind==='pc'&&abilityOwner?getCharacter(abilityOwner.id):listCharacters(sid).find(c=>c.name===roller);
+              :payload?.kind==='pc'&&abilityOwner?getCharacter(abilityOwner.id)
+              :claimedActorId?getCharacter(claimedActorId):undefined;
             const rolledToken=payload?.tokenId?getToken(payload.tokenId):undefined;
             const npc=pending?.attacker.kind==='monster'?getMonster(pending.attacker.refId)
               :requestedToken?.kind==='monster'?getMonster(requestedToken.refId)
