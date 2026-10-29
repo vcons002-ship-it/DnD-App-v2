@@ -1,4 +1,4 @@
-import {test,expect,type Page} from './helpers/test';
+import {test,expect,webglDisabled,type Page} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
 import {projectGround} from '../client/src/canvas/miniatureProjection';
@@ -24,6 +24,7 @@ async function tokenPoint(page:Page,id:string,tilt:number,rotation:number){
  return {x:p.left+projected.x*p.sx,y:p.top+projected.y*p.sy};
 }
 for(const mode of ['legacy','2d','3d'] as const)for(const assisted of [false,true])test(`${mode} token bases remain clickable after real camera drags with assistance ${assisted}`,async({page,request})=>{
+ test.skip(mode==='3d'&&webglDisabled,'This case verifies actual WebGL miniatures; Legacy and 2D remain covered without WebGL.');
  test.setTimeout(120000);
  const headers={'x-dm-passphrase':DM_SECRET},errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Disposable camera hit regression'}})).json();
