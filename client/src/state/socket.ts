@@ -867,7 +867,7 @@ export const useStore = create<Store>((set, get) => ({
       if(!get().showRollAnim&&!frame.awaitingStart){socket.emit('dice:ready',{id:frame.id});return;}
       const previous=get().liveDice;
       if(previous?.id===frame.id && previous.seq>=frame.seq)return;
-      if(readGraphicsQuality()==='legacy'&&readDiceRenderingMode()==='2d'&&previous?.id===frame.id&&!frame.done&&!frame.calculation&&frame.awaitingStart===previous.awaitingStart)return;
+      if(readDiceRenderingMode()==='2d'&&previous?.id===frame.id&&!frame.done&&!frame.calculation&&frame.awaitingStart===previous.awaitingStart)return;
       if(previous?.id!==frame.id)get().dismissRollFx();
       if(frame.done)completedLiveTrays.set(frame.id,frame);
       set({liveDice:frame});

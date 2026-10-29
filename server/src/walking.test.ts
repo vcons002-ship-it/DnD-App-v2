@@ -1,4 +1,9 @@
+import path from 'node:path';
+import sharp from 'sharp';
 import {afterAll,it,expect} from 'vitest';
+import {config} from './config.js';
+import {renderedSnapshot} from './renderedSnapshot.js';
+import {renderAssetFor} from './renderAssets.js';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,setActiveMap,updateMapEnvironment,moveToken,listMaps,createMonsterTemplate,instantiateMonster,setFogLayer,setFogRevealed} from './sessions.js';
 import {buildSnapshot} from './visibility.js';
 import {recordWalkingMove,walkingRoute} from './walking.js';
@@ -71,4 +76,22 @@ it('presentation shares the server motion clock and snaps on cancellation/reduce
  const token=b.tokens[0],playback={id:'move',start:100,durationMs:400,moves:{[token.id]:{from:{x:100,y:100},to:{x:300,y:100}}}};
  p.sync(b,10,100,false,playback);expect(p.position(token.id)?.x).toBe(100);p.advance(300);expect(p.position(token.id)?.x).toBe(200);
  p.sync(b,10,310,true);expect(p.position(token.id)?.x).toBe(300);expect(p.moving()).toBe(false);
+});
+it('recomputes first motion frame geometry when starting from a snapshot whose transport geometry was stripped',async()=>{
+ const f=fixture();
+ await sharp({create:{width:500,height:500,channels:4,background:{r:80,g:90,b:100,alpha:1}}}).png().toFile(path.join(config.uploadsDir,'motion-strip-test.png'));
+ const rawBefore={...f.snapshot(),map:{...f.snapshot().map!,imagePath:'/uploads/motion-strip-test.png'}};
+ const beforeGeometry=await visibilityWorkers.run({mapId:f.map.id,vision:rawBefore.playerVision!,wallFog:true,explored:rawBefore.exploredTerrain,tokens:rawBefore.tokens});
+ const deliveredBefore=await renderedSnapshot('walker-stripped',{...rawBefore,legacyGeometry:beforeGeometry},true);
+ expect(deliveredBefore.visionRaster).toBeDefined();
+ expect(deliveredBefore.legacyGeometry?.sight).toEqual([]);
+ const moved=moveToken(f.token.id,300,100,true)!;await recordWalkingMove(f.token,moved,true);
+ const rawAfter={...f.snapshot(),map:{...f.snapshot().map!,imagePath:'/uploads/motion-strip-test.png'}};
+ const afterGeometry=await visibilityWorkers.run({mapId:f.map.id,vision:rawAfter.playerVision!,wallFog:true,explored:rawAfter.exploredTerrain,tokens:rawAfter.tokens});
+ const plan=await prepareLegacyMotion('walker-stripped',deliveredBefore,{...rawAfter,legacyGeometry:afterGeometry});
+ expect(plan?.atlas?.mask.key).toBeTruthy();
+ const bounds=plan!.atlas!.bounds,png=renderAssetFor('walker-stripped',plan!.atlas!.mask.key)!;
+ const {data,info}=await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+ const px=Math.round((100-bounds.x)*bounds.scale),py=Math.round((100-bounds.y)*bounds.scale);
+ expect(data[(py*info.width+px)*info.channels+3]).toBeLessThan(30);
 });

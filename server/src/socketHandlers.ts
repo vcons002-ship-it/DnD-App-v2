@@ -1170,7 +1170,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         .then(result=>ack(getConn(socket.id)===connection&&lastSnapshotFor(socket.id)===snapshot?result:null),()=>ack(null)).finally(()=>{previewBusy=false;});
     });
 
-    on('token:move', async ({ tokenId, x, y, movement }, placed) => {
+    on('token:move', ({ tokenId, x, y, movement }, placed) => {
       const moving=getToken(tokenId);
       if (!sessionId()||!moving||getMap(moving.mapId)?.sessionId!==sessionId()) return;
       if(getMap(moving.mapId)?.walls?.some(w=>w.tokenId===moving.id))return;
@@ -1210,11 +1210,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           return;
         }
       }
-      const moved = moveToken(tokenId, x, y, !isDm());
+      const dmMove=isDm(),sid=sessionId()!,relocate=dmMove&&movement==='relocate',moved=moveToken(tokenId,x,y,!dmMove);
       movementApplied();
-      if(moved)try{await recordWalkingMove(moving,moved,hasPlayerConnection(sessionId()!),isDm()&&movement==='relocate');}catch(error){console.warn('Could not remember walking route:',String(error));}
-      afterChange();
-      if (moved && typeof placed === 'function') placed({x:moved.x,y:moved.y});
+      expireTimedSpellEffects(sid);
+      return afterRollCommit(async()=>{if(moved)try{await recordWalkingMove(moving,moved,hasPlayerConnection(sid),relocate);}catch(error){console.warn('Could not remember walking route:',String(error));}finishInitiative(sid);broadcastSnapshots(io,sid);if(moved&&typeof placed==='function')placed({x:moved.x,y:moved.y});});
     });
 
     // Live, throttled drag preview (no DB write / snapshot) — same sender gate

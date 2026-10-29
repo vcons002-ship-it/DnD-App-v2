@@ -427,7 +427,8 @@ function MapStageInner({
   const {quality:environmentQuality,budget:graphics}=useEnvironmentQuality();
   const legacy=graphics.legacy;
   const retained=retainedRenderingEnabled();
-  Konva.pixelRatio=legacy?1:window.devicePixelRatio||1;
+  const konvaPixelRatio=legacy?1:Math.min(window.devicePixelRatio||1,graphics.pixelRatioCap);
+  Konva.pixelRatio=konvaPixelRatio;
   const [dmViewMode,setDmViewMode]=useState<'dm'|'scene'|'player'>('dm');
   const actualDm=sourceSnapshot.role==='dm';
   const partyPreview=actualDm&&dmViewMode==='player';
@@ -1454,15 +1455,18 @@ function MapStageInner({
     // Legacy uses an unrotated, untilted stage. Native Konva canvases and input
     // avoid allocating the oversized scene/hit/warp buffers needed for 3D orbit.
     if (!stage) return;
+    for (const layer of stage.getLayers()) if (layer.getCanvas().getPixelRatio() !== konvaPixelRatio) layer.getCanvas().setPixelRatio(konvaPixelRatio);
+    const tilt = legacy ? 0 : projectionState.current.tilt, rotation = legacy ? 0 : projectionState.current.rotation;
     const perspectiveLayers=legacy?[]:[layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current,spellAreaLayerRef.current].filter((layer):layer is Konva.Layer=>!!layer);
-    const canvases=perspectiveLayers.map(layer=>installPerspectiveCanvas(layer,size.w,size.h,tiltDegrees,rotationDegrees));
+    const canvases=perspectiveLayers.map(layer=>installPerspectiveCanvas(layer,size.w,size.h,tilt,rotation));
     projectionCanvases.current=canvases;
-    const input=legacy?undefined:installPerspectiveInput(stage,size.w,size.h,tiltDegrees,rotationDegrees,()=>projectionState.current);
+    const input=legacy?undefined:installPerspectiveInput(stage,size.w,size.h,tilt,rotation,()=>projectionState.current);
     const retainedLayers=retained?[groundTokenLayerRef.current,sharedTokenLayerRef.current,...(legacy?[]:[tokenLayerRef.current])].filter((l):l is Konva.Layer=>!!l).map(layer=>installRetainedTokenLayer(layer,canvases[perspectiveLayers.indexOf(layer)]?.buffer)):[];
+    for (const layer of stage.getLayers()) layer.draw();
     // Dispose wrappers in reverse order: the retained paint delegates to the
     // perspective buffer, whose padding must remain valid until it is removed.
     return () => {retainedLayers.forEach(dispose=>dispose());input?.();canvases.forEach(dispose=>dispose());projectionCanvases.current=[];};
-  }, [size.w, size.h, dprKey, legacy, retained, map?.id, map?.slidesUrl, map?.imagePath]);
+  }, [size.w, size.h, dprKey, konvaPixelRatio, legacy, retained, map?.id, map?.slidesUrl, map?.imagePath]);
 
   const selectionBox = useBoxSelection({
     enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,
@@ -1498,6 +1502,10 @@ function MapStageInner({
   // the screen centre is a fixed point of that projection, so centring solves
   // directly for the view.
   const focusNonce = useRef<number>();
+  // Keep hooks above the Slides/empty-map returns so switching map kinds
+  // preserves React's hook order.
+  const serverTokenLayerSet=useMemo(()=>new Set(snapshot.tokenLayerIds??[]),[snapshot.tokenLayerIds]);
+  const selectedIdSet=useMemo(()=>new Set(selectedIds),[selectedIds]);
   useEffect(() => {
     if (!focusRequest || focusRequest.nonce === focusNonce.current) return;
     focusNonce.current = focusRequest.nonce;
@@ -2108,7 +2116,7 @@ function MapStageInner({
     if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);return true;
   };
 
-  const entities=tokenEntityIndex(snapshot);
+  const entities=tokenEntityIndex(snapshot),myClaimedCharId=snapshot.characters.find(ch=>ch.claimedBy===mySocketId)?.id;
   const renderTokens = (miniatures: boolean, shared = false) => snapshot.tokens.filter(t=>!!t.sharedSightOnly===shared).filter(t=>!doorTokenIds.has(t.id)).filter((token) =>
     !hiddenGhosts.has(token.id) && (readyMiniatures.has(token.id) && miniatureIds.has(token.id)) === miniatures,
   ).map((t) => {
@@ -2123,12 +2131,12 @@ function MapStageInner({
     const movable =
       actualDm ||
       t.kind === 'pc' ||
-      (d.disposition === 'friendly' && (!d.objectKind || !!creature && 'modelType' in creature && creature.modelType==='spiritual-weapon' && creature.conditions.some(c=>c.combatEffect?.casterId===snapshot.characters.find(ch=>ch.claimedBy===mySocketId)?.id)));
+      (d.disposition === 'friendly' && (!d.objectKind || !!creature && 'modelType' in creature && creature.modelType==='spiritual-weapon' && creature.conditions.some(c=>c.combatEffect?.casterId===myClaimedCharId)));
     return (
       <TokenShape
         key={t.id}
         token={t}
-        serverLayer={legacy&&!!snapshot.tokenLayerRaster&&snapshot.tokenLayerIds?.includes(t.id)}
+        serverLayer={legacy&&!!snapshot.tokenLayerRaster&&serverTokenLayerSet.has(t.id)}
         serverSprite={snapshot.tokenSprites?.[t.id]}
         cacheArtwork={snapshot.serverRendering?.enabled===true}
         presentation={presentation}
@@ -2150,7 +2158,7 @@ function MapStageInner({
           !t.sharedSightOnly && draggableTokens && movable && (actualDm || !speedIsZero(creature ?? {})) && !fogActive && !measureActive && !saveResolve && !orbTarget
         }
         listening={!t.sharedSightOnly && !measureActive}
-        selected={!t.sharedSightOnly && (orbTarget ? orbTarget.targetId === t.id : selectedIds.includes(t.id))}
+        selected={!t.sharedSightOnly && (orbTarget ? orbTarget.targetId === t.id : selectedIdSet.has(t.id))}
         activeTurn={!t.sharedSightOnly && t.id === activeTurnTokenId}
         initiativeRank={initiativeRank.get(t.id) ?? null}
         onSelect={handleTokenSelect}
@@ -2168,7 +2176,7 @@ function MapStageInner({
   });
 
   return (
-    <div className="stage-wrap" data-render-mode={legacy?'legacy':'standard'} data-retained-rendering={String(retained)} ref={containerRef} {...activeSelectionBox.handlers}
+    <div className="stage-wrap" data-motion-stage={legacyMovement.playback?'playing':'2'} data-render-mode={legacy?'legacy':'standard'} data-retained-rendering={String(retained)} ref={containerRef} {...activeSelectionBox.handlers}
       onPointerDownCapture={e=>{if(!rotateStart(e))activeSelectionBox.handlers.onPointerDownCapture(e);}}
       onPointerMoveCapture={e=>{if(!rotateMove(e))activeSelectionBox.handlers.onPointerMoveCapture(e);}}
       onPointerUpCapture={e=>{if(!rotateEnd(e))activeSelectionBox.handlers.onPointerUpCapture(e);}}

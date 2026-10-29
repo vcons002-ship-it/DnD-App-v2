@@ -5,7 +5,13 @@ import type {ExploredTerrain} from './exploration.js';
 import type {MapState,Token} from './types.js';
 export const quantizeTerrain=(shape:ExploredTerrain):ExploredTerrain=>shape.map(p=>p.map(r=>r.map(([x,y])=>[Math.round(x*64)/64,Math.round(y*64)/64])));
 export const unionTerrain=(parts:ExploredTerrain[]):ExploredTerrain=>parts.length?clipping.union(quantizeTerrain(parts[0]),...parts.slice(1).map(quantizeTerrain)):[];
-export function visibleTerrain(vision:PlayerVision,cache=new Map<string,ExploredTerrain>()):ExploredTerrain{
+let cachedWalls:PlayerVision['walls'],cachedWallKey='[]';const sharedCache=new Map<string,ExploredTerrain>();
+function terrainCacheFor(walls:PlayerVision['walls']){
+ if(walls!==cachedWalls){cachedWalls=walls;const key=JSON.stringify(walls??[]);if(key!==cachedWallKey){cachedWallKey=key;sharedCache.clear();}}
+ if(sharedCache.size>1024)sharedCache.clear();
+ return sharedCache;
+}
+export function visibleTerrain(vision:PlayerVision,cache=terrainCacheFor(vision.walls)):ExploredTerrain{
  const polygon=(point:{x:number;y:number},radius:number)=>{
   const key=`${point.x},${point.y}:${radius}`;let shape=cache.get(key);
   if(!shape){shape=[[wallVisibilityPolygon(point,vision.walls??[],radius).map(p=>[Math.round(p.x*64)/64,Math.round(p.y*64)/64])]];cache.set(key,shape);}return shape;
@@ -28,7 +34,7 @@ export type WalkSightJob={walkSight:{map:MapState;tokens:Token[];tokenId:string;
  * This is terrain history only; it never authorizes creature data. */
 export function walkingTerrain({walkSight:{map,tokens,tokenId,from,to}}:WalkSightJob){
  const count=Math.min(128,Math.max(2,Math.ceil(Math.hypot(to.x-from.x,to.y-from.y)/Math.max(1,map.gridSizePx/2))));
- const steps=count%2?Math.min(128,count+1):count,cache=new Map<string,ExploredTerrain>(),parts:ExploredTerrain[]=[];
+ const steps=count%2?Math.min(128,count+1):count,cache=terrainCacheFor(map.walls),parts:ExploredTerrain[]=[];
  const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId));let half:ExploredTerrain=[];
  for(let i=0;i<=steps;i++){
   const t=i/steps,at=tokens.map(token=>token.id===tokenId?{...token,x:from.x+(to.x-from.x)*t,y:from.y+(to.y-from.y)*t}:token);

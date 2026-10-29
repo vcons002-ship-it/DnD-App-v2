@@ -220,7 +220,9 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     }
     flame.uniforms.flameTime.value=time;
     const movingLight=carried.length>0||(settings.lights??[]).some(l=>l.flicker);
-    const sourceKey=JSON.stringify([sourceSettingsVersion,carried,transient.map(l=>[l.id,l.x,l.y,l.height,l.radius,l.strength,l.color.x,l.color.y,l.color.z,l.beam,l.visibleTorch,l.fixture,l.fixtureX,l.fixtureY,l.fixtureHeight,l.carried,l.facing,l.transient]),movingLight?seconds:0]);
+    const carriedKey=carried.map(c=>`${c.id}:${c.x}:${c.y}:${c.height}:${c.fixtureX??''}:${c.fixtureY??''}:${c.fixtureHeight}:${c.facing}`).join('|');
+    const transientKey=transient.map(l=>`${l.id}:${l.x}:${l.y}:${l.height}:${l.radius}:${l.strength}:${l.color.x}:${l.color.y}:${l.color.z}:${l.beam?`${l.beam.ax},${l.beam.ay},${l.beam.bx},${l.beam.by}`:''}:${l.visibleTorch?1:0}:${l.fixture??''}:${l.fixtureX??''}:${l.fixtureY??''}:${l.fixtureHeight??''}:${l.carried?1:0}:${l.facing??0}`).join('|');
+    const sourceKey=`${sourceSettingsVersion}|${carriedKey}|${transientKey}|${movingLight?seconds:0}`;
     if(sourceKey===lastSourceKey)return;
     lastSourceKey=sourceKey;lightVersion++;
     const ppf=settings.pixelsPerFoot??12.8;
@@ -234,6 +236,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
     }):[];
     if(plane.visible)lights.push(...transient);
     ensureCapacity(lights.length);let visible=0,lanterns=0;
+    const scratchScale=new Vector3(),scratchFlameColor=new Color();
     lights.forEach((light,i)=>{
       sourceAttribute.setXYZW(i,light.x,light.height,light.y,light.radius);
       radianceAttribute.setXYZW(i,light.color.x,light.color.y,light.color.z,light.strength);
@@ -241,7 +244,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       if(light.carried||(light.visibleTorch&&light.fixture==='lantern')){
         const size=ppf*(light.carried?.8:1.2),angle=light.facing??0,c=Math.cos(angle),s=Math.sin(angle);
         const part=(mesh:InstancedMesh,index:number,x:number,y:number,z:number,w:number,h:number,d:number)=>{
-          matrix.makeRotationY(angle).scale(new Vector3(w*size,h*size,d*size));
+          matrix.makeRotationY(angle).scale(scratchScale.set(w*size,h*size,d*size));
           matrix.setPosition((light.fixtureX??light.x)+(x*c+z*s)*size,(light.fixtureHeight??light.height)+y*size,(light.fixtureY??light.y)+(-x*s+z*c)*size);mesh.setMatrixAt(index,matrix);
         };
         part(windows,lanterns,0,0,0,.48,.73,.32);
@@ -258,7 +261,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       matrix.makeScale(ppf,length,ppf).setPosition(light.x,top-length/2,light.y);shafts.setMatrixAt(visible,matrix);
       matrix.makeScale(ppf,ppf,ppf).setPosition(light.x,top,light.y);cups.setMatrixAt(visible,matrix);
       matrix.makeScale(ppf*.62,ppf*1.18*(.9+light.strength*.1),ppf*.62).setPosition(light.x,light.height+.12*ppf,light.y);flames.setMatrixAt(visible,matrix);
-      flames.setColorAt(visible,new Color().setRGB(light.color.x,light.color.y,light.color.z));
+      flames.setColorAt(visible,scratchFlameColor.setRGB(light.color.x,light.color.y,light.color.z));
       visible++;
     });
     fieldGeometry.instanceCount=lights.length;sourceAttribute.needsUpdate=true;radianceAttribute.needsUpdate=true;beamAttribute.needsUpdate=true;updateWallField();

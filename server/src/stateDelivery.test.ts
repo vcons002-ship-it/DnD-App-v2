@@ -82,3 +82,20 @@ it('movement previews check collisions and terrain in workers without moving the
  const pool=new VisibilityWorkers(1),token={...fixture().tokens[0],widthFt:5};
  try{const result=await pool.run({token,map:{...fixture().map!,walls:vision.walls,gridSizePx:50,feetPerSquare:5},vision,zones:[{x:140,y:100,radiusFt:10}],x:300,y:100,dm:false});expect(result.x).toBeLessThan(200);expect(result.costFt).toBeGreaterThan(result.distanceFt);expect(token.x).toBe(100);}finally{await pool.close();}
 });
+it('preserves completed geometry when queued updates only change nonvisual state like chat',async()=>{
+ const frames:any[]=[],a=fixture();let resolveWorker!:(value:any)=>void;
+ const work=vi.spyOn(visibilityWorkers,'run').mockImplementation(()=>new Promise(resolve=>{resolveWorker=resolve;}));
+ try{
+  const io={to:()=>({emit:(_event:any,frame:any)=>frames.push(frame)})};
+  const opts={stateProtocol:1 as const,renderProtocol:3 as const,legacyRendering:true,serverRendering:true};
+  deliverState(io,'test',a,opts);
+  await expect.poll(()=>typeof resolveWorker).toBe('function');
+  for(let i=1;i<=4;i++)deliverState(io,'test',{...a,chat:[{id:`c${i}`,sender:'DM',role:'dm',text:`msg ${i}`,createdAt:i}]},opts);
+  resolveWorker({sight:['M0,0L10,0L10,10Z'],near:[],lights:[],memory:[],affinity:['pc']});
+  await expect.poll(()=>frames.length).toBe(1);
+  expect(work).toHaveBeenCalledTimes(1);
+  expect(frames[0].full.chat).toHaveLength(1);
+  expect(frames[0].full.chat[0].text).toBe('msg 4');
+  expect(frames[0].full.legacyGeometry.sight).toEqual(['M0,0L10,0L10,10Z']);
+ }finally{work.mockRestore();}
+});

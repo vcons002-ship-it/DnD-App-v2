@@ -1,15 +1,19 @@
 import type {LegacyGeometry} from './legacyVision.js';
 import clipping from 'polygon-clipping';
 /** Clip global sight rays to the image to keep SVG coordinates and paths bounded. */
+const boundedCache=new Map<string,string[]>();
 function boundedPaths(paths:string[],o:{width:number;height:number;x:number;y:number;scale:number}){
  const x=o.x,y=o.y,r=x+o.width/o.scale,b=y+o.height/o.scale;
  const box:clipping.Polygon=[[[x,y],[r,y],[r,b],[x,b],[x,y]]];
  return paths.flatMap(path=>{
+  const cacheKey=`${x},${y},${r},${b}:${path}`,hit=boundedCache.get(cacheKey);if(hit)return hit;
   const rings=(path.match(/M[^Z]+Z/g)??[]).map(r=>[...r.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map(p=>[Number(p[1]),Number(p[2])] as [number,number]));
   // Hand-authored/compatibility paths may use H/V commands rather than the
   // generated Mx,yLx,y form. Leave those small paths to the SVG renderer.
   if(!rings.length||rings.some(r=>r.length<3))return [path];
-  return clipping.intersection(rings,box).map(p=>p.map(r=>'M'+r.map(([x,y])=>`${x.toFixed(2)},${y.toFixed(2)}`).join('L')+'Z').join(''));
+  const clipped=rings.every(ring=>ring.every(([px,py])=>px>=x&&px<=r&&py>=y&&py<=b))?[path]:clipping.intersection(rings,box).map(p=>p.map(r=>'M'+r.map(([x,y])=>`${x.toFixed(2)},${y.toFixed(2)}`).join('L')+'Z').join(''));
+  if(boundedCache.size>=1024)boundedCache.delete(boundedCache.keys().next().value!);
+  boundedCache.set(cacheKey,clipped);return clipped;
  });
 }
 /** Same compositing rules as LegacyVisionOverlay, painted once by the server. */

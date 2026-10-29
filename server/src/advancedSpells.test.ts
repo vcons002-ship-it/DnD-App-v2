@@ -114,6 +114,21 @@ describe('Spike Growth',()=>{
   db.prepare('UPDATE maps SET walls=? WHERE id=?').run(JSON.stringify([{id:'wall',ax:410,ay:0,bx:410,by:200,thickness:5}]),f.map.id);
   f.dice(3,()=>moveToken(f.enemy.id,600,100,true));expect(f.foe().curHp).toBe(100);
  });
+ it('rolls Spike Growth movement damage synchronously inside the live-roll transaction and commits walking post-effects',async()=>{
+  const f=fixture();resolveAbilityRoll(f.s.id,'Vanec',f.now(),spell('Spike Growth'),2,undefined,undefined,undefined,f.area);
+  let connected!:(socket:unknown)=>void;const handlers=new Map<string,(...args:any[])=>void>(),emit=vi.fn();
+  const io={sockets:{sockets:new Map([['live-dm',{}]])},on:(_e:string,fn:typeof connected)=>{connected=fn;},to:()=>({emit:(event:string,payload:any)=>{if(event==='dice:frame'&&payload?.id)handlers.get('dice:skip')?.({id:payload.id});}})};
+  registerSocketHandlers(io as unknown as IOServer,{livePhysics:true});
+  connected({id:'live-dm',connected:true,on:(event:string,fn:(...args:any[])=>void)=>handlers.set(event,fn),emit:(event:string,payload:any)=>{emit(event,payload);if(event==='dice:hiddenReview'&&payload?.id)handlers.get('dice:confirmHidden')?.({id:payload.id,apply:true});}});
+  setConn('live-dm',{sessionId:f.s.id,role:'dm',viewMapId:f.map.id,playerId:null});
+  try{
+   let placed:{x:number;y:number}|undefined;
+   handlers.get('token:move')!({tokenId:f.enemy.id,x:450,y:100},(p:{x:number;y:number})=>{placed=p;});
+   await expect.poll(()=>placed,{timeout:6000}).toEqual({x:450,y:100});
+   expect(f.foe().curHp).toBeLessThan(100);
+   expect(emit).not.toHaveBeenCalledWith('error',expect.anything());
+  }finally{dropConn('live-dm');}
+ });
 });
 describe('Counterspell',()=>{
  it('can interrupt Shield without spending its slot or losing the triggering attack',()=>{

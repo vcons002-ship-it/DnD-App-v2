@@ -1,4 +1,4 @@
-import {test,expect,type Page} from './helpers/test';
+import {test,expect,webglDisabled,type Page} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
 import {projectGround} from '../client/src/canvas/miniatureProjection';
@@ -24,6 +24,7 @@ async function tokenPoint(page:Page,id:string,tilt:number,rotation:number){
  return {x:p.left+projected.x*p.sx,y:p.top+projected.y*p.sy};
 }
 for(const mode of ['legacy','2d','3d'] as const)for(const assisted of [false,true])test(`${mode} token bases remain clickable after real camera drags with assistance ${assisted}`,async({page,request})=>{
+ test.skip(mode==='3d'&&webglDisabled,'This case verifies actual WebGL miniatures; Legacy and 2D remain covered without WebGL.');
  test.setTimeout(120000);
  const headers={'x-dm-passphrase':DM_SECRET},errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Disposable camera hit regression'}})).json();
@@ -52,9 +53,11 @@ for(const mode of ['legacy','2d','3d'] as const)for(const assisted of [false,tru
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await expect.poll(()=>tokenHits(page).then(h=>h.length)).toBe(3);
   if(mode==='3d')await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','2',{timeout:60000});
-  await page.waitForTimeout(1000);
-  const check=async()=>{const hits=await tokenHits(page);expect(hits.map(h=>({id:h.id,hit:h.hit}))).toEqual(hits.map(h=>({id:h.id,hit:h.id})));};
-  await check();
+  // The snapshot can mount tokens before the initial canvas/assets finish.
+  // Establish readiness without forcing a repaint; subsequent camera checks
+  // still inspect the hit map immediately after the drag/zoom/rotation.
+  await expect.poll(async()=>{const hits=await tokenHits(page);return hits.length===3&&hits.every(h=>h.hit===h.id);},{timeout:20000}).toBe(true);
+  const check=async()=>{const hits=await tokenHits(page);expect(hits.map(h=>({id:h.id,hit:h.hit})),JSON.stringify(hits)).toEqual(hits.map(h=>({id:h.id,hit:h.id})));};
   await page.evaluate(()=>{
    const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);
    (window as any).__cameraDragged=[];
