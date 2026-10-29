@@ -1,0 +1,115 @@
+{
+  "at": "2026-10-29T03:06:25.697Z",
+  "clientDist": "C:\\Users\\vcons\\.codex\\worktrees\\visibility-fast-path\\DnD-App-v2\\client\\dist",
+  "method": "Sequential fresh contexts, real Chrome RTX WebGL, unrestricted disposable server. 48 goblins, one PC, 12 static lights, mist enabled, 2000x1400 image, DPR1, 1440x960. Player Low/Balanced at 1x/6x CPU. CDP main-thread task milliseconds, no profiler/trace/video. DM Legacy fog covers 28,000 grid cells. Same current backend for both client builds. Samples are individual observations, not hardware-independent speed guarantees.",
+  "players": [
+    {
+      "quality": "low",
+      "rate": 1,
+      "samples": [
+        {
+          "phase": "idle",
+          "elapsedMs": 4015.168000012636,
+          "taskMs": 254.51800000000003,
+          "scriptMs": 141.24099999999996,
+          "renders": 48
+        },
+        {
+          "phase": "navigation",
+          "elapsedMs": 704.7700000111945,
+          "taskMs": 442.44899999999984,
+          "scriptMs": 347.677,
+          "renders": 66
+        }
+      ],
+      "orb": "static",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    {
+      "quality": "low",
+      "rate": 6,
+      "samples": [
+        {
+          "phase": "idle",
+          "elapsedMs": 4014.8080000071786,
+          "taskMs": 1913.2730000000001,
+          "scriptMs": 1369.593,
+          "renders": 45
+        },
+        {
+          "phase": "navigation",
+          "elapsedMs": 5910.231999994721,
+          "taskMs": 4917.881000000001,
+          "scriptMs": 3742.3729999999996,
+          "renders": 69
+        }
+      ],
+      "orb": "static",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    {
+      "quality": "balanced",
+      "rate": 1,
+      "samples": [
+        {
+          "phase": "idle",
+          "elapsedMs": 4005.689000012353,
+          "taskMs": 516.5449999999998,
+          "scriptMs": 292.5610000000001,
+          "renders": 80
+        },
+        {
+          "phase": "navigation",
+          "elapsedMs": 787.6060000271536,
+          "taskMs": 535.0009999999994,
+          "scriptMs": 407.9510000000002,
+          "renders": 67
+        }
+      ],
+      "orb": "animated",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    {
+      "quality": "balanced",
+      "rate": 6,
+      "samples": [
+        {
+          "phase": "idle",
+          "elapsedMs": 4011.707999976352,
+          "taskMs": 3368.178999999998,
+          "scriptMs": 2284.4690000000005,
+          "renders": 71
+        },
+        {
+          "phase": "navigation",
+          "elapsedMs": 8720.264000003226,
+          "taskMs": 7744.796000000001,
+          "scriptMs": 6276.5199999999995,
+          "renders": 127
+        }
+      ],
+      "orb": "animated",
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    }
+  ],
+  "fog": [
+    {
+      "rate": 1,
+      "repaint100Ms": 33.30000001192093,
+      "brushElapsedMs": 772.3140000016429,
+      "brushTaskMs": 65.62800000000001,
+      "snapshots": 2,
+      "revealed": 44
+    },
+    {
+      "rate": 6,
+      "repaint100Ms": 304.19999998807907,
+      "brushElapsedMs": 1219.4299999973737,
+      "brushTaskMs": 557.54,
+      "snapshots": 3,
+      "revealed": 44
+    }
+  ],
+  "errors": [],
+  "clientIndexSha256": "3834564e1e90d2d6522f65b94416eb8b3fa893062e9a3212b090f22332f7ed0a"
+}

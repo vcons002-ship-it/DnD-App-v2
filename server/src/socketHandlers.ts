@@ -1111,9 +1111,9 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     });
 
     on('fog:paint', ({ mapId, layer, cells, reveal }) => {
-      if (!isDm() || !getMap(mapId) || !Array.isArray(cells)) return;
-      paintFog(mapId, layer, cells, reveal);
-      afterChange();
+      const map=isDm()?getMap(mapId):undefined;
+      if (!map || map.sessionId!==sessionId() || !Array.isArray(cells)) return;
+      if(paintFog(mapId, layer, cells, reveal))afterChange();
     });
 
     on('fog:cover', ({ mapId, layer }) => {

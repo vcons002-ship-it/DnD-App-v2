@@ -48,9 +48,15 @@ for(const assisted of [false,true])for(const role of ['player','dm'] as const)te
   await page.mouse.move(700,400);for(const delta of [-240,240,-240]){await page.mouse.wheel(0,delta);await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));const sample=await page.evaluate(()=>(window as any).__checkLegacyCamera());expect(sample.maxError).toBeLessThan(.01);}
   const samples=await page.evaluate(()=>(window as any).__cameraSamples);expect(samples.length).toBeGreaterThan(0);expect(Math.max(...samples.map((s:any)=>s.maxError))).toBeLessThan(.01);
   if(assisted){
+   // Observe before triggering the short (400 ms) animation. Polling a removed
+   // debug attr or waiting for another automation round trip can miss it.
+   await page.evaluate(()=>{const w=window as any;w.__motionCamera=new Promise((resolve,reject)=>{
+    const observer=new MutationObserver(()=>{const img=document.querySelector('[data-testid=legacy-motion-mask] img');if(!img)return;observer.disconnect();clearTimeout(timer);
+     const stage=w.Konva.stages.find((s:any)=>s.find('.token').length),layer=stage.getLayers().find((l:any)=>l.draggable()),before=img.getAttribute('data-frame');layer.position({x:layer.x()+65,y:layer.y()+40});layer.fire('dragmove',{target:layer,evt:new MouseEvent('mousemove')},true);resolve({...w.__checkLegacyCamera(),before,after:img.getAttribute('data-frame')});
+    });const timer=setTimeout(()=>{observer.disconnect();reject(Error('Prepared movement mask did not appear'));},20000);observer.observe(document.querySelector('.stage-wrap')!,{childList:true,subtree:true});
+   });});
    const token=(await state()).tokens.find((t:any)=>t.kind==='pc');admin.emit('token:move',{tokenId:token.id,x:420,y:300});
-   await page.waitForFunction(()=>document.querySelector('.stage-wrap')?.getAttribute('data-motion-stage')==='playing',undefined,{timeout:20000});
-   const moving=await page.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),layer=stage.getLayers().find((l:any)=>l.draggable()),img=document.querySelector('[data-testid=legacy-motion-mask] img'),before=img?.getAttribute('data-frame');layer.position({x:layer.x()+65,y:layer.y()+40});layer.fire('dragmove',{target:layer,evt:new MouseEvent('mousemove')},true);return{...(window as any).__checkLegacyCamera(),before,after:img?.getAttribute('data-frame')};});
+   const moving=await page.evaluate(()=>(window as any).__motionCamera);
    expect(moving.checked).toBeGreaterThanOrEqual(9);expect(moving.maxError).toBeLessThan(.01);expect(moving.after).toBe(moving.before);
   }
  }finally{admin.disconnect();await companion?.close();}

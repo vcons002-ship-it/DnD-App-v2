@@ -10,6 +10,7 @@ export function graphicsBudget(quality:EnvironmentQuality, viewportWidth=1440,au
   return {
     resolved,
     legacy,
+    idleSceneFps:low?12:resolved==='balanced'?20:30,
     visibilityRefreshMs:legacy?500:0,
     modelQuality:resolved==='off'||legacy?'low' as const:resolved,
     miniatureLightMode:low?'ground' as const:'directional' as const,

@@ -47,7 +47,7 @@ it('tiles have identical pixels to the full mask and unchanged areas keep their 
  expect(moved.bounds).toEqual(first.bounds);expect(moved.tiles['0:0'].key).not.toBe(first.tiles['0:0'].key);expect(moved.tiles['1:0'].key).toBe(first.tiles['1:0'].key);
 });
 it('reuses prepared geometry and images for feed-only updates and regenerates after visibility changes',async()=>{
- const snapshot={role:'player',map:{id:'reuse',gridSizePx:50,feetPerSquare:5,mapVisionEnabled:true},tokens:[],characters:[],monsters:[],chat:[],rollLog:[],serverRendering:{enabled:true},playerVision:{radius:100,rangeFt:60,heavy:false,daylight:true,walls:[],lights:[],origins:[{id:'pc',x:100,y:100}]}} as unknown as StateSnapshot;
+ const snapshot={role:'player',map:{id:'reuse',gridSizePx:50,feetPerSquare:5,mapVisionEnabled:true},tokens:[],characters:[],monsters:[],chat:[],rollLog:[],serverRendering:{enabled:true},playerVision:{radius:100,rangeFt:60,heavy:false,daylight:false,walls:[],lights:[],origins:[{id:'pc',x:100,y:100}]}} as unknown as StateSnapshot;
  const events:any[]=[];const io={to:()=>({emit:(event:string,payload:any)=>{if(event==='state:frame')events.push(payload);}})};
  const options={stateProtocol:1 as const,renderProtocol:2 as const,legacyRendering:true,serverRendering:true};
  deliverState(io,'tiles',snapshot,options);await expect.poll(()=>events.length,{timeout:10000}).toBe(1);

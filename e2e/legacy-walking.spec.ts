@@ -35,7 +35,7 @@ for(const role of ['player','dm'] as const)test(`Legacy ${role} animates by defa
   await expect.poll(x).toBe(400);await page.waitForTimeout(700);
   await page.evaluate(({id,enemy})=>{const w=window as any;w.__walkSamples=[];w.__walkUntil=performance.now()+15000;const record=()=>{const nodes=w.Konva.stages.flatMap((s:any)=>s.find('.token')),n=nodes.find((n:any)=>n.getAttr('tokenId')===id);w.__walkSamples.push({at:performance.now(),x:n?.x(),enemy:nodes.some((n:any)=>n.getAttr('tokenId')===enemy&&n.isVisible()&&n.opacity()>.01),mask:document.querySelector('[data-testid=legacy-vision]')?.getAttribute('data-raster-key')});if(performance.now()<w.__walkUntil)requestAnimationFrame(record);};record();},{id:token.id,enemy:enemy.id});
   admin.emit('token:move',{tokenId:token.id,x:1700,y:800});await expect.poll(x,{timeout:20000}).toBe(1700);
-  await page.waitForFunction(()=>document.querySelector('.stage-wrap')?.getAttribute('data-motion-stage')==='2');await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  await expect(page.getByTestId('legacy-motion-mask')).toHaveCount(0);await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   const samples=await page.evaluate(()=>(window as any).__walkSamples);expect(samples.some((p:any)=>p.x>400&&p.x<1700)).toBe(true);expect(new Set(samples.map((p:any)=>p.mask)).size).toBeGreaterThanOrEqual(3);
   expect(samples[0].enemy).toBe(false);expect(samples.some((p:any)=>p.enemy)).toBe(true);expect(samples.at(-1).enemy).toBe(false);
   // Legacy must retain real ground marks without waking its map/token layers.

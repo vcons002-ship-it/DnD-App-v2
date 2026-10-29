@@ -348,6 +348,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   let disposed = false;
   let failed = false;
   let frame = 0;
+  let idleTimer:ReturnType<typeof setTimeout>|undefined;
   let lastPaint = 0;
   const started = performance.now();
   let lastIds = '';
@@ -434,14 +435,19 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (disposed || failed || document.hidden) return;
     const environment=props.environmentPreview;
     const atmosphereAnimated = !!environment?.enabled && !reducedMotion.matches &&
-      ((environment.particles&&environment.particles!=='none'&&(environment.particleIntensity??.5)>0) || (environment.groundWetness??0)>0 || environment.lightning || environment.mist || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
+      ((environment.particles&&environment.particles!=='none'&&(environment.particleIntensity??.5)>0&&(environment.particleScale??1)>0) || (environment.groundWetness??0)>0 || environment.lightning || (environment.mist&&environment.mistQuality!=='off') || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
+    const fading=[...opacityFades.values()].some(f=>now-f.start<850);
+    const fastAnimation=settling||casting.length>0||spellImpacts.active||fading||localShadows.pending;
     host.dataset.castingTokenIds = casting.map(([id]) => id).join(',');
     // Paint the preference change even inside the frame cap: this may be the
     // last frame once animation stops, so no flash or moving effect may linger.
-    const fps=props.rollBackground?12:props.environmentPreview||spellImpacts.active?60:24;
+    // Camera/input invalidation bypasses this cap. Only motion, active casts
+    // and spells need 60 Hz; stationary cosmetic animation follows the budget.
+    const fps=props.rollBackground?12:fastAnimation?60:props.graphics?.idleSceneFps??24;
+    host.dataset.idleSceneFps=String(props.graphics?.idleSceneFps??24);
     if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= 1000/fps-1) {
       paintedReducedMotion = reducedMotion.matches;
       lastPaint = now;
@@ -727,17 +733,20 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         publish();
       } catch(error) { console.error('Miniature WebGL rendering failed',error); fail(); }
     }
-    if (!failed && (localShadows.pending || archArtStudy?.animating || archArtLayer.animating || animated || atmosphereAnimated || settling || casting.length > 0 || spellImpacts.active || [...opacityFades.values()].some(f=>now-f.start<850))) queueDraw();
+    if (!failed && (fastAnimation || archArtStudy?.animating || archArtLayer.animating || animated || atmosphereAnimated))
+      queueDraw(fastAnimation?0:Math.max(0,1000/fps-(performance.now()-lastPaint)-2));
   };
-  const queueDraw = () => {
-    if (frame || disposed || failed) return;
+  const queueDraw = (delay=0) => {
+    if (frame || idleTimer || disposed || failed) return;
+    if(delay>0){idleTimer=setTimeout(()=>{idleTimer=undefined;queueDraw();},delay);return;}
     frame = requestBattlefieldFrame(draw);
   };
   const invalidate = () => {
     if (disposed || failed || document.hidden) return;
     // Pointer/camera changes paint on the next frame even when an animated
-    // miniature already has a frame pending under the 24fps idle effect cap.
+    // miniature already has a frame pending under the quality's idle effect cap.
     lastPaint = 0;
+    if(idleTimer){clearTimeout(idleTimer);idleTimer=undefined;}
     queueDraw();
   };
   const disposeInstance = (instance:Instance) => {
@@ -1194,6 +1203,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    if(idleTimer)clearTimeout(idleTimer);
     batches.dispose();
     if(lodTimer)clearTimeout(lodTimer);
     if(preloadTimer)clearTimeout(preloadTimer);

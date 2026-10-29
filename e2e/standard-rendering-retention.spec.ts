@@ -25,7 +25,7 @@ for(const mode of ['2d','3d'])test(`standard ${mode} retains static artwork whil
   await page.setViewportSize({width:1500,height:1000});await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   const models=page.getByTestId('miniature-layer');await expect(models).toHaveAttribute('data-miniature-status','ready',{timeout:60000});
   await expect(models).toHaveAttribute('data-miniature-count',mode==='3d'?'8':'0',{timeout:60000});
-  const node=()=>page.evaluate(id=>{const n=(window as any).Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id);return n?{x:n.x(),y:n.y(),cached:n.findOne('.token-art').isCached(),body:n.findOne('.server-token-body')?.image()?.src,hud:n.findOne('.server-token-hud')?.image()?.src,health:n.findOne('.token-health')?.getChildren()[1]?.width(),label:n.findOne('.token-label')?.text(),hiddenLabel:n.findOne('.token-label')?.visible()===false}:null;},token.id);
+  const node=()=>page.evaluate(id=>{const n=(window as any).Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id);return n?{x:n.x(),y:n.y(),cached:n.findOne('.token-art').isCached(),body:n.findOne('.server-token-body')?.image()?.src,hud:n.findOne('.server-token-hud')?.image()?.src,health:n.findOne('.token-health')?.getChildren()[1]?.width(),label:n.findOne('.token-label')?.text(),hiddenLabel:n.findOne('.token-label')?.visible()===false,hiddenHealth:n.findOne('.token-health')?.visible()===false}:null;},token.id);
   const count=async(name:string)=>Number(await models.getAttribute(`data-${name}`));
   const pixels=async()=>{await expect.poll(()=>page.evaluate(()=>{
    return (window as any).Konva.stages.flatMap((s:any)=>s.getLayers().filter((l:any)=>l.getAttr('retainedStats')).map((l:any)=>{
@@ -45,7 +45,7 @@ for(const mode of ['2d','3d'])test(`standard ${mode} retains static artwork whil
   await page.evaluate(id=>{const n=(window as any).Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id);n.fire('click',{evt:{button:0}},true);},token.id);
   await page.waitForTimeout(500);const field=await count('light-field-updates'),glyphs=await count('name-texture-updates'),body=await count('body-appearance-updates'),frames=await count('render-count');
   await page.waitForTimeout(700);expect(await count('light-field-updates')).toBe(field);
-  if(mode==='3d'){expect(await count('name-texture-updates')).toBe(glyphs);expect(await count('render-count')).toBeGreaterThan(frames);expect((await node())!.hiddenLabel).toBe(true);}
+  if(mode==='3d'){expect(await count('name-texture-updates')).toBe(glyphs);expect(await count('render-count')).toBeGreaterThan(frames);expect((await node())!.hiddenLabel).toBe(true);expect((await node())!.hiddenHealth).toBe(true);}
   admin.emit('token:move',{tokenId:token.id,x:335,y:300});const moved=(await state()).tokens.find((t:any)=>t.id===token.id);
   await expect.poll(()=>node().then(n=>Math.round(n!.x))).toBe(Math.round(moved.x));await page.waitForTimeout(600);
   if(mode==='3d'){expect(await count('body-appearance-updates')).toBe(body);expect(await count('name-texture-updates')).toBe(glyphs);expect(await count('light-field-updates')).toBeGreaterThan(field);}
@@ -62,8 +62,9 @@ for(const mode of ['2d','3d'])test(`standard ${mode} retains static artwork whil
   const target=projectGround(destination.x,destination.y,point.width,point.height,45,15);
   await page.mouse.move(point.left+projected.x,point.top+projected.y);await page.mouse.down();await page.mouse.move(point.left+target.x,point.top+target.y,{steps:6});await page.mouse.up();
   await expect.poll(async()=>(await state()).tokens.find((t:any)=>t.id===token.id).x).not.toBe(moved.x);await page.waitForTimeout(600);await pixels();
-  const beforeHp=await node();admin.emit('monster:update',{monsterId:token.refId,curHp:15});await state();
+  const beforeHp=await node(),healthTextures=await count('name-texture-updates');admin.emit('monster:update',{monsterId:token.refId,curHp:15});await state();
   if(mode==='2d')await expect.poll(()=>node().then(n=>n?.hud!==beforeHp?.hud)).toBe(true);else await expect.poll(()=>node().then(n=>n!.health!<beforeHp!.health!)).toBe(true);
+  if(mode==='3d')await expect.poll(()=>count('name-texture-updates')).toBeGreaterThan(healthTextures);
   admin.emit('monster:update',{monsterId:token.refId,name:'Renamed Goblin'});await state();
   if(mode==='3d')await expect.poll(()=>node().then(n=>n?.label)).toBe('Renamed Goblin');
   if(mode==='3d')for(const quality of ['low','high']){

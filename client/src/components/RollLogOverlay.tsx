@@ -1,6 +1,6 @@
 import { useStore } from '../state/socket';
 import { rollLogDetail } from '../../../shared/rollBreakdown';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { RollEntry, ChatMessage } from '../../../shared/types';
 import { rollCategory, rollerColor } from '../lib/rollStyle';
 import { renderRollDetail } from '../lib/rollDetail';
@@ -25,23 +25,22 @@ export function RollLogOverlay({
   rollLog: RollEntry[];
   chat: ChatMessage[];
 }) {
-  const [now, setNow] = useState(() => Date.now());
+  const [stale, setStale] = useState(false);
   const [hovered, setHovered] = useState(false);
   const rollingId = useStore(s => s.showRollAnim && s.rollFx && !s.rollFx.impactReady ? s.rollFx.rollId : null);
-  const feed = mergeFeed(rollLog, chat);
-
-  // Re-evaluate ages on a slow tick so lines age out on their own.
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, []);
-  // Snap to the current time on a new entry so it appears immediately.
-  useEffect(() => setNow(Date.now()), [feed.length]);
-
+  const feed = useMemo(()=>mergeFeed(rollLog, chat),[rollLog,chat]);
   const latest = feed[feed.length - 1];
+
+  // One deadline per latest entry; an old feed has no repeating timer or sort.
+  useEffect(() => {
+    const delay=(latest?.createdAt??0)+WINDOW_MS-Date.now();
+    setStale(delay<=0);
+    if(delay<=0)return;
+    const timer=setTimeout(()=>setStale(true),delay);
+    return()=>clearTimeout(timer);
+  }, [latest?.id,latest?.createdAt]);
   if (!latest) return null;
 
-  const stale = now - latest.createdAt >= WINDOW_MS;
   // Collapsed: just the latest line. Hovered: the last few (latest included).
   const shown: FeedItem[] = hovered ? feed.slice(-HOVER_STACK) : [latest];
 

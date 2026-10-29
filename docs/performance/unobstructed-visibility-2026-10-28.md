@@ -24,14 +24,26 @@ map. This change does not attempt to prove that an arbitrary remembered polygon
 covers every visible pixel or that opening markers remove an entire wall:
 any solid wall conservatively keeps the existing dynamic layers.
 
-## Validation deferred during the active campaign
+## Validation after the campaign
 
-Only source/diff review was performed. No tests, typechecks, builds, benchmark
-runs, live campaign requests, deployments or service restarts were run for this
-change. Regression cases were added for later execution: unobstructed daylight,
-openings, closed barriers, missing origins, dark lighting, independent token fog,
-per-view preview pending state, skipped worker jobs, and early terrain-raster
-bypass. Runtime behavior and performance improvement remain unverified.
+After the user ended the campaign and authorized testing, the full isolated
+unit suite passed: 2,403 tests across 244 files. Client/server typechecks and
+production builds passed. Coverage includes unobstructed daylight, openings,
+closed barriers, missing origins, darkness, independent token fog, per-view
+pending state, skipped worker jobs, and early terrain-raster bypass.
 
-The change is prepared in an isolated worktree. It is kept local while tests are
-prohibited; publishing the commit would trigger the repository's CI workflow.
+The browser fog regression now verifies both Legacy and standard player views:
+automatic fog can remain enabled on an unobstructed daylight board without
+mounting a visibility layer; enabling heavy darkness brings the layer back;
+returning to daylight removes it again. Manual reveal/re-cover pixels remain
+correct. Separate browser checks preserve camera concealment and prepared
+movement through darkness for players and DM preview with assistance on/off.
+
+An older retained-rendering test expected a geometry worker on unobstructed
+daylight. Its fixture now uses dark lighting so it still verifies geometry
+reuse/invalidation on a board that actually needs a mask.
+
+Tests used disposable databases/uploads and a separate port. No live campaign
+data, served frontend, or running DnDServer service was changed. See
+[navigation and manual-fog follow-up](navigation-fog-2026-10-28.md) for the
+additional optimizations and before/after measurements.

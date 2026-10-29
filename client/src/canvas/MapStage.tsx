@@ -11,6 +11,8 @@ import {MapArtwork} from './MapArtwork';
 import {useMapAnimation} from '../lib/useMapAnimation';
 import {requestText} from '../lib/dialogs';
 import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
+import {createLatestFrame} from '../lib/latestFrame';
+import {ManualFog,type ManualFogHandle} from './ManualFog';
 import {mirrorImageCount} from '../../../shared/linkedSpells';
 import {tokenInSpellArea,areaExcludesCaster,areaOrigin,type SpellAreaPlacement} from '../../../shared/spellAreas';
 import {tokenDistanceFt} from '../../../shared/distance';
@@ -34,7 +36,7 @@ import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance
 import { productionFamily } from '../../../shared/assetProduction';
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Stage, Layer, Group, Line, Rect, Shape, Circle, Text, Label, Tag, Path, Image as KonvaImage } from 'react-konva';
+import { Stage, Layer, Group, Line, Rect, Circle, Text, Label, Tag, Path, Image as KonvaImage } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import Konva from 'konva';
@@ -880,17 +882,34 @@ function MapStageInner({
   const fogActive = actualDm && fogBrush !== 'off';
   const paintingRef = useRef(false);
   const strokeRef = useRef<Set<string>>(new Set());
-  // Fog-brush cells are accumulated and flushed on a short timer so a fast sweep
-  // coalesces into ~1 broadcast per 120 ms — each fog:paint triggers a full
-  // server-side snapshot rebuild + broadcast, so per-mousemove emits saturate the
-  // event loop and stutter every player's map.
+  // Preview immediately for the DM; persist/broadcast at most four batches per
+  // second while brushing. Stroke release always flushes the final cells.
+  const mapFogMask=useRef<ManualFogHandle>(null),tokenFogMask=useRef<ManualFogHandle>(null);
   const pendingFogRef = useRef<string[]>([]);
+  const pendingFogContext=useRef<{mapId:string;layer:FogLayer;reveal:boolean}>();
   const fogFlushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Emit the accumulated fog cells as ONE paint (a stroke is a single
+   *  layer/direction, so those are constant across the batch). */
+  const flushFog = () => {
+    if (fogFlushRef.current) {
+      clearTimeout(fogFlushRef.current);
+      fogFlushRef.current = null;
+    }
+    const cells = pendingFogRef.current;
+    const context=pendingFogContext.current;
+    if (cells.length && context) {
+      pendingFogRef.current = [];
+      pendingFogContext.current=undefined;
+      paintFog(context.mapId, context.layer, cells, context.reveal);
+    }
+  };
+
+
   useEffect(
     () => () => {
-      if (fogFlushRef.current) clearTimeout(fogFlushRef.current);
+      flushFog();strokeRef.current.clear();paintingRef.current=false;
     },
-    [],
+    [map?.id],
   );
 
   // ---- Map scale ----------------------------------------------------------
@@ -1397,6 +1416,16 @@ function MapStageInner({
     }
   },[]);
 
+  const paintPan = useStableCallback((position:Pt) => {
+    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
+      if (layer) { layer.position(position); layer.draw(); }
+    }
+    miniatureRef.current?.setView({ ...view, ...position });
+    visionRef.current?.camera({view:{...view,...position}});
+  });
+  const panFrames=useMemo(()=>createLatestFrame(paintPan,run=>requestBattlefieldFrame(run,'camera'),cancelBattlefieldFrame),[paintPan]);
+  useEffect(()=>()=>panFrames.cancel(),[panFrames,map?.id,legacy]);
+
   // Flat tokens belong to the ground plane, beneath miniature geometry.
   // Only ready miniature HUDs and shared tools belong above WebGL. Konva
   // keeps all hit regions so changing visual depth never changes input ownership.
@@ -1522,24 +1551,14 @@ function MapStageInner({
       }
     }
     if (fresh.length) {
+      const context={mapId:map.id,layer:paintLayer,reveal:fogBrush==='reveal'},old=pendingFogContext.current;
+      if(old&&(old.mapId!==context.mapId||old.layer!==context.layer||old.reveal!==context.reveal))flushFog();
+      pendingFogContext.current=context;
+      (paintLayer==='map'?mapFogMask:tokenFogMask).current?.preview(fresh,fogBrush==='reveal');
       pendingFogRef.current.push(...fresh);
-      if (!fogFlushRef.current) fogFlushRef.current = setTimeout(flushFog, 120);
+      if (!fogFlushRef.current) fogFlushRef.current = setTimeout(flushFog, 250);
     }
   };
-  /** Emit the accumulated fog cells as ONE paint (a stroke is a single
-   *  layer/direction, so those are constant across the batch). */
-  const flushFog = () => {
-    if (fogFlushRef.current) {
-      clearTimeout(fogFlushRef.current);
-      fogFlushRef.current = null;
-    }
-    const cells = pendingFogRef.current;
-    if (cells.length && map) {
-      pendingFogRef.current = [];
-      paintFog(map.id, paintLayer, cells, fogBrush === 'reveal');
-    }
-  };
-
   // Place/size a measurement. Custom = drag; standard circle/square = one click;
   // standard cone/line = click-anchor then rotate then click; emanation = click a
   // token (then optionally drag the radius for custom).
@@ -1988,16 +2007,16 @@ function MapStageInner({
   const panning = !placingLight && !onPlaceAt && !fogActive && !measureActive && !pinching;
   const handleLayerDragMove = (e: KonvaEventObject<DragEvent>) => {
     if (e.target.getClassName() !== 'Layer') return;
-    const position = { x: e.target.x(), y: e.target.y() };
-    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
-      if (layer) { layer.position(position); layer.draw(); }
-    }
-    miniatureRef.current?.setView({ ...view, ...position });
-    visionRef.current?.camera({view:{...view,...position}});
+    const position={x:e.target.x(),y:e.target.y()};
+    // Legacy's precomputed mask/terrain only need cheap DOM transforms here.
+    // Keep them aligned immediately; defer the canvas redraws to one RAF.
+    if(legacy)visionRef.current?.camera({view:{...view,...position}});
+    panFrames.push(position);
   };
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
     // dragend bubbles; only react to the layer itself panning, not token drags.
     if (e.target.getClassName() !== 'Layer') return;
+    panFrames.push({x:e.target.x(),y:e.target.y()});panFrames.flush();
     // Pan synchronizes several layers, while Konva's release paint refreshes
     // only the directly dragged layer. Retained hit maps skipped paints during
     // the drag, so refresh every synchronized layer before the next pointer
@@ -2498,47 +2517,16 @@ function MapStageInner({
                   grid, image, or tell-tale darker rectangle leaks through. The DM
                   sees a translucent dark wash so they can still work under it. */}
               {mapFogEnabled && (
-                <Shape
-                  listening={false}
-                  opacity={isDm ? 0.5 : 1}
-                  sceneFunc={(ctx: Konva.Context) => {
-                    ctx.fillStyle = isDm ? '#04060a' : CANVAS_BG;
-                    // For the opaque player cover, overlap cells by 1px so the
-                    // grid never bleeds through sub-pixel seams. (No overlap for
-                    // the DM's translucent wash — it would darken at seams.)
-                    const pad = isDm ? 0 : 1;
-                    for (let c = colMin; c < colMax; c++) {
-                      for (let r = rowMin; r < rowMax; r++) {
-                        if (!mapRevealed.has(`${c},${r}`)) {
-                          ctx.fillRect(
-                            c * grid - pad,
-                            r * grid - pad,
-                            grid + pad * 2,
-                            grid + pad * 2,
-                          );
-                        }
-                      }
-                    }
-                  }}
-                />
+                <ManualFog key={`map-fog:${map?.id}`} ref={mapFogMask} name="manual-map-fog" id={map?.id??''} grid={grid}
+                  bounds={{left:colMin,top:rowMin,right:colMax,bottom:rowMax}} revealed={mapRevealed}
+                  color={isDm?'#04060a':CANVAS_BG} opacity={isDm?.5:1}/>
               )}
               {/* Token fog: a DM-only purple marker of where tokens are hidden
                   (players just don't receive those tokens). */}
               {tokenFogEnabled && isDm && (
-                <Shape
-                  listening={false}
-                  opacity={0.35}
-                  sceneFunc={(ctx: Konva.Context) => {
-                    ctx.fillStyle = '#7a3df0';
-                    for (let c = colMin; c < colMax; c++) {
-                      for (let r = rowMin; r < rowMax; r++) {
-                        if (!tokenRevealed.has(`${c},${r}`)) {
-                          ctx.fillRect(c * grid, r * grid, grid, grid);
-                        }
-                      }
-                    }
-                  }}
-                />
+                <ManualFog key={`token-fog:${map?.id}`} ref={tokenFogMask} name="manual-token-fog" id={map?.id??''} grid={grid}
+                  bounds={{left:colMin,top:rowMin,right:colMax,bottom:rowMax}} revealed={tokenRevealed}
+                  color="#7a3df0" opacity={.35}/>
               )}
               {/* Image decals (scenery) sit UNDER tokens; the DM drags to
                   reposition / corner-drags to resize, removes one via the
