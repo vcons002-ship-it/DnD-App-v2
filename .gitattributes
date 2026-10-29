@@ -14,6 +14,9 @@
 # enabled per-repo by install.bat / install.sh via `git config merge.ours.driver true`.
 package-lock.json merge=ours linguist-generated=true
 
+# Keep raw benchmark samples available while focusing PR review on code and reports.
+docs/performance/*.json linguist-generated=true
+
 # Accepted high-detail miniature review assets, not client runtime payloads.
 assets/miniatures/models/*.glb filter=lfs diff=lfs merge=lfs -text
 
