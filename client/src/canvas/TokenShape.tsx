@@ -1,7 +1,7 @@
 import {difficultTravel} from '../../../shared/advancedSpells';
 import {mirrorImageCount,MIRROR_IMAGE_SPREAD} from '../../../shared/linkedSpells';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import {stopAtWalls,wallCollisionRadiusFt,type MapWall} from '../../../shared/mapWalls';
+import {resolveWallMovement,wallCollisionRadiusFt,type MapWall} from '../../../shared/mapWalls';
 import {
   Group,
   Circle,
@@ -294,7 +294,7 @@ function TokenShapeInner({
     dragOverlay.current?.moveToTop();
     paintDrag(tokenNode.current!.x(),tokenNode.current!.y());
   };
-  const constrainMove=(x:number,y:number)=>onServerPreview?{x,y}:stopAtWalls(committed.current,{x,y},wallCollisionRadiusFt(token.widthFt)*pxPerFoot,movementWalls);
+  const constrainMove=(x:number,y:number)=>onServerPreview?{x,y}:resolveWallMovement(committed.current,{x,y},wallCollisionRadiusFt(token.widthFt)*pxPerFoot,movementWalls);
   const handleDragMove = (e: KonvaEventObject<DragEvent>) => {
     const p=constrainMove(e.target.x(),e.target.y());e.target.position(p);paintDrag(p.x,p.y);
   };
