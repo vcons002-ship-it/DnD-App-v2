@@ -19,6 +19,6 @@ export async function recordWalkingMove(previous:Token,next:Token,persist:boolea
  // Worker receives immutable movement-time inputs, with no DB handle or socket.
  const result=await visibilityWorkers.run({walkSight:{map,tokens:listTokens(map.id),tokenId:next.id,from:route.from,to:route.to}});
  route.half=result.half;route.samples=result.samples;
- const current=getMap(map.id);
- if(persist&&current&&explorationGeneration(map.id)===generation&&terrainIdentity(current,listMapImages(map.id))===identity)mergeWalkingTerrain(current,listMapImages(map.id),result.seen);
+ const current=getMap(map.id),latestTiles=listMapImages(map.id);
+ if(persist&&current&&explorationGeneration(map.id)===generation&&terrainIdentity(current,latestTiles)===identity)mergeWalkingTerrain(current,latestTiles,result.seen,listTokens(map.id));
 }

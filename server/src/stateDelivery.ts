@@ -3,6 +3,7 @@ import {diffSnapshot,type StateFrame} from '../../shared/stateDelta.js';
 import {needsVisibilityLayer,usesMapVision} from '../../shared/playerVision.js';
 import {visibilityWorkers} from './visibilityWorkers.js';
 import {renderedSnapshot,renderingInputKey,reuseRenderedSnapshot} from './renderedSnapshot.js';
+import {flushRenderWarmer,setRenderWarmer} from './renderAssets.js';
 import {currentMovementTiming,timingClock} from './movementTiming.js';
 import type {MovementFrameTiming} from '../../shared/movementTiming.js';
 import {prepareLegacyMotion} from './legacyMotion.js';
@@ -10,7 +11,7 @@ type Emitter={to:(id:string)=>{emit:(event:any,payload:any)=>unknown}};
 type Delivery={serial:number;revision:number;active:boolean;wake?:()=>void;pending?:StateSnapshot;pendingTiming?:MovementFrameTiming;previous?:StateSnapshot;previousSource?:StateSnapshot;inputKey?:string;ready?:StateSnapshot;readySource?:StateSnapshot;forceFull:boolean;legacy:boolean;managed:boolean;lastAt:number;effects:(()=>void)[]};
 const deliveries=new Map<string,Delivery>();
 export const deliveryMetrics={full:0,delta:0,fullBytes:0,wireBytes:0,coalesced:0,stale:0,failed:0};
-export function resetDelivery(id:string){const d=deliveries.get(id);deliveries.delete(id);d?.wake?.();}
+export function resetDelivery(id:string){const d=deliveries.get(id);deliveries.delete(id);setRenderWarmer(id,undefined);d?.wake?.();}
 export function resyncDelivery(id:string){const d=deliveries.get(id);if(d){d.forceFull=true;d.inputKey=undefined;d.ready=undefined;d.readySource=undefined;d.wake?.();}}
 function positionsChanged(before:StateSnapshot|undefined,after:StateSnapshot){
  if(!before)return true;
@@ -72,12 +73,17 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
      if(timing){timing.geometryEndAt=timingClock();timing.renderStartAt=timingClock();}
      source=prepared;
      if(d!.managed&&options.renderProtocol!==undefined&&next.serverRendering?.enabled){
-      const rendering=renderedSnapshot(id,source,d!.legacy,undefined,options.renderProtocol>=2,timing,options.renderProtocol>=3).then(value=>{if(timing)timing.renderEndAt=timingClock();return value;});
-      // Start independent work together; geometry/state shaping is read-only.
-      // Obsolete plans stop enqueueing poses, without terminating worker jobs.
-      const motion=prepareMotion(source,()=>rendering);
-      const [rendered,plan]=await Promise.all([rendering,motion]);
-      prepared=plan?{...rendered,legacyMotion:plan.legacyMotion,...(rendered.partyView?{partyView:{...rendered.partyView,legacyMotion:plan.party}}:{})}:rendered;
+      const canWarm=!d!.forceFull&&!!d!.previous;
+      if(canWarm)setRenderWarmer(id,keys=>{if(deliveries.get(id)===d)io.to(id).emit('render:warm',{keys});});
+      try{
+       const rendering=renderedSnapshot(id,source,d!.legacy,undefined,options.renderProtocol>=2,timing,options.renderProtocol>=3).then(value=>{if(timing)timing.renderEndAt=timingClock();return value;});
+       // Start independent work together; geometry/state shaping is read-only.
+       // Obsolete plans stop enqueueing poses, without terminating worker jobs.
+       const motion=prepareMotion(source,()=>rendering);
+       const [rendered,plan]=await Promise.all([rendering,motion]);
+       if(canWarm)flushRenderWarmer(id);
+       prepared=plan?{...rendered,legacyMotion:plan.legacyMotion,...(rendered.partyView?{partyView:{...rendered.partyView,legacyMotion:plan.party}}:{})}:rendered;
+      }finally{if(canWarm)setRenderWarmer(id,undefined);}
      }else if(timing)timing.renderEndAt=timingClock();
     }
    }

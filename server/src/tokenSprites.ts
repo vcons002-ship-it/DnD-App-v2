@@ -27,18 +27,20 @@ const text=(value:string,x:number,y:number,size:number,extra='')=>`<text x="${x}
 /** Authorized snapshots are the sole source of sprites, including visible HP and death flags.
  * Body and upright HUD remain separate so local pan/rotation/selection require no round trip. */
 export async function tokenSprites(id:string,snapshot:StateSnapshot,preShade=false):Promise<NonNullable<StateSnapshot['tokenSprites']>>{
- if(!snapshot.map)return {};
+ if(!snapshot.map||!snapshot.tokens.length)return {};
  const map=snapshot.map,result:NonNullable<StateSnapshot['tokenSprites']>={},px=map.gridSizePx/map.feetPerSquare;
+ const entityIndex={characters:new Map(snapshot.characters.map(c=>[c.id,c])),monsters:new Map(snapshot.monsters.map(m=>[m.id,m]))};
+ const affinitySet=snapshot.legacyGeometry?new Set(snapshot.legacyGeometry.affinity):undefined;
  // Bounded concurrency (4 tokens at a time) parallelizes cold rooms across the
  // worker pool without flooding the worker queue on 140+ token encounters.
  let cursor=0;
  const worker=async()=>{
   while(cursor<snapshot.tokens.length){
    const t=snapshot.tokens[cursor++];
-   const d=resolveToken(snapshot,t),r=Math.max(1,Math.min(512,t.widthFt*px/2)),size=Math.ceil(Math.max(256,r*8));
+   const d=resolveToken(snapshot,t,entityIndex),r=Math.max(1,Math.min(512,t.widthFt*px/2)),size=Math.ceil(Math.max(256,r*8));
    // Oversized tokens use the exact client fallback rather than allocating unbounded rasters.
    if(size>2048)continue;
-   const affinityVisible=!!(d.disposition&&!t.sharedSightOnly&&(snapshot.legacyGeometry?.affinity.includes(t.id)??true));
+   const affinityVisible=!!(d.disposition&&!t.sharedSightOnly&&(affinitySet?affinitySet.has(t.id):true));
    const grayscale=preShade&&!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy&&map.explorationMode!=='revealed';
    const hasHunterMark=!!(t.markLabels?.some(label=>/hunter.s mark/i.test(label))&&!t.sharedSightOnly);
    const cacheKey=`${px}:${map.gridSizePx}:${t.kind}:${t.widthFt}:${t.shape??'circle'}:${t.invisible?1:0}:${d.icon}:${d.name}:${d.curHp??''}:${d.maxHp??''}:${d.tempHp??''}:${d.dead?1:0}:${t.revealTag??''}:${affinityVisible?d.disposition:''}:${t.combatRole??''}:${hasHunterMark?1:0}:${grayscale?1:0}`;

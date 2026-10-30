@@ -2038,6 +2038,7 @@ export type HpFxEvent = {
 
 export interface ServerToClientEvents {
   'state:frame': (frame:import('./stateDelta.js').StateFrame)=>void;
+  'render:warm': (payload:{keys:string[]})=>void;
   'fx:spellArea': (payload:{id:string;preview:SpellAreaPreview|null}) => void;
   'dice:hiddenReview': (review:HiddenRollReview|null)=>void;
   'dice:frame': (frame:import('./liveDiceTypes.js').LiveDiceFrame)=>void;

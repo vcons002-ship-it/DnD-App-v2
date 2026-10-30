@@ -48,12 +48,12 @@ it('tiles have identical pixels to the full mask and unchanged areas keep their 
 });
 it('reuses prepared geometry and images for feed-only updates and regenerates after visibility changes',async()=>{
  const snapshot={role:'player',map:{id:'reuse',gridSizePx:50,feetPerSquare:5,mapVisionEnabled:true},tokens:[],characters:[],monsters:[],chat:[],rollLog:[],serverRendering:{enabled:true},playerVision:{radius:100,rangeFt:60,heavy:false,daylight:false,walls:[],lights:[],origins:[{id:'pc',x:100,y:100}]}} as unknown as StateSnapshot;
- const events:any[]=[];const io={to:()=>({emit:(event:string,payload:any)=>{if(event==='state:frame')events.push(payload);}})};
+ const events:any[]=[],warmed:string[][]=[];const io={to:()=>({emit:(event:string,payload:any)=>{if(event==='state:frame')events.push(payload);if(event==='render:warm')warmed.push(payload.keys);}})};
  const options={stateProtocol:1 as const,renderProtocol:2 as const,legacyRendering:true,serverRendering:true};
  deliverState(io,'tiles',snapshot,options);await expect.poll(()=>events.length,{timeout:10000}).toBe(1);
  const jobs=visibilityWorkers.metrics.jobs;
  deliverState(io,'tiles',{...snapshot,chat:[{id:'message',text:'hello'} as any]},options);await expect.poll(()=>events.length).toBe(2);
  expect(visibilityWorkers.metrics.jobs).toBe(jobs);expect(events[1].delta).not.toHaveProperty('maskTiles');
- deliverState(io,'tiles',{...snapshot,playerVision:{...snapshot.playerVision!,origins:[{id:'pc',x:150,y:100}]}},options);await expect.poll(()=>events.length).toBe(3);
- expect(visibilityWorkers.metrics.jobs).toBeGreaterThan(jobs);
+ deliverState(io,'tiles',{...snapshot,playerVision:{...snapshot.playerVision!,heavy:true,origins:[{id:'pc',x:150,y:100}]}},options);await expect.poll(()=>events.length).toBe(3);
+ expect(visibilityWorkers.metrics.jobs).toBeGreaterThan(jobs);expect(warmed.flat().length).toBeGreaterThan(0);
 });

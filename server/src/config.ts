@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
 
+process.env.UV_THREADPOOL_SIZE ??= String(Math.max(8, Math.min(32, os.availableParallelism?.() ?? os.cpus().length)));
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(serverRoot, '..');

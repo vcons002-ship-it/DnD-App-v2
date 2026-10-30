@@ -264,9 +264,9 @@ export function createSnapshotBuilder(
     const key=`${ab.mark.kind}:${ab.mark.refId}`;
     const labels=targetMarks.get(key)??new Set<string>();labels.add(ab.name);targetMarks.set(key,labels);
   }
-  const rawRollLog=listRollLog(sessionId);
+  const rawRollLog=preview?[]:listRollLog(sessionId);
   const rollLog = rawRollLog.map(e=>e.pending?{...e,pending:{...e.pending,awaitingShield:!!e.pending.shield,shield:undefined,live:undefined,weaponFx:undefined}}:e);
-  const chat = listChat(sessionId);
+  const chat = preview ? [] : listChat(sessionId);
   const charById = new Map(characters.map((c) => [c.id, c]));
   const monById = new Map(monsters.map((m) => [m.id, m]));
   const mapById = new Map(maps.map((m) => [m.id, m]));
@@ -398,14 +398,15 @@ export function createSnapshotBuilder(
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
     let shapedCharacters: Character[] = characters;
     let shapedRollLog = rollLog;
-    const shapedChat = chatForViewer(chat,role,playerId);
+    const shapedChat = preview ? [] : chatForViewer(chat,role,playerId);
 
     if (role !== 'dm') {
       const grid = map?.gridSizePx ?? 50;
       const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
       const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
       const party = new Set(data.tokens.filter(t => t.kind === 'pc' && !t.isHidden).map(t => t.refId));
-      const partyVision = createPlayerVision(map, data.tokens, party, t => tokenVisibleAt({role, hidden:t.isHidden,
+      const sameAsParty = owned.size === party.size && [...owned].every(id => party.has(id));
+      const partyVision = sameAsParty ? playerVision : createPlayerVision(map, data.tokens, party, t => tokenVisibleAt({role, hidden:t.isHidden,
         owned:t.kind==='pc', foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
         mapFog, tokenFog, grid, x:t.x, y:t.y}));
       // A concealed torch must not leak its position or light nearby visible figures.
@@ -441,7 +442,7 @@ export function createSnapshotBuilder(
         if(t.kind==='pc')return [{...t,sharedSightOnly:true,...(map?.explorationMode==='revealed'?{revealedOnly:true}:{})}];
         const kept=retain();if(kept.length)return kept;
         if(map?.explorationMode==='revealed'&&playerVision?.heavy&&!fogVisionContains(playerVision,t.x,t.y,false))return [];
-        if(monById.get(t.refId)?.objectKind || !party.size)return [];
+        if(monById.get(t.refId)?.objectKind || !party.size || sameAsParty)return [];
         const partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
           foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map));
         return partyVisible?[{...t,sharedSightOnly:true}]:[];
@@ -460,6 +461,7 @@ export function createSnapshotBuilder(
       shapedMonsters = monsters
         .filter((m) => visibleMonIds.has(m.id))
         .map(m=>retainedDisplays.get(m.id)??toPlayerMonster(m));
+      if(!preview){
       // Strip other players' infrastructure ids (live socket + durable browser
       // id): a leaked ownerId is a character-hijack key — rejoin with it and the
       // server hands you that PC. Keep the VIEWER'S OWN character intact, since
@@ -525,11 +527,12 @@ export function createSnapshotBuilder(
           !e.outcomeOnly && keep.has(e.id) ? { ...e, ...keep.get(e.id) } : e,
         );
       }
+      }
     }
 
-    if (role==='player' && shapedRollLog.some(e=>e.reveal?.visibilityTarget)) shapedRollLog=shapedRollLog.filter(e=>!e.reveal?.visibilityTarget || tokens.some(t=>
+    if (!preview && role==='player' && shapedRollLog.some(e=>e.reveal?.visibilityTarget)) shapedRollLog=shapedRollLog.filter(e=>!e.reveal?.visibilityTarget || tokens.some(t=>
       !t.sharedSightOnly && t.kind===e.reveal!.visibilityTarget!.kind && t.refId===e.reveal!.visibilityTarget!.refId));
-    if (role==='dm') {
+    if (!preview && role==='dm') {
       const labels=new Map(data.tokens.filter(t=>t.kind==='monster'&&t.revealTag).map(t=>{
         const name=monById.get(t.refId)?.name??'';
         return [name,`${name} ${t.revealTag}`];
@@ -541,6 +544,38 @@ export function createSnapshotBuilder(
       }));
     }
     tokens=tokens.map(t=>{const e=t.kind==='pc'?charById.get(t.refId):monById.get(t.refId);return {...t,invisible:isInvisible(e),leavesNoTracks:e?.conditions.some(c=>c.combatEffect?.stealthBonus===10)};});
+    if(preview){
+      return {
+        role,
+        ...(playerVision?{playerVision}:{}),
+        ...(role==='player'?{exploredTerrain:viewerTerrain??[],explorationEpoch:map?explorationGeneration(map.id):0}:{}),
+        initiativePending:session.initiativePending,
+        counterspellCasts:[],
+        shieldReactions:[],
+        ripostes:[],
+        sessionCode:session.code,
+        sessionName:session.name,
+        map,
+        miniaturePreloadFamilies:[],
+        activeMapId,
+        activeTurnTokenId:session.activeTurnTokenId,
+        round:session.combatRound,
+        hideDmRolls:session.hideDmRolls,
+        manualDamage:session.manualDamage,
+        commandCustomWords:!!session.commandCustomWords,
+        undoLabel:null,
+        maps:[],
+        tokens,
+        characters:shapedCharacters,
+        monsters:shapedMonsters,
+        monsterTemplates:[],
+        rollLog:[],
+        chat:[],
+        measurements:data.measurements,
+        annotations:data.annotations,
+        mapImages:data.mapImages,
+      };
+    }
     const spikeMeasurements=[...characters,...monsters].flatMap(e=>e.conditions.flatMap(c=>{
       const zone=c.combatEffect?.spikeArea;if(!zone||!c.isConcentration||zone.mapId!==map?.id)return [];
       const px=map.gridSizePx/map.feetPerSquare;
