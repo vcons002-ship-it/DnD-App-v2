@@ -22,6 +22,10 @@ async function sources(s:StateSnapshot){
  for(const t of s.mapImages??[]){const file=safe(t.imagePath);if(file)images.push({file,x:t.x,y:t.y,w:t.w,h:t.h});}
  return images;
 }
+export async function hasTerrainSources(s:StateSnapshot):Promise<boolean>{
+ if(!s.map||!s.playerVision||!s.legacyGeometry||!needsVisibilityLayer(s.map,s.playerVision))return false;
+ try{return (await sources(s)).length>0;}catch{return false;}
+}
 /** Grading and all visibility pixels are prepared on the server. The client
  * only positions decoded images; it does no grayscale or wall calculations. */
 export async function legacyTerrainFrames(id:string,frames:StateSnapshot[],includeMask=false,timing?:MovementFrameTiming,compact=false):Promise<{terrain:RasterAsset;atlas?:LegacyMotionAtlas}|undefined>{

@@ -10,9 +10,10 @@ export {visibleTerrain} from '../../shared/explorationSight.js';
 // Camera motion/flame flicker do not write history. Only changed authoritative
 // sight does; the bounded cache avoids repeated clipping on unrelated snapshots.
 const cache=new Map<string,{key:string;terrain:ExploredTerrain}>();
+const mergedCache=new Map<string,{terrainKey:string;geometry:string;terrain:ExploredTerrain}>();
 const generations=new Map<string,number>();
 export const explorationGeneration=(mapId:string)=>generations.get(mapId)??0;
-export function clearExplorationCache(){cache.clear();}
+export function clearExplorationCache(){cache.clear();mergedCache.clear();}
 
 /** Forget this map's party history. Current sight is relearned on the next snapshot. */
 export function resetExploration(sessionId:string,mapId:string):boolean {
@@ -20,6 +21,7 @@ export function resetExploration(sessionId:string,mapId:string):boolean {
  db.prepare('DELETE FROM explored_terrain WHERE map_id=?').run(mapId);
  generations.set(mapId,explorationGeneration(mapId)+1);
  cache.delete(mapId);
+ mergedCache.delete(mapId);
  return true;
 }
 
@@ -34,14 +36,19 @@ export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lig
   const previous=cache.get(id);
   if(previous?.key===key)return previous.terrain;
   const row=db.prepare('SELECT terrain_key, geometry FROM explored_terrain WHERE map_id=?').get(map.id) as {terrain_key:string;geometry:string}|undefined;
-  const saved:ExploredTerrain=row?.terrain_key===terrainKey?JSON.parse(row.geometry):[];
+  const cached=mergedCache.get(id);
+  const saved:ExploredTerrain=row?.terrain_key===terrainKey?(cached?.terrainKey===terrainKey&&cached.geometry===row.geometry?cached.terrain:JSON.parse(row.geometry)):[];
   let result=saved;
   try {
    const seen=clipFog(visibleTerrain(vision));
    if(seen.length){
     result=union([saved,seen]);
     const geometry=JSON.stringify(result);
-    if(!readOnly&&(geometry!==row?.geometry||terrainKey!==row?.terrain_key))db.prepare(`INSERT INTO explored_terrain(map_id,terrain_key,geometry) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET token_memory=CASE WHEN explored_terrain.terrain_key=excluded.terrain_key THEN explored_terrain.token_memory ELSE '[]' END,terrain_key=excluded.terrain_key,geometry=excluded.geometry`).run(map.id,terrainKey,geometry);
+    if(!readOnly){
+     if(geometry!==row?.geometry||terrainKey!==row?.terrain_key)db.prepare(`INSERT INTO explored_terrain(map_id,terrain_key,geometry) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET token_memory=CASE WHEN explored_terrain.terrain_key=excluded.terrain_key THEN explored_terrain.token_memory ELSE '[]' END,terrain_key=excluded.terrain_key,geometry=excluded.geometry`).run(map.id,terrainKey,geometry);
+     if(mergedCache.size>=512)mergedCache.delete(mergedCache.keys().next().value!);
+     mergedCache.set(id,{terrainKey,geometry,terrain:result});
+    }
    }
    result=clipFog(result);
   }catch(error){
@@ -60,13 +67,23 @@ const explorationKey=(map:MapState,tiles:MapImage[])=>JSON.stringify([map.imageP
 export const terrainIdentity=explorationKey;
 /** Merge one completed worker sweep into the latest history, preserving other
  * simultaneous walkers. The caller checks map identity and reset generation. */
-export function mergeWalkingTerrain(map:MapState,tiles:MapImage[],seen:ExploredTerrain){
+export function mergeWalkingTerrain(map:MapState,tiles:MapImage[],seen:ExploredTerrain,tokens?:Token[]){
  if(!seen.length)return;
  const key=explorationKey(map,tiles),row=db.prepare('SELECT terrain_key,geometry FROM explored_terrain WHERE map_id=?').get(map.id) as {terrain_key:string;geometry:string}|undefined;
- const saved:ExploredTerrain=row?.terrain_key===key?JSON.parse(row.geometry):[];
- const result=union([saved,seen]);
- db.prepare(`INSERT INTO explored_terrain(map_id,terrain_key,geometry) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET token_memory=CASE WHEN explored_terrain.terrain_key=excluded.terrain_key THEN explored_terrain.token_memory ELSE '[]' END,terrain_key=excluded.terrain_key,geometry=excluded.geometry`).run(map.id,key,JSON.stringify(result));
- cache.delete(map.id);
+ const cached=mergedCache.get(map.id);
+ const saved:ExploredTerrain=row?.terrain_key===key?(cached?.terrainKey===key&&cached.geometry===row.geometry?cached.terrain:JSON.parse(row.geometry)):[];
+ const result=union([saved,seen]),geometry=JSON.stringify(result);
+ if(geometry!==row?.geometry||key!==row?.terrain_key)db.prepare(`INSERT INTO explored_terrain(map_id,terrain_key,geometry) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET token_memory=CASE WHEN explored_terrain.terrain_key=excluded.terrain_key THEN explored_terrain.token_memory ELSE '[]' END,terrain_key=excluded.terrain_key,geometry=excluded.geometry`).run(map.id,key,geometry);
+ if(mergedCache.size>=512)mergedCache.delete(mergedCache.keys().next().value!);
+ mergedCache.set(map.id,{terrainKey:key,geometry,terrain:result});
+ if(tokens&&!tokens.some(t=>t.carriedLantern&&t.kind==='monster')){
+  const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId));
+  const vision=createPlayerVision(map,tokens,owned)??{rangeFt:60,radius:60*map.gridSizePx/map.feetPerSquare,heavy:false,daylight:true,lights:[],origins:tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y}))};
+  const cacheKey=JSON.stringify([key,vision,map.mapFogEnabled,map.mapFogEnabled?map.mapFogRevealed:[]]);
+  const clipped=map.mapFogEnabled?clipping.intersection(result,fogArea(map)):result;
+  if(cache.size>=512)cache.delete(cache.keys().next().value!);
+  cache.set(map.id,{key:cacheKey,terrain:clipped});
+ }else cache.delete(map.id);
 }
 /** Only true party sightings update these frozen display records. No unseen
  * movement, HP, conditions, or appearance changes are sent to players. */

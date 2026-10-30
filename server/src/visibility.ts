@@ -5,8 +5,8 @@ import {heldCasts,eligibleCounterspellers} from './counterspell.js';
 import {doorApproachPoints} from '../../shared/mapWalls.js';
 import {chatForViewer} from './privateChat.js';
 import {activeMarks} from './marks.js';
-import {rememberTerrain,rememberFigures,explorationGeneration} from './exploration.js';
-import {createPlayerVision,visionContains,fogVisionContains,usesMapVision,usesTokenVision} from '../../shared/playerVision.js';
+import {rememberTerrain,rememberFigures,explorationGeneration,type RevealedFigure} from './exploration.js';
+import {createPlayerVision,visionContains,fogVisionContains,usesMapVision,usesTokenVision,type PlayerVision} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
 import { resolveMonsterModelType } from '../../shared/monsterAppearance.js';
@@ -225,9 +225,34 @@ function toPlayerMonster(m: Monster): Monster | MonsterPublic {
  *  map are each loaded once per change-cycle regardless of client count. */
 type MapData = {
   tokens: Token[];
+  tokenById: Map<string, Token>;
   measurements: Measurement[];
   annotations: Annotation[];
   mapImages: MapImage[];
+  mapFog: Set<string> | null;
+  tokenFog: Set<string> | null;
+  doorByTokenId: Map<string, NonNullable<MapState['walls']>[number]>;
+  party: Set<string>;
+  spikeMeasurements: Measurement[];
+  miniaturePreloadFamilies: string[];
+  partyVisionComputed?: boolean;
+  partyVision?: PlayerVision;
+  rememberedByReadonly?: Map<boolean, Map<string, RevealedFigure>>;
+  partySeesById?: Map<string, boolean>;
+  partyVisibleById?: Map<string, boolean>;
+  previewVisionCache?: {
+    key: string;
+    vision: PlayerVision | undefined;
+    litMap: MapState | null;
+    personalVisible: Map<string, boolean>;
+    doorVisible: Map<string, boolean>;
+  };
+  previewPartyCache?: {
+    key: string;
+    vision: PlayerVision | undefined;
+    partyVisible: Map<string, boolean>;
+    partySees: Map<string, boolean>;
+  };
 };
 
 /**
@@ -264,12 +289,18 @@ export function createSnapshotBuilder(
     const key=`${ab.mark.kind}:${ab.mark.refId}`;
     const labels=targetMarks.get(key)??new Set<string>();labels.add(ab.name);targetMarks.set(key,labels);
   }
-  const rawRollLog=listRollLog(sessionId);
+  const rawRollLog=preview?[]:listRollLog(sessionId);
   const rollLog = rawRollLog.map(e=>e.pending?{...e,pending:{...e.pending,awaitingShield:!!e.pending.shield,shield:undefined,live:undefined,weaponFx:undefined}}:e);
-  const chat = listChat(sessionId);
+  const chat = preview ? [] : listChat(sessionId);
   const charById = new Map(characters.map((c) => [c.id, c]));
   const monById = new Map(monsters.map((m) => [m.id, m]));
   const mapById = new Map(maps.map((m) => [m.id, m]));
+  const playerMonsterCache = new Map<string, Monster | MonsterPublic>();
+  const getPlayerMonster = (m: Monster): Monster | MonsterPublic => {
+    let shaped = playerMonsterCache.get(m.id);
+    if (!shaped) playerMonsterCache.set(m.id, (shaped = toPlayerMonster(m)));
+    return shaped;
+  };
   // Logs/reveal captions use the same names as tokens, never DM encounter counts.
   const names = new Map(monsters.map(m => [m.name, playerMonsterName(m)]));
   const escaped = [...names.keys()].sort((a,b) => b.length-a.length).map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
@@ -329,28 +360,46 @@ export function createSnapshotBuilder(
   const loadMapData = (mapId: string): MapData => {
     let d = mapData.get(mapId);
     if (!d) {
+      const mState = mapById.get(mapId) ?? null;
       const rawTokens = listTokens(mapId);
-      const initiativeVisible = createInitiativeVisibility(mapById.get(mapId) ?? null, rawTokens, monsters, characters);
-      const tagMap = encounterTags(mapById.get(mapId)!, rawTokens, monById, mapId === activeMapId);
+      const initiativeVisible = createInitiativeVisibility(mState, rawTokens, monsters, characters);
+      const tagMap = encounterTags(mState!, rawTokens, monById, mapId === activeMapId);
       if (mapId === activeMapId) for (const token of rawTokens) {
         const monster=token.kind==='monster'?monById.get(token.refId):undefined;
         const tag=tagMap.get(token.id);
         if(monster && tag && tag!=='U') names.set(monster.name, `${playerMonsterName(monster)} ${tag}`);
       }
+      const tokens = rawTokens.map((t) => ({
+        ...(tagMap.has(t.id) ? { revealTag: tagMap.get(t.id) } : {}),
+        ...t,
+        ...(targetMarks.has(`${t.kind}:${t.refId}`)?{markLabels:[...targetMarks.get(`${t.kind}:${t.refId}`)!]}:{}),
+        combatRole: tokenCombatRole(t),
+        // Who "Roll all" would pull in, decided server-side (it depends on fog).
+        inCombatEffective: rollsInitiative(t, mState, initiativeVisible),
+      }));
+      const spikeMeasurements = preview || !mState ? [] : [...characters, ...monsters].flatMap(e => e.conditions.flatMap(c => {
+        const zone = c.combatEffect?.spikeArea; if (!zone || !c.isConcentration || zone.mapId !== mState.id) return [];
+        const px = mState.gridSizePx / mState.feetPerSquare;
+        return [{ id: c.id, mapId: zone.mapId, kind: 'circle' as const, origin: { x: zone.x, y: zone.y }, target: { x: zone.x + zone.radiusFt * px, y: zone.y }, createdBy: 'Spike Growth', spellArea: { spec: { kind: 'sphere' as const, sizeFt: 20, rangeFt: 150, ongoing: true }, angle: 0 }, spellName: 'Spike Growth' }];
+      }));
+      const miniaturePreloadFamilies = preview ? [] : [...new Set(tokens.flatMap(t => {
+        if (t.kind !== 'monster') return [];
+        const m = monById.get(t.refId); if (!m) return [];
+        const family = m.objectKind ? (m.modelType === 'spiritual-weapon' ? 'spiritual-weapon' : `object-${m.objectKind}`) : resolveMonsterModelType(m).replace(/ +/g, '-');
+        return family && family !== 'none' ? [family] : [];
+      }).filter(Boolean))].sort();
       d = {
-        // Each token's effective combat role is shown to DM AND players (the
-        // badge works even for Enemy creatures whose stats players never get).
-        tokens: rawTokens.map((t) => ({
-          ...(tagMap.has(t.id) ? { revealTag: tagMap.get(t.id) } : {}),
-          ...t,
-          ...(targetMarks.has(`${t.kind}:${t.refId}`)?{markLabels:[...targetMarks.get(`${t.kind}:${t.refId}`)!]}:{}),
-          combatRole: tokenCombatRole(t),
-          // Who "Roll all" would pull in, decided server-side (it depends on fog).
-          inCombatEffective: rollsInitiative(t, mapById.get(mapId) ?? null, initiativeVisible),
-        })),
+        tokens,
+        tokenById: new Map(tokens.map(t => [t.id, t])),
         measurements: listMeasurements(mapId),
         annotations: listAnnotations(mapId),
         mapImages: listMapImages(mapId),
+        mapFog: mState?.mapFogEnabled ? new Set(mState.mapFogRevealed) : null,
+        tokenFog: mState?.tokenFogEnabled ? new Set(mState.tokenFogRevealed) : null,
+        doorByTokenId: new Map((mState?.walls ?? []).filter(w => w.door && w.tokenId).map(w => [w.tokenId!, w])),
+        party: new Set(tokens.filter(t => t.kind === 'pc' && !t.isHidden).map(t => t.refId)),
+        spikeMeasurements,
+        miniaturePreloadFamilies,
       };
       mapData.set(mapId, d);
     }
@@ -367,6 +416,20 @@ export function createSnapshotBuilder(
   const hpNoteVisible = (n: NonNullable<RollEntry['hpNote']>): boolean =>
     n.kind === 'pc';
 
+  const emptyLoaded: MapData = {
+    tokens: [],
+    tokenById: new Map(),
+    measurements: [],
+    annotations: [],
+    mapImages: [],
+    mapFog: null,
+    tokenFog: null,
+    doorByTokenId: new Map(),
+    party: new Set(),
+    spikeMeasurements: [],
+    miniaturePreloadFamilies: [],
+  };
+
   const forViewer=(role:Role, dmViewMapId?:string|null, socketId?:string, playerId?:string|null, includePartyView=false, partyPreview=false):StateSnapshot => {
     // Players are locked to the active map; the DM may view any map for prep.
     // Fall back to the active map if the requested one is gone (e.g. the DM
@@ -376,49 +439,127 @@ export function createSnapshotBuilder(
       (wantId ? mapById.get(wantId) : null) ??
       (role === 'dm' && activeMapId ? mapById.get(activeMapId) : null) ??
       null;
-    const loaded: MapData = map
-      ? loadMapData(map.id)
-      : { tokens: [], measurements: [], annotations: [], mapImages: [] };
+    const loaded: MapData = map ? loadMapData(map.id) : emptyLoaded;
     const data=preview?{...loaded,tokens:loaded.tokens.map(t=>preview.positions.has(t.id)?{...t,...preview.positions.get(t.id)!}:t)}:loaded;
 
-    const owned=preview?new Set(preview.owned):partyPreview?new Set(data.tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId)):new Set(characters.filter(c=>c.claimedBy===socketId||(!!playerId&&!c.claimedBy&&c.ownerId===playerId)).map(c=>c.id));
-    const lightMapFog=map?.mapFogEnabled?new Set(map.mapFogRevealed):null;
-    const lightTokenFog=map?.tokenFogEnabled?new Set(map.tokenFogRevealed):null;
-    const playerVision=role==='dm'?undefined:createPlayerVision(map,data.tokens,owned,t=>tokenVisibleAt({role,hidden:t.isHidden,
-      owned:t.kind==='pc'&&owned.has(t.refId),foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
-      mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}));
+    const mapFog = loaded.mapFog;
+    const tokenFog = loaded.tokenFog;
+    const grid = map?.gridSizePx ?? 50;
+    const party = loaded.party;
+    const owned=preview?new Set(preview.owned):partyPreview?party:new Set(characters.filter(c=>c.claimedBy===socketId||(!!playerId&&!c.claimedBy&&c.ownerId===playerId)).map(c=>c.id));
+    const sameAsParty = owned.size === party.size && [...owned].every(id => party.has(id));
+
+    const computePartyVision = () => createPlayerVision(map, data.tokens, party, t => tokenVisibleAt({
+      role: 'player', hidden: t.isHidden, owned: t.kind === 'pc',
+      foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
+      mapFog, tokenFog, grid, x: t.x, y: t.y,
+    }));
+
+    const getPartyVision = (): PlayerVision | undefined => {
+      if (preview) {
+        const partyDepKey = [...preview.positions.entries()].filter(([tid]) => {
+          const tok = loaded.tokenById.get(tid);
+          return tok && (tok.kind === 'pc' || tok.carriedLantern);
+        }).map(([tid, p]) => `${tid}:${p.x},${p.y}`).join('|');
+        if (loaded.previewPartyCache?.key !== partyDepKey) {
+          loaded.previewPartyCache = { key: partyDepKey, vision: computePartyVision(), partyVisible: new Map(), partySees: new Map() };
+        }
+        return loaded.previewPartyCache.vision;
+      }
+      if (!loaded.partyVisionComputed) {
+        loaded.partyVision = computePartyVision();
+        loaded.partyVisionComputed = true;
+      }
+      return loaded.partyVision;
+    };
+
+    const computePersonalVision = () => sameAsParty ? getPartyVision() : createPlayerVision(map, data.tokens, owned, t => tokenVisibleAt({
+      role, hidden: t.isHidden, owned: t.kind === 'pc' && owned.has(t.refId),
+      foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
+      mapFog, tokenFog, grid, x: t.x, y: t.y,
+    }));
+
+    let playerVision: PlayerVision | undefined;
+    let previewVisionHit: MapData['previewVisionCache'] | undefined;
+    if (role !== 'dm') {
+      if (preview) {
+        const visionDepKey = [...preview.positions.entries()].filter(([tid]) => {
+          const tok = loaded.tokenById.get(tid);
+          return tok && ((tok.kind === 'pc' && owned.has(tok.refId)) || tok.carriedLantern);
+        }).map(([tid, p]) => `${tid}:${p.x},${p.y}`).join('|');
+        if (loaded.previewVisionCache?.key !== visionDepKey) {
+          const v = computePersonalVision();
+          let litMap = map;
+          if (litMap?.environment && mapFog) {
+            litMap = { ...litMap, environment: { ...litMap.environment, lights: litMap.environment.lights.filter(light => mapFog.has(`${Math.floor(light.x / grid)},${Math.floor(light.y / grid)}`)) } };
+          }
+          if (litMap?.environment && v) {
+            const wallVis = usesMapVision(litMap);
+            litMap = { ...litMap, environment: { ...litMap.environment, lights: litMap.environment.lights.map(l => fogVisionContains(v, l.x, l.y, wallVis) ? l : { ...l, visibleTorch: false }) } };
+          }
+          loaded.previewVisionCache = { key: visionDepKey, vision: v, litMap, personalVisible: new Map(), doorVisible: new Map() };
+        }
+        previewVisionHit = loaded.previewVisionCache;
+        playerVision = previewVisionHit.vision;
+      } else {
+        playerVision = computePersonalVision();
+      }
+    }
+
     let viewerTerrain=exploredTerrain;
     if(role==='player'&&map&&!preview){
       const terrain=()=>rememberTerrain(map!,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
-      mapFog:lightMapFog,tokenFog:lightTokenFog,grid:map?.gridSizePx??50,x:t.x,y:t.y}),partyPreview||!!preview);
+      mapFog,tokenFog,grid,x:t.x,y:t.y}),partyPreview||!!preview);
       viewerTerrain=partyPreview?terrain():(exploredTerrain??=terrain());
     }
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
     let shapedCharacters: Character[] = characters;
     let shapedRollLog = rollLog;
-    const shapedChat = chatForViewer(chat,role,playerId);
+    const shapedChat = preview ? [] : chatForViewer(chat,role,playerId);
 
     if (role !== 'dm') {
-      const grid = map?.gridSizePx ?? 50;
-      const mapFog = map?.mapFogEnabled ? new Set(map.mapFogRevealed) : null;
-      const tokenFog = map?.tokenFogEnabled ? new Set(map.tokenFogRevealed) : null;
-      const party = new Set(data.tokens.filter(t => t.kind === 'pc' && !t.isHidden).map(t => t.refId));
-      const partyVision = createPlayerVision(map, data.tokens, party, t => tokenVisibleAt({role, hidden:t.isHidden,
-        owned:t.kind==='pc', foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
-        mapFog, tokenFog, grid, x:t.x, y:t.y}));
+      const partyVision = sameAsParty ? playerVision : getPartyVision();
       // A concealed torch must not leak its position or light nearby visible figures.
       // Clone the viewer's map; never mutate the shared map used by DM snapshots.
-      if(map?.environment && mapFog)map={...map,environment:{...map.environment,
-        lights:map.environment.lights.filter(light=>mapFog.has(`${Math.floor(light.x/grid)},${Math.floor(light.y/grid)}`))}};
+      if (!previewVisionHit && map?.environment && mapFog) map = { ...map, environment: { ...map.environment,
+        lights: map.environment.lights.filter(light => mapFog.has(`${Math.floor(light.x / grid)},${Math.floor(light.y / grid)}`)) } };
       const manualVisible=(t:Token)=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y});
-      const partySees=(t:Token)=>manualVisible(t)&&fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&party.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
-      const remembered=map?rememberFigures(map,data.mapImages,data.tokens,partySees,(x,y)=>fogVisionContains(partyVision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?toPlayerMonster(m):undefined;},partyPreview||!!preview):[];
-      const rememberedById=new Map(remembered.map(r=>[r.token.id,r]));
+      const partySeesRaw=(t:Token)=>manualVisible(t)&&fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&party.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
+      const partySees=(t:Token):boolean=>{
+        if (!preview) {
+          let cache = loaded.partySeesById;
+          if (!cache) loaded.partySeesById = cache = new Map();
+          const hit = cache.get(t.id);
+          if (hit !== undefined) return hit;
+          const val = partySeesRaw(t);
+          cache.set(t.id, val);
+          return val;
+        }
+        return partySeesRaw(t);
+      };
+      let rememberedById: Map<string, RevealedFigure>;
+      const readOnly = partyPreview || !!preview;
+      if (!preview && map) {
+        let byRo = loaded.rememberedByReadonly;
+        if (!byRo) loaded.rememberedByReadonly = byRo = new Map();
+        let cachedRem = byRo.get(readOnly);
+        if (!cachedRem) {
+          const remembered = rememberFigures(map, data.mapImages, data.tokens, partySees, (x, y) => fogVisionContains(partyVision, x, y, usesTokenVision(map)), t => { const m = monById.get(t.refId); return m ? getPlayerMonster(m) : undefined; }, readOnly);
+          cachedRem = new Map(remembered.map(r => [r.token.id, r]));
+          byRo.set(readOnly, cachedRem);
+        }
+        rememberedById = cachedRem;
+      } else {
+        const remembered=map?rememberFigures(map,data.mapImages,data.tokens,partySees,(x,y)=>fogVisionContains(partyVision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?getPlayerMonster(m):undefined;},readOnly):[];
+        rememberedById=new Map(remembered.map(r=>[r.token.id,r]));
+      }
       const retainedDisplays=new Map<string,MonsterPublic>();
+      const tokenWallVision = usesTokenVision(map);
       tokens = tokens.flatMap(t => {
         if(t.isHidden)return [];
+        const isStationaryPreview = !!previewVisionHit && !preview!.positions.has(t.id);
         const retained=rememberedById.get(t.id);
         const retain=()=>{
           if(!retained||map?.explorationMode!=='revealed'||!manualVisible(retained.token)||!fogVisionContains(playerVision,retained.token.x,retained.token.y,false))return [];
@@ -429,21 +570,49 @@ export function createSnapshotBuilder(
           const sees=data.tokens.some(o=>o.kind==='pc'&&owned.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map)));
           if(!sees)return retain();
         }
-        const door=map?.walls?.find(w=>w.door&&w.tokenId===t.id);
-        if(door)return doorApproachPoints(door).some(p=>tokenVisibleAt({role,hidden:false,owned:false,foe:true,mapFog,tokenFog,grid,x:p.x,y:p.y})&&fogVisionContains(playerVision,p.x,p.y,usesTokenVision(map)))?[t]:[];
-        const personallyVisible = tokenVisibleAt({ role, hidden: false,
-        owned: t.kind === 'pc' && owned.has(t.refId),
-        foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
-        mapFog, tokenFog, grid, x: t.x, y: t.y }) && fogVisionContains(playerVision,t.x,t.y,usesTokenVision(map));
+        const door=loaded.doorByTokenId.get(t.id);
+        if(door){
+          let doorVis = isStationaryPreview ? previewVisionHit!.doorVisible.get(t.id) : undefined;
+          if (doorVis === undefined) {
+            doorVis = doorApproachPoints(door).some(p=>tokenVisibleAt({role,hidden:false,owned:false,foe:true,mapFog,tokenFog,grid,x:p.x,y:p.y})&&fogVisionContains(playerVision,p.x,p.y,tokenWallVision));
+            if (isStationaryPreview) previewVisionHit!.doorVisible.set(t.id, doorVis);
+          }
+          return doorVis?[t]:[];
+        }
+        let personallyVisible = isStationaryPreview ? previewVisionHit!.personalVisible.get(t.id) : undefined;
+        if (personallyVisible === undefined) {
+          personallyVisible = tokenVisibleAt({ role, hidden: false,
+            owned: t.kind === 'pc' && owned.has(t.refId),
+            foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
+            mapFog, tokenFog, grid, x: t.x, y: t.y }) && fogVisionContains(playerVision,t.x,t.y,tokenWallVision);
+          if (isStationaryPreview) previewVisionHit!.personalVisible.set(t.id, personallyVisible);
+        }
         if(personallyVisible)return [t];
         // Party positions are always known. Explicit DM hiding still wins.
         // The normal remembered mode retains only terrain, not lost creatures.
         if(t.kind==='pc')return [{...t,sharedSightOnly:true,...(map?.explorationMode==='revealed'?{revealedOnly:true}:{})}];
         const kept=retain();if(kept.length)return kept;
         if(map?.explorationMode==='revealed'&&playerVision?.heavy&&!fogVisionContains(playerVision,t.x,t.y,false))return [];
-        if(monById.get(t.refId)?.objectKind || !party.size)return [];
-        const partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
-          foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map));
+        if(monById.get(t.refId)?.objectKind || !party.size || sameAsParty)return [];
+        let partyVisible: boolean | undefined;
+        if (!preview) {
+          let cache = loaded.partyVisibleById;
+          if (!cache) loaded.partyVisibleById = cache = new Map();
+          partyVisible = cache.get(t.id);
+          if (partyVisible === undefined) {
+            partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
+              foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContains(partyVision,t.x,t.y,tokenWallVision);
+            cache.set(t.id, partyVisible);
+          }
+        } else {
+          const isStationaryParty = !!loaded.previewPartyCache && !preview.positions.has(t.id);
+          partyVisible = isStationaryParty ? loaded.previewPartyCache!.partyVisible.get(t.id) : undefined;
+          if (partyVisible === undefined) {
+            partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
+              foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContains(partyVision,t.x,t.y,tokenWallVision);
+            if (isStationaryParty) loaded.previewPartyCache!.partyVisible.set(t.id, partyVisible);
+          }
+        }
         return partyVisible?[{...t,sharedSightOnly:true}]:[];
       });
       // Sources were fog/hidden-gated in createPlayerVision. A placed source
@@ -452,14 +621,20 @@ export function createSnapshotBuilder(
       // Carried lights also require sight of their source so an unseen creature's
       // ID/position never leaks through a lighting payload.
       // Visibility is personal: never share a shaped monster cache between viewers.
-      if(map?.environment&&playerVision)map={...map,environment:{...map.environment,
-        lights:map.environment.lights.map(l=>fogVisionContains(playerVision,l.x,l.y,usesMapVision(map))?l:{...l,visibleTorch:false})}};
+      if (previewVisionHit) {
+        map = previewVisionHit.litMap;
+      } else if(map?.environment&&playerVision){
+        const wallVis = usesMapVision(map);
+        map={...map,environment:{...map.environment,
+          lights:map.environment.lights.map(l=>fogVisionContains(playerVision,l.x,l.y,wallVis)?l:{...l,visibleTorch:false})}};
+      }
       const visibleMonIds = new Set(
         tokens.filter((t) => t.kind === 'monster').map((t) => t.refId),
       );
       shapedMonsters = monsters
         .filter((m) => visibleMonIds.has(m.id))
-        .map(m=>retainedDisplays.get(m.id)??toPlayerMonster(m));
+        .map(m=>retainedDisplays.get(m.id)??getPlayerMonster(m));
+      if(!preview){
       // Strip other players' infrastructure ids (live socket + durable browser
       // id): a leaked ownerId is a character-hijack key — rejoin with it and the
       // server hands you that PC. Keep the VIEWER'S OWN character intact, since
@@ -525,11 +700,12 @@ export function createSnapshotBuilder(
           !e.outcomeOnly && keep.has(e.id) ? { ...e, ...keep.get(e.id) } : e,
         );
       }
+      }
     }
 
-    if (role==='player' && shapedRollLog.some(e=>e.reveal?.visibilityTarget)) shapedRollLog=shapedRollLog.filter(e=>!e.reveal?.visibilityTarget || tokens.some(t=>
+    if (!preview && role==='player' && shapedRollLog.some(e=>e.reveal?.visibilityTarget)) shapedRollLog=shapedRollLog.filter(e=>!e.reveal?.visibilityTarget || tokens.some(t=>
       !t.sharedSightOnly && t.kind===e.reveal!.visibilityTarget!.kind && t.refId===e.reveal!.visibilityTarget!.refId));
-    if (role==='dm') {
+    if (!preview && role==='dm') {
       const labels=new Map(data.tokens.filter(t=>t.kind==='monster'&&t.revealTag).map(t=>{
         const name=monById.get(t.refId)?.name??'';
         return [name,`${name} ${t.revealTag}`];
@@ -541,11 +717,38 @@ export function createSnapshotBuilder(
       }));
     }
     tokens=tokens.map(t=>{const e=t.kind==='pc'?charById.get(t.refId):monById.get(t.refId);return {...t,invisible:isInvisible(e),leavesNoTracks:e?.conditions.some(c=>c.combatEffect?.stealthBonus===10)};});
-    const spikeMeasurements=[...characters,...monsters].flatMap(e=>e.conditions.flatMap(c=>{
-      const zone=c.combatEffect?.spikeArea;if(!zone||!c.isConcentration||zone.mapId!==map?.id)return [];
-      const px=map.gridSizePx/map.feetPerSquare;
-      return [{id:c.id,mapId:zone.mapId,kind:'circle' as const,origin:{x:zone.x,y:zone.y},target:{x:zone.x+zone.radiusFt*px,y:zone.y},createdBy:'Spike Growth',spellArea:{spec:{kind:'sphere' as const,sizeFt:20,rangeFt:150,ongoing:true},angle:0},spellName:'Spike Growth'}];
-    }));
+    if(preview){
+      return {
+        role,
+        ...(playerVision?{playerVision}:{}),
+        ...(role==='player'?{exploredTerrain:viewerTerrain??[],explorationEpoch:map?explorationGeneration(map.id):0}:{}),
+        initiativePending:session.initiativePending,
+        counterspellCasts:[],
+        shieldReactions:[],
+        ripostes:[],
+        sessionCode:session.code,
+        sessionName:session.name,
+        map,
+        miniaturePreloadFamilies:[],
+        activeMapId,
+        activeTurnTokenId:session.activeTurnTokenId,
+        round:session.combatRound,
+        hideDmRolls:session.hideDmRolls,
+        manualDamage:session.manualDamage,
+        commandCustomWords:!!session.commandCustomWords,
+        undoLabel:null,
+        maps:[],
+        tokens,
+        characters:shapedCharacters,
+        monsters:shapedMonsters,
+        monsterTemplates:[],
+        rollLog:[],
+        chat:[],
+        measurements:data.measurements,
+        annotations:data.annotations,
+        mapImages:data.mapImages,
+      };
+    }
     const snapshot:StateSnapshot = {
       role,
       ...(playerVision?{playerVision}:{}),
@@ -565,12 +768,7 @@ export function createSnapshotBuilder(
       sessionCode: session.code,
       sessionName: session.name,
       map,
-      miniaturePreloadFamilies:[...new Set(data.tokens.flatMap(t=>{
-        if(t.kind!=='monster')return [];
-        const m=monById.get(t.refId);if(!m)return [];
-        const family=m.objectKind?(m.modelType==='spiritual-weapon'?'spiritual-weapon':`object-${m.objectKind}`):resolveMonsterModelType(m).replace(/ +/g,'-');
-        return family&&family!=='none'?[family]:[];
-      }).filter(Boolean))].sort(),
+      miniaturePreloadFamilies: loaded.miniaturePreloadFamilies,
       activeMapId,
       activeTurnTokenId: session.activeTurnTokenId,
       round: session.combatRound,
@@ -597,7 +795,7 @@ export function createSnapshotBuilder(
         role === 'dm' ? (templates ??= listMonsterTemplates(sessionId)) : [],
       rollLog: role === 'dm' ? shapedRollLog : playerLog(shapedRollLog),
       chat: shapedChat,
-      measurements: [...data.measurements,...spikeMeasurements],
+      measurements: [...data.measurements,...loaded.spikeMeasurements],
       annotations: data.annotations,
       mapImages: data.mapImages,
     };

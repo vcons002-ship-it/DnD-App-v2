@@ -8,7 +8,7 @@ import type {MapEnvironment} from '../../../shared/mapEnvironment';
 import {readGraphicsQuality} from '../lib/useEnvironmentQuality';
 import {readDiceRenderingMode} from '../lib/useDiceRendering';
 import {readServerRendering} from '../lib/useServerRendering';
-import {prepareRenderImages} from '../lib/renderImages';
+import {prepareRenderImages,warmRenderImages} from '../lib/renderImages';
 import {retainedRenderingEnabled} from '../lib/retainedRendering';
 import {applySnapshotDelta} from '../../../shared/stateDelta';
 import type { ClassRosterEntry, LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from '../../../shared/levelingTypes';
@@ -961,6 +961,7 @@ export const useStore = create<Store>((set, get) => ({
       });
     };
     socket.on('state:snapshot',acceptRendered);
+    socket.on('render:warm',({keys})=>warmRenderImages(keys,get().chatAccessToken));
     socket.on('state:frame',frame=>{
       const timing=frame.timing?{id:frame.timing.id,revision:frame.revision}:undefined;
       if(timing)movementTiming('frameReceived',{...timing,server:frame.timing});

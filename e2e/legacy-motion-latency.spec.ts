@@ -10,21 +10,24 @@ import {projectGround} from '../client/src/canvas/miniatureProjection';
 const rates=(process.env.MOTION_LATENCY_RATES??'1,6,20').split(',').map(Number);
 const modes=(process.env.MOTION_LATENCY_MODES??'legacy').split(',');
 if(modes.some(m=>!['legacy','local-2d','local-3d'].includes(m)))throw Error('Unknown motion latency mode');
-const stats=(a:number[])=>{const v=a.slice().sort((a,b)=>a-b);return {median:v[Math.floor(v.length/2)],p95:v[Math.ceil(v.length*.95)-1],max:Math.max(...v)};};
+if(process.env.MOTION_LATENCY_ASSIST&&process.env.MOTION_LATENCY_ASSIST!=='on')throw Error('MOTION_LATENCY_ASSIST supports on; omit it for the original Legacy-only assistance comparison.');
+const stats=(a:number[])=>{const v=a.slice().sort((a,b)=>a-b);return {mean:a.reduce((sum,n)=>sum+n,0)/a.length,median:v[Math.floor(v.length/2)],p95:v[Math.ceil(v.length*.95)-1],max:Math.max(...v)};};
 test.use({trace:'off',launchOptions:{executablePath:process.env.PW_CHROMIUM,args:['--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows']}});
 test('movement latency on independent player and DM clients',async({browser,request})=>{
  test.skip(!process.env.MOTION_LATENCY_OUTPUT,'Set MOTION_LATENCY_OUTPUT and E2E_PERFORMANCE_METRICS=1.');test.setTimeout(600000);
  const folder=path.resolve(process.env.MOTION_LATENCY_OUTPUT!);await fs.mkdir(folder,{recursive:true});
  const report:any={method:'Eight actual player drags per mode/rate, separate disposable courtyard for each condition. Player and DM both throttled after startup; server unthrottled on the same PC. Legacy: smooth, assisted, WebGL blocked. Local 2D: overhead, Low, assist off, flat tokens. Local 3D: 45-degree tilt, Low, assist off, real WebGL/models. No video recording or network/RAM/GPU limit. Epoch clocks share the host. First-motion and sight estimates include two RAF opportunities, not physical display scanout. CDP slowdown is not a complete emulation of old hardware. All modes still use authoritative server movement/filtering/exploration.',host:{cpu:os.cpus()[0].model,logicalCpus:os.cpus().length,browser:browser.version()},runs:[]};
  const save=()=>fs.writeFile(path.join(folder,'results.json'),JSON.stringify(report,null,2));
+ report.method='Eight real player drags per graphics mode and CPU rate, separate disposable courtyard per condition; assist setting is recorded per run. Player and DM (in Player view) are throttled after startup; server is unrestricted on the same PC. Legacy blocks WebGL; 2D is overhead Low with flat tokens; 3D is tilted Low with real WebGL/models. No video, trace, network delay or RAM cap. Epoch clocks share a host; paint estimates include two RAF opportunities, not physical display scanout. Server stages may overlap and must not be added together. CPU slowdown is not an old-hardware emulator.';
  for(const mode of modes)for(const rate of rates){
-  const legacy=mode==='legacy';
+  const legacy=mode==='legacy',assisted=legacy||process.env.MOTION_LATENCY_ASSIST==='on';
+  report.assistance=process.env.MOTION_LATENCY_ASSIST??'Legacy only';
   const headers={'x-dm-passphrase':DM_SECRET},image=await fs.readFile('assets/maps/experiments/courtyard-relief-20261002/original.png');
   const {code}=await(await request.post('/api/sessions',{headers,data:{name:`Disposable smooth latency ${rate}x`}})).json();
   const map=await(await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{name:'Courtyard latency',image:{name:'courtyard.png',mimeType:'image/png',buffer:image}}})).json();
   const admin=io(`http://localhost:${PORT}`,{transports:['websocket']});
   const state=async()=>(await admin.timeout(20000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET})).snapshot;
-  const run:any={mode,cpuSlowdown:rate,samples:[],status:'running'};report.runs.push(run);await save();
+  const run:any={mode,cpuSlowdown:rate,assisted,samples:[],status:'running'};report.runs.push(run);await save();
   const contexts=await Promise.all(['Player','DM'].map(()=>browser.newContext({baseURL:`http://localhost:${PORT}`,viewport:{width:1600,height:1000},serviceWorkers:'block'})));
   try{
    const s=await state(),pc=s.characters.find((c:any)=>c.name==='Druk');admin.emit('map:setActive',{mapId:map.id});admin.emit('map:setGrid',{mapId:map.id,gridSizePx:16,feetPerSquare:5,widthFt:380,locked:true});
@@ -37,7 +40,7 @@ test('movement latency on independent player and DM clients',async({browser,requ
    const pages=await Promise.all(contexts.map(c=>c.newPage())),[player,dm]=pages,errors:string[]=[];
    for(const [i,p] of pages.entries()){
     p.on('pageerror',e=>errors.push(e.message));await probe(p,i?'DM':'Player',rate,true,legacy);
-    await p.addInitScript(({mode,legacy,i})=>{sessionStorage.setItem('dnd.rendering-started','1');localStorage.setItem('dnd-environment-quality',legacy?'legacy':'low');localStorage.setItem('dnd-legacy-movement','smooth');localStorage.setItem('dnd-server-rendering',legacy?'on':'off');
+    await p.addInitScript(({mode,legacy,assisted,i})=>{sessionStorage.setItem('dnd.rendering-started','1');localStorage.setItem('dnd-environment-quality',legacy?'legacy':'low');localStorage.setItem('dnd-legacy-movement','smooth');localStorage.setItem('dnd-server-rendering',assisted?'on':'off');
      const playerId=`latency-${mode}-${i}`;localStorage.setItem('dnd.playerId',playerId);localStorage.setItem(`dnd.battlefieldView:${playerId}`,mode==='local-3d'?'tilted':'overhead');for(const key of ['tokenView','monsterTokenView'])localStorage.setItem(`dnd.${key}:${playerId}`,mode==='local-3d'?'3d':'2d');
      const w=window as any,stamp=()=>performance.timeOrigin+performance.now();
      w.__watchMotion=(data:any)=>{
@@ -58,14 +61,14 @@ test('movement latency on independent player and DM clients',async({browser,requ
        if(performance.now()<deadline)requestAnimationFrame(frame);
       };requestAnimationFrame(frame);
      };
-    },{mode,legacy,i});
+    },{mode,legacy,assisted,i});
    }
    await player.goto(`/join?code=${code}`);await player.getByRole('button',{name:'Join',exact:true}).click();await player.locator('.claim-row').filter({hasText:'Druk'}).click();
    await dm.goto(`/dm?code=${code}`);await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await dm.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
    for(const p of pages){
-    await expect(p.getByRole('checkbox',{name:'Server managed rendering',exact:true})).toBeChecked({checked:legacy});
+    await expect(p.getByRole('checkbox',{name:'Server managed rendering',exact:true})).toBeChecked({checked:assisted});
     if(legacy){await expect(p.getByTestId('legacy-terrain')).toHaveAttribute('data-grading','server');await expect(p.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);}
-    else{await expect(p.getByTestId('player-vision')).toHaveAttribute('data-wall-geometry-source','client');await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-status','ready',{timeout:90000});await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees',mode==='local-3d'?'45':'0');}
+    else{await expect(p.getByTestId('player-vision')).toHaveAttribute('data-wall-geometry-source',assisted?'server':'client');await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-status','ready',{timeout:90000});await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees',mode==='local-3d'?'45':'0');}
     await p.evaluate(()=>document.getElementById('movement-caption')?.remove());
    }
    if(!legacy)run.gpu=await player.getByTestId('miniature-layer').evaluate(el=>{const gl=el.querySelector('canvas')!.getContext('webgl2')!,ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER);});
@@ -91,7 +94,11 @@ test('movement latency on independent player and DM clients',async({browser,requ
     }
     run.samples.push(sample);await save();await player.waitForTimeout(150);
    }
-   run.summary=Object.fromEntries(['Player','DM'].map(role=>[role,stats(run.samples.map((s:any)=>s.views.find((v:any)=>v.role===role).firstPaintMs))]));run.status='passed';expect(errors).toEqual([]);console.log(JSON.stringify({mode,rate,summary:run.summary}));
+   run.summary=Object.fromEntries(['Player','DM'].map(role=>[role,stats(run.samples.map((s:any)=>s.views.find((v:any)=>v.role===role).firstPaintMs))]));
+   run.phases=Object.fromEntries(['Player','DM'].map(role=>{
+    const views=run.samples.map((s:any)=>s.views.find((v:any)=>v.role===role)),spans=views.map((v:any)=>{const s=v.frame.server;return {apply:s.appliedAt-s.receivedAt,pathAndSnapshot:s.queuedAt-s.appliedAt,deliveryWait:s.startedAt-s.queuedAt,geometry:s.geometryEndAt-s.geometryStartAt,render:s.renderEndAt-s.renderStartAt,motion:s.motionEndAt-s.motionStartAt,server:s.emittedAt-s.receivedAt,transport:v.frame.frameReceivedAt-s.emittedAt};});
+    return [role,Object.fromEntries(Object.keys(spans[0]).map(key=>[key,stats(spans.map((s:any)=>s[key]).filter(Number.isFinite))]))];
+   }));run.status='passed';expect(errors).toEqual([]);console.log(JSON.stringify({mode,rate,summary:run.summary,server:run.phases.Player.server}));
   }finally{admin.disconnect();await Promise.all(contexts.map(c=>c.close()));await save();}
  }
 });
