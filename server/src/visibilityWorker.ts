@@ -10,7 +10,9 @@ import {movementPreview,type MovementPreviewJob} from '../../shared/movementPrev
 import {walkingTerrain,type WalkSightJob} from '../../shared/explorationSight.js';
 import type {TerrainFramesJob} from './legacyTerrain.js';
 import {terrainAtlas,applyAtlasCacheSync,toSharedBuffer,fromSharedBuffer} from './terrainAtlas.js';
-const maps=new Map<string,ReturnType<typeof createLegacyVisionGeometry>>();
+type PolygonObserver=(wallsKey:string,key:string,entry:CachedPolygon)=>void;
+type GeometryEntry={geometry:ReturnType<typeof createLegacyVisionGeometry>;observer:{current?:PolygonObserver}};
+const maps=new Map<string,GeometryEntry>();
 const outlines=new Map<string,OutlineSet>();
 const tileCache=new Map<string,Buffer>();let tileBytes=0;
 const maskResultCache=new Map<string,MaskTilesResult>();
@@ -21,11 +23,14 @@ function storeTile(key:string,buffer:Buffer){
  tileCache.set(key,buffer);tileBytes+=buffer.length;
  while(tileBytes>32*1024*1024&&tileCache.size>1){const [old,b]=tileCache.entries().next().value!;tileCache.delete(old);tileBytes-=b.length;}
 }
-function getMapGeometry(mapId:string,onNew?:(wallsKey:string,key:string,entry:CachedPolygon)=>void){
+function getMapGeometry(mapId:string){
  let g=maps.get(mapId);
  if(!g){
   if(maps.size>=16)maps.delete(maps.keys().next().value!);
-  g=createLegacyVisionGeometry(onNew);
+  // The cached geometry relays to the current job, including when its first
+  // use was a cache sync. Never retain a completed job's polygon collection.
+  const observer:GeometryEntry['observer']={};
+  g={geometry:createLegacyVisionGeometry((...args)=>observer.current?.(...args)),observer};
   maps.set(mapId,g);
  }
  return g;
@@ -45,13 +50,14 @@ function applySync(sync:WorkerCacheSync){
  }
  for(const p of sync.newPolygons??[]){
   const g=getMapGeometry(p.mapId);
-  g.seed(p.wallsKey,p.entries);
+  g.geometry.seed(p.wallsKey,p.entries);
  }
 }
 parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;diagnostic?:boolean;syncCache?:WorkerCacheSync})=>{
  if(msg.syncCache){applySync(msg.syncCache);return;}
  const {id,job,diagnostic}=msg;if(id===undefined||!job)return;
  const start=performance.now();
+ let polygonObserver:GeometryEntry['observer']|undefined;
  try{
   if('terrainFrames' in job){
    const {key,images,bounds,columns,maskSvgs,lightSvgs,compact}=job.terrainFrames,{width:w,height:h,scale}=bounds;
@@ -110,7 +116,9 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
   if('svg' in job){const image=sharp(Buffer.from(job.svg),{limitInputPixels:8_000_000});const result=await (job.format==='webp'?image.webp({lossless:true,effort:0}):image.png({compressionLevel:1,adaptiveFiltering:false})).toBuffer();parentPort!.postMessage({id,result,ms:performance.now()-start});return;}
   if('token' in job){parentPort!.postMessage({id,result:movementPreview(job),ms:performance.now()-start});return;}
   let currentWallsKey='';const newPolyEntries:({key:string}&CachedPolygon)[]=[];
-  const geometry=getMapGeometry(job.mapId,(wk,key,entry)=>{currentWallsKey=wk;newPolyEntries.push({key,...entry});});
+  const cachedGeometry=getMapGeometry(job.mapId),geometry=cachedGeometry.geometry;
+  polygonObserver=cachedGeometry.observer;
+  polygonObserver.current=(wk,key,entry)=>{currentWallsKey=wk;newPolyEntries.push({key,...entry});};
   const paths=geometry(job.vision,job.wallFog);
   const memory=(job.explored??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join(''));
   const affinity=job.tokens.filter(t=>!t.sharedSightOnly&&visionShowsAffinity(job.vision,t.x,t.y)).map(t=>t.id);
@@ -132,5 +140,6 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
   if(newPolyEntries.length)parentPort!.postMessage({syncCache:{newPolygons:[{mapId:job.mapId,wallsKey:currentWallsKey||JSON.stringify(job.vision.walls??[]),entries:newPolyEntries}]}});
   parentPort!.postMessage({id,result:{...paths,memory,affinity,...(prepared?{outlines:prepared}:{})},ms:performance.now()-start});
  }catch(error){parentPort!.postMessage({id,error:String(error),ms:performance.now()-start});}
+ finally{if(polygonObserver)polygonObserver.current=undefined;}
 });
 parentPort!.postMessage({ready:true});

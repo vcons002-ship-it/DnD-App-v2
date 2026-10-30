@@ -159,7 +159,10 @@ export class VisibilityWorkers{
   }
   if(coalesceKey){
    this.inflight.set(coalesceKey,work);
-   void work.finally(()=>{if(this.inflight.get(coalesceKey)===work)this.inflight.delete(coalesceKey);});
+   // Handle both outcomes on the cleanup branch. A discarded finally() promise
+   // would reject again even when the caller handles the original job failure.
+   const cleanup=()=>{if(this.inflight.get(coalesceKey)===work)this.inflight.delete(coalesceKey);};
+   void work.then(cleanup,cleanup);
   }
   return work;
  }
