@@ -443,7 +443,7 @@ function MapStageInner({
   const snapshot=legacyMovement.snapshot;
   // Player visibility changes what the DM sees, not who controls the map.
   const draggableTokens=sourceDraggableTokens;
-  const onPlaceAt=partyPreview?undefined:sourceOnPlaceAt;
+  const onPlaceAt=sourceOnPlaceAt;
   const miniatureCatalogRevision = useMiniatureCatalog(!legacy);
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
@@ -548,7 +548,7 @@ function MapStageInner({
   // or Google Slides puts only the image's URL on the clipboard, not pixels) —
   // the server fetches those via /api/icons/from-url.
   useEffect(() => {
-    if (snapshot.role !== 'dm') return;
+    if (!actualDm) return;
     const openWith = openPasteDialog;
     const onPaste = async (e: ClipboardEvent) => {
       const item = [...(e.clipboardData?.items ?? [])].find((i) =>
@@ -628,7 +628,7 @@ function MapStageInner({
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.role]);
+  }, [actualDm]);
 
   const image = useImage(map?.imagePath ?? null);
 
@@ -695,6 +695,7 @@ function MapStageInner({
   const grid = map?.gridSizePx ?? 50;
 
   // ---- Fog of war (two independent layers: map fog + token fog) ----
+  // This flag controls the rendered view, not permission to perform DM actions.
   const isDm = snapshot.role === 'dm';
   const mySocketId = useStore((s) => s.socket?.id);
   const showRollOverlay = useStore((s) => s.showRollOverlay);
@@ -703,14 +704,15 @@ function MapStageInner({
   const setOrbTarget = useStore(s => s.setOrbTarget);
   const saveResolve = useStore((s) => s.saveResolve);
   const resolvingRoll=useStore(s=>saveResolve?s.snapshot?.rollLog.find(r=>r.id===saveResolve.rollId):undefined);
+  const actionSnapshot=actualDm?sourceSnapshot:snapshot;
   const teleportCast=useStore(s=>s.teleportCast),clearTeleportCast=useStore(s=>s.clearTeleportCast);
   const pendingSpellCost=(payload:AbilityRollPayload)=>{
-    const caster=(payload.kind==='pc'?snapshot.characters:snapshot.monsters).find(c=>c.id===payload.refId);
+    const caster=(payload.kind==='pc'?actionSnapshot.characters:actionSnapshot.monsters).find(c=>c.id===payload.refId);
     const ability=caster&&'sheetAbilities'in caster?caster.sheetAbilities.find(a=>a.id===payload.abilityId):undefined;
     return caster&&'sheetAbilities'in caster&&ability?spellCastCost(caster,ability,payload.castLevel,payload.slotPool):undefined;
   };
   const [teleportPoint,setTeleportPoint]=useState<Pt|null>(null);
-  const teleportActor=teleportCast?snapshot.tokens.find(t=>t.kind===teleportCast.kind&&t.refId===teleportCast.refId):undefined;
+  const teleportActor=teleportCast?actionSnapshot.tokens.find(t=>t.kind===teleportCast.kind&&t.refId===teleportCast.refId):undefined;
   useEffect(()=>{setTeleportPoint(null);},[teleportCast]);
   useEffect(()=>{if(!teleportCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearTeleportCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[teleportCast]);
   useEffect(()=>{if(teleportCast&&(!teleportActor||teleportActor.mapId!==map?.id))clearTeleportCast();},[teleportCast,teleportActor?.id,map?.id]);
@@ -718,7 +720,7 @@ function MapStageInner({
   const areaSocketId=useStore(s=>s.socket?.id);
   const areaCast=useStore(s=>s.areaCast),clearAreaCast=useStore(s=>s.clearAreaCast);
   const [areaPoints,setAreaPoints]=useState<Pt[]>([]),[areaPointer,setAreaPointer]=useState<Pt|null>(null),[areaAngle,setAreaAngle]=useState(0),[areaDirectionLocked,setAreaDirectionLocked]=useState(false),[areaExcluded,setAreaExcluded]=useState<string[]>([]);
-  const areaActor=areaCast?snapshot.tokens.find(t=>t.kind===areaCast.payload.kind&&t.refId===areaCast.payload.refId):undefined;
+  const areaActor=areaCast?actionSnapshot.tokens.find(t=>t.kind===areaCast.payload.kind&&t.refId===areaCast.payload.refId):undefined;
   useEffect(()=>{setAreaPoints(areaCast?.spec.kind==='emanation'&&areaCast.spec.self&&areaActor?[{x:areaActor.x,y:areaActor.y}]:[]);setAreaPointer(null);setAreaAngle(0);setAreaDirectionLocked(false);setAreaExcluded([]);},[areaCast]);
   useEffect(()=>{if(areaCast&&(!areaActor||!map||areaActor.mapId!==map.id))clearAreaCast();},[areaCast,areaActor?.mapId,map?.id]);
   useEffect(()=>{if(!areaCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearAreaCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[areaCast]);
@@ -741,9 +743,9 @@ function MapStageInner({
   };
   const areaPlacement:SpellAreaPlacement={mapId:map?.id??'',points:areaPoints,angle:areaAngle};
   const areaPreview=areaCast&&areaActor?{...areaPlacement,points:areaPoints.length?areaPoints:areaCast.spec.self?[areaActor]:areaPointer?[areaPointer]:[]}:areaPlacement;
-  const areaTargets=areaCast&&areaActor&&map?snapshot.tokens.filter(t=>{
-    const e=resolveToken(snapshot,t);
-    return !t.sharedSightOnly&&!e.dead&&!(t.kind==='monster'&&snapshot.monsters.find(m=>m.id===t.refId)?.objectKind)&&
+  const areaTargets=areaCast&&areaActor&&map?actionSnapshot.tokens.filter(t=>{
+    const e=resolveToken(actionSnapshot,t);
+    return !t.sharedSightOnly&&!e.dead&&!(t.kind==='monster'&&actionSnapshot.monsters.find(m=>m.id===t.refId)?.objectKind)&&
       !(areaExcludesCaster(areaCast.spec)&&t.id===areaActor.id)&&tokenInSpellArea(areaCast.spec,areaPreview,areaActor,t,map.gridSizePx/map.feetPerSquare)&&
       areaPreview.points.some((_,i)=>hasLineOfSight(areaCast.spec.self?areaActor:areaOrigin(areaCast.spec,areaPreview,areaActor,map.gridSizePx/map.feetPerSquare,i),t,map.walls));
   }):[];
@@ -1028,7 +1030,8 @@ function MapStageInner({
   const gridRef=useRef<Konva.Group>(null);
   const privateDrag = useRef(false);
   const [doorDragPreview,setDoorDragPreview]=useState<{tokenId:string;ids:string[]}|null>(null);
-  useEffect(()=>setDoorDragPreview(null),[map?.id,mySocketId]);
+  const [doorApproachTokenId,setDoorApproachTokenId]=useState<string|null>(null);
+  useEffect(()=>{setDoorDragPreview(null);setDoorApproachTokenId(null);},[map?.id,mySocketId]);
   const handleDragActive = useStableCallback((active: boolean) => {
     privateDrag.current=active;
     for(const line of gridRef.current?.getChildren()??[]){line.setAttrs({stroke:active||measureActive?'#ffffffcc':'#ffffff5c',strokeWidth:active||measureActive?1.5:1});}
@@ -1057,15 +1060,16 @@ function MapStageInner({
     nudgeRightPanel(); // and pop the right drawer open (collapsed on phones)
   });
   const handleTokenMove = useStableCallback((tok: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => {
+    if(actualDm)setDoorApproachTokenId(tok.id);
     onMoveToken(tok.id, x, y, placed);
-    if (isDm) {
+    if (actualDm) {
       if (selectedIds.length <= 1 || !selectedIds.includes(tok.id)) onSelectToken(tok, false);
       if(!explicitTokenInspection())nudgeRightPanel();
     }
   });
   const handleTokenDragPreview = useStableCallback((tok: Token, point: {x:number;y:number;facing:number}|null) => {
     miniatureRef.current?.previewMove(tok.id, point);
-    if(!point||isDm||tok.kind!=='pc'||!snapshot.characters.some(c=>c.id===tok.refId&&c.claimedBy===mySocketId)){
+    if(!point||(!actualDm&&(tok.kind!=='pc'||!snapshot.characters.some(c=>c.id===tok.refId&&c.claimedBy===mySocketId)))||doors.some(d=>d.tokenId===tok.id)){
       setDoorDragPreview(old=>old?.tokenId===tok.id?null:old);return;
     }
     const ids=doors.filter(d=>doorVisible(d)&&doorInReach({...tok,...point},d,pxPerFoot)).map(d=>d.id);
@@ -1090,12 +1094,12 @@ function MapStageInner({
   useEffect(()=>{
     const direct=(id:string)=>snapshot.tokens.some(t=>t.id===id&&!t.sharedSightOnly);
     if(menu&&!direct(menu.token.id))setMenu(null);
-    if(!isDm && selectedIds.some(id=>!direct(id))){
+    if(!actualDm && selectedIds.some(id=>!direct(id))){
       if(onSelectTokens)onSelectTokens(selectedIds.filter(direct));else onSelectToken(null);
     }
     if(hover&&!direct(hover.token.id))setHover(null);
     if(orbTarget?.targetId&&!direct(orbTarget.targetId))setOrbTarget({...orbTarget,targetId:undefined});
-  },[snapshot.tokens,menu,hover,orbTarget,setOrbTarget,isDm,selectedIds,onSelectTokens,onSelectToken]);
+  },[snapshot.tokens,menu,hover,orbTarget,setOrbTarget,actualDm,selectedIds,onSelectTokens,onSelectToken]);
 
   // The map-tool menus (Measure/Scale/Fog) are portaled into a slot in the top
   // toolbar above the map; grab that slot once the toolbar has mounted.
@@ -1274,8 +1278,8 @@ function MapStageInner({
   }, [view, size, groundScaleY]);
 
   const doors=(map?.walls??[]).filter(w=>w.door);
-  const doorVisible=(door:typeof doors[number])=>isDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
-  const nearbyDoors=doors.filter(d=>doorVisible(d)&&(isDm?d.id===selectedDoor:snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
+  const doorVisible=(door:typeof doors[number])=>actualDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
+  const nearbyDoors=doors.filter(d=>doorVisible(d)&&(actualDm?d.id===selectedDoor||sourceSnapshot.tokens.some(t=>t.id===doorApproachTokenId&&!doors.some(door=>door.tokenId===t.id)&&doorInReach(t,d,pxPerFoot)):snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
   const nearbyDoorKey=nearbyDoors.map(d=>d.id).sort().join('|');
   useEffect(()=>{
     // Leaving a door's reach clears its dismissal; snapshots and camera changes do not.
@@ -1283,7 +1287,7 @@ function MapStageInner({
     setDismissedDoors(old=>{const next=old.filter(id=>ids.has(id));return next.length===old.length?old:next;});
   },[nearbyDoorKey]);
   const activeDoorControls=nearbyDoors.filter(d=>!dismissedDoors.includes(d.id));
-  const dismissDoorControls=()=>{setDismissedDoors(old=>[...new Set([...old,...nearbyDoors.map(d=>d.id)])]);if(isDm)setSelectedDoor(null);};
+  const dismissDoorControls=()=>{setDismissedDoors(old=>[...new Set([...old,...nearbyDoors.map(d=>d.id)])]);if(actualDm)setSelectedDoor(null);};
   const operateDoor=(id:string,open:boolean)=>{if(map)useStore.getState().socket?.emit('map:setDoor',{mapId:map.id,doorId:id,open});};
   const miniatureVisibleAt = useMemo(() => {
     const ownerId = useStore.getState().socket?.id;
@@ -1469,7 +1473,7 @@ function MapStageInner({
   }, [size.w, size.h, dprKey, konvaPixelRatio, legacy, retained, map?.id, map?.slidesUrl, map?.imagePath]);
 
   const selectionBox = useBoxSelection({
-    enabled: isDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,
+    enabled: actualDm && !!map && !measureActive && !fogActive && !onPlaceAt && !tilesMode && !saveResolve && !orbTarget,
     mapId: map?.id, stageRef, tokens: snapshot.tokens, selectedIds, onSelectTokens, onSelectToken,
     view, width: size.w, height: size.h, tilt: tiltDegrees, rotation: rotationDegrees,
   });
@@ -1492,7 +1496,7 @@ function MapStageInner({
         <BoardRollFeed/>
       )}
       {showDiceButton && <DiceButtonOverlay selectedIds={selectedIds} />}
-      {isDm && <DamagePrompt />}
+      {actualDm && <DamagePrompt />}
     </>
   );
 
@@ -2506,7 +2510,7 @@ function MapStageInner({
                   y={t.y}
                   width={t.w}
                   height={t.h}
-                  draggable={isDm && tilesMode && !measureActive && !fogActive && !scaleMode}
+                  draggable={actualDm && tilesMode && !measureActive && !fogActive && !scaleMode}
                   handleSize={12 / view.scale}
                   // Tiles are part of the map: keep them listening so dragging
                   // over the area they add still PANS (bubbles to the layer),
@@ -2558,11 +2562,11 @@ function MapStageInner({
                     y={a.y ?? 0}
                     width={a.width ?? 100}
                     height={a.height ?? 100}
-                    draggable={isDm && !measureActive && !decalsLocked}
+                    draggable={actualDm && !measureActive && !decalsLocked}
                     handleSize={12 / view.scale}
                     // Players get the decorative 🛒 marker; the DM gets a clickable
                     // shop button instead (onEditShop), so don't double it up.
-                    badge={!isDm && !!a.popup}
+                    badge={!actualDm && !!a.popup}
                     hasShop={!!a.popup}
                     onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
                     onMove={(x, y) => moveAnnotation(a.id, x, y)}
@@ -2572,14 +2576,14 @@ function MapStageInner({
                     // LOCKED, a body click still opens the editor; players click a
                     // shop decal to view it read-only.
                     onEditShop={
-                      isDm && !removeMode && !measureActive && !decalsLocked
+                      actualDm && !removeMode && !measureActive && !decalsLocked
                         ? () => openDecalPopup(a.id)
                         : undefined
                     }
                     onActivate={
                       removeMode || measureActive
                         ? undefined
-                        : isDm
+                        : actualDm
                           ? decalsLocked
                             ? () => openDecalPopup(a.id)
                             : undefined
@@ -2760,7 +2764,8 @@ function MapStageInner({
                 {wallPointer&&wallTool!=='edit'&&<Circle x={wallPointer.x} y={wallPointer.y} radius={4/view.scale} fill={wallTool==='erase'||wallTool==='erase-area'?'#ff6677':'#fff1c2'}/>}
               </Group>}
               {doors.filter(doorVisible).map(d=>{
-                const token=snapshot.tokens.find(t=>t.id===d.tokenId),object=snapshot.monsters.find(m=>m.id===token?.refId);
+                const doorSnapshot=actualDm?sourceSnapshot:snapshot;
+                const token=doorSnapshot.tokens.find(t=>t.id===d.tokenId),object=doorSnapshot.monsters.find(m=>m.id===token?.refId);
                 const locked=!!object?.conditions.some(c=>c.label.toLowerCase()==='locked'),hidden=!!token?.isHidden;
                 const previewed=!!doorDragPreview?.ids.includes(d.id);
                 const approached=nearbyDoors.some(door=>door.id===d.id);
@@ -2776,7 +2781,7 @@ function MapStageInner({
                 }else{
                   faces=wallBoundarySegments(d).map(({a,b})=>[a.x,a.y,b.x,b.y]);
                 }
-                const activate=()=>{if(isDm||nearbyDoors.some(door=>door.id===d.id))openDoorControls(d.id);else notify('Move your character’s footprint within 5 ft of this door’s approach area to open it or pick its lock.');};
+                const activate=()=>{if(actualDm||nearbyDoors.some(door=>door.id===d.id))openDoorControls(d.id);else notify('Move your character’s footprint within 5 ft of this door’s approach area to open it or pick its lock.');};
                 return <Group key={d.id} name="wall-door-marker" doorId={d.id} doorState={label} doorPreview={previewed} opacity={hidden ? .45 : 1} listening={!wallActive}
                   onMouseDown={e=>{e.cancelBubble=true;}} onTouchStart={e=>{e.cancelBubble=true;}} onClick={e=>{e.cancelBubble=true;activate();}} onTap={e=>{e.cancelBubble=true;activate();}}>
                   <Line name="door-approach-area" points={wallVertices(doorInteractionArea(d,pxPerFoot)).flatMap(p=>[p.x,p.y])} closed listening={false}
@@ -2840,9 +2845,9 @@ function MapStageInner({
           {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
           {!wallActive&&activeDoorControls.length>0&&!doorDragPreview&&<section data-testid="door-controls" className="nearby-door-controls" role="region" aria-label="Door controls">
             <header><strong>Door controls</strong><button className="btn tiny" aria-label="Close door controls" title="Close — click a nearby door or leave and return to reopen" onClick={dismissDoorControls}>×</button></header>
-            <div className="nearby-door-list">{activeDoorControls.map(d=>{const token=snapshot.tokens.find(t=>t.id===d.tokenId);return <div className="nearby-door" key={d.id}>
+            <div className="nearby-door-list">{activeDoorControls.map(d=>{const doorSnapshot=actualDm?sourceSnapshot:snapshot,token=doorSnapshot.tokens.find(t=>t.id===d.tokenId);return <div className="nearby-door" key={d.id}>
               <strong>Door {doors.indexOf(d)+1}</strong>
-              {token?<><ObjectControls snapshot={snapshot} token={token} editable={isDm} compact/>{isDm&&<button className="btn tiny" onClick={()=>onSelectToken(token)}>Door details</button>}</>:<button className="btn" onClick={()=>operateDoor(d.id,!d.open)}>{d.open?'Close':'Open'} door</button>}
+              {token?<><ObjectControls snapshot={doorSnapshot} token={token} editable={actualDm} compact/>{actualDm&&<button className="btn tiny" onClick={()=>onSelectToken(token)}>Door details</button>}</>:<button className="btn" onClick={()=>operateDoor(d.id,!d.open)}>{d.open?'Close':'Open'} door</button>}
             </div>;})}</div>
           </section>}
           {wallActive&&<div data-testid="wall-drawing-hint" style={{position:'absolute',bottom:88,left:'50%',transform:'translateX(-50%)',zIndex:5,background:'#161b23ee',color:'#ffe5b3',padding:'8px 12px',border:'1px solid #aa8550',borderRadius:6,fontSize:13,display:'flex',gap:10,alignItems:'center',maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}}>
@@ -2854,7 +2859,7 @@ function MapStageInner({
             {wallTool==='edit'&&featureSelection.length>0&&<button data-testid="delete-map-features" className="btn tiny" onClick={deleteFeatures}>Delete {featureSelection.length} selected</button>}
             <button className="btn tiny" onClick={()=>{setWallTool('off');setWallAnchor(null);}}>Done</button>
           </div>}
-          <DecalPopup snapshot={snapshot} />
+          <DecalPopup snapshot={actualDm?sourceSnapshot:snapshot} />
           {hover && !menu && (
             <TokenHoverCard
               snapshot={snapshot}
@@ -2865,13 +2870,13 @@ function MapStageInner({
           )}
           {menu && (
             <FloatingMenu
-              snapshot={snapshot}
+              snapshot={actualDm?sourceSnapshot:snapshot}
               token={menu.token}
               attacker={floatingAttacker(
-                snapshot,
+                actualDm?sourceSnapshot:snapshot,
                 selectedIds,
                 menu.token,
-                isDm,
+                actualDm,
                 mySocketId,
               )}
               x={menu.x}
@@ -2886,8 +2891,8 @@ function MapStageInner({
             <span>{areaCast.repeat?'Repeat use · no additional spell slot.':`${pendingSpellCost(areaCast.payload)?.label??'Spell casting'} · no slot is spent until you confirm this area.`}</span>
             <span>{areaCast.name.toLowerCase()==='pass without trace'?'Choose allies to share your moving Stealth aura.':areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Overlapping combat footprints are affected; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
             {areaRangeError&&<span role="alert">Choose an origin within {areaCast.spec.rangeFt} ft and outside Total Cover.</span>}
-            <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} visible targets{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
-            {areaCast.spec.selective&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{areaTargets.map(t=>{const e=resolveToken(snapshot,t);return <label key={t.id}><input type="checkbox" checked={!areaExcluded.includes(t.id)} onChange={()=>setAreaExcluded(old=>old.includes(t.id)?old.filter(id=>id!==t.id):[...old,t.id])}/>{e.name}{t.revealTag&&t.revealTag!=='U'?` ${t.revealTag}`:''}</label>;})}</div>}
+            <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} {actualDm?'targets':'visible targets'}{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
+            {areaCast.spec.selective&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{areaTargets.map(t=>{const e=resolveToken(actionSnapshot,t);return <label key={t.id}><input type="checkbox" checked={!areaExcluded.includes(t.id)} onChange={()=>setAreaExcluded(old=>old.includes(t.id)?old.filter(id=>id!==t.id):[...old,t.id])}/>{e.name}{t.revealTag&&t.revealTag!=='U'?` ${t.revealTag}`:''}</label>;})}</div>}
             {['cube','line','cone'].includes(areaCast.spec.kind)&&<label>Direction <input aria-label="Spell area rotation" type="range" min="-180" max="180" step="1" value={areaAngle*180/Math.PI} onChange={e=>{
               const next=+e.target.value*Math.PI/180,delta=next-areaAngle;
               if(areaCast.name.trim().toLowerCase()==='fire storm')setAreaPoints(old=>old.map(p=>{
@@ -2903,7 +2908,7 @@ function MapStageInner({
             <button className="btn tiny" onClick={()=>{setAreaPoints(old=>old.slice(0,-1));setAreaDirectionLocked(false);}}>Undo placement</button>
             <button className="btn tiny" onClick={clearAreaCast}>Cancel (Esc)</button>
           </div>}
-          {isDm && saveResolve && (
+          {actualDm && saveResolve && (
             <div className="save-resolve-banner">
               <span>
                 {saveResolve.save
