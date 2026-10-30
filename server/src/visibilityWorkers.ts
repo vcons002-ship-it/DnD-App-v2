@@ -25,7 +25,7 @@ export type WorkerCacheSync=AtlasCacheSync&{
 };
 type Job=VisionJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;
 type Task={id:number;job:Job;resolve:(p:any)=>void;reject:(e:Error)=>void;timer?:ReturnType<typeof setTimeout>;observe?:Observe;queuedAt?:number;startedAt?:number};
-type Slot={worker:Worker;active?:Task;ready:boolean};
+type Slot={worker:Worker;active?:Task;ready:boolean;pendingSync:WorkerCacheSync[]};
 const memoryCache=new WeakMap<ExploredTerrain,string[]>();
 export function formatExploredMemory(explored?:ExploredTerrain):string[]{
  if(!explored?.length)return [];
@@ -89,13 +89,13 @@ export class VisibilityWorkers{
  }
  private spawn():Slot{
   const worker=new Worker(new URL('./visibilityWorker.mjs',import.meta.url),{execArgv:[]});worker.unref();
-  const slot:Slot={worker,ready:false};this.slots.push(slot);
+  const slot:Slot={worker,ready:false,pendingSync:[]};this.slots.push(slot);
   const initial=this.snapshotSync();if(initial)worker.postMessage({syncCache:initial});
   const fail=(error:Error)=>{if(!this.slots.includes(slot))return;this.slots=this.slots.filter(s=>s!==slot);if(slot.active){clearTimeout(slot.active.timer);slot.active.reject(error);this.metrics.failed++;slot.active=undefined;}void worker.terminate();this.pump();};
   worker.on('error',fail);worker.on('exit',code=>fail(new Error(`Visibility worker exited (${code})`)));
   worker.on('message',message=>{
    if(message.ready){slot.ready=true;this.pump();return;}
-   if(message.syncCache){this.recordSync(message.syncCache);for(const s of this.slots)if(s!==slot)s.worker.postMessage({syncCache:message.syncCache});return;}
+   if(message.syncCache){this.recordSync(message.syncCache);for(const s of this.slots)if(s!==slot)s.pendingSync.push(message.syncCache);return;}
    const task=slot.active;if(!task||message.id!==task.id)return;clearTimeout(task.timer);slot.active=undefined;worker.unref();this.metrics.jobs++;this.metrics.computeMs+=message.ms;this.metrics.maxComputeMs=Math.max(this.metrics.maxComputeMs,message.ms);
    task.observe?.({kind:'terrainFrames' in task.job?'terrain':'walkSight' in task.job?'walkSight':'maskTiles' in task.job?'maskTiles':'svg' in task.job?'raster':'token' in task.job?'preview':'geometry',queueMs:task.startedAt!-task.queuedAt!,roundTripMs:performance.now()-task.startedAt!,computeMs:message.ms,...(message.detail?{detail:message.detail}:{}),...(message.terrain?{terrain:message.terrain}:{})});
    if(message.error){this.metrics.failed++;task.reject(new Error(message.error));}else task.resolve(message.result);this.pump();
@@ -112,7 +112,9 @@ export class VisibilityWorkers{
    const task=interactiveIdx>=0?this.queue.splice(interactiveIdx,1)[0]!:this.queue.shift()!;
    slot.active=task;slot.worker.ref();if(task.observe)task.startedAt=performance.now();
    task.timer=setTimeout(()=>{this.metrics.failed++;slot.active=undefined;task.reject(new Error('Visibility calculation timed out'));this.slots=this.slots.filter(s=>s!==slot);void slot.worker.terminate();this.pump();},10000);
-   slot.worker.postMessage({id:task.id,job:task.job,...(task.observe?{diagnostic:true}:{})});
+   if(slot.pendingSync.length){for(const sync of slot.pendingSync.splice(0))slot.worker.postMessage({syncCache:sync});}
+   const workerJob='vision' in task.job&&!('walkSight' in task.job)&&!('token' in task.job)?{mapId:task.job.mapId,vision:task.job.vision,wallFog:task.job.wallFog,detailed:task.job.detailed,tokens:[]}:task.job;
+   slot.worker.postMessage({id:task.id,job:workerJob,...(task.observe?{diagnostic:true}:{})});
   }
  }
  run(job:VisionJob,observe?:Observe):Promise<LegacyGeometry>;
@@ -140,7 +142,8 @@ export class VisibilityWorkers{
     if(hit){
      this.visionResults.delete(visionBaseKey);this.visionResults.set(visionBaseKey,cached);
      observe?.({kind:'geometry',queueMs:0,roundTripMs:0,computeMs:0});
-     observe?.({kind:'geometry',queueMs:0,roundTripMs:0,computeMs:0});
+
+
      return Promise.resolve(attachVisionFields(hit,job as VisionJob));
     }
    }
