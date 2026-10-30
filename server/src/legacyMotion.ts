@@ -5,7 +5,7 @@ import {needsVisibilityLayer,usesMapVision,visionShowsAffinity} from '../../shar
 import {legacyPath} from '../../shared/legacyVision.js';
 import {equal} from '../../shared/stateDelta.js';
 import {walkingRoute} from './walking.js';
-import {visibilityWorkers} from './visibilityWorkers.js';
+import {visibilityWorkers,formatExploredMemory} from './visibilityWorkers.js';
 import {tokenSprites} from './tokenSprites.js';
 import {legacyTerrainFrames} from './legacyTerrain.js';
 import {LEGACY_MOTION_STEPS} from '../../shared/legacyMotion.js';
@@ -20,7 +20,7 @@ import {renderingLayerKey} from './renderedSnapshot.js';
 const intermediateCache=new Map<string,StateSnapshot[]>();
 const motionCache=new Map<string,Promise<LegacyMotion|undefined>>();
 export function clearLegacyMotionCache(){motionCache.clear();intermediateCache.clear();}
-const formatMemory=(explored:StateSnapshot['exploredTerrain'])=>(explored??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join(''));
+const formatMemory=formatExploredMemory;
 // Send membership plus only display overrides/extras. Repeating two full token
 // lists would recreate every unchanged token object in a slow client's React tree.
 function fields(s:StateSnapshot,at:number,endpoint:StateSnapshot,moves:LegacyMotion['moves']):LegacyMotionFrame{

@@ -240,6 +240,7 @@ type MapData = {
   rememberedByReadonly?: Map<boolean, Map<string, RevealedFigure>>;
   partySeesById?: Map<string, boolean>;
   partyVisibleById?: Map<string, boolean>;
+  boardByOwned?: Map<string, { playerVision: PlayerVision | undefined; map: MapState | null; tokens: Token[]; shapedMonsters: (Monster | MonsterPublic)[] }>;
   previewVisionCache?: {
     key: string;
     vision: PlayerVision | undefined;
@@ -481,6 +482,9 @@ export function createSnapshotBuilder(
 
     let playerVision: PlayerVision | undefined;
     let previewVisionHit: MapData['previewVisionCache'] | undefined;
+    const readOnly = partyPreview || !!preview;
+    const boardKey = role !== 'dm' && !preview ? `${map?.explorationMode === 'revealed' && readOnly ? 1 : 0}:${[...owned].sort().join(',')}` : undefined;
+    const cachedBoard = boardKey ? loaded.boardByOwned?.get(boardKey) : undefined;
     if (role !== 'dm') {
       if (preview) {
         const visionDepKey = [...preview.positions.entries()].filter(([tid]) => {
@@ -502,7 +506,7 @@ export function createSnapshotBuilder(
         previewVisionHit = loaded.previewVisionCache;
         playerVision = previewVisionHit.vision;
       } else {
-        playerVision = computePersonalVision();
+        playerVision = cachedBoard ? cachedBoard.playerVision : computePersonalVision();
       }
     }
 
@@ -510,8 +514,8 @@ export function createSnapshotBuilder(
     if(role==='player'&&map&&!preview){
       const terrain=()=>rememberTerrain(map!,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
-      mapFog,tokenFog,grid,x:t.x,y:t.y}),partyPreview||!!preview);
-      viewerTerrain=partyPreview?terrain():(exploredTerrain??=terrain());
+      mapFog,tokenFog,grid,x:t.x,y:t.y}),partyPreview||!!preview,getPartyVision());
+      viewerTerrain=partyPreview?(map.id===activeMapId&&exploredTerrain?exploredTerrain:terrain()):(exploredTerrain??=terrain());
     }
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
@@ -520,6 +524,11 @@ export function createSnapshotBuilder(
     const shapedChat = preview ? [] : chatForViewer(chat,role,playerId);
 
     if (role !== 'dm') {
+      if (cachedBoard) {
+        map = cachedBoard.map;
+        tokens = cachedBoard.tokens;
+        shapedMonsters = cachedBoard.shapedMonsters;
+      } else {
       const partyVision = sameAsParty ? playerVision : getPartyVision();
       // A concealed torch must not leak its position or light nearby visible figures.
       // Clone the viewer's map; never mutate the shared map used by DM snapshots.
@@ -539,8 +548,9 @@ export function createSnapshotBuilder(
         }
         return partySeesRaw(t);
       };
+
+
       let rememberedById: Map<string, RevealedFigure>;
-      const readOnly = partyPreview || !!preview;
       if (!preview && map) {
         let byRo = loaded.rememberedByReadonly;
         if (!byRo) loaded.rememberedByReadonly = byRo = new Map();
@@ -634,6 +644,8 @@ export function createSnapshotBuilder(
       shapedMonsters = monsters
         .filter((m) => visibleMonIds.has(m.id))
         .map(m=>retainedDisplays.get(m.id)??getPlayerMonster(m));
+      if (boardKey) (loaded.boardByOwned ??= new Map()).set(boardKey, { playerVision, map, tokens, shapedMonsters });
+      }
       if(!preview){
       // Strip other players' infrastructure ids (live socket + durable browser
       // id): a leaked ownerId is a character-hijack key — rejoin with it and the

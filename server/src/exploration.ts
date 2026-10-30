@@ -10,32 +10,44 @@ export {visibleTerrain} from '../../shared/explorationSight.js';
 // Camera motion/flame flicker do not write history. Only changed authoritative
 // sight does; the bounded cache avoids repeated clipping on unrelated snapshots.
 const cache=new Map<string,{key:string;terrain:ExploredTerrain}>();
+const readOnlyCache=new Map<string,{key:string;terrainKey:string;unclipped:ExploredTerrain;terrain:ExploredTerrain}>();
 const mergedCache=new Map<string,{terrainKey:string;geometry:string;terrain:ExploredTerrain}>();
 const generations=new Map<string,number>();
 export const explorationGeneration=(mapId:string)=>generations.get(mapId)??0;
-export function clearExplorationCache(){cache.clear();mergedCache.clear();}
+export function clearExplorationCache(){cache.clear();readOnlyCache.clear();mergedCache.clear();}
 
 /** Forget this map's party history. Current sight is relearned on the next snapshot. */
 export function resetExploration(sessionId:string,mapId:string):boolean {
  if(!db.prepare('SELECT id FROM maps WHERE id=? AND session_id=?').get(mapId,sessionId))return false;
  db.prepare('DELETE FROM explored_terrain WHERE map_id=?').run(mapId);
  generations.set(mapId,explorationGeneration(mapId)+1);
- cache.delete(mapId);
+ cache.delete(mapId);readOnlyCache.delete(mapId);
  mergedCache.delete(mapId);
  return true;
 }
 
-export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lightAllowed:(t:Token)=>boolean,readOnly=false):ExploredTerrain {
+export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lightAllowed:(t:Token)=>boolean,readOnly=false,precomputedVision?:import('../../shared/playerVision.js').PlayerVision):ExploredTerrain {
  const terrainKey=explorationKey(map,tiles);
  const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId));
  let fog:ExploredTerrain|undefined;
  const clipFog=(shape:ExploredTerrain)=>map.mapFogEnabled?clipping.intersection(shape,fog??=fogArea(map)):shape;
 
-  const vision=createPlayerVision(map,tokens,owned,lightAllowed)??{rangeFt:60,radius:60*map.gridSizePx/map.feetPerSquare,heavy:false,daylight:true,lights:[],origins:tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y}))};
+  const vision=precomputedVision!==undefined?precomputedVision:(createPlayerVision(map,tokens,owned,lightAllowed)??{rangeFt:60,radius:60*map.gridSizePx/map.feetPerSquare,heavy:false,daylight:true,lights:[],origins:tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y}))});
   const id=map.id,key=JSON.stringify([terrainKey,vision,map.mapFogEnabled,map.mapFogEnabled?map.mapFogRevealed:[]]);
   const previous=cache.get(id);
   if(previous?.key===key)return previous.terrain;
+  const roPrevious=readOnlyCache.get(id);
+  if(readOnly&&roPrevious?.key===key)return roPrevious.terrain;
   const row=db.prepare('SELECT terrain_key, geometry FROM explored_terrain WHERE map_id=?').get(map.id) as {terrain_key:string;geometry:string}|undefined;
+  if(!readOnly&&roPrevious?.key===key&&roPrevious.terrainKey===terrainKey){
+   const geometry=JSON.stringify(roPrevious.unclipped);
+   if(geometry!==row?.geometry||terrainKey!==row?.terrain_key)db.prepare(`INSERT INTO explored_terrain(map_id,terrain_key,geometry) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET token_memory=CASE WHEN explored_terrain.terrain_key=excluded.terrain_key THEN explored_terrain.token_memory ELSE '[]' END,terrain_key=excluded.terrain_key,geometry=excluded.geometry`).run(map.id,terrainKey,geometry);
+   if(mergedCache.size>=512)mergedCache.delete(mergedCache.keys().next().value!);
+   mergedCache.set(id,{terrainKey,geometry,terrain:roPrevious.unclipped});
+   if(cache.size>=512)cache.delete(cache.keys().next().value!);
+   cache.set(id,{key,terrain:roPrevious.terrain});
+   return roPrevious.terrain;
+  }
   const cached=mergedCache.get(id);
   const saved:ExploredTerrain=row?.terrain_key===terrainKey?(cached?.terrainKey===terrainKey&&cached.geometry===row.geometry?cached.terrain:JSON.parse(row.geometry)):[];
   let result=saved;
@@ -50,7 +62,13 @@ export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lig
      mergedCache.set(id,{terrainKey,geometry,terrain:result});
     }
    }
+   const unclipped=result;
    result=clipFog(result);
+   if(readOnly){
+    if(readOnlyCache.size>=512)readOnlyCache.delete(readOnlyCache.keys().next().value!);
+    readOnlyCache.set(id,{key,terrainKey,unclipped,terrain:result});
+    return result;
+   }
   }catch(error){
    // Exploration is cosmetic. A clipping failure must not interrupt gameplay or
    // reveal anything through newly covered DM fog; retry on the next snapshot.
@@ -76,6 +94,7 @@ export function mergeWalkingTerrain(map:MapState,tiles:MapImage[],seen:ExploredT
  if(geometry!==row?.geometry||key!==row?.terrain_key)db.prepare(`INSERT INTO explored_terrain(map_id,terrain_key,geometry) VALUES(?,?,?) ON CONFLICT(map_id) DO UPDATE SET token_memory=CASE WHEN explored_terrain.terrain_key=excluded.terrain_key THEN explored_terrain.token_memory ELSE '[]' END,terrain_key=excluded.terrain_key,geometry=excluded.geometry`).run(map.id,key,geometry);
  if(mergedCache.size>=512)mergedCache.delete(mergedCache.keys().next().value!);
  mergedCache.set(map.id,{terrainKey:key,geometry,terrain:result});
+ readOnlyCache.delete(map.id);
  if(tokens&&!tokens.some(t=>t.carriedLantern&&t.kind==='monster')){
   const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId));
   const vision=createPlayerVision(map,tokens,owned)??{rangeFt:60,radius:60*map.gridSizePx/map.feetPerSquare,heavy:false,daylight:true,lights:[],origins:tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y}))};

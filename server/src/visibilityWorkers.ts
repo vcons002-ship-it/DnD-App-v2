@@ -1,6 +1,8 @@
 import {Worker} from 'node:worker_threads';
 import os from 'node:os';
 import type {PlayerVision} from '../../shared/playerVision.js';
+import {visionShowsAffinity} from '../../shared/playerVision.js';
+import {legacyPath} from '../../shared/legacyVision.js';
 import type {ExploredTerrain} from '../../shared/exploration.js';
 import type {LegacyGeometry,CachedPolygon} from '../../shared/legacyVision.js';
 import type {MovementPreviewJob,MovementPreview} from '../../shared/movementPreview.js';
@@ -24,6 +26,16 @@ export type WorkerCacheSync=AtlasCacheSync&{
 type Job=VisionJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;
 type Task={id:number;job:Job;resolve:(p:any)=>void;reject:(e:Error)=>void;timer?:ReturnType<typeof setTimeout>;observe?:Observe;queuedAt?:number;startedAt?:number};
 type Slot={worker:Worker;active?:Task;ready:boolean};
+const memoryCache=new WeakMap<ExploredTerrain,string[]>();
+export function formatExploredMemory(explored?:ExploredTerrain):string[]{
+ if(!explored?.length)return [];
+ let hit=memoryCache.get(explored);
+ if(!hit){hit=explored.map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join(''));memoryCache.set(explored,hit);}
+ return hit;
+}
+function attachVisionFields(base:LegacyGeometry,job:VisionJob):LegacyGeometry{
+ return {...base,memory:formatExploredMemory(job.explored),affinity:job.tokens.filter(t=>!t.sharedSightOnly&&visionShowsAffinity(job.vision,t.x,t.y)).map(t=>t.id)};
+}
 /** Bounded CPU pool. No DB handles, sockets or unfiltered snapshots enter workers. */
 export class VisibilityWorkers{
  private slots:Slot[]=[];private queue:Task[]=[];private serial=0;
@@ -120,7 +132,7 @@ export class VisibilityWorkers{
    }
   }
   const isVision='vision' in job&&!('walkSight' in job)&&!('token' in job);
-  const visionBaseKey=isVision?JSON.stringify([(job as VisionJob).mapId,(job as VisionJob).vision,(job as VisionJob).wallFog,(job as VisionJob).explored,(job as VisionJob).tokens]):undefined;
+  const visionBaseKey=isVision?JSON.stringify([(job as VisionJob).mapId,(job as VisionJob).vision,(job as VisionJob).wallFog]):undefined;
   if(visionBaseKey){
    const cached=this.visionResults.get(visionBaseKey);
    if(cached){
@@ -128,7 +140,8 @@ export class VisibilityWorkers{
     if(hit){
      this.visionResults.delete(visionBaseKey);this.visionResults.set(visionBaseKey,cached);
      observe?.({kind:'geometry',queueMs:0,roundTripMs:0,computeMs:0});
-     return Promise.resolve(hit);
+     observe?.({kind:'geometry',queueMs:0,roundTripMs:0,computeMs:0});
+     return Promise.resolve(attachVisionFields(hit,job as VisionJob));
     }
    }
   }
@@ -143,7 +156,7 @@ export class VisibilityWorkers{
       if('maskTiles' in job)observe({kind:'maskTiles',queueMs:0,roundTripMs:elapsed,computeMs:0,detail:{rasterMs:0,copyHashMs:0,encodeMs:0,tiles:res.tiles.length,encodedTiles:0,cached:true}});
       else observe({kind:'geometry',queueMs:0,roundTripMs:elapsed,computeMs:0});
      }
-     return res;
+     return isVision?attachVisionFields(res,job as VisionJob):res;
     });
    }
   }
@@ -164,7 +177,7 @@ export class VisibilityWorkers{
    const cleanup=()=>{if(this.inflight.get(coalesceKey)===work)this.inflight.delete(coalesceKey);};
    void work.then(cleanup,cleanup);
   }
-  return work;
+  return isVision?work.then((res:LegacyGeometry)=>attachVisionFields(res,job as VisionJob)):work;
  }
  async close(){
   const slots=this.slots.splice(0);
