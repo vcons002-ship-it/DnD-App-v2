@@ -40,6 +40,10 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
  const positions=new Map<string,{x:number;y:number}>(),originIds=new Set(after.playerVision?.origins.map(o=>o.id));
  const build=createSnapshotBuilder(after.map.sessionId,{positions,owned:new Set([...current.values()].filter(t=>originIds.has(t.id)).map(t=>t.refId))});
  const rawViews:StateSnapshot[]=[];
+ // Exploration changes only at the route's halfway and final poses. Reuse
+ // these unions rather than clipping the same remembered terrain 13 times.
+ const remembered=unionTerrain([before.exploredTerrain??[]]);
+ const halfway=unionTerrain([before.exploredTerrain??[],...routes.flatMap(r=>r.half?[r.half]:[])]);
  for(let index=0;index<=LEGACY_MOTION_STEPS;index++){
   if(options?.current&&!options.current())return;
   const at=index/LEGACY_MOTION_STEPS,t=tokenMoveProgress(at,1);
@@ -47,7 +51,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
   const authorized=index===0?first:index===LEGACY_MOTION_STEPS?after:build?.(after.role,after.map.id,id);
   if(!authorized||authorized.map?.id!==after.map.id)return;
   rawViews.push({...after,...authorized,partyView:undefined,legacyMotion:undefined,
-   exploredTerrain:index===LEGACY_MOTION_STEPS?after.exploredTerrain:unionTerrain([before.exploredTerrain??[],...routes.flatMap(r=>t>=.5&&r.half?[r.half]:[])])});
+   exploredTerrain:index===LEGACY_MOTION_STEPS?after.exploredTerrain:t>=.5?halfway:remembered});
  }
  const hasFullGeometry=(s:StateSnapshot)=>!!s.legacyGeometry&&!s.visionRaster&&!s.visionTiles&&(!needsVisibilityLayer(s.map,s.playerVision)||s.legacyGeometry.sight.length>0||s.legacyGeometry.near.length>0||s.legacyGeometry.lights.length>0||(s.legacyGeometry.memory?.length??0)>0);
  const prepared=await Promise.all(rawViews.map(async(view,index)=>{

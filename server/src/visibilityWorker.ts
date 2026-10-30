@@ -38,7 +38,7 @@ parentPort!.on('message',async({id,job,diagnostic}:{id:number;job:VisionJob|Move
   if('walkSight' in job){parentPort!.postMessage({id,result:walkingTerrain(job),ms:performance.now()-start});return;}
   if('maskTiles' in job){
    const {svg,width,height,tileSize}=job.maskTiles,maskKey=`${width}:${height}:${tileSize}:${svg}`;
-   if(!diagnostic){const hit=maskResultCache.get(maskKey);if(hit){maskResultCache.delete(maskKey);maskResultCache.set(maskKey,hit);parentPort!.postMessage({id,result:hit,ms:performance.now()-start});return;}}
+   const hit=maskResultCache.get(maskKey);if(hit){maskResultCache.delete(maskKey);maskResultCache.set(maskKey,hit);parentPort!.postMessage({id,result:hit,ms:performance.now()-start,...(diagnostic?{detail:{rasterMs:0,copyHashMs:0,encodeMs:0,tiles:hit.tiles.length,encodedTiles:0,cached:true}}:{})});return;}
    const raw=await sharp(Buffer.from(svg),{limitInputPixels:8_000_000}).ensureAlpha().raw().toBuffer();
    const detail=diagnostic?{rasterMs:performance.now()-start,copyHashMs:0,encodeMs:0,tiles:0,encodedTiles:0}:undefined;
    const result:MaskTilesResult={tiles:[]};

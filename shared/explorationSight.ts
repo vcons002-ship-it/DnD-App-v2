@@ -6,22 +6,40 @@ import type {MapState,Token} from './types.js';
 export const quantizeTerrain=(shape:ExploredTerrain):ExploredTerrain=>shape.map(p=>p.map(r=>r.map(([x,y])=>[Math.round(x*64)/64,Math.round(y*64)/64])));
 export const unionTerrain=(parts:ExploredTerrain[]):ExploredTerrain=>parts.length?clipping.union(quantizeTerrain(parts[0]),...parts.slice(1).map(quantizeTerrain)):[];
 let cachedWalls:PlayerVision['walls'],cachedWallKey='[]';const sharedCache=new Map<string,ExploredTerrain>();
+const lightReachCache=new Map<string,number>();
+function terrainLightReach(light:PlayerVision['lights'][number]){
+ const key=`${light.radius}:${light.height}:${light.strength}:${!!light.transient}`,hit=lightReachCache.get(key);
+ if(hit!==undefined)return hit;
+ let lo=0,hi=light.radius*1.5;for(let i=0;i<24;i++){const mid=(lo+hi)/2;if(lightCoverage(mid,light)>.10)lo=mid;else hi=mid;}
+ if(lightReachCache.size>=256)lightReachCache.delete(lightReachCache.keys().next().value!);lightReachCache.set(key,lo);return lo;
+}
 function terrainCacheFor(walls:PlayerVision['walls']){
  if(walls!==cachedWalls){cachedWalls=walls;const key=JSON.stringify(walls??[]);if(key!==cachedWallKey){cachedWallKey=key;sharedCache.clear();}}
  if(sharedCache.size>1024)sharedCache.clear();
  return sharedCache;
 }
 export function visibleTerrain(vision:PlayerVision,cache=terrainCacheFor(vision.walls)):ExploredTerrain{
+ const combine=(parts:ExploredTerrain[])=>parts.length===1?parts[0]:unionTerrain(parts);
  const polygon=(point:{x:number;y:number},radius:number)=>{
   const key=`${point.x},${point.y}:${radius}`;let shape=cache.get(key);
   if(!shape){shape=[[wallVisibilityPolygon(point,vision.walls??[],radius).map(p=>[Math.round(p.x*64)/64,Math.round(p.y*64)/64])]];cache.set(key,shape);}return shape;
  };
  if(!vision.origins.length)return [];
- const sight=unionTerrain(vision.origins.map(o=>polygon(o,SIGHT_EXTENT)));if(!vision.heavy)return sight;
- const nearby=unionTerrain(vision.origins.map(o=>polygon(o,vision.radius)));
- const key='lights:'+JSON.stringify(vision.lights);let lights=cache.get(key);
- if(!lights){lights=unionTerrain(vision.lights.map(l=>{let lo=0,hi=l.radius*1.5;for(let i=0;i<24;i++){const mid=(lo+hi)/2;if(lightCoverage(mid,l)>.10)lo=mid;else hi=mid;}return polygon(l,lo);}));cache.set(key,lights);}
- return unionTerrain([nearby,...(lights.length?[clipping.intersection(sight,lights)]:[])]);
+ if(!vision.heavy)return combine(vision.origins.map(o=>polygon(o,SIGHT_EXTENT)));
+ const nearby=combine(vision.origins.map(o=>polygon(o,vision.radius)));
+ // A carried light inside its carrier's darkvision changes color, not terrain
+ // visibility. Avoid unlimited sight rays and polygon intersections when the
+ // near-sight polygon already contains its whole contribution.
+ const extending=vision.lights.flatMap(light=>{
+  const lo=terrainLightReach(light);
+  const covered=vision.origins.some(o=>o.x===light.x&&o.y===light.y&&lo+1/64<=vision.radius)||vision.origins.length===1&&Math.hypot(vision.origins[0].x-light.x,vision.origins[0].y-light.y)+lo<=vision.radius*Math.cos(Math.PI/96)-1/64;
+  return covered?[]:[{light,radius:lo}];
+ });
+ if(!extending.length)return vision.origins.length===1?nearby:unionTerrain([nearby]);
+ const sight=combine(vision.origins.map(o=>polygon(o,SIGHT_EXTENT)));
+ const key='lights:'+JSON.stringify(extending);let lights=cache.get(key);
+ if(!lights){lights=combine(extending.map(({light,radius})=>polygon(light,radius)));cache.set(key,lights);}
+ return combine([nearby,...(lights.length?[clipping.intersection(sight,lights)]:[])]);
 }
 export function fogTerrain(map:MapState):ExploredTerrain{
  const rows=new Map<number,number[]>();for(const key of map.mapFogRevealed){const [x,y]=key.split(',').map(Number);if(!Number.isFinite(x)||!Number.isFinite(y))continue;const row=rows.get(y)??[];row.push(x);rows.set(y,row);}
