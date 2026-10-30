@@ -177,18 +177,27 @@ export function wallVisibilityPolygon(origin: WallPoint, walls: readonly MapWall
 }
 
 /** Sweep the circular base along the whole drag, stopping before first contact.
- * Segment walls have rounded endpoints; rectangle interiors are solid. */
+ * Segment walls have rounded endpoints; rectangle interiors are solid. A token
+ * placed inside clearance padding may move away from that edge to get unstuck. */
 export function stopAtWalls(start:WallPoint,end:WallPoint,radius:number,walls:readonly MapWall[]=[]):WallPoint {
  walls=passageWalls(walls);
  const dx=end.x-start.x,dy=end.y-start.y,length=Math.hypot(dx,dy);
  if(!length||!walls.length)return end;
  const r=Math.max(0,radius),ux=dx/length,uy=dy/length;
- if(walls.some(w=>insideWall(start,w)||(!(w.door&&w.open)&&distanceToWall(start,w)<r-1e-5)))return {...start};
+ if(walls.some(w=>insideWall(start,w)))return {...start};
  let hit=length;
  for(const w of wallEdges(walls)){
   if(Math.max(start.x,end.x)+r<Math.min(w.ax,w.bx)||Math.min(start.x,end.x)-r>Math.max(w.ax,w.bx)||Math.max(start.y,end.y)+r<Math.min(w.ay,w.by)||Math.min(start.y,end.y)-r>Math.max(w.ay,w.by))continue;
   const sx=w.bx-w.ax,sy=w.by-w.ay,sl=Math.hypot(sx,sy);if(!sl)continue;
   const tx=sx/sl,ty=sy/sl,nx=-ty,ny=tx;
+  const nearest=Math.max(0,Math.min(sl,(start.x-w.ax)*tx+(start.y-w.ay)*ty));
+  const ox=start.x-w.ax-tx*nearest,oy=start.y-w.ay-ty*nearest;
+  if(Math.hypot(ox,oy)<r-1e-5){
+   // Distance to a segment increases throughout a straight move if its
+   // initial derivative is positive. Other edges still get the full sweep.
+   if(ox*ux+oy*uy<=EPS)return {...start};
+   continue;
+  }
   const side=(start.x-w.ax)*nx+(start.y-w.ay)*ny,velocity=ux*nx+uy*ny;
   for(const sign of [-1,1])if(sign*velocity<-EPS){
    const t=(sign*r-side)/velocity;
@@ -206,12 +215,31 @@ export function stopAtWalls(start:WallPoint,end:WallPoint,radius:number,walls:re
  return {x:start.x+ux*travel,y:start.y+uy*travel};
 }
 
+/** Allow a small aim correction when only the edge of the collision footprint
+ * catches a jamb or corner. Every candidate is a complete straight sweep, so
+ * committed motion, exploration and its animation still follow a safe line.
+ * A blocked center line never gets routed around a solid wall or closed door.
+ */
+export function resolveWallMovement(start:WallPoint,end:WallPoint,radius:number,walls:readonly MapWall[]=[]):WallPoint {
+ const stopped=stopAtWalls(start,end,radius,walls);
+ if(stopped.x===end.x&&stopped.y===end.y||radius<=0)return stopped;
+ const center=stopAtWalls(start,end,0,walls);
+ if(center.x!==end.x||center.y!==end.y)return stopped;
+ const angle=Math.atan2(end.y-start.y,end.x-start.x),leeway=radius+.02;
+ for(const turn of [Math.PI/2,-Math.PI/2,Math.PI/4,-Math.PI/4,3*Math.PI/4,-3*Math.PI/4,0,Math.PI]){
+  const candidate={x:end.x+Math.cos(angle+turn)*leeway,y:end.y+Math.sin(angle+turn)*leeway};
+  const safe=stopAtWalls(start,candidate,radius,walls);
+  if(safe.x===candidate.x&&safe.y===candidate.y&&Math.hypot(candidate.x-start.x,candidate.y-start.y)>Math.hypot(stopped.x-start.x,stopped.y-start.y))return candidate;
+ }
+ return stopped;
+}
+
 /** Forgiving body clearance, independent of decorative miniature/base scaling.
- * A 5 ft combat space needs 2.5 ft of doorway width. This is collision leeway,
+ * A 5 ft combat space needs 2 ft of doorway width. This is collision leeway,
  * not an automatic implementation of squeezing costs or combat penalties.
  */
 export function wallCollisionRadiusFt(occupiedWidthFt:number):number {
- return Math.max(.5,Number.isFinite(occupiedWidthFt)?occupiedWidthFt:5)*.25;
+ return Math.max(.5,Number.isFinite(occupiedWidthFt)?occupiedWidthFt:5)*.2;
 }
 
 

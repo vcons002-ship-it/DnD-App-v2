@@ -166,10 +166,10 @@ describe('solid wall movement',()=>{
 it('allows modest doorway squeeze independent of decorative base size',()=>{
  const walls:MapWall[]=[{id:'top',ax:100,ay:-100,bx:100,by:-30},{id:'bottom',ax:100,ay:30,bx:100,by:100}];
  // 20px/ft: a three-foot doorway admits a medium body, not a large body.
- expect(wallCollisionRadiusFt(5)).toBe(1.25);
+ expect(wallCollisionRadiusFt(5)).toBe(1);
  expect(stopAtWalls({x:0,y:0},{x:200,y:0},wallCollisionRadiusFt(5)*20,walls)).toEqual({x:200,y:0});
  expect(stopAtWalls({x:0,y:0},{x:200,y:0},wallCollisionRadiusFt(10)*20,walls).x).toBeLessThan(100);
- expect(stopAtWalls({x:0,y:0},{x:200,y:0},wallCollisionRadiusFt(5)*20,[{id:'solid',ax:100,ay:-100,bx:100,by:100}]).x).toBeCloseTo(74.99);
+ expect(stopAtWalls({x:0,y:0},{x:200,y:0},wallCollisionRadiusFt(5)*20,[{id:'solid',ax:100,ay:-100,bx:100,by:100}]).x).toBeCloseTo(79.99);
 });
 
 

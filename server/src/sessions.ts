@@ -3,7 +3,7 @@ import {spikeMovement} from './advancedSpells.js';
 import {parseChatPrivacy, type ChatPrivacy, type StoredChatMessage} from './privateChat.js';
 import {spellImpactName} from '../../shared/spellImpact.js';
 import {rollDice,withDiceMetadata} from '../../shared/dice.js';
-import {stopAtWalls,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
+import {resolveWallMovement,wallCollisionRadiusFt} from '../../shared/mapWalls.js';
 import {sanitizeMapEnvironment} from '../../shared/mapEnvironment.js';
 import {isLiveCommand,noteRollFacing,noteLiveRollReveal,noteRollResult} from './liveRollContext.js';
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
@@ -647,7 +647,7 @@ export function faceTokenToward(sessionId:string,attackerTokenId:string,targetTo
 export function wallLimitedMove(token:Token,x:number,y:number) {
   const map=getMap(token.mapId);
   const radius=map?wallCollisionRadiusFt(token.widthFt)*map.gridSizePx/(map.feetPerSquare||5):0;
-  return stopAtWalls(token,{x,y},radius,map?.walls);
+  return resolveWallMovement(token,{x,y},radius,map?.walls);
 }
 
 export function moveToken(tokenId: string, x: number, y: number, blockWalls=false): Token | null {
