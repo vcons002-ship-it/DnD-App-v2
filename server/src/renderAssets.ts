@@ -1,5 +1,7 @@
 import {createHash} from 'node:crypto';
 import type {RasterAsset} from '../../shared/serverRendering.js';
+import type {StateSnapshot} from '../../shared/types.js';
+import type {LegacyMotion} from '../../shared/legacyMotion.js';
 import {visibilityWorkers} from './visibilityWorkers.js';
 type Entry={buffer:Buffer;users:Set<string>};
 const assets=new Map<string,Entry>(),pending=new Map<string,Promise<Buffer>>();
@@ -35,6 +37,29 @@ export function grantCachedAsset(id:string,asset:RasterAsset):boolean{
  const entry=assets.get(asset.key);if(!entry)return false;
  assets.delete(asset.key);assets.set(asset.key,entry);renderMetrics.hits++;
  recordGrant(id,asset.key,entry);
+ return true;
+}
+export function grantMotionAssets(id:string,m:LegacyMotion):boolean{
+ if(m.atlas){
+  if(!grantCachedAsset(id,m.atlas.mask))return false;
+  if(m.atlas.terrain&&!grantCachedAsset(id,m.atlas.terrain))return false;
+  if(m.atlas.base&&!grantCachedAsset(id,m.atlas.base))return false;
+ }
+ for(const f of m.frames){
+  if(f.visionRaster&&!grantCachedAsset(id,f.visionRaster))return false;
+  for(const tile of Object.values(f.visionTiles?.tiles??{}))if(!grantCachedAsset(id,tile))return false;
+  for(const pair of Object.values(f.tokenSprites??{}))if(!grantCachedAsset(id,pair.body)||!grantCachedAsset(id,pair.hud))return false;
+ }
+ return true;
+}
+export function grantSnapshotAssets(id:string,s:StateSnapshot):boolean{
+ for(const pair of Object.values(s.tokenSprites??{}))if(!grantCachedAsset(id,pair.body)||!grantCachedAsset(id,pair.hud))return false;
+ if(s.tokenLayerRaster&&!grantCachedAsset(id,s.tokenLayerRaster))return false;
+ if(s.visionRaster&&!grantCachedAsset(id,s.visionRaster))return false;
+ for(const tile of Object.values(s.visionTiles?.tiles??{}))if(!grantCachedAsset(id,tile))return false;
+ if(s.terrainRaster&&!grantCachedAsset(id,s.terrainRaster))return false;
+ if(s.legacyMotion&&!grantMotionAssets(id,s.legacyMotion))return false;
+ if(s.partyView&&!grantSnapshotAssets(id,s.partyView as StateSnapshot))return false;
  return true;
 }
 /** Worker-generated pixel tiles use content keys and the same private grants. */

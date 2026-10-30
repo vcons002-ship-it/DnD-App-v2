@@ -4,9 +4,12 @@ export type DecodedLight={pixels:Buffer;bounds:LightBounds};
 export type AtlasCacheSync={
  newLights?:{key:string;pixels:Uint8Array;bounds:LightBounds}[];
  newMasks?:{key:string;pixels:Uint8Array}[];
+ newGradedPngs?:{key:string;buffer:Uint8Array}[];
 };
 const lightRawCache=new Map<string,DecodedLight>();
 const maskRawCache=new Map<string,Buffer>();
+const gradedPngCache=new Map<string,Buffer>();
+const emptyPngCache=new Map<string,Buffer>();
 const baseInfoCache=new WeakMap<Buffer,{binaryAlpha:boolean;allOpaque:boolean}>();
 export function toSharedBuffer(buf:Buffer):Buffer{
  if(buf.buffer instanceof SharedArrayBuffer&&buf.byteOffset===0&&buf.byteLength===buf.buffer.byteLength)return buf;
@@ -26,6 +29,11 @@ export function applyAtlasCacheSync(sync:AtlasCacheSync){
   if(maskRawCache.has(item.key))continue;
   if(maskRawCache.size>=128)maskRawCache.delete(maskRawCache.keys().next().value!);
   maskRawCache.set(item.key,fromSharedBuffer(item.pixels));
+ }
+ for(const item of sync.newGradedPngs??[]){
+  if(gradedPngCache.has(item.key))continue;
+  if(gradedPngCache.size>=32)gradedPngCache.delete(gradedPngCache.keys().next().value!);
+  gradedPngCache.set(item.key,fromSharedBuffer(item.buffer));
  }
 }
 function getBaseInfo(color:Buffer){
@@ -69,17 +77,16 @@ async function decodeMask(svg:string,w:number,h:number,newMasks?:NonNullable<Atl
  return pixels;
 }
 /** Worker-only packing. Pixel clipping and illumination remain on the server. */
-export async function terrainAtlas({base:baseInput,width:w,height:h,columns,lightSvgs,maskSvgs,compact=false,onCache}:{base:{color:Buffer;gray:Buffer;grayPng?:Buffer}|Promise<{color:Buffer;gray:Buffer;grayPng?:Buffer}>;width:number;height:number;columns:number;lightSvgs:string[];maskSvgs:string[];compact?:boolean;onCache?:(sync:AtlasCacheSync)=>void}){
+export async function terrainAtlas({baseKey,base:baseInput,width:w,height:h,columns,lightSvgs,maskSvgs,compact=false,onCache}:{baseKey?:string;base:{color:Buffer;gray:Buffer;grayPng?:Buffer}|Promise<{color:Buffer;gray:Buffer;grayPng?:Buffer}>;width:number;height:number;columns:number;lightSvgs:string[];maskSvgs:string[];compact?:boolean;onCache?:(sync:AtlasCacheSync)=>void}){
  const started=performance.now(),count=lightSvgs.length,rows=Math.ceil(count/columns),maskWidth=w*columns,maskHeight=h*rows;
  const uniqueLightSvgs=[...new Set(lightSvgs)],uniqueMaskSvgs=maskSvgs.length?[...new Set(maskSvgs)]:[];
- const newLights:NonNullable<AtlasCacheSync['newLights']>=[],newMasks:NonNullable<AtlasCacheSync['newMasks']>=[];
+ const newLights:NonNullable<AtlasCacheSync['newLights']>=[],newMasks:NonNullable<AtlasCacheSync['newMasks']>=[],newGradedPngs:NonNullable<AtlasCacheSync['newGradedPngs']>=[];
  let maskMs=0;
  const [base,lightEntries,maskEntries]=await Promise.all([
   baseInput,
   Promise.all(uniqueLightSvgs.map(async svg=>[svg,await decodeLight(svg,w,h,newLights)] as const)),
   uniqueMaskSvgs.length?(async()=>{const at=performance.now();const entries=await Promise.all(uniqueMaskSvgs.map(async svg=>[svg,await decodeMask(svg,w,h,newMasks)] as const));maskMs=performance.now()-at;return entries;})():Promise.resolve([] as const),
  ]);
- if(onCache&&(newLights.length||newMasks.length))onCache({...(newLights.length?{newLights}:{}),...(newMasks.length?{newMasks}:{})});
  const lightBySvg=new Map(lightEntries),maskBySvg=uniqueMaskSvgs.length?new Map(maskEntries):undefined;
  const lights=lightSvgs.map(svg=>lightBySvg.get(svg)!),uniqueLights=[...lightBySvg.values()];
  const lightEnd=performance.now();
@@ -97,6 +104,16 @@ export async function terrainAtlas({base:baseInput,width:w,height:h,columns,ligh
   return pixels;
  };
  const encode=(b:Buffer,width:number,height:number)=>sharp(b,{raw:{width,height,channels:4}}).png({compressionLevel:2,adaptiveFiltering:false}).toBuffer();
+ const encodeGradedSingle=async(svg:string,light:DecodedLight)=>{
+  if(!baseKey)return encode(grade(light),w,h);
+  const key=`${baseKey}:${w}x${h}:${svg}`,hit=gradedPngCache.get(key);
+  if(hit){gradedPngCache.delete(key);gradedPngCache.set(key,hit);return hit;}
+  const encoded=toSharedBuffer(await encode(grade(light),w,h));
+  if(gradedPngCache.size>=32)gradedPngCache.delete(gradedPngCache.keys().next().value!);
+  gradedPngCache.set(key,encoded);
+  newGradedPngs.push({key,buffer:encoded});
+  return encoded;
+ };
  // Alpha compositing over a static gray image is exact for opaque artwork and
  // transparent padding. Preserve the full-image path for translucent art edges.
  const {binaryAlpha,allOpaque}=getBaseInfo(base.color);
@@ -105,7 +122,7 @@ export async function terrainAtlas({base:baseInput,width:w,height:h,columns,ligh
  let region={left:0,top:0,width:w,height:h},background:Buffer|undefined;
  if(split){
   if(allSameLight){
-   background=await encode(grade(lights[0]),w,h);region={left:0,top:0,width:1,height:1};
+   background=await encodeGradedSingle(lightSvgs[0],lights[0]);region={left:0,top:0,width:1,height:1};
   }else{
    background=base.grayPng??await encode(base.gray,w,h);
    let left=w,top=h,right=0,bottom=0;
@@ -119,19 +136,19 @@ export async function terrainAtlas({base:baseInput,width:w,height:h,columns,ligh
  }
  const width=region.width*columns,height=region.height*rows,mask=maskSvgs.length?Buffer.alloc(maskWidth*maskHeight*4):undefined;
  const constant=split&&allSameLight;
- let terrain:Buffer;
+ let terrain:Buffer|undefined,preEncodedTerrain:Buffer|undefined;
  if(!split&&count===1){
-  terrain=grade(lights[0]);
+  preEncodedTerrain=await encodeGradedSingle(lightSvgs[0],lights[0]);
   if(mask){const cover=maskBySvg!.get(maskSvgs[0])!;for(let y=0;y<h;y++)cover.copy(mask,y*maskWidth*4,y*w*4,(y+1)*w*4);}
  }else{
-  terrain=Buffer.alloc(width*height*4);
-  const terrain32=new Uint32Array(terrain.buffer,terrain.byteOffset,width*height);
+  if(!constant)terrain=Buffer.alloc(width*height*4);
+  const terrain32=terrain?new Uint32Array(terrain.buffer,terrain.byteOffset,width*height):undefined;
   const gradedByLight=new Map<Buffer,Buffer>();
   for(let index=0;index<count;index++){
    const col=index%columns,row=Math.floor(index/columns);
    if(!split){
     let pixels=gradedByLight.get(lights[index].pixels);if(!pixels){pixels=grade(lights[index]);gradedByLight.set(lights[index].pixels,pixels);}
-    for(let y=0;y<h;y++)pixels.copy(terrain,((row*h+y)*width+col*w)*4,y*w*4,(y+1)*w*4);
+    for(let y=0;y<h;y++)pixels.copy(terrain!,((row*h+y)*width+col*w)*4,y*w*4,(y+1)*w*4);
    }else if(!constant){
     const {pixels:light,bounds:b}=lights[index];
     const x0=Math.max(0,b.left-region.left),x1=Math.min(region.width,b.right-region.left);
@@ -140,7 +157,7 @@ export async function terrainAtlas({base:baseInput,width:w,height:h,columns,ligh
      for(let y=y0;y<y1;y++){
       const srcRow=(region.top+y)*w+region.left,dstRow=(row*region.height+y)*width+col*region.width;
       for(let x=x0;x<x1;x++){
-       const source=srcRow+x,alpha=light[source];if(alpha)terrain32[dstRow+x]=(color32[source]&0x00ffffff)|(alpha<<24);
+       const source=srcRow+x,alpha=light[source];if(alpha)terrain32![dstRow+x]=(color32[source]&0x00ffffff)|(alpha<<24);
       }
      }
     }else{
@@ -148,7 +165,7 @@ export async function terrainAtlas({base:baseInput,width:w,height:h,columns,ligh
       const srcRow=(region.top+y)*w+region.left,dstRow=(row*region.height+y)*width+col*region.width;
       for(let x=x0;x<x1;x++){
        const source=srcRow+x,alpha=light[source];if(!alpha)continue;
-       const c=color32[source];if(c>>>24)terrain32[dstRow+x]=(c&0x00ffffff)|(alpha<<24);
+       const c=color32[source];if(c>>>24)terrain32![dstRow+x]=(c&0x00ffffff)|(alpha<<24);
       }
      }
     }
@@ -156,7 +173,18 @@ export async function terrainAtlas({base:baseInput,width:w,height:h,columns,ligh
    if(mask){const cover=maskBySvg!.get(maskSvgs[index])!;for(let y=0;y<h;y++)cover.copy(mask,((row*h+y)*maskWidth+col*w)*4,y*w*4,(y+1)*w*4);}
   }
  }
+ if(onCache&&(newLights.length||newMasks.length||newGradedPngs.length))onCache({...(newLights.length?{newLights}:{}),...(newMasks.length?{newMasks}:{}),...(newGradedPngs.length?{newGradedPngs}:{})});
  const blendEnd=performance.now();
- const [encodedTerrain,encodedMask]=await Promise.all([encode(terrain,width,height),mask?encode(mask,maskWidth,maskHeight):undefined]);
- return {width,height,maskWidth,maskHeight,terrain:encodedTerrain,...(encodedMask?{mask:encodedMask}:{}),...(split?{base:background,region}:{}),timings:{lightsMs:lightEnd-started,blendMs:blendEnd-lightEnd,encodeMs:performance.now()-blendEnd,maskMs}};
+ const encodeTerrain=async()=>{
+  if(preEncodedTerrain)return preEncodedTerrain;
+  if(constant){
+   const emptyKey=`${width}x${height}`,hit=emptyPngCache.get(emptyKey);
+   if(hit)return hit;
+   const encoded=await encode(Buffer.alloc(width*height*4),width,height);
+   emptyPngCache.set(emptyKey,encoded);return encoded;
+  }
+  return encode(terrain!,width,height);
+ };
+ const [encodedTerrain,encodedMask]=await Promise.all([encodeTerrain(),mask?encode(mask,maskWidth,maskHeight):undefined]);
+ return {terrain:encodedTerrain,mask:encodedMask,width,height,maskWidth:mask?maskWidth:undefined,maskHeight:mask?maskHeight:undefined,base:background,region:split?region:undefined,timings:{lightsMs:lightEnd-started,blendMs:blendEnd-lightEnd,encodeMs:performance.now()-blendEnd,maskMs}};
 }

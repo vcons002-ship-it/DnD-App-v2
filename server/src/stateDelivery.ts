@@ -2,16 +2,16 @@ import type {StateSnapshot} from '../../shared/types.js';
 import {diffSnapshot,type StateFrame} from '../../shared/stateDelta.js';
 import {needsVisibilityLayer,usesMapVision} from '../../shared/playerVision.js';
 import {visibilityWorkers} from './visibilityWorkers.js';
-import {renderedSnapshot,renderingInputKey,reuseRenderedSnapshot} from './renderedSnapshot.js';
+import {clearRenderedLayerCache,renderedSnapshot,renderingInputKey,reuseRenderedSnapshot} from './renderedSnapshot.js';
 import {flushRenderWarmer,setRenderWarmer} from './renderAssets.js';
 import {currentMovementTiming,timingClock} from './movementTiming.js';
 import type {MovementFrameTiming} from '../../shared/movementTiming.js';
-import {prepareLegacyMotion} from './legacyMotion.js';
+import {clearLegacyMotionCache,prepareLegacyMotion} from './legacyMotion.js';
 type Emitter={to:(id:string)=>{emit:(event:any,payload:any)=>unknown}};
 type Delivery={serial:number;revision:number;active:boolean;wake?:()=>void;pending?:StateSnapshot;pendingTiming?:MovementFrameTiming;previous?:StateSnapshot;previousSource?:StateSnapshot;inputKey?:string;ready?:StateSnapshot;readySource?:StateSnapshot;forceFull:boolean;legacy:boolean;managed:boolean;lastAt:number;effects:(()=>void)[]};
 const deliveries=new Map<string,Delivery>();
 export const deliveryMetrics={full:0,delta:0,fullBytes:0,wireBytes:0,coalesced:0,stale:0,failed:0};
-export function resetDelivery(id:string){const d=deliveries.get(id);deliveries.delete(id);setRenderWarmer(id,undefined);d?.wake?.();}
+export function resetDelivery(id:string){const d=deliveries.get(id);deliveries.delete(id);setRenderWarmer(id,undefined);clearRenderedLayerCache();clearLegacyMotionCache();d?.wake?.();}
 export function resyncDelivery(id:string){const d=deliveries.get(id);if(d){d.forceFull=true;d.inputKey=undefined;d.ready=undefined;d.readySource=undefined;d.wake?.();}}
 function positionsChanged(before:StateSnapshot|undefined,after:StateSnapshot){
  if(!before)return true;

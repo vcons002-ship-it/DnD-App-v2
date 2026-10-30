@@ -1,7 +1,7 @@
 import {parentPort} from 'node:worker_threads';
 import {createLegacyVisionGeometry,legacyPath} from '../../shared/legacyVision.js';
-import type {OutlineSet} from '../../shared/legacyVision.js';
-import {wallVisibilityPolygon,SIGHT_EXTENT} from '../../shared/mapWalls.js';
+import type {OutlineSet,CachedPolygon} from '../../shared/legacyVision.js';
+import {SIGHT_EXTENT} from '../../shared/mapWalls.js';
 import type {VisionJob,RasterJob,MaskTilesJob,MaskTilesResult,WorkerCacheSync} from './visibilityWorkers.js';
 import {createHash} from 'node:crypto';
 import sharp from 'sharp';
@@ -21,6 +21,15 @@ function storeTile(key:string,buffer:Buffer){
  tileCache.set(key,buffer);tileBytes+=buffer.length;
  while(tileBytes>32*1024*1024&&tileCache.size>1){const [old,b]=tileCache.entries().next().value!;tileCache.delete(old);tileBytes-=b.length;}
 }
+function getMapGeometry(mapId:string,onNew?:(wallsKey:string,key:string,entry:CachedPolygon)=>void){
+ let g=maps.get(mapId);
+ if(!g){
+  if(maps.size>=16)maps.delete(maps.keys().next().value!);
+  g=createLegacyVisionGeometry(onNew);
+  maps.set(mapId,g);
+ }
+ return g;
+}
 function applySync(sync:WorkerCacheSync){
  applyAtlasCacheSync(sync);
  for(const b of sync.newBases??[]){
@@ -33,6 +42,10 @@ function applySync(sync:WorkerCacheSync){
   if(maskResultCache.has(m.key))continue;
   if(maskResultCache.size>=32)maskResultCache.delete(maskResultCache.keys().next().value!);
   maskResultCache.set(m.key,{tiles:m.result.tiles.map(t=>({...t,buffer:fromSharedBuffer(t.buffer)}))});
+ }
+ for(const p of sync.newPolygons??[]){
+  const g=getMapGeometry(p.mapId);
+  g.seed(p.wallsKey,p.entries);
  }
 }
 parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;diagnostic?:boolean;syncCache?:WorkerCacheSync})=>{
@@ -58,7 +71,7 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
     parentPort!.postMessage({syncCache:{newBases:[{key,color:base.color,gray:base.gray,grayPng:base.grayPng}]}});
     return base;
    })();
-   const result=await terrainAtlas({base:basePromise,width:w,height:h,columns,maskSvgs,lightSvgs,compact,onCache:sync=>parentPort!.postMessage({syncCache:sync})});
+   const result=await terrainAtlas({baseKey:key,base:basePromise,width:w,height:h,columns,maskSvgs,lightSvgs,compact,onCache:sync=>parentPort!.postMessage({syncCache:sync})});
    parentPort!.postMessage({id,result,ms:performance.now()-start,...(diagnostic?{terrain:result.timings}:{})});return;
   }
   if('walkSight' in job){parentPort!.postMessage({id,result:walkingTerrain(job),ms:performance.now()-start});return;}
@@ -77,7 +90,7 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
     // changed its SVG input. Cache hits avoid PNG encoding and client downloads.
     const key=createHash('sha256').update(`${w}:${h}:rgba:`).update(pixels).digest('hex');
     if(detail){detail.copyHashMs+=performance.now()-tileStart;detail.tiles++;}
-    rawTiles.push({x,y,width:w,height:h,key,pixels});
+    rawTiles.push({x:y===0?x:x,y,width:w,height:h,key,pixels});
     const existing=tileCache.get(key);
     if(existing){tileCache.delete(key);tileCache.set(key,existing);}
     else if(!uncachedByKey.has(key))uncachedByKey.set(key,{width:w,height:h,pixels});
@@ -96,7 +109,8 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
   }
   if('svg' in job){const image=sharp(Buffer.from(job.svg),{limitInputPixels:8_000_000});const result=await (job.format==='webp'?image.webp({lossless:true,effort:0}):image.png({compressionLevel:2,adaptiveFiltering:false})).toBuffer();parentPort!.postMessage({id,result,ms:performance.now()-start});return;}
   if('token' in job){parentPort!.postMessage({id,result:movementPreview(job),ms:performance.now()-start});return;}
-  let geometry=maps.get(job.mapId);if(!geometry){if(maps.size>=16)maps.delete(maps.keys().next().value!);geometry=createLegacyVisionGeometry();maps.set(job.mapId,geometry);}
+  let currentWallsKey='';const newPolyEntries:({key:string}&CachedPolygon)[]=[];
+  const geometry=getMapGeometry(job.mapId,(wk,key,entry)=>{currentWallsKey=wk;newPolyEntries.push({key,...entry});});
   const paths=geometry(job.vision,job.wallFog);
   const memory=(job.explored??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join(''));
   const affinity=job.tokens.filter(t=>!t.sharedSightOnly&&visionShowsAffinity(job.vision,t.x,t.y)).map(t=>t.id);
@@ -108,13 +122,14 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
    prepared={wallsKey,shapes:{}};
    const add=(p:{id:string;x:number;y:number},radius:number)=>{
     const key=p.id+':'+radius,old=cached!.shapes[key];
-    const shape=old?.x===p.x&&old.y===p.y?old:{x:p.x,y:p.y,points:wallVisibilityPolygon(p,job.vision.walls??[],radius)};
+    const shape=old?.x===p.x&&old.y===p.y?old:{x:p.x,y:p.y,points:geometry.points(p,radius,job.vision.walls)};
     prepared!.shapes[key]=shape;cached!.shapes[key]=shape;
    };
    for(const p of job.vision.origins){add(p,SIGHT_EXTENT);add(p,job.vision.radius);}
    for(const p of job.vision.lights)if(!p.transient)add(p,SIGHT_EXTENT);
    cached.shapes={...prepared.shapes};
   }
+  if(newPolyEntries.length)parentPort!.postMessage({syncCache:{newPolygons:[{mapId:job.mapId,wallsKey:currentWallsKey||JSON.stringify(job.vision.walls??[]),entries:newPolyEntries}]}});
   parentPort!.postMessage({id,result:{...paths,memory,affinity,...(prepared?{outlines:prepared}:{})},ms:performance.now()-start});
  }catch(error){parentPort!.postMessage({id,error:String(error),ms:performance.now()-start});}
 });
