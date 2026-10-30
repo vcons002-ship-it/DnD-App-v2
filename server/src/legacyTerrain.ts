@@ -31,9 +31,9 @@ export async function hasTerrainSources(s:StateSnapshot):Promise<boolean>{
 export async function legacyTerrainFrames(id:string,frames:StateSnapshot[],includeMask=false,timing?:MovementFrameTiming,compact=false):Promise<{terrain:RasterAsset;atlas?:LegacyMotionAtlas}|undefined>{
  const first=frames[0];if(!first?.map||!first.playerVision||!first.legacyGeometry||!needsVisibilityLayer(first.map,first.playerVision))return;
  const images=await sources(first);if(!images.length)return;
- const origins=frames.flatMap(f=>f.playerVision?.origins.map(o=>({...o,r:f.playerVision!.radius}))??[]);
- const x=Math.floor(Math.min(0,...images.map(i=>i.x),...origins.map(o=>o.x-o.r))-8),y=Math.floor(Math.min(0,...images.map(i=>i.y),...origins.map(o=>o.y-o.r))-8);
- const right=Math.max(...images.map(i=>i.x+i.w),...origins.map(o=>o.x+o.r))+8,bottom=Math.max(...images.map(i=>i.y+i.h),...origins.map(o=>o.y+o.r))+8;
+
+ const x=Math.floor(Math.min(0,...images.map(i=>i.x))),y=Math.floor(Math.min(0,...images.map(i=>i.y)));
+ const right=Math.ceil(Math.max(...images.map(i=>i.x+i.w))),bottom=Math.ceil(Math.max(...images.map(i=>i.y+i.h)));
  const scale=Math.min(1,1024/Math.max(right-x,bottom-y)),width=Math.max(1,Math.ceil((right-x)*scale)),height=Math.max(1,Math.ceil((bottom-y)*scale));
  const columns=Math.min(4,frames.length),rows=Math.ceil(frames.length/columns);if(width*height*columns*rows>17_000_000)return;
  const bounds={x,y,width,height,scale},wallFog=usesMapVision(first.map);

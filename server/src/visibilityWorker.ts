@@ -60,8 +60,8 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
     const layers=await Promise.all(images.map(async i=>{const {data,info}=await sharp(i.file,{limitInputPixels:40_000_000}).resize(Math.max(1,Math.round(i.w*scale)),Math.max(1,Math.round(i.h*scale)),{fit:'fill'}).toColourspace('srgb').ensureAlpha().raw().toBuffer({resolveWithObject:true});return {input:data,raw:{width:info.width,height:info.height,channels:4 as const},left:Math.round((i.x-bounds.x)*scale),top:Math.round((i.y-bounds.y)*scale)};}));
     // Keep intermediates raw: encoding each source and the composed map to PNG
     // only to decode them immediately added a cold-bounds latency spike.
-    const rawColor=await sharp({create:{width:w,height:h,channels:4,background:'#00000000'}}).composite(layers).toColourspace('srgb').ensureAlpha().raw().toBuffer();
-    const rawGrayPng=await sharp(rawColor,{raw:{width:w,height:h,channels:4}}).grayscale().modulate({brightness:.78}).png({compressionLevel:2,adaptiveFiltering:false}).toBuffer();
+    const rawColor=images.length===1&&layers[0].left===0&&layers[0].top===0&&layers[0].raw.width===w&&layers[0].raw.height===h?layers[0].input:await sharp({create:{width:w,height:h,channels:4,background:'#00000000'}}).composite(layers).toColourspace('srgb').ensureAlpha().raw().toBuffer();
+    const rawGrayPng=await sharp(rawColor,{raw:{width:w,height:h,channels:4}}).grayscale().modulate({brightness:.78}).png({compressionLevel:1,adaptiveFiltering:false}).toBuffer();
     // A new pipeline is required: grayscale() can force raw one/two-channel
     // output despite a colorspace request in the same Sharp pipeline.
     const rawGray=await sharp(rawGrayPng).toColourspace('srgb').ensureAlpha().raw().toBuffer();
@@ -98,7 +98,7 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
    const newTiles:{key:string;buffer:Uint8Array}[]=[];
    if(uncachedByKey.size){
     const encodeStart=detail?performance.now():0;
-    const encoded=await Promise.all([...uncachedByKey.entries()].map(async([key,{width:w,height:h,pixels}])=>[key,toSharedBuffer(await sharp(pixels,{raw:{width:w,height:h,channels:4}}).png({compressionLevel:2,adaptiveFiltering:false}).toBuffer())] as const));
+    const encoded=await Promise.all([...uncachedByKey.entries()].map(async([key,{width:w,height:h,pixels}])=>[key,toSharedBuffer(await sharp(pixels,{raw:{width:w,height:h,channels:4}}).png({compressionLevel:1,adaptiveFiltering:false}).toBuffer())] as const));
     if(detail){detail.encodeMs+=performance.now()-encodeStart;detail.encodedTiles+=encoded.length;}
     for(const [key,buffer] of encoded){storeTile(key,buffer);newTiles.push({key,buffer});}
    }
@@ -107,7 +107,7 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
    parentPort!.postMessage({syncCache:{...(newTiles.length?{newTiles}:{}),newMaskResults:[{key:maskKey,result}]}});
    parentPort!.postMessage({id,result,ms:performance.now()-start,...(detail?{detail}:{})});return;
   }
-  if('svg' in job){const image=sharp(Buffer.from(job.svg),{limitInputPixels:8_000_000});const result=await (job.format==='webp'?image.webp({lossless:true,effort:0}):image.png({compressionLevel:2,adaptiveFiltering:false})).toBuffer();parentPort!.postMessage({id,result,ms:performance.now()-start});return;}
+  if('svg' in job){const image=sharp(Buffer.from(job.svg),{limitInputPixels:8_000_000});const result=await (job.format==='webp'?image.webp({lossless:true,effort:0}):image.png({compressionLevel:1,adaptiveFiltering:false})).toBuffer();parentPort!.postMessage({id,result,ms:performance.now()-start});return;}
   if('token' in job){parentPort!.postMessage({id,result:movementPreview(job),ms:performance.now()-start});return;}
   let currentWallsKey='';const newPolyEntries:({key:string}&CachedPolygon)[]=[];
   const geometry=getMapGeometry(job.mapId,(wk,key,entry)=>{currentWallsKey=wk;newPolyEntries.push({key,...entry});});

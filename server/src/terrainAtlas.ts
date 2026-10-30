@@ -103,7 +103,7 @@ export async function terrainAtlas({baseKey,base:baseInput,width:w,height:h,colu
   }
   return pixels;
  };
- const encode=(b:Buffer,width:number,height:number)=>sharp(b,{raw:{width,height,channels:4}}).png({compressionLevel:2,adaptiveFiltering:false}).toBuffer();
+ const encode=(b:Buffer,width:number,height:number)=>sharp(b,{raw:{width,height,channels:4}}).png({compressionLevel:1,adaptiveFiltering:false}).toBuffer();
  const encodeGradedSingle=async(svg:string,light:DecodedLight)=>{
   if(!baseKey)return encode(grade(light),w,h);
   const key=`${baseKey}:${w}x${h}:${svg}`,hit=gradedPngCache.get(key);

@@ -20,18 +20,14 @@ function boundedPaths(paths:string[],o:{width:number;height:number;x:number;y:nu
 export function legacyMaskSvg(g:LegacyGeometry,options:{width:number;height:number;x:number;y:number;scale:number;wallFog:boolean;heavy:boolean;daylight:boolean;keepRevealed:boolean;graded?:boolean}){
  const {width:w,height:h,x,y,scale:k,wallFog,heavy,daylight,keepRevealed}=options;
  const paths=(a:string[])=>a.map(d=>`<path d="${d}" fill-rule="evenodd"/>`).join('');
- const transform=`translate(${-x*k} ${-y*k}) scale(${k})`,sight=boundedPaths(g.sight,options),memory=boundedPaths(g.memory,options);
- return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><defs>
- <clipPath id="s" transform="${transform}">${paths(sight)}</clipPath>
- <mask id="l" maskUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="100%" height="100%" fill="white"/><g transform="${transform}" fill="black">${paths(g.lights)}</g></mask>
- <g id="v">${!wallFog&&!heavy?'<rect width="100%" height="100%"/>':heavy?`<g transform="${transform}">${paths(g.near)}</g><g ${wallFog?'clip-path="url(#s)"':''}><g transform="${transform}">${paths(g.lights)}</g></g>`:`<g transform="${transform}">${paths(sight)}</g>`}</g>
- <mask id="c" maskUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="100%" height="100%" fill="white"/><g transform="${transform}" fill="${keepRevealed?'black':options.graded?'#ccc':'#aaa'}">${paths(memory)}</g><use href="#v" fill="black"/></mask></defs>
- <rect width="100%" height="100%" fill="#050608" mask="url(#c)"/>
- ${daylight?'':`<g ${wallFog?'clip-path="url(#s)"':''}><rect width="100%" height="100%" fill="black" opacity="${options.graded?.08:heavy?.6:.3}" mask="url(#l)"/></g>`}</svg>`;
+ const transform=`translate(${-x*k} ${-y*k}) scale(${k})`,sight=boundedPaths(g.sight,options),memory=boundedPaths(g.memory,options),lights=boundedPaths(g.lights,options),near=heavy?boundedPaths(g.near,options):[];
+ const dimFill=daylight?'black':options.graded?'#141414':heavy?'#999999':'#4d4d4d';
+ const vis=!wallFog&&!heavy?`<rect width="100%" height="100%" fill="${dimFill}"/><g transform="${transform}" fill="black">${paths(lights)}</g>`:heavy?`<g transform="${transform}" fill="${dimFill}">${paths(near)}</g><g ${wallFog?'clip-path="url(#s)"':''}><g transform="${transform}" fill="black">${paths(lights)}</g></g>`:`<g transform="${transform}" fill="${dimFill}">${paths(sight)}</g>${daylight?'':`<g ${wallFog?'clip-path="url(#s)"':''}><g transform="${transform}" fill="black">${paths(lights)}</g></g>`}`;
+ return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><defs><clipPath id="s" transform="${transform}">${paths(sight)}</clipPath><mask id="c" maskUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"><rect width="100%" height="100%" fill="white"/><g transform="${transform}" fill="${keepRevealed?'black':options.graded?'#ccc':'#aaa'}">${paths(memory)}</g>${vis}</mask></defs><rect width="100%" height="100%" fill="#050608" mask="url(#c)"/></svg>`;
 }
 
 /** Alpha-only illumination mask for server grading of map artwork. */
 export function legacyLightSvg(g:LegacyGeometry,o:{width:number;height:number;x:number;y:number;scale:number;wallFog:boolean;daylight:boolean}){
  const paths=(a:string[])=>a.map(d=>`<path d="${d}" fill-rule="evenodd"/>`).join(''),transform=`translate(${-o.x*o.scale} ${-o.y*o.scale}) scale(${o.scale})`;
- return `<svg xmlns="http://www.w3.org/2000/svg" width="${o.width}" height="${o.height}"><defs><clipPath id="s" transform="${transform}">${paths(boundedPaths(g.sight,o))}</clipPath></defs>${o.daylight?'<rect width="100%" height="100%" fill="white"/>':`<g ${o.wallFog?'clip-path="url(#s)"':''}><g fill="white" transform="${transform}">${paths(g.lights)}</g></g>`}</svg>`;
+ return `<svg xmlns="http://www.w3.org/2000/svg" width="${o.width}" height="${o.height}"><defs><clipPath id="s" transform="${transform}">${paths(boundedPaths(g.sight,o))}</clipPath></defs>${o.daylight?'<rect width="100%" height="100%" fill="white"/>':`<g ${o.wallFog?'clip-path="url(#s)"':''}><g fill="white" transform="${transform}">${paths(boundedPaths(g.lights,o))}</g></g>`}</svg>`;
 }

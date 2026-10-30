@@ -58,7 +58,7 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
      if(timing)timing.motionStartAt=timingClock();
      const before=d!.previousSource?{...d!.previous,visionRaster:undefined,visionTiles:undefined,legacyGeometry:d!.previousSource.legacyGeometry,...(d!.previous.partyView&&d!.previousSource.partyView?{partyView:{...d!.previous.partyView,visionRaster:undefined,visionTiles:undefined,legacyGeometry:d!.previousSource.partyView.legacyGeometry}}:{})}:d!.previous;
      const [legacyMotion,party]=await Promise.all([
-      prepareLegacyMotion(id,before,sourceView,timing,{current,endpoint,compact:options.compactMotion===true}),
+      sourceView.partyView&&before.partyView?Promise.resolve(undefined):prepareLegacyMotion(id,before,sourceView,timing,{current,endpoint,compact:options.compactMotion===true}),
       sourceView.partyView&&before.partyView?prepareLegacyMotion(id,{...before,...before.partyView,partyView:undefined,role:'player'},{...sourceView,...sourceView.partyView,partyView:undefined,role:'player'},timing,{current,compact:options.compactMotion===true,endpoint:async()=>{const rendered=await endpoint();return {...rendered,...rendered.partyView,partyView:undefined,role:'player'};}}):undefined,
      ]);
      if(timing)timing.motionEndAt=timingClock();

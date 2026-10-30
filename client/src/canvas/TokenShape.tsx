@@ -261,7 +261,7 @@ function TokenShapeInner({
           distText.current?.position({x:(origin.x+result.x)/2,y:(origin.y+result.y)/2-16});
           invalidateRetainedToken(dragOverlay.current);dragOverlay.current?.getLayer()?.batchDraw();
         });
-      },Math.max(0,200-(performance.now()-state.lastAt)));
+      },Math.max(0,40-(performance.now()-state.lastAt)));
       invalidateRetainedToken(dragOverlay.current);dragOverlay.current?.getLayer()?.batchDraw();return;
     }
     tether.current?.points([origin.x,origin.y,cx,cy]);
@@ -619,7 +619,7 @@ function TokenShapeInner({
         {iconImg?<KonvaImage image={iconImg} x={-radius} y={-radius} width={radius*2} height={radius*2}/>:<><Silhouette fill={fill}/><Text text={display.icon||display.name.slice(0,2)} x={-radius} y={-radius} width={radius*2} height={radius*2} fontSize={radius} align="center" verticalAlign="middle"/></>}
       </Group>)}
       <Group ref={tokenBody} name="token-body" visible={!miniatureReady && !miniaturePending}>
-      {serverBody&&serverSprite?<><KonvaImage name="server-token-body" image={serverBody} x={serverSprite.body.x} y={serverSprite.body.y} width={serverSprite.body.width/serverSprite.body.scale} height={serverSprite.body.height/serverSprite.body.scale}/>{selected&&<Silhouette outlineOnly/>}</>:<>
+      {serverBody&&serverSprite?<><KonvaImage name="server-token-body" image={serverBody} x={serverSprite.body.x} y={serverSprite.body.y} width={serverSprite.body.width/serverSprite.body.scale} height={serverSprite.body.height/serverSprite.body.scale}/>{hasEmojiIcon&&!isDead&&/[^\x00-\x7F]/.test(display.icon)&&<Text text={display.icon} fontSize={radius*1.1} width={radius*2} height={radius*2} offsetX={radius} offsetY={radius} align="center" verticalAlign="middle"/>}{selected&&<Silhouette outlineOnly/>}</>:<>
       {hasImageIcon && iconImg ? (
         shape === 'image' ? (
           // Pasted art: draw the whole image as-is (no clip), with an outline
@@ -678,7 +678,7 @@ function TokenShapeInner({
       </>}
       </Group>
       <Group name="token-upright-hud" rotation={-viewRotation}>
-      {serverHud&&serverSprite?<KonvaImage name="server-token-hud" image={serverHud} x={serverSprite.hud.x} y={serverSprite.hud.y} width={serverSprite.hud.width/serverSprite.hud.scale} height={serverSprite.hud.height/serverSprite.hud.scale}/>:<>
+      {serverHud&&serverSprite?<><KonvaImage name="server-token-hud" image={serverHud} x={serverSprite.hud.x} y={serverSprite.hud.y} width={serverSprite.hud.width/serverSprite.hud.scale} height={serverSprite.hud.height/serverSprite.hud.scale}/>{isDead&&!miniatureReady&&!miniaturePending&&<Text text="💀" fontSize={radius*1.4} width={radius*2} height={radius*2} offsetX={radius} offsetY={radius} align="center" verticalAlign="middle"/>}{!isDead&&token.kind!=='pc'&&token.combatRole&&!miniatureReady&&!miniaturePending&&<Group name="token-combat-role" x={-radius*0.72} y={radius*0.72}><Text text={COMBAT_ROLE_ICON[token.combatRole]} fontSize={roleBadgeR*1.3} width={roleBadgeR*2} height={roleBadgeR*2} offsetX={roleBadgeR} offsetY={roleBadgeR} align="center" verticalAlign="middle"/></Group>}</>:<>
           {!miniatureReady && !token.sharedSightOnly && token.markLabels?.some(label=>/hunter.s mark/i.test(label)) && <Group y={-radius-22} listening={false} name="hunters-mark-sigil">
         <RegularPolygon sides={4} radius={14} stroke="#ffe7a1" strokeWidth={2} fill="#352106" rotation={0} shadowColor="#ffa62b" shadowBlur={8}/>
         <Circle radius={4} fill="#fff5d2"/>
@@ -782,7 +782,7 @@ function TokenShapeInner({
       {initiativeBadge}
       {/* The crown distinguishes 2D player-character tokens. A ready miniature
           provides its own silhouette, so it keeps only the health/status HUD. */}
-      {!serverHud && !isDead && token.kind === 'pc' && !miniatureReady && !miniaturePending &&
+      {!isDead && token.kind === 'pc' && !miniatureReady && !miniaturePending &&
         (() => {
           const crown = Math.min(22, Math.max(14, radius * 0.6));
           return (

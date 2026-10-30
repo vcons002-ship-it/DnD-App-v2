@@ -11,8 +11,8 @@ export async function visionTiles(id:string,s:StateSnapshot,size:{width:number;h
  const v=s.playerVision,g=s.legacyGeometry;if(!s.map||!v||!g)return;
  const scale=Math.min(1,2048/Math.max(size.width,size.height)),tileSize=512,worldTile=tileSize/scale;
  const images=s.mapImages??[];
- const left=Math.min(0,...images.map(i=>i.x),...v.origins.map(o=>o.x-v.radius)),top=Math.min(0,...images.map(i=>i.y),...v.origins.map(o=>o.y-v.radius));
- const right=Math.max(size.width,...images.map(i=>i.x+i.w),...v.origins.map(o=>o.x+v.radius)),bottom=Math.max(size.height,...images.map(i=>i.y+i.h),...v.origins.map(o=>o.y+v.radius));
+ const left=Math.min(0,...images.map(i=>i.x)),top=Math.min(0,...images.map(i=>i.y));
+ const right=Math.max(size.width,...images.map(i=>i.x+i.w)),bottom=Math.max(size.height,...images.map(i=>i.y+i.h));
  const col=Math.floor(left/worldTile),row=Math.floor(top/worldTile),x=col*worldTile,y=row*worldTile;
  const width=Math.max(tileSize,(Math.ceil(right/worldTile)-col)*tileSize),height=Math.max(tileSize,(Math.ceil(bottom/worldTile)-row)*tileSize);
  // Sparse or enormous off-map extents retain the bounded single-mask fallback.

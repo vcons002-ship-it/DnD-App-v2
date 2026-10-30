@@ -447,6 +447,7 @@ function MapStageInner({
   const miniatureCatalogRevision = useMiniatureCatalog(!legacy);
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
+  const legacyFootstepsLayerRef = useRef<Konva.Layer|null>(null);
   const spellAreaLayerRef = useRef<Konva.Layer|null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const groundTokenLayerRef = useRef<Konva.Layer>(null);
@@ -1431,7 +1432,7 @@ function MapStageInner({
   },[]);
 
   const paintPan = useStableCallback((position:Pt) => {
-    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
+    for (const layer of [layerRef.current, legacyFootstepsLayerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
       if (layer) { layer.position(position); layer.draw(); }
     }
     miniatureRef.current?.setView({ ...view, ...position });
@@ -2042,7 +2043,7 @@ function MapStageInner({
     // only the directly dragged layer. Retained hit maps skipped paints during
     // the drag, so refresh every synchronized layer before the next pointer
     // event. Their scene pixels are already current; only input needs repaint.
-    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
+    for (const layer of [layerRef.current, legacyFootstepsLayerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
       layer?.drawHit();
     }
     userAdjusted.current = true;
@@ -2059,7 +2060,7 @@ function MapStageInner({
     const previous=projectionState.current;
     projectionState.current={tilt,rotation};
     for(const canvas of projectionCanvases.current)canvas.update(tilt,rotation);
-    for(const layer of [layerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current,spellAreaLayerRef.current]){
+    for(const layer of [layerRef.current,legacyFootstepsLayerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current,spellAreaLayerRef.current]){
       if(!layer)continue;
       if(previous.tilt!==tilt){layer.position({x:nextView.x,y:nextView.y});layer.scale({x:nextView.scale,y:nextView.scale*groundYScale(tilt)});}
       const labels=layer.find('.token-upright-hud');
@@ -2602,7 +2603,7 @@ function MapStageInner({
               />}
             </Layer>
             {legacy&&<Layer name="legacy-footsteps" listening={false} x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale}
-              ref={layer=>{if(layer){const canvas=layer.getNativeCanvasElement();canvas.style.zIndex=legacyTerrain?'1':'0';canvas.style.pointerEvents='none';canvas.dataset.testid='legacy-footsteps';}}}>
+              ref={layer=>{legacyFootstepsLayerRef.current=layer;if(layer){const canvas=layer.getNativeCanvasElement();canvas.style.zIndex=legacyTerrain?'1':'0';canvas.style.pointerEvents='none';canvas.dataset.testid='legacy-footsteps';}}}>
               <FootprintLayer key={map?.id} compact tokens={snapshot.tokens} pxPerFoot={pxPerFoot} isVisibleAt={tokenVisibleAtPosition}
                 movementDurationMs={legacyMovement.playback?.durationMs??(snapshot.legacyGeometry!==undefined?0:undefined)} visualPosition={presentation.position}/>
             </Layer>}

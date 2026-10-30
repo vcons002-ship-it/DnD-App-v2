@@ -95,7 +95,7 @@ export async function renderedSnapshot(id:string,s:StateSnapshot,legacy:boolean,
  if(!s.map)return s;
  const [main,party]=await Promise.all([
   renderLayer(id,{...s,partyView:undefined},legacy,composite,tiled,timing,preShade),
-  s.partyView?renderLayer(id,{...s,...s.partyView,partyView:undefined},legacy,composite,tiled,undefined,preShade):Promise.resolve(undefined),
+  s.partyView?renderLayer(id,{...s,...s.partyView,partyView:undefined,role:'player'},legacy,composite,tiled,undefined,preShade):Promise.resolve(undefined),
  ]);
  return {...main,...(party?{partyView:{...s.partyView!,legacyGeometry:party.legacyGeometry,tokenSprites:party.tokenSprites,visionRaster:party.visionRaster,visionTiles:party.visionTiles,terrainRaster:party.terrainRaster,tokenLayerRaster:party.tokenLayerRaster,tokenLayerIds:party.tokenLayerIds}}:{})};
 }
@@ -106,7 +106,7 @@ export function renderingLayerKey(view:StateSnapshot,index?:{characters:Map<stri
 /** Only inputs that affect artwork or visibility; chat/roll/panel updates reuse it. */
 export function renderingInputKey(s:StateSnapshot){
  const index={characters:new Map(s.characters.map(c=>[c.id,c])),monsters:new Map(s.monsters.map(m=>[m.id,m]))};
- return JSON.stringify([renderingLayerKey(s,index),s.partyView?renderingLayerKey({...s,...s.partyView,partyView:undefined},{characters:index.characters,monsters:new Map(s.partyView.monsters.map(m=>[m.id,m]))}):null]);
+ return JSON.stringify([renderingLayerKey(s,index),s.partyView?renderingLayerKey({...s,...s.partyView,partyView:undefined,role:'player'},{characters:index.characters,monsters:new Map(s.partyView.monsters.map(m=>[m.id,m]))}):null]);
 }
 export function reuseRenderedSnapshot(next:StateSnapshot,ready:StateSnapshot):StateSnapshot{
  const fields=(s:StateSnapshot)=>({legacyGeometry:s.legacyGeometry,tokenSprites:s.tokenSprites,tokenLayerRaster:s.tokenLayerRaster,tokenLayerIds:s.tokenLayerIds,visionRaster:s.visionRaster,visionTiles:s.visionTiles,terrainRaster:s.terrainRaster});

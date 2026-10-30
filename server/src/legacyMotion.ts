@@ -96,6 +96,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
   const hasFullGeometry=(s:StateSnapshot)=>!!s.legacyGeometry&&!s.visionRaster&&!s.visionTiles&&(!needsVisibilityLayer(s.map,s.playerVision)||s.legacyGeometry.sight.length>0||s.legacyGeometry.near.length>0||s.legacyGeometry.lights.length>0||(s.legacyGeometry.memory?.length??0)>0);
   const rememberedMemory=after.playerVision?formatMemory(remembered):[];
   const halfwayMemory=after.playerVision?formatMemory(halfway):[];
+  const stepGeomByVision=new Map<string,Promise<{sight:string[];near:string[];lights:string[]}>>();
   const prepared=await Promise.all(rawViews.map(async(view,index)=>{
    if(options?.current&&!options.current())return view;
    const t=tokenMoveProgress(index/LEGACY_MOTION_STEPS,1);
@@ -105,8 +106,20 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
     if(hasFullGeometry(after)&&equal(view.playerVision,after.playerVision)){
      view.legacyGeometry={sight:after.legacyGeometry!.sight,near:after.legacyGeometry!.near,lights:after.legacyGeometry!.lights,memory:t>=.5?halfwayMemory:rememberedMemory,affinity:view.tokens.filter(tok=>!tok.sharedSightOnly&&visionShowsAffinity(view.playerVision,tok.x,tok.y)).map(tok=>tok.id)};
     }else{
-     const geom=await visibilityWorkers.run({mapId:view.map!.id,vision:view.playerVision,wallFog:usesMapVision(view.map),tokens:view.tokens.map(({id,x,y,sharedSightOnly})=>({id,x,y,sharedSightOnly}))},timing?span=>timing.workers.push(span):undefined);
-     view.legacyGeometry={...geom,memory:index===LEGACY_MOTION_STEPS?formatMemory(after.exploredTerrain):t>=.5?halfwayMemory:rememberedMemory};
+     if(hasFullGeometry(before)&&equal(view.playerVision,before.playerVision)){
+      view.legacyGeometry={sight:before.legacyGeometry!.sight,near:before.legacyGeometry!.near,lights:before.legacyGeometry!.lights,memory:t>=.5?halfwayMemory:rememberedMemory,affinity:view.tokens.filter(tok=>!tok.sharedSightOnly&&visionShowsAffinity(view.playerVision,tok.x,tok.y)).map(tok=>tok.id)};
+     }else{
+      const vKey=JSON.stringify(view.playerVision);
+      let geomPromise=stepGeomByVision.get(vKey);
+      if(!geomPromise){
+       geomPromise=visibilityWorkers.run({mapId:view.map!.id,vision:view.playerVision,wallFog:usesMapVision(view.map),tokens:[]},timing?span=>timing.workers.push(span):undefined);
+       stepGeomByVision.set(vKey,geomPromise);
+      }
+      const geom=await geomPromise;
+      view.legacyGeometry={...geom,memory:index===LEGACY_MOTION_STEPS?formatMemory(after.exploredTerrain):t>=.5?halfwayMemory:rememberedMemory,affinity:view.tokens.filter(tok=>!tok.sharedSightOnly&&visionShowsAffinity(view.playerVision,tok.x,tok.y)).map(tok=>tok.id)};
+ 
+     }
+
     }
    }
    else view.legacyGeometry={sight:[],near:[],lights:[],memory:[],affinity:view.tokens.filter(t=>!t.sharedSightOnly).map(t=>t.id)};
