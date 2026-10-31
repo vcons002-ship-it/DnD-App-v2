@@ -2198,6 +2198,7 @@ function MapStageInner({
             <button className="btn tiny" onClick={resetView} title="Fit to window">
               Fit
             </button>
+            <CompactToolbarMenu label="View">
             <span className="map-rotation-controls" role="group" aria-label="Map rotation">
               <button className="btn tiny" aria-label="Rotate map left" disabled={legacy}
                 title={legacy?'Legacy mode uses a fixed overhead view':'Rotate view left 15°'}
@@ -2206,7 +2207,6 @@ function MapStageInner({
                 title={legacy?'Legacy mode uses a fixed overhead view':'Rotate view right 15°'}
                 onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation+15)}>↷</button>
             </span>
-            <CompactToolbarMenu label="View">
             <LegacyModeControl toolbar/>
             <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
               <span className="muted">Your view</span>
@@ -2232,7 +2232,7 @@ function MapStageInner({
               via a portal, but keep all their state/handlers here in MapStage. */}
           {toolSlot &&
             createPortal(
-              <CompactToolbarMenu label="Map tools"><div className="map-tool-menus">
+              <CompactToolbarMenu label="Map tools" shortLabel="Tools"><div className="map-tool-menus">
                 {/* Measuring tools — available to everyone; shapes are shared. */}
                 <MeasureMenu
                   tool={tool}

@@ -8,6 +8,9 @@ import { GuideModal } from './GuideModal';
 import { RulebookViewer } from './RulebookViewer';
 import { EditableName } from './EditableName';
 import {useDmUiScale} from '../lib/useDmUiScale';
+import {COMPACT_TOOLBAR_VIEWPORT,useCompactViewport} from '../lib/useCompactViewport';
+import {CompactToolbarMenu} from './CompactToolbarMenu';
+import '../compact-toolbar.css';
 
 /**
  * Shared top app bar: global actions (load session, settings, copy link) plus
@@ -15,6 +18,7 @@ import {useDmUiScale} from '../lib/useDmUiScale';
  */
 export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSnapshot; compactDm?: boolean }) {
   useDmUiScale();
+  const compactToolbar=useCompactViewport(COMPACT_TOOLBAR_VIEWPORT);
   const disconnect = useStore((s) => s.disconnect);
   const renameSession = useStore((s) => s.renameSession);
   const navigate = useNavigate();
@@ -128,7 +132,7 @@ export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSna
   );
 
   return (
-    <header className="topbar">
+    <header className={`topbar${compactToolbar?' compact-topbar':''}`}>
       <strong>{isDm ? 'DM' : 'Player'}</strong>
       <span className="session-title">
         {isDm ? (
@@ -164,7 +168,16 @@ export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSna
       {/* The map's Measure/Scale/Fog menus are portaled in here by MapStage. */}
       <div id="map-tool-slot" className="map-tool-slot" />
 
-      {compactDm && isDm ? (
+      {compactToolbar && isDm ? <div className="toolbar-session-menu">
+        <CompactToolbarMenu label="Campaign menu" shortLabel="Campaign">
+          <div className="compact-session-info">
+            {snapshot.sessionName}<br/>Code: {snapshot.sessionCode}<br/>Active: {activeMap}
+            {prepping&&<><br/>Prepping: {prepping}</>}
+            {snapshot.round>0&&<><br/>Round {snapshot.round}</>}
+          </div>
+          {actions}
+        </CompactToolbarMenu>
+      </div> : compactDm && isDm ? (
         <details className="dm-campaign-menu">
           <summary className="btn" aria-label="Campaign menu">Campaign <span aria-hidden="true">&#8964;</span></summary>
           {actions}

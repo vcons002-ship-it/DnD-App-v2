@@ -1,0 +1,47 @@
+import {test,expect} from './helpers/test';
+import {io} from 'socket.io-client';
+import sharp from 'sharp';
+import {DM_SECRET,PORT} from './playwright.config';
+
+for(const size of [{width:320,height:740},{width:430,height:900},{width:900,height:700},{width:1222,height:1144},{width:844,height:390}]){
+ test(`compact touch toolbar ${size.width}x${size.height}`,async({browser,request},testInfo)=>{
+  const context=await browser.newContext({viewport:size,hasTouch:true,isMobile:true,serviceWorkers:'block'});
+  await context.addInitScript(()=>{localStorage.setItem('dnd-environment-quality','legacy');localStorage.setItem('dnd-dice-rendering','2d');});
+  const page=await context.newPage(),headers={'x-dm-passphrase':DM_SECRET};
+  const {code}=await(await request.post('/api/sessions',{headers,data:{name:'The campaign with a deliberately long name'}})).json();
+  const buffer=await sharp({create:{width:1000,height:800,channels:3,background:'#565447'}}).png().toBuffer();
+  const map=await(await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{name:'Courtyard',image:{name:'room.png',mimeType:'image/png',buffer}}})).json();
+  const dm=io(`http://localhost:${PORT}`,{transports:['websocket']});
+  try{
+   await dm.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});
+   dm.emit('map:setActive',{mapId:map.id});
+   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+   const bar=page.locator('header.topbar');await expect(bar.getByRole('button',{name:'Map tools',exact:true})).toBeVisible();
+   const bounds=await bar.boundingBox();expect(bounds!.height).toBeLessThanOrEqual(size.width<=700?106:58);
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+   for(const name of ['View','Map tools','Campaign menu']){
+    const b=await bar.getByRole('button',{name,exact:true}).boundingBox();
+    expect(b!.height).toBeGreaterThanOrEqual(44);expect(b!.x).toBeGreaterThanOrEqual(0);expect(b!.x+b!.width).toBeLessThanOrEqual(size.width);
+   }
+   await page.screenshot({path:testInfo.outputPath('compact-toolbar.png')});
+   await bar.getByRole('button',{name:'View',exact:true}).click();
+   const view=page.getByRole('dialog',{name:'View',exact:true});await expect(view).toBeVisible();
+   await expect(view.getByRole('checkbox',{name:/Legacy mode/})).toBeVisible();
+   await expect(view.getByRole('button',{name:'Rotate map left'})).toBeVisible();
+   await view.getByLabel('Battlefield visibility').selectOption('player');
+   const popup=await view.boundingBox();expect(popup!.x+popup!.width).toBeLessThanOrEqual(size.width);expect(popup!.y+popup!.height).toBeLessThanOrEqual(size.height);
+   await page.keyboard.press('Escape');await expect(view).toBeHidden();
+   await bar.getByRole('button',{name:'Map tools',exact:true}).click();
+   await expect(page.getByRole('dialog',{name:'Map tools',exact:true}).getByText('Map features',{exact:false}).first()).toBeVisible();
+   await bar.getByRole('button',{name:'Campaign menu',exact:true}).click();
+   await expect(page.getByRole('dialog',{name:'Map tools',exact:true})).toBeHidden();
+   const campaign=page.getByRole('dialog',{name:'Campaign menu',exact:true});await expect(campaign.getByText(`Code: ${code}`,{exact:false})).toBeVisible();
+   await expect(campaign.getByRole('button',{name:/Settings/})).toBeVisible();
+   await page.keyboard.press('Escape');await expect(campaign).toBeHidden();
+   await page.setViewportSize({width:1440,height:900});
+   await expect(bar.getByRole('button',{name:'View',exact:true})).toBeHidden();
+   await expect(bar.getByLabel('Battlefield visibility')).toBeVisible();
+   await expect(bar.getByRole('checkbox',{name:/Legacy mode/})).toBeVisible();
+  }finally{dm.disconnect();await context.close();}
+ });
+}
