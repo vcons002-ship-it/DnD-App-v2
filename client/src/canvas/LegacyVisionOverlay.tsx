@@ -1,4 +1,4 @@
-import {forwardRef,memo,useId,useImperativeHandle,useLayoutEffect,useEffect,useMemo,useRef,useState} from 'react';
+import {forwardRef,memo,useId,useImperativeHandle,useLayoutEffect,useMemo,useRef} from 'react';
 import type {PlayerVisionHandle} from './PlayerVisionOverlay';
 import type {PlayerVision} from '../../../shared/playerVision';
 import type {ExploredTerrain} from '../../../shared/exploration';
@@ -29,25 +29,25 @@ function rasterCover(bounds:Omit<RasterAsset,'key'>,view:BattlefieldView,width:n
 export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function LegacyVisionOverlay(props,ref){
  const atlasMask=useRef<RasterPlaneHandle>(null),atlasTerrain=useRef<RasterPlaneHandle>(null),baseTerrain=useRef<RasterPlaneHandle>(null),motion=useRef(props.motion);motion.current=props.motion;
  const svg=useRef<SVGSVGElement>(null),maskRoot=useRef<HTMLDivElement>(null),tileWorld=useRef<HTMLDivElement>(null),edges=useRef<(HTMLDivElement|null)[]>([]),paintCamera=useRef<(view:BattlefieldView)=>void>(()=>{});
- const [bufferedFrame,setFrame]=useState(props),latest=useRef(props),previousView=useRef(props.view);
+ const latest=useRef(props),previousView=useRef(props.view);
  const placedView=useRef(props.view);
  // Publish server mask and token positions in the same React commit; only the
  // camera needs imperative buffering. A second mask state commit adds latency.
- const content=props.geometry!==undefined||props.presentation?props:bufferedFrame,frame={...content,view:latest.current.view};
+ const frame={...props,view:latest.current.view};
  const displayedKey=frame.tiles?.key??frame.raster?.key;
  useLayoutEffect(()=>{if(displayedKey)movementTiming('maskCommit',{maskKey:displayedKey});},[displayedKey]);
- const draws=useRef(0),drawCount=useMemo(()=>++draws.current,[content]);
- const timer=useRef<ReturnType<typeof setTimeout>>(),lastDraw=useRef(performance.now());
- const schedule=()=>{if(timer.current!==undefined)return;timer.current=setTimeout(()=>{
-   timer.current=undefined;lastDraw.current=performance.now();setFrame({...latest.current});
- },Math.max(0,500-(performance.now()-lastDraw.current)));};
+ const draws=useRef(0),drawCount=useMemo(()=>++draws.current,[props]);
+
+
+
+
  useLayoutEffect(()=>{
    const previous=previousView.current,same=props.view.x===previous.x&&props.view.y===previous.y&&props.view.scale===previous.scale;
    latest.current={...props,view:same?latest.current.view:props.view};previousView.current=props.view;
-   if(props.geometry===undefined&&!props.presentation)schedule();
+
  },[props]);
  useLayoutEffect(()=>paintCamera.current(latest.current.view));
- useEffect(()=>()=>clearTimeout(timer.current),[]);
+
  const paintLocal=useRef(()=>{}),live=useRef(new Map<string,{x:number;y:number}>());
  useLayoutEffect(()=>{live.current.clear();paintLocal.current();},[props.vision,props.presentation]);
  useImperativeHandle(ref,()=>({cover:()=>undefined,memoryCanvas:()=>null,frame:(now=performance.now())=>{const m=motion.current;if(m?.atlas){const index=legacyMotionIndex(now,m.start,m.durationMs,m.atlas.count);atlasMask.current?.frame(index);atlasTerrain.current?.frame(index);}else paintLocal.current();},prepareLights:()=>{},lights:()=>{},move:(id,x,y)=>{live.current.set(id,{x,y});paintLocal.current();},camera:camera=>{
@@ -104,12 +104,12 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
  </div>:null;
  if(tiles||raster&&picture){
   const cover=rasterCover(bounds!,frame.view,frame.width,frame.height);
-  return <>{terrain}<div ref={maskRoot} data-testid="legacy-vision" data-geometry-source="server" data-render-source="server-raster" data-raster-key={tiles?.key??raster!.key} data-mask-tiles={tiles?Object.keys(tiles.tiles).length:undefined} data-draw-count={drawCount} data-refresh-ms={atlas?'33':'500'} data-wall-count={frame.vision.walls?.length??0} data-origin-count={frame.vision.origins.length} data-heavy={String(frame.vision.heavy)} style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}} aria-hidden="true">
+  return <>{terrain}<div ref={maskRoot} data-testid="legacy-vision" data-geometry-source="server" data-render-source="server-raster" data-raster-key={tiles?.key??raster!.key} data-mask-tiles={tiles?Object.keys(tiles.tiles).length:undefined} data-draw-count={drawCount} data-wall-count={frame.vision.walls?.length??0} data-origin-count={frame.vision.origins.length} data-heavy={String(frame.vision.heavy)} style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}} aria-hidden="true">
    {cover.map((rect,i)=><div key={i} ref={el=>{edges.current[i]=el;}} data-legacy-edge={i} style={{position:'absolute',...rect,background:'#050608'}}/>)}
    {atlas?<LegacyRasterPlane ref={atlasMask} asset={atlas.mask} bounds={atlas.bounds} view={frame.view} columns={atlas.columns} frameWidth={atlas.frameWidth} frameHeight={atlas.frameHeight} testId="legacy-motion-mask"/>:tiles?<div ref={tileWorld} data-testid="legacy-mask-world" style={{position:'absolute',left:0,top:0,transformOrigin:'0 0',transform:`translate(${frame.view.x}px,${frame.view.y}px) scale(${frame.view.scale})`}}>{Object.entries(tiles.tiles).map(([id,asset])=><MaskTile key={id} asset={asset}/>)}</div>:<LegacyRasterPlane ref={atlasMask} asset={raster!} bounds={raster!} view={frame.view} testId="legacy-mask-image"/>}
   </div></>;
  }
- return <svg key={frame.geometry===undefined?'client':'server'} ref={svg} data-testid="legacy-vision" data-geometry-source={frame.geometry===undefined?'client':frame.geometry===null?'pending':'server'} data-draw-count={drawCount} data-refresh-ms={frame.geometry===undefined&&frame.presentation?'16':'500'} data-wall-count={frame.vision.walls?.length??0} data-origin-count={frame.vision.origins.length} data-heavy={String(frame.vision.heavy)}
+ return <svg key={frame.geometry===undefined?'client':'server'} ref={svg} data-testid="legacy-vision" data-geometry-source={frame.geometry===undefined?'client':frame.geometry===null?'pending':'server'} data-draw-count={drawCount} data-wall-count={frame.vision.walls?.length??0} data-origin-count={frame.vision.origins.length} data-heavy={String(frame.vision.heavy)}
    width={frame.width} height={frame.height} style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none'}} aria-hidden="true">
    <defs>
      <clipPath id={sight}><g data-legacy-paths="sight" data-legacy-world="" transform={transform}>{shapes(paths.sight)}</g></clipPath>

@@ -41,7 +41,7 @@ describe('local graphics presets',()=>{
     expect(budget.localShadowLights).toBe(0);expect(budget).not.toHaveProperty('visionDistance');
   });
   it('Legacy explicitly disables optional graphics and caps visibility without altering gameplay rules',()=>{
-    expect(graphicsBudget('legacy')).toMatchObject({legacy:true,modelQuality:'low',visibilityRefreshMs:500,pixelRatioCap:1,particleScale:0,mistQuality:'off',localShadowLights:0});
+    expect(graphicsBudget('legacy')).toMatchObject({legacy:true,modelQuality:'low',pixelRatioCap:1,particleScale:0,mistQuality:'off',localShadowLights:0});
     expect(graphicsBudget('balanced').legacy).toBe(false);
     expect(graphicsBudget('legacy')).not.toHaveProperty('visionDistance');
   });
