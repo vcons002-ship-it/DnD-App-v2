@@ -2,7 +2,7 @@ import {parentPort} from 'node:worker_threads';
 import {createLegacyVisionGeometry,legacyPath} from '../../shared/legacyVision.js';
 import type {OutlineSet,CachedPolygon} from '../../shared/legacyVision.js';
 import {SIGHT_EXTENT} from '../../shared/mapWalls.js';
-import type {VisionJob,RasterJob,MaskTilesJob,MaskTilesResult,WorkerCacheSync} from './visibilityWorkers.js';
+import type {GeometryJob,RasterJob,MaskTilesJob,MaskTilesResult,WorkerCacheSync} from './visibilityWorkers.js';
 import {createHash} from 'node:crypto';
 import sharp from 'sharp';
 import {visionShowsAffinity} from '../../shared/playerVision.js';
@@ -53,7 +53,7 @@ function applySync(sync:WorkerCacheSync){
   g.geometry.seed(p.wallsKey,p.entries);
  }
 }
-parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;diagnostic?:boolean;syncCache?:WorkerCacheSync})=>{
+parentPort!.on('message',async(msg:{id?:number;job?:GeometryJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;diagnostic?:boolean;syncCache?:WorkerCacheSync})=>{
  if(msg.syncCache){applySync(msg.syncCache);return;}
  const {id,job,diagnostic}=msg;if(id===undefined||!job)return;
  const start=performance.now();
@@ -119,7 +119,7 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
   const cachedGeometry=getMapGeometry(job.mapId),geometry=cachedGeometry.geometry;
   polygonObserver=cachedGeometry.observer;
   polygonObserver.current=(wk,key,entry)=>{currentWallsKey=wk;newPolyEntries.push({key,...entry});};
-  const paths=geometry(job.vision,job.wallFog);
+  const paths=job.outlinesOnly?{sight:[],near:[],lights:[]}:geometry(job.vision,job.wallFog);
   const memory=(job.explored??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join(''));
   const affinity=job.tokens.filter(t=>!t.sharedSightOnly&&visionShowsAffinity(job.vision,t.x,t.y)).map(t=>t.id);
   let prepared:OutlineSet|undefined;

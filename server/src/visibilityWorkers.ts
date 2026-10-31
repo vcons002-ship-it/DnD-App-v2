@@ -13,6 +13,7 @@ import type {AtlasCacheSync,LightBounds} from './terrainAtlas.js';
 process.env.UV_THREADPOOL_SIZE ??= String(Math.max(8,Math.min(32,os.availableParallelism?.()??os.cpus().length)));
 type Observe=(span:MovementWorkerTiming)=>void;
 export type VisionJob={mapId:string;vision:PlayerVision;wallFog:boolean;detailed?:boolean;explored?:ExploredTerrain;tokens:{id:string;x:number;y:number;sharedSightOnly?:boolean}[]};
+export type GeometryJob=VisionJob&{outlinesOnly?:boolean};
 export type RasterJob={svg:string;format?:'png'|'webp'};
 export type MaskTilesJob={maskTiles:{svg:string;width:number;height:number;tileSize:number}};
 export type MaskTilesResult={tiles:{x:number;y:number;width:number;height:number;key:string;buffer:Uint8Array}[]};
@@ -23,7 +24,7 @@ export type WorkerCacheSync=AtlasCacheSync&{
  newMaskResults?:{key:string;result:MaskTilesResult}[];
  newPolygons?:PolygonSync[];
 };
-type Job=VisionJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;
+type Job=GeometryJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;
 type Task={id:number;job:Job;resolve:(p:any)=>void;reject:(e:Error)=>void;timer?:ReturnType<typeof setTimeout>;observe?:Observe;queuedAt?:number;startedAt?:number};
 type Slot={worker:Worker;active?:Task;ready:boolean;pendingSync:WorkerCacheSync[]};
 const memoryCache=new WeakMap<ExploredTerrain,string[]>();
@@ -34,7 +35,8 @@ export function formatExploredMemory(explored?:ExploredTerrain):string[]{
  return hit;
 }
 function attachVisionFields(base:LegacyGeometry,job:VisionJob):LegacyGeometry{
- return {...base,memory:formatExploredMemory(job.explored),affinity:job.tokens.filter(t=>!t.sharedSightOnly&&visionShowsAffinity(job.vision,t.x,t.y)).map(t=>t.id)};
+ const {outlines,...paths}=base;
+ return {...paths,...(job.detailed&&outlines?{outlines}:{}),memory:formatExploredMemory(job.explored),affinity:job.tokens.filter(t=>!t.sharedSightOnly&&visionShowsAffinity(job.vision,t.x,t.y)).map(t=>t.id)};
 }
 /** Bounded CPU pool. No DB handles, sockets or unfiltered snapshots enter workers. */
 export class VisibilityWorkers{
@@ -47,6 +49,9 @@ export class VisibilityWorkers{
  private maskResults=new Map<string,MaskTilesResult>();
  private polygons=new Map<string,{wallsKey:string;entries:Map<string,{key:string}&CachedPolygon>}>();
  private visionResults=new Map<string,{basic?:LegacyGeometry;detailed?:LegacyGeometry}>();
+ private visionInflight=new Map<string,{job:GeometryJob;work:Promise<LegacyGeometry>}>();
+ private outlineInflight=new Map<string,Promise<LegacyGeometry>>();
+ private dispatched=new WeakSet<object>();
  private inflight=new Map<string,Promise<any>>();
  readonly metrics={jobs:0,failed:0,computeMs:0,maxComputeMs:0,maxQueue:0};
  constructor(private count=Math.max(2,Math.min(8,(os.availableParallelism?.()??os.cpus().length)-1))){}
@@ -103,6 +108,7 @@ export class VisibilityWorkers{
   return slot;
  }
  private pump(){
+  if(!this.queue.length)return;
   while(this.slots.length<this.count)this.spawn();
   while(this.queue.length){
    const anyReady=this.slots.some(s=>s.ready);
@@ -113,7 +119,8 @@ export class VisibilityWorkers{
    slot.active=task;slot.worker.ref();if(task.observe)task.startedAt=performance.now();
    task.timer=setTimeout(()=>{this.metrics.failed++;slot.active=undefined;task.reject(new Error('Visibility calculation timed out'));this.slots=this.slots.filter(s=>s!==slot);void slot.worker.terminate();this.pump();},10000);
    if(slot.pendingSync.length){for(const sync of slot.pendingSync.splice(0))slot.worker.postMessage({syncCache:sync});}
-   const workerJob='vision' in task.job&&!('walkSight' in task.job)&&!('token' in task.job)?{mapId:task.job.mapId,vision:task.job.vision,wallFog:task.job.wallFog,detailed:task.job.detailed,tokens:[]}:task.job;
+   this.dispatched.add(task.job);
+   const workerJob='vision' in task.job&&!('walkSight' in task.job)&&!('token' in task.job)?{mapId:task.job.mapId,vision:task.job.vision,wallFog:task.job.wallFog,detailed:task.job.detailed,outlinesOnly:task.job.outlinesOnly,tokens:[]}:task.job;
    slot.worker.postMessage({id:task.id,job:workerJob,...(task.observe?{diagnostic:true}:{})});
   }
  }
@@ -124,6 +131,66 @@ export class VisibilityWorkers{
  run(job:RasterJob,observe?:Observe):Promise<Uint8Array>;
  run(job:MaskTilesJob,observe?:Observe):Promise<MaskTilesResult>;
  run(job:Job,observe?:Observe):Promise<any>{
+  if('vision' in job&&!('walkSight' in job)&&!('token' in job))return this.runVision(job,observe);
+  return this.dispatch(job,observe);
+ }
+ /** One base calculation for all modes. Requests in the same broadcast upgrade
+  * the queued job to include outlines. A later detailed viewer adds only missing
+  * outlines; it never reruns the basic visibility/light paths. */
+ private runVision(job:VisionJob,observe?:Observe):Promise<LegacyGeometry>{
+  const lights=job.vision.lights.filter(l=>!l.transient);
+  if(!lights.length)return this.runVisionCore(job,observe);
+  // Lamp geometry depends on lamps and walls, not on the viewer's position,
+  // darkvision radius, history, or graphics mode. Retain it as a shared layer.
+  const common={mapId:job.mapId,detailed:job.detailed,tokens:[]};
+  return Promise.all([
+   this.runVisionCore({...common,wallFog:job.wallFog,vision:{...job.vision,lights:[]}},observe),
+   this.runVisionCore({...common,wallFog:false,vision:{rangeFt:60,radius:0,heavy:false,origins:[],walls:job.vision.walls,lights}},observe),
+  ]).then(([origins,lamps])=>attachVisionFields({...origins,lights:lamps.lights,
+   ...(origins.outlines&&lamps.outlines?{outlines:{wallsKey:origins.outlines.wallsKey,shapes:{...origins.outlines.shapes,...lamps.outlines.shapes}}}:{})},job));
+ }
+ private runVisionCore(job:VisionJob,observe?:Observe):Promise<LegacyGeometry>{
+  const key=JSON.stringify([job.mapId,job.vision,job.wallFog]);
+  const cached=this.visionResults.get(key),hit=job.detailed?cached?.detailed:cached?.basic;
+  if(hit){
+   this.visionResults.delete(key);this.visionResults.set(key,cached!);
+   observe?.({kind:'geometry',queueMs:0,roundTripMs:0,computeMs:0});
+   return Promise.resolve(attachVisionFields(hit,job));
+  }
+  const save=(result:LegacyGeometry)=>{
+   let entry=this.visionResults.get(key);
+   if(!entry){if(this.visionResults.size>=64)this.visionResults.delete(this.visionResults.keys().next().value!);entry={};this.visionResults.set(key,entry);}
+   const {outlines,...basic}=result;entry.basic=basic;if(outlines)entry.detailed=result;
+   return result;
+  };
+  const started=performance.now();
+  let flight=this.visionInflight.get(key),shared=!!flight||!!cached?.basic;
+  if(flight&&job.detailed&&!this.dispatched.has(flight.job))flight.job.detailed=true;
+  if(!flight&&!cached?.basic){
+   const workerJob:GeometryJob={mapId:job.mapId,vision:job.vision,wallFog:job.wallFog,detailed:!!job.detailed,tokens:[]};
+   const work=this.dispatch(workerJob,observe,true).then(save);
+   flight={job:workerJob,work};this.visionInflight.set(key,flight);
+   const cleanup=()=>{if(this.visionInflight.get(key)?.work===work)this.visionInflight.delete(key);};
+   void work.then(cleanup,cleanup);
+  }
+  return (flight?.work??Promise.resolve(cached!.basic!)).then(async base=>{
+   let result=base;
+   if(job.detailed&&!result.outlines){
+    let extra=this.outlineInflight.get(key);
+    if(!extra){
+     extra=this.dispatch({...job,tokens:[],explored:undefined,outlinesOnly:true},observe).then(result=>save({...base,outlines:result.outlines}));
+     this.outlineInflight.set(key,extra);
+     const cleanup=()=>{if(this.outlineInflight.get(key)===extra)this.outlineInflight.delete(key);};
+     void extra.then(cleanup,cleanup);
+     shared=false;
+    }
+    result=await extra;
+   }
+   if(shared)observe?.({kind:'geometry',queueMs:0,roundTripMs:performance.now()-started,computeMs:0});
+   return attachVisionFields(result,job);
+  });
+ }
+ private dispatch(job:Job,observe?:Observe,defer=false):Promise<any>{
   if('maskTiles' in job){
    const {width,height,tileSize,svg}=job.maskTiles,maskKey=`${width}:${height}:${tileSize}:${svg}`;
    const hit=this.maskResults.get(maskKey);
@@ -133,24 +200,9 @@ export class VisibilityWorkers{
     return Promise.resolve(hit);
    }
   }
-  const isVision='vision' in job&&!('walkSight' in job)&&!('token' in job);
-  const visionBaseKey=isVision?JSON.stringify([(job as VisionJob).mapId,(job as VisionJob).vision,(job as VisionJob).wallFog]):undefined;
-  if(visionBaseKey){
-   const cached=this.visionResults.get(visionBaseKey);
-   if(cached){
-    const hit=(job as VisionJob).detailed?cached.detailed:(cached.basic??(cached.detailed?(()=>{const {outlines:_,...b}=cached.detailed;cached.basic=b;return b;})():undefined));
-    if(hit){
-     this.visionResults.delete(visionBaseKey);this.visionResults.set(visionBaseKey,cached);
-     observe?.({kind:'geometry',queueMs:0,roundTripMs:0,computeMs:0});
-
-
-     return Promise.resolve(attachVisionFields(hit,job as VisionJob));
-    }
-   }
-  }
-  const coalesceKey='maskTiles' in job?`mask:${job.maskTiles.width}:${job.maskTiles.height}:${job.maskTiles.tileSize}:${job.maskTiles.svg}`:visionBaseKey?`vision:${(job as VisionJob).detailed?'1':'0'}:${visionBaseKey}`:undefined;
+  const coalesceKey='maskTiles' in job?`mask:${job.maskTiles.width}:${job.maskTiles.height}:${job.maskTiles.tileSize}:${job.maskTiles.svg}`:undefined;
   if(coalesceKey){
-   const pending=this.inflight.get(coalesceKey)??(!((job as VisionJob).detailed)&&visionBaseKey?this.inflight.get(`vision:1:${visionBaseKey}`)?.then((res:LegacyGeometry)=>{const {outlines:_,...b}=res;return b;}):undefined);
+   const pending=this.inflight.get(coalesceKey);
    if(pending){
     const waitStart=observe?performance.now():0;
     return pending.then(res=>{
@@ -159,20 +211,12 @@ export class VisibilityWorkers{
       if('maskTiles' in job)observe({kind:'maskTiles',queueMs:0,roundTripMs:elapsed,computeMs:0,detail:{rasterMs:0,copyHashMs:0,encodeMs:0,tiles:res.tiles.length,encodedTiles:0,cached:true}});
       else observe({kind:'geometry',queueMs:0,roundTripMs:elapsed,computeMs:0});
      }
-     return isVision?attachVisionFields(res,job as VisionJob):res;
+     return res;
     });
    }
   }
   if(this.queue.length>=512)return Promise.reject(new Error('Visibility queue is full'));
-  const work=new Promise<any>((resolve,reject)=>{this.queue.push({id:++this.serial,job,resolve,reject,...(observe?{observe,queuedAt:performance.now()}:{})});this.metrics.maxQueue=Math.max(this.metrics.maxQueue,this.queue.length);this.pump();});
-  if(visionBaseKey){
-   void work.then((res:LegacyGeometry)=>{
-    let entry=this.visionResults.get(visionBaseKey);
-    if(!entry){if(this.visionResults.size>=64)this.visionResults.delete(this.visionResults.keys().next().value!);entry={};this.visionResults.set(visionBaseKey,entry);}
-    if((job as VisionJob).detailed){entry.detailed=res;const {outlines:_,...b}=res;entry.basic=b;}
-    else entry.basic=res;
-   }).catch(()=>{});
-  }
+  const work=new Promise<any>((resolve,reject)=>{this.queue.push({id:++this.serial,job,resolve,reject,...(observe?{observe,queuedAt:performance.now()}:{})});this.metrics.maxQueue=Math.max(this.metrics.maxQueue,this.queue.length);if(defer)queueMicrotask(()=>this.pump());else this.pump();});
   if(coalesceKey){
    this.inflight.set(coalesceKey,work);
    // Handle both outcomes on the cleanup branch. A discarded finally() promise
@@ -180,11 +224,11 @@ export class VisibilityWorkers{
    const cleanup=()=>{if(this.inflight.get(coalesceKey)===work)this.inflight.delete(coalesceKey);};
    void work.then(cleanup,cleanup);
   }
-  return isVision?work.then((res:LegacyGeometry)=>attachVisionFields(res,job as VisionJob)):work;
+  return work;
  }
  async close(){
   const slots=this.slots.splice(0);
-  this.bases.clear();this.lights.clear();this.masks.clear();this.gradedPngs.clear();this.tiles.clear();this.tileBytes=0;this.maskResults.clear();this.polygons.clear();this.visionResults.clear();this.inflight.clear();
+  this.bases.clear();this.lights.clear();this.masks.clear();this.gradedPngs.clear();this.tiles.clear();this.tileBytes=0;this.maskResults.clear();this.polygons.clear();this.visionResults.clear();this.visionInflight.clear();this.outlineInflight.clear();this.inflight.clear();
   for(const task of this.queue.splice(0))task.reject(new Error('Visibility pool closed'));
   for(const s of slots)if(s.active){clearTimeout(s.active.timer);s.active.reject(new Error('Visibility pool closed'));}
   await Promise.all(slots.map(s=>s.worker.terminate()));

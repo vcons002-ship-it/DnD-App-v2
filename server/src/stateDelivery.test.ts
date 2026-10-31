@@ -63,7 +63,7 @@ it('retains the 500 ms coalescing interval for non-movement state changes',async
 });
 it('worker output has occluded masks and affinity only for the supplied authorized tokens',async()=>{
  const pool=new VisibilityWorkers(1);
- try{const result=await pool.run({mapId:'room',vision,wallFog:true,explored:[],tokens:[{id:'pc',x:100,y:100},{id:'dark',x:300,y:100}]});expect(result.sight).toHaveLength(1);expect(result.affinity).toContain('pc');expect(result.affinity).not.toContain('dark');expect(result.memory).toEqual([]);expect(pool.metrics.jobs).toBe(1);}
+ try{const result=await pool.run({mapId:'room',vision,wallFog:true,explored:[],tokens:[{id:'pc',x:100,y:100},{id:'dark',x:300,y:100}]});expect(result.sight).toHaveLength(1);expect(result.affinity).toContain('pc');expect(result.affinity).not.toContain('dark');expect(result.memory).toEqual([]);expect(pool.metrics.jobs).toBe(2); /* Independent sight and shared lamp layers. */}
  finally{await pool.close();}
 });
 it('coalesces in-flight Legacy states and publishes geometry and matching positions before effects',async()=>{

@@ -958,17 +958,36 @@ describe('createSnapshotBuilder (fan-out path)', () => {
     expect(build('player')).toEqual(buildSnapshot(s.id, 'player'));
   });
 
-  it('shares the public roll log but shapes monster lists per viewer', () => {
+  it('shares the public roll log and board for viewers with identical ownership', () => {
     const s = createSession('Builder2');
     const map = createMap(s.id, { name: 'Arena' });
     setActiveMap(s.id, map.id);
     const build = createSnapshotBuilder(s.id)!;
     const a = build('player', null, 'sock-a');
     const b = build('player', null, 'sock-b');
-    // Monster visibility is personal; only the public roll log is shared.
+    // Both viewers have no owned characters and therefore the same board view.
     expect(a.monsters).toEqual(b.monsters);
-    expect(a.monsters).not.toBe(b.monsters);
+    expect(a.monsters).toBe(b.monsters);
     expect(a.rollLog).toBe(b.rollLog);
+  });
+
+  it('preserves personal/shared sight and ownership across cached board views', () => {
+    const s=createSession('Shared board privacy'),map=createMap(s.id,{name:'Fogged room'});
+    setActiveMap(s.id,map.id);setFogLayer(map.id,'map',true);
+    const a=createCharacter(s.id,{name:'A'}),b=createCharacter(s.id,{name:'B'});
+    claimCharacter(a.id,'socket-a','player-a');claimCharacter(b.id,'socket-b','player-b');
+    createToken({mapId:map.id,kind:'pc',refId:a.id,x:10,y:10});
+    createToken({mapId:map.id,kind:'pc',refId:b.id,x:200,y:10});
+    const build=createSnapshotBuilder(s.id)!,first=build('player',null,'socket-a','player-a'),second=build('player',null,'socket-b','player-b');
+    // Party positions remain known, but their personal/shared-sight treatment
+    // must be shaped for each owner rather than copied from the first viewer.
+    expect(first.tokens.find(t=>t.refId===a.id)?.sharedSightOnly).not.toBe(true);
+    expect(first.tokens.find(t=>t.refId===b.id)?.sharedSightOnly).toBe(true);
+    expect(second.tokens.find(t=>t.refId===b.id)?.sharedSightOnly).not.toBe(true);
+    expect(second.tokens.find(t=>t.refId===a.id)?.sharedSightOnly).toBe(true);
+    expect(build('player',null,'socket-a','player-a').tokens).toEqual(first.tokens);
+    expect(first.characters.find(c=>c.id===b.id)?.ownerId).toBeNull();
+    expect(second.characters.find(c=>c.id===a.id)?.ownerId).toBeNull();
   });
 
   it('returns null for a missing session', () => {

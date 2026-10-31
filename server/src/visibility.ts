@@ -630,7 +630,7 @@ export function createSnapshotBuilder(
       // simply because its fixture is outside this viewer's line of sight.
       // Carried lights also require sight of their source so an unseen creature's
       // ID/position never leaks through a lighting payload.
-      // Visibility is personal: never share a shaped monster cache between viewers.
+      // Personal visibility is reused only for matching ownership/view inputs.
       if (previewVisionHit) {
         map = previewVisionHit.litMap;
       } else if(map?.environment&&playerVision){
