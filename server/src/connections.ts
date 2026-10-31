@@ -27,6 +27,7 @@ export type Conn = {
   serverRendering?:boolean;
   stateProtocol?:1;
   legacyRendering?:boolean;
+  sprites2d?:{pc:boolean;monster:boolean};
   sessionId: string;
   role: Role;
   /** DM's currently-selected map for prep (players ignore this). */

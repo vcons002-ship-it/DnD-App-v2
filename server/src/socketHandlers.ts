@@ -632,6 +632,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         serverRendering:payload.serverRendering!==false,
         stateProtocol:payload.stateProtocol===1?1:undefined,
         legacyRendering:payload.legacyRendering===true,
+        sprites2d:payload.sprites2d&&typeof payload.sprites2d.pc==='boolean'&&typeof payload.sprites2d.monster==='boolean'?{pc:payload.sprites2d.pc,monster:payload.sprites2d.monster}:undefined,
         legacyMotion:payload.legacyMotion===true,
         compactMotion:payload.compactMotion===true,
         sessionId: session.id,
@@ -671,9 +672,10 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
 
     // ---- DM-only: map prep & promotion ----
 
-    on('client:rendering',legacy=>{
+    on('client:rendering',(legacy,sprites2d)=>{
       const conn=getConn(socket.id);if(!conn||typeof legacy!=='boolean')return;
-      if(conn.legacyRendering===legacy)return;conn.legacyRendering=legacy;resetDelivery(socket.id);sendSnapshot(io,socket.id);
+      const nextSprites2d=sprites2d&&typeof sprites2d.pc==='boolean'&&typeof sprites2d.monster==='boolean'?{pc:sprites2d.pc,monster:sprites2d.monster}:conn.sprites2d;
+      if(conn.legacyRendering===legacy&&conn.sprites2d?.pc===nextSprites2d?.pc&&conn.sprites2d?.monster===nextSprites2d?.monster)return;conn.legacyRendering=legacy;conn.sprites2d=nextSprites2d;resetDelivery(socket.id);sendSnapshot(io,socket.id);
     });
     on('client:legacyMotion',enabled=>{
       const conn=getConn(socket.id);if(!conn||typeof enabled!=='boolean'||conn.legacyMotion===enabled)return;

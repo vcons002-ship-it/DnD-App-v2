@@ -27,6 +27,7 @@ import {
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+let meshoptWorkersConfigured = false;
 import type { MiniatureDefinition } from '../lib/miniatures';
 import { facingAfterMove } from '../../../shared/tokenFacing';
 import { createMiniatureNameLayer } from './miniatureNameLayer';
@@ -274,6 +275,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   } finally { room?.dispose(); pmrem?.dispose(); }
   let camera: OrthographicCamera | PerspectiveCamera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 1000000);
   const loader = new GLTFLoader();
+  if(!meshoptWorkersConfigured){meshoptWorkersConfigured=true;if(typeof Worker!=='undefined'){try{MeshoptDecoder.useWorkers(Math.max(1,Math.min(4,Math.floor(((typeof navigator!=='undefined'?navigator.hardwareConcurrency:4)||4)/2))));}catch{}}}
   loader.setMeshoptDecoder(MeshoptDecoder);
   const assets = new Map<string, Promise<GLTF | null>>();
   const failedAssets = new Set<string>();

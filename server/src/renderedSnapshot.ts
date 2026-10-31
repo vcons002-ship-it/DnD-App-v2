@@ -8,6 +8,8 @@ import {grantSnapshotAssets,rasterAsset,renderAssetFor} from './renderAssets.js'
 import {tokenSprites} from './tokenSprites.js';
 import {mirrorImageCount,MIRROR_IMAGE_SPREAD} from '../../shared/linkedSpells.js';
 import {resolveToken} from '../../shared/tokenDisplay.js';
+import {productionFamily} from '../../shared/assetProduction.js';
+import {MONSTER_MODEL_TYPES} from '../../shared/monsterAppearance.js';
 import {visionTiles as prepareVisionTiles} from './visionTiles.js';
 import type {MovementFrameTiming} from '../../shared/movementTiming.js';
 import {timingClock} from './movementTiming.js';
@@ -19,9 +21,19 @@ async function mapDimensions(image:string|null){
  if(!image||!/^\/uploads\/[a-zA-Z0-9_.-]+$/.test(image))return {width:1600,height:1200};
  let value=dimensions.get(image);if(!value){value=sharp(path.join(config.uploadsDir,image.slice(9))).metadata().then(m=>({width:m.width??1600,height:m.height??1200})).catch(()=>({width:1600,height:1200}));if(dimensions.size>=64)dimensions.delete(dimensions.keys().next().value!);dimensions.set(image,value);}return value;
 }
-async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:boolean,tiled:boolean,timing?:MovementFrameTiming,preShade=false):Promise<StateSnapshot>{
+const bundledMonsters=new Set<string>(MONSTER_MODEL_TYPES);
+function needs2dSprite(t:StateSnapshot['tokens'][number],s:StateSnapshot,sprites2d?:{pc:boolean;monster:boolean}):boolean{
+ if(!sprites2d)return true;
+ if(t.kind==='pc'){if(sprites2d.pc)return true;const c=s.characters.find(x=>x.id===t.refId);return !(resolveToken(s,t).dead||c?.modelType||['druk','varis','vanec'].includes((c?.name??'').trim().toLowerCase()));}
+ if(sprites2d.monster)return true;
+ const m=s.monsters.find(x=>x.id===t.refId),display=resolveToken(s,t);
+ if(display.dead)return false;
+ if(m?.objectKind)return m.objectKind!=='chest'&&m.objectKind!=='trap'&&!m.modelType;
+ return !bundledMonsters.has(productionFamily({...m,name:display.name}));
+}
+async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:boolean,tiled:boolean,timing?:MovementFrameTiming,preShade=false,sprites2d?:{pc:boolean;monster:boolean}):Promise<StateSnapshot>{
  if(!s.map)return s;
- const coalesceKey=JSON.stringify([renderingLayerKey(s),legacy,composite,tiled,preShade]);
+ const coalesceKey=JSON.stringify([renderingLayerKey(s),legacy,composite,tiled,preShade,legacy?null:sprites2d??null]);
  const existing=layerCache.get(coalesceKey);
  if(existing){
   const shared=await existing;
@@ -37,7 +49,8 @@ async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:bo
   const tokenLayerIds:string[]=[];
   const spritesPromise=(async()=>{
    if(timing)timing.spritesStartAt=timingClock();
-   const tokenImages=await tokenSprites(id,s,preShade);
+   const tokensForSprites=legacy||!sprites2d?s.tokens:s.tokens.filter(t=>needs2dSprite(t,s,sprites2d));
+   const tokenImages=tokensForSprites.length?await tokenSprites(id,tokensForSprites.length===s.tokens.length?s:{...s,tokens:tokensForSprites},preShade):{};
    if(timing)timing.spritesEndAt=timingClock();
    let tokenLayerRaster:StateSnapshot['tokenLayerRaster'];
    if(legacy&&composite){
@@ -91,11 +104,11 @@ async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:bo
  work.catch(()=>{if(layerCache.get(coalesceKey)===work)layerCache.delete(coalesceKey);});
  return work;
 }
-export async function renderedSnapshot(id:string,s:StateSnapshot,legacy:boolean,composite=process.env.SERVER_TOKEN_COMPOSITE==='1',tiled=false,timing?:MovementFrameTiming,preShade=false):Promise<StateSnapshot>{
+export async function renderedSnapshot(id:string,s:StateSnapshot,legacy:boolean,composite=process.env.SERVER_TOKEN_COMPOSITE==='1',tiled=false,timing?:MovementFrameTiming,preShade=false,sprites2d?:{pc:boolean;monster:boolean}):Promise<StateSnapshot>{
  if(!s.map)return s;
  const [main,party]=await Promise.all([
-  renderLayer(id,{...s,partyView:undefined},legacy,composite,tiled,timing,preShade),
-  s.partyView?renderLayer(id,{...s,...s.partyView,partyView:undefined,role:'player'},legacy,composite,tiled,undefined,preShade):Promise.resolve(undefined),
+  renderLayer(id,{...s,partyView:undefined},legacy,composite,tiled,timing,preShade,sprites2d),
+  s.partyView?renderLayer(id,{...s,...s.partyView,partyView:undefined,role:'player'},legacy,composite,tiled,undefined,preShade,sprites2d):Promise.resolve(undefined),
  ]);
  return {...main,...(party?{partyView:{...s.partyView!,legacyGeometry:party.legacyGeometry,tokenSprites:party.tokenSprites,visionRaster:party.visionRaster,visionTiles:party.visionTiles,terrainRaster:party.terrainRaster,tokenLayerRaster:party.tokenLayerRaster,tokenLayerIds:party.tokenLayerIds}}:{})};
 }

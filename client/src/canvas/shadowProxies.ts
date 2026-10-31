@@ -8,27 +8,28 @@ export function createShadowProxies(invalidate:()=>void){
   const geometries=new Map<BufferGeometry,{geometry:BufferGeometry;version:number}>();
   const proxies=new Map<Mesh,Mesh>();
   const jobs=new Map<number,{geometry:BufferGeometry;entry:{geometry:BufferGeometry;version:number}}>();
-  let worker:Worker|undefined,workerFailed=false,nextId=0,disposed=false;
+  const workers:Worker[]=[],maxWorkers=Math.max(1,Math.min(4,Math.floor(((typeof navigator!=='undefined'?navigator.hardwareConcurrency:4)||4)/2)));
+  let workerFailed=false,nextId=0,disposed=false;
   let previousRoots:readonly Object3D[]=[];
-  const failWorker=()=>{workerFailed=true;worker?.terminate();worker=undefined;jobs.clear();};
+  const failWorker=()=>{workerFailed=true;for(const w of workers.splice(0))w.terminate();jobs.clear();};
   const reduce=(source:BufferGeometry,entry:{geometry:BufferGeometry;version:number},deforming:boolean)=>{
     const fullCount=source.index?.count??source.getAttribute('position')?.count??0;
     if(workerFailed||typeof Worker==='undefined'||source.drawRange.start!==0||source.drawRange.count<fullCount)return;
     const position=source.getAttribute('position');if(!position||position.count<1024)return;
     try{
-      worker??=new Worker(new URL('./shadowMesh.worker.ts',import.meta.url),{type:'module'});
-      worker.onerror=failWorker;
-      worker.onmessage=(e:MessageEvent<{id:number;indices:Uint32Array}>)=>{
-        const job=jobs.get(e.data.id);if(!job||disposed)return;jobs.delete(e.data.id);
-        job.entry.geometry.setIndex(new BufferAttribute(e.data.indices,1));job.entry.geometry.setDrawRange(0,Infinity);job.entry.version++;invalidate();
-      };
+      if(workers.length<maxWorkers){const w=new Worker(new URL('./shadowMesh.worker.ts',import.meta.url),{type:'module'});w.onerror=failWorker;w.onmessage=(e:MessageEvent<{id:number;indices:Uint32Array}>)=>{const job=jobs.get(e.data.id);if(!job||disposed)return;jobs.delete(e.data.id);job.entry.geometry.setIndex(new BufferAttribute(e.data.indices,1));job.entry.geometry.setDrawRange(0,Infinity);job.entry.version++;invalidate();};workers.push(w);}
+
+
+
+
+
       const contiguous=position instanceof BufferAttribute&&position.itemSize===3&&!position.normalized&&position.array instanceof Float32Array;
       const positions=contiguous?(position.array as Float32Array).slice():new Float32Array(position.count*3);
       if(!contiguous)for(let i=0;i<position.count;i++){positions[i*3]=position.getX(i);positions[i*3+1]=position.getY(i);positions[i*3+2]=position.getZ(i);}
       const index=source.getIndex(),indices=new Uint32Array(index?index.count:position.count);
       for(let i=0;i<indices.length;i++)indices[i]=index?index.getX(i):i;
       const id=++nextId;jobs.set(id,{geometry:source,entry});
-      worker.postMessage({id,indices,positions,deforming},[indices.buffer,positions.buffer]);
+      workers[(id-1)%workers.length].postMessage({id,indices,positions,deforming},[indices.buffer,positions.buffer]);
     }catch{failWorker();}
   };
   return {
@@ -69,6 +70,6 @@ export function createShadowProxies(invalidate:()=>void){
       for(const [node,proxy] of proxies)if(!active.has(node)){proxy.removeFromParent();proxies.delete(node);}
     },
     restoreCubeMaterial(mesh:Mesh){mesh.material=meshMaterials.get(mesh)??material;},
-    dispose(){disposed=true;worker?.terminate();jobs.clear();proxies.clear();for(const m of materials.values())m.dispose();materials.clear();for(const entry of geometries.values())entry.geometry.dispose();geometries.clear();},
+    dispose(){disposed=true;for(const w of workers.splice(0))w.terminate();jobs.clear();proxies.clear();for(const m of materials.values())m.dispose();materials.clear();for(const entry of geometries.values())entry.geometry.dispose();geometries.clear();},
   };
 }

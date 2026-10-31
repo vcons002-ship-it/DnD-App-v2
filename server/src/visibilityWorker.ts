@@ -119,8 +119,8 @@ parentPort!.on('message',async(msg:{id?:number;job?:VisionJob|MovementPreviewJob
   const cachedGeometry=getMapGeometry(job.mapId),geometry=cachedGeometry.geometry;
   polygonObserver=cachedGeometry.observer;
   polygonObserver.current=(wk,key,entry)=>{currentWallsKey=wk;newPolyEntries.push({key,...entry});};
-  const paths=geometry(job.vision,job.wallFog);
-  const memory=(job.explored??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join(''));
+  const paths=job.detailed?{sight:[],near:[],lights:[]}:geometry(job.vision,job.wallFog);
+  const memory=job.detailed?[]:(job.explored??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join(''));
   const affinity=job.tokens.filter(t=>!t.sharedSightOnly&&visionShowsAffinity(job.vision,t.x,t.y)).map(t=>t.id);
   let prepared:OutlineSet|undefined;
   if(job.detailed){

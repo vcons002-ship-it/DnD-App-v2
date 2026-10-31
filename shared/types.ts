@@ -1311,6 +1311,7 @@ export type JoinPayload = {
   serverRendering?: boolean;
   stateProtocol?: 1;
   legacyRendering?: boolean;
+  sprites2d?: { pc: boolean; monster: boolean };
   sessionCode: string;
   role: Role;
   /** Required when role === 'dm' and a DM passphrase is configured. */
@@ -1788,7 +1789,7 @@ export interface ClientToServerEvents {
   'client:serverRendering':(enabled:boolean)=>void;
   'rendering:policy':(change:import('./serverRendering.js').RenderingPolicyChange)=>void;
   'token:preview':(point:TokenMovePayload,ack:(result:import('./movementPreview.js').MovementPreview|null)=>void)=>void;
-  'client:rendering': (legacy:boolean)=>void;
+  'client:rendering': (legacy:boolean,sprites2d?:{pc:boolean;monster:boolean})=>void;
   'state:resync': ()=>void;
   'dice:confirmHidden': (payload:{id:string;apply?:boolean;decision?:HiddenRollDecision}) => void;
   'dice:ready': (payload:{id:string}) => void;

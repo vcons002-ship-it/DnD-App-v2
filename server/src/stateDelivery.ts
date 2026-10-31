@@ -31,7 +31,7 @@ async function addGeometry(snapshot:StateSnapshot,detailed=false,timing?:Movemen
 }
 /** Legacy geometry and its accepted positions travel in one revision. Old clients
  * retain synchronous full snapshots. A busy connection keeps only its newest state. */
-export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options:{stateProtocol?:1;renderProtocol?:1|2|3;legacyRendering?:boolean;serverRendering?:boolean;legacyMotion?:boolean;compactMotion?:boolean},after?:()=>void){
+export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options:{stateProtocol?:1;renderProtocol?:1|2|3;legacyRendering?:boolean;sprites2d?:{pc:boolean;monster:boolean};serverRendering?:boolean;legacyMotion?:boolean;compactMotion?:boolean},after?:()=>void){
  if(options.stateProtocol!==1){io.to(id).emit('state:snapshot',snapshot);after?.();return;}
  let d=deliveries.get(id);
  const managed=options.serverRendering??!!options.legacyRendering;
@@ -76,7 +76,7 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
       const canWarm=!d!.forceFull&&!!d!.previous;
       if(canWarm)setRenderWarmer(id,keys=>{if(deliveries.get(id)===d)io.to(id).emit('render:warm',{keys});});
       try{
-       const rendering=renderedSnapshot(id,source,d!.legacy,undefined,options.renderProtocol>=2,timing,options.renderProtocol>=3).then(value=>{if(timing)timing.renderEndAt=timingClock();return value;});
+       const rendering=renderedSnapshot(id,source,d!.legacy,undefined,options.renderProtocol>=2,timing,options.renderProtocol>=3,options.sprites2d).then(value=>{if(timing)timing.renderEndAt=timingClock();return value;});
        // Start independent work together; geometry/state shaping is read-only.
        // Obsolete plans stop enqueueing poses, without terminating worker jobs.
        const motion=prepareMotion(source,()=>rendering);

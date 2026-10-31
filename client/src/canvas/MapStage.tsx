@@ -434,7 +434,7 @@ function MapStageInner({
   const partyPreview=actualDm&&dmViewMode==='player';
   const setDmPartyView=useStore(s=>s.setDmPartyView);
   const previewSocketId=useStore(s=>s.socket?.id);
-  useEffect(()=>{useStore.getState().socket?.emit('client:rendering',legacy);},[legacy,previewSocketId]);
+
   useEffect(()=>{if(actualDm)setDmPartyView(partyPreview);},[actualDm,partyPreview,previewSocketId,setDmPartyView]);
   const sourceViewSnapshot=useMemo(()=>partyPreview?{...sourceSnapshot,...(sourceSnapshot.partyView??{
     tokens:[],monsters:[],exploredTerrain:[],playerVision:{rangeFt:60 as const,radius:0,heavy:true,origins:[],lights:[],walls:sourceSnapshot.map?.walls},
@@ -519,6 +519,7 @@ function MapStageInner({
     catch { return true; }
   });
   const use3dTokens=!legacy&&preferred3dTokens, use3dMonsters=!legacy&&preferred3dMonsters;
+  useEffect(()=>{useStore.getState().socket?.emit('client:rendering',legacy,{pc:legacy||!use3dTokens||miniaturesUnavailable,monster:legacy||!use3dMonsters||miniaturesUnavailable});},[legacy,use3dTokens,use3dMonsters,miniaturesUnavailable,previewSocketId]);
   const groundScaleY = groundYScale(tiltDegrees);
   const [menu, setMenu] = useState<{ token: Token; x: number; y: number } | null>(
     null,
@@ -1294,13 +1295,13 @@ function MapStageInner({
     const ownerId = useStore.getState().socket?.id;
     const owned = new Set(snapshot.characters.filter(c => c.claimedBy === ownerId).map(c => c.id));
     const friendly = new Set(snapshot.monsters.filter(m => m.disposition === 'friendly').map(m => m.id));
-    const tokens = new Map(snapshot.tokens.map(t => [t.id, { kind:t.kind, hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly, revealedOnly:t.revealedOnly,
+    const tokens = new Map(snapshot.tokens.map(t => [t.id, { x:t.x, y:t.y, kind:t.kind, hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly, revealedOnly:t.revealedOnly,
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
       // Accepted Legacy positions have already passed per-viewer server filtering.
       // Avoid repeating wall/light raycasts for every token during a flat redraw.
-      if(legacy&&snapshot.legacyGeometry!==undefined)return !!token;
+      if((legacy&&snapshot.legacyGeometry!==undefined)||(!presentation.moving()&&token&&x===token.x&&y===token.y))return !!token;
       // Area art is pixel-clipped to the player's sight and revealed fog in the 3D layer,
       // so it plays wherever any part of it is in view (the server already checked).
       if(!token&&(id.startsWith('area:')||id.startsWith('spike-area:')))return true;
@@ -1385,13 +1386,13 @@ function MapStageInner({
       combatRole: !dead && !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
       hunterMarked: !dead && !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
       conditionColors: dead || token.sharedSightOnly ? [] : presentAuras(display.conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
-      outline: token.sharedSightOnly || !visionShowsAffinity(snapshot.playerVision,token.x,token.y) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
+      outline: token.sharedSightOnly || (snapshot.serverRendering?.enabled&&snapshot.legacyGeometry!==undefined?!legacyAffinity.has(token.id):!visionShowsAffinity(snapshot.playerVision,token.x,token.y)) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: !dead && monster ? monsterTint(monster) : undefined,
       shade: !dead && monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
       activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
       selected: !token.sharedSightOnly && (orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id)),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
-  }), [legacy,snapshot, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, hiddenGhosts, miniatureCatalogRevision, graphics.modelQuality]);
+  }), [legacy,snapshot,legacyAffinity, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, hiddenGhosts, miniatureCatalogRevision, graphics.modelQuality]);
   const miniatureIds=useMemo(()=>new Set(miniatureTokens.map(m=>m.id)),[miniatureTokens]);
   const doorTokenIds=new Set(doors.flatMap(d=>d.tokenId?[d.tokenId]:[]));
   useEffect(() => {
