@@ -2,6 +2,8 @@
 
 Baseline: `677a6921870d415f88da54346e08668a03a4c2d6`. Results are summarized in [the accompanying JSON](shared-visibility-2026-10-31.json).
 
+Follow-up: [heavy mixed-mode browser comparison](shared-visibility-heavy-2026-10-31.md), with 141 tokens, 48 lights, three simultaneous viewers, and both normal and 6x browser CPU rates.
+
 ## Change and visual compatibility
 
 Legacy and standard 2D/3D now share a base geometry calculation regardless of which mode requests it first. Requests in the same event-loop batch upgrade a queued job to include detailed outlines. If the basic job has already started or completed, the detailed request computes only the additional outlines; it does not rebuild or transfer the basic paths through the worker again.
