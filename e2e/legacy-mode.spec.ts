@@ -15,7 +15,7 @@ async function fixture(request:APIRequestContext){
  dm.emit('map:setActive',{mapId:map.id});dm.emit('token:spawn',{mapId:map.id,kind:'pc',refId:pc.id,x:200,y:300});
  dm.emit('map:editWalls',{mapId:map.id,add:{id:'divider',kind:'rectangle',ax:400,ay:0,bx:410,by:600}});
  dm.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,lighting:'dungeon',heavyDarkness:true,lights:[{id:'torch',x:200,y:300,radiusFt:20,heightFt:6,color:'warm',intensity:1,flicker:true,visibleTorch:true}]}});
- await snapshot();return{code,map,dm,snapshot};
+ await snapshot();return{code,map,pc,dm,snapshot};
 }
 async function blockWebgl(page:Page){
  await page.addInitScript(()=>{
@@ -153,6 +153,11 @@ test('a legacy player shares a table with a standard DM without changing map atm
   expect(await standard.evaluate(()=>localStorage.getItem('dnd-environment-quality'))).toBe('low');
   expect(await page.evaluate(()=>localStorage.getItem('dnd-environment-quality'))).toBe('legacy');
   expect((await f.snapshot()).map.environment).toMatchObject({enabled:true,lighting:'dungeon',heavyDarkness:true});
+  const snap=await f.snapshot(),token=snap.tokens.find((t:any)=>t.refId===f.pc.id);
+  f.dm.emit('chat:send',{text:'Hold the door!',speakAsTokenId:token.id});
+  await expect.poll(()=>page.evaluate(()=>((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('.speech-bubble-text')).map((n:any)=>n.text()))).toContain('Hold the door!');
+  f.dm.emit('damage:apply',{kind:'pc',refId:f.pc.id,amount:5});
+  await expect.poll(()=>page.evaluate(()=>((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('.hp-floater-number')).map((n:any)=>n.text()))).toContain('−5');
   expect(legacyRequests.filter(graphicsRequest)).toEqual([]);expect(await page.evaluate(()=>(window as any).__webglRequests)).toEqual([]);
  }finally{f.dm.disconnect();await other.close();}
 });

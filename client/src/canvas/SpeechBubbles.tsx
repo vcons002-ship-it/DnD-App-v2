@@ -49,7 +49,7 @@ const Bubble = memo(function Bubble({
   const top = yTop - TAIL - bh; // tail tip lands on (x, yTop)
   const stroke = typing ? '#9aa0a6' : '#ffd21a';
   return (
-    <Group listening={false}>
+    <Group name="speech-bubble" listening={false}>
       {dims.w > 0 && (
         <>
           <Rect
@@ -76,6 +76,7 @@ const Bubble = memo(function Bubble({
       )}
       <Text
         ref={textRef}
+        name="speech-bubble-text"
         x={left + PAD_X}
         y={top + PAD_Y}
         text={text}

@@ -1444,7 +1444,7 @@ function MapStageInner({
     if (foreground) foreground.style.zIndex = '2';
     const shared=sharedTokenLayerRef.current?.getNativeCanvasElement();
     if(shared){shared.style.zIndex='4';shared.style.filter=map?.explorationMode==='revealed'?'none':'grayscale(1)';shared.style.opacity=map?.explorationMode==='revealed'?'1':'.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
-  }, [dprKey, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode,legacyTerrain]);
+  }, [dprKey, legacy, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode,legacyTerrain]);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -2759,11 +2759,11 @@ function MapStageInner({
                 gridSizePx={grid}
               />
               {/* Chat bubbles over PC tokens (typing "•••" + spoken words). */}
-              {!legacy&&<SpeechBubbles
+              <SpeechBubbles
                 tokens={snapshot.tokens}
                 pxPerFoot={pxPerFoot}
                 gridSizePx={grid}
-              />}
+              />
               {/* Floating ±X damage/heal numbers — topmost, click-through. */}
               {!legacy&&<HpFxLayer
                 spellEffects3D={!miniaturesUnavailable}
@@ -2791,7 +2791,7 @@ function MapStageInner({
               if(!layer)return;const canvas=layer.getNativeCanvasElement();
               canvas.style.zIndex='5';canvas.style.pointerEvents='none';canvas.dataset.testid='hp-number-canvas';
             }}>
-              <HpNumberLayer floaters={legacy?[]:hpFx} tokens={snapshot.tokens} pxPerFoot={pxPerFoot} gridSizePx={grid}
+              <HpNumberLayer floaters={hpFx} tokens={snapshot.tokens} pxPerFoot={pxPerFoot} gridSizePx={grid}
                 headPosition={hpHeadPosition}
                 view={view} width={size.w} height={size.h} tilt={tiltDegrees} rotation={rotationDegrees}/>
             </Layer>
