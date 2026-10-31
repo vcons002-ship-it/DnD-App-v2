@@ -1,5 +1,7 @@
 import {useDmUiScale} from '../lib/useDmUiScale';
 import {EnvironmentQualityControl} from './MapEnvironmentControls';
+import {DiceRenderingControl} from './DiceRenderingControl';
+import {HardwareBenchmarkPanel} from './LegacyModeControl';
 export function DmInterfaceControls(){
  const {scale,setScale}=useDmUiScale();
  return <section aria-label="DM interface settings"><h4>Interface</h4>
@@ -9,5 +11,7 @@ export function DmInterfaceControls(){
   <button className="btn tiny" onClick={()=>setScale(1)}>Reset UI scale</button>
   <p className="muted">Sizes DM panels and controls in this browser. Map zoom and token sizes stay the same.</p>
   <EnvironmentQualityControl/>
+  <DiceRenderingControl/>
+  <HardwareBenchmarkPanel compact/>
  </section>;
 }

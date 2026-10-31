@@ -4,17 +4,15 @@ import {useStore} from '../state/socket';
 import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
 import {MAP_ENVIRONMENT_PRESETS,environmentPresetPatch,matchingEnvironmentPreset} from '../../../shared/mapEnvironmentPresets';
 import {SettingSlider} from './MapSettingSlider';
-import {HardwareBenchmarkPanel} from './LegacyModeControl';
-import {DiceRenderingControl} from './DiceRenderingControl';
 
 export function EnvironmentQualityControl(){
   const {quality,setQuality,budget}=useEnvironmentQuality();
-  return <><label className="environment-quality">Graphics quality
+  return <label className="environment-quality">Graphics quality
     <select aria-label="Graphics quality" value={quality} onChange={e=>setQuality(e.target.value as EnvironmentQuality)}>
       <option value="auto">Auto</option><option value="high">High</option><option value="balanced">Balanced</option><option value="low">Low</option><option value="off">Effects off</option><option value="legacy">Legacy (CPU / integrated graphics)</option>
     </select>
     <small>{budget.legacy?'Legacy uses flat tokens, still maps, static roll results and basic visibility. Walls, lights and game rules remain available. Other browsers keep their own graphics.':'Only changes this browser. Balanced uses reduced figures. High keeps originals. Auto adjusts graphics for sustained frame performance. Effects off keeps lighting and fog.'} {quality==='auto'?`Auto: ${budget.resolved}.`:''}</small>
-  </label><DiceRenderingControl/><HardwareBenchmarkPanel compact/></>;
+  </label>;
 }
 
 export function MapEnvironmentControls({map}:{map:MapState}){
