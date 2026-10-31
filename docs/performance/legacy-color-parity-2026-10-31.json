@@ -1,0 +1,230 @@
+{
+  "before-1": {
+    "label": "before-1",
+    "samples": [
+      {
+        "elapsedMs": 1801.4909999910742,
+        "taskMs": 1349.0420000000001,
+        "scriptMs": 669.859,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 0
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 140
+        }
+      },
+      {
+        "elapsedMs": 5233.965999912471,
+        "taskMs": 3911.3160000000003,
+        "scriptMs": 1935.865,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 140
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 280
+        }
+      },
+      {
+        "elapsedMs": 2164.4579999847338,
+        "taskMs": 1570.462000000001,
+        "scriptMs": 699.4220000000003,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 280
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 420
+        }
+      }
+    ],
+    "movements": [
+      {
+        "elapsedMs": 933.4159999853,
+        "taskMs": 590.255,
+        "scriptMs": 338.412
+      },
+      {
+        "elapsedMs": 859.3070000642911,
+        "taskMs": 526.2909999999999,
+        "scriptMs": 315.881
+      }
+    ],
+    "method": "Unassisted Legacy, one player, 28 walls, 48 lights, 1800x1200 image, 1440x960 viewport, 6x browser CPU throttling, unrestricted same-host server; 2 token drags followed by 3 samples of 4 automated pan drags; CDP main-thread and script time. Each token sample includes a 600ms wait. No trace/video, network throttling, RAM limit, or old-GPU emulation."
+  },
+  "before-2": {
+    "label": "before-2",
+    "samples": [
+      {
+        "elapsedMs": 1582.782999961637,
+        "taskMs": 1164.2570000000003,
+        "scriptMs": 589.741,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 0
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 140
+        }
+      },
+      {
+        "elapsedMs": 1523.5060000559315,
+        "taskMs": 1094.273,
+        "scriptMs": 537.879,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 140
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 280
+        }
+      },
+      {
+        "elapsedMs": 1540.0740000186488,
+        "taskMs": 1100.3750000000005,
+        "scriptMs": 532.2429999999998,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 280
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 420
+        }
+      }
+    ],
+    "movements": [
+      {
+        "elapsedMs": 1088.6500000488013,
+        "taskMs": 658.857,
+        "scriptMs": 422.70399999999995
+      },
+      {
+        "elapsedMs": 856.8169999634847,
+        "taskMs": 544.754,
+        "scriptMs": 335.77099999999996
+      }
+    ],
+    "method": "Unassisted Legacy, one player, 28 walls, 48 lights, 1800x1200 image, 1440x960 viewport, 6x browser CPU throttling, unrestricted same-host server; 2 token drags followed by 3 samples of 4 automated pan drags; CDP main-thread and script time. Each token sample includes a 600ms wait. No trace/video, network throttling, RAM limit, or old-GPU emulation."
+  },
+  "after-1": {
+    "label": "after-1",
+    "samples": [
+      {
+        "elapsedMs": 2157.4939999263734,
+        "taskMs": 1547.646,
+        "scriptMs": 791.1789999999999,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 0
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 140
+        }
+      },
+      {
+        "elapsedMs": 1864.545000018552,
+        "taskMs": 1317.9610000000005,
+        "scriptMs": 643.3649999999998,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 140
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 280
+        }
+      },
+      {
+        "elapsedMs": 1729.8139999620616,
+        "taskMs": 1175.115,
+        "scriptMs": 562.2639999999999,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 280
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 420
+        }
+      }
+    ],
+    "movements": [
+      {
+        "elapsedMs": 2254.8009998863563,
+        "taskMs": 1334.8360000000002,
+        "scriptMs": 950.256
+      },
+      {
+        "elapsedMs": 844.7750000050291,
+        "taskMs": 544.7059999999999,
+        "scriptMs": 371.08200000000005
+      }
+    ],
+    "method": "Unassisted Legacy, one player, 28 walls, 48 lights, 1800x1200 image, 1440x960 viewport, 6x browser CPU throttling, unrestricted same-host server; 2 token drags followed by 3 samples of 4 automated pan drags; CDP main-thread and script time. Each token sample includes a 600ms wait. No trace/video, network throttling, RAM limit, or old-GPU emulation."
+  },
+  "after-2": {
+    "label": "after-2",
+    "samples": [
+      {
+        "elapsedMs": 3299.375999951735,
+        "taskMs": 2053.3669999999997,
+        "scriptMs": 997.9399999999999,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 0
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 140
+        }
+      },
+      {
+        "elapsedMs": 2637.163000064902,
+        "taskMs": 1676.9600000000003,
+        "scriptMs": 814.7679999999999,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 140
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 280
+        }
+      },
+      {
+        "elapsedMs": 2210.3540000971407,
+        "taskMs": 1502.472,
+        "scriptMs": 666.3969999999999,
+        "positionBefore": {
+          "x": 30.75,
+          "y": 280
+        },
+        "positionAfter": {
+          "x": 30.75,
+          "y": 420
+        }
+      }
+    ],
+    "movements": [
+      {
+        "elapsedMs": 921.3789999485016,
+        "taskMs": 588.4399999999999,
+        "scriptMs": 396.624
+      },
+      {
+        "elapsedMs": 810.1630000164732,
+        "taskMs": 566.4599999999999,
+        "scriptMs": 387.237
+      }
+    ],
+    "method": "Unassisted Legacy, one player, 28 walls, 48 lights, 1800x1200 image, 1440x960 viewport, 6x browser CPU throttling, unrestricted same-host server; 2 token drags followed by 3 samples of 4 automated pan drags; CDP main-thread and script time. Each token sample includes a 600ms wait. No trace/video, network throttling, RAM limit, or old-GPU emulation."
+  }
+}

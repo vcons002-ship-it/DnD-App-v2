@@ -2,7 +2,7 @@ import type {LegacyGeometry} from './legacyVision.js';
 import clipping from 'polygon-clipping';
 /** Clip global sight rays to the image to keep SVG coordinates and paths bounded. */
 const boundedCache=new Map<string,string[]>();
-function boundedPaths(paths:string[],o:{width:number;height:number;x:number;y:number;scale:number}){
+export function boundedPaths(paths:string[],o:{width:number;height:number;x:number;y:number;scale:number}){
  const x=o.x,y=o.y,r=x+o.width/o.scale,b=y+o.height/o.scale;
  const box:clipping.Polygon=[[[x,y],[r,y],[r,b],[x,b],[x,y]]];
  return paths.flatMap(path=>{

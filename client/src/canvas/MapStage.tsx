@@ -447,6 +447,7 @@ function MapStageInner({
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<Konva.Layer>(null);
   const legacyFootstepsLayerRef = useRef<Konva.Layer|null>(null);
+  const legacyMapOverlayLayerRef = useRef<Konva.Layer|null>(null);
   const spellAreaLayerRef = useRef<Konva.Layer|null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const groundTokenLayerRef = useRef<Konva.Layer>(null);
@@ -796,6 +797,7 @@ function MapStageInner({
   // Tile-arrange mode: tiles become draggable/resizable on the map.
   const [tilesMode, setTilesMode] = useState(false);
   const legacyTerrain=legacy&&renderPlayerVision&&!!snapshot.terrainRaster&&!tilesMode;
+  const legacyLocalGrade=legacy&&renderPlayerVision&&snapshot.legacyGeometry===undefined&&!tilesMode&&!!(map?.imagePath||tiles.length);
   // Annotation tool: a freehand pen or text-label placer, with a colour.
   const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
   const [annoColor, setAnnoColor] = useState('#ffd166');
@@ -1413,7 +1415,7 @@ function MapStageInner({
   },[]);
 
   const paintPan = useStableCallback((position:Pt) => {
-    for (const layer of [layerRef.current, legacyFootstepsLayerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
+    for (const layer of [layerRef.current, legacyMapOverlayLayerRef.current, legacyFootstepsLayerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
       if (layer) { layer.position(position); layer.draw(); }
     }
     miniatureRef.current?.setView({ ...view, ...position });
@@ -1430,11 +1432,11 @@ function MapStageInner({
     const groundTokens = groundTokenLayerRef.current?.getNativeCanvasElement();
     const foreground = tokenLayerRef.current?.getNativeCanvasElement();
     if (background) background.style.zIndex = legacyTerrain?'1':'0';
-    if (groundTokens) groundTokens.style.zIndex = legacyTerrain?'1':'0';
+    if (groundTokens) groundTokens.style.zIndex = legacyTerrain||legacyLocalGrade?'1':'0';
     if (foreground) foreground.style.zIndex = '2';
     const shared=sharedTokenLayerRef.current?.getNativeCanvasElement();
     if(shared){shared.style.zIndex='4';shared.style.filter=map?.explorationMode==='revealed'?'none':'grayscale(1)';shared.style.opacity=map?.explorationMode==='revealed'?'1':'.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
-  }, [dprKey, legacy, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode,legacyTerrain]);
+  }, [dprKey, legacy, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode,legacyTerrain,legacyLocalGrade]);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -2024,7 +2026,7 @@ function MapStageInner({
     // only the directly dragged layer. Retained hit maps skipped paints during
     // the drag, so refresh every synchronized layer before the next pointer
     // event. Their scene pixels are already current; only input needs repaint.
-    for (const layer of [layerRef.current, legacyFootstepsLayerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
+    for (const layer of [layerRef.current, legacyMapOverlayLayerRef.current, legacyFootstepsLayerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
       layer?.drawHit();
     }
     userAdjusted.current = true;
@@ -2041,7 +2043,7 @@ function MapStageInner({
     const previous=projectionState.current;
     projectionState.current={tilt,rotation};
     for(const canvas of projectionCanvases.current)canvas.update(tilt,rotation);
-    for(const layer of [layerRef.current,legacyFootstepsLayerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current,spellAreaLayerRef.current]){
+    for(const layer of [layerRef.current,legacyMapOverlayLayerRef.current,legacyFootstepsLayerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current,spellAreaLayerRef.current]){
       if(!layer)continue;
       if(previous.tilt!==tilt){layer.position({x:nextView.x,y:nextView.y});layer.scale({x:nextView.scale,y:nextView.scale*groundYScale(tilt)});}
       const labels=layer.find('.token-upright-hud');
@@ -2160,6 +2162,87 @@ function MapStageInner({
       />
     );
   });
+
+  // Keep grid, fog, and decals above locally graded map artwork.
+  const mapOverlayContent = <>
+              <Group ref={gridRef} name="battlefield-grid" listening={false}>{gridLines.map((pts, i) => (
+                <Line
+                  key={i}
+                  points={pts}
+                  stroke={gridHot ? '#ffffffcc' : '#ffffff5c'}
+                  strokeWidth={gridHot ? 1.5 : 1}
+                  listening={false}
+                />
+              ))}</Group>
+              {/* Map fog: covered terrain. For players the cover is opaque and
+                  EXACTLY the off-map backdrop colour (CANVAS_BG), so a covered
+                  area is indistinguishable from empty space beyond the map — no
+                  grid, image, or tell-tale darker rectangle leaks through. The DM
+                  sees a translucent dark wash so they can still work under it. */}
+              {mapFogEnabled && (
+                <ManualFog key={`map-fog:${map?.id}`} ref={mapFogMask} name="manual-map-fog" id={map?.id??''} grid={grid}
+                  bounds={{left:colMin,top:rowMin,right:colMax,bottom:rowMax}} revealed={mapRevealed}
+                  color={isDm?'#04060a':CANVAS_BG} opacity={isDm?.5:1}/>
+              )}
+              {/* Token fog: a DM-only purple marker of where tokens are hidden
+                  (players just don't receive those tokens). */}
+              {tokenFogEnabled && isDm && (
+                <ManualFog key={`token-fog:${map?.id}`} ref={tokenFogMask} name="manual-token-fog" id={map?.id??''} grid={grid}
+                  bounds={{left:colMin,top:rowMin,right:colMax,bottom:rowMax}} revealed={tokenRevealed}
+                  color="#7a3df0" opacity={.35}/>
+              )}
+              {/* Image decals (scenery) sit UNDER tokens; the DM drags to
+                  reposition / corner-drags to resize, removes one via the
+                  eraser tool, and the 🔒 toggle makes them click-through. */}
+              {snapshot.annotations
+                .filter((a) => a.kind === 'image' && a.url)
+                .map((a) => (
+                  <DecalImage
+                    key={a.id}
+                    url={a.url!}
+                    x={a.x ?? 0}
+                    y={a.y ?? 0}
+                    width={a.width ?? 100}
+                    height={a.height ?? 100}
+                    draggable={actualDm && !measureActive && !decalsLocked}
+                    handleSize={12 / view.scale}
+                    // Players get the decorative 🛒 marker; the DM gets a clickable
+                    // shop button instead (onEditShop), so don't double it up.
+                    badge={!actualDm && !!a.popup}
+                    hasShop={!!a.popup}
+                    onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
+                    onMove={(x, y) => moveAnnotation(a.id, x, y)}
+                    onResize={(w, h) => resizeAnnotation(a.id, w, h)}
+                    // DM: the 🛒 add/edit button shows only while editing decals
+                    // (UNLOCKED) so it never clutters the map during play. When
+                    // LOCKED, a body click still opens the editor; players click a
+                    // shop decal to view it read-only.
+                    onEditShop={
+                      actualDm && !removeMode && !measureActive && !decalsLocked
+                        ? () => openDecalPopup(a.id)
+                        : undefined
+                    }
+                    onActivate={
+                      removeMode || measureActive
+                        ? undefined
+                        : actualDm
+                          ? decalsLocked
+                            ? () => openDecalPopup(a.id)
+                            : undefined
+                          : a.popup
+                            ? () => openDecalPopup(a.id)
+                            : undefined
+                    }
+                  />
+                ))}
+              {!legacy&&<FootprintLayer key={map?.id}
+                onMarks={updateFootprints}
+                renderFallback={miniaturesUnavailable||!(miniatureTokens.length>0||preloadMiniatures.length>0||environment||spellImpacts.length>0)}
+                isVisibleAt={tokenVisibleAtPosition}
+                tokens={snapshot.tokens}
+                pxPerFoot={pxPerFoot}
+              />}
+  </>;
 
   return (
     <div className="stage-wrap" data-motion-stage={legacyMovement.playback?'playing':'2'} data-render-mode={legacy?'legacy':'standard'} data-retained-rendering={String(retained)} ref={containerRef} {...activeSelectionBox.handlers}
@@ -2448,86 +2531,15 @@ function MapStageInner({
               {!image && tiles.length === 0 && (
                 <Rect width={imgW} height={imgH} fill="#2a2f3a" />
               )}
-              <Group ref={gridRef} name="battlefield-grid" listening={false}>{gridLines.map((pts, i) => (
-                <Line
-                  key={i}
-                  points={pts}
-                  stroke={gridHot ? '#ffffffcc' : '#ffffff5c'}
-                  strokeWidth={gridHot ? 1.5 : 1}
-                  listening={false}
-                />
-              ))}</Group>
-              {/* Map fog: covered terrain. For players the cover is opaque and
-                  EXACTLY the off-map backdrop colour (CANVAS_BG), so a covered
-                  area is indistinguishable from empty space beyond the map — no
-                  grid, image, or tell-tale darker rectangle leaks through. The DM
-                  sees a translucent dark wash so they can still work under it. */}
-              {mapFogEnabled && (
-                <ManualFog key={`map-fog:${map?.id}`} ref={mapFogMask} name="manual-map-fog" id={map?.id??''} grid={grid}
-                  bounds={{left:colMin,top:rowMin,right:colMax,bottom:rowMax}} revealed={mapRevealed}
-                  color={isDm?'#04060a':CANVAS_BG} opacity={isDm?.5:1}/>
-              )}
-              {/* Token fog: a DM-only purple marker of where tokens are hidden
-                  (players just don't receive those tokens). */}
-              {tokenFogEnabled && isDm && (
-                <ManualFog key={`token-fog:${map?.id}`} ref={tokenFogMask} name="manual-token-fog" id={map?.id??''} grid={grid}
-                  bounds={{left:colMin,top:rowMin,right:colMax,bottom:rowMax}} revealed={tokenRevealed}
-                  color="#7a3df0" opacity={.35}/>
-              )}
-              {/* Image decals (scenery) sit UNDER tokens; the DM drags to
-                  reposition / corner-drags to resize, removes one via the
-                  eraser tool, and the 🔒 toggle makes them click-through. */}
-              {snapshot.annotations
-                .filter((a) => a.kind === 'image' && a.url)
-                .map((a) => (
-                  <DecalImage
-                    key={a.id}
-                    url={a.url!}
-                    x={a.x ?? 0}
-                    y={a.y ?? 0}
-                    width={a.width ?? 100}
-                    height={a.height ?? 100}
-                    draggable={actualDm && !measureActive && !decalsLocked}
-                    handleSize={12 / view.scale}
-                    // Players get the decorative 🛒 marker; the DM gets a clickable
-                    // shop button instead (onEditShop), so don't double it up.
-                    badge={!actualDm && !!a.popup}
-                    hasShop={!!a.popup}
-                    onRemove={removeMode ? () => removeAnnotation(a.id) : undefined}
-                    onMove={(x, y) => moveAnnotation(a.id, x, y)}
-                    onResize={(w, h) => resizeAnnotation(a.id, w, h)}
-                    // DM: the 🛒 add/edit button shows only while editing decals
-                    // (UNLOCKED) so it never clutters the map during play. When
-                    // LOCKED, a body click still opens the editor; players click a
-                    // shop decal to view it read-only.
-                    onEditShop={
-                      actualDm && !removeMode && !measureActive && !decalsLocked
-                        ? () => openDecalPopup(a.id)
-                        : undefined
-                    }
-                    onActivate={
-                      removeMode || measureActive
-                        ? undefined
-                        : actualDm
-                          ? decalsLocked
-                            ? () => openDecalPopup(a.id)
-                            : undefined
-                          : a.popup
-                            ? () => openDecalPopup(a.id)
-                            : undefined
-                    }
-                  />
-                ))}
-              {!legacy&&<FootprintLayer key={map?.id}
-                onMarks={updateFootprints}
-                renderFallback={miniaturesUnavailable||!(miniatureTokens.length>0||preloadMiniatures.length>0||environment||spellImpacts.length>0)}
-                isVisibleAt={tokenVisibleAtPosition}
-                tokens={snapshot.tokens}
-                pxPerFoot={pxPerFoot}
-              />}
+              {!legacyLocalGrade&&mapOverlayContent}
             </Layer>
+            {legacyLocalGrade&&<Layer ref={layer=>{legacyMapOverlayLayerRef.current=layer;if(layer)layer.getNativeCanvasElement().style.zIndex='1';}}
+              x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale} draggable={panning}
+              onDragMove={handleLayerDragMove} onDragEnd={handleLayerDragEnd}>
+              {mapOverlayContent}
+            </Layer>}
             {legacy&&<Layer name="legacy-footsteps" listening={false} x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale}
-              ref={layer=>{legacyFootstepsLayerRef.current=layer;if(layer){const canvas=layer.getNativeCanvasElement();canvas.style.zIndex=legacyTerrain?'1':'0';canvas.style.pointerEvents='none';canvas.dataset.testid='legacy-footsteps';}}}>
+              ref={layer=>{legacyFootstepsLayerRef.current=layer;if(layer){const canvas=layer.getNativeCanvasElement();canvas.style.zIndex=legacyTerrain||legacyLocalGrade?'1':'0';canvas.style.pointerEvents='none';canvas.dataset.testid='legacy-footsteps';}}}>
               <FootprintLayer key={map?.id} compact tokens={snapshot.tokens} pxPerFoot={pxPerFoot} isVisibleAt={tokenVisibleAtPosition}
                 movementDurationMs={legacyMovement.playback?.durationMs??(snapshot.legacyGeometry!==undefined?0:undefined)} visualPosition={presentation.position}/>
             </Layer>}
@@ -2765,7 +2777,7 @@ function MapStageInner({
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?lights=>visionRef.current?.prepareLights(lights):undefined} />
           </Suspense></MiniatureFallback>}
-          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay ref={visionRef} presentation={presentation} terrainRaster={legacyTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay ref={visionRef} localTerrainGrading={legacyLocalGrade} backgroundLayer={layerRef} presentation={presentation} terrainRaster={legacyTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}
           {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
           {!wallActive&&activeDoorControls.length>0&&!doorDragPreview&&<section data-testid="door-controls" className="nearby-door-controls" role="region" aria-label="Door controls">
