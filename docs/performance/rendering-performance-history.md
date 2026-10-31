@@ -6,8 +6,8 @@ This reference separates three source states:
 
 | State | Revision | Meaning |
 | --- | --- | --- |
-| Main branch inspected | `b3aa7cb2` (application changes through `677a6921`) | Existing rendering paths; no mask/color separation. This is a source description, not a fresh deployment audit. |
-| PR #170 reviewed | `d7ef3d3f` | Additional sharing of geometry between modes; existing renderers and colors retained. Carried-lantern cache issue remains unresolved. |
+| Main branch inspected | `851c104d` | Existing rendering paths; no mask/color separation. This is a source description, not a fresh deployment audit. |
+| PR #170 reviewed | `d7ef3d3f` | Geometry-sharing benchmark revision; existing renderers and colors retained. Its carried-lantern cache issue was fixed in the follow-up below; historical measurements are unchanged. |
 | Rejected prototype | [`e1fbbd15`](https://github.com/vcons002-ship-it/DnD-App-v2/commit/e1fbbd15) on `codex/server-mask-color-experiment` | Archived source, harness, and results. Default-off protocol 4 experiment based on PR #170; not deployed by this work. |
 
 ## Failed attempt: server masks with local color
@@ -76,7 +76,7 @@ These are separate historical experiments with different fixtures, versions, tim
 | Retain 3D transforms, materials, HUDs, lights, and dirty regions | **Scoped rendering success.** At 6x, moving 3D render rate 15.9 → 22.9 frames/s; task cost per rendered frame fell 29.7%. Normal flat movement task time 721.5 → 477.2 ms. | Small samples on a 5090. Total 6x 3D busy time stayed about the same; render throughput is not display FPS or input latency. [Standard retention](standard-rendering-retention-2026-10-28.md). |
 | Skip unnecessary visibility layers | **Retained work-elimination/correctness success.** Unobstructed cases bypass geometry, terrain masks, and client visibility composition; manual fog and token authorization remain. | No quantified speedup claimed. Darkness/barrier cases and DM party preview still require the appropriate layers. [Unobstructed visibility](unobstructed-visibility-2026-10-28.md). |
 | Navigation scheduling and manual-fog image reuse | **Hotspot success; mixed end-to-end result.** Low at 6x: idle task time −51.8%, navigation task time −43.8%. 100 fog redraws: 995.1 → 33.3 ms normal, 4,977.5 → 304.2 ms at 6x. | Complete brush task time did not improve (59.7 → 65.6 ms normal; 465.5 → 557.5 ms at 6x). Normal navigation had no reliable win. [Navigation/fog](navigation-fog-2026-10-28.md). |
-| PR #170 shared base geometry and detailed-outline upgrades | **Geometry success; modest/variable app benefit.** Legacy-first mixed requests 3.73 → 2.14 ms; 48 → 24 completed jobs for 24 warm revisions. Standard alone 3.15 → 2.09 ms; Legacy alone 1.24 → 1.46 ms. All 576 output hashes per version matched. | These are geometry times, not full response. Moving-lantern cache issue below qualifies stationary-lamp claims. [Geometry report](shared-visibility-2026-10-31.md). |
+| PR #170 shared base geometry and detailed-outline upgrades | **Geometry success; modest/variable app benefit.** Legacy-first mixed requests 3.73 → 2.14 ms; 48 → 24 completed jobs for 24 warm revisions. Standard alone 3.15 → 2.09 ms; Legacy alone 1.24 → 1.46 ms. All 576 output hashes per version matched. | These are geometry times, not full response. These measurements predate the moving-lantern cache fix below. [Geometry report](shared-visibility-2026-10-31.md). |
 | PR #170 crowded mixed-mode app test | **Modest pooled improvement at 6x.** First-motion means: Legacy 1,152 → 1,046 ms; 2D 2,238 → 2,048 ms; 3D 4,409 → 4,055 ms. | At 1x: Legacy 1,225 → 1,269 ms, 2D 970 → 957 ms, 3D 1,156 → 1,156 ms. Two trials per version; 3D benefit varied. This tested geometry sharing only, not mask/color separation. [Heavy comparison](shared-visibility-heavy-2026-10-31.md). |
 
 ## Current processing flow
@@ -100,20 +100,22 @@ PR #170 adds order-independent sharing between basic Legacy geometry and detaile
 
 Relevant source: [delivery](../../server/src/stateDelivery.ts), [rendered snapshots](../../server/src/renderedSnapshot.ts), [Legacy motion preparation](../../server/src/legacyMotion.ts), [geometry workers](../../server/src/visibilityWorkers.ts), [client state](../../client/src/state/socket.ts), and [map presentation](../../client/src/canvas/MapStage.tsx).
 
-## PR #170 review: unresolved carried-lantern cache issue
+## PR #170 review: carried-lantern cache fix
 
-Checked 2026-10-31 against head `d7ef3d3f`: one general PR comment, no submitted reviews, no inline comments, and no review threads. [The review comment](https://github.com/vcons002-ship-it/DnD-App-v2/pull/170#issuecomment-6543699792) identifies a real issue in `VisibilityWorkers.runVision`, confirmed by source inspection:
+Checked 2026-10-31 against head `d7ef3d3f`: one general PR comment, no submitted reviews, no inline comments, and no review threads. [The review comment](https://github.com/vcons002-ship-it/DnD-App-v2/pull/170#issuecomment-6543699792) identified an issue in `VisibilityWorkers.runVision`, reproduced by regression tests before the fix:
 
 - The purported stationary-lamp job includes every non-transient light, including carried lanterns emitted by `shared/playerVision.ts`. Moving a carried lantern changes that whole job's cache key and can recompute stationary lamps too.
 - A carried-light-only view is split into two jobs even though it has no stationary-lamp work to isolate.
 - The no-non-transient-lights early return forwards the original job, retaining transient-light fields in the cache key even though that geometry path ignores them.
 
-The fix should keep personal moving lights with origin work, isolate genuinely reusable stationary coverage, avoid an empty second job, and normalize ignored transient inputs before cache lookup. Other players' carried lights also move, so treating every non-origin light as stationary is insufficient. Preserve output ordering and validate mixed carried/stationary cases.
+**Fixed on 2026-10-31, after rebasing PR #170 onto `851c104d`.** Carried light sources are now explicitly marked, including lanterns belonging to visible tokens outside the viewer's personal origins. They stay with moving origin work; only stationary lights enter the reusable lamp layer. Origin-ID matching also handles personal lights without the marker. No stationary lamps means one job, and transient inputs are stripped before geometry lookup. Merged light paths preserve their original order. Viewer memory and affinity are attached using the original vision, so transient spell lighting can still affect affinity even though it does not enter the cached geometry.
 
-**Status: confirmed by code inspection, not fixed or newly benchmarked in this documentation update.** The stationary-lamp claim in the original report is qualified accordingly. Existing benchmark measurements remain observations of the tested code. This issue is also inherited by the rejected prototype; it does not by itself explain all of that prototype's added image work or measured regression.
+Regression coverage verifies one job per carried-only pose in basic and detailed modes, stationary reuse while personal and other carried lights move, shared Legacy/2D/3D work, transient-only cache hits with changing affinity, and exact equality to the unsplit worker's geometry and mask/lighting SVG inputs across darkness/daylight and wall modes. The new assertions failed on the earlier implementation. All 100 targeted tests pass. The full suite passed 2,441 tests across 248 files in 227.90 seconds; both typechecks and the client production build also pass.
+
+The prior benchmark numbers remain observations of the earlier code; this fix has not been timed in a new full-app benchmark. The archived failed mask/color prototype is unchanged and still inherits the old issue. Fixing the geometry cache does not establish that the rejected renderer's latency or visual failures are resolved.
 
 ## Conditions for another mask experiment
 
-Keep the current renderer as the control. Before considering enablement, resolve moving-light cache invalidation, investigate caching stationary coverage across movement poses, send each mode only the assets it consumes, and remove redundant fallback composition only where safe. Smaller changed-region updates are another untested option. These are candidates, not measured successes.
+Keep the current renderer as the control. Before considering enablement, incorporate the carried-light fix, investigate caching stationary coverage across movement poses, send each mode only the assets it consumes, and remove redundant fallback composition only where safe. Smaller changed-region updates are another untested option. These are candidates, not measured successes.
 
 A replacement must preserve normal vision, darkvision, party-view grayscale, remembered terrain, walls/doors, daylight bypasses, and spell lighting through initial load, pan/zoom, and motion. Repeat full-app paired trials with separate server preparation, image transfer/decode, and first-motion measurements; include constrained network and real low-end GPU tests before extending claims to those devices. Keep aggregate CPU-seconds, elapsed server time, geometry time, and visible response time labeled separately.

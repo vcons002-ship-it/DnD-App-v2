@@ -139,15 +139,25 @@ export class VisibilityWorkers{
   * outlines; it never reruns the basic visibility/light paths. */
  private runVision(job:VisionJob,observe?:Observe):Promise<LegacyGeometry>{
   const lights=job.vision.lights.filter(l=>!l.transient);
-  if(!lights.length)return this.runVisionCore(job,observe);
-  // Lamp geometry depends on lamps and walls, not on the viewer's position,
-  // darkvision radius, history, or graphics mode. Retain it as a shared layer.
+  const originIds=new Set(job.vision.origins?.map(o=>o.id));
+  const moving=lights.map(l=>!!l.carried||originIds.has(l.id));
+  const carried=lights.filter((_,i)=>moving[i]),stationary=lights.filter((_,i)=>!moving[i]);
+  // Normalize ignored spell lights even when there is no separate lamp layer.
+  // Affinity still uses the original vision, where transient light matters.
+  if(!stationary.length)return this.runVisionCore({...job,vision:{...job.vision,lights},tokens:[]},observe)
+   .then(result=>attachVisionFields(result,job));
+  // Keep all carried lights (including another player's) with moving work so
+  // their positions cannot invalidate the reusable stationary lamp layer.
   const common={mapId:job.mapId,detailed:job.detailed,tokens:[]};
   return Promise.all([
-   this.runVisionCore({...common,wallFog:job.wallFog,vision:{...job.vision,lights:[]}},observe),
-   this.runVisionCore({...common,wallFog:false,vision:{rangeFt:60,radius:0,heavy:false,origins:[],walls:job.vision.walls,lights}},observe),
-  ]).then(([origins,lamps])=>attachVisionFields({...origins,lights:lamps.lights,
-   ...(origins.outlines&&lamps.outlines?{outlines:{wallsKey:origins.outlines.wallsKey,shapes:{...origins.outlines.shapes,...lamps.outlines.shapes}}}:{})},job));
+   this.runVisionCore({...common,wallFog:job.wallFog,vision:{...job.vision,lights:carried}},observe),
+   this.runVisionCore({...common,wallFog:false,vision:{rangeFt:60,radius:0,heavy:false,origins:[],walls:job.vision.walls,lights:stationary}},observe),
+  ]).then(([origins,lamps])=>{
+   let originIndex=0,lampIndex=0;
+   const ordered=carried.length?moving.map(personal=>personal?origins.lights[originIndex++]:lamps.lights[lampIndex++]):lamps.lights;
+   return attachVisionFields({...origins,lights:ordered,
+    ...(origins.outlines&&lamps.outlines?{outlines:{wallsKey:origins.outlines.wallsKey,shapes:{...origins.outlines.shapes,...lamps.outlines.shapes}}}:{})},job);
+  });
  }
  private runVisionCore(job:VisionJob,observe?:Observe):Promise<LegacyGeometry>{
   const key=JSON.stringify([job.mapId,job.vision,job.wallFog]);
