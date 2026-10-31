@@ -156,3 +156,28 @@ test('a legacy player shares a table with a standard DM without changing map atm
   expect(legacyRequests.filter(graphicsRequest)).toEqual([]);expect(await page.evaluate(()=>(window as any).__webglRequests)).toEqual([]);
  }finally{f.dm.disconnect();await other.close();}
 });
+
+
+test('startup hardware benchmark measures client CPU, GPU, and server assist workers and applies recommended combo',async({page})=>{
+ await page.goto('/dm');
+ await expect(page.getByRole('main',{name:'Choose rendering mode'})).toBeVisible();
+ const benchBtn=page.getByRole('button',{name:'Run hardware benchmark',exact:true});
+ await expect(benchBtn).toBeVisible();
+ await benchBtn.click();
+ const result=page.getByTestId('benchmark-recommendation');
+ await expect(result).toBeVisible({timeout:15000});
+ const summaryText=await result.locator('.rendering-benchmark-summary strong').textContent();
+ const metricsText=await result.locator('.rendering-benchmark-metrics').textContent();
+ const reasonsText=await result.locator('.rendering-benchmark-reasons').allTextContents();
+ console.log('BENCHMARK_SUMMARY:',summaryText);
+ console.log('BENCHMARK_METRICS:',metricsText);
+ console.log('BENCHMARK_REASONS:',reasonsText);
+ expect(summaryText).toMatch(/(Legacy mode|3D \/ standard mode).*Server managed rendering: (On|Off).*(2D|3D) dice/);
+ expect(metricsText).toContain('Server & Network: Same PC as server (localhost)');
+ expect(metricsText).toContain('server worker');
+ await page.screenshot({path:'test-results/hardware-benchmark-recommendation.png'});
+ await result.getByRole('button',{name:'Apply to controls',exact:true}).click();
+ const applyAndStartBtn=result.getByRole('button',{name:/^Apply & start/});
+ await applyAndStartBtn.click();
+ await expect(page.getByRole('main',{name:'Choose rendering mode'})).toBeHidden();
+});

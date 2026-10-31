@@ -213,10 +213,11 @@ export function createApiRouter(io: IOServer): Router {
       const jitter=Math.round((Math.random()*40)+180);
       const walls=Array.from({length:28},(_,i)=>({id:`bw-${i}`,ax:80+(i%7)*140,ay:60+Math.floor(i/7)*160,bx:160+(i%7)*140,by:110+Math.floor(i/7)*160}));
       const lights=Array.from({length:12},(_,i)=>({id:`bl-${i}`,x:120+(i%4)*220,y:100+Math.floor(i/4)*200,radius:180,height:30,strength:1,carried:i===0}));
+      const benchMapId=`bench-${Date.now()}-${jitter}`;await visibilityWorkers.run({mapId:benchMapId,vision:{rangeFt:60,radius:300,heavy:true,daylight:false,origins:[{id:'bench-pc',x:160,y:160}],lights,walls},wallFog:true,detailed:true,tokens:[{id:'bench-pc',x:160,y:160}]});
       const vision={rangeFt:60 as const,radius:300,heavy:true,daylight:false,origins:[{id:'bench-pc',x:jitter,y:jitter}],lights,walls};
       const t0=performance.now();
-      await visibilityWorkers.run({mapId:`bench-${Date.now()}-${jitter}`,vision,wallFog:true,detailed:true,tokens:[{id:'bench-pc',x:jitter,y:jitter}]});
-      const serverGeometryMs=Number((performance.now()-t0).toFixed(2));
+      let workerGeoMs=0;await visibilityWorkers.run({mapId:benchMapId,vision,wallFog:true,detailed:true,tokens:[{id:'bench-pc',x:jitter,y:jitter}]},span=>{workerGeoMs+=span.computeMs;});
+      const serverGeometryMs=Number((workerGeoMs>0?workerGeoMs:performance.now()-t0).toFixed(2));
       const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><rect width="256" height="256" fill="#0d0f14"/><circle cx="${jitter%200+28}" cy="128" r="96" fill="#ffffff" fill-opacity="0.85"/></svg>`;
       const t1=performance.now();
       const png=await visibilityWorkers.run({svg,format:'png'});

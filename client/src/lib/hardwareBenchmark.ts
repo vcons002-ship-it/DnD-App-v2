@@ -411,7 +411,7 @@ export function decipherBenchmarkRecommendation(m: HardwareBenchmarkMeasurements
         reasons.push(`Running on the same PC as the server (${m.serverThreads ?? m.cpuThreads} threads): Server Assist On offloads wall/light raycasts (${serverGeoMs} ms) to background server workers while skipping duplicate 2D sprites for 3D tokens.`);
       } else {
         serverRendering = false;
-        reasons.push(`Running on the same PC as a core-constrained server (${m.serverThreads ?? m.cpuThreads} threads): Server Assist Off avoids competing for local CPU threads.`);
+        reasons.push((m.serverThreads ?? m.cpuThreads) < 6 ? `Running on the same PC as a core-constrained server (${m.serverThreads ?? m.cpuThreads} threads): Server Assist Off avoids competing for local CPU threads.` : `Running on the same PC as the server: local CPU raycast (${m.clientCpuGeometryMs} ms) outpaced busy server workers (${serverGeoMs} ms), so Server Assist Off avoids queuing.`);
       }
     } else {
       // Remote client in Standard/3D mode.
