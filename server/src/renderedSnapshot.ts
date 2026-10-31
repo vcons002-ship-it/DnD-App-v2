@@ -19,9 +19,9 @@ async function mapDimensions(image:string|null){
  if(!image||!/^\/uploads\/[a-zA-Z0-9_.-]+$/.test(image))return {width:1600,height:1200};
  let value=dimensions.get(image);if(!value){value=sharp(path.join(config.uploadsDir,image.slice(9))).metadata().then(m=>({width:m.width??1600,height:m.height??1200})).catch(()=>({width:1600,height:1200}));if(dimensions.size>=64)dimensions.delete(dimensions.keys().next().value!);dimensions.set(image,value);}return value;
 }
-async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:boolean,tiled:boolean,timing?:MovementFrameTiming,preShade=false):Promise<StateSnapshot>{
+async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:boolean,tiled:boolean,timing?:MovementFrameTiming,preShade=false,separated=false):Promise<StateSnapshot>{
  if(!s.map)return s;
- const coalesceKey=JSON.stringify([renderingLayerKey(s),legacy,composite,tiled,preShade]);
+ const coalesceKey=JSON.stringify([renderingLayerKey(s),legacy,composite,tiled,preShade,separated]);
  const existing=layerCache.get(coalesceKey);
  if(existing){
   const shared=await existing;
@@ -33,7 +33,7 @@ async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:bo
   layerCache.delete(coalesceKey);
  }
  const work=(async()=>{
-  const map=s.map!,visibilityLayer=needsVisibilityLayer(map,s.playerVision),hasVisionLayers=legacy&&visibilityLayer&&!!s.playerVision&&!!s.legacyGeometry;
+  const map=s.map!,visibilityLayer=needsVisibilityLayer(map,s.playerVision),hasVisionLayers=(legacy||separated)&&visibilityLayer&&!!s.playerVision&&!!s.legacyGeometry;
   const tokenLayerIds:string[]=[];
   const spritesPromise=(async()=>{
    if(timing)timing.spritesStartAt=timingClock();
@@ -77,27 +77,28 @@ async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:bo
    if(timing)timing.maskEndAt=timingClock();
    return {visionTiles,visionRaster,graded};
   };
-  const terrainPromise=hasVisionLayers?legacyTerrainFrames(id,[s],false,timing).catch(()=>undefined):Promise.resolve(undefined);
-  const maskPromise=hasVisionLayers?hasTerrainSources(s).then(graded=>buildMask(graded)):Promise.resolve(undefined);
+  const terrainPromise=hasVisionLayers?legacyTerrainFrames(id,[s],false,timing,false,separated).catch(error=>{if(separated)throw error;return undefined;}):Promise.resolve(undefined);
+  const maskPromise=hasVisionLayers&&!separated?hasTerrainSources(s).then(graded=>buildMask(graded)):Promise.resolve(undefined);
   const [{tokenImages,tokenLayerRaster},terrain,initialMask]=await Promise.all([spritesPromise,terrainPromise,maskPromise]);
-  const terrainRaster=terrain?.terrain;
+  const terrainRaster=legacy?terrain?.terrain:undefined;
+  const separatedMask=terrain?.atlas?.standardMask?terrain.atlas:undefined;
   const mask=initialMask&&initialMask.graded!==!!terrainRaster?await buildMask(!!terrainRaster):initialMask;
   const visionRaster=mask?.visionRaster,visionTiles=mask?.visionTiles;
   const legacyGeometry=(visionRaster||visionTiles)&&s.legacyGeometry?{sight:[],near:[],lights:[],memory:[],affinity:s.legacyGeometry.affinity}:s.legacyGeometry;
-  return {...s,legacyGeometry,tokenSprites:tokenImages,tokenLayerRaster,tokenLayerIds,visionRaster,visionTiles,terrainRaster};
+  return {...s,separatedMask,legacyGeometry,tokenSprites:tokenImages,tokenLayerRaster,tokenLayerIds,visionRaster,visionTiles,terrainRaster};
  })();
  if(layerCache.size>=16)layerCache.delete(layerCache.keys().next().value!);
  layerCache.set(coalesceKey,work);
  work.catch(()=>{if(layerCache.get(coalesceKey)===work)layerCache.delete(coalesceKey);});
  return work;
 }
-export async function renderedSnapshot(id:string,s:StateSnapshot,legacy:boolean,composite=process.env.SERVER_TOKEN_COMPOSITE==='1',tiled=false,timing?:MovementFrameTiming,preShade=false):Promise<StateSnapshot>{
+export async function renderedSnapshot(id:string,s:StateSnapshot,legacy:boolean,composite=process.env.SERVER_TOKEN_COMPOSITE==='1',tiled=false,timing?:MovementFrameTiming,preShade=false,separated=false):Promise<StateSnapshot>{
  if(!s.map)return s;
  const [main,party]=await Promise.all([
-  renderLayer(id,{...s,partyView:undefined},legacy,composite,tiled,timing,preShade),
-  s.partyView?renderLayer(id,{...s,...s.partyView,partyView:undefined,role:'player'},legacy,composite,tiled,undefined,preShade):Promise.resolve(undefined),
+  renderLayer(id,{...s,partyView:undefined},legacy,composite,tiled,timing,preShade,separated),
+  s.partyView?renderLayer(id,{...s,...s.partyView,partyView:undefined,role:'player'},legacy,composite,tiled,undefined,preShade,separated):Promise.resolve(undefined),
  ]);
- return {...main,...(party?{partyView:{...s.partyView!,legacyGeometry:party.legacyGeometry,tokenSprites:party.tokenSprites,visionRaster:party.visionRaster,visionTiles:party.visionTiles,terrainRaster:party.terrainRaster,tokenLayerRaster:party.tokenLayerRaster,tokenLayerIds:party.tokenLayerIds}}:{})};
+ return {...main,...(party?{partyView:{...s.partyView!,separatedMask:party.separatedMask,legacyGeometry:party.legacyGeometry,tokenSprites:party.tokenSprites,visionRaster:party.visionRaster,visionTiles:party.visionTiles,terrainRaster:party.terrainRaster,tokenLayerRaster:party.tokenLayerRaster,tokenLayerIds:party.tokenLayerIds}}:{})};
 }
 export function renderingLayerKey(view:StateSnapshot,index?:{characters:Map<string,any>;monsters:Map<string,any>}){
  const idx=index??{characters:new Map(view.characters.map(c=>[c.id,c])),monsters:new Map(view.monsters.map(m=>[m.id,m]))};
@@ -109,6 +110,6 @@ export function renderingInputKey(s:StateSnapshot){
  return JSON.stringify([renderingLayerKey(s,index),s.partyView?renderingLayerKey({...s,...s.partyView,partyView:undefined,role:'player'},{characters:index.characters,monsters:new Map(s.partyView.monsters.map(m=>[m.id,m]))}):null]);
 }
 export function reuseRenderedSnapshot(next:StateSnapshot,ready:StateSnapshot):StateSnapshot{
- const fields=(s:StateSnapshot)=>({legacyGeometry:s.legacyGeometry,tokenSprites:s.tokenSprites,tokenLayerRaster:s.tokenLayerRaster,tokenLayerIds:s.tokenLayerIds,visionRaster:s.visionRaster,visionTiles:s.visionTiles,terrainRaster:s.terrainRaster});
+ const fields=(s:StateSnapshot)=>({separatedMask:s.separatedMask,legacyGeometry:s.legacyGeometry,tokenSprites:s.tokenSprites,tokenLayerRaster:s.tokenLayerRaster,tokenLayerIds:s.tokenLayerIds,visionRaster:s.visionRaster,visionTiles:s.visionTiles,terrainRaster:s.terrainRaster});
  return {...next,...fields(ready),...(next.partyView&&ready.partyView?{partyView:{...next.partyView,...fields(ready.partyView as StateSnapshot)}}:{})};
 }

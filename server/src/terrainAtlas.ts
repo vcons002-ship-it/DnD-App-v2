@@ -11,6 +11,7 @@ const maskRawCache=new Map<string,Buffer>();
 const gradedPngCache=new Map<string,Buffer>();
 const emptyPngCache=new Map<string,Buffer>();
 const baseInfoCache=new WeakMap<Buffer,{binaryAlpha:boolean;allOpaque:boolean}>();
+const separatedBases=new WeakMap<Buffer,Promise<{color:Buffer;gray:Buffer}>>();
 export function toSharedBuffer(buf:Buffer):Buffer{
  if(buf.buffer instanceof SharedArrayBuffer&&buf.byteOffset===0&&buf.byteLength===buf.buffer.byteLength)return buf;
  const sab=new SharedArrayBuffer(buf.byteLength),shared=Buffer.from(sab);
@@ -77,7 +78,7 @@ async function decodeMask(svg:string,w:number,h:number,newMasks?:NonNullable<Atl
  return pixels;
 }
 /** Worker-only packing. Pixel clipping and illumination remain on the server. */
-export async function terrainAtlas({baseKey,base:baseInput,width:w,height:h,columns,lightSvgs,maskSvgs,compact=false,onCache}:{baseKey?:string;base:{color:Buffer;gray:Buffer;grayPng?:Buffer}|Promise<{color:Buffer;gray:Buffer;grayPng?:Buffer}>;width:number;height:number;columns:number;lightSvgs:string[];maskSvgs:string[];compact?:boolean;onCache?:(sync:AtlasCacheSync)=>void}){
+export async function terrainAtlas({baseKey,base:baseInput,width:w,height:h,columns,lightSvgs,maskSvgs,compact=false,standardSvgs,onCache}:{baseKey?:string;base:{color:Buffer;gray:Buffer;grayPng?:Buffer}|Promise<{color:Buffer;gray:Buffer;grayPng?:Buffer}>;width:number;height:number;columns:number;lightSvgs:string[];maskSvgs:string[];compact?:boolean;standardSvgs?:string[];onCache?:(sync:AtlasCacheSync)=>void}){
  const started=performance.now(),count=lightSvgs.length,rows=Math.ceil(count/columns),maskWidth=w*columns,maskHeight=h*rows;
  const uniqueLightSvgs=[...new Set(lightSvgs)],uniqueMaskSvgs=maskSvgs.length?[...new Set(maskSvgs)]:[];
  const newLights:NonNullable<AtlasCacheSync['newLights']>=[],newMasks:NonNullable<AtlasCacheSync['newMasks']>=[],newGradedPngs:NonNullable<AtlasCacheSync['newGradedPngs']>=[];
@@ -90,6 +91,29 @@ export async function terrainAtlas({baseKey,base:baseInput,width:w,height:h,colu
  const lightBySvg=new Map(lightEntries),maskBySvg=uniqueMaskSvgs.length?new Map(maskEntries):undefined;
  const lights=lightSvgs.map(svg=>lightBySvg.get(svg)!),uniqueLights=[...lightBySvg.values()];
  const lightEnd=performance.now();
+ if(standardSvgs){
+  // Encode artwork variants once. Per movement, send only visibility/light
+  // masks; the client chooses colors by compositing these retained variants.
+  let staticBases=separatedBases.get(base.color);
+  if(!staticBases){staticBases=Promise.all([
+   sharp(base.color,{raw:{width:w,height:h,channels:4}}).png({compressionLevel:1}).toBuffer(),
+   base.grayPng??sharp(base.gray,{raw:{width:w,height:h,channels:4}}).png({compressionLevel:1}).toBuffer(),
+  ]).then(([color,gray])=>({color,gray}));separatedBases.set(base.color,staticBases);}
+  const mask=Buffer.alloc(maskWidth*maskHeight*4),light=Buffer.alloc(maskWidth*maskHeight*4,255);
+  for(let i=0;i<count;i++)for(let y=0;y<h;y++){
+   const dst=((Math.floor(i/columns)*h+y)*maskWidth+i%columns*w)*4;
+   maskBySvg!.get(maskSvgs[i])!.copy(mask,dst,y*w*4,(y+1)*w*4);
+   for(let x=0;x<w;x++)light[dst+x*4+3]=lights[i].pixels[y*w+x];
+  }
+  const standard=await Promise.all(standardSvgs.map(svg=>sharp(Buffer.from(svg)).removeAlpha().extractChannel(0).raw().toBuffer()));
+  const channels=Buffer.alloc(maskWidth*maskHeight*3);
+  for(let i=0;i<count;i++)for(let y=0;y<h;y++)for(let x=0;x<w;x++){const dst=((Math.floor(i/columns)*h+y)*maskWidth+i%columns*w+x)*3,src=y*w*3+x;channels[dst]=standard[i][src];channels[dst+1]=standard[i][src+w];channels[dst+2]=standard[i][src+w*2];}
+  const blendEnd=performance.now();
+  const encode=(b:Buffer)=>sharp(b,{raw:{width:maskWidth,height:maskHeight,channels:4}}).png({compressionLevel:1}).toBuffer();
+  const [bases,encodedMask,lightMask,standardMask]=await Promise.all([staticBases,encode(mask),encode(light),sharp(channels,{raw:{width:maskWidth,height:maskHeight,channels:3}}).png({compressionLevel:1}).toBuffer()]);
+  if(onCache&&(newLights.length||newMasks.length))onCache({newLights,newMasks});
+  return {terrain:bases.gray,colorBase:bases.color,lightMask,standardMask,mask:encodedMask,width:w,height:h,maskWidth,maskHeight,timings:{lightsMs:lightEnd-started,blendMs:blendEnd-lightEnd,encodeMs:performance.now()-blendEnd,maskMs}};
+ }
  const color32=new Uint32Array(base.color.buffer,base.color.byteOffset,w*h);
  const grade=({pixels:light,bounds:b}:DecodedLight)=>{
   const pixels=Buffer.from(base.gray),pixels32=new Uint32Array(pixels.buffer,pixels.byteOffset,w*h);

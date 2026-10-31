@@ -2,7 +2,7 @@ import type {LegacyGeometry} from './legacyVision.js';
 import type {RasterAsset,RasterTiles} from './serverRendering.js';
 import type {StateSnapshot} from './types.js';
 export type MotionPoint={x:number;y:number};
-export type LegacyMotionAtlas={mask:RasterAsset;terrain?:RasterAsset;base?:RasterAsset;terrainBounds?:Omit<RasterAsset,'key'>;columns:number;frameWidth:number;frameHeight:number;bounds:Omit<RasterAsset,'key'>;count:number};
+export type LegacyMotionAtlas={mask:RasterAsset;standardMask?:RasterAsset;colorBase?:RasterAsset;lightMask?:RasterAsset;terrain?:RasterAsset;base?:RasterAsset;terrainBounds?:Omit<RasterAsset,'key'>;columns:number;frameWidth:number;frameHeight:number;bounds:Omit<RasterAsset,'key'>;count:number};
 export const LEGACY_MOTION_FPS=30;
 export const LEGACY_MOTION_STEPS=12;
 export const legacyMotionIndex=(now:number,start:number,duration:number,count:number)=>Math.max(0,Math.min(count-1,Math.floor(Math.max(0,now-start)/duration*(count-1))));

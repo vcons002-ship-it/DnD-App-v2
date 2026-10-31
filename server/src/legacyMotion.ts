@@ -32,7 +32,7 @@ function fields(s:StateSnapshot,at:number,endpoint:StateSnapshot,moves:LegacyMot
 }
 /** Never infer a walking path from two arbitrary snapshots: teleports, GM
  * relocations, changed maps/fog and coalesced walks must snap immediately. */
-export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:StateSnapshot,timing?:MovementFrameTiming,options?:{endpoint?:()=>Promise<StateSnapshot>;current?:()=>boolean;compact?:boolean}):Promise<LegacyMotion|undefined>{
+export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:StateSnapshot,timing?:MovementFrameTiming,options?:{endpoint?:()=>Promise<StateSnapshot>;current?:()=>boolean;compact?:boolean;separated?:boolean}):Promise<LegacyMotion|undefined>{
  if(!before.map||!after.map||before.explorationEpoch!==after.explorationEpoch||walkingMapKey(before.map)!==walkingMapKey(after.map)||!equal(before.mapImages,after.mapImages)||before.tokenLayerRaster||after.tokenLayerRaster)return;
  const old=new Map(before.tokens.map(t=>[t.id,t])),moves:LegacyMotion['moves']={},routes=[];
  for(const t of after.tokens){
@@ -42,7 +42,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
   moves[t.id]={from:route.from,to:route.to};routes.push(route);
  }
  if(!routes.length)return;
- const coalesceKey=JSON.stringify([renderingLayerKey(before),renderingLayerKey(after),routes.map(r=>`${r.id}:${r.generation}`),options?.compact===true]);
+ const coalesceKey=JSON.stringify([renderingLayerKey(before),renderingLayerKey(after),routes.map(r=>`${r.id}:${r.generation}`),options?.compact===true,options?.separated===true]);
  const existing=motionCache.get(coalesceKey);
  if(existing){
   const shared=await existing;
@@ -112,7 +112,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
       const vKey=JSON.stringify(view.playerVision);
       let geomPromise=stepGeomByVision.get(vKey);
       if(!geomPromise){
-       geomPromise=visibilityWorkers.run({mapId:view.map!.id,vision:view.playerVision,wallFog:usesMapVision(view.map),tokens:[]},timing?span=>timing.workers.push(span):undefined);
+       geomPromise=visibilityWorkers.run({mapId:view.map!.id,vision:view.playerVision,wallFog:usesMapVision(view.map),detailed:options?.separated===true,tokens:[]},timing?span=>timing.workers.push(span):undefined);
        stepGeomByVision.set(vKey,geomPromise);
       }
       const geom=await geomPromise;
@@ -130,7 +130,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
   const endAffinity=options?.endpoint&&after.legacyGeometry?new Set(after.legacyGeometry.affinity):undefined;
   const endMonsters=options?.endpoint?new Map(after.monsters.map(m=>[m.id,m])):undefined;
   const [images]=await Promise.all([
-   needsVisibilityLayer(after.map,after.playerVision)?legacyTerrainFrames(id,prepared,true,timing,options?.compact===true):undefined,
+   needsVisibilityLayer(after.map,after.playerVision)?legacyTerrainFrames(id,prepared,true,timing,options?.compact===true,options?.separated===true):undefined,
    Promise.all(prepared.map(async(view,index)=>{
     if(!view.playerVision||(options?.current&&!options.current()))return;
     if(endById&&endAffinity&&endMonsters){

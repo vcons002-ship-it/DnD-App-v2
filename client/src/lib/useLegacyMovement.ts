@@ -36,7 +36,7 @@ export function useLegacyMovement(source:StateSnapshot,enabled:boolean){
   const monstersById=new Map(source.monsters.map(m=>[m.id,m]));for(const monster of frame.monsters??[])monstersById.set(monster.id,monster);
   // Keep destination coordinates for the shared presentation clock. Stationary
   // creatures may exist only in this authorized intermediate frame.
-  return {...source,tokens,monsters:[...monstersById.values()].filter(m=>monsterIds.has(m.id)),tokenSprites:frame.tokenSprites?{...source.tokenSprites,...frame.tokenSprites}:source.tokenSprites,legacyGeometry:frame.legacyGeometry,visionRaster:frame.visionRaster,visionTiles:frame.visionTiles};
+  return {...source,tokens,monsters:[...monstersById.values()].filter(m=>monsterIds.has(m.id)),tokenSprites:frame.tokenSprites?{...source.tokenSprites,...frame.tokenSprites}:source.tokenSprites,legacyGeometry:source.separatedMask&&frame.legacyGeometry?{...frame.legacyGeometry,outlines:source.legacyGeometry?.outlines}:frame.legacyGeometry,visionRaster:frame.visionRaster,visionTiles:frame.visionTiles};
  },[source,plan,stage,complete]);
  const playback=useMemo<LegacyPlayback|undefined>(()=>plan&&!complete?{id:plan.id,start:active.start,durationMs:plan.durationMs,moves:plan.moves,atlas:plan.atlas}:undefined,[plan,complete,active.start]);
  return {snapshot,playback,stage,tick};

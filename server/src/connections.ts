@@ -23,7 +23,7 @@ export type IOServer = Server<ClientToServerEvents, ServerToClientEvents>;
 export type Conn = {
   legacyMotion?:boolean;
   compactMotion?:boolean;
-  renderProtocol?:1|2|3;
+  renderProtocol?:1|2|3|4;
   serverRendering?:boolean;
   stateProtocol?:1;
   legacyRendering?:boolean;

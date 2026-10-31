@@ -10,6 +10,7 @@ import type {VisionCoverFrame} from './miniatureVisionComposite';
 import {createVisionLightProjector} from './visionLightEllipse';
 import {createVisionLightMask} from './visionLightMask';
 import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
+import {legacyMotionIndex,type LegacyMotionAtlas,type LegacyPlayback} from '../../../shared/legacyMotion';
 import type {LegacyGeometry} from '../../../shared/legacyVision';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
@@ -19,7 +20,7 @@ export type PlayerVisionHandle={cover:()=>VisionCoverFrame|undefined;memoryCanva
  * Never disabled by effect quality. */
 type TerrainTile={url:string;x:number;y:number;w:number;h:number};
 type MemoryTerrain={environment?:MapEnvironment;explored?:ExploredTerrain;tiles:TerrainTile[];bounds:{x:number;y:number;w:number;h:number};grid?:{size:number;x:number;y:number}};
-export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:PlayerVision;serverGeometry?:LegacyGeometry|null;spellLighting?:boolean;mapFogOfWar?:boolean;keepRevealed?:boolean;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
+export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{separatedMask?:LegacyMotionAtlas;motion?:LegacyPlayback;vision:PlayerVision;serverGeometry?:LegacyGeometry|null;spellLighting?:boolean;mapFogOfWar?:boolean;keepRevealed?:boolean;terrain?:MemoryTerrain;presentation?:TokenPresentation}>(function PlayerVisionOverlay(props,ref){
  const shade=useRef<HTMLDivElement>(null);
  const nearShade=useRef<HTMLDivElement>(null),nearPaths=useRef<SVGGElement>(null);
  const root=useRef<HTMLDivElement>(null);
@@ -143,7 +144,9 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    const p=livePoint(o);
    return wallFog?polygon({...p,id:o.id},radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius}));
   };
-  coverFrame.current={enabled:wallFog||vision.heavy,
+  const maskAtlas=state.current.motion?.atlas??state.current.separatedMask;
+  const maskIndex=state.current.motion?legacyMotionIndex(performance.now(),state.current.motion.start,state.current.motion.durationMs,maskAtlas?.count??1):0;
+  coverFrame.current={...(maskAtlas?.standardMask?{serverMask:{atlas:maskAtlas,index:maskIndex}}:{}),enabled:wallFog||vision.heavy,
    grade:{heavy:vision.heavy,daylight:!!vision.daylight,near:!vision.daylight&&!vision.heavy?vision.origins.map(o=>originPolygon(o,vision.radius)):[]},
    explored:geometry??[],memory:memoryCanvas.current,keepRevealed:!!state.current.keepRevealed,
    memoryRange:state.current.keepRevealed&&vision.heavy?vision.origins.map(o=>{const p=livePoint(o);return circleVertices.map(v=>({x:p.x+v.x*vision.radius,y:p.y+v.y*vision.radius}));}):undefined,

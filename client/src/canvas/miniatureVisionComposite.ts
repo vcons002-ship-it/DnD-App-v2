@@ -3,8 +3,10 @@ import {
   BufferGeometry, CanvasTexture, CustomBlending, DataTexture, DoubleSide, Float32BufferAttribute, FramebufferTexture, Mesh, NearestFilter,
   MeshBasicMaterial, NoBlending, OrthographicCamera, PlaneGeometry, Scene,
   OneFactor, OneMinusSrcColorFactor, OneMinusSrcAlphaFactor, ShaderMaterial, ShapeUtils, Vector2, WebGLRenderTarget,
-  Matrix4,Vector4,type Camera, type Texture, type WebGLRenderer,
+  Matrix4,Vector4,Texture,LinearFilter,type Camera, type WebGLRenderer,
 } from 'three';
+import type {LegacyMotionAtlas} from '../../../shared/legacyMotion';
+import {renderedImage} from '../lib/renderImages';
 import {lightFalloffGlsl,lightColorCoverage,lightIrradiance,spellEmissionIrradiance,lightSourceDistance,lightBeamExtent} from '../../../shared/lightFalloff';
 import {createLightSightCache} from '../../../shared/lightSightCache';
 import {HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISION_DESATURATION} from '../../../shared/terrainLighting';
@@ -15,6 +17,7 @@ import type {ExploredTerrain} from '../../../shared/exploration';
 /** The same live polygons used by the SVG terrain cover. Cosmetic spell light
  * is deliberately excluded: it must never reveal an unseen room (see SpellFlash). */
 export type VisionCoverFrame = {
+  serverMask?:{atlas:LegacyMotionAtlas;index:number};
   enabled: boolean;
   origins: WallPoint[][];
   sight: WallPoint[][];
@@ -38,6 +41,13 @@ export type SpellFlash = {source: VisionLight; polygon: WallPoint[]};
 export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTMLElement, body:Texture) {
   const cover = new WebGLRenderTarget(1,1,{depthBuffer:true,stencilBuffer:true});
   const coverScene = new Scene();
+  const maskTextures=new Map<string,Texture>();
+  const serverMaterial=new ShaderMaterial({depthTest:false,depthWrite:false,blending:NoBlending,toneMapped:false,side:DoubleSide,
+   uniforms:{image:{value:null as Texture|null},atlasLayout:{value:new Vector4(0,0,1,1)}},
+   vertexShader:'varying vec2 mapUv;void main(){mapUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+   fragmentShader:`uniform sampler2D image;uniform vec4 atlasLayout;varying vec2 mapUv;
+    void main(){vec2 p=(atlasLayout.xy+vec2(mapUv.x,1.-mapUv.y))/atlasLayout.zw;gl_FragColor=vec4(texture2D(image,vec2(p.x,1.-p.y)).rgb,0.);}`});
+  const serverPlane=new Mesh(new PlaneGeometry(1,1),serverMaterial);serverPlane.rotation.x=-Math.PI/2;serverPlane.frustumCulled=false;serverPlane.renderOrder=1;serverPlane.visible=false;coverScene.add(serverPlane);
   // Pack current sight in R and remembered terrain in G. Per-channel union
   // preserves the other channel while combining overlapping soft lights.
   const blend={transparent:true,blending:CustomBlending,blendSrc:OneFactor,blendDst:OneMinusSrcColorFactor,blendSrcAlpha:OneFactor,blendDstAlpha:OneMinusSrcAlphaFactor};
@@ -163,16 +173,24 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       entry.mesh.renderOrder=order;if(!source)entry.mesh.material=material;
       if(source){const m=entry.mesh.material as ShaderMaterial;m.uniforms.source.value.set([source.x,source.height,source.y,source.radius]);m.uniforms.strength.value=source.strength;}
     };
-    next.explored.forEach((rings,i)=>{
+    const raster=next.serverMask,asset=raster?.atlas.standardMask,picture=renderedImage(asset?.key);
+    serverPlane.visible=!!picture;
+    if(raster&&asset&&picture){
+      let texture=maskTextures.get(asset.key);
+      if(!texture){texture=new Texture(picture);texture.generateMipmaps=false;texture.minFilter=texture.magFilter=LinearFilter;texture.needsUpdate=true;maskTextures.set(asset.key,texture);while(maskTextures.size>3){const [key,old]=maskTextures.entries().next().value!;old.dispose();maskTextures.delete(key);}}
+      const a=raster.atlas,b=a.bounds;serverMaterial.uniforms.image.value=texture;serverMaterial.uniforms.atlasLayout.value.set(raster.index%a.columns,Math.floor(raster.index/a.columns),a.columns,Math.ceil(a.count/a.columns));
+      serverPlane.position.set(b.x+b.width/b.scale/2,0,b.y+b.height/b.scale/2);serverPlane.scale.set(b.width/b.scale,b.height/b.scale,1);
+    }
+    if(!picture)next.explored.forEach((rings,i)=>{
       let converted=exploredRings.get(rings);
       if(!converted){const [outer,...holes]=rings.map(r=>r.map(([x,y])=>({x,y})));converted={outer,holes};exploredRings.set(rings,converted);}
       if(converted.outer)add('memory:'+i,converted.outer,next.memoryRange?rangedMemory:remembered,next.memoryRange?5:1,undefined,converted.holes);
     });
     next.sight.forEach((p,i)=>add('sight:'+i,p,stencil,0));
-    next.origins.forEach((p,i)=>add('origin:'+i,p,white,2));
-    next.grade?.near.forEach((p,i)=>add('near:'+i,p,near,2));
-    next.lights.forEach(({polygon,source},i)=>add('light:'+i,polygon,lamp,3,source));
-    next.memoryRange?.forEach((p,i)=>add('range:'+i,p,rangeStencil,4));
+    if(!picture){next.origins.forEach((p,i)=>add('origin:'+i,p,white,2));
+      next.grade?.near.forEach((p,i)=>add('near:'+i,p,near,2));
+      next.lights.forEach(({polygon,source},i)=>add('light:'+i,polygon,lamp,3,source));
+      next.memoryRange?.forEach((p,i)=>add('range:'+i,p,rangeStencil,4));}
     for(const [id,entry] of entries)if(!live.has(id)){coverScene.remove(entry.mesh);entry.mesh.geometry.dispose();if(id.startsWith('light:'))(entry.mesh.material as ShaderMaterial).dispose();entries.delete(id);}
   };
   const originalZ=host.style.zIndex;
@@ -201,6 +219,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       enabled=fog||grading;
       host.style.zIndex=enabled?'3':originalZ;
       host.dataset.visionComposite=enabled?'gpu':'off';
+      host.dataset.visionMaskSource=next?.serverMask&&renderedImage(next.serverMask.atlas.standardMask?.key)?'server':'client';host.dataset.serverMaskKey=next?.serverMask?.atlas.standardMask?.key??'';host.dataset.serverMaskFrame=String(next?.serverMask?.index??0);
       composite.uniforms.fogEnabled.value=fog?1:0;
       if(host.parentElement)host.parentElement.dataset.gpuVisionGrade=String(grading);
       composite.uniforms.gradeMode.value=grading?(next!.grade!.heavy?2:1):0;
@@ -237,6 +256,6 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       try{renderer.autoClear=false;renderer.render(quadScene,quadCamera);}
       finally{renderer.autoClear=autoClear;}
     },
-    dispose(){host.style.zIndex=originalZ;if(host.parentElement)delete host.parentElement.dataset.gpuVisionGrade;for(const [id,e] of entries){e.mesh.geometry.dispose();if(id.startsWith('light:'))(e.mesh.material as ShaderMaterial).dispose();}entries.clear();white.dispose();near.dispose();remembered.dispose();rangedMemory.dispose();rangeStencil.dispose();stencil.dispose();lamp.dispose();flashLamp.dispose();for(const e of flashEntries){e.mesh.geometry.dispose();e.mesh.material.dispose();}flashEntries.length=0;cover.dispose();frame?.dispose();memory?.dispose();bodyGrades.dispose();composite.dispose();quadGeometry.dispose();},
+    dispose(){serverPlane.geometry.dispose();serverMaterial.dispose();for(const texture of maskTextures.values())texture.dispose();maskTextures.clear();host.style.zIndex=originalZ;if(host.parentElement)delete host.parentElement.dataset.gpuVisionGrade;for(const [id,e] of entries){e.mesh.geometry.dispose();if(id.startsWith('light:'))(e.mesh.material as ShaderMaterial).dispose();}entries.clear();white.dispose();near.dispose();remembered.dispose();rangedMemory.dispose();rangeStencil.dispose();stencil.dispose();lamp.dispose();flashLamp.dispose();for(const e of flashEntries){e.mesh.geometry.dispose();e.mesh.material.dispose();}flashEntries.length=0;cover.dispose();frame?.dispose();memory?.dispose();bodyGrades.dispose();composite.dispose();quadGeometry.dispose();},
   };
 }

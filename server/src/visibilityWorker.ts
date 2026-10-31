@@ -60,7 +60,7 @@ parentPort!.on('message',async(msg:{id?:number;job?:GeometryJob|MovementPreviewJ
  let polygonObserver:GeometryEntry['observer']|undefined;
  try{
   if('terrainFrames' in job){
-   const {key,images,bounds,columns,maskSvgs,lightSvgs,compact}=job.terrainFrames,{width:w,height:h,scale}=bounds;
+   const {key,images,bounds,columns,maskSvgs,lightSvgs,compact,standardSvgs}=job.terrainFrames,{width:w,height:h,scale}=bounds;
    const cachedBase=terrainCache.get(key);
    const basePromise=cachedBase?Promise.resolve(cachedBase):(async()=>{
     const layers=await Promise.all(images.map(async i=>{const {data,info}=await sharp(i.file,{limitInputPixels:40_000_000}).resize(Math.max(1,Math.round(i.w*scale)),Math.max(1,Math.round(i.h*scale)),{fit:'fill'}).toColourspace('srgb').ensureAlpha().raw().toBuffer({resolveWithObject:true});return {input:data,raw:{width:info.width,height:info.height,channels:4 as const},left:Math.round((i.x-bounds.x)*scale),top:Math.round((i.y-bounds.y)*scale)};}));
@@ -77,7 +77,7 @@ parentPort!.on('message',async(msg:{id?:number;job?:GeometryJob|MovementPreviewJ
     parentPort!.postMessage({syncCache:{newBases:[{key,color:base.color,gray:base.gray,grayPng:base.grayPng}]}});
     return base;
    })();
-   const result=await terrainAtlas({baseKey:key,base:basePromise,width:w,height:h,columns,maskSvgs,lightSvgs,compact,onCache:sync=>parentPort!.postMessage({syncCache:sync})});
+   const result=await terrainAtlas({baseKey:key,base:basePromise,width:w,height:h,columns,maskSvgs,lightSvgs,compact,standardSvgs,onCache:sync=>parentPort!.postMessage({syncCache:sync})});
    parentPort!.postMessage({id,result,ms:performance.now()-start,...(diagnostic?{terrain:result.timings}:{})});return;
   }
   if('walkSight' in job){parentPort!.postMessage({id,result:walkingTerrain(job),ms:performance.now()-start});return;}

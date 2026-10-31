@@ -10,10 +10,12 @@ import {renderedImage} from '../lib/renderImages';
 import {movementTiming} from '../lib/movementTiming';
 import type {LegacyPlayback} from '../../../shared/legacyMotion';
 import {legacyMotionIndex} from '../../../shared/legacyMotion';
+import {SeparatedTerrainPlane} from './SeparatedTerrainPlane';
+import type {LegacyMotionAtlas} from '../../../shared/legacyMotion';
 import {LegacyRasterPlane,type RasterPlaneHandle} from './LegacyRasterPlane';
 import type {TokenPresentation} from './tokenPresentation';
 
-type Props={vision:PlayerVision;presentation?:TokenPresentation;raster?:RasterAsset|null;tiles?:RasterTiles;terrainRaster?:RasterAsset;motion?:LegacyPlayback;geometry?:LegacyGeometry|null;view:BattlefieldView;width:number;height:number;mapFogOfWar:boolean;explored?:ExploredTerrain;keepRevealed?:boolean};
+type Props={separatedMask?:LegacyMotionAtlas;vision:PlayerVision;presentation?:TokenPresentation;raster?:RasterAsset|null;tiles?:RasterTiles;terrainRaster?:RasterAsset;motion?:LegacyPlayback;geometry?:LegacyGeometry|null;view:BattlefieldView;width:number;height:number;mapFogOfWar:boolean;explored?:ExploredTerrain;keepRevealed?:boolean};
 const MaskTile=memo(function MaskTile({asset}:{asset:RasterAsset}){
  const picture=renderedImage(asset.key);
  return picture?<img data-mask-tile={asset.key} src={picture.src} alt="" draggable={false} style={{position:'absolute',left:asset.x,top:asset.y,width:asset.width/asset.scale,height:asset.height/asset.scale,maxWidth:'none'}}/>:null;
@@ -27,7 +29,7 @@ function rasterCover(bounds:Omit<RasterAsset,'key'>,view:BattlefieldView,width:n
 /** Visibility refresh is bounded; camera placement updates synchronously using
  * the existing pixels/paths, so panning cannot expose ground behind the mask. */
 export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function LegacyVisionOverlay(props,ref){
- const atlasMask=useRef<RasterPlaneHandle>(null),atlasTerrain=useRef<RasterPlaneHandle>(null),baseTerrain=useRef<RasterPlaneHandle>(null),motion=useRef(props.motion);motion.current=props.motion;
+ const atlasMask=useRef<RasterPlaneHandle>(null),atlasTerrain=useRef<RasterPlaneHandle>(null),baseTerrain=useRef<RasterPlaneHandle>(null),separatedTerrain=useRef<RasterPlaneHandle>(null),motion=useRef(props.motion);motion.current=props.motion;
  const svg=useRef<SVGSVGElement>(null),maskRoot=useRef<HTMLDivElement>(null),tileWorld=useRef<HTMLDivElement>(null),edges=useRef<(HTMLDivElement|null)[]>([]),paintCamera=useRef<(view:BattlefieldView)=>void>(()=>{});
  const [bufferedFrame,setFrame]=useState(props),latest=useRef(props),previousView=useRef(props.view);
  const placedView=useRef(props.view);
@@ -50,7 +52,7 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
  useEffect(()=>()=>clearTimeout(timer.current),[]);
  const paintLocal=useRef(()=>{}),live=useRef(new Map<string,{x:number;y:number}>());
  useLayoutEffect(()=>{live.current.clear();paintLocal.current();},[props.vision,props.presentation]);
- useImperativeHandle(ref,()=>({cover:()=>undefined,memoryCanvas:()=>null,frame:(now=performance.now())=>{const m=motion.current;if(m?.atlas){const index=legacyMotionIndex(now,m.start,m.durationMs,m.atlas.count);atlasMask.current?.frame(index);atlasTerrain.current?.frame(index);}else paintLocal.current();},prepareLights:()=>{},lights:()=>{},move:(id,x,y)=>{live.current.set(id,{x,y});paintLocal.current();},camera:camera=>{
+ useImperativeHandle(ref,()=>({cover:()=>undefined,memoryCanvas:()=>null,frame:(now=performance.now())=>{const m=motion.current;if(m?.atlas){const index=legacyMotionIndex(now,m.start,m.durationMs,m.atlas.count);atlasMask.current?.frame(index);atlasTerrain.current?.frame(index);separatedTerrain.current?.frame(index);}else paintLocal.current();},prepareLights:()=>{},lights:()=>{},move:(id,x,y)=>{live.current.set(id,{x,y});paintLocal.current();},camera:camera=>{
    if(camera.view){latest.current={...latest.current,view:camera.view};paintCamera.current(camera.view);}
  }}),[]);
  const geometry=useRef(createLegacyVisionGeometry()).current;
@@ -84,7 +86,7 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
  // Local groups are owned by paintLocal; React owns server-supplied paths.
  const shapes=(values:string[])=>frame.geometry===undefined&&frame.presentation?null:values.map((d,i)=><path key={i} d={d} fillRule="evenodd"/>);
  const all=!frame.mapFogOfWar&&!frame.vision.heavy;
- const atlas=props.motion?.atlas,raster=atlas?.mask??frame.raster,picture=renderedImage(raster?.key),tiles=atlas?undefined:frame.tiles;
+ const atlas=props.motion?.atlas??props.separatedMask,raster=atlas?.mask??frame.raster,picture=renderedImage(raster?.key),tiles=atlas?undefined:frame.tiles;
  const terrainAsset=atlas?.terrain??frame.terrainRaster,terrainBounds=atlas?.terrainBounds??atlas?.bounds??frame.terrainRaster;
  const bounds=atlas?.bounds??tiles?.bounds??raster;
  paintCamera.current=view=>{
@@ -94,11 +96,11 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
   placedView.current=view;
   const transform=`translate(${view.x} ${view.y}) scale(${view.scale})`;
   svg.current?.querySelectorAll('[data-legacy-world]').forEach(g=>g.setAttribute('transform',transform));
-  for(const plane of [atlasMask.current,atlasTerrain.current,baseTerrain.current])plane?.camera(view);
+  for(const plane of [atlasMask.current,atlasTerrain.current,baseTerrain.current,separatedTerrain.current])plane?.camera(view);
   if(tileWorld.current)tileWorld.current.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale})`;
   if(bounds)rasterCover(bounds,view,frame.width,frame.height).forEach((rect,i)=>{const edge=edges.current[i];if(edge)for(const [key,value] of Object.entries(rect))edge.style.setProperty(key,`${value}px`);});
  };
- const terrain=terrainAsset&&terrainBounds?<div data-testid="legacy-terrain" data-grading="server" data-motion-layout={atlas?.base?'shared-base':'full'} style={{position:'absolute',inset:0,zIndex:0,pointerEvents:'none',overflow:'hidden'}}>
+ const terrain=atlas?.colorBase?<div data-testid="legacy-terrain" data-grading="local-color" data-motion-layout="shared-base" style={{position:'absolute',inset:0,zIndex:0,pointerEvents:'none',overflow:'hidden'}}><SeparatedTerrainPlane ref={separatedTerrain} atlas={atlas} view={frame.view}/></div>:terrainAsset&&terrainBounds?<div data-testid="legacy-terrain" data-grading="server" data-motion-layout={atlas?.base?'shared-base':'full'} style={{position:'absolute',inset:0,zIndex:0,pointerEvents:'none',overflow:'hidden'}}>
   {atlas?.base&&<LegacyRasterPlane ref={baseTerrain} asset={atlas.base} bounds={atlas.base} view={frame.view} testId="legacy-motion-base"/>}
   <LegacyRasterPlane ref={atlasTerrain} asset={terrainAsset} bounds={terrainBounds} view={frame.view} columns={atlas?.columns} frameWidth={atlas?.terrainBounds?.width??atlas?.frameWidth} frameHeight={atlas?.terrainBounds?.height??atlas?.frameHeight} testId={atlas?'legacy-motion-terrain':undefined}/>
  </div>:null;

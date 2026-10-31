@@ -31,7 +31,7 @@ async function addGeometry(snapshot:StateSnapshot,detailed=false,timing?:Movemen
 }
 /** Legacy geometry and its accepted positions travel in one revision. Old clients
  * retain synchronous full snapshots. A busy connection keeps only its newest state. */
-export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options:{stateProtocol?:1;renderProtocol?:1|2|3;legacyRendering?:boolean;serverRendering?:boolean;legacyMotion?:boolean;compactMotion?:boolean},after?:()=>void){
+export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options:{stateProtocol?:1;renderProtocol?:1|2|3|4;legacyRendering?:boolean;serverRendering?:boolean;legacyMotion?:boolean;compactMotion?:boolean},after?:()=>void){
  if(options.stateProtocol!==1){io.to(id).emit('state:snapshot',snapshot);after?.();return;}
  let d=deliveries.get(id);
  const managed=options.serverRendering??!!options.legacyRendering;
@@ -53,13 +53,13 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
    const pending=()=>d!.pending,pendingTiming=()=>d!.pendingTiming;
    const current=()=>deliveries.get(id)===d&&(serial===d!.serial||!!inputKey&&!!pending()&&renderingInputKey(pending()!)===inputKey);
    const prepareMotion=async(sourceView:StateSnapshot,endpoint:()=>Promise<StateSnapshot>)=>{
-    if(!d!.legacy||!d!.managed||!sourceView.serverRendering?.enabled||!options.legacyMotion||(options.renderProtocol??0)<3||d!.forceFull||!d!.previous||!positionsChanged(d!.previous,sourceView))return;
+    if((!d!.legacy&&options.renderProtocol!==4)||!d!.managed||!sourceView.serverRendering?.enabled||!options.legacyMotion||(options.renderProtocol??0)<3||d!.forceFull||!d!.previous||!positionsChanged(d!.previous,sourceView))return;
     try{
      if(timing)timing.motionStartAt=timingClock();
      const before=d!.previousSource?{...d!.previous,visionRaster:undefined,visionTiles:undefined,legacyGeometry:d!.previousSource.legacyGeometry,...(d!.previous.partyView&&d!.previousSource.partyView?{partyView:{...d!.previous.partyView,visionRaster:undefined,visionTiles:undefined,legacyGeometry:d!.previousSource.partyView.legacyGeometry}}:{})}:d!.previous;
      const [legacyMotion,party]=await Promise.all([
-      sourceView.partyView&&before.partyView?Promise.resolve(undefined):prepareLegacyMotion(id,before,sourceView,timing,{current,endpoint,compact:options.compactMotion===true}),
-      sourceView.partyView&&before.partyView?prepareLegacyMotion(id,{...before,...before.partyView,partyView:undefined,role:'player'},{...sourceView,...sourceView.partyView,partyView:undefined,role:'player'},timing,{current,compact:options.compactMotion===true,endpoint:async()=>{const rendered=await endpoint();return {...rendered,...rendered.partyView,partyView:undefined,role:'player'};}}):undefined,
+      sourceView.partyView&&before.partyView?Promise.resolve(undefined):prepareLegacyMotion(id,before,sourceView,timing,{current,endpoint,compact:options.compactMotion===true,separated:options.renderProtocol===4}),
+      sourceView.partyView&&before.partyView?prepareLegacyMotion(id,{...before,...before.partyView,partyView:undefined,role:'player'},{...sourceView,...sourceView.partyView,partyView:undefined,role:'player'},timing,{current,compact:options.compactMotion===true,separated:options.renderProtocol===4,endpoint:async()=>{const rendered=await endpoint();return {...rendered,...rendered.partyView,partyView:undefined,role:'player'};}}):undefined,
      ]);
      if(timing)timing.motionEndAt=timingClock();
      return {legacyMotion,party};
@@ -69,14 +69,14 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
     if(inputKey&&inputKey===d!.inputKey&&d!.ready){prepared=reuseRenderedSnapshot(next,d!.ready);source=d!.readySource?{...next,legacyGeometry:d!.readySource.legacyGeometry,...(next.partyView&&d!.readySource.partyView?{partyView:{...next.partyView,legacyGeometry:d!.readySource.partyView.legacyGeometry}}:{})}:prepared;if(timing)timing.reused=true;}
     else{
      if(timing)timing.geometryStartAt=timingClock();
-     prepared=d!.managed?await addGeometry(next,!d!.legacy&&options.renderProtocol!==undefined,timing):next;
+     prepared=d!.managed?await addGeometry(next,options.renderProtocol===4||!d!.legacy&&options.renderProtocol!==undefined,timing):next;
      if(timing){timing.geometryEndAt=timingClock();timing.renderStartAt=timingClock();}
      source=prepared;
      if(d!.managed&&options.renderProtocol!==undefined&&next.serverRendering?.enabled){
       const canWarm=!d!.forceFull&&!!d!.previous;
       if(canWarm)setRenderWarmer(id,keys=>{if(deliveries.get(id)===d)io.to(id).emit('render:warm',{keys});});
       try{
-       const rendering=renderedSnapshot(id,source,d!.legacy,undefined,options.renderProtocol>=2,timing,options.renderProtocol>=3).then(value=>{if(timing)timing.renderEndAt=timingClock();return value;});
+       const rendering=renderedSnapshot(id,source,d!.legacy,undefined,options.renderProtocol>=2,timing,options.renderProtocol>=3,options.renderProtocol===4).then(value=>{if(timing)timing.renderEndAt=timingClock();return value;});
        // Start independent work together; geometry/state shaping is read-only.
        // Obsolete plans stop enqueueing poses, without terminating worker jobs.
        const motion=prepareMotion(source,()=>rendering);

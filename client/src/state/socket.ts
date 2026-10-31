@@ -1119,7 +1119,7 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('connect', () => {
       socket.emit(
         'join',
-          { sessionCode: code, role, dmPassphrase, playerId: getPlayerId(),stateProtocol:1,renderProtocol:retainedRenderingEnabled()?3:1,legacyRendering:readGraphicsQuality()==='legacy',serverRendering:readServerRendering(),legacyMotion:true,compactMotion:true },
+          { sessionCode: code, role, dmPassphrase, playerId: getPlayerId(),stateProtocol:1,renderProtocol:retainedRenderingEnabled()?(localStorage.getItem('dnd-mask-color-separation')==='on'?4:3):1,legacyRendering:readGraphicsQuality()==='legacy',serverRendering:readServerRendering(),legacyMotion:true,compactMotion:true },
         (ack: JoinAck) => {
           if (ack.ok) {
             wireSnapshot=null;wireRevision=0;renderSerial++;renderFailures=0;renderPending=false;renderHpQueue.length=0;

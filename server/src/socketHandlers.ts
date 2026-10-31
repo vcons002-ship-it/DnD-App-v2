@@ -628,7 +628,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           ? payload.playerId.slice(0, 64)
           : null;
       setConn(socket.id, {
-        renderProtocol:payload.renderProtocol===3?3:payload.renderProtocol===2?2:payload.renderProtocol===1?1:undefined,
+        renderProtocol:payload.renderProtocol===4?4:payload.renderProtocol===3?3:payload.renderProtocol===2?2:payload.renderProtocol===1?1:undefined,
         serverRendering:payload.serverRendering!==false,
         stateProtocol:payload.stateProtocol===1?1:undefined,
         legacyRendering:payload.legacyRendering===true,
@@ -664,7 +664,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const initial=payload.stateProtocol===1&&payload.legacyRendering===true&&prepared.serverRendering?.enabled?pendingGeometry(prepared):prepared;
       // New Legacy browsers mount the token layer once its server artwork is
       // ready, avoiding an expensive throwaway draw of every fallback label.
-      ack({ ok: true, snapshot:(payload.renderProtocol===1||payload.renderProtocol===2||payload.renderProtocol===3)&&payload.legacyRendering===true&&prepared.serverRendering?.enabled?{...initial,tokens:[]}:initial, chatAccessToken:chatAccessToken(socket.id) });
+      ack({ ok: true, snapshot:(payload.renderProtocol===1||payload.renderProtocol===2||payload.renderProtocol===3||payload.renderProtocol===4)&&payload.legacyRendering===true&&prepared.serverRendering?.enabled?{...initial,tokens:[]}:initial, chatAccessToken:chatAccessToken(socket.id) });
       // Let everyone else see the (possibly) re-taken character.
       broadcastSnapshots(io, session.id);
     });

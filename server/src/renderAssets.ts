@@ -41,6 +41,7 @@ export function grantCachedAsset(id:string,asset:RasterAsset):boolean{
 }
 export function grantMotionAssets(id:string,m:LegacyMotion):boolean{
  if(m.atlas){
+  for(const asset of [m.atlas.standardMask,m.atlas.lightMask,m.atlas.colorBase])if(asset&&!grantCachedAsset(id,asset))return false;
   if(!grantCachedAsset(id,m.atlas.mask))return false;
   if(m.atlas.terrain&&!grantCachedAsset(id,m.atlas.terrain))return false;
   if(m.atlas.base&&!grantCachedAsset(id,m.atlas.base))return false;
@@ -58,6 +59,7 @@ export function grantSnapshotAssets(id:string,s:StateSnapshot):boolean{
  if(s.visionRaster&&!grantCachedAsset(id,s.visionRaster))return false;
  for(const tile of Object.values(s.visionTiles?.tiles??{}))if(!grantCachedAsset(id,tile))return false;
  if(s.terrainRaster&&!grantCachedAsset(id,s.terrainRaster))return false;
+ if(s.separatedMask&&!grantMotionAssets(id,{id:'mask',moves:{},durationMs:0,frames:[],atlas:s.separatedMask}))return false;
  if(s.legacyMotion&&!grantMotionAssets(id,s.legacyMotion))return false;
  if(s.partyView&&!grantSnapshotAssets(id,s.partyView as StateSnapshot))return false;
  return true;

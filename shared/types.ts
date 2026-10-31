@@ -892,6 +892,7 @@ export type StateSnapshot = {
   legacyMotion?:import('./legacyMotion.js').LegacyMotion;
   serverRendering?: import('./serverRendering.js').ServerRenderingState;
   tokenSprites?: Record<string,{body:import('./serverRendering.js').RasterAsset;hud:import('./serverRendering.js').RasterAsset;grayscale?:boolean}>;
+  separatedMask?: import('./legacyMotion.js').LegacyMotionAtlas;
   visionRaster?: import('./serverRendering.js').RasterAsset|null;
   visionTiles?: import('./serverRendering.js').RasterTiles;
   /** Server-graded map artwork: grayscale unlit ground, full-color light. */
@@ -904,7 +905,7 @@ export type StateSnapshot = {
    * positions, creature names or statistics. Token visibility stays role-shaped. */
   miniaturePreloadFamilies?: string[];
   /** Requested DM-only, read-only union of party sight. Never sent to players. */
-  partyView?: Pick<StateSnapshot,'map'|'tokens'|'monsters'|'playerVision'|'exploredTerrain'|'legacyGeometry'|'tokenSprites'|'visionRaster'|'visionTiles'|'terrainRaster'|'tokenLayerRaster'|'tokenLayerIds'|'legacyMotion'|'explorationEpoch'>;
+  partyView?: Pick<StateSnapshot,'map'|'tokens'|'monsters'|'playerVision'|'exploredTerrain'|'legacyGeometry'|'tokenSprites'|'visionRaster'|'visionTiles'|'terrainRaster'|'tokenLayerRaster'|'tokenLayerIds'|'legacyMotion'|'separatedMask'|'explorationEpoch'>;
   /** Shared party exploration, saved per map; current sight remains personal. */
   exploredTerrain?: import('./exploration.js').ExploredTerrain;
   /** Server-authored personal dungeon visibility; independent of graphics quality. */
@@ -1307,7 +1308,7 @@ export type SessionSummary = {
 export type JoinPayload = {
   legacyMotion?:boolean;
   compactMotion?:boolean;
-  renderProtocol?:1|2|3;
+  renderProtocol?:1|2|3|4;
   serverRendering?: boolean;
   stateProtocol?: 1;
   legacyRendering?: boolean;

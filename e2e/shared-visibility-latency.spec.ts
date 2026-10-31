@@ -23,7 +23,7 @@ test('heavy mixed-mode assisted movement latency',async({browser,request})=>{
  report.method='Eight real player drags per graphics mode and CPU rate, separate disposable courtyard per condition; assist setting is recorded per run. Player and DM (in Player view) are throttled after startup; server is unrestricted on the same PC. Legacy blocks WebGL; 2D is overhead Low with flat tokens; 3D is tilted Low with real WebGL/models. No video, trace, network delay or RAM cap. Epoch clocks share a host; paint estimates include two RAF opportunities, not physical display scanout. Server stages may overlap and must not be added together. CPU slowdown is not an old-hardware emulator.';
  for(const mode of modes)for(const rate of rates){
   const legacy=true,assisted=true;
-  report.assistance='All three viewers';report.fixture={tokens:141,lights:48,walls:28,viewModes};report.method='Eight real Legacy player drags per CPU rate, with simultaneous 2D and 3D DM clients in Player visibility. All assisted, same disposable courtyard and final client build for both server versions. 140 monsters, 48 fixed lights, 28 wall segments, carried lantern, heavy darkness and remembered terrain. All three browser CPUs throttled after startup; unrestricted server on same host. Legacy WebGL blocked, standard modes real GPU, Low. Missing LFS models use test stand-ins. No video/trace, WAN latency, RAM or GPU restriction. First-paint estimate uses two RAF opportunities. Server stages overlap.';
+  report.assistance='All three viewers';report.fixture={tokens:141,lights:48,walls:28,viewModes};report.method='Eight real Legacy player drags per CPU rate, with simultaneous 2D and 3D DM clients in Player visibility. All assisted, same disposable courtyard and same server/client build with mask separation toggled off/on. 140 monsters, 48 fixed lights, 28 wall segments, carried lantern, heavy darkness and remembered terrain. All three browser CPUs throttled after startup; unrestricted server on same host. Legacy WebGL blocked, standard modes real GPU, Low. Missing LFS models use test stand-ins. No video/trace, WAN latency, RAM or GPU restriction. First-paint estimate uses two RAF opportunities. Server stages overlap.';
   const headers={'x-dm-passphrase':DM_SECRET},image=await fs.readFile('assets/maps/experiments/courtyard-relief-20261002/original.png');
   const {code}=await(await request.post('/api/sessions',{headers,data:{name:`Disposable smooth latency ${rate}x`}})).json();
   const map=await(await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{name:'Courtyard latency',image:{name:'courtyard.png',mimeType:'image/png',buffer:image}}})).json();
@@ -41,17 +41,19 @@ test('heavy mixed-mode assisted movement latency',async({browser,request})=>{
    for(let i=0;i<24;i++)admin.emit('map:editWalls',{mapId:map.id,add:{id:`extra-${i}`,ax:40+i%12*100,ay:i<12?180:680,bx:65+i%12*100,by:i<12?205:705}});
    const token=(await state()).tokens.find((t:any)=>t.kind==='pc');admin.emit('token:setLantern',{tokenId:token.id,enabled:true});await state();
    const pages=await Promise.all(contexts.map(c=>c.newPage())),[player,dm]=pages,errors:string[]=[];
+   const separated=process.env.MIXED_SEPARATED==='1';run.separated=separated;
+   for(const p of pages)await p.addInitScript(on=>localStorage.setItem('dnd-mask-color-separation',on?'on':'off'),separated);
    for(const [i,p] of pages.entries()){
     const mode=viewModes[i],legacy=mode==='legacy';
-    p.on('pageerror',e=>errors.push(e.message));await probe(p,i?'DM':'Player',rate,true,legacy);
-    await p.addInitScript(({mode,legacy,assisted,i})=>{sessionStorage.setItem('dnd.rendering-started','1');localStorage.setItem('dnd-environment-quality',legacy?'legacy':'low');localStorage.setItem('dnd-legacy-movement','smooth');localStorage.setItem('dnd-server-rendering',assisted?'on':'off');
+    p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error'&&/THREE|shader|WebGL/i.test(m.text()))errors.push(m.text());});await probe(p,i?'DM':'Player',rate,true,legacy);
+    await p.addInitScript(({mode,legacy,assisted,i,separated})=>{sessionStorage.setItem('dnd.rendering-started','1');localStorage.setItem('dnd-environment-quality',legacy?'legacy':'low');localStorage.setItem('dnd-legacy-movement','smooth');localStorage.setItem('dnd-server-rendering',assisted?'on':'off');
      const playerId=`latency-${mode}-${i}`;localStorage.setItem('dnd.playerId',playerId);localStorage.setItem(`dnd.battlefieldView:${playerId}`,mode==='local-3d'?'tilted':'overhead');for(const key of ['tokenView','monsterTokenView'])localStorage.setItem(`dnd.${key}:${playerId}`,mode==='local-3d'?'3d':'2d');
      const w=window as any,stamp=()=>performance.timeOrigin+performance.now();
      w.__watchMotion=(data:any)=>{
       const node=()=>w.Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===data.id),visualX=()=>{const n=node();return n.x()+(n.findOne('.token-art')?.x()??0);},from={x:visualX(),y:node().y()};
       // Atlas pose zero reproduces the previous sight. Changing image layout
       // alone must not be counted as a visibility update during movement.
-      const sight=()=>legacy?document.querySelector('[data-testid=legacy-motion-mask] img')?.getAttribute('data-frame')??'0':[...document.querySelectorAll('[data-testid=player-vision] mask[id^="vision-cover-"] > g > path')].map(p=>p.getAttribute('d')).join('|');
+      const sight=()=>separated&&!legacy?document.querySelector('[data-testid=miniature-layer]')?.getAttribute('data-server-mask-frame')??'0':legacy?document.querySelector('[data-testid=legacy-motion-mask] img')?.getAttribute('data-frame')??'0':[...document.querySelectorAll('[data-testid=player-vision] mask[id^="vision-cover-"] > g > path')].map(p=>p.getAttribute('d')).join('|');
       w.__move.arm(data);const a=w.__move.active;a.from=from;a.motionFrames=[];const deadline=performance.now()+25000;let lastX=from.x,stable=0,lastSight=sight(),sightVersion=0;
       const painted=(field:string)=>{const count=Number(document.querySelector('[data-testid=miniature-layer]')?.getAttribute('data-render-count'));requestAnimationFrame(()=>requestAnimationFrame(function check(){if(w.__move.active!==a)return;if(!legacy&&Number(document.querySelector('[data-testid=miniature-layer]')?.getAttribute('data-render-count'))<=count){requestAnimationFrame(check);return;}a[field]=stamp();}));};
       const frame=()=>{if(w.__move.active!==a)return;const at=stamp(),x=visualX(),stage=document.querySelector('.stage-wrap')?.getAttribute('data-motion-stage'),mask=document.querySelector('[data-testid=legacy-motion-mask] img')?.getAttribute('data-frame');
@@ -65,15 +67,15 @@ test('heavy mixed-mode assisted movement latency',async({browser,request})=>{
        if(performance.now()<deadline)requestAnimationFrame(frame);
       };requestAnimationFrame(frame);
      };
-    },{mode,legacy,assisted,i});
+    },{mode,legacy,assisted,i,separated});
    }
    await player.goto(`/join?code=${code}`);await player.getByRole('button',{name:'Join',exact:true}).click();await player.locator('.claim-row').filter({hasText:'Druk'}).click();
    for(const dm of pages.slice(1)){await dm.goto(`/dm?code=${code}`);await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await dm.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');}
    for(const [i,p] of pages.entries()){
     const mode=viewModes[i],legacy=mode==='legacy';
     await expect(p.getByRole('checkbox',{name:'Server managed rendering',exact:true})).toBeChecked({checked:assisted});
-    if(legacy){await expect(p.getByTestId('legacy-terrain')).toHaveAttribute('data-grading','server');await expect(p.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);}
-    else{await expect(p.getByTestId('player-vision')).toHaveAttribute('data-wall-geometry-source',assisted?'server':'client');await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-status','ready',{timeout:90000});await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees',mode==='local-3d'?'45':'0');}
+    if(legacy){await expect(p.getByTestId('legacy-terrain')).toHaveAttribute('data-grading',separated?'local-color':'server');await expect(p.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);}
+    else{await expect(p.getByTestId('player-vision')).toHaveAttribute('data-wall-geometry-source',assisted?'server':'client');await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-status','ready',{timeout:90000});await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-vision-mask-source',separated?'server':'client');await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees',mode==='local-3d'?'45':'0');}
     await p.evaluate(()=>document.getElementById('movement-caption')?.remove());
    }
    run.gpu=await pages[2].getByTestId('miniature-layer').evaluate(el=>{const gl=el.querySelector('canvas')!.getContext('webgl2')!,ext=gl.getExtension('WEBGL_debug_renderer_info');return ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER);});

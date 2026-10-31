@@ -11,7 +11,7 @@ export class TerrainAtlasCache{
   const waiting=this.pending.get(key);if(waiting){this.metrics.coalesced++;reused?.();return waiting;}
   this.metrics.builds++;
   const work=Promise.resolve().then(build).then(value=>{
-   const bytes=value.terrain.byteLength+(value.mask?.byteLength??0)+(value.base?.byteLength??0);
+   const bytes=value.terrain.byteLength+(value.mask?.byteLength??0)+(value.base?.byteLength??0)+(value.standardMask?.byteLength??0)+(value.colorBase?.byteLength??0)+(value.lightMask?.byteLength??0);
    if(bytes<=this.maxBytes&&this.maxEntries>0){this.ready.set(key,{value,bytes});this.metrics.bytes+=bytes;}
    while(this.metrics.bytes>this.maxBytes||this.ready.size>this.maxEntries){const [old,entry]=this.ready.entries().next().value!;this.ready.delete(old);this.metrics.bytes-=entry.bytes;}
    return value;

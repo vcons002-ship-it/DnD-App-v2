@@ -32,6 +32,7 @@ export async function prepareRenderImages(s:StateSnapshot,credential:string|null
  if(!credential)return;
  const keys=new Set<string>();
  for(const layer of [s,s.partyView])if(layer){
+  for(const atlas of [layer.separatedMask,layer.legacyMotion?.atlas])if(atlas)for(const asset of [atlas.mask,atlas.standardMask,atlas.base,atlas.colorBase,atlas.lightMask])if(asset)keys.add(asset.key);
   if(layer.legacyMotion?.atlas){keys.add(layer.legacyMotion.atlas.mask.key);if(layer.legacyMotion.atlas.terrain)keys.add(layer.legacyMotion.atlas.terrain.key);if(layer.legacyMotion.atlas.base)keys.add(layer.legacyMotion.atlas.base.key);}
   if(layer.visionRaster)keys.add(layer.visionRaster.key);
   if(layer.terrainRaster)keys.add(layer.terrainRaster.key);
