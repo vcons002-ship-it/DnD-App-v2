@@ -998,24 +998,14 @@ function MapStageInner({
   }, []);
   // ComfyUI scenery generation (DM) — routes the result into the paste dialog.
   const comfyOk = useComfyAvailable();
-  const [sceneOpen, setSceneOpen] = useState(false);
-  const [scenePrompt, setScenePrompt] = useState('');
-  const [sceneBusy, setSceneBusy] = useState(false);
-  const generateScenery = async () => {
-    if (!scenePrompt.trim() || sceneBusy) return;
-    setSceneBusy(true);
-    try {
-      const { path, error } = await comfyGenerate(scenePrompt, 'decal');
-      if (!path) {
-        notify(error || 'Generation failed — is ComfyUI running with a checkpoint loaded?');
-        return;
-      }
-      await openPasteDialog(path);
-      setSceneOpen(false);
-      setScenePrompt('');
-    } finally {
-      setSceneBusy(false);
+  const generateScenery = async (prompt: string) => {
+    const { path, error } = await comfyGenerate(prompt, 'decal');
+    if (!path) {
+      notify(error || 'Generation failed ? is ComfyUI running with a checkpoint loaded?');
+      return false;
     }
+    await openPasteDialog(path);
+    return true;
   };
   const [scaleLine, setScaleLine] = useState<{ origin: Pt; target: Pt } | null>(null);
   const [scalePrompt, setScalePrompt] = useState<{ lenPx: number } | null>(null);
@@ -2309,36 +2299,6 @@ function MapStageInner({
                       setDraft(null);
                       setAnnotate(next);
                     }}/>
-                  {actualDm && comfyOk && (
-                    <>
-                      <button
-                        className={`btn tiny ${sceneOpen ? 'on' : ''}`}
-                        title="Generate scenery art with your local ComfyUI, then place it as a decal or object"
-                        onClick={() => setSceneOpen((v) => !v)}
-                      >
-                        🎨 Generate
-                      </button>
-                      {sceneOpen && (
-                        <input
-                          className="scene-prompt"
-                          autoFocus
-                          placeholder="Describe scenery — e.g. mossy stone ruins, top-down"
-                          value={scenePrompt}
-                          onChange={(e) => setScenePrompt(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && generateScenery()}
-                        />
-                      )}
-                      {sceneOpen && (
-                        <button
-                          className="btn tiny"
-                          disabled={sceneBusy || !scenePrompt.trim()}
-                          onClick={generateScenery}
-                        >
-                          {sceneBusy ? '✨…' : '✨ Go'}
-                        </button>
-                      )}
-                    </>
-                  )}
                   {snapshot.annotations.length > 0 && (
                     <button
                       className="btn tiny"
@@ -2423,7 +2383,7 @@ function MapStageInner({
                         setScaleMode((s) => !s);
                       }}
                     />
-                    <WallMenu map={map} doors={doors} onDoor={openDoorControls} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap}
+                    <WallMenu map={map} doors={doors} onDoor={openDoorControls} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap} canGenerateDecal={comfyOk} onGenerateDecal={generateScenery}
                       onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
                       onFinish={cancelWallStroke}
                       onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>

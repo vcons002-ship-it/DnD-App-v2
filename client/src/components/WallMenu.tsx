@@ -13,10 +13,11 @@ import {useEffect,useRef,useState} from 'react';
 
 export type WallTool='off'|'rectangle'|'draw'|'circle'|'freehand'|'edit'|'erase'|'erase-area'|'door';
 const toolNames:Record<WallTool,string>={off:'',rectangle:'Rectangle',draw:'Line',circle:'Circle',freehand:'Free draw',edit:'Move / rotate',erase:'Delete wall','erase-area':'Erase section',door:'Door'};
-export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,doors=[],onDoor}:{
+export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,doors=[],onDoor,canGenerateDecal=false,onGenerateDecal}:{
   map?:MapState|null;
   tool:WallTool;count:number;snap:boolean;onTool:(tool:WallTool)=>void;
   onSnap:(snap:boolean)=>void;onUndo:()=>void;onFinish:()=>void;doors?:{id:string;open?:boolean}[];onDoor?:(id:string,open:boolean)=>void;
+  canGenerateDecal?:boolean;onGenerateDecal?:(prompt:string)=>Promise<boolean>;
 }){
   const mapImagesAvailable=useStore(s=>s.snapshot?.map?.id===map?.id&&!!s.snapshot?.mapImages.length);
   const [draftOpen,setDraftOpen]=useState(false);
@@ -27,8 +28,19 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
   const [setupOnly,setSetupOnly]=useState<MapSetupStep>();
   const [setupScope,setSetupScope]=useState<'full'|'regions'>('full');
   const [section,setSection]=useState<'add'|'edit'|'lights'|'analysis'|null>(null);
+  const [decalOpen,setDecalOpen]=useState(false);
+  const [decalPrompt,setDecalPrompt]=useState('');
+  const [decalBusy,setDecalBusy]=useState(false);
   const placeLight=useEnvironmentEditor(s=>s.place);
   const startLight=(lightId?:string)=>{if(map){onTool('off');setPosition(null);placeLight({mapId:map.id,lightId});}};
+  const submitDecal=async()=>{
+    if(!decalPrompt.trim()||decalBusy||!onGenerateDecal)return;
+    setDecalBusy(true);
+    try{
+      const ok=await onGenerateDecal(decalPrompt.trim());
+      if(ok){setDecalPrompt('');setDecalOpen(false);setPosition(null);}
+    }finally{setDecalBusy(false);}
+  };
   const button=useRef<HTMLButtonElement>(null);
   const [position,setPosition]=useState<{left:number;top:number}|null>(null);
   const warnedMaps=useRef(new Set<string>());
@@ -42,6 +54,13 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
     const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setPosition(null);};
     window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);
   },[position]);
+  const decalControls=canGenerateDecal&&onGenerateDecal?<>
+    <button className={`measure-row ${decalOpen?'on':''}`} title="Generate scenery art with your local ComfyUI, then place it as a decal or object" onClick={()=>setDecalOpen(v=>!v)}>🎨 Generate decal / sticker</button>
+    {decalOpen&&<div style={{display:'flex',gap:4,padding:'4px 8px'}}>
+      <input className="scene-prompt" style={{flex:1,minWidth:0}} autoFocus placeholder="Describe decal — e.g. mossy stone ruins, top-down" value={decalPrompt} onChange={e=>setDecalPrompt(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void submitDecal();}}/>
+      <button className="btn tiny" disabled={decalBusy||!decalPrompt.trim()} onClick={()=>void submitDecal()}>{decalBusy?'✨…':'✨ Go'}</button>
+    </div>}
+  </>:null;
   return <>
     {draftOpen&&map&&<WallDraft key={map.id+draftPass} map={map} initialPass={draftPass} onClose={()=>setDraftOpen(false)}/>}
     {doorsDraftOpen&&map&&<DoorDraft key={map.id} map={map} onClose={()=>setDoorsDraftOpen(false)}/>}
@@ -56,6 +75,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
         <div className="wall-menu-sections">
           {([['add','Add features'],['edit','Edit tools'],['lights','Lights'],['analysis','AI analysis']] as const).map(([id,label])=><button key={id} className={`btn tiny ${section===id?'on':''}`} aria-expanded={section===id} aria-controls={`wall-menu-${id}`} onClick={()=>setSection(section===id?null:id)}>{label}</button>)}
         </div>
+        {section===null&&decalControls}
         {section==='analysis'&&<div id="wall-menu-analysis" className="wall-menu-section" role="region" aria-label="AI analysis">
         <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setSetupScope('full');setSetupOnly(undefined);setSetupDraftOpen(true);}}>Suggest walls, doors, windows &amp; lights</button>
         <button className="measure-row" disabled={!map?.imagePath&&!mapImagesAvailable} onClick={()=>{setPosition(null);setSetupScope('regions');setSetupOnly(undefined);setSetupDraftOpen(true);}}>Analyze selected regions</button>
@@ -72,6 +92,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
         <button className={`measure-row ${tool==='freehand'?'on':''}`} onClick={()=>{onTool('freehand');setPosition(null);}}>Free draw wall</button>
         <button className={`measure-row ${tool==='door'?'on':''}`} onClick={()=>{onTool('door');setPosition(null);}}>Draw door opening</button>
         <button className="measure-row" disabled={!map} onClick={()=>startLight()}>Place light on map</button>
+        {decalControls}
         <label className="measure-row"><span>Snap to grid corners</span><input type="checkbox" checked={snap} onChange={e=>onSnap(e.target.checked)}/></label>
         </div>}
         {section==='lights'&&map&&<div id="wall-menu-lights" className="wall-menu-section" role="region" aria-label="Lights"><MapLightControls map={map} onPlace={startLight}/></div>}
