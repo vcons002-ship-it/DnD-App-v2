@@ -17,6 +17,9 @@ import { generateImageWithBackup } from './ai/imageGateway.js';
 import type { Request, Response } from 'express';
 import multer from 'multer';
 import fs from 'node:fs';
+import os from 'node:os';
+import {performance} from 'node:perf_hooks';
+import {visibilityWorkers} from './visibilityWorkers.js';
 import path from 'node:path';
 import { fetchRemoteImage } from './remoteImage.js';
 import { config } from './config.js';
@@ -204,6 +207,27 @@ const backupUpload = multer({
 export function createApiRouter(io: IOServer): Router {
   const router = Router();
   router.use('/chat-images',createChatImageRouter());
+  router.get('/rendering-benchmark',async(req,res)=>{
+    if(rateLimited(req,res,'rendering-benchmark',20,60_000))return;
+    try{
+      const jitter=Math.round((Math.random()*40)+180);
+      const walls=Array.from({length:28},(_,i)=>({id:`bw-${i}`,ax:80+(i%7)*140,ay:60+Math.floor(i/7)*160,bx:160+(i%7)*140,by:110+Math.floor(i/7)*160}));
+      const lights=Array.from({length:12},(_,i)=>({id:`bl-${i}`,x:120+(i%4)*220,y:100+Math.floor(i/4)*200,radius:180,height:30,strength:1,carried:i===0}));
+      const vision={rangeFt:60 as const,radius:300,heavy:true,daylight:false,origins:[{id:'bench-pc',x:jitter,y:jitter}],lights,walls};
+      const t0=performance.now();
+      await visibilityWorkers.run({mapId:`bench-${Date.now()}-${jitter}`,vision,wallFog:true,detailed:true,tokens:[{id:'bench-pc',x:jitter,y:jitter}]});
+      const serverGeometryMs=Number((performance.now()-t0).toFixed(2));
+      const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><rect width="256" height="256" fill="#0d0f14"/><circle cx="${jitter%200+28}" cy="128" r="96" fill="#ffffff" fill-opacity="0.85"/></svg>`;
+      const t1=performance.now();
+      const png=await visibilityWorkers.run({svg,format:'png'});
+      const serverRasterMs=Number((performance.now()-t1).toFixed(2));
+      const serverThreads=os.availableParallelism?.()??os.cpus().length;
+      res.setHeader('Cache-Control','no-store');
+      res.json({ok:true,serverGeometryMs,serverRasterMs,serverThreads,samplePngBase64:Buffer.from(png).toString('base64')});
+    }catch(error){
+      res.status(500).json({error:error instanceof Error?error.message:'Benchmark failed.'});
+    }
+  });
   const analyzingMaps=new Set<string>();
   router.get('/maps/:mapId/analysis-source',async(req,res)=>{
     if(!requireDm(req,res))return;
