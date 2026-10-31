@@ -355,25 +355,25 @@ export function decipherBenchmarkRecommendation(m: HardwareBenchmarkMeasurements
   let quality: EnvironmentQuality;
   let dicePreference: DiceRenderingPreference;
 
-  if (!m.webglAvailable || isSoftwareGpu || m.gpuFrameMs === null || m.gpuFrameMs > 28 || m.clientCpuGeometryMs > 45) {
+  if (!m.webglAvailable || isSoftwareGpu || m.gpuFrameMs === null || m.gpuFrameMs > 55 || m.clientCpuGeometryMs > 80) {
     quality = 'legacy';
     dicePreference = '2d';
     if (!m.webglAvailable || isSoftwareGpu) {
       reasons.push(`WebGL hardware acceleration is unavailable (${m.gpuRenderer}); Legacy mode avoids 3D shaders and WebGL context overhead.`);
-    } else if (m.gpuFrameMs !== null && m.gpuFrameMs > 28) {
+    } else if (m.gpuFrameMs !== null && m.gpuFrameMs > 55) {
       reasons.push(`3D shader/shadow pass took ${m.gpuFrameMs} ms/frame (~${Math.round(1000 / m.gpuFrameMs)} FPS) on ${m.gpuRenderer}; Legacy mode keeps map navigation responsive.`);
     } else {
       reasons.push(`Single-thread CPU raycasting took ${m.clientCpuGeometryMs} ms; Legacy mode throttles background updates to keep the UI responsive.`);
     }
-  } else if (m.gpuFrameMs <= 5.5 && m.clientCpuGeometryMs <= 12 && !isIntegratedGpu && m.cpuThreads >= 6) {
+  } else if (m.gpuFrameMs <= 16.7 && m.clientCpuGeometryMs <= 25 && !isIntegratedGpu && m.cpuThreads >= 4) {
     quality = 'high';
     dicePreference = '3d';
     reasons.push(`Fast discrete GPU (${m.gpuRenderer}, ${m.gpuFrameMs} ms/frame in 12-light shadow stress test) and ${m.cpuThreads} CPU threads easily sustain High 3D quality.`);
-  } else if (m.gpuFrameMs <= 12 && m.clientCpuGeometryMs <= 20) {
+  } else if (m.gpuFrameMs <= 28 && m.clientCpuGeometryMs <= 40) {
     quality = 'balanced';
     dicePreference = '3d';
     reasons.push(`GPU completed the 3D lighting & shadow stress pass in ${m.gpuFrameMs} ms/frame on ${m.gpuRenderer}; Balanced 3D mode keeps smooth frame pacing with reduced-polygon distant figures.`);
-  } else if (m.gpuFrameMs <= 20) {
+  } else if (m.gpuFrameMs <= 42) {
     quality = 'low';
     dicePreference = '3d';
     reasons.push(`GPU frame time (${m.gpuFrameMs} ms/frame on ${m.gpuRenderer}) suits Low 3D quality (floor shadows, 1x pixel ratio, and coarse LOD miniatures).`);
@@ -386,15 +386,15 @@ export function decipherBenchmarkRecommendation(m: HardwareBenchmarkMeasurements
   let legacy = quality === 'legacy';
   const serverAvailable = m.serverGeometryMs !== null && m.pingMs !== null;
   const legacyAssistOffMs = Number((m.clientCpuGeometryMs * 2.4 + m.clientCanvas2dMs).toFixed(1));
-  const legacyAssistOnMs = serverAvailable ? Number((m.serverGeometryMs! + (m.serverRasterMs ?? 4) + m.pingMs! + (m.clientDecodeMs ?? 2) + m.clientCanvas2dMs * 0.35).toFixed(1)) : null;
-  const standard2dAssistOffMs = m.webglAvailable && !isSoftwareGpu && m.gpuFrameMs !== null ? Number((m.clientCpuGeometryMs + m.gpuFrameMs * 0.45).toFixed(1)) : null;
-  const standard2dAssistOnMs = serverAvailable && m.webglAvailable && !isSoftwareGpu && m.gpuFrameMs !== null ? Number((m.serverGeometryMs! + m.pingMs! + m.gpuFrameMs * 0.45).toFixed(1)) : null;
+  const legacyAssistOnMs = serverAvailable ? Number((m.serverGeometryMs! + (m.serverRasterMs ?? 4) + m.pingMs! + (m.clientDecodeMs ?? 2) + m.clientCanvas2dMs * 0.5).toFixed(1)) : null;
+  const standard2dAssistOffMs = m.webglAvailable && !isSoftwareGpu && m.gpuFrameMs !== null ? Number((m.clientCpuGeometryMs + m.gpuFrameMs * 0.25).toFixed(1)) : null;
+  const standard2dAssistOnMs = serverAvailable && m.webglAvailable && !isSoftwareGpu && m.gpuFrameMs !== null ? Number((m.serverGeometryMs! + m.pingMs! + m.gpuFrameMs * 0.25).toFixed(1)) : null;
   const comboEstimates = {legacyAssistOffMs, legacyAssistOnMs, standard2dAssistOffMs, standard2dAssistOnMs};
 
   // 2. Determine Server Assist (Server Managed Rendering)
   let serverRendering = true; let crossCompared = false;
   // Cross-compare 2D WebGL (Effects off) vs Legacy 2D Canvas across Server Assist On/Off when in the 2D tier.
-  if ((quality === 'off' || (quality === 'legacy' && m.webglAvailable && !isSoftwareGpu && m.gpuFrameMs !== null && m.gpuFrameMs <= 28)) && standard2dAssistOffMs !== null) {
+  if ((quality === 'off' || (quality === 'legacy' && m.webglAvailable && !isSoftwareGpu && m.gpuFrameMs !== null && m.gpuFrameMs <= 55)) && standard2dAssistOffMs !== null) {
     const candidates: {q: 'off' | 'legacy'; assist: boolean; cost: number; label: string}[] = [
       {q: 'legacy', assist: false, cost: legacyAssistOffMs, label: `Legacy Assist Off (${legacyAssistOffMs} ms)`},
       {q: 'off', assist: false, cost: standard2dAssistOffMs, label: `2D WebGL Assist Off (${standard2dAssistOffMs} ms)`},
@@ -446,7 +446,7 @@ export function decipherBenchmarkRecommendation(m: HardwareBenchmarkMeasurements
     } else {
       // Remote client in Standard/3D mode.
       const remoteAssistRoundTripMs = serverGeoMs + pingMs;
-      if (m.clientCpuGeometryMs <= 6.5 && pingMs > 25 && remoteAssistRoundTripMs > m.clientCpuGeometryMs * 2.2) {
+      if (m.clientCpuGeometryMs <= 16.7 && pingMs > 25 && remoteAssistRoundTripMs > m.clientCpuGeometryMs * 2.2) {
         serverRendering = false;
         reasons.push(`Remote client has a fast local CPU (${m.clientCpuGeometryMs} ms visibility raycast) vs ${pingMs} ms network RTT (${remoteAssistRoundTripMs.toFixed(1)} ms assisted round-trip); Server Assist Off gives lower token-movement latency.`);
       } else {
