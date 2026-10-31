@@ -20,3 +20,24 @@
   .layout > .compact-topbar .session-title {flex:1;max-width:none;}
   .layout > .compact-topbar .map-tool-slot {order:10;flex:0 0 100%;width:100%;}
 }
+/* On very narrow DM screens, put rotation beside Campaign so all map
+   controls remain visible in two rows without shrinking their touch targets. */
+@media (max-width:410px) {
+  .layout.dm-fantasy > .topbar.compact-topbar {
+    display:grid; grid-template-columns:44px 20px 44px 44px minmax(50px,1fr) 80px;
+    gap:4px; align-items:center;
+  }
+  .layout.dm-fantasy > .compact-topbar .map-tool-slot,
+  .layout.dm-fantasy > .compact-topbar .map-view-controls {display:contents;}
+  .layout.dm-fantasy > .compact-topbar > strong {grid-area:1 / 1;}
+  .layout.dm-fantasy > .compact-topbar > .session-title {grid-area:1 / 2 / 2 / 4;}
+  .layout.dm-fantasy > .compact-topbar .map-rotation-controls {grid-area:1 / 4 / 2 / 6;}
+  .layout.dm-fantasy > .compact-topbar .toolbar-session-menu {grid-area:1 / 6;margin:0;}
+  .layout.dm-fantasy > .compact-topbar .map-view-controls > .zoom-btn:first-child {grid-area:2 / 1;}
+  .layout.dm-fantasy > .compact-topbar .zoom-label {grid-area:2 / 2;min-width:0;}
+  .layout.dm-fantasy > .compact-topbar .map-view-controls > .zoom-btn:nth-of-type(2) {grid-area:2 / 3;}
+  .layout.dm-fantasy > .compact-topbar .map-view-controls > .btn[title="Fit to window"] {grid-area:2 / 4;}
+  .layout.dm-fantasy > .compact-topbar .map-view-controls > .compact-toolbar-trigger {grid-area:2 / 5;}
+  .layout.dm-fantasy > .compact-topbar .map-tool-slot > .compact-toolbar-trigger {grid-area:2 / 6;}
+  .layout.player-fantasy > .compact-topbar :is(.map-tool-slot,.map-view-controls) {flex-wrap:wrap;}
+}
