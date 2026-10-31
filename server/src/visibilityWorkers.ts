@@ -18,11 +18,13 @@ export type RasterJob={svg:string;format?:'png'|'webp'};
 export type MaskTilesJob={maskTiles:{svg:string;width:number;height:number;tileSize:number}};
 export type MaskTilesResult={tiles:{x:number;y:number;width:number;height:number;key:string;buffer:Uint8Array}[]};
 export type PolygonSync={mapId:string;wallsKey:string;entries:({key:string}&CachedPolygon)[]};
+export type TerrainShapeSync={wallsKey:string;entries:{key:string;shape:ExploredTerrain}[]};
 export type WorkerCacheSync=AtlasCacheSync&{
  newBases?:{key:string;color:Uint8Array;gray:Uint8Array;grayPng:Uint8Array}[];
  newTiles?:{key:string;buffer:Uint8Array}[];
  newMaskResults?:{key:string;result:MaskTilesResult}[];
  newPolygons?:PolygonSync[];
+ newTerrainShapes?:TerrainShapeSync[];
 };
 type Job=GeometryJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;
 type Task={id:number;job:Job;resolve:(p:any)=>void;reject:(e:Error)=>void;timer?:ReturnType<typeof setTimeout>;observe?:Observe;queuedAt?:number;startedAt?:number};
@@ -48,6 +50,7 @@ export class VisibilityWorkers{
  private tiles=new Map<string,{key:string;buffer:Uint8Array}>();private tileBytes=0;
  private maskResults=new Map<string,MaskTilesResult>();
  private polygons=new Map<string,{wallsKey:string;entries:Map<string,{key:string}&CachedPolygon>}>();
+ private terrainShapes:{wallsKey:string;entries:Map<string,{key:string;shape:ExploredTerrain}>}|undefined;
  private visionResults=new Map<string,{basic?:LegacyGeometry;detailed?:LegacyGeometry}>();
  private visionInflight=new Map<string,{job:GeometryJob;work:Promise<LegacyGeometry>}>();
  private outlineInflight=new Map<string,Promise<LegacyGeometry>>();
@@ -79,9 +82,17 @@ export class VisibilityWorkers{
     mapEntry.entries.set(e.key,e);
    }
   }
+  for(const ts of sync.newTerrainShapes??[]){
+   if(!this.terrainShapes||this.terrainShapes.wallsKey!==ts.wallsKey)this.terrainShapes={wallsKey:ts.wallsKey,entries:new Map()};
+   for(const e of ts.entries){
+    if(this.terrainShapes.entries.has(e.key))continue;
+    if(this.terrainShapes.entries.size>=512)this.terrainShapes.entries.delete(this.terrainShapes.entries.keys().next().value!);
+    this.terrainShapes.entries.set(e.key,e);
+   }
+  }
  }
  private snapshotSync():WorkerCacheSync|undefined{
-  if(!this.bases.size&&!this.lights.size&&!this.masks.size&&!this.gradedPngs.size&&!this.tiles.size&&!this.maskResults.size&&!this.polygons.size)return undefined;
+  if(!this.bases.size&&!this.lights.size&&!this.masks.size&&!this.gradedPngs.size&&!this.tiles.size&&!this.maskResults.size&&!this.polygons.size&&!this.terrainShapes?.entries.size)return undefined;
   return {
    ...(this.bases.size?{newBases:[...this.bases.values()]}:{}),
    ...(this.lights.size?{newLights:[...this.lights.values()]}:{}),
@@ -90,6 +101,7 @@ export class VisibilityWorkers{
    ...(this.tiles.size?{newTiles:[...this.tiles.values()]}:{}),
    ...(this.maskResults.size?{newMaskResults:[...this.maskResults.entries()].map(([key,result])=>({key,result}))}:{}),
    ...(this.polygons.size?{newPolygons:[...this.polygons.entries()].map(([mapId,v])=>({mapId,wallsKey:v.wallsKey,entries:[...v.entries.values()]}))}:{}),
+   ...(this.terrainShapes?.entries.size?{newTerrainShapes:[{wallsKey:this.terrainShapes.wallsKey,entries:[...this.terrainShapes.entries.values()]}]}:{}),
   };
  }
  private spawn():Slot{
@@ -118,7 +130,7 @@ export class VisibilityWorkers{
    const task=interactiveIdx>=0?this.queue.splice(interactiveIdx,1)[0]!:this.queue.shift()!;
    slot.active=task;slot.worker.ref();if(task.observe)task.startedAt=performance.now();
    task.timer=setTimeout(()=>{this.metrics.failed++;slot.active=undefined;task.reject(new Error('Visibility calculation timed out'));this.slots=this.slots.filter(s=>s!==slot);void slot.worker.terminate();this.pump();},10000);
-   if(slot.pendingSync.length){const batch=slot.pendingSync.splice(0);slot.worker.postMessage({syncCache:batch.length===1?batch[0]:{newBases:batch.flatMap(b=>b.newBases??[]),newLights:batch.flatMap(b=>b.newLights??[]),newMasks:batch.flatMap(b=>b.newMasks??[]),newGradedPngs:batch.flatMap(b=>b.newGradedPngs??[]),newTiles:batch.flatMap(b=>b.newTiles??[]),newMaskResults:batch.flatMap(b=>b.newMaskResults??[]),newPolygons:batch.flatMap(b=>b.newPolygons??[])}});}
+   if(slot.pendingSync.length){const batch=slot.pendingSync.splice(0);slot.worker.postMessage({syncCache:batch.length===1?batch[0]:{newBases:batch.flatMap(b=>b.newBases??[]),newLights:batch.flatMap(b=>b.newLights??[]),newMasks:batch.flatMap(b=>b.newMasks??[]),newGradedPngs:batch.flatMap(b=>b.newGradedPngs??[]),newTiles:batch.flatMap(b=>b.newTiles??[]),newMaskResults:batch.flatMap(b=>b.newMaskResults??[]),newPolygons:batch.flatMap(b=>b.newPolygons??[]),newTerrainShapes:batch.flatMap(b=>b.newTerrainShapes??[])}});}
    this.dispatched.add(task.job);
    const workerJob='vision' in task.job&&!('walkSight' in task.job)&&!('token' in task.job)?{mapId:task.job.mapId,vision:task.job.vision,wallFog:task.job.wallFog,detailed:task.job.detailed,outlinesOnly:task.job.outlinesOnly,tokens:[]}:task.job;
    slot.worker.postMessage({id:task.id,job:workerJob,...(task.observe?{diagnostic:true}:{})});
@@ -238,7 +250,7 @@ export class VisibilityWorkers{
  }
  async close(){
   const slots=this.slots.splice(0);
-  this.bases.clear();this.lights.clear();this.masks.clear();this.gradedPngs.clear();this.tiles.clear();this.tileBytes=0;this.maskResults.clear();this.polygons.clear();this.visionResults.clear();this.visionInflight.clear();this.outlineInflight.clear();this.inflight.clear();
+  this.bases.clear();this.lights.clear();this.masks.clear();this.gradedPngs.clear();this.tiles.clear();this.tileBytes=0;this.maskResults.clear();this.polygons.clear();this.terrainShapes=undefined;this.visionResults.clear();this.visionInflight.clear();this.outlineInflight.clear();this.inflight.clear();
   for(const task of this.queue.splice(0))task.reject(new Error('Visibility pool closed'));
   for(const s of slots)if(s.active){clearTimeout(s.active.timer);s.active.reject(new Error('Visibility pool closed'));}
   await Promise.all(slots.map(s=>s.worker.terminate()));
