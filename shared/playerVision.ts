@@ -6,7 +6,7 @@ import {createLightSightCache} from './lightSightCache.js';
 const sightCache=createLightSightCache(16384);
 import type {MapState,Token} from './types.js';
 export type VisionPoint={id:string;x:number;y:number};
-export type VisionLight=VisionPoint&{radius:number;height:number;strength:number;transient?:boolean;beam?:LightBeam};
+export type VisionLight=VisionPoint&{radius:number;height:number;strength:number;transient?:boolean;carried?:boolean;beam?:LightBeam};
 /** Same ground irradiance and coverage as battlefieldLighting torch-field shader. */
 export function lightCoverage(distance:number,light:Pick<VisionLight,'radius'|'height'|'strength'|'transient'>){
  return lightColorCoverage((light.transient?spellEmissionIrradiance:lightIrradiance)(Math.hypot(distance,light.height),light.radius,light.strength));
@@ -72,6 +72,6 @@ export function createPlayerVision(map:MapState|null|undefined,tokens:Token[],ow
  const tokenFog=map!.tokenFogEnabled?new Set(map!.tokenFogRevealed):null;
  const sourceVisible=lightTokenAllowed??((t:Token)=>tokenVisibleAt({role:'player',hidden:t.isHidden,owned:t.kind==='pc'&&owned.has(t.refId),foe:t.kind==='monster',mapFog:fog,tokenFog,grid:map!.gridSizePx,x:t.x,y:t.y}));
  vision.lights=[...(map.environment?.enabled?map.environment.lights:[]).filter(l=>permitted(l.x,l.y)).map(l=>({id:l.id,x:l.x,y:l.y,radius:l.radiusFt*px,height:l.heightFt*px,strength:l.intensity})),
- ...tokens.filter(t=>t.carriedLantern&&!t.isHidden&&permitted(t.x,t.y)&&sourceVisible(t)&&origins.some(o=>!(map.walls?.length)||sightCache.visible(`o:${o.id}:${t.x},${t.y}`,o,t,map.walls))).map(t=>({id:t.id,x:t.x,y:t.y,radius:20*px,height:CARRIED_LANTERN_LIGHT_HEIGHT_FT*px,strength:.85}))];
+ ...tokens.filter(t=>t.carriedLantern&&!t.isHidden&&permitted(t.x,t.y)&&sourceVisible(t)&&origins.some(o=>!(map.walls?.length)||sightCache.visible(`o:${o.id}:${t.x},${t.y}`,o,t,map.walls))).map(t=>({id:t.id,x:t.x,y:t.y,radius:20*px,height:CARRIED_LANTERN_LIGHT_HEIGHT_FT*px,strength:.85,carried:true}))];
  return vision;
 }

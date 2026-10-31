@@ -7,6 +7,21 @@ import type {PlayerVision} from '../../shared/playerVision.js';
 const vision:PlayerVision={rangeFt:60,radius:60,heavy:true,origins:[{id:'pc',x:100,y:100}],walls:[{id:'wall',kind:'rectangle',ax:200,ay:-500,bx:215,by:500}],lights:[{id:'lamp',x:120,y:100,radius:100,height:10,strength:1}]};
 const fixture=()=>({role:'player',sessionCode:'TEST',map:{id:'room',mapVisionEnabled:true},tokens:[{id:'pc',x:100,y:100},{id:'enemy',x:120,y:100}],characters:[],monsters:[],maps:[],rollLog:[],chat:[],playerVision:vision,exploredTerrain:[]} as unknown as StateSnapshot);
 afterEach(async()=>{resetDelivery('test');vi.useRealTimers();await visibilityWorkers.close();});
+it('omits unused standard paths for both views without erasing the shared Legacy geometry',async()=>{
+ const base=fixture(),frames:any[]=[];
+ const snapshot={...base,role:'dm',partyView:{map:base.map,tokens:base.tokens,monsters:[],playerVision:vision}} as StateSnapshot;
+ deliverState({to:()=>({emit:(_event:any,frame:any)=>frames.push(frame)})},'test',snapshot,
+  {stateProtocol:1,renderProtocol:3,serverRendering:true,legacyRendering:false});
+ await expect.poll(()=>frames.length,{timeout:10000}).toBe(1);
+ for(const g of [frames[0].full.legacyGeometry,frames[0].full.partyView.legacyGeometry]){
+  expect(g).toMatchObject({sight:[],near:[],lights:[],memory:[],affinity:['pc','enemy']});
+  expect(g.outlines.shapes['pc:60']).toBeDefined();
+ }
+ const jobs=visibilityWorkers.metrics.jobs;
+ const legacy=await visibilityWorkers.run({mapId:base.map!.id,vision,wallFog:true,tokens:[]});
+ expect(legacy.sight).toHaveLength(1);expect(legacy.near).toHaveLength(1);expect(legacy.lights).toHaveLength(1);
+ expect(visibilityWorkers.metrics.jobs).toBe(jobs);
+});
 it('keeps concealed party previews pending independently of an unobstructed DM view',()=>{
  const base=fixture(),pending=pendingGeometry({...base,role:'dm',playerVision:undefined,
   partyView:{map:base.map,tokens:base.tokens,monsters:[],playerVision:vision}});
@@ -63,7 +78,7 @@ it('retains the 500 ms coalescing interval for non-movement state changes',async
 });
 it('worker output has occluded masks and affinity only for the supplied authorized tokens',async()=>{
  const pool=new VisibilityWorkers(1);
- try{const result=await pool.run({mapId:'room',vision,wallFog:true,explored:[],tokens:[{id:'pc',x:100,y:100},{id:'dark',x:300,y:100}]});expect(result.sight).toHaveLength(1);expect(result.affinity).toContain('pc');expect(result.affinity).not.toContain('dark');expect(result.memory).toEqual([]);expect(pool.metrics.jobs).toBe(1);}
+ try{const result=await pool.run({mapId:'room',vision,wallFog:true,explored:[],tokens:[{id:'pc',x:100,y:100},{id:'dark',x:300,y:100}]});expect(result.sight).toHaveLength(1);expect(result.affinity).toContain('pc');expect(result.affinity).not.toContain('dark');expect(result.memory).toEqual([]);expect(pool.metrics.jobs).toBe(2); /* Independent sight and shared lamp layers. */}
  finally{await pool.close();}
 });
 it('coalesces in-flight Legacy states and publishes geometry and matching positions before effects',async()=>{

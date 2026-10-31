@@ -25,7 +25,14 @@ function positionsChanged(before:StateSnapshot|undefined,after:StateSnapshot){
 const clearGeometry=(s:Pick<StateSnapshot,'tokens'>)=>({sight:[],near:[],lights:[],memory:[],affinity:s.tokens.filter(t=>!t.sharedSightOnly).map(t=>t.id)});
 export const pendingGeometry=(snapshot:StateSnapshot):StateSnapshot=>({...snapshot,legacyGeometry:needsVisibilityLayer(snapshot.map,snapshot.playerVision)?null:clearGeometry(snapshot),...(snapshot.partyView?{partyView:{...snapshot.partyView,legacyGeometry:needsVisibilityLayer(snapshot.partyView.map,snapshot.partyView.playerVision)?null:clearGeometry(snapshot.partyView)}}:{})});
 async function addGeometry(snapshot:StateSnapshot,detailed=false,timing?:MovementFrameTiming):Promise<StateSnapshot>{
- const layer=async(s:Pick<StateSnapshot,'map'|'playerVision'|'exploredTerrain'|'tokens'>)=>!s.map?undefined:s.playerVision&&needsVisibilityLayer(s.map,s.playerVision)?visibilityWorkers.run({mapId:s.map.id,vision:s.playerVision,wallFog:usesMapVision(s.map),detailed,explored:s.exploredTerrain,tokens:s.tokens.map(({id,x,y,sharedSightOnly})=>({id,x,y,sharedSightOnly}))},timing?span=>timing.workers.push(span):undefined):clearGeometry(s);
+ const layer=async(s:Pick<StateSnapshot,'map'|'playerVision'|'exploredTerrain'|'tokens'>)=>{
+  if(!s.map)return undefined;
+  if(!s.playerVision||!needsVisibilityLayer(s.map,s.playerVision))return clearGeometry(s);
+  const geometry=await visibilityWorkers.run({mapId:s.map.id,vision:s.playerVision,wallFog:usesMapVision(s.map),detailed,explored:s.exploredTerrain,tokens:s.tokens.map(({id,x,y,sharedSightOnly})=>({id,x,y,sharedSightOnly}))},timing?span=>timing.workers.push(span):undefined);
+  // Retain shared base geometry in the pool for Legacy, but omit paths that
+  // standard renderers do not consume from their delivered snapshots.
+  return detailed?{...geometry,sight:[],near:[],lights:[],memory:[]}:geometry;
+ };
  const [legacyGeometry,party]=await Promise.all([layer(snapshot),snapshot.partyView?layer(snapshot.partyView):undefined]);
  return {...snapshot,legacyGeometry,...(snapshot.partyView?{partyView:{...snapshot.partyView,legacyGeometry:party}}:{})};
 }

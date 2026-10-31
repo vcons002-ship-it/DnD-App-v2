@@ -1,0 +1,1171 @@
+{
+  "baseline": "677a6921870d415f88da54346e08668a03a4c2d6",
+  "method": "Two trials per version: 16 drags per mode, player and DM with 6x CPU slowdown, server unrestricted, same PC and client build, no artificial WAN latency, courtyard with one PC and two monsters. All samples retained, including outliers. Browser first paint is an instrumented estimate.",
+  "geometry": {
+    "method": "Four alternating before/after trials; 24 measured revisions after one cold geometry revision per scenario; 96 warm samples per version/scenario. Server worker geometry only, 48 walls and 48 lights, 4 threads. No browser or network.",
+    "scenarios": [
+      {
+        "scenario": "legacy-first",
+        "identical": true,
+        "before": {
+          "meanMs": 3.730474999999993,
+          "medianMs": 3.2787999999999897,
+          "workerComputeMsPerRevision": 2.2312687500000012,
+          "jobsPer24Revisions": 48,
+          "coldMeanMs": 66.692425
+        },
+        "after": {
+          "meanMs": 2.138927083333332,
+          "medianMs": 1.4753000000000043,
+          "workerComputeMsPerRevision": 1.190975000000003,
+          "jobsPer24Revisions": 24,
+          "coldMeanMs": 63.79677500000001
+        }
+      },
+      {
+        "scenario": "standard-first",
+        "identical": true,
+        "before": {
+          "meanMs": 3.29018333333333,
+          "medianMs": 3.0153000000000247,
+          "workerComputeMsPerRevision": 1.0816572916666742,
+          "jobsPer24Revisions": 24,
+          "coldMeanMs": 56.77502500000003
+        },
+        "after": {
+          "meanMs": 2.326218750000011,
+          "medianMs": 1.36200000000008,
+          "workerComputeMsPerRevision": 1.1484510416666645,
+          "jobsPer24Revisions": 24,
+          "coldMeanMs": 62.69755000000001
+        }
+      },
+      {
+        "scenario": "legacy-only",
+        "identical": true,
+        "before": {
+          "meanMs": 1.2361291666666763,
+          "medianMs": 1.0993999999998323,
+          "workerComputeMsPerRevision": 0.8953666666666689,
+          "jobsPer24Revisions": 24,
+          "coldMeanMs": 28.65190000000004
+        },
+        "after": {
+          "meanMs": 1.4627572916666682,
+          "medianMs": 1.1518000000000939,
+          "workerComputeMsPerRevision": 1.0539187499999976,
+          "jobsPer24Revisions": 24,
+          "coldMeanMs": 22.599800000000016
+        }
+      },
+      {
+        "scenario": "standard-only",
+        "identical": true,
+        "before": {
+          "meanMs": 3.146821875000017,
+          "medianMs": 2.963799999999992,
+          "workerComputeMsPerRevision": 1.074948958333342,
+          "jobsPer24Revisions": 24,
+          "coldMeanMs": 66.42589999999996
+        },
+        "after": {
+          "meanMs": 2.0856552083333213,
+          "medianMs": 1.152900000000045,
+          "workerComputeMsPerRevision": 1.0639395833333154,
+          "jobsPer24Revisions": 24,
+          "coldMeanMs": 55.43480000000005
+        }
+      },
+      {
+        "scenario": "late-standard",
+        "identical": true,
+        "before": {
+          "meanMs": 3.4563010416666486,
+          "medianMs": 3.2579000000000633,
+          "workerComputeMsPerRevision": 1.056253125000012,
+          "jobsPer24Revisions": 48,
+          "coldMeanMs": 54.99327500000004
+        },
+        "after": {
+          "meanMs": 2.6708239583333224,
+          "medianMs": 2.0353000000000065,
+          "workerComputeMsPerRevision": 1.257681250000007,
+          "jobsPer24Revisions": 48,
+          "coldMeanMs": 55.097075000000075
+        }
+      },
+      {
+        "scenario": "different-viewers",
+        "identical": true,
+        "before": {
+          "meanMs": 5.403885416666658,
+          "medianMs": 4.645999999999958,
+          "workerComputeMsPerRevision": 3.4138010416666615,
+          "jobsPer24Revisions": 72,
+          "coldMeanMs": 63.619425000000035
+        },
+        "after": {
+          "meanMs": 3.014047916666655,
+          "medianMs": 2.3625999999999294,
+          "workerComputeMsPerRevision": 3.860173958333341,
+          "jobsPer24Revisions": 72,
+          "coldMeanMs": 66.34440000000006
+        }
+      }
+    ]
+  },
+  "browser": {
+    "before": [
+      {
+        "mode": "legacy",
+        "roles": [
+          {
+            "role": "Player",
+            "firstPaint": {
+              "mean": 324.6374816894531,
+              "median": 285.949951171875,
+              "max": 615.699951171875
+            },
+            "server": {
+              "mean": 172.47312927246094,
+              "median": 167.0616455078125,
+              "max": 280.006103515625
+            },
+            "geometry": {
+              "mean": 3.150634765625,
+              "median": 1.48974609375,
+              "max": 23.015625
+            },
+            "samples": [
+              {
+                "firstMotionMs": 336.199951171875,
+                "serverResponseMs": 175.06201171875
+              },
+              {
+                "firstMotionMs": 258.89990234375,
+                "serverResponseMs": 167.539794921875
+              },
+              {
+                "firstMotionMs": 266,
+                "serverResponseMs": 166.58349609375
+              },
+              {
+                "firstMotionMs": 274.699951171875,
+                "serverResponseMs": 158.24853515625
+              },
+              {
+                "firstMotionMs": 246.10009765625,
+                "serverResponseMs": 141.084716796875
+              },
+              {
+                "firstMotionMs": 311.5,
+                "serverResponseMs": 169.5146484375
+              },
+              {
+                "firstMotionMs": 615.699951171875,
+                "serverResponseMs": 233.467529296875
+              },
+              {
+                "firstMotionMs": 420.300048828125,
+                "serverResponseMs": 159.7646484375
+              },
+              {
+                "firstMotionMs": 297.199951171875,
+                "serverResponseMs": 171.107421875
+              },
+              {
+                "firstMotionMs": 232.89990234375,
+                "serverResponseMs": 134.1337890625
+              },
+              {
+                "firstMotionMs": 264,
+                "serverResponseMs": 158.890869140625
+              },
+              {
+                "firstMotionMs": 525.5,
+                "serverResponseMs": 280.006103515625
+              },
+              {
+                "firstMotionMs": 327.5,
+                "serverResponseMs": 195.761962890625
+              },
+              {
+                "firstMotionMs": 367.699951171875,
+                "serverResponseMs": 209.894775390625
+              },
+              {
+                "firstMotionMs": 222.199951171875,
+                "serverResponseMs": 123.381103515625
+              },
+              {
+                "firstMotionMs": 227.800048828125,
+                "serverResponseMs": 115.128662109375
+              }
+            ]
+          },
+          {
+            "role": "DM",
+            "firstPaint": {
+              "mean": 314.23748779296875,
+              "median": 286.199951171875,
+              "max": 507.800048828125
+            },
+            "server": {
+              "mean": 171.82713317871094,
+              "median": 166.552001953125,
+              "max": 279.184814453125
+            },
+            "geometry": {
+              "mean": 11.093338012695312,
+              "median": 9.2559814453125,
+              "max": 32.870849609375
+            },
+            "samples": [
+              {
+                "firstMotionMs": 337.099853515625,
+                "serverResponseMs": 174.786865234375
+              },
+              {
+                "firstMotionMs": 259.099853515625,
+                "serverResponseMs": 167.08251953125
+              },
+              {
+                "firstMotionMs": 263.7001953125,
+                "serverResponseMs": 166.021484375
+              },
+              {
+                "firstMotionMs": 272.60009765625,
+                "serverResponseMs": 157.431884765625
+              },
+              {
+                "firstMotionMs": 247.400146484375,
+                "serverResponseMs": 140.360595703125
+              },
+              {
+                "firstMotionMs": 360.099853515625,
+                "serverResponseMs": 168.68896484375
+              },
+              {
+                "firstMotionMs": 507.800048828125,
+                "serverResponseMs": 232.744140625
+              },
+              {
+                "firstMotionMs": 293.10009765625,
+                "serverResponseMs": 158.966552734375
+              },
+              {
+                "firstMotionMs": 317.800048828125,
+                "serverResponseMs": 170.58837890625
+              },
+              {
+                "firstMotionMs": 220.89990234375,
+                "serverResponseMs": 133.807861328125
+              },
+              {
+                "firstMotionMs": 279.2998046875,
+                "serverResponseMs": 158.3037109375
+              },
+              {
+                "firstMotionMs": 444.10009765625,
+                "serverResponseMs": 279.184814453125
+              },
+              {
+                "firstMotionMs": 332.300048828125,
+                "serverResponseMs": 194.92529296875
+              },
+              {
+                "firstMotionMs": 438.699951171875,
+                "serverResponseMs": 209.0546875
+              },
+              {
+                "firstMotionMs": 226.199951171875,
+                "serverResponseMs": 122.660888671875
+              },
+              {
+                "firstMotionMs": 227.599853515625,
+                "serverResponseMs": 114.62548828125
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "mode": "local-2d",
+        "roles": [
+          {
+            "role": "Player",
+            "firstPaint": {
+              "mean": 255.39376831054688,
+              "median": 247.7498779296875,
+              "max": 401.60009765625
+            },
+            "server": {
+              "mean": 36.96099853515625,
+              "median": 35.6163330078125,
+              "max": 58.702392578125
+            },
+            "geometry": {
+              "mean": 2.5312957763671875,
+              "median": 1.8870849609375,
+              "max": 14.3974609375
+            },
+            "samples": [
+              {
+                "firstMotionMs": 265.60009765625,
+                "serverResponseMs": 19.8623046875
+              },
+              {
+                "firstMotionMs": 225.10009765625,
+                "serverResponseMs": 25.771728515625
+              },
+              {
+                "firstMotionMs": 194.699951171875,
+                "serverResponseMs": 46.357421875
+              },
+              {
+                "firstMotionMs": 164.60009765625,
+                "serverResponseMs": 42.40869140625
+              },
+              {
+                "firstMotionMs": 391.900146484375,
+                "serverResponseMs": 44.515625
+              },
+              {
+                "firstMotionMs": 353.599853515625,
+                "serverResponseMs": 58.702392578125
+              },
+              {
+                "firstMotionMs": 312.300048828125,
+                "serverResponseMs": 43.261962890625
+              },
+              {
+                "firstMotionMs": 266.800048828125,
+                "serverResponseMs": 23.946044921875
+              },
+              {
+                "firstMotionMs": 272,
+                "serverResponseMs": 18.807861328125
+              },
+              {
+                "firstMotionMs": 157.2001953125,
+                "serverResponseMs": 26.05810546875
+              },
+              {
+                "firstMotionMs": 401.60009765625,
+                "serverResponseMs": 57.954345703125
+              },
+              {
+                "firstMotionMs": 254.599853515625,
+                "serverResponseMs": 56.56396484375
+              },
+              {
+                "firstMotionMs": 198.60009765625,
+                "serverResponseMs": 51.58056640625
+              },
+              {
+                "firstMotionMs": 240.89990234375,
+                "serverResponseMs": 28.823974609375
+              },
+              {
+                "firstMotionMs": 201.89990234375,
+                "serverResponseMs": 27.229736328125
+              },
+              {
+                "firstMotionMs": 184.89990234375,
+                "serverResponseMs": 19.53125
+              }
+            ]
+          },
+          {
+            "role": "DM",
+            "firstPaint": {
+              "mean": 227.875,
+              "median": 194.1500244140625,
+              "max": 370.599853515625
+            },
+            "server": {
+              "mean": 37.775360107421875,
+              "median": 36.3822021484375,
+              "max": 60.306884765625
+            },
+            "geometry": {
+              "mean": 2.335968017578125,
+              "median": 1.7852783203125,
+              "max": 14.20458984375
+            },
+            "samples": [
+              {
+                "firstMotionMs": 290.900146484375,
+                "serverResponseMs": 20.4423828125
+              },
+              {
+                "firstMotionMs": 165.300048828125,
+                "serverResponseMs": 26.4169921875
+              },
+              {
+                "firstMotionMs": 181.800048828125,
+                "serverResponseMs": 47.0419921875
+              },
+              {
+                "firstMotionMs": 161.2001953125,
+                "serverResponseMs": 43.038818359375
+              },
+              {
+                "firstMotionMs": 204.800048828125,
+                "serverResponseMs": 45.43994140625
+              },
+              {
+                "firstMotionMs": 335.199951171875,
+                "serverResponseMs": 60.306884765625
+              },
+              {
+                "firstMotionMs": 310.199951171875,
+                "serverResponseMs": 44.234130859375
+              },
+              {
+                "firstMotionMs": 142.2001953125,
+                "serverResponseMs": 24.80126953125
+              },
+              {
+                "firstMotionMs": 264.60009765625,
+                "serverResponseMs": 19.38720703125
+              },
+              {
+                "firstMotionMs": 205.699951171875,
+                "serverResponseMs": 26.73388671875
+              },
+              {
+                "firstMotionMs": 366.10009765625,
+                "serverResponseMs": 58.675537109375
+              },
+              {
+                "firstMotionMs": 370.599853515625,
+                "serverResponseMs": 57.351318359375
+              },
+              {
+                "firstMotionMs": 183.5,
+                "serverResponseMs": 52.627685546875
+              },
+              {
+                "firstMotionMs": 175.999755859375,
+                "serverResponseMs": 29.7255859375
+              },
+              {
+                "firstMotionMs": 164.2998046875,
+                "serverResponseMs": 27.9951171875
+              },
+              {
+                "firstMotionMs": 123.599853515625,
+                "serverResponseMs": 20.18701171875
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "mode": "local-3d",
+        "roles": [
+          {
+            "role": "Player",
+            "firstPaint": {
+              "mean": 679.9499816894531,
+              "median": 383.3499755859375,
+              "max": 4867.199951171875
+            },
+            "server": {
+              "mean": 39.32720947265625,
+              "median": 33.5147705078125,
+              "max": 118.353271484375
+            },
+            "geometry": {
+              "mean": 1.8172454833984375,
+              "median": 1.655517578125,
+              "max": 6.386474609375
+            },
+            "samples": [
+              {
+                "firstMotionMs": 602,
+                "serverResponseMs": 44.396728515625
+              },
+              {
+                "firstMotionMs": 380.89990234375,
+                "serverResponseMs": 33.65673828125
+              },
+              {
+                "firstMotionMs": 449.10009765625,
+                "serverResponseMs": 30.560302734375
+              },
+              {
+                "firstMotionMs": 353.39990234375,
+                "serverResponseMs": 118.353271484375
+              },
+              {
+                "firstMotionMs": 410.099853515625,
+                "serverResponseMs": 50.888671875
+              },
+              {
+                "firstMotionMs": 382.89990234375,
+                "serverResponseMs": 35.2392578125
+              },
+              {
+                "firstMotionMs": 246.800048828125,
+                "serverResponseMs": 27.876953125
+              },
+              {
+                "firstMotionMs": 257.89990234375,
+                "serverResponseMs": 24.13720703125
+              },
+              {
+                "firstMotionMs": 609.699951171875,
+                "serverResponseMs": 34.611083984375
+              },
+              {
+                "firstMotionMs": 383.800048828125,
+                "serverResponseMs": 33.372802734375
+              },
+              {
+                "firstMotionMs": 565.60009765625,
+                "serverResponseMs": 23.939208984375
+              },
+              {
+                "firstMotionMs": 286.599853515625,
+                "serverResponseMs": 42.809326171875
+              },
+              {
+                "firstMotionMs": 305.60009765625,
+                "serverResponseMs": 37.374267578125
+              },
+              {
+                "firstMotionMs": 403.300048828125,
+                "serverResponseMs": 32.46728515625
+              },
+              {
+                "firstMotionMs": 4867.199951171875,
+                "serverResponseMs": 29.1474609375
+              },
+              {
+                "firstMotionMs": 374.300048828125,
+                "serverResponseMs": 30.40478515625
+              }
+            ]
+          },
+          {
+            "role": "DM",
+            "firstPaint": {
+              "mean": 365.893798828125,
+              "median": 316.10009765625,
+              "max": 858.10009765625
+            },
+            "server": {
+              "mean": 40.13966369628906,
+              "median": 34.1929931640625,
+              "max": 119.30810546875
+            },
+            "geometry": {
+              "mean": 1.5413665771484375,
+              "median": 1.521240234375,
+              "max": 6.260009765625
+            },
+            "samples": [
+              {
+                "firstMotionMs": 837.10009765625,
+                "serverResponseMs": 44.83056640625
+              },
+              {
+                "firstMotionMs": 210.5,
+                "serverResponseMs": 34.37158203125
+              },
+              {
+                "firstMotionMs": 410.800048828125,
+                "serverResponseMs": 31.218994140625
+              },
+              {
+                "firstMotionMs": 300.10009765625,
+                "serverResponseMs": 119.30810546875
+              },
+              {
+                "firstMotionMs": 374.5,
+                "serverResponseMs": 52.018310546875
+              },
+              {
+                "firstMotionMs": 284.699951171875,
+                "serverResponseMs": 36.103515625
+              },
+              {
+                "firstMotionMs": 162.599853515625,
+                "serverResponseMs": 28.579345703125
+              },
+              {
+                "firstMotionMs": 183.2998046875,
+                "serverResponseMs": 25.203369140625
+              },
+              {
+                "firstMotionMs": 858.10009765625,
+                "serverResponseMs": 34.95556640625
+              },
+              {
+                "firstMotionMs": 215.199951171875,
+                "serverResponseMs": 34.014404296875
+              },
+              {
+                "firstMotionMs": 512.900146484375,
+                "serverResponseMs": 24.594970703125
+              },
+              {
+                "firstMotionMs": 218.10009765625,
+                "serverResponseMs": 43.53466796875
+              },
+              {
+                "firstMotionMs": 273.80029296875,
+                "serverResponseMs": 38.627685546875
+              },
+              {
+                "firstMotionMs": 334.7001953125,
+                "serverResponseMs": 33.767578125
+              },
+              {
+                "firstMotionMs": 345.800048828125,
+                "serverResponseMs": 29.979248046875
+              },
+              {
+                "firstMotionMs": 332.10009765625,
+                "serverResponseMs": 31.126708984375
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "after": [
+      {
+        "mode": "legacy",
+        "roles": [
+          {
+            "role": "Player",
+            "firstPaint": {
+              "mean": 301.5062561035156,
+              "median": 262.35009765625,
+              "max": 539.5
+            },
+            "server": {
+              "mean": 161.80946350097656,
+              "median": 159.3438720703125,
+              "max": 225.209716796875
+            },
+            "geometry": {
+              "mean": 2.9779205322265625,
+              "median": 2.1326904296875,
+              "max": 10.60888671875
+            },
+            "samples": [
+              {
+                "firstMotionMs": 349.699951171875,
+                "serverResponseMs": 200.885986328125
+              },
+              {
+                "firstMotionMs": 314.699951171875,
+                "serverResponseMs": 167.4853515625
+              },
+              {
+                "firstMotionMs": 481.099853515625,
+                "serverResponseMs": 225.209716796875
+              },
+              {
+                "firstMotionMs": 539.5,
+                "serverResponseMs": 223.05908203125
+              },
+              {
+                "firstMotionMs": 334.2998046875,
+                "serverResponseMs": 164.5126953125
+              },
+              {
+                "firstMotionMs": 238,
+                "serverResponseMs": 116.1201171875
+              },
+              {
+                "firstMotionMs": 212.300048828125,
+                "serverResponseMs": 118.130615234375
+              },
+              {
+                "firstMotionMs": 208.7001953125,
+                "serverResponseMs": 102.69873046875
+              },
+              {
+                "firstMotionMs": 341.800048828125,
+                "serverResponseMs": 199.49267578125
+              },
+              {
+                "firstMotionMs": 259.900146484375,
+                "serverResponseMs": 153.24951171875
+              },
+              {
+                "firstMotionMs": 258.699951171875,
+                "serverResponseMs": 156.2333984375
+              },
+              {
+                "firstMotionMs": 264.800048828125,
+                "serverResponseMs": 162.454345703125
+              },
+              {
+                "firstMotionMs": 254.300048828125,
+                "serverResponseMs": 148.72021484375
+              },
+              {
+                "firstMotionMs": 242.7001953125,
+                "serverResponseMs": 142.396240234375
+              },
+              {
+                "firstMotionMs": 238.199951171875,
+                "serverResponseMs": 142.100341796875
+              },
+              {
+                "firstMotionMs": 285.39990234375,
+                "serverResponseMs": 166.202392578125
+              }
+            ]
+          },
+          {
+            "role": "DM",
+            "firstPaint": {
+              "mean": 304.2686767578125,
+              "median": 264.9000244140625,
+              "max": 551.7998046875
+            },
+            "server": {
+              "mean": 161.16024780273438,
+              "median": 158.681396484375,
+              "max": 224.613037109375
+            },
+            "geometry": {
+              "mean": 7.05694580078125,
+              "median": 6.0155029296875,
+              "max": 14.656005859375
+            },
+            "samples": [
+              {
+                "firstMotionMs": 343.999755859375,
+                "serverResponseMs": 200.520263671875
+              },
+              {
+                "firstMotionMs": 302.199951171875,
+                "serverResponseMs": 166.919677734375
+              },
+              {
+                "firstMotionMs": 515.2998046875,
+                "serverResponseMs": 224.613037109375
+              },
+              {
+                "firstMotionMs": 551.7998046875,
+                "serverResponseMs": 222.236572265625
+              },
+              {
+                "firstMotionMs": 314.7998046875,
+                "serverResponseMs": 163.753662109375
+              },
+              {
+                "firstMotionMs": 239.699951171875,
+                "serverResponseMs": 115.188720703125
+              },
+              {
+                "firstMotionMs": 223,
+                "serverResponseMs": 117.47216796875
+              },
+              {
+                "firstMotionMs": 209.599853515625,
+                "serverResponseMs": 102.0263671875
+              },
+              {
+                "firstMotionMs": 325.699951171875,
+                "serverResponseMs": 199.10498046875
+              },
+              {
+                "firstMotionMs": 244,
+                "serverResponseMs": 152.79931640625
+              },
+              {
+                "firstMotionMs": 264.800048828125,
+                "serverResponseMs": 155.62158203125
+              },
+              {
+                "firstMotionMs": 265,
+                "serverResponseMs": 161.7412109375
+              },
+              {
+                "firstMotionMs": 259.39990234375,
+                "serverResponseMs": 148.103759765625
+              },
+              {
+                "firstMotionMs": 250.300048828125,
+                "serverResponseMs": 141.59033203125
+              },
+              {
+                "firstMotionMs": 238.300048828125,
+                "serverResponseMs": 141.447265625
+              },
+              {
+                "firstMotionMs": 320.39990234375,
+                "serverResponseMs": 165.425048828125
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "mode": "local-2d",
+        "roles": [
+          {
+            "role": "Player",
+            "firstPaint": {
+              "mean": 268.82501220703125,
+              "median": 232.9000244140625,
+              "max": 531.5
+            },
+            "server": {
+              "mean": 38.491485595703125,
+              "median": 32.802978515625,
+              "max": 70.1533203125
+            },
+            "geometry": {
+              "mean": 4.22491455078125,
+              "median": 2.299072265625,
+              "max": 30.115478515625
+            },
+            "samples": [
+              {
+                "firstMotionMs": 284.5,
+                "serverResponseMs": 18.3212890625
+              },
+              {
+                "firstMotionMs": 325.400146484375,
+                "serverResponseMs": 30.299560546875
+              },
+              {
+                "firstMotionMs": 531.5,
+                "serverResponseMs": 60.437255859375
+              },
+              {
+                "firstMotionMs": 196.39990234375,
+                "serverResponseMs": 61.542724609375
+              },
+              {
+                "firstMotionMs": 225.39990234375,
+                "serverResponseMs": 44.693115234375
+              },
+              {
+                "firstMotionMs": 240.400146484375,
+                "serverResponseMs": 27.797607421875
+              },
+              {
+                "firstMotionMs": 198.400146484375,
+                "serverResponseMs": 23.920654296875
+              },
+              {
+                "firstMotionMs": 175.699951171875,
+                "serverResponseMs": 20.761474609375
+              },
+              {
+                "firstMotionMs": 282.199951171875,
+                "serverResponseMs": 23.510009765625
+              },
+              {
+                "firstMotionMs": 217.89990234375,
+                "serverResponseMs": 49.709228515625
+              },
+              {
+                "firstMotionMs": 194.699951171875,
+                "serverResponseMs": 28.5673828125
+              },
+              {
+                "firstMotionMs": 170.099853515625,
+                "serverResponseMs": 44.740478515625
+              },
+              {
+                "firstMotionMs": 274.400146484375,
+                "serverResponseMs": 55.5244140625
+              },
+              {
+                "firstMotionMs": 366.400146484375,
+                "serverResponseMs": 70.1533203125
+              },
+              {
+                "firstMotionMs": 395.5,
+                "serverResponseMs": 35.306396484375
+              },
+              {
+                "firstMotionMs": 222.300048828125,
+                "serverResponseMs": 20.578857421875
+              }
+            ]
+          },
+          {
+            "role": "DM",
+            "firstPaint": {
+              "mean": 224.80618286132812,
+              "median": 194.099853515625,
+              "max": 411.89990234375
+            },
+            "server": {
+              "mean": 39.29264831542969,
+              "median": 33.7950439453125,
+              "max": 71.30078125
+            },
+            "geometry": {
+              "mean": 4.0885162353515625,
+              "median": 2.1495361328125,
+              "max": 30.083740234375
+            },
+            "samples": [
+              {
+                "firstMotionMs": 278.2001953125,
+                "serverResponseMs": 18.768310546875
+              },
+              {
+                "firstMotionMs": 331.199951171875,
+                "serverResponseMs": 31.036376953125
+              },
+              {
+                "firstMotionMs": 242.39990234375,
+                "serverResponseMs": 61.076416015625
+              },
+              {
+                "firstMotionMs": 196,
+                "serverResponseMs": 62.3857421875
+              },
+              {
+                "firstMotionMs": 189.89990234375,
+                "serverResponseMs": 45.717529296875
+              },
+              {
+                "firstMotionMs": 189.5,
+                "serverResponseMs": 28.663330078125
+              },
+              {
+                "firstMotionMs": 177.900146484375,
+                "serverResponseMs": 24.711669921875
+              },
+              {
+                "firstMotionMs": 152.39990234375,
+                "serverResponseMs": 21.52880859375
+              },
+              {
+                "firstMotionMs": 269.39990234375,
+                "serverResponseMs": 24.020751953125
+              },
+              {
+                "firstMotionMs": 192.19970703125,
+                "serverResponseMs": 50.171142578125
+              },
+              {
+                "firstMotionMs": 172.699951171875,
+                "serverResponseMs": 29.276611328125
+              },
+              {
+                "firstMotionMs": 162.999755859375,
+                "serverResponseMs": 45.6337890625
+              },
+              {
+                "firstMotionMs": 204.699951171875,
+                "serverResponseMs": 56.435546875
+              },
+              {
+                "firstMotionMs": 411.89990234375,
+                "serverResponseMs": 71.30078125
+              },
+              {
+                "firstMotionMs": 288.7998046875,
+                "serverResponseMs": 36.5537109375
+              },
+              {
+                "firstMotionMs": 136.699951171875,
+                "serverResponseMs": 21.40185546875
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "mode": "local-3d",
+        "roles": [
+          {
+            "role": "Player",
+            "firstPaint": {
+              "mean": 430.41258239746094,
+              "median": 356.050048828125,
+              "max": 830.300048828125
+            },
+            "server": {
+              "mean": 37.77333068847656,
+              "median": 36.7060546875,
+              "max": 54.838134765625
+            },
+            "geometry": {
+              "mean": 2.5650177001953125,
+              "median": 1.9608154296875,
+              "max": 12.778564453125
+            },
+            "samples": [
+              {
+                "firstMotionMs": 830.300048828125,
+                "serverResponseMs": 54.838134765625
+              },
+              {
+                "firstMotionMs": 755.199951171875,
+                "serverResponseMs": 45.357421875
+              },
+              {
+                "firstMotionMs": 435.400146484375,
+                "serverResponseMs": 29.447998046875
+              },
+              {
+                "firstMotionMs": 342.10009765625,
+                "serverResponseMs": 45.591552734375
+              },
+              {
+                "firstMotionMs": 306.10009765625,
+                "serverResponseMs": 45.657958984375
+              },
+              {
+                "firstMotionMs": 322.699951171875,
+                "serverResponseMs": 28.133544921875
+              },
+              {
+                "firstMotionMs": 279.900146484375,
+                "serverResponseMs": 33.43017578125
+              },
+              {
+                "firstMotionMs": 431.89990234375,
+                "serverResponseMs": 33.191650390625
+              },
+              {
+                "firstMotionMs": 668.60009765625,
+                "serverResponseMs": 51.843994140625
+              },
+              {
+                "firstMotionMs": 370,
+                "serverResponseMs": 39.98193359375
+              },
+              {
+                "firstMotionMs": 531.7001953125,
+                "serverResponseMs": 31.911376953125
+              },
+              {
+                "firstMotionMs": 303.400146484375,
+                "serverResponseMs": 47.201904296875
+              },
+              {
+                "firstMotionMs": 325.800048828125,
+                "serverResponseMs": 40.41162109375
+              },
+              {
+                "firstMotionMs": 394.2001953125,
+                "serverResponseMs": 28.438232421875
+              },
+              {
+                "firstMotionMs": 271.400146484375,
+                "serverResponseMs": 28.37939453125
+              },
+              {
+                "firstMotionMs": 317.900146484375,
+                "serverResponseMs": 20.556396484375
+              }
+            ]
+          },
+          {
+            "role": "DM",
+            "firstPaint": {
+              "mean": 397.19384765625,
+              "median": 294.900146484375,
+              "max": 851.60009765625
+            },
+            "server": {
+              "mean": 38.61126708984375,
+              "median": 37.55615234375,
+              "max": 55.307373046875
+            },
+            "geometry": {
+              "mean": 2.46435546875,
+              "median": 1.8701171875,
+              "max": 12.6923828125
+            },
+            "samples": [
+              {
+                "firstMotionMs": 851.60009765625,
+                "serverResponseMs": 55.307373046875
+              },
+              {
+                "firstMotionMs": 731.699951171875,
+                "serverResponseMs": 46.068359375
+              },
+              {
+                "firstMotionMs": 436.300048828125,
+                "serverResponseMs": 30.03125
+              },
+              {
+                "firstMotionMs": 284.300048828125,
+                "serverResponseMs": 46.392333984375
+              },
+              {
+                "firstMotionMs": 280.800048828125,
+                "serverResponseMs": 46.4462890625
+              },
+              {
+                "firstMotionMs": 305.7001953125,
+                "serverResponseMs": 29.080810546875
+              },
+              {
+                "firstMotionMs": 210.000244140625,
+                "serverResponseMs": 34.504150390625
+              },
+              {
+                "firstMotionMs": 650.900146484375,
+                "serverResponseMs": 34.311767578125
+              },
+              {
+                "firstMotionMs": 650.2001953125,
+                "serverResponseMs": 52.450927734375
+              },
+              {
+                "firstMotionMs": 198.599853515625,
+                "serverResponseMs": 40.608154296875
+              },
+              {
+                "firstMotionMs": 538.300048828125,
+                "serverResponseMs": 32.634765625
+              },
+              {
+                "firstMotionMs": 230.300048828125,
+                "serverResponseMs": 48.029052734375
+              },
+              {
+                "firstMotionMs": 270.7001953125,
+                "serverResponseMs": 41.59619140625
+              },
+              {
+                "firstMotionMs": 305.500244140625,
+                "serverResponseMs": 29.384521484375
+              },
+              {
+                "firstMotionMs": 188.60009765625,
+                "serverResponseMs": 29.558349609375
+              },
+              {
+                "firstMotionMs": 221.60009765625,
+                "serverResponseMs": 21.3759765625
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "host": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor           ",
+    "logicalCpus": 16,
+    "browser": "156.0.8078.49"
+  },
+  "clientIndexSha256": "0324bd99b874e32212cab60c7eadf027ee959928dfbc790a0750b4b81e9d2600",
+  "sourceHashes": {
+    "server/src/visibilityWorkers.ts": "be1760c6c2ebc5183dee5555a2142369e4371e85f15b2852e537f661f035dfa4",
+    "server/src/visibilityWorker.ts": "c9ab2cc44cfe2ee38f3531dd9834d0d32b671965127988ab040ffd85695cdea6"
+  }
+}

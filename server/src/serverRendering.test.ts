@@ -98,7 +98,9 @@ it('prepares detailed wall outlines for standard mode without changing collision
  expect(g.outlines?.shapes['pc:60'].points.length).toBeGreaterThan(3);
  const lamp=Object.entries(g.outlines!.shapes).find(([key])=>key.startsWith('lamp:'))![1];
  expect(lamp.points).toEqual(wallVisibilityPolygon(vision.lights[0],vision.walls,SIGHT_EXTENT));
- expect(g.sight).toEqual([]);expect(g.near).toEqual([]);expect(g.lights).toEqual([]);expect(g.memory).toEqual([]);
+ // Base geometry remains reusable by Legacy; standard delivery removes these
+ // paths at the transport boundary (covered in stateDelivery.test.ts).
+ expect(g.sight).toHaveLength(1);expect(g.near).toHaveLength(1);expect(g.lights).toHaveLength(1);expect(g.memory).toEqual([]);
  const s={map:{id:'std3d',imagePath:null,gridSizePx:50,feetPerSquare:5},characters:[{id:'c1',name:'Druk',icon:'D',conditions:[],deathSaves:{successes:0,failures:0}}],tokens:[{id:'pc1',kind:'pc',refId:'c1',widthFt:5,x:50,y:50},{id:'m1',kind:'monster',refId:'gob',widthFt:5,x:100,y:100},{id:'obj1',kind:'monster',refId:'customObj',widthFt:5,x:150,y:150}],monsters:[{id:'gob',name:'Goblin',modelType:'goblin',conditions:[],disposition:'enemy',icon:'G',dead:false},{id:'customObj',name:'Statue',objectKind:'custom',conditions:[],disposition:'neutral',icon:'S',dead:false}]} as unknown as StateSnapshot;
  const rendered3d=await renderedSnapshot('viewer',s,false,false,false,undefined,false,{pc:false,monster:false});
  expect(Object.keys(rendered3d.tokenSprites??{})).toEqual(['obj1']);
