@@ -4,11 +4,13 @@ Baseline: `677a6921870d415f88da54346e08668a03a4c2d6`. Results are summarized in 
 
 Follow-up: [heavy mixed-mode browser comparison](shared-visibility-heavy-2026-10-31.md), with 141 tokens, 48 lights, three simultaneous viewers, and both normal and 6x browser CPU rates.
 
+The later [server-mask/local-color experiment failed performance and Legacy visual acceptance](rendering-performance-history.md#failed-attempt-server-masks-with-local-color). That prototype is archived separately and is not part of this geometry-sharing change.
+
 ## Change and visual compatibility
 
 Legacy and standard 2D/3D now share a base geometry calculation regardless of which mode requests it first. Requests in the same event-loop batch upgrade a queued job to include detailed outlines. If the basic job has already started or completed, the detailed request computes only the additional outlines; it does not rebuild or transfer the basic paths through the worker again.
 
-Stationary lamps are cached separately from personal sight. A character's movement, personal darkvision radius, or exploration history no longer invalidates an otherwise identical lamp layer. Each viewer still receives their own authorized memory and token affinity. Different authorized light lists remain distinct.
+Lamp geometry is cached separately from personal sight, so changes limited to personal origins, darkvision radius, or exploration history can reuse an identical lamp list. **Review correction (2026-10-31): the split also includes carried lanterns. Moving one changes the combined lamp cache key and can recompute stationary lamps. The earlier claim that character movement never invalidates stationary lamps was too broad.** Each viewer still receives their own authorized memory and token affinity; different authorized light lists remain distinct. See the [performance history and unresolved PR #170 review](rendering-performance-history.md#pr-170-review-unresolved-carried-lantern-cache-issue).
 
 The existing renderers, color constants, attenuation bands, spell effects, movement playback, mask generation, and image formats are preserved. This change shares their inputs; it does not introduce the separately proposed server-mask/local-color renderer. Regression checks compare the complete geometry and Legacy mask/lighting SVG inputs against an unsplit worker across daylight, regular/heavy darkness, walls enabled/disabled, remembered/revealed terrain, and transient spell lighting. Browser tests cover Legacy player/DM animation and switching server assist and rendering modes.
 
