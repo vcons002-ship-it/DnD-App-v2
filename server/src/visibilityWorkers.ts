@@ -118,7 +118,7 @@ export class VisibilityWorkers{
    const task=interactiveIdx>=0?this.queue.splice(interactiveIdx,1)[0]!:this.queue.shift()!;
    slot.active=task;slot.worker.ref();if(task.observe)task.startedAt=performance.now();
    task.timer=setTimeout(()=>{this.metrics.failed++;slot.active=undefined;task.reject(new Error('Visibility calculation timed out'));this.slots=this.slots.filter(s=>s!==slot);void slot.worker.terminate();this.pump();},10000);
-   if(slot.pendingSync.length){for(const sync of slot.pendingSync.splice(0))slot.worker.postMessage({syncCache:sync});}
+   if(slot.pendingSync.length){const batch=slot.pendingSync.splice(0);slot.worker.postMessage({syncCache:batch.length===1?batch[0]:{newBases:batch.flatMap(b=>b.newBases??[]),newLights:batch.flatMap(b=>b.newLights??[]),newMasks:batch.flatMap(b=>b.newMasks??[]),newGradedPngs:batch.flatMap(b=>b.newGradedPngs??[]),newTiles:batch.flatMap(b=>b.newTiles??[]),newMaskResults:batch.flatMap(b=>b.newMaskResults??[]),newPolygons:batch.flatMap(b=>b.newPolygons??[])}});}
    this.dispatched.add(task.job);
    const workerJob='vision' in task.job&&!('walkSight' in task.job)&&!('token' in task.job)?{mapId:task.job.mapId,vision:task.job.vision,wallFog:task.job.wallFog,detailed:task.job.detailed,outlinesOnly:task.job.outlinesOnly,tokens:[]}:task.job;
    slot.worker.postMessage({id:task.id,job:workerJob,...(task.observe?{diagnostic:true}:{})});
