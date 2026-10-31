@@ -6,7 +6,7 @@ This reference separates three source states:
 
 | State | Revision | Meaning |
 | --- | --- | --- |
-| Main branch inspected | `851c104d` | Existing rendering paths; no mask/color separation. This is a source description, not a fresh deployment audit. |
+| Main branch inspected | `e22b72d8` | Existing rendering paths; no mask/color separation. This is a source description, not a fresh deployment audit. |
 | PR #170 reviewed | `d7ef3d3f` | Geometry-sharing benchmark revision; existing renderers and colors retained. Its carried-lantern cache issue was fixed in the follow-up below; historical measurements are unchanged. |
 | Rejected prototype | [`e1fbbd15`](https://github.com/vcons002-ship-it/DnD-App-v2/commit/e1fbbd15) on `codex/server-mask-color-experiment` | Archived source, harness, and results. Default-off protocol 4 experiment based on PR #170; not deployed by this work. |
 
@@ -97,6 +97,8 @@ This describes the inspected source states above. Server assist and graphics mod
 Without assist, clients additionally perform their mode's visibility/mask/artwork preparation locally, while the server continues authoritative rules, exploration, and privacy filtering. Legacy can animate locally; older reports describing mandatory snap movement are historical. Animation and server-sampled visibility are distinct: moving a token smoothly does not make visibility preparation free.
 
 PR #170 adds order-independent sharing between basic Legacy geometry and detailed standard geometry. Requests batched together can upgrade one queued job; a late detailed request adds outlines without rebuilding the base result. Viewer-specific memory/affinity is applied separately. It does **not** unify every rendered asset across modes, nor implement the rejected mask/color split.
+
+Merge integration with main `e22b72d8`: standard 2D/3D delivery now omits unused base sight/light/memory paths while the worker pool retains them for sharing with Legacy. A detailed job may serve both modes, so only an explicit outline-only augmentation can omit base computation. This preserves cache correctness and the standard transport reduction; it does not promise the new main branch's standalone outlines-only compute saving. Mode-aware sprite preparation also omits artwork for supported 3D tokens while retaining required 2D fallbacks. An integration regression covers standard player/DM preview output and subsequent Legacy cache reuse. The final rebased suite passed 2,442 tests across 248 files (194.60 seconds), plus 110 targeted tests, both typechecks, and the client build. An earlier full run ended with a Vitest worker process exit and five incomplete tests; the complete retry passed. GitHub CI failed at checkout because the repository exceeded its LFS budget. Timing tables above predate this integration.
 
 Relevant source: [delivery](../../server/src/stateDelivery.ts), [rendered snapshots](../../server/src/renderedSnapshot.ts), [Legacy motion preparation](../../server/src/legacyMotion.ts), [geometry workers](../../server/src/visibilityWorkers.ts), [client state](../../client/src/state/socket.ts), and [map presentation](../../client/src/canvas/MapStage.tsx).
 
