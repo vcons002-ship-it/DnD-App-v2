@@ -8,6 +8,15 @@ const markQuantized=(shape:ExploredTerrain)=>(quantizedShapes.add(shape),shape);
 export const quantizeTerrain=(shape:ExploredTerrain):ExploredTerrain=>quantizedShapes.has(shape)?shape:markQuantized(shape.map(p=>p.map(r=>r.map(([x,y])=>[Math.round(x*64)/64,Math.round(y*64)/64]))));
 export const unionTerrain=(parts:ExploredTerrain[]):ExploredTerrain=>parts.length?clipping.union(quantizeTerrain(parts[0]),...parts.slice(1).map(quantizeTerrain)):[];
 let cachedWalls:PlayerVision['walls'],cachedWallKey='[]';const sharedCache=new Map<string,ExploredTerrain>();
+export type TerrainCacheObserver=(wallsKey:string,key:string,shape:ExploredTerrain)=>void;
+export function seedTerrainCache(wallsKey:string,entries:{key:string;shape:ExploredTerrain}[]){
+ if(wallsKey!==cachedWallKey){cachedWalls=undefined;cachedWallKey=wallsKey;sharedCache.clear();}
+ for(const {key,shape} of entries){
+  if(sharedCache.has(key))continue;
+  if(sharedCache.size>=1024)sharedCache.delete(sharedCache.keys().next().value!);
+  sharedCache.set(key,markQuantized(shape));
+ }
+}
 const lightReachCache=new Map<string,number>();
 function terrainLightReach(light:PlayerVision['lights'][number]){
  const key=`${light.radius}:${light.height}:${light.strength}:${!!light.transient}`,hit=lightReachCache.get(key);
@@ -52,14 +61,14 @@ export function fogTerrain(map:MapState):ExploredTerrain{
 export type WalkSightJob={walkSight:{map:MapState;tokens:Token[];tokenId:string;from:{x:number;y:number};to:{x:number;y:number}}};
 /** Half-grid walking samples, capped at 128 intervals for pathological drags.
  * This is terrain history only; it never authorizes creature data. */
-export function walkingTerrain({walkSight:{map,tokens,tokenId,from,to}}:WalkSightJob){
+export function walkingTerrain({walkSight:{map,tokens,tokenId,from,to}}:WalkSightJob,onCache?:TerrainCacheObserver){
  const count=Math.min(128,Math.max(2,Math.ceil(Math.hypot(to.x-from.x,to.y-from.y)/Math.max(1,map.gridSizePx/2))));
  const steps=count%2?Math.min(128,count+1):count,cache=terrainCacheFor(map.walls);
  const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId));
  const combine=(parts:ExploredTerrain[])=>parts.length===1?parts[0]:unionTerrain(parts);
- const polygon=(point:{x:number;y:number},radius:number)=>{
+ const polygon=(point:{x:number;y:number},radius:number,share=false)=>{
   const key=`${point.x},${point.y}:${radius}`;let shape=cache.get(key);
-  if(!shape){shape=markQuantized([[wallVisibilityPolygon(point,map.walls??[],radius).map(p=>[Math.round(p.x*64)/64,Math.round(p.y*64)/64])]]);cache.set(key,shape);}return shape;
+  if(!shape){shape=markQuantized([[wallVisibilityPolygon(point,map.walls??[],radius).map(p=>[Math.round(p.x*64)/64,Math.round(p.y*64)/64])]]);cache.set(key,shape);if(share)onCache?.(cachedWallKey,key,shape);}return shape;
  };
  const fallbackOrigins=(at:Token[])=>at.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y}));
  const dynamicLanterns=tokens.some(t=>t.carriedLantern&&!t.isHidden&&(t.kind!=='pc'||!owned.has(t.refId)));
@@ -69,13 +78,14 @@ export function walkingTerrain({walkSight:{map,tokens,tokenId,from,to}}:WalkSigh
  if(baseVision?.heavy&&baseVision.lights.length){
   const extending=baseVision.lights.flatMap(light=>{
    const lo=terrainLightReach(light);
-   const covered=baseVision.origins.some(o=>o.id===light.id&&lo+1/64<=baseVision.radius);
+   const covered=baseVision.origins.some(o=>o.id===light.id&&lo+1/64<=baseVision.radius||o.id!==tokenId&&Math.hypot(o.x-light.x,o.y-light.y)+lo<=baseVision.radius*Math.cos(Math.PI/96)-1/64);
    return covered?[]:[{light,radius:lo}];
   });
   if(extending.length){
    const key='lights:'+JSON.stringify(extending);
-   staticLights=cache.get(key)??(combine(extending.map(({light,radius})=>polygon(light,radius))));
-   cache.set(key,staticLights);
+   let cached=cache.get(key);
+   if(!cached){cached=markQuantized(combine(extending.map(({light,radius})=>polygon(light,radius))));cache.set(key,cached);onCache?.(cachedWallKey,key,cached);}
+   staticLights=cached;
   }
  }
  const sweep=(startStep:number,endStep:number,seed?:ExploredTerrain):ExploredTerrain=>{
@@ -86,10 +96,10 @@ export function walkingTerrain({walkSight:{map,tokens,tokenId,from,to}}:WalkSigh
    if(baseVision){
     if(!baseVision.origins.length)continue;
     for(const o of baseVision.origins){
-     const pt=o.id===tokenId?{x,y}:o;
-     if(!baseVision.heavy){nearSet.add(polygon(pt,SIGHT_EXTENT));continue;}
-     nearSet.add(polygon(pt,baseVision.radius));
-     if(staticLights.length)staticSights.add(polygon(pt,SIGHT_EXTENT));
+     const pt=o.id===tokenId?{x,y}:o,share=o.id!==tokenId||i===0||i===steps;
+     if(!baseVision.heavy){nearSet.add(polygon(pt,SIGHT_EXTENT,share));continue;}
+     nearSet.add(polygon(pt,baseVision.radius,share));
+     if(staticLights.length)staticSights.add(polygon(pt,SIGHT_EXTENT,share));
     }
     continue;
    }
@@ -100,7 +110,7 @@ export function walkingTerrain({walkSight:{map,tokens,tokenId,from,to}}:WalkSigh
    for(const o of vision.origins)nearSet.add(polygon(o,vision.radius));
    const extending=vision.lights.flatMap(light=>{
     const lo=terrainLightReach(light);
-    const covered=vision.origins.some(o=>o.x===light.x&&o.y===light.y&&lo+1/64<=vision.radius);
+    const covered=vision.origins.some(o=>o.x===light.x&&o.y===light.y&&lo+1/64<=vision.radius)||vision.origins.length===1&&Math.hypot(vision.origins[0].x-light.x,vision.origins[0].y-light.y)+lo<=vision.radius*Math.cos(Math.PI/96)-1/64;
     return covered?[]:[{light,radius:lo}];
    });
    if(!extending.length)continue;
@@ -108,21 +118,26 @@ export function walkingTerrain({walkSight:{map,tokens,tokenId,from,to}}:WalkSigh
    let group=byLights.get(key);
    if(!group){
     let lights=cache.get(key);
-    if(!lights){lights=combine(extending.map(({light,radius})=>polygon(light,radius)));cache.set(key,lights);}
+    if(!lights){lights=markQuantized(combine(extending.map(({light,radius})=>polygon(light,radius))));cache.set(key,lights);onCache?.(cachedWallKey,key,lights);}
     group={lights,sights:new Set()};byLights.set(key,group);
    }
    for(const o of vision.origins)group.sights.add(polygon(o,SIGHT_EXTENT));
   }
   for(const shape of nearSet)parts.push(shape);
-  if(staticLights.length&&staticSights.size){
-   const sight=combine([...staticSights]);
-   parts.push(clipping.intersection(quantizeTerrain(sight),quantizeTerrain(staticLights)));
-  }
-  for(const {lights,sights} of byLights.values()){
-   if(!lights.length||!sights.size)continue;
-   const sight=combine([...sights]);
-   parts.push(clipping.intersection(quantizeTerrain(sight),quantizeTerrain(lights)));
-  }
+  const clipLitSights=(sights:Set<ExploredTerrain>,lights:ExploredTerrain)=>{
+   const list=[...sights],qLights=quantizeTerrain(lights);
+   for(let i=0;i<list.length;i+=4){
+    const chunk=list.slice(i,i+4);
+    try{
+     const sight=combine(chunk);
+     parts.push(clipping.intersection(quantizeTerrain(sight),qLights));
+    }catch{
+     for(const s of chunk)parts.push(clipping.intersection(quantizeTerrain(s),qLights));
+    }
+   }
+  };
+  if(staticLights.length&&staticSights.size)clipLitSights(staticSights,staticLights);
+  for(const {lights,sights} of byLights.values())if(lights.length&&sights.size)clipLitSights(sights,lights);
   return combine(parts);
  };
  const half=sweep(0,steps/2),seen=sweep(steps/2+1,steps,half),fog=map.mapFogEnabled?fogTerrain(map):undefined;

@@ -7,7 +7,8 @@ import {createHash} from 'node:crypto';
 import sharp from 'sharp';
 import {visionShowsAffinity} from '../../shared/playerVision.js';
 import {movementPreview,type MovementPreviewJob} from '../../shared/movementPreview.js';
-import {walkingTerrain,type WalkSightJob} from '../../shared/explorationSight.js';
+import {walkingTerrain,seedTerrainCache,type WalkSightJob} from '../../shared/explorationSight.js';
+import type {ExploredTerrain} from '../../shared/exploration.js';
 import type {TerrainFramesJob} from './legacyTerrain.js';
 import {terrainAtlas,applyAtlasCacheSync,toSharedBuffer,fromSharedBuffer} from './terrainAtlas.js';
 type PolygonObserver=(wallsKey:string,key:string,entry:CachedPolygon)=>void;
@@ -52,6 +53,7 @@ function applySync(sync:WorkerCacheSync){
   const g=getMapGeometry(p.mapId);
   g.geometry.seed(p.wallsKey,p.entries);
  }
+ for(const ts of sync.newTerrainShapes??[])seedTerrainCache(ts.wallsKey,ts.entries);
 }
 parentPort!.on('message',async(msg:{id?:number;job?:GeometryJob|MovementPreviewJob|RasterJob|MaskTilesJob|WalkSightJob|TerrainFramesJob;diagnostic?:boolean;syncCache?:WorkerCacheSync})=>{
  if(msg.syncCache){applySync(msg.syncCache);return;}
@@ -80,7 +82,12 @@ parentPort!.on('message',async(msg:{id?:number;job?:GeometryJob|MovementPreviewJ
    const result=await terrainAtlas({baseKey:key,base:basePromise,width:w,height:h,columns,maskSvgs,lightSvgs,compact,onCache:sync=>parentPort!.postMessage({syncCache:sync})});
    parentPort!.postMessage({id,result,ms:performance.now()-start,...(diagnostic?{terrain:result.timings}:{})});return;
   }
-  if('walkSight' in job){parentPort!.postMessage({id,result:walkingTerrain(job),ms:performance.now()-start});return;}
+  if('walkSight' in job){
+   let wk='';const entries:{key:string;shape:ExploredTerrain}[]=[];
+   const result=walkingTerrain(job,(wallsKey,key,shape)=>{wk=wallsKey;entries.push({key,shape});});
+   if(entries.length)parentPort!.postMessage({syncCache:{newTerrainShapes:[{wallsKey:wk,entries}]}});
+   parentPort!.postMessage({id,result,ms:performance.now()-start});return;
+  }
   if('maskTiles' in job){
    const {svg,width,height,tileSize}=job.maskTiles,maskKey=`${width}:${height}:${tileSize}:${svg}`;
    const hit=maskResultCache.get(maskKey);if(hit){maskResultCache.delete(maskKey);maskResultCache.set(maskKey,hit);parentPort!.postMessage({id,result:hit,ms:performance.now()-start,...(diagnostic?{detail:{rasterMs:0,copyHashMs:0,encodeMs:0,tiles:hit.tiles.length,encodedTiles:0,cached:true}}:{})});return;}
