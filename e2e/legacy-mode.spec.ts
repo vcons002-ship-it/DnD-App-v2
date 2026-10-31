@@ -97,7 +97,9 @@ test('legacy DM edits lights and walls with basic occluded visibility on a throt
   await expectViewportCanvases(page);
   await page.setViewportSize({width:1400,height:900});await expectViewportCanvases(page);
   await page.setViewportSize({width:1500,height:1000});await expectViewportCanvases(page);
+  await page.locator('summary',{hasText:'Campaign'}).click();await page.getByRole('button',{name:'⚙ Settings'}).click();
   await expect(page.getByRole('button',{name:'3D player tokens',exact:true})).toBeDisabled();
+  await page.locator('.modal-head').getByRole('button',{name:'✕'}).click();
   await page.getByLabel('Battlefield visibility').selectOption('player');
   const vision=page.getByTestId('legacy-vision');await expect(vision).toHaveAttribute('data-origin-count','1');
   await expect(vision).toHaveAttribute('data-geometry-source','server');

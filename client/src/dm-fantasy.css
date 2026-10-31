@@ -21,7 +21,6 @@
 .dm-fantasy .topbar > strong { font-family: 'Cinzel HUD', Georgia, serif; color: #dfc490; letter-spacing: .13em; padding-right: 10px; border-right: 1px solid #67563b; }
 .dm-fantasy .session-title { max-width: 240px; }
 .dm-fantasy .active-map { color: #cec3ad; }
-.dm-fantasy .topbar .map-tool-slot { order: 5; width: 100%; border-top: 1px solid #51483c66; padding-top: 7px; }
 .dm-fantasy .map-tool-menus { flex-wrap: wrap; }
 .dm-campaign-menu { margin-left: auto; position: relative; }
 .dm-campaign-menu > summary { list-style: none; cursor: pointer; padding: 7px 12px; }

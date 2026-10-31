@@ -69,7 +69,7 @@ export function HardwareBenchmarkPanel({compact=false,onResult,onApplyAndStart}:
 /** Available before joining, before any optional scene can start loading. */
 export function LegacyModeControl({toolbar=false}:{toolbar?:boolean}={}){
  const {quality,setQuality}=useEnvironmentQuality();
- return <><label className="legacy-mode-control"><input type="checkbox" checked={quality==='legacy'} onChange={e=>setQuality(e.target.checked?'legacy':readStandardGraphicsQuality())}/>Legacy mode <small>For older CPUs and integrated graphics. Only changes this browser.</small></label><ServerRenderingControl/>{!toolbar&&<DiceRenderingControl/>}</>;
+ return <><label className="legacy-mode-control"><input type="checkbox" checked={quality==='legacy'} onChange={e=>setQuality(e.target.checked?'legacy':readStandardGraphicsQuality())}/>Legacy mode <small>For older CPUs and integrated graphics. Only changes this browser.</small></label><ServerRenderingControl showAdvice={!toolbar}/>{!toolbar&&<DiceRenderingControl/>}</>;
 }
 export function RenderingModeClass(){
  const {budget}=useEnvironmentQuality();

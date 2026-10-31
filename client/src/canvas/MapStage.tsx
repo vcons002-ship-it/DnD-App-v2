@@ -7,7 +7,7 @@ import {sameBoardSnapshot} from '../../../shared/boardSnapshot';
 import {LegacyVisionOverlay} from './LegacyVisionOverlay';
 import {LegacyModeControl} from '../components/LegacyModeControl';
 import {useLegacyMovement} from '../lib/useLegacyMovement';
-import {ServerRenderingOwnerControls} from '../components/ServerRenderingControl';
+import {useTokenAppearance} from '../components/TokenAppearanceControl';
 import {apiFetch} from '../lib/api';
 import {MapArtwork} from './MapArtwork';
 import {useMapAnimation} from '../lib/useMapAnimation';
@@ -78,7 +78,6 @@ import {useEnvironmentEditor} from '../lib/useEnvironmentEditor';
 import {DEFAULT_MAP_ENVIRONMENT} from '../../../shared/mapEnvironment';
 import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import { ScaleMenu } from '../components/ScaleMenu';
-import { TilesMenu } from '../components/TilesMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
 import { DecalPopup } from '../components/DecalPopup';
 import { RollLogOverlay } from '../components/RollLogOverlay';
@@ -508,17 +507,7 @@ function MapStageInner({
   const rotationGesture=useRef<{x:number;start:number;angle:number;pointerId:number;frame:number;view:View}|null>(null);
   useEffect(()=>()=>{cancelBattlefieldFrame(viewAnimation.current);if(rotationGesture.current)cancelBattlefieldFrame(rotationGesture.current.frame);},[]);
   useLayoutEffect(()=>{cancelBattlefieldFrame(viewAnimation.current);projectionState.current={tilt:tiltDegrees,rotation:rotationDegrees};},[legacy]);
-  const tokenPreferenceKey = `dnd.tokenView:${getPlayerId()}`;
-  const [preferred3dTokens, setUse3dTokens] = useState(() => {
-    try { return localStorage.getItem(tokenPreferenceKey) !== '2d'; }
-    catch { return true; }
-  });
-  const monsterPreferenceKey = `dnd.monsterTokenView:${getPlayerId()}`;
-  const [preferred3dMonsters, setUse3dMonsters] = useState(() => {
-    try { return (localStorage.getItem(monsterPreferenceKey) ?? localStorage.getItem(tokenPreferenceKey)) !== '2d'; }
-    catch { return true; }
-  });
-  const use3dTokens=!legacy&&preferred3dTokens, use3dMonsters=!legacy&&preferred3dMonsters;
+  const {use3dTokens,use3dMonsters}=useTokenAppearance();
   useEffect(()=>{useStore.getState().socket?.emit('client:rendering',legacy,{pc:legacy||!use3dTokens||miniaturesUnavailable,monster:legacy||!use3dMonsters||miniaturesUnavailable});},[legacy,use3dTokens,use3dMonsters,miniaturesUnavailable,previewSocketId]);
   const groundScaleY = groundYScale(tiltDegrees);
   const [menu, setMenu] = useState<{ token: Token; x: number; y: number } | null>(
@@ -527,6 +516,7 @@ function MapStageInner({
   const [hover, setHover] = useState<{ token: Token; x: number; y: number } | null>(
     null,
   );
+  useEffect(()=>{setHover(null);setMenu(null);},[use3dTokens,use3dMonsters]);
   // Konva fires no mouseout for an unmounted node, so a hover card / floating menu
   // can linger after its token leaves the snapshot (deleted, hidden, fogged, or
   // moved off this map). Prune them when the referenced id is gone.
@@ -2218,7 +2208,6 @@ function MapStageInner({
             </span>
             <CompactToolbarMenu label="View">
             <LegacyModeControl toolbar/>
-            <ServerRenderingOwnerControls/>
             <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
               <span className="muted">Your view</span>
               {actualDm&&<select className="btn tiny" aria-label="Battlefield visibility" value={dmViewMode}
@@ -2237,25 +2226,6 @@ function MapStageInner({
                 onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,0)}>Reset rotation</button>
             </div>
             {!legacy&&(map?.videoPath||tiles.some(t=>t.videoPath))&&<button className={`btn tiny ${animateMap?'on':''}`} aria-label="Toggle map animation" aria-pressed={animateMap} title="Animate the map in your view, or use its still image for better performance" onClick={()=>mapAnimation.setEnabled(!mapAnimation.enabled)}>Map animation: {animateMap?'On':'Off'}</button>}
-            {([
-              { label: 'Players', kind: 'player', enabled: use3dTokens, set: setUse3dTokens, key: tokenPreferenceKey },
-              { label: 'Monsters', kind: 'monster', enabled: use3dMonsters, set: setUse3dMonsters, key: monsterPreferenceKey },
-            ] as const).map(group => <div key={group.kind} className="battlefield-view-options token-appearance-options" role="group" aria-label={`${group.label} token appearance`}>
-              <span className="muted">{group.label}</span>
-              {[false, true].map(enabled => (
-                <button disabled={legacy&&enabled} key={String(enabled)} className={`btn tiny ${group.enabled === enabled ? 'on' : ''}`}
-                  aria-label={`${enabled ? '3D' : '2D'} ${group.kind} tokens`} aria-pressed={group.enabled === enabled}
-                  title={group.kind === 'monster' ? 'Changes monsters, chests and traps in your view' : 'Only changes player tokens in your view'}
-                  onClick={() => {
-                    if (group.enabled === enabled) return;
-                    // Freeze the inherited monster setting before changing the legacy PC key.
-                    if (group.kind === 'player') safeSetItem(monsterPreferenceKey, use3dMonsters ? '3d' : '2d');
-                    group.set(enabled);
-                    setHover(null); setMenu(null);
-                    safeSetItem(group.key, enabled ? '3d' : '2d');
-                  }}>{enabled ? '3D' : '2D'}</button>
-              ))}
-            </div>)}
             </CompactToolbarMenu>
           </div>, toolSlot)}
           {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
@@ -2384,6 +2354,7 @@ function MapStageInner({
                       }}
                     />
                     <WallMenu map={map} doors={doors} onDoor={openDoorControls} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap} canGenerateDecal={comfyOk} onGenerateDecal={generateScenery}
+                      tiles={tiles} arrangingTiles={tilesMode} onToggleArrangeTiles={() => setTilesMode((t) => !t)} onAddTileFile={addTileFromFile} onReorderTile={reorderMapImage} onRemoveTile={removeMapImage}
                       onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
                       onFinish={cancelWallStroke}
                       onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>
@@ -2405,14 +2376,6 @@ function MapStageInner({
                       onSetBrushSize={setBrushSize}
                       onCoverAll={() => map && coverFog(map.id, paintLayer)}
                       onRevealAll={() => revealAll(paintLayer)}
-                    />
-                    <TilesMenu
-                      tiles={tiles}
-                      arranging={tilesMode}
-                      onToggleArrange={() => setTilesMode((t) => !t)}
-                      onAddFile={addTileFromFile}
-                      onReorder={reorderMapImage}
-                      onRemove={removeMapImage}
                     />
                   </>
                 )}

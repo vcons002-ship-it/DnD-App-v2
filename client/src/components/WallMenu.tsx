@@ -1,4 +1,4 @@
-import type {MapState} from '../../../shared/types';
+import type {MapImage,MapState} from '../../../shared/types';
 import {WallDraft} from './WallDraft';
 import {DoorDraft} from './DoorDraft';
 import {LightDraft} from './LightDraft';
@@ -13,11 +13,12 @@ import {useEffect,useRef,useState} from 'react';
 
 export type WallTool='off'|'rectangle'|'draw'|'circle'|'freehand'|'edit'|'erase'|'erase-area'|'door';
 const toolNames:Record<WallTool,string>={off:'',rectangle:'Rectangle',draw:'Line',circle:'Circle',freehand:'Free draw',edit:'Move / rotate',erase:'Delete wall','erase-area':'Erase section',door:'Door'};
-export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,doors=[],onDoor,canGenerateDecal=false,onGenerateDecal}:{
+export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,doors=[],onDoor,canGenerateDecal=false,onGenerateDecal,tiles=[],arrangingTiles=false,onToggleArrangeTiles,onAddTileFile,onReorderTile,onRemoveTile}:{
   map?:MapState|null;
   tool:WallTool;count:number;snap:boolean;onTool:(tool:WallTool)=>void;
   onSnap:(snap:boolean)=>void;onUndo:()=>void;onFinish:()=>void;doors?:{id:string;open?:boolean}[];onDoor?:(id:string,open:boolean)=>void;
   canGenerateDecal?:boolean;onGenerateDecal?:(prompt:string)=>Promise<boolean>;
+  tiles?:MapImage[];arrangingTiles?:boolean;onToggleArrangeTiles?:()=>void;onAddTileFile?:(file:File)=>void;onReorderTile?:(id:string,to:'front'|'back')=>void;onRemoveTile?:(id:string)=>void;
 }){
   const mapImagesAvailable=useStore(s=>s.snapshot?.map?.id===map?.id&&!!s.snapshot?.mapImages.length);
   const [draftOpen,setDraftOpen]=useState(false);
@@ -27,10 +28,11 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
   const [setupDraftOpen,setSetupDraftOpen]=useState(false);
   const [setupOnly,setSetupOnly]=useState<MapSetupStep>();
   const [setupScope,setSetupScope]=useState<'full'|'regions'>('full');
-  const [section,setSection]=useState<'add'|'edit'|'lights'|'analysis'|null>(null);
+  const [section,setSection]=useState<'add'|'edit'|'lights'|'tiles'|'analysis'|null>(null);
   const [decalOpen,setDecalOpen]=useState(false);
   const [decalPrompt,setDecalPrompt]=useState('');
   const [decalBusy,setDecalBusy]=useState(false);
+  const tileFileRef=useRef<HTMLInputElement>(null);
   const placeLight=useEnvironmentEditor(s=>s.place);
   const startLight=(lightId?:string)=>{if(map){onTool('off');setPosition(null);placeLight({mapId:map.id,lightId});}};
   const submitDecal=async()=>{
@@ -66,14 +68,14 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
     {doorsDraftOpen&&map&&<DoorDraft key={map.id} map={map} onClose={()=>setDoorsDraftOpen(false)}/>}
     {lightsDraftOpen&&map&&<LightDraft key={map.id} map={map} onClose={()=>setLightsDraftOpen(false)}/>}
     {setupDraftOpen&&map&&<MapSetupDraft key={map.id+setupScope+setupOnly} map={map} scope={setupScope} only={setupOnly} onClose={()=>setSetupDraftOpen(false)}/>}
-    <button ref={button} className={`btn tiny ${tool!=='off'?'on':''}`} onClick={()=>{
+    <button ref={button} className={`btn tiny ${tool!=='off'||arrangingTiles?'on':''}`} onClick={()=>{
       const rect=button.current!.getBoundingClientRect();setPosition(position?null:{left:Math.max(8,Math.min(rect.left,window.innerWidth-304)),top:rect.bottom+4});
-    }} aria-label="Map features" aria-expanded={!!position} title="Add or adjust walls, doors, windows and lights">Map features{tool!=='off'?`: ${toolNames[tool]}`:''} ▾</button>
+    }} aria-label="Map features" aria-expanded={!!position} title="Add or adjust walls, doors, windows, lights and tiles">Map features{tool!=='off'?`: ${toolNames[tool]}`:arrangingTiles?': Tiles':''} ▾</button>
     {position&&<><div className="popover-backdrop" onClick={()=>setPosition(null)}/>
       <div className="measure-menu wall-menu" style={position} aria-label="Map feature tools">
         <button className={`measure-row wall-menu-adjust ${tool==='edit'?'on':''}`} onClick={()=>{onTool('edit');setPosition(null);}}>Adjust existing walls, doors, windows &amp; lights</button>
         <div className="wall-menu-sections">
-          {([['add','Add features'],['edit','Edit tools'],['lights','Lights'],['analysis','AI analysis']] as const).map(([id,label])=><button key={id} className={`btn tiny ${section===id?'on':''}`} aria-expanded={section===id} aria-controls={`wall-menu-${id}`} onClick={()=>setSection(section===id?null:id)}>{label}</button>)}
+          {([['add','Add features'],['edit','Edit tools'],['lights','Lights'],['tiles',tiles.length?`Tiles (${tiles.length})`:'Tiles'],['analysis','AI analysis']] as const).map(([id,label])=><button key={id} className={`btn tiny ${section===id?'on':''}`} aria-expanded={section===id} aria-controls={`wall-menu-${id}`} onClick={()=>setSection(section===id?null:id)}>{label}</button>)}
         </div>
         {section===null&&decalControls}
         {section==='analysis'&&<div id="wall-menu-analysis" className="wall-menu-section" role="region" aria-label="AI analysis">
@@ -96,6 +98,24 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
         <label className="measure-row"><span>Snap to grid corners</span><input type="checkbox" checked={snap} onChange={e=>onSnap(e.target.checked)}/></label>
         </div>}
         {section==='lights'&&map&&<div id="wall-menu-lights" className="wall-menu-section" role="region" aria-label="Lights"><MapLightControls map={map} onPlace={startLight}/></div>}
+        {section==='tiles'&&<div id="wall-menu-tiles" className="wall-menu-section tiles-menu" role="region" aria-label="Tiles">
+          <p className="hint">Add images or muted MP4/WebM videos and arrange them on the map to build a bigger battlemap. The grid, fog, and scale span all the tiles.</p>
+          <input ref={tileFileRef} type="file" accept="image/*,video/mp4,video/webm,.mp4,.webm" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f)onAddTileFile?.(f);if(tileFileRef.current)tileFileRef.current.value='';}}/>
+          <button className="btn tiny" onClick={()=>tileFileRef.current?.click()}>➕ Add map tile</button>
+          <label className="measure-row" style={{justifyContent:'space-between'}}>
+            <span>✥ Arrange on map (drag / resize)</span>
+            <input type="checkbox" checked={arrangingTiles} onChange={()=>onToggleArrangeTiles?.()}/>
+          </label>
+          {tiles.length>0&&<div className="measure-sep"/>}
+          <div className="tiles-list">
+            {tiles.map((t,i)=><div key={t.id} className="tiles-row">
+              <span className="tiles-name">Tile {i+1}</span>
+              <button className="btn tiny" title="Bring to front" onClick={()=>onReorderTile?.(t.id,'front')}>⤒</button>
+              <button className="btn tiny" title="Send to back" onClick={()=>onReorderTile?.(t.id,'back')}>⤓</button>
+              <button className="res-x" title="Remove tile" onClick={()=>onRemoveTile?.(t.id)}>✕</button>
+            </div>)}
+          </div>
+        </div>}
         {section==='edit'&&<div id="wall-menu-edit" className="wall-menu-section" role="region" aria-label="Edit tools">
         <button className={`measure-row ${tool==='edit'?'on':''}`} onClick={()=>{onTool('edit');setPosition(null);}}>Select / move / rotate features</button>
         <button className={`measure-row ${tool==='erase-area'?'on':''}`} onClick={()=>{onTool('erase-area');setPosition(null);}}>Erase wall section</button>
