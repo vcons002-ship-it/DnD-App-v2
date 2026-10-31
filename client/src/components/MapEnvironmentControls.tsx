@@ -90,6 +90,5 @@ export function MapEnvironmentControls({map}:{map:MapState}){
         </>}
       </fieldset>
     </>}
-    <EnvironmentQualityControl/>
   </details>;
 }
