@@ -1,0 +1,22 @@
+/* Class and menu grouping share COMPACT_TOOLBAR_VIEWPORT, including tablets
+   and touch browsers using a wide desktop-site viewport. Keep 44px targets. */
+.layout > .topbar.compact-topbar {
+  zoom:1; flex-shrink:0; flex-wrap:nowrap; gap:6px; padding:4px 8px; font-size:12px;
+}
+.layout > .compact-topbar :is(.code,.active-map,.round-chip) {display:none;}
+.layout > .compact-topbar .session-title {min-width:0;max-width:160px;flex:0 1 auto;white-space:nowrap;overflow:hidden;}
+.layout > .compact-topbar .editable-name {max-width:100%;}
+.layout > .compact-topbar .map-tool-slot {order:0;flex:0 1 auto;width:auto;border:0;padding:0;gap:4px;flex-wrap:nowrap;}
+.layout > .compact-topbar .map-view-controls {gap:4px;flex-wrap:nowrap;}
+.layout > .compact-topbar .btn {min-height:44px;min-width:44px;padding:6px;font-size:12px;white-space:nowrap;}
+.layout > .compact-topbar .zoom-label {min-width:28px;text-align:center;font-size:11px;}
+.layout > .compact-topbar .toolbar-session-menu {margin-left:auto;flex-shrink:0;}
+.layout .compact-toolbar-menu :is(.map-tool-menus,.dm-campaign-menu) {zoom:1;}
+.layout .compact-toolbar-menu :is(.btn,select) {min-height:44px;min-width:44px;padding:8px 10px;font-size:14px;}
+.layout .compact-toolbar-menu .topbar-actions {display:grid;position:static;width:auto;margin:0;padding:0;gap:8px;}
+.compact-session-info {margin-bottom:12px;overflow-wrap:anywhere;color:var(--muted);}
+@media (max-width:700px) {
+  .layout > .topbar.compact-topbar {flex-wrap:wrap;}
+  .layout > .compact-topbar .session-title {flex:1;max-width:none;}
+  .layout > .compact-topbar .map-tool-slot {order:10;flex:0 0 100%;width:100%;}
+}

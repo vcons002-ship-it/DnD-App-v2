@@ -2,6 +2,7 @@ import {test,expect} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
 import {DM_SECRET,PORT} from './playwright.config';
+import {openToolbarGroup} from './helpers/mobileToolbar';
 
 test.use({hasTouch:true,isMobile:true,viewport:{width:900,height:700},serviceWorkers:'block'});
 for(const visibility of ['dm','player'] as const) test(`DM can tap and approach a door in ${visibility} visibility on mobile`,async({page,request})=>{
@@ -21,7 +22,9 @@ for(const visibility of ['dm','player'] as const) test(`DM can tap and approach 
   await expect.poll(async()=> (await state()).map?.walls?.some((w:any)=>w.id==='door'&&w.tokenId)).toBe(true);
   const initial=await state(),token=initial.tokens.find((t:any)=>t.kind==='pc');
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  await openToolbarGroup(page,'View');
   await page.getByLabel('Battlefield visibility').selectOption(visibility);
+  await page.getByRole('button',{name:'View',exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>!!(window as any).Konva?.stages?.some((s:any)=>s.find('.wall-door-face').length))).toBe(true);
   const pos=async(x:number,y:number)=>page.evaluate(({x,y})=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.wall-door-face').length),layer=stage.findOne('.wall-door-face').getParent().getParent(),p=layer.getAbsoluteTransform().point({x,y}),r=stage.getContent().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};},{x,y});
   const tokenPoint=await pos(token.x,token.y);await page.mouse.click(tokenPoint.x,tokenPoint.y,{button:'right'});
