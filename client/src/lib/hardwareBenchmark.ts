@@ -31,6 +31,12 @@ export interface HardwareBenchmarkRecommendation {
   dicePreference: DiceRenderingPreference;
   summary: string;
   reasons: string[];
+  comboEstimates?: {
+    legacyAssistOffMs: number;
+    legacyAssistOnMs: number | null;
+    standard2dAssistOffMs: number | null;
+    standard2dAssistOnMs: number | null;
+  };
 }
 
 export interface HardwareBenchmarkResult {
@@ -377,13 +383,37 @@ export function decipherBenchmarkRecommendation(m: HardwareBenchmarkMeasurements
     reasons.push(`GPU supports WebGL (${m.gpuFrameMs} ms/frame on ${m.gpuRenderer}) for hardware-composited sight/fog, but disabling extra environment effects and using 2D dice avoids frame drops.`);
   }
 
-  const legacy = quality === 'legacy';
+  let legacy = quality === 'legacy';
+  const serverAvailable = m.serverGeometryMs !== null && m.pingMs !== null;
+  const legacyAssistOffMs = Number((m.clientCpuGeometryMs * 2.4 + m.clientCanvas2dMs).toFixed(1));
+  const legacyAssistOnMs = serverAvailable ? Number((m.serverGeometryMs! + (m.serverRasterMs ?? 4) + m.pingMs! + (m.clientDecodeMs ?? 2) + m.clientCanvas2dMs * 0.35).toFixed(1)) : null;
+  const standard2dAssistOffMs = m.webglAvailable && !isSoftwareGpu && m.gpuFrameMs !== null ? Number((m.clientCpuGeometryMs + m.gpuFrameMs * 0.45).toFixed(1)) : null;
+  const standard2dAssistOnMs = serverAvailable && m.webglAvailable && !isSoftwareGpu && m.gpuFrameMs !== null ? Number((m.serverGeometryMs! + m.pingMs! + m.gpuFrameMs * 0.45).toFixed(1)) : null;
+  const comboEstimates = {legacyAssistOffMs, legacyAssistOnMs, standard2dAssistOffMs, standard2dAssistOnMs};
 
   // 2. Determine Server Assist (Server Managed Rendering)
-  let serverRendering = true;
-  const serverAvailable = m.serverGeometryMs !== null && m.pingMs !== null;
+  let serverRendering = true; let crossCompared = false;
+  // Cross-compare 2D WebGL (Effects off) vs Legacy 2D Canvas across Server Assist On/Off when in the 2D tier.
+  if ((quality === 'off' || (quality === 'legacy' && m.webglAvailable && !isSoftwareGpu && m.gpuFrameMs !== null && m.gpuFrameMs <= 28)) && standard2dAssistOffMs !== null) {
+    const candidates: {q: 'off' | 'legacy'; assist: boolean; cost: number; label: string}[] = [
+      {q: 'legacy', assist: false, cost: legacyAssistOffMs, label: `Legacy Assist Off (${legacyAssistOffMs} ms)`},
+      {q: 'off', assist: false, cost: standard2dAssistOffMs, label: `2D WebGL Assist Off (${standard2dAssistOffMs} ms)`},
+    ];
+    if (legacyAssistOnMs !== null && standard2dAssistOnMs !== null) {
+      candidates.push(
+        {q: 'legacy', assist: true, cost: legacyAssistOnMs, label: `Legacy Assist On (${legacyAssistOnMs} ms)`},
+        {q: 'off', assist: true, cost: standard2dAssistOnMs, label: `2D WebGL Assist On (${standard2dAssistOnMs} ms)`},
+      );
+    }
+    candidates.sort((a, b) => a.cost - b.cost);
+    const best = candidates[0];
+    quality = best.q;
+    legacy = quality === 'legacy';
+    serverRendering = best.assist; crossCompared = true;
+    reasons.push(`Cross-compared 2D & Legacy combos: ${candidates.map(c => c.label).join(' vs ')} → ${best.label} is fastest.`);
+  }
 
-  if (!serverAvailable) {
+  if (crossCompared) { /* selected by 4-way 2D vs Legacy cross-comparison */ } else if (!serverAvailable) {
     serverRendering = legacy;
     reasons.push('Server benchmark endpoint was unreachable; defaulting Server Assist based on local mode.');
   } else {
@@ -437,6 +467,7 @@ export function decipherBenchmarkRecommendation(m: HardwareBenchmarkMeasurements
     dicePreference,
     summary: `${modeLabel} · ${assistLabel} · ${diceLabel}`,
     reasons,
+    comboEstimates,
   };
 }
 
