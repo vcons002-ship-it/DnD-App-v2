@@ -32,26 +32,31 @@ test('server rendering defaults, player choice, owner enforcement, private asset
   expect((await request.get(imageUrl!.replace(/\/render\/[^/]+\//,`/render/${'0'.repeat(64)}/`))).status()).toBe(404);
   await view(page);
   const toggle=page.getByRole('checkbox',{name:'Server managed rendering',exact:true});await expect(toggle).toBeChecked();
+  await page.getByRole('button',{name:'Interface settings',exact:true}).click();
   const advice=page.getByLabel('When to use server managed rendering');await advice.click();
   await expect(page.locator('.server-rendering-advice-panel')).toContainText('no universal cutoff');
   await expect(toggle).toBeChecked();await page.getByRole('button',{name:'Close advice'}).click();
+  await page.getByRole('button',{name:'Close interface settings',exact:true}).click();
   await toggle.uncheck();await expect(vision).toHaveAttribute('data-geometry-source','client');await expect.poll(sprites).toBe(0);
   await toggle.check();await expect(vision).toHaveAttribute('data-render-source','server-raster');
   await owner.goto(`/dm?code=${code}`);await owner.locator('input[type=password]').fill(DM_SECRET);await owner.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await view(owner);
+  await owner.locator('summary',{hasText:'Campaign'}).click();await owner.getByRole('button',{name:'⚙ Settings'}).click();
   await owner.locator('.server-rendering-owner summary').click();
   await expect(owner.getByLabel('Board server rendering')).toHaveValue('inherit');
   expect(await owner.evaluate(()=>localStorage.getItem('dnd-environment-quality'))).toBeNull(); // unsaved default is Low
   await expect(owner.getByLabel('Server rendering for Druk',{exact:true})).toBeVisible();
   await owner.getByLabel('Server rendering for Druk',{exact:true}).selectOption('off');
   await expect(toggle).not.toBeChecked();await expect(toggle).toBeDisabled();await expect(vision).toHaveAttribute('data-geometry-source','client');
+  await page.getByRole('button',{name:'Interface settings',exact:true}).click();
   await advice.click();await expect(page.getByRole('region',{name:'Server rendering advice'})).toContainText('DM has locked this setting');
-  await page.getByRole('button',{name:'Close advice'}).click();await expect(toggle).toBeDisabled();
+  await page.getByRole('button',{name:'Close advice'}).click();await page.getByRole('button',{name:'Close interface settings',exact:true}).click();await expect(toggle).toBeDisabled();
   await owner.getByLabel('Board server rendering').selectOption('on');await expect(toggle).toBeChecked();await expect(toggle).toBeDisabled();await expect(vision).toHaveAttribute('data-render-source','server-raster');
   await owner.getByLabel('When to use server managed rendering').click();
   await expect(owner.getByRole('region',{name:'Server rendering advice'})).toContainText('locked by policy');
   await owner.getByRole('button',{name:'Close advice'}).click();
   await owner.getByLabel('Board server rendering').selectOption('inherit');await owner.getByLabel('Server rendering for Druk',{exact:true}).selectOption('inherit');await expect(toggle).toBeEnabled();await expect(toggle).toBeChecked();
+  await owner.locator('.modal-head').getByRole('button',{name:'✕'}).click();
   // Local choice survives a forced policy, and a reload re-joins with that choice.
   await toggle.uncheck();await expect(vision).toHaveAttribute('data-geometry-source','client');
   await page.reload();await expect(page.getByTestId('player-hud')).toBeVisible();await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','client');

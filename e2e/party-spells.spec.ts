@@ -50,7 +50,9 @@ test('a successful Shield reaction displays Blocked! and dismisses automatically
 });
 test('Misty Step and Pass without Trace use visible map controls and preserve spell-slot bookkeeping',async({page,request})=>{
  const f=await setup(request,page);
+ await page.getByRole('button',{name:'Interface settings',exact:true}).click();
  await page.getByRole('button',{name:'2D player tokens',exact:true}).click();
+ await page.getByRole('button',{name:'Close interface settings',exact:true}).click();
  await page.locator('.compact-player-combat').getByRole('button',{name:/Misty Step/}).click();
  const prompt=page.getByRole('region',{name:'Misty Step destination'});await expect(prompt).toBeVisible();await expect(prompt.getByRole('button',{name:/^Cast Misty Step · Level 2 slot/})).toBeDisabled();
  let point=await f.mapPoint(350,300);await page.mouse.click(point.x,point.y);await expect(prompt.getByRole('button',{name:/^Cast Misty Step · Level 2 slot/})).toBeEnabled();await prompt.getByRole('button',{name:/^Cast Misty Step · Level 2 slot/}).click();
