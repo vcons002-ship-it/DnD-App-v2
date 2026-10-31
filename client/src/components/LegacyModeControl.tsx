@@ -67,9 +67,9 @@ export function HardwareBenchmarkPanel({compact=false,onResult,onApplyAndStart}:
 }
 
 /** Available before joining, before any optional scene can start loading. */
-export function LegacyModeControl(){
+export function LegacyModeControl({toolbar=false}:{toolbar?:boolean}={}){
  const {quality,setQuality}=useEnvironmentQuality();
- return <><label className="legacy-mode-control"><input type="checkbox" checked={quality==='legacy'} onChange={e=>setQuality(e.target.checked?'legacy':readStandardGraphicsQuality())}/>Legacy mode <small>For older CPUs and integrated graphics. Only changes this browser.</small></label><ServerRenderingControl/><DiceRenderingControl/><details className="server-rendering-advice" onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();}}}><summary aria-label="Open hardware benchmark">Benchmark</summary><div className="server-rendering-advice-panel"><HardwareBenchmarkPanel compact/></div></details></>;
+ return <><label className="legacy-mode-control"><input type="checkbox" checked={quality==='legacy'} onChange={e=>setQuality(e.target.checked?'legacy':readStandardGraphicsQuality())}/>Legacy mode <small>For older CPUs and integrated graphics. Only changes this browser.</small></label><ServerRenderingControl/>{!toolbar&&<DiceRenderingControl/>}</>;
 }
 export function RenderingModeClass(){
  const {budget}=useEnvironmentQuality();

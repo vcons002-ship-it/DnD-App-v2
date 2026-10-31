@@ -2227,7 +2227,7 @@ function MapStageInner({
                 onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation+15)}>↷</button>
             </span>
             <CompactToolbarMenu label="View">
-            <LegacyModeControl/>
+            <LegacyModeControl toolbar/>
             <ServerRenderingOwnerControls/>
             <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
               <span className="muted">Your view</span>
