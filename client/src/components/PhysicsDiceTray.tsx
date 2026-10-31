@@ -9,6 +9,7 @@ import {metresPerUnitFor} from '../../../shared/diceImpacts';
 import type {RollComparison} from '../../../shared/types';
 // Presentation pacing only; the precomputed gravity/contact simulation is unchanged.
 const ROLL_PLAYBACK_RATE=.6;
+const idlePhysicsWorkers:Worker[]=[];
 export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rollKey,entrySide='bottom'}:{dice:TrayDie[];onSettled:(index:number,set:number)=>void;label?:string;comparison?:RollComparison;rollKey?:string;entrySide?:DiceEntrySide}){
   const {mode}=useDiceRendering(),[localFallback,setLocalFallback]=useState(false),twoDimensional=mode==='2d'||localFallback;
   const resultStyle=(d:TrayDie)=>({'--roll-strength':dieResultEmphasis(d),'--arrival-scale':1.12+dieResultEmphasis(d)*.5,'--arrival-glow':`${5+Math.pow(dieResultEmphasis(d),3)*28}px`} as CSSProperties);
@@ -35,10 +36,10 @@ export function PhysicsDiceTray({dice,onSettled,label='Dice tray',comparison,rol
     if(media.matches){setStatus('settled');queueMicrotask(complete);return()=>{dead=true;};}
     const timeout=setTimeout(()=>{worker?.terminate();fallback();},20000);
     try{
-      worker=new Worker(new URL('../lib/dicePhysics.worker.ts',import.meta.url),{type:'module'});
+      worker=idlePhysicsWorkers.pop()??new Worker(new URL('../lib/dicePhysics.worker.ts',import.meta.url),{type:'module'});
       worker.onerror=()=>{clearTimeout(timeout);worker?.terminate();fallback();};
       worker.onmessage=async(event:MessageEvent<{toss?:Toss;error?:string}>)=>{
-        clearTimeout(timeout);worker?.terminate();
+        clearTimeout(timeout);if(worker){worker.onerror=null;worker.onmessage=null;if(idlePhysicsWorkers.length<2)idlePhysicsWorkers.push(worker);else worker.terminate();worker=undefined;}
         if(dead)return;if(!event.data.toss){fallback();return;}
         try{
           const module=await import('../lib/diceTrayRenderer');await module.waitForDiceGraphics();if(dead)return;

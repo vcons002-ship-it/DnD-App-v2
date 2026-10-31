@@ -11,6 +11,7 @@ export function useImage(src: string | null): HTMLImageElement | null {
     }
     const img = new window.Image();
     img.crossOrigin = 'anonymous';
+    img.decoding = 'async';
     let active = true;
     img.onload = () => active && setImage(img);
     img.onerror = () => active && setImage(null);

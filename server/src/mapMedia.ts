@@ -14,14 +14,16 @@ export function isMapVideo(filename:string,mime:string){
  * video stays untouched; posters support AI analysis, fog memory and fallback. */
 export async function mapVideoPoster(videoFile:string,posterFile:string){
  if(!ffmpeg)throw Error('Video processing is unavailable on this server.');
- await new Promise<void>((resolve,reject)=>{
-  const proc=spawn(ffmpeg,['-hide_banner','-loglevel','error','-protocol_whitelist','file,pipe','-threads','2','-f',path.extname(videoFile).toLowerCase()==='.webm'?'matroska':'mov','-i',videoFile,'-map','0:v:0','-frames:v','1','-vf',"scale='min(1920,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease",'-q:v','2','-y',posterFile],{windowsHide:true,stdio:['ignore','ignore','pipe']});
+ const fmt=path.extname(videoFile).toLowerCase()==='.webm'?'matroska':'mov';
+ const run=(hwaccel:boolean)=>new Promise<void>((resolve,reject)=>{
+  const proc=spawn(ffmpeg,['-hide_banner','-loglevel','error','-protocol_whitelist','file,pipe',...(hwaccel?['-hwaccel','cuda']:[]),'-threads','0','-f',fmt,'-i',videoFile,'-map','0:v:0','-frames:v','1','-vf',"scale='min(1920,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease",'-q:v','2','-y',posterFile],{windowsHide:true,stdio:['ignore','ignore','pipe']});
   let settled=false;
   const timer=setTimeout(()=>{proc.kill();finish(Error('Video preview timed out. Try an MP4 (H.264) or WebM map.'));},45000);
   const finish=(error?:Error)=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(error):resolve();};
   proc.on('error',()=>finish(Error('Could not start video processing.')));
   proc.stderr.resume();proc.on('close',code=>finish(code===0?undefined:Error('Could not read that video. Use an MP4 (H.264) or WebM map.')));
  });
+ await run(true).catch(err=>err instanceof Error&&(err.message.includes('timed out')||err.message.includes('Could not start'))?Promise.reject(err):run(false));
  try{const metadata=await sharp(posterFile).metadata();if(!metadata.width||!metadata.height)throw Error('No video picture.');return {width:metadata.width,height:metadata.height};}
  catch(error){await fs.unlink(posterFile).catch(()=>{});throw error;}
 }

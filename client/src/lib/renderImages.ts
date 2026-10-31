@@ -17,7 +17,7 @@ function loadRenderImage(key:string,credential:string,timing?:{id:string;revisio
   return promise.then(()=>{movementTiming('imageReady',{...timing,key});});
  }
  if(timing)movementTiming('imageStart',{...timing,key});
- promise=(async()=>{const image=new Image();image.src=renderImageUrl(credential,key);await image.decode();images.set(key,image);while(images.size>1536)images.delete(images.keys().next().value!);})().finally(()=>loading.delete(key));
+ promise=(async()=>{const image=new Image();image.decoding='async';image.src=renderImageUrl(credential,key);await image.decode();images.set(key,image);while(images.size>1536)images.delete(images.keys().next().value!);})().finally(()=>loading.delete(key));
  loading.set(key,promise);
  return timing?promise.then(()=>{movementTiming('imageReady',{...timing,key});}):promise;
 }
