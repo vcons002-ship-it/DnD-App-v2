@@ -1830,5 +1830,17 @@
     "browserSamplingRetries": 1,
     "typechecks": "passed"
   },
-  "harnessSha256": "c6946d480a7cfa866b2638bb206756da51650da7d3fe839f9a0d15175f511be1"
+  "harnessSha256": "c6946d480a7cfa866b2638bb206756da51650da7d3fe839f9a0d15175f511be1",
+  "measuredCandidateCommit": "11230c4e",
+  "subsequentIntegration": {
+    "baseCommit": "61bb09f2",
+    "includesPullRequest": 190,
+    "benchmarksRerun": false,
+    "fullUnitSuiteRerun": false,
+    "targetedTestsPassed": 32,
+    "typechecks": "passed",
+    "productionBuild": "passed",
+    "browserMembershipCasesPassed": 6,
+    "browserRetries": 0
+  }
 }

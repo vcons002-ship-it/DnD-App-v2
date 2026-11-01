@@ -1,6 +1,12 @@
 # Visibility-plan reuse experiment, 2026-11-01
 
-Status: implemented and tested on `codex/visibility-plan-reuse`, based on main `1463ee57`. No live app/server update. Results are mixed: the constrained-CPU test improved, while unthrottled timing varied enough that this is not a universal latency win.
+Status: implemented on `codex/visibility-plan-reuse`. The measurements below compare main `1463ee57` with candidate `11230c4e`, before the subsequent PR #190 integration. No live app/server update. Results are mixed: the constrained-CPU test improved, while unthrottled timing varied enough that this is not a universal latency win.
+
+## PR integration boundary
+
+The branch was subsequently rebased onto `61bb09f2`, including merged PR #190. The MapStage conflict was resolved by retaining main's removal of the `gpuComposite` prop and adding only this candidate's server-outline fallback. All other incoming rendering changes were preserved, including the changed miniature invalidation and memory-rendering behavior. Those changes affect the measured rendering path: the tables below are historical evidence for the original candidate, **not benchmark results for the rebased PR head**. A new paired benchmark against current main remains necessary before a performance-based merge decision.
+
+Post-rebase validation: 32 targeted tests across state delivery, walking, and motion snapshots passed; both typechecks and the full production build passed; all six movement-membership browser cases passed together with no retries (1.3 minutes). The full 2,463-test suite and benchmark figures below are pre-rebase results and were not rerun after PR #190 integration.
 
 ## Changes
 

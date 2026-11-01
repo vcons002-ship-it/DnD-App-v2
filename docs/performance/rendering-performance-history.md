@@ -122,6 +122,8 @@ The prior benchmark numbers remain observations of the earlier code; this fix ha
 
 Candidate branch `codex/visibility-plan-reuse`, based on main `1463ee57`, packs repeated movement entities, retains immutable presentation records, stabilizes the server-preview callback, and keeps validated server outlines available during membership playback. It preserves the creature-visibility repair. This has not been deployed.
 
+The measurements in this entry predate rebasing onto `61bb09f2` / PR #190. The rebase preserves main's rendering changes, including removal of the `gpuComposite` prop. Targeted tests, typechecks, production build, and all six browser membership cases pass after integration; timing has not been rerun on that head.
+
 The repeated 6x CPU comparison improved first-motion means: Legacy 887 -> 808 ms, 2D 1,461 -> 1,273 ms, 3D 2,001 -> 1,784 ms. Standard movement messages fell about 22-23%. Unthrottled results were mixed: the first block regressed, the follow-up improved, and pooling all normal-speed observations still leaves the candidate about 14-16% slower. Treat this as a constrained-CPU improvement with unresolved normal-speed latency, not a universal success. All 96 measured moves made zero new model requests; slower loading is not the demonstrated warm-map bottleneck. See the [full experiment, limitations, and validation](visibility-plan-reuse-2026-11-01.md).
 
 ### Future mask work
