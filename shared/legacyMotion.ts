@@ -11,4 +11,4 @@ export type LegacyMotionFrame={at:number;tokenIds:string[];tokens?:StateSnapshot
  * frame at 1. Intermediate creature data is shaped by the normal server
  * visibility boundary, including figures absent at both endpoints. */
 export type LegacyMotion={id:string;durationMs:number;moves:Record<string,{from:MotionPoint;to:MotionPoint}>;frames:LegacyMotionFrame[];atlas?:LegacyMotionAtlas};
-export type LegacyPlayback={id:string;start:number;durationMs:number;moves:LegacyMotion['moves'];atlas?:LegacyMotionAtlas};
+export type LegacyPlayback={id:string;start:number;durationMs:number;moves:LegacyMotion['moves'];atlas?:LegacyMotionAtlas;frames?:(LegacyGeometry|null|undefined)[]};

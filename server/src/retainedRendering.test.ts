@@ -54,6 +54,6 @@ it('reuses prepared geometry and images for feed-only updates and regenerates af
  const jobs=visibilityWorkers.metrics.jobs;
  deliverState(io,'tiles',{...snapshot,chat:[{id:'message',text:'hello'} as any]},options);await expect.poll(()=>events.length).toBe(2);
  expect(visibilityWorkers.metrics.jobs).toBe(jobs);expect(events[1].delta).not.toHaveProperty('maskTiles');
- deliverState(io,'tiles',{...snapshot,playerVision:{...snapshot.playerVision!,heavy:true,origins:[{id:'pc',x:150,y:100}]}},options);await expect.poll(()=>events.length).toBe(3);
+ deliverState(io,'tiles',{...snapshot,tokens:[{id:'g',kind:'monster',refId:'g',widthFt:5,x:150,y:100} as any],monsters:[{id:'g',name:'Goblin',conditions:[],disposition:'enemy',icon:'G',dead:false} as any],playerVision:{...snapshot.playerVision!,heavy:true,origins:[{id:'pc',x:150,y:100}]}},options);await expect.poll(()=>events.length).toBe(3);
  expect(visibilityWorkers.metrics.jobs).toBeGreaterThan(jobs);expect(warmed.flat().length).toBeGreaterThan(0);
 });

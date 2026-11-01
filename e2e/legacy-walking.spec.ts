@@ -30,10 +30,10 @@ for(const role of ['player','dm'] as const)test(`Legacy ${role} animates by defa
    await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
   }
   await expect(page.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);
-  await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-render-source','server-raster');
+  await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','server');
   const x=()=>page.evaluate(id=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id)?.x(),token.id);
   await expect.poll(x).toBe(400);await page.waitForTimeout(700);
-  await page.evaluate(({id,enemy})=>{const w=window as any;w.__walkSamples=[];w.__walkUntil=performance.now()+15000;const record=()=>{const nodes=w.Konva.stages.flatMap((s:any)=>s.find('.token')),n=nodes.find((n:any)=>n.getAttr('tokenId')===id);w.__walkSamples.push({at:performance.now(),x:n?.x(),enemy:nodes.some((n:any)=>n.getAttr('tokenId')===enemy&&n.isVisible()&&n.opacity()>.01),mask:document.querySelector('[data-testid=legacy-vision]')?.getAttribute('data-raster-key')});if(performance.now()<w.__walkUntil)requestAnimationFrame(record);};record();},{id:token.id,enemy:enemy.id});
+  await page.evaluate(({id,enemy})=>{const w=window as any;w.__walkSamples=[];w.__walkUntil=performance.now()+15000;const record=()=>{const nodes=w.Konva.stages.flatMap((s:any)=>s.find('.token')),n=nodes.find((n:any)=>n.getAttr('tokenId')===id);w.__walkSamples.push({at:performance.now(),x:n?.x(),enemy:nodes.some((n:any)=>n.getAttr('tokenId')===enemy&&n.isVisible()&&n.opacity()>.01),mask:document.querySelector<SVGPathElement>('[data-legacy-paths=near] path')?.getAttribute('d')});if(performance.now()<w.__walkUntil)requestAnimationFrame(record);};record();},{id:token.id,enemy:enemy.id});
   admin.emit('token:move',{tokenId:token.id,x:1700,y:800});await expect.poll(x,{timeout:20000}).toBe(1700);
   await expect(page.getByTestId('legacy-motion-mask')).toHaveCount(0);await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   const samples=await page.evaluate(()=>(window as any).__walkSamples);expect(samples.some((p:any)=>p.x>400&&p.x<1700)).toBe(true);expect(new Set(samples.map((p:any)=>p.mask)).size).toBeGreaterThanOrEqual(3);

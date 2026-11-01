@@ -57,7 +57,7 @@ export class TokenPresentation {
 
   advance(now:number) {
     const changing=this.moving();
-    const p=this.playback;if(p?.atlas)now=p.start+legacyMotionIndex(now,p.start,p.durationMs,p.atlas.count)/(p.atlas.count-1)*p.durationMs;
+    const p=this.playback,count=p?.atlas?.count??p?.frames?.length;if(p&&count&&count>1)now=p.start+legacyMotionIndex(now,p.start,p.durationMs,count)/(count-1)*p.durationMs;
     this.time=Math.max(this.time,now);
     if(changing)this.visionDirty=true;
     if(!this.moving())this.memory=this.snapshot?.exploredTerrain;

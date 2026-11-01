@@ -48,20 +48,36 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
  },[props]);
  useLayoutEffect(()=>paintCamera.current(latest.current.view));
 
- const paintLocal=useRef(()=>{}),live=useRef(new Map<string,{x:number;y:number}>());
+ const paintLocal=useRef((_now?:number)=>{}),live=useRef(new Map<string,{x:number;y:number}>());
  useLayoutEffect(()=>{live.current.clear();paintLocal.current();},[props.vision,props.presentation]);
- useImperativeHandle(ref,()=>({cover:()=>undefined,memoryCanvas:()=>null,frame:(now=performance.now())=>{const m=motion.current;if(m?.atlas){const index=legacyMotionIndex(now,m.start,m.durationMs,m.atlas.count);atlasMask.current?.frame(index);atlasTerrain.current?.frame(index);}else paintLocal.current();},prepareLights:()=>{},lights:()=>{},move:(id,x,y)=>{live.current.set(id,{x,y});paintLocal.current();},camera:camera=>{
+ useImperativeHandle(ref,()=>({cover:()=>undefined,memoryCanvas:()=>null,frame:(now=performance.now())=>{const m=motion.current;if(m?.atlas){const index=legacyMotionIndex(now,m.start,m.durationMs,m.atlas.count);atlasMask.current?.frame(index);atlasTerrain.current?.frame(index);}else paintLocal.current(now);},prepareLights:()=>{},lights:()=>{},move:(id,x,y)=>{live.current.set(id,{x,y});paintLocal.current();},camera:camera=>{
    if(camera.view){latest.current={...latest.current,view:camera.view};paintCamera.current(camera.view);}
  }}),[]);
  const geometry=useRef(createLegacyVisionGeometry()).current;
  const localVision=frame.presentation?.personalVision()??frame.vision;
  const localMemory=frame.presentation?frame.presentation.explored():frame.explored;
- const paths=useMemo(()=>frame.geometry!==undefined?frame.geometry??{sight:[],near:[],lights:[]}:geometry(localVision,frame.mapFogOfWar),[frame.geometry,localVision,frame.mapFogOfWar,geometry]);
- const memory=useMemo(()=>frame.geometry!==undefined?frame.geometry?.memory??[]:(localMemory??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join('')),[frame.geometry,localMemory]);
- const markup=useRef(new WeakMap<Element,string>()),drawn=useRef<{vision:PlayerVision;memory:ExploredTerrain|undefined}>();
+ const paths=useMemo(()=>frame.presentation?{sight:[],near:[],lights:[]}:frame.geometry!==undefined?frame.geometry??{sight:[],near:[],lights:[]}:geometry(localVision,frame.mapFogOfWar),[frame.presentation,frame.geometry,localVision,frame.mapFogOfWar,geometry]);
+ const memory=useMemo(()=>frame.presentation?[]:frame.geometry!==undefined?frame.geometry?.memory??[]:(localMemory??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join('')),[frame.presentation,frame.geometry,localMemory]);
+ const markup=useRef(new WeakMap<Element,string>()),drawn=useRef<{vision:PlayerVision;memory:ExploredTerrain|undefined}>(),drawnServer=useRef<LegacyGeometry|null|undefined>();
  const memoryPaths=useRef<{source:ExploredTerrain|undefined;paths:string[]}>();
- paintLocal.current=()=>{
-  if(frame.geometry!==undefined||!svg.current)return;
+ paintLocal.current=(now=performance.now())=>{
+  if(!frame.presentation||!svg.current)return;
+  if(frame.geometry!==undefined){
+   const m=motion.current,index=m?.frames?.length?legacyMotionIndex(now,m.start,m.durationMs,m.frames.length):undefined;
+   if(index!==undefined){if(svg.current.getAttribute('data-frame')!==String(index))svg.current.setAttribute('data-frame',String(index));}
+   else if(svg.current.hasAttribute('data-frame'))svg.current.removeAttribute('data-frame');
+   const serverGeom=(index!==undefined?m!.frames![index]:frame.geometry)??{sight:[],near:[],lights:[],memory:[]};
+   if(drawnServer.current===serverGeom)return;
+   drawnServer.current=serverGeom;
+   const values={sight:serverGeom.sight,near:serverGeom.near,lights:serverGeom.lights,memory:serverGeom.memory??[]};
+   for(const node of svg.current.querySelectorAll<SVGGElement>('[data-legacy-paths]')){
+    const key=node.dataset.legacyPaths as keyof typeof values;
+    const html=values[key].map(d=>`<path d="${d}" fill-rule="evenodd"/>`).join('');
+    if(markup.current.get(node)!==html){node.innerHTML=html;markup.current.set(node,html);}
+   }
+   return;
+  }
+  if(svg.current.hasAttribute('data-frame'))svg.current.removeAttribute('data-frame');
   let vision=frame.presentation?.personalVision()??frame.vision;
   const explored=frame.presentation?frame.presentation.explored():frame.explored;
   if(live.current.size)vision={...vision,origins:vision.origins.map(o=>({...o,...live.current.get(o.id)})),lights:vision.lights.map(l=>({...l,...live.current.get(l.id)}))};
@@ -78,11 +94,11 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
    if(markup.current.get(node)!==html){node.innerHTML=html;markup.current.set(node,html);}
   }
  };
- useLayoutEffect(()=>{drawn.current=undefined;paintLocal.current();});
+ useLayoutEffect(()=>{drawn.current=undefined;drawnServer.current=undefined;paintLocal.current();});
  const id=useId().replace(/:/g,''),sight=`legacy-sight-${id}`,visible=`legacy-visible-${id}`,lit=`legacy-lit-${id}`,cover=`legacy-cover-${id}`;
  const transform=`translate(${frame.view.x} ${frame.view.y}) scale(${frame.view.scale})`;
- // Local groups are owned by paintLocal; React owns server-supplied paths.
- const shapes=(values:string[])=>frame.geometry===undefined&&frame.presentation?null:values.map((d,i)=><path key={i} d={d} fillRule="evenodd"/>);
+ // Local and server-motion groups are owned by paintLocal when presentation is active.
+ const shapes=(values:string[])=>frame.presentation?null:values.map((d,i)=><path key={i} d={d} fillRule="evenodd"/>);
  const all=!frame.mapFogOfWar&&!frame.vision.heavy;
  const atlas=props.motion?.atlas,raster=atlas?.mask??frame.raster,picture=renderedImage(raster?.key),tiles=atlas?undefined:frame.tiles;
  const terrainAsset=atlas?.terrain??frame.terrainRaster,terrainBounds=atlas?.terrainBounds??atlas?.bounds??frame.terrainRaster;

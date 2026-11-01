@@ -23,11 +23,10 @@ test('server rendering defaults, player choice, owner enforcement, private asset
  try{
   await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();
   await page.locator('.claim-row').filter({hasText:'Druk'}).click();await expect(page.getByTestId('player-hud')).toBeVisible();
-  const vision=page.getByTestId('legacy-vision');await expect(vision).toHaveAttribute('data-render-source','server-raster');
-  await expect.poll(async()=>Number(await vision.getAttribute('data-mask-tiles'))).toBeGreaterThan(0);
+  const vision=page.getByTestId('legacy-vision');await expect(vision).toHaveAttribute('data-geometry-source','server');
   const sprites=()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.server-token-body, .server-token-layer')).length);
   await expect.poll(sprites).toBeGreaterThan(0);
-  const imageUrl=await vision.locator('img').first().getAttribute('src');expect(imageUrl).toContain('/api/render/');
+  const imageUrl=await page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.server-token-body, .server-token-layer')).map((n:any)=>n.image()?.src).find(Boolean));expect(imageUrl).toContain('/api/render/');
   expect((await request.get(imageUrl!)).status()).toBe(200);
   expect((await request.get(imageUrl!.replace(/\/render\/[^/]+\//,`/render/${'0'.repeat(64)}/`))).status()).toBe(404);
   await view(page);
@@ -38,7 +37,7 @@ test('server rendering defaults, player choice, owner enforcement, private asset
   await expect(toggle).toBeChecked();await page.getByRole('button',{name:'Close advice'}).click();
   await page.getByRole('button',{name:'Close interface settings',exact:true}).click();
   await toggle.uncheck();await expect(vision).toHaveAttribute('data-geometry-source','client');await expect.poll(sprites).toBe(0);
-  await toggle.check();await expect(vision).toHaveAttribute('data-render-source','server-raster');
+  await toggle.check();await expect(vision).toHaveAttribute('data-geometry-source','server');
   await owner.goto(`/dm?code=${code}`);await owner.locator('input[type=password]').fill(DM_SECRET);await owner.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await view(owner);
   await owner.locator('summary',{hasText:'Campaign'}).click();await owner.getByRole('button',{name:'⚙ Settings'}).click();
@@ -51,7 +50,7 @@ test('server rendering defaults, player choice, owner enforcement, private asset
   await page.getByRole('button',{name:'Interface settings',exact:true}).click();
   await advice.click();await expect(page.getByRole('region',{name:'Server rendering advice'})).toContainText('DM has locked this setting');
   await page.getByRole('button',{name:'Close advice'}).click();await page.getByRole('button',{name:'Close interface settings',exact:true}).click();await expect(toggle).toBeDisabled();
-  await owner.getByLabel('Board server rendering').selectOption('on');await expect(toggle).toBeChecked();await expect(toggle).toBeDisabled();await expect(vision).toHaveAttribute('data-render-source','server-raster');
+  await owner.getByLabel('Board server rendering').selectOption('on');await expect(toggle).toBeChecked();await expect(toggle).toBeDisabled();await expect(vision).toHaveAttribute('data-geometry-source','server');
   await owner.getByLabel('When to use server managed rendering').click();
   await expect(owner.getByRole('region',{name:'Server rendering advice'})).toContainText('locked by policy');
   await owner.getByRole('button',{name:'Close advice'}).click();
@@ -60,7 +59,7 @@ test('server rendering defaults, player choice, owner enforcement, private asset
   // Local choice survives a forced policy, and a reload re-joins with that choice.
   await toggle.uncheck();await expect(vision).toHaveAttribute('data-geometry-source','client');
   await page.reload();await expect(page.getByTestId('player-hud')).toBeVisible();await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','client');
-  await view(page);await page.getByRole('checkbox',{name:'Server managed rendering',exact:true}).check();await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-render-source','server-raster');
+  await view(page);await page.getByRole('checkbox',{name:'Server managed rendering',exact:true}).check();await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','server');
   await view(page);
   const point=await page.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),n=stage.find('.token')[0],r=stage.getContent().getBoundingClientRect();const p=n.getAbsolutePosition(),target=n.getParent().getAbsoluteTransform().point({x:300,y:350});return{x:r.left+p.x,y:r.top+p.y,tx:r.left+target.x,ty:r.top+target.y};});
   await page.mouse.click(point.x,point.y,{button:'right'});await expect(page.locator('.floating-menu')).toBeVisible();await page.keyboard.press('Escape');
