@@ -141,8 +141,8 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
         // fog, then body-only scene above fog. Preserve premultiplied alpha,
         // including invisible figures and the old soft-boundary appearance.
         float gain=v+bodyCoverage*f*(1.-c.a*v);
-        float alpha=c.a*(1.+bodyCoverage*f*(1.-c.a));
-        gl_FragColor=vec4(c.rgb*gain+fog*f*c.a*(1.-c.a*bodyCoverage*f),alpha);
+        float baseAlpha=max(c.a,fogEnabled*step(.5,gradeMode)*f),alpha=baseAlpha*(1.+bodyCoverage*f*(1.-baseAlpha));
+        gl_FragColor=vec4(c.rgb*gain+fog*f*baseAlpha*(1.-c.a*bodyCoverage*f),alpha);
       }`,
   });
   const quadGeometry=new PlaneGeometry(2,2);quadScene.add(new Mesh(quadGeometry,composite));
