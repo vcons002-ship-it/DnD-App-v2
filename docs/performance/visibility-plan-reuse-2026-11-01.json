@@ -1,0 +1,1834 @@
+{
+  "baseline": "1463ee57",
+  "candidate": "codex/visibility-plan-reuse",
+  "primary": {
+    "method": "Main 1463ee57 and optimized source, two reverse-order blocks, 8 movements per rate per block, same three assisted viewers. Five second pre-throttle warmup added. CDP network messages and long tasks recorded identically in each condition. Profiling excluded.",
+    "rows": [
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [],
+        "variant": "before",
+        "cpuRate": 1,
+        "role": "Legacy player",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 554.6500549316406,
+            "navigationMs": 391.98699999999985
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 517.387451171875,
+            "navigationMs": 410.75600000000014
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 536.0187530517578,
+          "median": 487.949951171875,
+          "min": 426.400146484375,
+          "max": 952.800048828125
+        },
+        "taskMs": {
+          "mean": 301.97900000000004,
+          "median": 298.45900000000006,
+          "min": 233.3560000000001,
+          "max": 411.022
+        },
+        "completeMs": {
+          "mean": 898.1687469482422,
+          "median": 849.699951171875,
+          "min": 785.400146484375,
+          "max": 1313.60009765625
+        },
+        "serverMs": {
+          "mean": 408.4205017089844,
+          "median": 370.6734619140625,
+          "min": 313.036376953125,
+          "max": 721.21337890625
+        },
+        "handlerWaitMs": {
+          "mean": 77.7445068359375,
+          "median": 64.155517578125,
+          "min": 56.390380859375,
+          "max": 181.6064453125
+        },
+        "browserPaintMs": {
+          "mean": 45.706268310546875,
+          "median": 44.75,
+          "min": 41.7998046875,
+          "max": 49.800048828125
+        },
+        "deltaApplyMs": {
+          "mean": 0.2062835693359375,
+          "median": 0.199951171875,
+          "min": 0.099853515625,
+          "max": 0.300048828125
+        },
+        "acceptMs": {
+          "mean": 0.25408935546875,
+          "median": 0.1903076171875,
+          "min": 0.031005859375,
+          "max": 1.244140625
+        },
+        "afterAcceptPaintMs": {
+          "mean": 44.8062744140625,
+          "median": 43.900146484375,
+          "min": 41.0,
+          "max": 49.099853515625
+        },
+        "motionPreparationMs": {
+          "mean": 136.56556701660156,
+          "median": 120.6038818359375,
+          "min": 103.10791015625,
+          "max": 267.0703125
+        },
+        "payloadBytes": {
+          "mean": 1616193.625,
+          "median": 1649433.0,
+          "min": 1293647,
+          "max": 1794846
+        },
+        "longTaskMs": {
+          "mean": 0,
+          "median": 0.0,
+          "min": 0,
+          "max": 0
+        },
+        "navigationMs": {
+          "mean": 401.37149999999997,
+          "median": 401.37149999999997,
+          "min": 391.98699999999985,
+          "max": 410.75600000000014
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "client",
+          "server"
+        ],
+        "variant": "before",
+        "cpuRate": 1,
+        "role": "2D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 576.2250671386719,
+            "navigationMs": 2522.600999999999
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 540.0000610351562,
+            "navigationMs": 1775.1410000000005
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 558.1125640869141,
+          "median": 498.3001708984375,
+          "min": 441.900146484375,
+          "max": 1022.800048828125
+        },
+        "taskMs": {
+          "mean": 659.997375,
+          "median": 661.2764999999998,
+          "min": 568.4670000000001,
+          "max": 839.939
+        },
+        "completeMs": {
+          "mean": 898.0563659667969,
+          "median": 855.4501953125,
+          "min": 779.2001953125,
+          "max": 1326.300048828125
+        },
+        "serverMs": {
+          "mean": 408.44805908203125,
+          "median": 373.7650146484375,
+          "min": 295.680419921875,
+          "max": 751.595947265625
+        },
+        "handlerWaitMs": {
+          "mean": 30.623321533203125,
+          "median": 28.4166259765625,
+          "min": 9.487060546875,
+          "max": 104.02392578125
+        },
+        "browserPaintMs": {
+          "mean": 114.89370727539062,
+          "median": 114.75,
+          "min": 74.699951171875,
+          "max": 163.300048828125
+        },
+        "deltaApplyMs": {
+          "mean": 0.2437286376953125,
+          "median": 0.199951171875,
+          "min": 0.099853515625,
+          "max": 0.400146484375
+        },
+        "acceptMs": {
+          "mean": 0.0902862548828125,
+          "median": 0.08642578125,
+          "min": 0.0009765625,
+          "max": 0.22021484375
+        },
+        "afterAcceptPaintMs": {
+          "mean": 113.87689208984375,
+          "median": 113.78125,
+          "min": 73.91064453125,
+          "max": 161.599853515625
+        },
+        "motionPreparationMs": {
+          "mean": 57.01048278808594,
+          "median": 40.196044921875,
+          "min": 26.50732421875,
+          "max": 197.62451171875
+        },
+        "payloadBytes": {
+          "mean": 248652,
+          "median": 236482.5,
+          "min": 184413,
+          "max": 331148
+        },
+        "longTaskMs": {
+          "mean": 0,
+          "median": 0.0,
+          "min": 0,
+          "max": 0
+        },
+        "navigationMs": {
+          "mean": 2148.871,
+          "median": 2148.871,
+          "min": 1775.1410000000005,
+          "max": 2522.600999999999
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "client",
+          "server"
+        ],
+        "variant": "before",
+        "cpuRate": 1,
+        "role": "3D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 545.8751831054688,
+            "navigationMs": 1156.0630000000015
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 521.2250366210938,
+            "navigationMs": 1179.722
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 533.5501098632812,
+          "median": 498.7501220703125,
+          "min": 443.7001953125,
+          "max": 848.7001953125
+        },
+        "taskMs": {
+          "mean": 935.0390624999999,
+          "median": 944.5735,
+          "min": 800.8779999999999,
+          "max": 1101.8900000000003
+        },
+        "completeMs": {
+          "mean": 925.2438659667969,
+          "median": 888.35009765625,
+          "min": 779.7001953125,
+          "max": 1358.7001953125
+        },
+        "serverMs": {
+          "mean": 396.4441833496094,
+          "median": 361.9913330078125,
+          "min": 283.257080078125,
+          "max": 735.064697265625
+        },
+        "handlerWaitMs": {
+          "mean": 34.50846862792969,
+          "median": 36.03125,
+          "min": 18.131103515625,
+          "max": 67.26806640625
+        },
+        "browserPaintMs": {
+          "mean": 98.44998168945312,
+          "median": 97.2999267578125,
+          "min": 80.599853515625,
+          "max": 132.199951171875
+        },
+        "deltaApplyMs": {
+          "mean": 0.156524658203125,
+          "median": 0.10009765625,
+          "min": 0.0009765625,
+          "max": 0.5
+        },
+        "acceptMs": {
+          "mean": 0.2845611572265625,
+          "median": 0.2960205078125,
+          "min": 0.09912109375,
+          "max": 0.39892578125
+        },
+        "afterAcceptPaintMs": {
+          "mean": 97.95001220703125,
+          "median": 96.949951171875,
+          "min": 80.0,
+          "max": 131.5
+        },
+        "motionPreparationMs": {
+          "mean": 37.64231872558594,
+          "median": 18.462890625,
+          "min": 6.2001953125,
+          "max": 182.4306640625
+        },
+        "payloadBytes": {
+          "mean": 242367.625,
+          "median": 232508.5,
+          "min": 169378,
+          "max": 328241
+        },
+        "longTaskMs": {
+          "mean": 0,
+          "median": 0.0,
+          "min": 0,
+          "max": 0
+        },
+        "navigationMs": {
+          "mean": 1167.8925000000008,
+          "median": 1167.8925000000008,
+          "min": 1156.0630000000015,
+          "max": 1179.722
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [],
+        "variant": "before",
+        "cpuRate": 6,
+        "role": "Legacy player",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 925.6999816894531,
+            "navigationMs": 4300.947000000003
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 848.3250122070312,
+            "navigationMs": 4315.668999999998
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 887.0124969482422,
+          "median": 849.800048828125,
+          "min": 703.699951171875,
+          "max": 1312.800048828125
+        },
+        "taskMs": {
+          "mean": 1777.3881875,
+          "median": 1739.9560000000001,
+          "min": 1458.3469999999998,
+          "max": 2348.6080000000006
+        },
+        "completeMs": {
+          "mean": 1065.9249877929688,
+          "median": 1026.949951171875,
+          "min": 918.699951171875,
+          "max": 1428
+        },
+        "serverMs": {
+          "mean": 382.5658721923828,
+          "median": 354.2821044921875,
+          "min": 273.655517578125,
+          "max": 718.295166015625
+        },
+        "handlerWaitMs": {
+          "mean": 146.554931640625,
+          "median": 142.5439453125,
+          "min": 122.921630859375,
+          "max": 208.478271484375
+        },
+        "browserPaintMs": {
+          "mean": 309.90625,
+          "median": 306.5499267578125,
+          "min": 240.5,
+          "max": 374.800048828125
+        },
+        "deltaApplyMs": {
+          "mean": 1.63751220703125,
+          "median": 1.4000244140625,
+          "min": 1.10009765625,
+          "max": 3.300048828125
+        },
+        "acceptMs": {
+          "mean": 2.1089630126953125,
+          "median": 2.0869140625,
+          "min": 1.5,
+          "max": 2.598876953125
+        },
+        "afterAcceptPaintMs": {
+          "mean": 303.19374084472656,
+          "median": 300.449951171875,
+          "min": 234.800048828125,
+          "max": 367.60009765625
+        },
+        "motionPreparationMs": {
+          "mean": 140.02784729003906,
+          "median": 124.0035400390625,
+          "min": 105.2529296875,
+          "max": 281.069091796875
+        },
+        "payloadBytes": {
+          "mean": 1616195.4375,
+          "median": 1649436.0,
+          "min": 1293659,
+          "max": 1794850
+        },
+        "longTaskMs": {
+          "mean": 348.28126525878906,
+          "median": 315.300048828125,
+          "min": 214.0,
+          "max": 621.10009765625
+        },
+        "navigationMs": {
+          "mean": 4308.308000000001,
+          "median": 4308.308000000001,
+          "min": 4300.947000000003,
+          "max": 4315.668999999998
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "client",
+          "server"
+        ],
+        "variant": "before",
+        "cpuRate": 6,
+        "role": "2D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 1488.8751525878906,
+            "navigationMs": 19463.025
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 1433.1000061035156,
+            "navigationMs": 15630.600999999995
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 1460.9875793457031,
+          "median": 1395.050048828125,
+          "min": 1243.400146484375,
+          "max": 1963.7001953125
+        },
+        "taskMs": {
+          "mean": 2559.2220625,
+          "median": 2482.7335000000003,
+          "min": 1979.4760000000017,
+          "max": 3325.9990000000003
+        },
+        "completeMs": {
+          "mean": 1521.2688293457031,
+          "median": 1473.2501220703125,
+          "min": 1278.10009765625,
+          "max": 1963.7001953125
+        },
+        "serverMs": {
+          "mean": 359.83453369140625,
+          "median": 334.32568359375,
+          "min": 253.947509765625,
+          "max": 681.644775390625
+        },
+        "handlerWaitMs": {
+          "mean": 115.99882507324219,
+          "median": 113.615478515625,
+          "min": 48.944580078125,
+          "max": 186.29931640625
+        },
+        "browserPaintMs": {
+          "mean": 937.1687774658203,
+          "median": 888.2999267578125,
+          "min": 851.60009765625,
+          "max": 1142.900146484375
+        },
+        "deltaApplyMs": {
+          "mean": 2.100006103515625,
+          "median": 1.9500732421875,
+          "min": 1.39990234375,
+          "max": 3.699951171875
+        },
+        "acceptMs": {
+          "mean": 1.83599853515625,
+          "median": 1.799560546875,
+          "min": 0.89892578125,
+          "max": 2.6953125
+        },
+        "afterAcceptPaintMs": {
+          "mean": 928.6312561035156,
+          "median": 878.599853515625,
+          "min": 843.900146484375,
+          "max": 1132.0
+        },
+        "motionPreparationMs": {
+          "mean": 39.40809631347656,
+          "median": 36.0206298828125,
+          "min": 26.47412109375,
+          "max": 92.53271484375
+        },
+        "payloadBytes": {
+          "mean": 248651.125,
+          "median": 236483.5,
+          "min": 184409,
+          "max": 331146
+        },
+        "longTaskMs": {
+          "mean": 945.0062408447266,
+          "median": 874.89990234375,
+          "min": 819.0,
+          "max": 1494.10009765625
+        },
+        "navigationMs": {
+          "mean": 17546.813,
+          "median": 17546.813,
+          "min": 15630.600999999995,
+          "max": 19463.025
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "client",
+          "server"
+        ],
+        "variant": "before",
+        "cpuRate": 6,
+        "role": "3D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 1944.0250244140625,
+            "navigationMs": 22464.255
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 2058.449951171875,
+            "navigationMs": 20066.792999999998
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 2001.2374877929688,
+          "median": 1968.5,
+          "min": 1310.699951171875,
+          "max": 2670.60009765625
+        },
+        "taskMs": {
+          "mean": 3251.0393750000003,
+          "median": 3321.1725000000006,
+          "min": 2350.463000000001,
+          "max": 4138.34
+        },
+        "completeMs": {
+          "mean": 2433.65625,
+          "median": 2378.7000732421875,
+          "min": 1737.2998046875,
+          "max": 3045.89990234375
+        },
+        "serverMs": {
+          "mean": 346.64735412597656,
+          "median": 321.7947998046875,
+          "min": 242.986083984375,
+          "max": 665.118408203125
+        },
+        "handlerWaitMs": {
+          "mean": 402.9296875,
+          "median": 373.9271240234375,
+          "min": 261.48779296875,
+          "max": 685.868896484375
+        },
+        "browserPaintMs": {
+          "mean": 1203.6750030517578,
+          "median": 1282.300048828125,
+          "min": 696.699951171875,
+          "max": 1614.39990234375
+        },
+        "deltaApplyMs": {
+          "mean": 1.1500091552734375,
+          "median": 1.0,
+          "min": 0.7998046875,
+          "max": 2.0
+        },
+        "acceptMs": {
+          "mean": 2.085601806640625,
+          "median": 2.0986328125,
+          "min": 1.59912109375,
+          "max": 2.69921875
+        },
+        "afterAcceptPaintMs": {
+          "mean": 1200.0811920166016,
+          "median": 1279.0499267578125,
+          "min": 691.2998046875,
+          "max": 1610.5
+        },
+        "motionPreparationMs": {
+          "mean": 17.323333740234375,
+          "median": 13.5714111328125,
+          "min": 7.395263671875,
+          "max": 33.510009765625
+        },
+        "payloadBytes": {
+          "mean": 242366.75,
+          "median": 232507.0,
+          "min": 169377,
+          "max": 328239
+        },
+        "longTaskMs": {
+          "mean": 1940.5499725341797,
+          "median": 1913.3499755859375,
+          "min": 1262.699951171875,
+          "max": 2591.900146484375
+        },
+        "navigationMs": {
+          "mean": 21265.523999999998,
+          "median": 21265.523999999998,
+          "min": 20066.792999999998,
+          "max": 22464.255
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [],
+        "variant": "after",
+        "cpuRate": 1,
+        "role": "Legacy player",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 1002.2250061035156,
+            "navigationMs": 545.0189999999999
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 567.9250183105469,
+            "navigationMs": 504.0089999999999
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 785.0750122070312,
+          "median": 736.75,
+          "min": 449.400146484375,
+          "max": 1371.800048828125
+        },
+        "taskMs": {
+          "mean": 497.33743749999996,
+          "median": 429.14700000000005,
+          "min": 318.73599999999993,
+          "max": 983.0559999999999
+        },
+        "completeMs": {
+          "mean": 1148.6375274658203,
+          "median": 1105.9000244140625,
+          "min": 811.5,
+          "max": 1728.199951171875
+        },
+        "serverMs": {
+          "mean": 592.3109283447266,
+          "median": 565.2176513671875,
+          "min": 329.994873046875,
+          "max": 1012.175048828125
+        },
+        "handlerWaitMs": {
+          "mean": 141.810791015625,
+          "median": 114.6798095703125,
+          "min": 58.65673828125,
+          "max": 347.656494140625
+        },
+        "browserPaintMs": {
+          "mean": 45.4375,
+          "median": 44.449951171875,
+          "min": 42.800048828125,
+          "max": 52.10009765625
+        },
+        "deltaApplyMs": {
+          "mean": 0.2063140869140625,
+          "median": 0.2001953125,
+          "min": 0.099853515625,
+          "max": 0.39990234375
+        },
+        "acceptMs": {
+          "mean": 0.2624664306640625,
+          "median": 0.265869140625,
+          "min": 0.146728515625,
+          "max": 0.4140625
+        },
+        "afterAcceptPaintMs": {
+          "mean": 44.493743896484375,
+          "median": 43.449951171875,
+          "min": 42.0,
+          "max": 51.10009765625
+        },
+        "motionPreparationMs": {
+          "mean": 201.65017700195312,
+          "median": 189.8153076171875,
+          "min": 103.15625,
+          "max": 505.730224609375
+        },
+        "payloadBytes": {
+          "mean": 1560560.375,
+          "median": 1607871.5,
+          "min": 1280795,
+          "max": 1716691
+        },
+        "longTaskMs": {
+          "mean": 0,
+          "median": 0.0,
+          "min": 0,
+          "max": 0
+        },
+        "navigationMs": {
+          "mean": 524.5139999999999,
+          "median": 524.5139999999999,
+          "min": 504.0089999999999,
+          "max": 545.0189999999999
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "server"
+        ],
+        "variant": "after",
+        "cpuRate": 1,
+        "role": "2D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 953.5625915527344,
+            "navigationMs": 1890.9470000000006
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 630.5875244140625,
+            "navigationMs": 1814.7799999999997
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 792.0750579833984,
+          "median": 790.85009765625,
+          "min": 461,
+          "max": 1243.400146484375
+        },
+        "taskMs": {
+          "mean": 878.6410625,
+          "median": 797.6830000000002,
+          "min": 613.618,
+          "max": 1460.877
+        },
+        "completeMs": {
+          "mean": 1096.2625885009766,
+          "median": 1082.650146484375,
+          "min": 803.900146484375,
+          "max": 1557.500244140625
+        },
+        "serverMs": {
+          "mean": 578.4473571777344,
+          "median": 559.8251953125,
+          "min": 350.8515625,
+          "max": 985.119384765625
+        },
+        "handlerWaitMs": {
+          "mean": 52.61192321777344,
+          "median": 44.4459228515625,
+          "min": 7.856201171875,
+          "max": 201.589599609375
+        },
+        "browserPaintMs": {
+          "mean": 155.49998474121094,
+          "median": 133.5999755859375,
+          "min": 98.5,
+          "max": 402.89990234375
+        },
+        "deltaApplyMs": {
+          "mean": 0.343719482421875,
+          "median": 0.2998046875,
+          "min": 0.10009765625,
+          "max": 1.39990234375
+        },
+        "acceptMs": {
+          "mean": 0.2069091796875,
+          "median": 0.1563720703125,
+          "min": 0.0009765625,
+          "max": 0.662353515625
+        },
+        "afterAcceptPaintMs": {
+          "mean": 153.2045135498047,
+          "median": 132.1500244140625,
+          "min": 97.39990234375,
+          "max": 401.800048828125
+        },
+        "motionPreparationMs": {
+          "mean": 70.16508483886719,
+          "median": 48.318359375,
+          "min": 30.12353515625,
+          "max": 147.51123046875
+        },
+        "payloadBytes": {
+          "mean": 193022.1875,
+          "median": 197299.0,
+          "min": 171543,
+          "max": 204725
+        },
+        "longTaskMs": {
+          "mean": 47.23126220703125,
+          "median": 0.0,
+          "min": 0,
+          "max": 287.0
+        },
+        "navigationMs": {
+          "mean": 1852.8635000000002,
+          "median": 1852.8635000000002,
+          "min": 1814.7799999999997,
+          "max": 1890.9470000000006
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "server"
+        ],
+        "variant": "after",
+        "cpuRate": 1,
+        "role": "3D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 902.4500427246094,
+            "navigationMs": 1077.4229999999977
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 577.9874572753906,
+            "navigationMs": 1295.7
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 740.21875,
+          "median": 686.699951171875,
+          "min": 499.5,
+          "max": 1183
+        },
+        "taskMs": {
+          "mean": 1253.7630625000002,
+          "median": 1117.1425000000004,
+          "min": 838.075,
+          "max": 2148.7889999999998
+        },
+        "completeMs": {
+          "mean": 1121.0749969482422,
+          "median": 1094.5999755859375,
+          "min": 849.699951171875,
+          "max": 1595.300048828125
+        },
+        "serverMs": {
+          "mean": 560.3544921875,
+          "median": 545.716064453125,
+          "min": 340.104736328125,
+          "max": 935.734375
+        },
+        "handlerWaitMs": {
+          "mean": 57.260986328125,
+          "median": 54.097412109375,
+          "min": 22.94921875,
+          "max": 123.38623046875
+        },
+        "browserPaintMs": {
+          "mean": 117.08747863769531,
+          "median": 120.25,
+          "min": 69.2998046875,
+          "max": 145.0
+        },
+        "deltaApplyMs": {
+          "mean": 0.3062286376953125,
+          "median": 0.1500244140625,
+          "min": 0.099853515625,
+          "max": 1.800048828125
+        },
+        "acceptMs": {
+          "mean": 0.3845367431640625,
+          "median": 0.298095703125,
+          "min": 0.196044921875,
+          "max": 1.196044921875
+        },
+        "afterAcceptPaintMs": {
+          "mean": 116.32496643066406,
+          "median": 119.449951171875,
+          "min": 68.2998046875,
+          "max": 144.39990234375
+        },
+        "motionPreparationMs": {
+          "mean": 40.90142822265625,
+          "median": 22.786376953125,
+          "min": 8.73876953125,
+          "max": 136.42626953125
+        },
+        "payloadBytes": {
+          "mean": 186737.3125,
+          "median": 191279.0,
+          "min": 156508,
+          "max": 201735
+        },
+        "longTaskMs": {
+          "mean": 4.1875,
+          "median": 0.0,
+          "min": 0,
+          "max": 67.0
+        },
+        "navigationMs": {
+          "mean": 1186.561499999999,
+          "median": 1186.561499999999,
+          "min": 1077.4229999999977,
+          "max": 1295.7
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [],
+        "variant": "after",
+        "cpuRate": 6,
+        "role": "Legacy player",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 822.9874572753906,
+            "navigationMs": 4406.522000000001
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 793.2000122070312,
+            "navigationMs": 4724.8470000000025
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 808.0937347412109,
+          "median": 776.949951171875,
+          "min": 689.60009765625,
+          "max": 1024.7998046875
+        },
+        "taskMs": {
+          "mean": 1698.6062499999998,
+          "median": 1628.5690000000002,
+          "min": 1456.7620000000002,
+          "max": 2010.0819999999997
+        },
+        "completeMs": {
+          "mean": 1023.0874633789062,
+          "median": 982.39990234375,
+          "min": 903.10009765625,
+          "max": 1194.2998046875
+        },
+        "serverMs": {
+          "mean": 346.9250030517578,
+          "median": 321.348876953125,
+          "min": 283.382568359375,
+          "max": 477.64013671875
+        },
+        "handlerWaitMs": {
+          "mean": 137.6328125,
+          "median": 139.8272705078125,
+          "min": 116.3212890625,
+          "max": 162.430908203125
+        },
+        "browserPaintMs": {
+          "mean": 277.6250305175781,
+          "median": 264.4500732421875,
+          "min": 233.400146484375,
+          "max": 349.0
+        },
+        "deltaApplyMs": {
+          "mean": 1.425018310546875,
+          "median": 1.4000244140625,
+          "min": 1,
+          "max": 2.60009765625
+        },
+        "acceptMs": {
+          "mean": 2.0777587890625,
+          "median": 2.0989990234375,
+          "min": 0.366943359375,
+          "max": 4.098876953125
+        },
+        "afterAcceptPaintMs": {
+          "mean": 270.96250915527344,
+          "median": 258.2501220703125,
+          "min": 228.199951171875,
+          "max": 340.7998046875
+        },
+        "motionPreparationMs": {
+          "mean": 121.51728820800781,
+          "median": 114.96826171875,
+          "min": 97.010986328125,
+          "max": 170.86669921875
+        },
+        "payloadBytes": {
+          "mean": 1560564.5625,
+          "median": 1607875.5,
+          "min": 1280780,
+          "max": 1716701
+        },
+        "longTaskMs": {
+          "mean": 334.26255798339844,
+          "median": 313.9500732421875,
+          "min": 249.2998046875,
+          "max": 459.900146484375
+        },
+        "navigationMs": {
+          "mean": 4565.684500000001,
+          "median": 4565.684500000001,
+          "min": 4406.522000000001,
+          "max": 4724.8470000000025
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "server"
+        ],
+        "variant": "after",
+        "cpuRate": 6,
+        "role": "2D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 1291.7623596191406,
+            "navigationMs": 15445.325
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 1254.2875671386719,
+            "navigationMs": 15339.160999999996
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 1273.0249633789062,
+          "median": 1276.949951171875,
+          "min": 1114.60009765625,
+          "max": 1490.7998046875
+        },
+        "taskMs": {
+          "mean": 2354.078625,
+          "median": 2319.6114999999995,
+          "min": 1930.7219999999993,
+          "max": 2871.6880000000006
+        },
+        "completeMs": {
+          "mean": 1357.8999633789062,
+          "median": 1344.0999755859375,
+          "min": 1188.599853515625,
+          "max": 1550.2998046875
+        },
+        "serverMs": {
+          "mean": 326.22206115722656,
+          "median": 302.6337890625,
+          "min": 263.94140625,
+          "max": 460.491455078125
+        },
+        "handlerWaitMs": {
+          "mean": 98.63575744628906,
+          "median": 84.9654541015625,
+          "min": 44.3603515625,
+          "max": 214.353759765625
+        },
+        "browserPaintMs": {
+          "mean": 802.2562561035156,
+          "median": 797.199951171875,
+          "min": 708.900146484375,
+          "max": 887.39990234375
+        },
+        "deltaApplyMs": {
+          "mean": 2.0374908447265625,
+          "median": 1.9000244140625,
+          "min": 1.400146484375,
+          "max": 3.199951171875
+        },
+        "acceptMs": {
+          "mean": 1.9053802490234375,
+          "median": 1.8489990234375,
+          "min": 1.4990234375,
+          "max": 3.098876953125
+        },
+        "afterAcceptPaintMs": {
+          "mean": 794.0,
+          "median": 788.8499755859375,
+          "min": 701.300048828125,
+          "max": 880.2998046875
+        },
+        "motionPreparationMs": {
+          "mean": 33.665740966796875,
+          "median": 29.3101806640625,
+          "min": 23.073486328125,
+          "max": 57.90087890625
+        },
+        "payloadBytes": {
+          "mean": 193021.9375,
+          "median": 197298.0,
+          "min": 171543,
+          "max": 204724
+        },
+        "longTaskMs": {
+          "mean": 762.6499938964844,
+          "median": 751.60009765625,
+          "min": 678.5,
+          "max": 895.800048828125
+        },
+        "navigationMs": {
+          "mean": 15392.242999999999,
+          "median": 15392.242999999999,
+          "min": 15339.160999999996,
+          "max": 15445.325
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "server"
+        ],
+        "variant": "after",
+        "cpuRate": 6,
+        "role": "3D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 1850.3248596191406,
+            "navigationMs": 17535.684000000005
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 1716.6874389648438,
+            "navigationMs": 11896.45
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 1783.5061492919922,
+          "median": 1713.5999755859375,
+          "min": 1502.599853515625,
+          "max": 2126.099853515625
+        },
+        "taskMs": {
+          "mean": 3005.25275,
+          "median": 2921.2090000000007,
+          "min": 2399.2520000000004,
+          "max": 3783.703000000001
+        },
+        "completeMs": {
+          "mean": 2304.681167602539,
+          "median": 2297.099853515625,
+          "min": 1762.89990234375,
+          "max": 3012.89990234375
+        },
+        "serverMs": {
+          "mean": 314.579345703125,
+          "median": 292.0927734375,
+          "min": 253.404296875,
+          "max": 446.803466796875
+        },
+        "handlerWaitMs": {
+          "mean": 336.6722106933594,
+          "median": 335.8780517578125,
+          "min": 196.90966796875,
+          "max": 508.595703125
+        },
+        "browserPaintMs": {
+          "mean": 1086.3437042236328,
+          "median": 1049.0499267578125,
+          "min": 839.300048828125,
+          "max": 1540.900146484375
+        },
+        "deltaApplyMs": {
+          "mean": 1.106201171875,
+          "median": 1.0,
+          "min": 0.099853515625,
+          "max": 2.7001953125
+        },
+        "acceptMs": {
+          "mean": 2.0670166015625,
+          "median": 1.898681640625,
+          "min": 1.598876953125,
+          "max": 3.697998046875
+        },
+        "afterAcceptPaintMs": {
+          "mean": 1082.8000030517578,
+          "median": 1045.8499755859375,
+          "min": 836.400146484375,
+          "max": 1534.800048828125
+        },
+        "motionPreparationMs": {
+          "mean": 15.493682861328125,
+          "median": 12.6888427734375,
+          "min": 6.61767578125,
+          "max": 35.6630859375
+        },
+        "payloadBytes": {
+          "mean": 186736.3125,
+          "median": 191278.0,
+          "min": 156506,
+          "max": 201732
+        },
+        "longTaskMs": {
+          "mean": 1725.6123962402344,
+          "median": 1664.5,
+          "min": 1436.399658203125,
+          "max": 2086.099853515625
+        },
+        "navigationMs": {
+          "mean": 14716.067000000003,
+          "median": 14716.067000000003,
+          "min": 11896.45,
+          "max": 17535.684000000005
+        }
+      }
+    ]
+  },
+  "unthrottledRepeat": {
+    "method": "Main 1463ee57 and optimized source, two reverse-order blocks, 8 movements per rate per block, same three assisted viewers. Five second pre-throttle warmup added. CDP network messages and long tasks recorded identically in each condition. Profiling excluded.",
+    "rows": [
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [],
+        "variant": "before",
+        "cpuRate": 1,
+        "role": "Legacy player",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 598.1125183105469,
+            "navigationMs": 412.9510000000001
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 602.7124633789062,
+            "navigationMs": 489.12500000000006
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 600.4124908447266,
+          "median": 603.7498779296875,
+          "min": 441.300048828125,
+          "max": 1003
+        },
+        "taskMs": {
+          "mean": 366.07912500000003,
+          "median": 356.7555000000002,
+          "min": 270.71200000000005,
+          "max": 543.982
+        },
+        "completeMs": {
+          "mean": 966.5624694824219,
+          "median": 975.14990234375,
+          "min": 802.5,
+          "max": 1379.5
+        },
+        "serverMs": {
+          "mean": 448.9076232910156,
+          "median": 457.06787109375,
+          "min": 331.671630859375,
+          "max": 719.455322265625
+        },
+        "handlerWaitMs": {
+          "mean": 103.52951049804688,
+          "median": 88.4456787109375,
+          "min": 57.004150390625,
+          "max": 230.26806640625
+        },
+        "browserPaintMs": {
+          "mean": 43.699981689453125,
+          "median": 43.3499755859375,
+          "min": 40.2998046875,
+          "max": 47.5
+        },
+        "deltaApplyMs": {
+          "mean": 0.2062530517578125,
+          "median": 0.199951171875,
+          "min": 0.0009765625,
+          "max": 0.599853515625
+        },
+        "acceptMs": {
+          "mean": 0.227996826171875,
+          "median": 0.244140625,
+          "min": 0.052001953125,
+          "max": 0.34521484375
+        },
+        "afterAcceptPaintMs": {
+          "mean": 42.78125,
+          "median": 42.5999755859375,
+          "min": 39.5,
+          "max": 45.89990234375
+        },
+        "motionPreparationMs": {
+          "mean": 148.92315673828125,
+          "median": 144.3411865234375,
+          "min": 100.46533203125,
+          "max": 265.569580078125
+        },
+        "payloadBytes": {
+          "mean": 1616194.5,
+          "median": 1649434.0,
+          "min": 1293664,
+          "max": 1794847
+        },
+        "longTaskMs": {
+          "mean": 0,
+          "median": 0.0,
+          "min": 0,
+          "max": 0
+        },
+        "navigationMs": {
+          "mean": 451.03800000000007,
+          "median": 451.03800000000007,
+          "min": 412.9510000000001,
+          "max": 489.12500000000006
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "client",
+          "server"
+        ],
+        "variant": "before",
+        "cpuRate": 1,
+        "role": "2D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 650.25,
+            "navigationMs": 1724.1460000000002
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 626.7249450683594,
+            "navigationMs": 1883.4979999999994
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 638.4874725341797,
+          "median": 632.2999267578125,
+          "min": 453.800048828125,
+          "max": 1041.10009765625
+        },
+        "taskMs": {
+          "mean": 723.1406875,
+          "median": 694.7299999999998,
+          "min": 601.3250000000002,
+          "max": 923.587
+        },
+        "completeMs": {
+          "mean": 971.6750183105469,
+          "median": 944.800048828125,
+          "min": 795.10009765625,
+          "max": 1368.800048828125
+        },
+        "serverMs": {
+          "mean": 451.0033721923828,
+          "median": 441.0689697265625,
+          "min": 312.91455078125,
+          "max": 741.626708984375
+        },
+        "handlerWaitMs": {
+          "mean": 43.81500244140625,
+          "median": 30.1817626953125,
+          "min": 8.673583984375,
+          "max": 180.733154296875
+        },
+        "browserPaintMs": {
+          "mean": 139.3937225341797,
+          "median": 125.7999267578125,
+          "min": 91.699951171875,
+          "max": 364.0
+        },
+        "deltaApplyMs": {
+          "mean": 0.3000030517578125,
+          "median": 0.2999267578125,
+          "min": 0.199951171875,
+          "max": 0.60009765625
+        },
+        "acceptMs": {
+          "mean": 0.15325927734375,
+          "median": 0.155029296875,
+          "min": 0.0009765625,
+          "max": 0.2724609375
+        },
+        "afterAcceptPaintMs": {
+          "mean": 138.26263427734375,
+          "median": 124.699951171875,
+          "min": 90.83203125,
+          "max": 362.7998046875
+        },
+        "motionPreparationMs": {
+          "mean": 62.58111572265625,
+          "median": 48.7081298828125,
+          "min": 28.104736328125,
+          "max": 179.684326171875
+        },
+        "payloadBytes": {
+          "mean": 248652.375,
+          "median": 236484.0,
+          "min": 184417,
+          "max": 331146
+        },
+        "longTaskMs": {
+          "mean": 20.10626220703125,
+          "median": 0.0,
+          "min": 0,
+          "max": 268.0
+        },
+        "navigationMs": {
+          "mean": 1803.8219999999997,
+          "median": 1803.8219999999997,
+          "min": 1724.1460000000002,
+          "max": 1883.4979999999994
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "client",
+          "server"
+        ],
+        "variant": "before",
+        "cpuRate": 1,
+        "role": "3D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 591.3999328613281,
+            "navigationMs": 1229.1519999999991
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 591.2751159667969,
+            "navigationMs": 1209.5339999999997
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 591.3375244140625,
+          "median": 595.1500244140625,
+          "min": 482.10009765625,
+          "max": 869.099853515625
+        },
+        "taskMs": {
+          "mean": 1042.3116874999998,
+          "median": 1053.2509999999997,
+          "min": 890.4730000000001,
+          "max": 1189.5549999999998
+        },
+        "completeMs": {
+          "mean": 986.2062377929688,
+          "median": 972.8499755859375,
+          "min": 819.39990234375,
+          "max": 1424.199951171875
+        },
+        "serverMs": {
+          "mean": 437.2388916015625,
+          "median": 422.8663330078125,
+          "min": 301.76611328125,
+          "max": 730.9853515625
+        },
+        "handlerWaitMs": {
+          "mean": 45.54823303222656,
+          "median": 45.193359375,
+          "min": 19.2861328125,
+          "max": 80.052490234375
+        },
+        "browserPaintMs": {
+          "mean": 104.2750244140625,
+          "median": 100.9500732421875,
+          "min": 83.60009765625,
+          "max": 150.0
+        },
+        "deltaApplyMs": {
+          "mean": 0.143890380859375,
+          "median": 0.1500244140625,
+          "min": 0.0009765625,
+          "max": 0.2998046875
+        },
+        "acceptMs": {
+          "mean": 0.3410797119140625,
+          "median": 0.296630859375,
+          "min": 0.196044921875,
+          "max": 0.998046875
+        },
+        "afterAcceptPaintMs": {
+          "mean": 103.70623779296875,
+          "median": 100.5,
+          "min": 83.300048828125,
+          "max": 149.2001953125
+        },
+        "motionPreparationMs": {
+          "mean": 40.023834228515625,
+          "median": 21.489501953125,
+          "min": 7.335693359375,
+          "max": 162.22021484375
+        },
+        "payloadBytes": {
+          "mean": 242366.375,
+          "median": 232507.0,
+          "min": 169377,
+          "max": 328239
+        },
+        "longTaskMs": {
+          "mean": 0,
+          "median": 0.0,
+          "min": 0,
+          "max": 0
+        },
+        "navigationMs": {
+          "mean": 1219.3429999999994,
+          "median": 1219.3429999999994,
+          "min": 1209.5339999999997,
+          "max": 1229.1519999999991
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [],
+        "variant": "after",
+        "cpuRate": 1,
+        "role": "Legacy player",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 573.925048828125,
+            "navigationMs": 477.8609999999999
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 493.6124572753906,
+            "navigationMs": 437.45900000000006
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 533.7687530517578,
+          "median": 509.8499755859375,
+          "min": 433,
+          "max": 699.900146484375
+        },
+        "taskMs": {
+          "mean": 337.3863125,
+          "median": 325.1109999999999,
+          "min": 276.35300000000007,
+          "max": 424.02
+        },
+        "completeMs": {
+          "mean": 896.625,
+          "median": 871.449951171875,
+          "min": 797,
+          "max": 1068.7001953125
+        },
+        "serverMs": {
+          "mean": 408.8224182128906,
+          "median": 393.1392822265625,
+          "min": 326.0498046875,
+          "max": 560.0703125
+        },
+        "handlerWaitMs": {
+          "mean": 77.49189758300781,
+          "median": 78.83251953125,
+          "min": 55.719482421875,
+          "max": 107.01318359375
+        },
+        "browserPaintMs": {
+          "mean": 43.51875305175781,
+          "median": 43.449951171875,
+          "min": 41.300048828125,
+          "max": 45.699951171875
+        },
+        "deltaApplyMs": {
+          "mean": 0.1625823974609375,
+          "median": 0.199951171875,
+          "min": 0.0009765625,
+          "max": 0.300048828125
+        },
+        "acceptMs": {
+          "mean": 0.2017364501953125,
+          "median": 0.18798828125,
+          "min": 0.0771484375,
+          "max": 0.3291015625
+        },
+        "afterAcceptPaintMs": {
+          "mean": 42.69374084472656,
+          "median": 42.64990234375,
+          "min": 40.800048828125,
+          "max": 44.900146484375
+        },
+        "motionPreparationMs": {
+          "mean": 132.6688232421875,
+          "median": 129.2396240234375,
+          "min": 94.271728515625,
+          "max": 179.428955078125
+        },
+        "payloadBytes": {
+          "mean": 1560564.5625,
+          "median": 1607874.5,
+          "min": 1280791,
+          "max": 1716695
+        },
+        "longTaskMs": {
+          "mean": 0,
+          "median": 0.0,
+          "min": 0,
+          "max": 0
+        },
+        "navigationMs": {
+          "mean": 457.65999999999997,
+          "median": 457.65999999999997,
+          "min": 437.45900000000006,
+          "max": 477.8609999999999
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "server"
+        ],
+        "variant": "after",
+        "cpuRate": 1,
+        "role": "2D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 626.275146484375,
+            "navigationMs": 1861.1240000000003
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 528.0500183105469,
+            "navigationMs": 1788.1849999999995
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 577.1625823974609,
+          "median": 555.75,
+          "min": 453.800048828125,
+          "max": 913.800048828125
+        },
+        "taskMs": {
+          "mean": 696.25525,
+          "median": 675.8545,
+          "min": 596.635,
+          "max": 976.2649999999998
+        },
+        "completeMs": {
+          "mean": 912.8375854492188,
+          "median": 881.2001953125,
+          "min": 786.10009765625,
+          "max": 1259.699951171875
+        },
+        "serverMs": {
+          "mean": 409.1596221923828,
+          "median": 383.003662109375,
+          "min": 307.13623046875,
+          "max": 564.427001953125
+        },
+        "handlerWaitMs": {
+          "mean": 42.92979431152344,
+          "median": 29.622314453125,
+          "min": 8.30322265625,
+          "max": 276.21044921875
+        },
+        "browserPaintMs": {
+          "mean": 121.13748168945312,
+          "median": 116.7000732421875,
+          "min": 101.5,
+          "max": 164.5
+        },
+        "deltaApplyMs": {
+          "mean": 0.306243896484375,
+          "median": 0.2999267578125,
+          "min": 0.199951171875,
+          "max": 0.60009765625
+        },
+        "acceptMs": {
+          "mean": 0.1461029052734375,
+          "median": 0.1474609375,
+          "min": 0.009521484375,
+          "max": 0.297119140625
+        },
+        "afterAcceptPaintMs": {
+          "mean": 119.99998474121094,
+          "median": 115.4500732421875,
+          "min": 100.199951171875,
+          "max": 163.39990234375
+        },
+        "motionPreparationMs": {
+          "mean": 54.55781555175781,
+          "median": 47.57568359375,
+          "min": 31.40185546875,
+          "max": 123.2626953125
+        },
+        "payloadBytes": {
+          "mean": 193022.1875,
+          "median": 197298.0,
+          "min": 171548,
+          "max": 204725
+        },
+        "longTaskMs": {
+          "mean": 16.681243896484375,
+          "median": 0.0,
+          "min": 0,
+          "max": 228.0
+        },
+        "navigationMs": {
+          "mean": 1824.6544999999999,
+          "median": 1824.6544999999999,
+          "min": 1788.1849999999995,
+          "max": 1861.1240000000003
+        }
+      },
+      {
+        "modelRequestCount": 0,
+        "modelRequestUrls": [],
+        "geometrySources": [
+          "server"
+        ],
+        "variant": "after",
+        "cpuRate": 1,
+        "role": "3D DM preview",
+        "n": 16,
+        "rounds": [
+          {
+            "repeat": 1,
+            "latencyMs": 583.3377075195312,
+            "navigationMs": 1190.8940000000002
+          },
+          {
+            "repeat": 2,
+            "latencyMs": 518.8374633789062,
+            "navigationMs": 1178.965
+          }
+        ],
+        "firstPaintMs": {
+          "mean": 551.0875854492188,
+          "median": 529.85009765625,
+          "min": 470.10009765625,
+          "max": 681.2001953125
+        },
+        "taskMs": {
+          "mean": 988.6524999999999,
+          "median": 955.8985000000001,
+          "min": 880.3389999999999,
+          "max": 1257.4119999999996
+        },
+        "completeMs": {
+          "mean": 927.69384765625,
+          "median": 891.400146484375,
+          "min": 794.10009765625,
+          "max": 1147.500244140625
+        },
+        "serverMs": {
+          "mean": 396.8876037597656,
+          "median": 369.872802734375,
+          "min": 293.857177734375,
+          "max": 553.31396484375
+        },
+        "handlerWaitMs": {
+          "mean": 43.33305358886719,
+          "median": 40.476318359375,
+          "min": 18.401611328125,
+          "max": 105.533935546875
+        },
+        "browserPaintMs": {
+          "mean": 106.93124389648438,
+          "median": 104.5999755859375,
+          "min": 80.7998046875,
+          "max": 138.699951171875
+        },
+        "deltaApplyMs": {
+          "mean": 0.175048828125,
+          "median": 0.199951171875,
+          "min": 0.0009765625,
+          "max": 0.300048828125
+        },
+        "acceptMs": {
+          "mean": 0.297149658203125,
+          "median": 0.296142578125,
+          "min": 0.196044921875,
+          "max": 0.39794921875
+        },
+        "afterAcceptPaintMs": {
+          "mean": 106.39375305175781,
+          "median": 104.050048828125,
+          "min": 80.10009765625,
+          "max": 138.300048828125
+        },
+        "motionPreparationMs": {
+          "mean": 33.56843566894531,
+          "median": 21.1783447265625,
+          "min": 7.616943359375,
+          "max": 111.621337890625
+        },
+        "payloadBytes": {
+          "mean": 186736.6875,
+          "median": 191276.0,
+          "min": 156508,
+          "max": 201735
+        },
+        "longTaskMs": {
+          "mean": 12.125,
+          "median": 0.0,
+          "min": 0,
+          "max": 194.0
+        },
+        "navigationMs": {
+          "mean": 1184.9295000000002,
+          "median": 1184.9295000000002,
+          "min": 1178.965,
+          "max": 1190.8940000000002
+        }
+      }
+    ]
+  },
+  "validation": {
+    "unitTests": 2463,
+    "unitFiles": 251,
+    "browserCases": 6,
+    "browserSamplingRetries": 1,
+    "typechecks": "passed"
+  },
+  "harnessSha256": "c6946d480a7cfa866b2638bb206756da51650da7d3fe839f9a0d15175f511be1"
+}

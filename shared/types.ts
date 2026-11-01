@@ -1310,6 +1310,7 @@ export type SessionSummary = {
 export type JoinPayload = {
   legacyMotion?:boolean;
   compactMotion?:boolean;
+  motionEntityRefs?:boolean;
   renderProtocol?:1|2|3;
   serverRendering?: boolean;
   stateProtocol?: 1;

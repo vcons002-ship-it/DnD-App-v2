@@ -4,9 +4,22 @@ import {deliverState,pendingGeometry,resetDelivery,resyncDelivery} from './state
 import {VisibilityWorkers,visibilityWorkers} from './visibilityWorkers.js';
 import type {StateSnapshot} from '../../shared/types.js';
 import type {PlayerVision} from '../../shared/playerVision.js';
+import type {LegacyMotion} from '../../shared/legacyMotion.js';
 const vision:PlayerVision={rangeFt:60,radius:60,heavy:true,origins:[{id:'pc',x:100,y:100}],walls:[{id:'wall',kind:'rectangle',ax:200,ay:-500,bx:215,by:500}],lights:[{id:'lamp',x:120,y:100,radius:100,height:10,strength:1}]};
 const fixture=()=>({role:'player',sessionCode:'TEST',map:{id:'room',mapVisionEnabled:true},tokens:[{id:'pc',x:100,y:100},{id:'enemy',x:120,y:100}],characters:[],monsters:[],maps:[],rollLog:[],chat:[],playerVision:vision,exploredTerrain:[]} as unknown as StateSnapshot);
 afterEach(async()=>{resetDelivery('test');vi.useRealTimers();await visibilityWorkers.close();});
+it.each([false,true])('negotiates movement entity references without changing frame membership (refs=%s)',async motionEntityRefs=>{
+ const source=fixture(),frames:any[]=[],guard=source.tokens[1];
+ const plan:LegacyMotion={membershipOnly:true,id:'walk',durationMs:400,moves:{},frames:[{at:0,tokenIds:['pc','enemy'],tokens:[guard]},{at:1,tokenIds:['pc']}]};
+ deliverState({to:()=>({emit:(_event:any,frame:any)=>frames.push(frame)})},'test',{...source,legacyMotion:plan},
+  {stateProtocol:1,serverRendering:false,motionEntityRefs});
+ await expect.poll(()=>frames.length).toBe(1);
+ const received=frames[0].full.legacyMotion as LegacyMotion;
+ expect(received.frames.map(f=>f.tokenIds)).toEqual([['pc','enemy'],['pc']]);
+ if(motionEntityRefs){expect(received.entities?.tokens).toEqual([guard]);expect(received.frames[0].tokenRefs).toEqual([0]);expect(received.frames[0].tokens).toBeUndefined();}
+ else{expect(received.entities).toBeUndefined();expect(received.frames[0].tokens).toEqual([guard]);}
+ expect(plan.frames[0].tokens).toEqual([guard]);expect(plan.entities).toBeUndefined();
+});
 it('omits unused standard paths for both views without erasing the shared Legacy geometry',async()=>{
  const base=fixture(),frames:any[]=[];
  const snapshot={...base,role:'dm',partyView:{map:base.map,tokens:base.tokens,monsters:[],playerVision:vision}} as StateSnapshot;
