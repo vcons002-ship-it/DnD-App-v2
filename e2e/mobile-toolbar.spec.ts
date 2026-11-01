@@ -25,6 +25,7 @@ for(const size of [{width:320,height:740},{width:390,height:844},{width:430,heig
     expect(b!.height).toBeGreaterThanOrEqual(44);expect(b!.x).toBeGreaterThanOrEqual(0);expect(b!.x+b!.width).toBeLessThanOrEqual(size.width);
    }
    expect(await bar.getByRole('button',{name:'Map features',exact:true}).evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+   await expect(bar.getByRole('button',{name:'Map features',exact:true}).locator('span:visible').first()).toHaveText('Map Features');
    const features=await bar.getByRole('button',{name:'Map features',exact:true}).boundingBox(),tools=await bar.getByRole('button',{name:'Map tools',exact:true}).boundingBox();
    expect(features!.x+features!.width<=tools!.x || tools!.x+tools!.width<=features!.x || features!.y+features!.height<=tools!.y || tools!.y+tools!.height<=features!.y).toBe(true);
    await page.screenshot({path:testInfo.outputPath('compact-toolbar.png')});
@@ -103,6 +104,7 @@ for(const width of [1024,1280,1440,1920])test(`desktop DM toolbar exposes Settin
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   const bar=page.locator('header.topbar'),features=bar.getByRole('button',{name:'Map features',exact:true}),settings=bar.getByRole('button',{name:'Settings',exact:true});
   await expect(features).toBeVisible();await expect(settings).toBeVisible();await expect(bar.locator('.dm-campaign-menu')).not.toHaveAttribute('open','');
+  await expect(features.locator('span:visible').first()).toHaveText('Map Features');
   expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(58);
   await expect(bar.locator('.code')).toBeVisible();await expect(bar.locator('.active-map')).toBeVisible();
   await expect(bar.getByRole('button',{name:'View',exact:true})).toBeVisible();await expect(bar.getByRole('button',{name:'Map tools',exact:true})).toBeVisible();
