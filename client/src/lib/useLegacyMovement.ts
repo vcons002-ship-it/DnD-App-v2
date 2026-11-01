@@ -9,9 +9,12 @@ export function useLegacyMovement(source:StateSnapshot,enabled:boolean){
  const state=useRef<{source?:StateSnapshot;lastId?:string;plan?:LegacyMotion;start:number}>({start:0});
  const previous=state.current;
  if(previous.source!==source){
-  const plan=source.legacyMotion,now=performance.now(),oldTokens=new Map(previous.source?.tokens.map(t=>[t.id,t]));
+  const plan=source.legacyMotion,now=performance.now(),oldTokens=new Map(previous.source?.tokens.map(t=>[t.id,t])),curTokens=new Map(source.tokens.map(t=>[t.id,t]));
+  const sameView=enabled&&previous.source?.map?.id===source.map?.id&&previous.source?.role===source.role;
   const continuous=plan&&Object.entries(plan.moves).every(([id,m])=>oldTokens.get(id)?.x===m.from.x&&oldTokens.get(id)?.y===m.from.y);
-  state.current={source,lastId:plan?.id,start:now,plan:enabled&&previous.source?.map?.id===source.map?.id&&previous.source?.role===source.role&&plan?.id!==previous.lastId&&continuous&&(!previous.plan||now>=previous.start+previous.plan.durationMs)?plan:undefined};
+  const startNew=Boolean(sameView&&plan&&plan.id!==previous.lastId&&continuous);
+  const keepOld=Boolean(!startNew&&sameView&&previous.plan&&now<previous.start+previous.plan.durationMs&&(!plan||plan.id===previous.lastId)&&previous.source?.explorationEpoch===source.explorationEpoch&&previous.source?.map?.mapFogEnabled===source.map?.mapFogEnabled&&JSON.stringify(previous.source?.map?.mapFogRevealed)===JSON.stringify(source.map?.mapFogRevealed)&&Object.entries(previous.plan.moves).every(([id,m])=>{const cur=curTokens.get(id),old=oldTokens.get(id);return cur&&cur.x===m.to.x&&cur.y===m.to.y&&cur.teleportedAt===old?.teleportedAt;}));
+  state.current={source,lastId:plan?.id??(keepOld?previous.lastId:undefined),start:keepOld?previous.start:now,plan:startNew?plan:keepOld?previous.plan:undefined};
  }
  if(!enabled||window.matchMedia('(prefers-reduced-motion: reduce)').matches)state.current.plan=undefined;
  const active=state.current,plan=active.plan,elapsed=performance.now()-active.start,stage=!plan?0:legacyMotionIndex(performance.now(),active.start,plan.durationMs,plan.frames.length),complete=!plan||elapsed>=plan.durationMs;

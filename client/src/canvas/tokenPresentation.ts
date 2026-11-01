@@ -25,17 +25,24 @@ export class TokenPresentation {
   sync(snapshot:StateSnapshot, pxPerFoot:number, now:number, reducedMotion=false,playback?:LegacyPlayback) {
     if(this.snapshot===snapshot&&this.reducedMotion===reducedMotion&&this.playbackId===playback?.id)return;
     const newPlayback=playback&&playback.id!==this.playbackId;this.playbackId=playback?.id;
-    this.playback=playback;
     this.reducedMotion=reducedMotion;
     const previous=this.snapshot;
     const sameMap=previous?.map?.id===snapshot.map?.id;
     if(!sameMap)this.moves.clear();
+    if(newPlayback)this.advance(now);
+    const priorPositions=newPlayback?new Map(snapshot.tokens.flatMap(t=>{const old=this.moves.get(t.id);return old&&old.duration&&this.time<old.start+old.duration?[[t.id,this.position(t.id)!] as const]:[];})):undefined;
+    this.playback=playback;
+    if(newPlayback&&playback)this.time=Math.min(this.time,playback.start);
     this.advance(now);
     const ids=new Set(snapshot.tokens.map(t=>t.id));
     for(const id of this.moves.keys())if(!ids.has(id))this.moves.delete(id);
     for(const token of snapshot.tokens){
       const planned=playback?.moves[token.id];
-      if(newPlayback&&planned&&!reducedMotion){this.moves.set(token.id,{from:planned.from,to:planned.to,start:playback.start,duration:playback.durationMs});continue;}
+      if(newPlayback&&planned&&!reducedMotion){
+        const from=priorPositions?.get(token.id)??planned.from;
+        this.moves.set(token.id,{from:{x:from.x,y:from.y},to:planned.to,start:playback.start,duration:playback.durationMs});
+        continue;
+      }
       const old=this.moves.get(token.id);
       if(old&&old.to.x===token.x&&old.to.y===token.y){
         if(reducedMotion&&old.duration)this.moves.set(token.id,{from:{x:token.x,y:token.y},to:{x:token.x,y:token.y},start:now,duration:0});

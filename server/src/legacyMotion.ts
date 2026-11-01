@@ -54,7 +54,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
  }
  const work=(async():Promise<LegacyMotion|undefined>=>{
   const current=new Map(listTokens(after.map!.id).map(t=>[t.id,t]));
-  const first={...before,tokens:before.tokens.filter(t=>current.has(t.id)&&!current.get(t.id)!.isHidden),partyView:undefined,legacyMotion:undefined};
+  const first={...before,tokens:before.tokens.filter(t=>current.has(t.id)&&(after.role==='dm'||!current.get(t.id)!.isHidden)),partyView:undefined,legacyMotion:undefined};
   const rawViews:StateSnapshot[]=[];
   // Exploration changes only at the route's halfway and final poses. Reuse
   // these unions rather than clipping the same remembered terrain 13 times.
@@ -66,6 +66,12 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
     const at=index/LEGACY_MOTION_STEPS,t=tokenMoveProgress(at,1);
     const base=index===0?first:index===LEGACY_MOTION_STEPS?after:{...after,tokens:after.tokens.map(tok=>{const p=moves[tok.id];return p?{...tok,x:p.from.x+(p.to.x-p.from.x)*t,y:p.from.y+(p.to.y-p.from.y)*t}:tok;})};
     rawViews.push({...after,...base,partyView:undefined,legacyMotion:undefined});
+   }
+  }else if(routes.some(r=>r.crossedWall)){
+   for(let index=0;index<=LEGACY_MOTION_STEPS;index++){
+    if(options?.current&&!options.current())return;
+    const t=tokenMoveProgress(index/LEGACY_MOTION_STEPS,1);
+    rawViews.push(t<.5?{...after,...first,partyView:undefined,legacyMotion:undefined,exploredTerrain:remembered}:{...after,partyView:undefined,legacyMotion:undefined,exploredTerrain:after.exploredTerrain});
    }
   }else{
    const originIds=new Set(after.playerVision?.origins.map(o=>o.id));
@@ -117,9 +123,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
       }
       const geom=await geomPromise;
       view.legacyGeometry={...geom,memory:index===LEGACY_MOTION_STEPS?formatMemory(after.exploredTerrain):t>=.5?halfwayMemory:rememberedMemory,affinity:view.tokens.filter(tok=>!tok.sharedSightOnly&&visionShowsAffinity(view.playerVision,tok.x,tok.y)).map(tok=>tok.id)};
- 
      }
-
     }
    }
    else view.legacyGeometry={sight:[],near:[],lights:[],memory:[],affinity:view.tokens.filter(t=>!t.sharedSightOnly).map(t=>t.id)};

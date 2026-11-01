@@ -34,6 +34,40 @@ it('does not explore a relocation, a DM wall crossing or a hidden token path',as
   expect(contains(f.snapshot().exploredTerrain,1100,100)).toBe(false);
  }
 });
+it('animates DM wall crossings and doorway moves in Legacy motion without exploring across closed walls',async()=>{
+ // 1. DM moves a token through an open doorway where its collision radius grazes the jamb (y=106 near jamb at y=100, radius=10px).
+ const openDoor=fixture();
+ editMapWalls(openDoor.session.id,openDoor.map.id,{add:{id:'jamb-top',ax:200,ay:0,bx:200,by:100}});
+ editMapWalls(openDoor.session.id,openDoor.map.id,{add:{id:'jamb-bot',ax:200,ay:150,bx:200,by:400}});
+ const startNearJamb=moveToken(openDoor.token.id,100,106)!;
+ const beforeDoor=openDoor.snapshot(),throughDoor=moveToken(openDoor.token.id,300,106)!;
+ await recordWalkingMove(startNearJamb,throughDoor,true);
+ const afterDoor=openDoor.snapshot();
+ expect(walkingRoute(throughDoor.id)?.crossedWall).toBeUndefined();
+ expect(contains(afterDoor.exploredTerrain,200,106)).toBe(true);
+ const doorPlan=await prepareLegacyMotion('walker-door',beforeDoor,afterDoor);
+ expect(doorPlan?.frames).toHaveLength(13);
+ expect(doorPlan?.moves[throughDoor.id]).toEqual({from:{x:100,y:106},to:{x:300,y:106}});
+ // 2. Subsequent move starting within 1ft (6px < 10px radius) of a wall still records a route and animates.
+ editMapWalls(openDoor.session.id,openDoor.map.id,{add:{id:'hall-wall',ax:250,ay:100,bx:500,by:100}});
+ const beforeParallel=openDoor.snapshot(),parallelMove=moveToken(openDoor.token.id,450,106)!;
+ await recordWalkingMove(throughDoor,parallelMove,true);
+ const afterParallel=openDoor.snapshot();
+ const parallelPlan=await prepareLegacyMotion('walker-door',beforeParallel,afterParallel);
+ expect(parallelPlan?.frames).toHaveLength(13);
+ // 3. DM moves a token across a solid wall: does not explore intermediate rooms, but still produces a 13-frame motion plan.
+ const walled=fixture();
+ editMapWalls(walled.session.id,walled.map.id,{add:{id:'wall-a',ax:600,ay:-5000,bx:600,by:5000}});
+ editMapWalls(walled.session.id,walled.map.id,{add:{id:'wall-b',ax:1600,ay:-5000,bx:1600,by:5000}});
+ const beforeWall=walled.snapshot(),acrossWall=moveToken(walled.token.id,2100,100)!;
+ await recordWalkingMove(walled.token,acrossWall,true);
+ const afterWall=walled.snapshot();
+ expect(walkingRoute(acrossWall.id)?.crossedWall).toBe(true);
+ expect(contains(afterWall.exploredTerrain,1100,100)).toBe(false);
+ const wallPlan=await prepareLegacyMotion('walker-wall',beforeWall,afterWall);
+ expect(wallPlan?.frames).toHaveLength(13);
+ expect(wallPlan?.moves[acrossWall.id]).toEqual({from:{x:100,y:100},to:{x:2100,y:100}});
+});
 it('a reset invalidates an in-flight worker history write',async()=>{
  const f=fixture();f.snapshot();const moved=moveToken(f.token.id,2100,100,true)!,pending=recordWalkingMove(f.token,moved,true);resetExploration(f.session.id,f.map.id);await pending;
  expect(contains(f.snapshot().exploredTerrain,1100,100)).toBe(false);
@@ -71,11 +105,14 @@ it('authorizes transient midpoint creatures, redacts stats and still excludes ma
  const restricted={...before,map:f.snapshot().map},restrictedAfter=f.snapshot();
  const hidden=await prepareLegacyMotion('walker',restricted,restrictedAfter);expect(hidden?.frames[6].tokenIds).not.toContain(enemy.id);
 });
-it('presentation shares the server motion clock and snaps on cancellation/reduced motion',()=>{
+it('presentation shares the server motion clock, redirects smoothly mid-walk, and snaps on cancellation/reduced motion',()=>{
  const f=fixture(),a=f.snapshot(),b={...a,tokens:a.tokens.map(t=>({...t,x:t.x+200}))},p=new TokenPresentation();p.sync(a,10,0,true);
  const token=b.tokens[0],playback={id:'move',start:100,durationMs:400,moves:{[token.id]:{from:{x:100,y:100},to:{x:300,y:100}}}};
  p.sync(b,10,100,false,playback);expect(p.position(token.id)?.x).toBe(100);p.advance(300);expect(p.position(token.id)?.x).toBe(200);
- p.sync(b,10,310,true);expect(p.position(token.id)?.x).toBe(300);expect(p.moving()).toBe(false);
+ // Starting a second playback mid-walk redirects from the current position (200) instead of jumping to 300.
+ const c={...b,tokens:b.tokens.map(t=>({...t,x:500}))},playback2={id:'move-2',start:300,durationMs:400,moves:{[token.id]:{from:{x:300,y:100},to:{x:500,y:100}}}};
+ p.sync(c,10,300,false,playback2);expect(p.position(token.id)?.x).toBe(200);p.advance(500);expect(p.position(token.id)?.x).toBe(350);
+ p.sync(c,10,510,true);expect(p.position(token.id)?.x).toBe(500);expect(p.moving()).toBe(false);
 });
 it('retains vector geometry across rendered snapshots and recomputes first motion frame geometry when stripped',async()=>{
  const f=fixture();
