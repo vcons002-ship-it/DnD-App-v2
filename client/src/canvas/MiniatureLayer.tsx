@@ -444,7 +444,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if (disposed || failed || document.hidden) return;
     const environment=props.environmentPreview;
     const atmosphereAnimated = !!environment?.enabled && !reducedMotion.matches &&
-      ((environment.particles&&environment.particles!=='none'&&(environment.particleIntensity??.5)>0&&(environment.particleScale??1)>0) || (environment.groundWetness??0)>0 || environment.lightning || (environment.mist&&environment.mistQuality!=='off') || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker) || !!environment.carriedLanterns?.length || props.tokens.some(t=>t.carriedLantern));
+      ((environment.particles&&environment.particles!=='none'&&(environment.particleIntensity??.5)>0&&(environment.particleScale??1)>0) || (environment.groundWetness??0)>0 || environment.lightning || (environment.mist&&environment.mistQuality!=='off') || (!!environment.weather && environment.weather!=='none' && (environment.weatherIntensity??.5)>0) || !!environment.lights?.some(light=>light.flicker));
     const animated = !reducedMotion.matches && [...instances.values()].some((instance) => instance.mixer || instance.fx || instance.turnRing.visible || instance.selectionRing.visible);
     const settling = [...moves.values()].some((move) => Number.isFinite(move.until));
     const casting = [...instances.entries()].filter(([, instance]) => instance.lightning?.active(now / 1000));
@@ -609,7 +609,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           useStore.getState().snapshot?.map?.explorationMode,environment?.heavyDarkness,ambient.intensity,key.intensity,scene.environmentIntensity,ambient.color.toArray(),key.color.toArray(),
           props.tokens.map(t=>{const i=instances.get(t.id);return [t.id,t.sharedSightOnly,t.tint,t.shade,t.mirrorImages,i?.root.visible,i?.root.position.toArray(),i?.root.rotation.y,i?.root.scale.x];}),
           labels.map(l=>{if(!labelVersions.has(l.canvas))labelVersions.set(l.canvas,++nextLabelVersion);return [l.id,labelVersions.get(l.canvas),l.points,l.opacity];})]):'';
-        if(sharedKey!==sharedFrameKey||[...instances.values()].some(i=>i.mixer)){
+        if(sharedKey!==sharedFrameKey||(sharedIds.size>0&&[...instances.values()].some(i=>i.mixer))){
           sharedFrameKey=sharedKey;sharedContext.clearRect(0,0,sw,sh);
           if(sharedIds.size){
             const layers=camera.layers.mask,autoClear=renderer.autoClear;

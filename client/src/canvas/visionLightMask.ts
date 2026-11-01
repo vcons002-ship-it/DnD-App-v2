@@ -16,7 +16,10 @@ export function createVisionLightMask(group:SVGGElement,defs:SVGGElement,id:stri
  function syncInternal(lights:readonly VisionLight[],projection:Projection,prepare=false){
   const target=prepare?stagedEntries:entries,clipContainer=prepare?detachedDefs:defs;
   const live=new Set<string>(),markup:string[]=[];
-  for(const light of lights){
+  for(const rawLight of lights){
+   const nominalRadius=!rawLight.transient&&(rawLight as {nominalRadius?:number}).nominalRadius!==undefined?(rawLight as {nominalRadius?:number}).nominalRadius!:rawLight.radius;
+   const nominalStrength=!rawLight.transient&&(rawLight as {nominalStrength?:number}).nominalStrength!==undefined?(rawLight as {nominalStrength?:number}).nominalStrength!:rawLight.strength;
+   const light=(nominalRadius===rawLight.radius&&nominalStrength===rawLight.strength)?rawLight:{...rawLight,radius:nominalRadius,strength:nominalStrength};
    // A zero peak produces no attenuation anywhere. Avoid projection and wall
    // clipping for that source until it contributes, without discarding its cache.
    live.add(light.id);if(lightCoverage(0,light)===0)continue;
@@ -41,7 +44,7 @@ export function createVisionLightMask(group:SVGGElement,defs:SVGGElement,id:stri
    const geometry=[projection.key,light.x,light.y,light.radius,JSON.stringify(light.beam)].join(':');
    if(entry.geometry!==geometry){entry.shapes=[];entry.geometry=geometry;geometryUpdates++;changed=true;}
    // Project only bands that actually paint. Bright centers and dark tails
-   // frequently omit bands; leave their geometry lazy for later flicker frames.
+   // frequently omit bands; leave their geometry lazy for later frames.
    for(let index=0;index<48;index++)if(entry.alphas[index]&&!entry.shapes[index]){
     const radius=light.radius*LIGHT_SPILL_MULTIPLIER*(48-index)/48,ellipse=light.beam?undefined:projection.ellipse(light.x,light.y,radius);
     entry.shapes[index]=ellipse?

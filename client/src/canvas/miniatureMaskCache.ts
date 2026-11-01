@@ -11,15 +11,18 @@ function retainNumbers(previous:number[],values:ArrayLike<number>,length=values.
  * Preserve its exact pixels during flicker; motion/animation refreshes them in
  * the same frame, without a timed cache that could trail behind a camera turn. */
 export function createMiniatureMaskCache(){
-  let previous='',updates=0,visible=new Set<Object3D>();
+  let previousCamera='',updates=0,visible=new Set<Object3D>();
+  const cameraProjection:number[]=[],cameraWorld:number[]=[];
   const retained=new WeakMap<Object3D,{key:string;matrix:number[];instances:number[];bones:number[];morph:number[]}>();
   return {
     needsRender(target:WebGLRenderTarget,scene:Scene,camera:Camera,worldMatricesCurrent=false){
       camera.updateMatrixWorld();
       if(!worldMatricesCurrent)scene.updateMatrixWorld(true);
       const nextVisible=new Set<Object3D>();
-      const cameraKey=JSON.stringify([target.width,target.height,camera.uuid,camera.projectionMatrix.elements,camera.matrixWorld.elements]);
-      let changed=cameraKey!==previous;previous=cameraKey;
+      const cameraKey=`${target.width}:${target.height}:${camera.uuid}`;
+      let changed=cameraKey!==previousCamera;previousCamera=cameraKey;
+      if(retainNumbers(cameraProjection,camera.projectionMatrix.elements))changed=true;
+      if(retainNumbers(cameraWorld,camera.matrixWorld.elements))changed=true;
       scene.traverseVisible(node=>{
         if(!(node instanceof Mesh||node instanceof Sprite)||!((node.layers.mask&((1<<1)|(1<<6)))))return;
         if(node instanceof InstancedMesh&&node.count===0)return;
@@ -27,12 +30,7 @@ export function createMiniatureMaskCache(){
         nextVisible.add(node);if(!visible.has(node))changed=true;
         let entry=retained.get(node);
         if(!entry){entry={key:'',matrix:[],instances:[],bones:[],morph:[]};retained.set(node,entry);}
-        const key=JSON.stringify([node.layers.mask,geometry.uuid,
-          node.userData.outlineId,node.userData.bodySlot,geometry.getAttribute('instanceBodySlot')?.version,geometry.getAttribute('instanceOutline')?.version,geometry.getAttribute('position')?.version,geometry.index?.version,geometry.drawRange,geometry.groups,
-          geometry.morphTargetsRelative,geometry.morphAttributes.position?.map((a:BufferAttribute|InterleavedBufferAttribute)=>'data' in a?a.data.version:a.version),
-          // Mirrors use their captured alpha silhouette; changing that texture
-          // invalidates it even if their world transform remains identical.
-          node instanceof Sprite?[node.center.toArray(),node.material.map?.uuid,node.material.map?.version]:undefined]);
+        const key=`${node.layers.mask}:${geometry.uuid}:${node.userData.outlineId??''}:${node.userData.bodySlot??''}:${geometry.getAttribute('instanceBodySlot')?.version??''}:${geometry.getAttribute('instanceOutline')?.version??''}:${geometry.getAttribute('position')?.version??''}:${geometry.index?.version??''}:${geometry.drawRange.start},${geometry.drawRange.count}:${geometry.groups.length}:${geometry.morphTargetsRelative?1:0}:${geometry.morphAttributes.position?.map((a:BufferAttribute|InterleavedBufferAttribute)=>'data' in a?a.data.version:a.version).join(',')??''}:${node instanceof Sprite?`${node.center.x},${node.center.y}:${node.material.map?.uuid??''}:${node.material.map?.version??''}`:''}`;
         if(key!==entry.key){entry.key=key;changed=true;}
         if(retainNumbers(entry.matrix,node.matrixWorld.elements))changed=true;
         if(retainNumbers(entry.morph,node instanceof Mesh?node.morphTargetInfluences??[]:[]))changed=true;

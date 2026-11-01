@@ -5,6 +5,8 @@ import {createEnvironmentVisibility} from '../canvas/environmentVisibility.js';
 import {createMiniatureNameLayer} from '../canvas/miniatureNameLayer.js';
 import {createMiniatureMaskCache} from '../canvas/miniatureMaskCache.js';
 import {miniatureAppearanceKey} from '../canvas/miniatureAppearance.js';
+import {createVisionLightMask} from '../canvas/visionLightMask.js';
+import {createVisionLightProjector} from '../canvas/visionLightEllipse.js';
 import {DEFAULT_MAP_ENVIRONMENT} from '../../../shared/mapEnvironment.js';
 
 describe('standard rendering retention',()=>{
@@ -29,13 +31,43 @@ describe('standard rendering retention',()=>{
   lighting.update({...settings,lights:[]});lighting.renderField(renderer,1);expect(renders).toBe(8);expect(lighting.lights).toHaveLength(0);
   lighting.dispose();visibility.dispose();
  });
- it('preserves torch flicker and carried lantern motion instead of freezing their field',()=>{
+ it('preserves torch flicker and carried lantern motion while keeping stationary carried lanterns idle',()=>{
   const scene=new Scene(),visibility=createEnvironmentVisibility(),lighting=createBattlefieldLighting(scene,new DirectionalLight(),undefined,visibility.uniforms,{texture:new Texture(),resolution:new Vector2()},{} as any);
+  let renders=0;const renderer:any={shadowMap:{needsUpdate:true},getRenderTarget:()=>null,setRenderTarget(){},getClearAlpha:()=>0,getClearColor:(c:any)=>c.set('black'),setClearColor(){},clear(){},render(){renders++;}};
   const settings:any={...DEFAULT_MAP_ENVIRONMENT,enabled:true,mapWidth:1000,mapHeight:700,pixelsPerFoot:10,lights:[{id:'lamp',x:100,y:100,heightFt:8,radiusFt:30,intensity:1,color:'warm',flicker:true}]};
   lighting.update(settings);lighting.tick(1);const before=lighting.lights[0].strength;lighting.tick(2);expect(lighting.lights[0].strength).not.toBe(before);
-  lighting.setCarried([{id:'carrier',x:20,y:20,height:30,fixtureHeight:25,facing:0}]);lighting.tick(3);expect(lighting.lights.find(l=>l.id==='carrier')?.x).toBe(20);
-  lighting.setCarried([{id:'carrier',x:80,y:20,height:30,fixtureHeight:25,facing:1}]);lighting.tick(4);expect(lighting.lights.find(l=>l.id==='carrier')?.x).toBe(80);
+  lighting.update({...settings,lights:[]});
+  lighting.setCarried([{id:'carrier',x:20,y:20,height:30,fixtureHeight:25,facing:0}]);lighting.tick(3);lighting.renderField(renderer);
+  const stationaryRenders=renders;
+  expect(lighting.animated).toBe(false);
+  expect(lighting.lights.find(l=>l.id==='carrier')?.x).toBe(20);
+  lighting.tick(4);lighting.renderField(renderer);
+  expect(renders).toBe(stationaryRenders);
+  lighting.setCarried([{id:'carrier',x:80,y:20,height:30,fixtureHeight:25,facing:1}]);lighting.tick(5);lighting.renderField(renderer);
+  expect(lighting.lights.find(l=>l.id==='carrier')?.x).toBe(80);
+  expect(renders).toBe(stationaryRenders+1);
   lighting.dispose();visibility.dispose();
+ });
+ it('retains vision light SVG masks across stationary torch flicker and updates when a light moves',()=>{
+  let groupWrites=0;
+  const node=()=>({id:'',attrs:new Map<string,string>(),setAttribute(k:string,v:string){this.attrs.set(k,v);},getAttribute(k:string){return this.attrs.get(k)??null;},append(){},remove(){}});
+  const prevDoc=(globalThis as any).document;(globalThis as any).document={createElementNS:()=>node()};
+  try{
+   const group={set innerHTML(_v:string){groupWrites++;}} as unknown as SVGGElement;
+   const defs=node() as unknown as SVGGElement;
+   const mask=createVisionLightMask(group,defs,'lamp');
+   const ellipse=createVisionLightProjector({x:0,y:0,scale:1},45,0,1000,800);
+   const projection={key:'cam1',wallsKey:'[]',occluded:false,ellipse,circle:()=>'M0,0Z',clip:()=>'M0,0Z'};
+   mask.sync([{id:'torch',x:200,y:300,height:50,radius:180,strength:.9,nominalRadius:200,nominalStrength:1} as any],projection);
+   expect(groupWrites).toBe(1);expect(mask.stats.geometryUpdates).toBe(1);
+   for(const factor of [.85,1.05,1.22]){
+    mask.sync([{id:'torch',x:200,y:300,height:50,radius:200*factor,strength:factor,nominalRadius:200,nominalStrength:1} as any],projection);
+   }
+   expect(groupWrites).toBe(1);expect(mask.stats.geometryUpdates).toBe(1);
+   mask.sync([{id:'torch',x:240,y:300,height:50,radius:200,strength:1,nominalRadius:200,nominalStrength:1} as any],projection);
+   expect(groupWrites).toBe(2);expect(mask.stats.geometryUpdates).toBe(2);
+   mask.dispose();
+  }finally{(globalThis as any).document=prevDoc;}
  });
  it('uploads name geometry only when it moves and glyph pixels only when text changes',()=>{
   const scene=new Scene(),names=createMiniatureNameLayer(scene,new DepthTexture(10,10),{value:new Vector2(10,10)});
