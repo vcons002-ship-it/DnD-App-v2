@@ -24,7 +24,7 @@ import {DEATH_SKULL,SPIRITUAL_WEAPON,miniatureForLod,miniatureForPreload} from '
 import {NEUTRAL_MINIATURE_LIGHTING} from './miniatureLightingDefaults';
 import {COMBAT_ROLE_ICON} from '../../../shared/combatRole';
 import type {CombatRole} from '../../../shared/types';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import {
   Vector2, Color, AnimationMixer, ACESFilmicToneMapping, DirectionalLight, Group, HemisphereLight,
   Material, Mesh, MeshBasicMaterial, MeshStandardMaterial, OrthographicCamera, PMREMGenerator, RingGeometry,
@@ -126,7 +126,7 @@ export type MiniatureLayerHandle = {
   headPosition: (id:string)=>{x:number;y:number}|undefined;
   setFootprints: (marks:FootprintMark[])=>void;
   spellCast: (tokenIds: string[]) => void;
-  setView: (view: BattlefieldView) => void;
+  setView: (view: BattlefieldView, immediate?: boolean) => void;
   setProjection: (tilt:number, rotation:number, view:BattlefieldView) => void;
   moveToken: (id: string, x: number, y: number, finished: boolean, facing?: number) => void;
   previewMove: (id: string, point: {x:number;y:number;facing:number} | null) => void;
@@ -374,6 +374,9 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const visionTiming=timing?createPreviewGpuTiming(renderer.getContext()):null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let paintedReducedMotion: boolean | undefined;
+  let drawnCameraKey = '', drewInSync = false;
+  const currentCameraKey = () => `${view.x}:${view.y}:${view.scale}:${props.tiltDegrees}:${props.rotationDegrees ?? 0}:${props.width}:${props.height}`;
+  let syncedScene: {tokens:Props['tokens'];preloadDefinitions:Props['preloadDefinitions'];environmentPreview:Props['environmentPreview'];spellImpacts:Props['spellImpacts'];spellFog:Props['spellFog'];preparedSpellImpacts:Props['preparedSpellImpacts'];spellColorOverlay:Props['spellColorOverlay'];spellMist:Props['spellMist'];personalVision:Props['personalVision'];rollBackground:Props['rollBackground'];rollBackgroundPrepared:Props['rollBackgroundPrepared'];graphics:Props['graphics'];width:number;height:number;pixelRatio:number;mapId:string|undefined}|null=null;
 
   const updateCamera = () => {
     const scale = Math.max(0.0001, view.scale);
@@ -401,7 +404,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     // An explicit screen-up keeps flat mode oriented identically to the map.
     camera.up.set(-Math.cos(tilt)*Math.sin(yaw), Math.sin(tilt), -Math.cos(tilt)*Math.cos(yaw));
     camera.lookAt(center.x, 0, center.z);
-    camera.updateProjectionMatrix();
+    camera.updateProjectionMatrix();camera.updateMatrixWorld();
     outlineProjectionInverse.value.copy(camera.projectionMatrixInverse);
     host.dataset.cameraRotation=String(props.rotationDegrees??0);host.dataset.cameraTilt=String(props.tiltDegrees);
   };
@@ -441,6 +444,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     // same frame. One live clock keeps movement, fog history and FX monotonic.
     const now = performance.now();
     frame = 0;
+
     if (disposed || failed || document.hidden) return;
     const environment=props.environmentPreview;
     const atmosphereAnimated = !!environment?.enabled && !reducedMotion.matches &&
@@ -459,7 +463,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     host.dataset.idleSceneFps=String(props.graphics?.idleSceneFps??24);
     if (paintedReducedMotion !== reducedMotion.matches || now - lastPaint >= 1000/fps-1) {
       paintedReducedMotion = reducedMotion.matches;
-      lastPaint = now;
+      lastPaint = now;drawnCameraKey = currentCameraKey();
       const seconds = (now - started) / 1000;
       host.dataset.mirrorImageCount=String(props.tokens.reduce((n,t)=>n+(instances.has(t.id)?t.mirrorImages??0:0),0));
       for(const [id,move] of moves)if(move.until<now)moves.delete(id);
@@ -634,7 +638,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           }
         }
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
-        battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
+        if(sightFrame?.explored.length&&(props.environmentPreview?.heavyDarkness||sightFrame.keepRevealed))battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         // Keep the existing path until the remembered-art texture is ready;
         // this also covers daylight boards without an environment renderer.
@@ -750,7 +754,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if(delay>0){idleTimer=setTimeout(()=>{idleTimer=undefined;queueDraw();},delay);return;}
     frame = requestBattlefieldFrame(draw);
   };
-  const invalidate = () => {
+  const invalidate = () => { if (drewInSync) { drewInSync = false; return; }
+
     if (disposed || failed || document.hidden) return;
     // Pointer/camera changes paint on the next frame even when an animated
     // miniature already has a frame pending under the quality's idle effect cap.
@@ -984,7 +989,21 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     });
     return {tokens,wanted,levels,onScreenIds,pending,key:JSON.stringify([tokens.map(t=>[t.id,t.definition.url,wanted.get(t.id)!.url]),onScreenIds])};
   };
-  const sync = (next: Props) => {
+  const sync = (next: Props, forceSceneSync = false) => {
+    if (disposed || failed) return;
+    const nextPixelRatio = rollBackgroundBudget(Math.min(window.devicePixelRatio || 1, next.graphics?.pixelRatioCap??2),!!next.rollBackground,!!next.rollBackgroundPrepared).pixelRatio;
+    const nextMapId = useStore.getState().snapshot?.map?.id;
+    if (!forceSceneSync && hasRendered && syncedScene && syncedScene.tokens === next.tokens && syncedScene.preloadDefinitions === next.preloadDefinitions && syncedScene.environmentPreview === next.environmentPreview && syncedScene.spellImpacts === next.spellImpacts && syncedScene.spellFog === next.spellFog && syncedScene.preparedSpellImpacts === next.preparedSpellImpacts && syncedScene.spellColorOverlay === next.spellColorOverlay && syncedScene.spellMist === next.spellMist && syncedScene.personalVision === next.personalVision && syncedScene.rollBackground === next.rollBackground && syncedScene.rollBackgroundPrepared === next.rollBackgroundPrepared && syncedScene.graphics === next.graphics && syncedScene.width === next.width && syncedScene.height === next.height && syncedScene.pixelRatio === nextPixelRatio && syncedScene.mapId === nextMapId) {
+      sourceProps = next;
+      const liveTilt = props.tiltDegrees, liveRotation = props.rotationDegrees;
+      props = { ...next, tokens: props.tokens, tiltDegrees: next.tiltDegrees === committedTilt ? liveTilt : next.tiltDegrees, rotationDegrees: (next.rotationDegrees ?? 0) === committedRotation ? liveRotation : next.rotationDegrees };
+      committedTilt = next.tiltDegrees; committedRotation = next.rotationDegrees ?? 0;
+      if (next.view !== committedView) { view = next.view; committedView = next.view; }
+      updateCamera(); scheduleLod();
+      if (currentCameraKey() !== drawnCameraKey) { cancelBattlefieldFrame(frame); frame = 0; lastPaint = 0; if (idleTimer) { clearTimeout(idleTimer); idleTimer = undefined; } draw(performance.now()); }
+      return;
+    }
+    syncedScene = { tokens: next.tokens, preloadDefinitions: next.preloadDefinitions, environmentPreview: next.environmentPreview, spellImpacts: next.spellImpacts, spellFog: next.spellFog, preparedSpellImpacts: next.preparedSpellImpacts, spellColorOverlay: next.spellColorOverlay, spellMist: next.spellMist, personalVision: next.personalVision, rollBackground: next.rollBackground, rollBackgroundPrepared: next.rollBackgroundPrepared, graphics: next.graphics, width: next.width, height: next.height, pixelRatio: nextPixelRatio, mapId: nextMapId };
     if (disposed || failed) return;
     batches.restore();
     sourceProps=next;
@@ -1203,6 +1222,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       });
     }
     queuePreloads((next.preloadDefinitions??[]).map(d=>miniatureForPreload(d,next.graphics?.modelQuality??'high')));
+    if (hasRendered && currentCameraKey() !== drawnCameraKey) { cancelBattlefieldFrame(frame); frame = 0; lastPaint = 0; if (idleTimer) { clearTimeout(idleTimer); idleTimer = undefined; } draw(performance.now()); drewInSync = true; }
     evictRetiredPlayerAssets();
     invalidate();
     if(plan.pending)scheduleLod();
@@ -1255,7 +1275,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const scheduleLod=()=>{if(lodTimer)return;lodTimer=setTimeout(()=>{
     lodTimer=undefined;if(disposed||failed)return;
     const plan=planLod(sourceProps);
-    if(plan.key!==lodDecisionKey)sync(sourceProps);
+    if(plan.key!==lodDecisionKey)sync(sourceProps,true);
     if(plan.pending)scheduleLod();
   },80);};
   sync(initial);
@@ -1282,7 +1302,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       updateCamera();invalidate();
       host.dataset.tiltDegrees=String(tilt);scheduleLod();
     },
-    setView(next) { if (disposed||failed) return; view = next; scheduleLod();updateCamera();invalidate(); },
+    setView(next, immediate = false) { if (disposed||failed) return; view = next; scheduleLod();updateCamera(); if (immediate && hasRendered && currentCameraKey() !== drawnCameraKey) { cancelBattlefieldFrame(frame); frame = 0; lastPaint = 0; if (idleTimer) { clearTimeout(idleTimer); idleTimer = undefined; } draw(performance.now()); } else invalidate(); },
     previewMove(id, point) {
       if(disposed)return;
       if(!point){if(preview?.id===id)clearPreview();invalidate();return;}
@@ -1336,7 +1356,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     headPosition: (id) => engine.current?.headPosition(id),
     setFootprints: (marks) => engine.current?.setFootprints(marks),
     spellCast: (tokenIds) => engine.current?.spellCast(tokenIds),
-    setView: (view) => engine.current?.setView(view),
+    setView: (view, immediate) => engine.current?.setView(view, immediate),
     setProjection: (tilt,rotation,view) => engine.current?.setProjection(tilt,rotation,view),
     moveToken: (id, x, y, finished, facing) => engine.current?.moveToken(id, x, y, finished, facing),
     previewMove: (id,point) => engine.current?.previewMove(id,point),
@@ -1357,7 +1377,7 @@ export const MiniatureLayer = forwardRef<MiniatureLayerHandle, Props>(function M
     }
     return () => { engine.current?.dispose(); engine.current = null; };
   }, [needsScene]);
-  useEffect(() => { engine.current?.sync(props); }, [props]);
+  useLayoutEffect(() => { engine.current?.sync(props); }, [props]);
   return <div ref={host} className="miniature-layer" aria-hidden="true"
     data-testid="miniature-layer" data-miniature-count={state.ids.length}
     data-invisible-miniature-count={state.ids.filter(id=>props.tokens.find(t=>t.id===id)?.invisible).length}

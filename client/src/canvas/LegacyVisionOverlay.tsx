@@ -33,7 +33,8 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
  const placedView=useRef(props.view);
  // Publish server mask and token positions in the same React commit; only the
  // camera needs imperative buffering. A second mask state commit adds latency.
- const frame={...props,view:latest.current.view};
+ const sameView=props.view.x===previousView.current.x&&props.view.y===previousView.current.y&&props.view.scale===previousView.current.scale;
+ const frame={...props,view:sameView?latest.current.view:props.view};
  const displayedKey=frame.tiles?.key??frame.raster?.key;
  useLayoutEffect(()=>{if(displayedKey)movementTiming('maskCommit',{maskKey:displayedKey});},[displayedKey]);
  const draws=useRef(0),drawCount=useMemo(()=>++draws.current,[props]);
