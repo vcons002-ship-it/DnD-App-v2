@@ -365,7 +365,9 @@ function TokenShapeInner({
     if (menuOpened.current) {
       e.evt.preventDefault();
       e.cancelBubble = true;
-      menuOpened.current = false;
+      // Konva emits its synthetic tap after touchend. Keep this flag set until
+      // the next touch starts, so that tap cannot select the held target and
+      // replace the attacker used by the menu.
       lastTap.current=null;
     }else if(candidate&&Date.now()-candidate.t<350&&e.evt.touches.length===0){
       const previous=lastTap.current,now=Date.now();
