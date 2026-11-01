@@ -57,7 +57,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const propCamera=useRef({view:props.view,tilt:props.tilt,rotation:props.rotation});
  const renderedLights=useRef<VisionLight[]|null>(null);
  const pendingDraw=useRef(0),fullDraw=useRef(true),lastBaseLightDraw=useRef(0);
- const lastBaseDraw=useRef<{key:string;geometry:ExploredTerrain|undefined;memory:HTMLCanvasElement|null}|null>(null);
+ const lastBaseDraw=useRef<{key:string;geometry:ExploredTerrain|undefined;memory:HTMLCanvasElement|null}|null>(null),lastWorldDraw=useRef<{key:string;geometry:ExploredTerrain|undefined;memory:HTMLCanvasElement|null}|null>(null);
  const ordinaryMask=useRef<ReturnType<typeof createVisionLightMask>>(),spellMask=useRef<ReturnType<typeof createVisionLightMask>>();
  const prepareProjection=useRef<Parameters<ReturnType<typeof createVisionLightMask>['prepare']>[1]>();
  const drawCount=useRef(0),baseDrawCount=useRef(0);
@@ -119,7 +119,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   const projection={key:projectionKey,wallsKey,occluded:!!vision.walls?.length,ellipse:lightEllipse,
    circle:(l:VisionLight,r:number)=>path(l,r,true),clip:(l:VisionLight)=>path(l,SIGHT_EXTENT,true,true)};
   prepareProjection.current=projection;
-  spellMask.current?.sync(sourceLights.filter(l=>l.transient&&state.current.spellLighting!==false).map(positioned),projection);
+  const spellLights=sourceLights.filter(l=>l.transient&&state.current.spellLighting!==false);if(spellLights.length||(spellMask.current?.stats.lights??0)>0)spellMask.current?.sync(spellLights.map(positioned),projection);
   const finish=()=>{if(root.current){
    root.current.dataset.visionCpuMs=(performance.now()-began).toFixed(2);
    root.current.dataset.visionDrawCount=String(++drawCount.current);
@@ -131,12 +131,12 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   const geometry=state.current.presentation?state.current.presentation.explored():state.current.terrain?.explored,camera=JSON.stringify([view,tilt,rotation,width,height]);
   const wallFog=state.current.mapFogOfWar!==false;
   const ordinaryLights=sourceLights.filter(l=>!l.transient).map(positioned);
-  const baseKey=[
-   projectionKey,wallsKey,vision.heavy,!!vision.daylight,vision.radius,wallFog,!!state.current.keepRevealed,
+  const worldKey=[
+   wallsKey,vision.heavy,!!vision.daylight,vision.radius,wallFog,!!state.current.keepRevealed,
    state.current.serverGeometry?.outlines?.wallsKey??'',
    vision.origins.map(o=>{const p=livePoint(o);return `${o.id}:${p.x},${p.y}`;}).join('|'),
    ordinaryLights.map(l=>`${l.id}:${l.x},${l.y},${l.radius},${l.height},${l.strength},${l.beam?`${l.beam.ax},${l.beam.ay},${l.beam.bx},${l.beam.by}`:''}`).join('|'),
-  ].join('~');
+  ].join('~'),baseKey=`${projectionKey}~${worldKey}`;
   if(coverFrame.current&&lastBaseDraw.current?.key===baseKey&&lastBaseDraw.current.geometry===geometry&&lastBaseDraw.current.memory===memoryCanvas.current){
    finish();return;
   }
@@ -164,14 +164,14 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    const p=livePoint(o);
    return wallFog?polygon({...p,id:o.id},radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius}));
   };
-  coverFrame.current={enabled:wallFog||vision.heavy,
+  if(!coverFrame.current||lastWorldDraw.current?.key!==worldKey||lastWorldDraw.current.geometry!==geometry||lastWorldDraw.current.memory!==memoryCanvas.current){lastWorldDraw.current={key:worldKey,geometry,memory:memoryCanvas.current};coverFrame.current={enabled:wallFog||vision.heavy,
    grade:{heavy:vision.heavy,daylight:!!vision.daylight,near:!vision.daylight&&!vision.heavy?vision.origins.map(o=>originPolygon(o,vision.radius)):[]},
    explored:geometry??[],memory:memoryCanvas.current,keepRevealed:!!state.current.keepRevealed,
    memoryRange:state.current.keepRevealed&&vision.heavy?vision.origins.map(o=>{const p=livePoint(o);return circleVertices.map(v=>({x:p.x+v.x*vision.radius,y:p.y+v.y*vision.radius}));}):undefined,
    origins:vision.origins.map(o=>originPolygon(o,vision.heavy?vision.radius:SIGHT_EXTENT)),
    sight:vision.origins.map(o=>originPolygon(o,SIGHT_EXTENT)),
    lights:ordinaryLights.map(source=>({source,polygon:polygon(source,SIGHT_EXTENT)}))};
-  for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);
+  for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);}
   for(const slot of circlePaths.current.keys())if(!activeKeys.has('circle:'+slot))circlePaths.current.delete(slot);
   // Cosmetic flashes restore color only inside already-visible terrain. They
   // never enter this cover or authorize/persist exploration. A flashing area

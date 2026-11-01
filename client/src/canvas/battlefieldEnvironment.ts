@@ -488,6 +488,7 @@ export function createBattlefieldEnvironment(
     prepareMist: mist.prepare,
     renderMist: mist.render,
     renderMemory: darkvisionTerrain.renderMemory,
+    get memoryTexture() { return darkvisionTerrain.memoryTexture; },
     get mistState() { return mist.state; },
     get atmosphereState(){return {...weather.state,...particles.state,...lighting.state,mistColor:settings.mistColor??'natural'};},
   };

@@ -1,14 +1,14 @@
 import {acquireAnimatedMap} from './animatedMapMedia';
 import {lightFalloffGlsl} from '../../../shared/lightFalloff';
 import {exploredTerrainBrightness,HEAVY_DARKVISION_MEMORY_BRIGHTNESS,REGULAR_DARKVISION_TERRAIN_BRIGHTNESS} from '../../../shared/terrainLighting';
-import {Mesh,PlaneGeometry,ShaderMaterial,TextureLoader,VideoTexture,Vector2,Scene,type Texture,type Camera,type WebGLRenderer} from 'three';
+import {Mesh,PlaneGeometry,ShaderMaterial,TextureLoader,VideoTexture,Vector2,Scene,FramebufferTexture,type Texture,type Camera,type WebGLRenderer} from 'three';
 import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './environmentVisibility';
 import {torchFieldGlsl,type createBattlefieldLighting} from './battlefieldLighting';
 /** Read original artwork, before the darkness grade removes its useful detail. */
 export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof createEnvironmentVisibility>['uniforms'],lights:ReturnType<typeof createBattlefieldLighting>['fieldUniforms'],grade:ReturnType<typeof createBattlefieldLighting>['terrainGrade'],depth:{texture:Texture;resolution:Vector2},invalidate:()=>void){
  const entries:{mesh:Mesh;memory:Mesh;texture:Texture;material:ShaderMaterial;memoryMaterial:ShaderMaterial;release:()=>void;videoTexture?:VideoTexture}[]=[];let key='',generation=0,memoryKey='';
- const memoryScene=new Scene();let lastCanvas:HTMLCanvasElement|null=null,memoryVersion=0;
+ const memoryScene=new Scene();let lastCanvas:HTMLCanvasElement|null=null,memoryVersion=0,memoryTexture:FramebufferTexture|undefined;
  const memoryBrightness={value:.2};
  const clear=()=>{generation++;memoryKey='';
   if(lastCanvas){lastCanvas.getContext('2d')?.clearRect(0,0,lastCanvas.width,lastCanvas.height);lastCanvas.dataset.ready='false';}
@@ -84,18 +84,20 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
    }
    entries.push({mesh,memory,texture,material,memoryMaterial,release,videoTexture});
   }
- },renderMemory(renderer:WebGLRenderer,camera:Camera,canvas:HTMLCanvasElement|null){
+ },renderMemory(renderer:WebGLRenderer,camera:Camera,canvas:HTMLCanvasElement|null,gpuComposite=false){
   if(!canvas||!entries.length||entries.some(e=>!e.memory.visible))return;
   const w=renderer.domElement.width,h=renderer.domElement.height;
-  const mode=canvas.dataset.mode==='retained'?3:canvas.dataset.mode==='regular'?2:1;
-  const next=JSON.stringify([key,w,h,mode,memoryBrightness.value,camera.projectionMatrix.elements,camera.matrixWorld.elements,grade.gradeColor.value.toArray(),grade.gradeOpacity.value,grade.sceneTint.value.toArray(),grade.sceneTintStrength.value]);
+  const mode=canvas.dataset.mode==='retained'?3:canvas.dataset.mode==='regular'?2:1,copy2d=mode===1||!gpuComposite;
+  const next=JSON.stringify([key,w,h,mode,copy2d,memoryBrightness.value,camera.projectionMatrix.elements,camera.matrixWorld.elements,grade.gradeColor.value.toArray(),grade.gradeOpacity.value,grade.sceneTint.value.toArray(),grade.sceneTintStrength.value]);
   if(canvas===lastCanvas&&next===memoryKey)return;
   lastCanvas=canvas;memoryKey=next;
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
   for(const entry of entries)entry.memoryMaterial.uniforms.memoryPass.value=mode;
   renderer.render(memoryScene,camera);
-  const context=canvas.getContext('2d')!;context.clearRect(0,0,w,h);context.drawImage(renderer.domElement,0,0);
+  if(!memoryTexture||memoryTexture.image.width!==w||memoryTexture.image.height!==h){memoryTexture?.dispose();memoryTexture=new FramebufferTexture(w,h);}
+  renderer.state.activeTexture(renderer.getContext().TEXTURE0);renderer.copyFramebufferToTexture(memoryTexture);
+  if(copy2d){const context=canvas.getContext('2d')!;context.clearRect(0,0,w,h);context.drawImage(renderer.domElement,0,0);}
   canvas.dataset.ready='true';
   canvas.dataset.version=String(++memoryVersion);
- },dispose:clear};
+ },get memoryTexture(){return memoryTexture??null;},dispose(){clear();memoryTexture?.dispose();memoryTexture=undefined;}};
 }

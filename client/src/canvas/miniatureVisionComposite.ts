@@ -176,11 +176,15 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
     for(const [id,entry] of entries)if(!live.has(id)){coverScene.remove(entry.mesh);entry.mesh.geometry.dispose();if(id.startsWith('light:'))(entry.mesh.material as ShaderMaterial).dispose();entries.delete(id);}
   };
   const originalZ=host.style.zIndex;
+  let lastGradeCover:VisionCoverFrame|undefined,lastBodiesKey='',lastGradeFlashes=false;
   return {
     gradeBodies(next:VisionCoverFrame|undefined,bodies:readonly {slot:number;x:number;y:number}[],field?:{torchField:{value:Texture};torchBounds:{value:Vector4}},flashes:readonly VisionLight[]=[],walls:import('../../../shared/mapWalls').MapWall[]=[]){
       composite.uniforms.hasGroundLight.value=field?1:0;
       if(field){composite.uniforms.groundLight.value=field.torchField.value;composite.uniforms.lightBounds.value.copy(field.torchBounds.value);}
       if(!next?.grade)return;
+      const bodiesKey=bodies.map(p=>`${p.slot}:${p.x},${p.y}`).join('|');
+      if(!flashes.length&&!lastGradeFlashes&&lastGradeCover===next&&lastBodiesKey===bodiesKey)return;
+      lastGradeCover=next;lastBodiesKey=bodiesKey;lastGradeFlashes=flashes.length>0;
       let changed=false;
       for(const p of bodies){if(!p.slot)continue;let irradiance=0;
         let cache=bodyCoverCache.get(p.slot);if(!cache||cache.x!==p.x||cache.y!==p.y){cache={x:p.x,y:p.y,polygons:new WeakMap()};bodyCoverCache.set(p.slot,cache);}
@@ -195,7 +199,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
     },
     /** This frame's screen-space visibility (red = in sight), for clipping spell art. */
     get cover(){return {texture:cover.texture,width:cover.width,height:cover.height};},
-    render(enabled:boolean,next:VisionCoverFrame|undefined,camera:Camera,flashes:readonly SpellFlash[]=[]){
+    render(enabled:boolean,next:VisionCoverFrame|undefined,camera:Camera,flashes:readonly SpellFlash[]=[],memoryTexture?:Texture|null){
       const grading=enabled&&!!next?.grade&&!next.grade.daylight;
       const fog=enabled&&!!next?.enabled;
       enabled=fog||grading;
@@ -213,7 +217,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       const key=camera.projectionMatrix.elements.join(',')+':'+camera.matrixWorld.elements.join(',');
       // A flash changes every frame it shines, and once more when it ends.
       if(previous!==next||cameraKey!==key||flashes.length||flashCount){
-        sync(next);syncFlashes(flashes);const target=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate;
+        if(previous!==next)sync(next);if(flashes.length||flashCount)syncFlashes(flashes);const target=renderer.getRenderTarget(),pending=renderer.shadowMap.needsUpdate;
         renderer.shadowMap.needsUpdate=false;
         try{renderer.setRenderTarget(cover);renderer.clear(true,true,true);renderer.render(coverScene,camera);}
         finally{renderer.setRenderTarget(target);renderer.shadowMap.needsUpdate=pending;}
@@ -221,11 +225,11 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       }
       host.dataset.visionCoverUpdates=String(updates);host.dataset.visionSpellFlashes=String(flashCount);
       if(next.memory&&next.memory.dataset.ready==='true'){
-        if(memoryCanvas!==next.memory){memory?.dispose();memoryCanvas=next.memory;memory=new CanvasTexture(memoryCanvas);composite.uniforms.memory.value=memory;memoryVersion='';}
-        const version=next.memory.dataset.version??'ready';
-        if(memoryVersion!==version){memory!.needsUpdate=true;memoryVersion=version;}
-        composite.uniforms.hasMemory.value=1;
-      }else composite.uniforms.hasMemory.value=0;
+        if(memoryTexture){composite.uniforms.memory.value=memoryTexture;}else{if(memoryCanvas!==next.memory){memory?.dispose();memoryCanvas=next.memory;memory=new CanvasTexture(memoryCanvas);composite.uniforms.memory.value=memory;memoryVersion='';}const version=next.memory.dataset.version??'ready';if(memoryVersion!==version){memory!.needsUpdate=true;memoryVersion=version;}}composite.uniforms.hasMemory.value=1;}else composite.uniforms.hasMemory.value=0;
+
+
+
+
       // A reused framebuffer texture may already be bound to unit 0 while a
       // mask/grade sampler is the active unit. bindTexture's cache can then
       // skip activating unit 0, causing the copy to overwrite that mask.
