@@ -32,7 +32,8 @@ function fields(s:StateSnapshot,at:number,endpoint:StateSnapshot,moves:LegacyMot
 }
 /** Never infer a walking path from two arbitrary snapshots: teleports, GM
  * relocations, changed maps/fog and coalesced walks must snap immediately. */
-export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:StateSnapshot,timing?:MovementFrameTiming,options?:{endpoint?:()=>Promise<StateSnapshot>;current?:()=>boolean;compact?:boolean}):Promise<LegacyMotion|undefined>{
+export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:StateSnapshot,timing?:MovementFrameTiming,options?:{endpoint?:()=>Promise<StateSnapshot>;current?:()=>boolean;compact?:boolean;membershipOnly?:boolean}):Promise<LegacyMotion|undefined>{
+ if(options?.membershipOnly&&!needsVisibilityLayer(after.map,after.playerVision))return;
  if(!before.map||!after.map||before.explorationEpoch!==after.explorationEpoch||walkingMapKey(before.map)!==walkingMapKey(after.map)||!equal(before.mapImages,after.mapImages)||before.tokenLayerRaster||after.tokenLayerRaster)return;
  const old=new Map(before.tokens.map(t=>[t.id,t])),moves:LegacyMotion['moves']={},routes=[];
  for(const t of after.tokens){
@@ -42,7 +43,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
   moves[t.id]={from:route.from,to:route.to};routes.push(route);
  }
  if(!routes.length)return;
- const coalesceKey=JSON.stringify([renderingLayerKey(before),renderingLayerKey(after),routes.map(r=>`${r.id}:${r.generation}`),options?.compact===true]);
+ const coalesceKey=JSON.stringify([renderingLayerKey(before),renderingLayerKey(after),routes.map(r=>`${r.id}:${r.generation}`),options?.compact===true,options?.membershipOnly===true]);
  const existing=motionCache.get(coalesceKey);
  if(existing){
   const shared=await existing;
@@ -98,6 +99,14 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
    rawViews.push({...after,...first,partyView:undefined,legacyMotion:undefined,exploredTerrain:remembered});
    for(const step of intermediates)rawViews.push({...after,...step,partyView:undefined,legacyMotion:undefined});
    rawViews.push({...after,partyView:undefined,legacyMotion:undefined,exploredTerrain:after.exploredTerrain});
+  }
+  // Standard rendering and unassisted Legacy need authorized creature membership,
+  // but render their own continuously moving sight. Do not rasterize these poses.
+  if(options?.membershipOnly){
+   const endpoint=options.endpoint?await options.endpoint():after;
+   return {membershipOnly:true,id:routes.map(r=>r.id).join(':'),durationMs:400,moves,
+    frames:rawViews.map((view,index)=>{const frame=fields(view,index/LEGACY_MOTION_STEPS,endpoint,moves);
+     return {...frame,tokenSprites:undefined,legacyGeometry:undefined,visionRaster:undefined,visionTiles:undefined};})};
   }
   const hasFullGeometry=(s:StateSnapshot)=>!!s.legacyGeometry&&!s.visionRaster&&!s.visionTiles&&(!needsVisibilityLayer(s.map,s.playerVision)||s.legacyGeometry.sight.length>0||s.legacyGeometry.near.length>0||s.legacyGeometry.lights.length>0||(s.legacyGeometry.memory?.length??0)>0);
   const rememberedMemory=after.playerVision?formatMemory(remembered):[];

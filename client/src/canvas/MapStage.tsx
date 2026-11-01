@@ -440,7 +440,7 @@ function MapStageInner({
   const sourceViewSnapshot=useMemo(()=>partyPreview?{...sourceSnapshot,...(sourceSnapshot.partyView??{
     tokens:[],monsters:[],exploredTerrain:[],playerVision:{rangeFt:60 as const,radius:0,heavy:true,origins:[],lights:[],walls:sourceSnapshot.map?.walls},
   }),role:'player' as const}:sourceSnapshot,[sourceSnapshot,partyPreview]);
-  const legacyMovement=useLegacyMovement(sourceViewSnapshot,legacy&&sourceSnapshot.serverRendering?.enabled===true);
+  const legacyMovement=useLegacyMovement(sourceViewSnapshot,true);
   const snapshot=legacyMovement.snapshot;
   // Player visibility changes what the DM sees, not who controls the map.
   const draggableTokens=sourceDraggableTokens;

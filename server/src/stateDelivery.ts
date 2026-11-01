@@ -60,13 +60,14 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
    const pending=()=>d!.pending,pendingTiming=()=>d!.pendingTiming;
    const current=()=>deliveries.get(id)===d&&(serial===d!.serial||!!inputKey&&!!pending()&&renderingInputKey(pending()!)===inputKey);
    const prepareMotion=async(sourceView:StateSnapshot,endpoint:()=>Promise<StateSnapshot>)=>{
-    if(!d!.legacy||!d!.managed||!sourceView.serverRendering?.enabled||!options.legacyMotion||(options.renderProtocol??0)<3||d!.forceFull||!d!.previous||!positionsChanged(d!.previous,sourceView))return;
+    if(!options.legacyMotion||(options.renderProtocol??0)<3||d!.forceFull||!d!.previous||!positionsChanged(d!.previous,sourceView))return;
     try{
      if(timing)timing.motionStartAt=timingClock();
+     const membershipOnly=!(d!.legacy&&d!.managed&&sourceView.serverRendering?.enabled);
      const before=d!.previousSource?{...d!.previous,visionRaster:undefined,visionTiles:undefined,legacyGeometry:d!.previousSource.legacyGeometry,...(d!.previous.partyView&&d!.previousSource.partyView?{partyView:{...d!.previous.partyView,visionRaster:undefined,visionTiles:undefined,legacyGeometry:d!.previousSource.partyView.legacyGeometry}}:{})}:d!.previous;
      const [legacyMotion,party]=await Promise.all([
-      sourceView.partyView&&before.partyView?Promise.resolve(undefined):prepareLegacyMotion(id,before,sourceView,timing,{current,endpoint,compact:options.compactMotion===true}),
-      sourceView.partyView&&before.partyView?prepareLegacyMotion(id,{...before,...before.partyView,partyView:undefined,role:'player'},{...sourceView,...sourceView.partyView,partyView:undefined,role:'player'},timing,{current,compact:options.compactMotion===true,endpoint:async()=>{const rendered=await endpoint();return {...rendered,...rendered.partyView,partyView:undefined,role:'player'};}}):undefined,
+      sourceView.partyView&&before.partyView?Promise.resolve(undefined):prepareLegacyMotion(id,before,sourceView,timing,{current,endpoint,membershipOnly,compact:options.compactMotion===true}),
+      sourceView.partyView&&before.partyView?prepareLegacyMotion(id,{...before,...before.partyView,partyView:undefined,role:'player'},{...sourceView,...sourceView.partyView,partyView:undefined,role:'player'},timing,{current,membershipOnly,compact:options.compactMotion===true,endpoint:async()=>{const rendered=await endpoint();return {...rendered,...rendered.partyView,partyView:undefined,role:'player'};}}):undefined,
      ]);
      if(timing)timing.motionEndAt=timingClock();
      return {legacyMotion,party};
@@ -91,6 +92,10 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
        if(canWarm)flushRenderWarmer(id);
        prepared=plan?{...rendered,legacyMotion:plan.legacyMotion,...(rendered.partyView?{partyView:{...rendered.partyView,legacyMotion:plan.party}}:{})}:rendered;
       }finally{if(canWarm)setRenderWarmer(id,undefined);}
+     }else if(options.legacyMotion&&(options.renderProtocol??0)>=3&&!d!.forceFull&&d!.previous&&positionsChanged(d!.previous,source)){
+      const plan=await prepareMotion(source,async()=>source);
+      if(plan)prepared={...source,legacyMotion:plan.legacyMotion,...(source.partyView?{partyView:{...source.partyView,legacyMotion:plan.party}}:{})};
+      if(timing)timing.renderEndAt=timingClock();
      }else if(timing)timing.renderEndAt=timingClock();
     }
    }
