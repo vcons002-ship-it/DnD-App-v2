@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect,type Page,type APIRequestContext} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
@@ -27,9 +28,9 @@ test('DM places multiple lights with saved defaults and edits walls while keepin
  const f=await fixture(request);
  try{
   await login(page,f.code);
-  await page.getByRole('button',{name:'Flat battlefield view'}).click();
+  await openToolbarGroup(page,'View');await page.getByRole('button',{name:'Flat battlefield view'}).click();
   await page.getByRole('button',{name:'Fit',exact:true}).click();
-  await page.getByLabel('Battlefield visibility').selectOption('player');
+  await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility').selectOption('player');
   await expect(page.getByTestId('player-vision')).toHaveAttribute('data-origin-count','1');
   await page.getByRole('button',{name:'Map features',exact:true}).click();
   await page.getByRole('button',{name:'Lights',exact:true}).click();
@@ -68,7 +69,7 @@ test('DM places multiple lights with saved defaults and edits walls while keepin
   const a=await position(350,390),b=await position(550,410);
   await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:8});await page.mouse.up();
   await expect.poll(async()=>(await f.snapshot()).map.walls.length).toBe(1);
-  await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');
+  await openToolbarGroup(page,'View');await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');
   await expect(page.getByTestId('player-vision')).toHaveAttribute('data-heavy','true');
   await page.keyboard.press('Escape');
   await page.screenshot({path:'test-results/map-editing-player-visibility.png'});

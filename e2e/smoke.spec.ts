@@ -208,8 +208,7 @@ test('the DM can switch off the two-step damage roll and it sticks', async ({ pa
     timeout: 20_000,
   });
 
-  await page.getByLabel('Campaign menu', { exact: true }).click();
-  await page.getByRole('button', { name: /Settings/ }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const box = page.locator('label:has-text("Damage is a separate roll") input[type=checkbox]');
   // Sessions start with the two-step roll on.
   await expect(box).toBeChecked({ timeout: 10_000 });

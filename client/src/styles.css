@@ -2180,3 +2180,6 @@ html[data-render-mode="legacy"] :is(.dm-window,.player-hud,.damage-prompt-btn,.d
     animation: map-loading-indeterminate 1.35s ease-in-out infinite !important;
   }
 }
+
+/* The compact toolbar uses the shorter visible label. */
+.map-features-short {display:none;}

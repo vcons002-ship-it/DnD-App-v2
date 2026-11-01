@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
@@ -34,16 +35,16 @@ for(const role of ['dm','player'] as const)test(`${role} rotates using desktop b
   expect(await page.locator('.stage-wrap').evaluate(el=>!el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,button:2})))).toBe(true);
   await page.mouse.move(x+100,y,{steps:8});await page.mouse.up({button:'right'});await expect.poll(rotation).toBeCloseTo(35,0);
   const menus=await page.evaluate(()=>(window as any).__contextMenus);expect(menus.length).toBeGreaterThan(0);expect(menus.every((m:any)=>m.prevented)).toBe(true);
-  await page.getByRole('button',{name:'Reset battlefield rotation',exact:true}).click();await expect.poll(rotation).toBe(0);
+  await openToolbarGroup(page,'View');await page.getByRole('button',{name:'Reset battlefield rotation',exact:true}).click();await expect.poll(rotation).toBe(0);
   // Native token actions still receive contextmenu after the capture handler.
   const p=await page.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),token=stage.find('.token')[0],p=token.getAbsolutePosition(),r=stage.getContent().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};});
   await page.mouse.click(p.x,p.y,{button:'right'});await expect(page.getByRole('dialog',{name:'Token actions',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Close token actions',exact:true}).click();
   await page.screenshot({path:info.outputPath(`${role}-rotation-controls.png`)});
   await page.setViewportSize({width:430,height:932});await expect(left).toBeVisible();await expect(right).toBeVisible();
-  await page.setViewportSize({width:1500,height:1000});await page.getByRole('checkbox',{name:'Legacy mode',exact:false}).check();
+  await page.setViewportSize({width:1500,height:1000});await openToolbarGroup(page,'View');await page.getByRole('checkbox',{name:'Legacy mode',exact:false}).check();
   await expect(left).toBeDisabled();await expect(right).toBeDisabled();
-  await page.getByRole('checkbox',{name:'Legacy mode',exact:false}).uncheck();
+  await openToolbarGroup(page,'View');await page.getByRole('checkbox',{name:'Legacy mode',exact:false}).uncheck();
   await expect(right).toBeEnabled();await right.click();await expect.poll(rotation).toBe(15);
  }finally{dm.disconnect();}
 });

@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 /** Opt-in before/after browser CPU evidence, with actual models and no trace/video. */
 import {test,expect,chromium,type Page} from '@playwright/test';
 import {io} from 'socket.io-client';
@@ -74,7 +75,7 @@ test('player idle/navigation and DM fog CPU',async({request})=>{
     const cdp=await context.newCDPSession(page);await cdp.send('Emulation.setCPUThrottlingRate',{rate});await cdp.send('Performance.enable');
     await page.goto(`http://localhost:${PORT}/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await expect(page.locator('.stage-wrap')).toBeVisible();await page.waitForTimeout(1500);
     const repaint=await page.evaluate(()=>{const layer=(window as any).Konva.stages.find((s:any)=>s.find('.token').length).getLayers()[0],start=performance.now();for(let i=0;i<100;i++)layer.draw();return performance.now()-start;});
-    await page.getByTitle('Fog of war',{exact:true}).click();await page.getByRole('button',{name:'Reveal',exact:true}).click();await page.keyboard.press('Escape');
+    await openToolbarGroup(page,'Map tools');await page.getByTitle('Fog of war',{exact:true}).click();await page.getByRole('button',{name:'Reveal',exact:true}).click();await page.keyboard.press('Escape');
     const p=await point(page,800,1200,0);let snapshots=0;const count=()=>snapshots++;admin.on('state:snapshot',count);
     const before=Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((m:any)=>[m.name,m.value]));
     await page.mouse.move(p.x,p.y);await page.mouse.down();await page.mouse.move(p.x+250,p.y,{steps:120});await page.mouse.up();await page.waitForTimeout(500);

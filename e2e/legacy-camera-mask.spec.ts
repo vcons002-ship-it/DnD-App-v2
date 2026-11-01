@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
@@ -19,7 +20,7 @@ for(const assisted of [false,true])for(const role of ['player','dm'] as const)te
   const init=(assisted:boolean)=>{localStorage.setItem('dnd-environment-quality','legacy');localStorage.setItem('dnd-server-rendering',assisted?'on':'off');};
   await page.addInitScript(init,assisted);await page.setViewportSize({width:1440,height:900});
   if(role==='player'){await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.claim-row').filter({hasText:'Druk'}).click();}
-  else{companion=await browser.newContext();await companion.addInitScript(init,assisted);const p=await companion.newPage();await p.goto(`/join?code=${code}`);await p.getByRole('button',{name:'Join',exact:true}).click();await p.locator('.claim-row').filter({hasText:'Druk'}).click();await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');}
+  else{companion=await browser.newContext();await companion.addInitScript(init,assisted);const p=await companion.newPage();await p.goto(`/join?code=${code}`);await p.getByRole('button',{name:'Join',exact:true}).click();await p.locator('.claim-row').filter({hasText:'Druk'}).click();await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');}
   await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source',assisted?'server':'client');await page.waitForTimeout(700);
   // Check the real transform in the same JS turn as the layer's pan handler.
   // A delayed React commit/500ms refresh cannot satisfy this check.

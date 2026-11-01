@@ -11,10 +11,20 @@
 .layout > .compact-topbar .btn {min-height:44px;min-width:44px;padding:6px;font-size:12px;white-space:nowrap;}
 .layout > .compact-topbar .zoom-label {min-width:28px;text-align:center;font-size:11px;}
 .layout > .compact-topbar .toolbar-session-menu {margin-left:auto;flex-shrink:0;}
+.layout > .compact-topbar .dm-settings-trigger {flex-shrink:0;}
+.layout > .compact-topbar .dm-settings-label {display:none;}
+.layout > .compact-topbar :is(.map-features-full,.map-features-state,.map-features-chevron) {display:none;}
+.layout > .compact-topbar .map-features-short {display:inline;}
 .layout .compact-toolbar-menu :is(.map-tool-menus,.dm-campaign-menu) {zoom:1;}
 .layout .compact-toolbar-menu :is(.btn,select) {min-height:44px;min-width:44px;padding:8px 10px;font-size:14px;}
 .layout .compact-toolbar-menu .topbar-actions {display:grid;position:static;width:auto;margin:0;padding:0;gap:8px;}
 .compact-session-info {margin-bottom:12px;overflow-wrap:anywhere;color:var(--muted);}
+/* Desktop has room for session status even with grouped controls. */
+@media (min-width:1001px) and (pointer:fine) {
+  .layout.dm-fantasy > .compact-topbar :is(.code,.active-map,.round-chip) {display:inline;flex-shrink:0;}
+  .layout.dm-fantasy > .compact-topbar .map-tool-slot {flex:0 0 auto;}
+  .layout.dm-fantasy > .compact-topbar .active-map {flex:0 1 160px;min-width:0;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+}
 @media (max-width:700px) {
   .layout > .topbar.compact-topbar {flex-wrap:wrap;}
   .layout > .compact-topbar .session-title {flex:1;max-width:none;}
@@ -22,16 +32,19 @@
 }
 /* On very narrow DM screens, put rotation beside Campaign so all map
    controls remain visible in two rows without shrinking their touch targets. */
-@media (max-width:410px) {
+@media (max-width:520px) {
   .layout.dm-fantasy > .topbar.compact-topbar {
     display:grid; grid-template-columns:44px 20px 44px 44px minmax(50px,1fr) 80px;
     gap:4px; align-items:center;
   }
   .layout.dm-fantasy > .compact-topbar .map-tool-slot,
   .layout.dm-fantasy > .compact-topbar .map-view-controls {display:contents;}
-  .layout.dm-fantasy > .compact-topbar > strong {grid-area:1 / 1;}
-  .layout.dm-fantasy > .compact-topbar > .session-title {grid-area:1 / 2 / 2 / 4;}
-  .layout.dm-fantasy > .compact-topbar .map-rotation-controls {grid-area:1 / 4 / 2 / 6;}
+  .layout.dm-fantasy > .compact-topbar > strong {display:none;}
+  .layout.dm-fantasy > .compact-topbar .map-features-trigger {grid-area:1 / 1 / 2 / 3;}
+  /* The full campaign name is available in the Campaign menu. */
+  .layout.dm-fantasy > .compact-topbar > .session-title {display:none;}
+  .layout.dm-fantasy > .compact-topbar .map-rotation-controls {grid-area:1 / 3 / 2 / 5;}
+  .layout.dm-fantasy > .compact-topbar .dm-settings-trigger {grid-area:1 / 5;justify-self:end;}
   .layout.dm-fantasy > .compact-topbar .toolbar-session-menu {grid-area:1 / 6;margin:0;}
   .layout.dm-fantasy > .compact-topbar .map-view-controls > .zoom-btn:first-child {grid-area:2 / 1;}
   .layout.dm-fantasy > .compact-topbar .zoom-label {grid-area:2 / 2;min-width:0;}

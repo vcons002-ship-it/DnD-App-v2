@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 /** Opt-in, disposable DM party-view recording on real hardware WebGL. */
 import {test,expect,chromium} from '@playwright/test';
 import {io} from 'socket.io-client';
@@ -39,7 +40,7 @@ test('record Legacy and 3D walking past creatures hidden in darkness',async({req
    await context.addInitScript(mode=>{sessionStorage.setItem('dnd.rendering-started','1');localStorage.setItem('dnd-environment-quality',mode==='legacy'?'legacy':'low');localStorage.setItem('dnd-legacy-movement','smooth');localStorage.setItem('dnd.playerId',`dark-${mode}`);localStorage.setItem(`dnd.battlefieldView:dark-${mode}`,mode==='legacy'?'overhead':'tilted');localStorage.setItem(`dnd.tokenView:dark-${mode}`,'3d');localStorage.setItem(`dnd.monsterTokenView:dark-${mode}`,'3d');},mode);
    const page=await context.newPage(),errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
-   await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
+   await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
    if(mode==='legacy'){await expect(page.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','server');}
    else{await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-status','ready',{timeout:90000});await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1');}
    await page.evaluate(({mode,ids,pc})=>{

@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 /** Reproducible client stress measurement; uses only the disposable E2E server.
  * LEGACY_STRESS_OUTPUT=/absolute/path LEGACY_STRESS_RATES=1,6,12,20
  * Not an FPS benchmark or a hardware-equivalence claim. */
@@ -117,7 +118,7 @@ test('record severe CPU restrictions on a large lit legacy DM room, including st
     await expect(page.locator('.stage-wrap')).toHaveAttribute('data-render-mode','legacy');
     await page.screenshot({path:path.join(output,`cpu-${rate}x-initial.png`)});
     console.log(`[legacy-stress] ${rate}x: player sight with 48 lights`);
-    await page.evaluate(()=>(window as any).__stress.label('Player visibility · 48 lights'));await page.getByLabel('Battlefield visibility').selectOption('player');
+    await page.evaluate(()=>(window as any).__stress.label('Player visibility · 48 lights'));await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility').selectOption('player');
     await page.waitForFunction(()=>(window as any).__stress.previewPaintMs!==null,undefined,{timeout:90000});
     run.playerPreviewMs=Math.round(await page.evaluate(()=>(window as any).__stress.previewPaintMs));run.renderedPreviewTokens=await page.evaluate(()=>(window as any).__stress.tokenCount());
     await page.screenshot({path:path.join(output,`cpu-${rate}x-player-visibility.png`)});
@@ -126,7 +127,7 @@ test('record severe CPU restrictions on a large lit legacy DM room, including st
     await page.waitForTimeout(5000);const after=await cdp.send('Performance.getMetrics'),idleMs=Date.now()-idleStart;
     const metric=(r:any,key:string)=>r.metrics.find((m:any)=>m.name===key)?.value??0;
     run.idle={observedMs:idleMs,mainThreadBusyMs:Math.round((metric(after,'TaskDuration')-metric(before,'TaskDuration'))*1000),scriptMs:Math.round((metric(after,'ScriptDuration')-metric(before,'ScriptDuration'))*1000),visibilityRedraws:Number(await page.getByTestId('legacy-vision').getAttribute('data-draw-count'))-drawsBefore,jsHeapMiB:Math.round(metric(after,'JSHeapUsedSize')/2**20)};
-    await page.getByLabel('Battlefield visibility').selectOption('dm');await page.getByRole('button',{name:'Creatures',exact:true}).click();
+    await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility').selectOption('dm');await page.getByRole('button',{name:'Creatures',exact:true}).click();
     const spawn=page.locator('#dm-panel-spawn').getByRole('button',{name:/Bench Goblin.*20 hp/});await spawn.click();
     console.log(`[legacy-stress] ${rate}x: adding ${ADDITIONS} creatures via UI`);await page.evaluate(()=>(window as any).__stress.label('Adding creatures'));
     const addStarted=Date.now();
@@ -139,7 +140,7 @@ test('record severe CPU restrictions on a large lit legacy DM room, including st
     await page.keyboard.press('Escape');await page.locator('#dm-panel-spawn').getByRole('button',{name:'Close DM panel',exact:true}).click();
     await page.evaluate(()=>(window as any).__stress.label('140 monsters + 3 PCs · complete'));
     run.finalDmTokens=await page.evaluate(()=>(window as any).__stress.tokenCount());await page.screenshot({path:path.join(output,`cpu-${rate}x-after-adding.png`)});
-    await page.getByLabel('Battlefield visibility').selectOption('player');await page.waitForFunction(()=>(window as any).__stress.previewPaintMs!==null,undefined,{timeout:90000});
+    await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility').selectOption('player');await page.waitForFunction(()=>(window as any).__stress.previewPaintMs!==null,undefined,{timeout:90000});
     run.postAdditionPreviewMs=Math.round(await page.evaluate(()=>(window as any).__stress.previewPaintMs));await page.screenshot({path:path.join(output,`cpu-${rate}x-final-player-visibility.png`)});
     if(process.env.LEGACY_STRESS_EDITING==='1'){
      const editStart=await page.evaluate(()=>performance.now());
@@ -157,7 +158,7 @@ test('record severe CPU restrictions on a large lit legacy DM room, including st
       await expect.poll(()=>latest.tokens.find((t:any)=>t.id===viewer.id)?.y,{timeout:30000}).toBeGreaterThan(y-80);
       await expect.poll(paths,{timeout:30000}).not.toBe(before);
       run.editing.movements.push({x,y,interactionAndVisibilityMs:Date.now()-started});
-      await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');await page.waitForTimeout(1800);
+      await openToolbarGroup(page,'View');await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');await page.waitForTimeout(1800);
      };
      await label('1 / 4 · Move Varis south · sight updates after drop');await drag(1920,1900);
      await page.screenshot({path:path.join(output,`cpu-${rate}x-player-token-moved.png`)});
@@ -179,10 +180,10 @@ test('record severe CPU restrictions on a large lit legacy DM room, including st
      await page.screenshot({path:path.join(output,`cpu-${rate}x-player-wall-added.png`)});
      await label('4 / 4 · Move Varis again · Player view stays active');await drag(1760,2060);
      await page.screenshot({path:path.join(output,`cpu-${rate}x-player-editing-complete.png`)});
-     await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');run.editing.completedPlayerView=true;
+     await openToolbarGroup(page,'View');await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');run.editing.completedPlayerView=true;
      await page.waitForTimeout(2500);run.editing.durationMs=Math.round(await page.evaluate(()=>performance.now())-editStart);
      // Return to the full DM token count for the common benchmark assertion.
-     await page.getByLabel('Battlefield visibility').selectOption('dm');await expect.poll(()=>page.evaluate(()=>(window as any).__stress.tokenCount())).toBe(MONSTERS+3+ADDITIONS);
+     await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility').selectOption('dm');await expect.poll(()=>page.evaluate(()=>(window as any).__stress.tokenCount())).toBe(MONSTERS+3+ADDITIONS);
     }
     const probe=await page.evaluate(()=>(window as any).__stress);run.webglAttempts=probe.webgl.length;run.longTasks={count:probe.longTasks.length,maxMs:Math.round(Math.max(0,...probe.longTasks.map((t:any)=>t.ms))),totalMs:Math.round(probe.longTasks.reduce((s:number,t:any)=>s+t.ms,0))};run.longTaskSamples=probe.longTasks.map((t:any)=>({...t,ms:Math.round(t.ms)}));
     run.graphicsRequests=requests.filter(u=>/\.glb(?:\?|$)|\/(?:MiniatureLayer|materialDice|diceTrayRenderer)-/.test(u));run.pageErrors=errors;

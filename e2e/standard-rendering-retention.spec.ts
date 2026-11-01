@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect,webglDisabled} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
@@ -89,7 +90,7 @@ for(const mode of ['2d','3d'])test(`standard ${mode} retains static artwork whil
   admin.emit('token:setLantern',{tokenId:pcToken.id,enabled:true});
   admin.emit('map:setEnvironment',{mapId:map.id,settings:{...environment,heavyDarkness:true,lights:[{...environment.lights[0],x:520,y:420,flicker:true}]}});
   await state();
-  await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
+  await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
   const vision=page.getByTestId('player-vision');await expect(vision).toHaveAttribute('data-heavy','true');
   await page.waitForTimeout(500);
   const visionBaseBefore=Number(await vision.getAttribute('data-vision-base-draw-count'));

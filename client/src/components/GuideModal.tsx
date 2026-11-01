@@ -17,9 +17,9 @@ const DESKTOP = [
   ROW('Drag empty map', 'Pan · mouse wheel = zoom · "Fit" recenters'),
   ROW('Delete / Backspace', 'Delete the selected token(s) (DM)'),
   ROW('Esc', 'Cancel placement / close menus'),
-  ROW('Measure ▾ menu', 'Drag a cone/circle/line/square; click a shape to remove it'),
-  ROW('Scale ▾ menu', 'Set the map’s real width / drag a reference line / hide the grid'),
-  ROW('Fog ▾ menu', 'Paint the two fog layers; reveal all / cover all'),
+  ROW('Measure ▾ (DM: Tools)', 'Drag a cone/circle/line/square; click a shape to remove it'),
+  ROW('Scale ▾ (DM: Tools)', 'Set the map’s real width / drag a reference line / hide the grid'),
+  ROW('Fog ▾ (DM: Tools)', 'Paint the two fog layers; reveal all / cover all'),
   ROW('Ctrl+V on the map', 'Paste a copied image as an object token or scenery decal (DM)'),
   ROW('Section ⠿ grip', 'Drag to reorder panel sections; ▾ collapses one'),
   ROW('Chat box', 'Type a message — or /roll 2d6+3 (optionally adv/dis) to roll'),
@@ -27,7 +27,7 @@ const DESKTOP = [
 
 const MOBILE = [
   ROW('View ▾ (phone)', 'Tilt or rotate the map, choose 2D/3D tokens and change DM visibility. Zoom and Fit stay on the toolbar.'),
-  ROW('Map tools ▾ (phone)', 'Measuring and Annotate tools; DM also gets scale, walls, doors, lights, fog and tiles.'),
+  ROW('Map tools ▾ (phone)', 'Measuring and Annotate tools; DM also gets scale and fog. Use Features for walls, doors, lights and tiles.'),
   ROW('Character (phone)', 'Open your sheet, inventory, spellbook, checks/saves and party tabs. Tap the health orb for health controls.'),
   ROW('Combat + (phone)', 'The combat panel starts folded to leave the map clear. Expand it to target, attack or cast; fold it again when exploring.'),
   ROW('Combat and Chat', 'Panels share available height when they would overlap. Their saved sizes return on a larger screen.'),
