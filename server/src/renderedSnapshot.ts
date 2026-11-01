@@ -45,7 +45,7 @@ async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:bo
   layerCache.delete(coalesceKey);
  }
  const work=(async()=>{
-  const map=s.map!,visibilityLayer=needsVisibilityLayer(map,s.playerVision),hasVisionLayers=legacy&&visibilityLayer&&!!s.playerVision&&!!s.legacyGeometry;
+  const map=s.map!,visibilityLayer=needsVisibilityLayer(map,s.playerVision),hasVisionLayers=process.env.SERVER_RASTER_VISION==='1'&&legacy&&visibilityLayer&&!!s.playerVision&&!!s.legacyGeometry;
   const tokenLayerIds:string[]=[];
   const spritesPromise=(async()=>{
    if(timing)timing.spritesStartAt=timingClock();

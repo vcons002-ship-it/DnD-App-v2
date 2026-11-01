@@ -17,8 +17,9 @@ export function useLegacyMovement(source:StateSnapshot,enabled:boolean){
  const active=state.current,plan=active.plan,elapsed=performance.now()-active.start,stage=!plan?0:legacyMotionIndex(performance.now(),active.start,plan.durationMs,plan.frames.length),complete=!plan||elapsed>=plan.durationMs;
  useLayoutEffect(()=>{
   if(!plan)return;
+  const hasMotionFrames=!!plan.atlas||plan.frames.some(f=>!!f.legacyGeometry);
   const signature=(f:LegacyMotion['frames'][number])=>JSON.stringify([f.tokenIds,f.tokens,f.monsters,f.tokenSprites,f.legacyGeometry?.affinity]);
-  const times=plan.frames.flatMap((f,i)=>i&&(!plan.atlas||signature(f)!==signature(plan.frames[i-1]))?[f.at]:[]);times.push(1);
+  const times=plan.frames.flatMap((f,i)=>i&&(!hasMotionFrames||signature(f)!==signature(plan.frames[i-1]))?[f.at]:[]);times.push(1);
   const timers=new Set<ReturnType<typeof setTimeout>>();let cancelled=false;
   for(const at of new Set(times)){
    const deadline=active.start+plan.durationMs*at;
@@ -38,6 +39,6 @@ export function useLegacyMovement(source:StateSnapshot,enabled:boolean){
   // creatures may exist only in this authorized intermediate frame.
   return {...source,tokens,monsters:[...monstersById.values()].filter(m=>monsterIds.has(m.id)),tokenSprites:frame.tokenSprites?{...source.tokenSprites,...frame.tokenSprites}:source.tokenSprites,legacyGeometry:frame.legacyGeometry,visionRaster:frame.visionRaster,visionTiles:frame.visionTiles};
  },[source,plan,stage,complete]);
- const playback=useMemo<LegacyPlayback|undefined>(()=>plan&&!complete?{id:plan.id,start:active.start,durationMs:plan.durationMs,moves:plan.moves,atlas:plan.atlas}:undefined,[plan,complete,active.start]);
+ const playback=useMemo<LegacyPlayback|undefined>(()=>plan&&!complete?{id:plan.id,start:active.start,durationMs:plan.durationMs,moves:plan.moves,atlas:plan.atlas,frames:plan.frames.map(f=>f.legacyGeometry)}:undefined,[plan,complete,active.start]);
  return {snapshot,playback,stage,tick};
 }

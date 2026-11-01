@@ -47,10 +47,10 @@ test('movement latency on independent player and DM clients',async({browser,requ
       const n=w.Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===data.id),visualX=()=>n.x()+(n.findOne('.token-art')?.x()??0),from={x:visualX(),y:n.y()};
       // Atlas pose zero reproduces the previous sight. Changing image layout
       // alone must not be counted as a visibility update during movement.
-      const sight=()=>legacy?document.querySelector('[data-testid=legacy-motion-mask] img')?.getAttribute('data-frame')??'0':[...document.querySelectorAll('[data-testid=player-vision] mask[id^="vision-cover-"] > g > path')].map(p=>p.getAttribute('d')).join('|');
+      const sight=()=>legacy?(document.querySelector('[data-testid=legacy-motion-mask] img')??document.querySelector('[data-testid=legacy-vision]'))?.getAttribute('data-frame')??'0':[...document.querySelectorAll('[data-testid=player-vision] mask[id^="vision-cover-"] > g > path')].map(p=>p.getAttribute('d')).join('|');
       w.__move.arm(data);const a=w.__move.active;a.from=from;a.motionFrames=[];const deadline=performance.now()+25000;let lastX=from.x,stable=0,lastSight=sight(),sightVersion=0;
       const painted=(field:string)=>{const count=Number(document.querySelector('[data-testid=miniature-layer]')?.getAttribute('data-render-count'));requestAnimationFrame(()=>requestAnimationFrame(function check(){if(w.__move.active!==a)return;if(!legacy&&Number(document.querySelector('[data-testid=miniature-layer]')?.getAttribute('data-render-count'))<=count){requestAnimationFrame(check);return;}a[field]=stamp();}));};
-      const frame=()=>{if(w.__move.active!==a)return;const at=stamp(),x=visualX(),stage=document.querySelector('.stage-wrap')?.getAttribute('data-motion-stage'),mask=document.querySelector('[data-testid=legacy-motion-mask] img')?.getAttribute('data-frame');
+      const frame=()=>{if(w.__move.active!==a)return;const at=stamp(),x=visualX(),stage=document.querySelector('.stage-wrap')?.getAttribute('data-motion-stage'),mask=(document.querySelector('[data-testid=legacy-motion-mask] img')??document.querySelector('[data-testid=legacy-vision]'))?.getAttribute('data-frame');
        if(w.__move.role==='DM'||a.releasedAt){
         const nextSight=sight();if(nextSight!==lastSight){lastSight=nextSight;sightVersion++;if(!a.sightChangedAt){a.sightChangedAt=at;painted('sightPaintAt');}}
         a.motionFrames.push({at,x,stage,mask,sightVersion,gpuDrawCount:document.querySelector('[data-testid=miniature-layer]')?.getAttribute('data-render-count'),layout:document.querySelector('[data-testid=legacy-terrain]')?.getAttribute('data-motion-layout')});
@@ -67,7 +67,7 @@ test('movement latency on independent player and DM clients',async({browser,requ
    await dm.goto(`/dm?code=${code}`);await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await dm.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
    for(const p of pages){
     await expect(p.getByRole('checkbox',{name:'Server managed rendering',exact:true})).toBeChecked({checked:assisted});
-    if(legacy){await expect(p.getByTestId('legacy-terrain')).toHaveAttribute('data-grading','server');await expect(p.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);}
+    if(legacy){await expect(p.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','server');await expect(p.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);}
     else{await expect(p.getByTestId('player-vision')).toHaveAttribute('data-wall-geometry-source',assisted?'server':'client');await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-status','ready',{timeout:90000});await expect(p.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees',mode==='local-3d'?'45':'0');}
     await p.evaluate(()=>document.getElementById('movement-caption')?.remove());
    }
@@ -87,7 +87,7 @@ test('movement latency on independent player and DM clients',async({browser,requ
     const sample:any={seq:i,releasedAt:released,healthMs,views:[]};
     for(const [j,d] of data.entries()){
      const a=d.active,poses=a.motionFrames.filter((f:any)=>f.stage==='playing'&&f.mask!=null&&Number(f.mask)<12),errors=poses.map((f:any)=>{const t=Number(f.mask)/12,p=t*t*(3-2*t);return Math.abs(f.x-(a.from.x+(a.actualX-a.from.x)*p));});
-     if(legacy&&rate<=6){expect(new Set(poses.map((f:any)=>f.mask)).size).toBeGreaterThanOrEqual(3);expect(poses.some((f:any)=>f.layout==='shared-base')).toBe(true);}if(errors.length)expect(Math.max(...errors)).toBeLessThan(.1);
+     if(legacy&&rate<=6){expect(new Set(poses.map((f:any)=>f.mask)).size).toBeGreaterThanOrEqual(3);}if(errors.length)expect(Math.max(...errors)).toBeLessThan(.1);
      const frame=d.frames.find((f:any)=>legacy?f.server?.motionEndAt:f.server?.emittedAt);
      expect(frame,'server movement metrics are enabled').toBeTruthy();
      sample.views.push({role:j?'DM':'Player',firstPaintMs:a.firstMotionPaintAt-released,firstSightPaintMs:a.sightPaintAt-released,completeMs:a.doneAt-released,poseCount:legacy?new Set(poses.map((f:any)=>f.mask)).size:new Set(a.motionFrames.filter((f:any)=>Math.abs(f.x-a.from.x)>1&&Math.abs(f.x-a.actualX)>1).map((f:any)=>f.x)).size,sightUpdates:Math.max(...a.motionFrames.map((f:any)=>f.sightVersion)),maxAlignmentPixels:errors.length?Math.max(...errors):null,frame,resources:d.resources.filter((r:any)=>r.startAt>=released),motionFrames:a.motionFrames});

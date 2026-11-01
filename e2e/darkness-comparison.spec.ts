@@ -40,7 +40,7 @@ test('record Legacy and 3D walking past creatures hidden in darkness',async({req
    const page=await context.newPage(),errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
    await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
-   if(mode==='legacy'){await expect(page.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-render-source','server-raster');}
+   if(mode==='legacy'){await expect(page.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','server');}
    else{await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-status','ready',{timeout:90000});await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-tilt-degrees','45');await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','1');}
    await page.evaluate(({mode,ids,pc})=>{
     const w=window as any;w.__dark={samples:[],until:Infinity};

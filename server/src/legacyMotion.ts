@@ -130,7 +130,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
   const endAffinity=options?.endpoint&&after.legacyGeometry?new Set(after.legacyGeometry.affinity):undefined;
   const endMonsters=options?.endpoint?new Map(after.monsters.map(m=>[m.id,m])):undefined;
   const [images]=await Promise.all([
-   needsVisibilityLayer(after.map,after.playerVision)?legacyTerrainFrames(id,prepared,true,timing,options?.compact===true):undefined,
+   process.env.SERVER_RASTER_VISION==='1'&&needsVisibilityLayer(after.map,after.playerVision)?legacyTerrainFrames(id,prepared,true,timing,options?.compact===true):undefined,
    Promise.all(prepared.map(async(view,index)=>{
     if(!view.playerVision||(options?.current&&!options.current()))return;
     if(endById&&endAffinity&&endMonsters){

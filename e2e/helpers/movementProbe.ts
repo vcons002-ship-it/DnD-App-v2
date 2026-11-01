@@ -26,8 +26,8 @@ export async function probe(page:Page,role:string,rate:number,timing=false,block
   new PerformanceObserver(list=>{for(const e of list.getEntries())p.longTasks.push({at:performance.timeOrigin+e.startTime,ms:e.duration,phase:p.phase});}).observe({entryTypes:['longtask']});
   const node=(id:string)=>w.Konva?.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id);
   const sight=()=>{
-   if(motionMetrics){const image=document.querySelector('[data-testid=legacy-motion-mask] img'),index=image?.getAttribute('data-frame');
-    if(index!=null)return Number(index)>0?`pose:${image?.getAttribute('src')}:${index}`:p.active?.beforeSight;
+   if(motionMetrics){const el=document.querySelector('[data-testid=legacy-motion-mask] img')??document.querySelector('[data-testid=legacy-vision]'),index=el?.getAttribute('data-frame');
+    if(index!=null)return Number(index)>0?`pose:${el?.getAttribute('src')??'svg'}:${index}`:p.active?.beforeSight;
    }
    return document.querySelector('[data-testid="legacy-vision"]')?.getAttribute('data-raster-key')||[...document.querySelectorAll('[data-testid="legacy-vision"] clipPath path')].map(n=>n.getAttribute('d')).join('|');
   };
@@ -44,7 +44,7 @@ export async function probe(page:Page,role:string,rate:number,timing=false,block
   const observer=new MutationObserver(()=>{const a=p.active;
    if(motionMetrics&&p.watching&&a&&(role==='DM'||a.observe||a.releasedAt)&&!a.visionPending&&document.querySelector('[data-testid=legacy-vision]')?.getAttribute('data-draw-count')!==a.beforeVisionDraw){a.visionPending=true;requestAnimationFrame(()=>requestAnimationFrame(()=>a.visionPaintAt=stamp()));}
    if(p.watching&&a&&(role==='DM'||a.observe||a.releasedAt)&&sight()!==a.beforeSight){const key=sight();if(key!==a.latestMaskKey){a.latestMaskKey=key;requestAnimationFrame(()=>requestAnimationFrame(()=>a.latestMaskPaintAt=stamp()));
-   if(motionMetrics){const index=document.querySelector('[data-testid=legacy-motion-mask] img')?.getAttribute('data-frame');if(index!=null)a.maskPoses.push({at:stamp(),index:Number(index)});}
+   if(motionMetrics){const index=(document.querySelector('[data-testid=legacy-motion-mask] img')??document.querySelector('[data-testid=legacy-vision]'))?.getAttribute('data-frame');if(index!=null)a.maskPoses.push({at:stamp(),index:Number(index)});}
   }if(!a.sightPaintAt&&!a.sightPending){a.sightPending=true;a.maskMutationAt=stamp();a.sightFrameKey=key;requestAnimationFrame(()=>{a.firstRafAt=stamp();requestAnimationFrame(()=>a.sightPaintAt=stamp());});}}});
   p.start=()=>{p.watching=true;};
   p.stop=()=>{p.watching=false;};

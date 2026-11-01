@@ -77,21 +77,21 @@ it('presentation shares the server motion clock and snaps on cancellation/reduce
  p.sync(b,10,100,false,playback);expect(p.position(token.id)?.x).toBe(100);p.advance(300);expect(p.position(token.id)?.x).toBe(200);
  p.sync(b,10,310,true);expect(p.position(token.id)?.x).toBe(300);expect(p.moving()).toBe(false);
 });
-it('recomputes first motion frame geometry when starting from a snapshot whose transport geometry was stripped',async()=>{
+it('retains vector geometry across rendered snapshots and recomputes first motion frame geometry when stripped',async()=>{
  const f=fixture();
  await sharp({create:{width:500,height:500,channels:4,background:{r:80,g:90,b:100,alpha:1}}}).png().toFile(path.join(config.uploadsDir,'motion-strip-test.png'));
  const rawBefore={...f.snapshot(),map:{...f.snapshot().map!,imagePath:'/uploads/motion-strip-test.png'}};
  const beforeGeometry=await visibilityWorkers.run({mapId:f.map.id,vision:rawBefore.playerVision!,wallFog:true,explored:rawBefore.exploredTerrain,tokens:rawBefore.tokens});
  const deliveredBefore=await renderedSnapshot('walker-stripped',{...rawBefore,legacyGeometry:beforeGeometry},true);
- expect(deliveredBefore.visionRaster).toBeDefined();
- expect(deliveredBefore.legacyGeometry?.sight).toEqual([]);
+ expect(deliveredBefore.visionRaster).toBeUndefined();
+ expect(deliveredBefore.terrainRaster).toBeUndefined();
+ expect(deliveredBefore.legacyGeometry?.near.length).toBeGreaterThan(0);
+ const strippedBefore={...deliveredBefore,legacyGeometry:{...beforeGeometry,sight:[],near:[],lights:[],memory:[]}};
  const moved=moveToken(f.token.id,300,100,true)!;await recordWalkingMove(f.token,moved,true);
  const rawAfter={...f.snapshot(),map:{...f.snapshot().map!,imagePath:'/uploads/motion-strip-test.png'}};
  const afterGeometry=await visibilityWorkers.run({mapId:f.map.id,vision:rawAfter.playerVision!,wallFog:true,explored:rawAfter.exploredTerrain,tokens:rawAfter.tokens});
- const plan=await prepareLegacyMotion('walker-stripped',deliveredBefore,{...rawAfter,legacyGeometry:afterGeometry});
- expect(plan?.atlas?.mask.key).toBeTruthy();
- const bounds=plan!.atlas!.bounds,png=renderAssetFor('walker-stripped',plan!.atlas!.mask.key)!;
- const {data,info}=await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject:true});
- const px=Math.round((100-bounds.x)*bounds.scale),py=Math.round((100-bounds.y)*bounds.scale);
- expect(data[(py*info.width+px)*info.channels+3]).toBeLessThan(30);
+ const plan=await prepareLegacyMotion('walker-stripped',strippedBefore,{...rawAfter,legacyGeometry:afterGeometry});
+ expect(plan?.atlas).toBeUndefined();
+ expect(plan?.frames[0].legacyGeometry?.near).toEqual(beforeGeometry.near);
+ expect(plan?.frames.at(-1)?.legacyGeometry?.near).toEqual(afterGeometry.near);
 });

@@ -51,9 +51,9 @@ for(const assisted of [false,true])for(const role of ['player','dm'] as const)te
    // Observe before triggering the short (400 ms) animation. Polling a removed
    // debug attr or waiting for another automation round trip can miss it.
    await page.evaluate(()=>{const w=window as any;w.__motionCamera=new Promise((resolve,reject)=>{
-    const observer=new MutationObserver(()=>{const img=document.querySelector('[data-testid=legacy-motion-mask] img');if(!img)return;observer.disconnect();clearTimeout(timer);
-     const stage=w.Konva.stages.find((s:any)=>s.find('.token').length),layer=stage.getLayers().find((l:any)=>l.draggable()),before=img.getAttribute('data-frame');layer.position({x:layer.x()+65,y:layer.y()+40});layer.fire('dragmove',{target:layer,evt:new MouseEvent('mousemove')},true);resolve({...w.__checkLegacyCamera(),before,after:img.getAttribute('data-frame')});
-    });const timer=setTimeout(()=>{observer.disconnect();reject(Error('Prepared movement mask did not appear'));},20000);observer.observe(document.querySelector('.stage-wrap')!,{childList:true,subtree:true});
+    const observer=new MutationObserver(()=>{const el=document.querySelector('[data-testid=legacy-motion-mask] img')??document.querySelector('[data-testid=legacy-vision][data-frame]');if(!el)return;observer.disconnect();clearTimeout(timer);
+     const stage=w.Konva.stages.find((s:any)=>s.find('.token').length),layer=stage.getLayers().find((l:any)=>l.draggable()),before=el.getAttribute('data-frame');layer.position({x:layer.x()+65,y:layer.y()+40});layer.fire('dragmove',{target:layer,evt:new MouseEvent('mousemove')},true);resolve({...w.__checkLegacyCamera(),before,after:el.getAttribute('data-frame')});
+    });const timer=setTimeout(()=>{observer.disconnect();reject(Error('Prepared movement mask did not appear'));},20000);observer.observe(document.querySelector('.stage-wrap')!,{childList:true,subtree:true,attributes:true,attributeFilter:['data-frame']});
    });});
    const token=(await state()).tokens.find((t:any)=>t.kind==='pc');admin.emit('token:move',{tokenId:token.id,x:420,y:300});
    const moving=await page.evaluate(()=>(window as any).__motionCamera);
