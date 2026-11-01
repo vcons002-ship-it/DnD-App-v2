@@ -339,6 +339,17 @@ function TokenShapeInner({
     if (!onContextMenu) return;
     e.evt.preventDefault();
     e.cancelBubble = true;
+    // A touch browser can dispatch contextmenu before our long-press timer.
+    // Treat it as the same hold, so release cannot select the target and the
+    // pending timer cannot open the menu a second time.
+    if (touchStart.current) {
+      if (longPress.current) clearTimeout(longPress.current);
+      longPress.current = null;
+      tapCandidate.current = null;
+      lastTap.current = null;
+      if (menuOpened.current) return;
+      menuOpened.current = true;
+    }
     openMenu(e.evt.clientX, e.evt.clientY);
   };
 
@@ -365,7 +376,9 @@ function TokenShapeInner({
     if (menuOpened.current) {
       e.evt.preventDefault();
       e.cancelBubble = true;
-      menuOpened.current = false;
+      // Konva emits its synthetic tap after touchend. Keep this flag set until
+      // the next touch starts, so that tap cannot select the held target and
+      // replace the attacker used by the menu.
       lastTap.current=null;
     }else if(candidate&&Date.now()-candidate.t<350&&e.evt.touches.length===0){
       const previous=lastTap.current,now=Date.now();
