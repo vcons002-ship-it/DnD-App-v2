@@ -1,4 +1,11 @@
 import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame';
+import {
+  cancelLoadingTask,
+  cancelLoadingTasksByPrefix,
+  completeLoadingTask,
+  startLoadingTask,
+  updateLoadingTaskStage,
+} from '../lib/loadingProgress';
 import {centeredMiniatureOutlineBounds,createMiniatureSilhouetteOutline,isMiniatureWeaponPart,type OutlineRect} from './miniatureSilhouetteOutline';
 import {miniatureLodForPixels,miniatureLodPair,miniatureLodShouldPrepare,type MiniatureLod} from '../../../shared/miniatureLod';
 import {warmMiniatureGpuBuffers} from './miniatureGpuWarmup';
@@ -772,7 +779,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     instance.turnRing.material.dispose();
   };
   const removeInstance = (id: string) => {
-    if(preview?.id===id)clearPreview();
+    if(preview?.id===id)clearPreview();cancelLoadingTask(`miniature:${id}`);cancelLoadingTask(`lod:${id}`);
     const instance = instances.get(id);
     if (!instance) return;
     disposeInstance(instance);
@@ -892,8 +899,8 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   };
   const queuePreloads=(definitions:readonly MiniatureDefinition[])=>{
     const wanted=new Set(definitions.map(d=>d.url));
-    for(const url of preloadQueue.keys())if(!wanted.has(url))preloadQueue.delete(url);
-    for(const definition of definitions)if(!warmedAssets.has(definition.url)&&!failedAssets.has(definition.url))preloadQueue.set(definition.url,definition);
+    for(const url of preloadQueue.keys())if(!wanted.has(url)){preloadQueue.delete(url);cancelLoadingTask(`preload:${url}`);}
+    for(const definition of definitions)if(!warmedAssets.has(definition.url)&&!failedAssets.has(definition.url)){preloadQueue.set(definition.url,definition);startLoadingTask({id:`preload:${definition.url}`,category:'preload',weight:1.5,progress:0.12,stageCeiling:0.45});}
     publishPreloads();
     const advance=async()=>{
       preloadTimer=undefined;
@@ -903,7 +910,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       if(loading.size){preloadTimer=setTimeout(()=>void advance(),100);return;}
       const definition=preloadQueue.values().next().value as MiniatureDefinition|undefined;
       if(!definition)return;
-      preloadQueue.delete(definition.url);preloadRunning=true;backgroundAssetUrls.add(definition.url);
+      preloadQueue.delete(definition.url);preloadRunning=true;backgroundAssetUrls.add(definition.url);updateLoadingTaskStage(`preload:${definition.url}`,'preload',0.38,0.9);
       try{
         loadDefinition(definition);
         const asset=await assets.get(definition.url);
@@ -915,11 +922,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
             for(const value of Object.values(material))if(value instanceof Texture)textures.add(value);
           }});
           for(const texture of textures)renderer.initTexture(texture);
-          warmedAssets.add(definition.url);
+          warmedAssets.add(definition.url);completeLoadingTask(`preload:${definition.url}`);
         }
       }catch(error){if(!disposed)console.warn('Miniature background preparation failed',error);}
       finally{
-        preloadRunning=false;
+        preloadRunning=false;if(!warmedAssets.has(definition.url))cancelLoadingTask(`preload:${definition.url}`);
         if(!disposed){publishPreloads();evictRetiredPlayerAssets();preloadTimer=setTimeout(()=>void advance(),75);}
       }
     };
@@ -1027,7 +1034,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     host.dataset.modelUrls=JSON.stringify(next.tokens.map(t=>t.definition.url));
     shaderWarmup.update(camera,scene,`${renderer.shadowMap.enabled}:${key.castShadow}:${!!scene.environment}`);
     for (const [id, url] of loading) {
-      if (!next.tokens.some((token) => token.id === id && (token.definition.url === url||wantedModels.get(id)?.url===url))) loading.delete(id);
+      if (!next.tokens.some((token) => token.id === id && (token.definition.url === url||wantedModels.get(id)?.url===url))) {loading.delete(id);cancelLoadingTask(`miniature:${id}`);cancelLoadingTask(`lod:${id}`);}
     }
     for(const[id,instance]of preparedInstances){
       const token=tokenById.get(id),far=token&&miniatureForPreload(token.definition,next.graphics?.modelQuality??'high').url;
@@ -1058,13 +1065,13 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       const definition=missingDisplay?token.definition:wantedModels.get(token.id)??token.definition;
       if(existing?.url===definition.url||preparedInstances.get(token.id)?.url===definition.url)continue;
       if (failed || failedAssets.has(definition.url) || loading.get(token.id) === definition.url) continue;
-      loading.set(token.id, definition.url);
+      loading.set(token.id, definition.url);const taskCategory=existing?'lod':'miniature',taskId=`${taskCategory}:${token.id}`;updateLoadingTaskStage(taskId,taskCategory,0.16,0.44);
       loadDefinition(definition);
       void assets.get(definition.url)!.then(async (gltf) => {
-        if (disposed || failed || !gltf) {if(loading.get(token.id)===definition.url)loading.delete(token.id);return;}
+        if (disposed || failed || !gltf) {if(loading.get(token.id)===definition.url)loading.delete(token.id);cancelLoadingTask(taskId);return;}
         const current=tokenById.get(token.id);
         const wanted=()=>tokenById.get(token.id)?.definition.url===definition.url||wantedModels.get(token.id)?.url===definition.url;
-        if (!current || !wanted() || instances.get(token.id)?.url===definition.url) return;
+        if (!current || !wanted() || instances.get(token.id)?.url===definition.url) {cancelLoadingTask(taskId);return;}updateLoadingTaskStage(taskId,taskCategory,0.48,0.76);
         const root = new Group();
         const updateTransform=createMiniatureTransform(root);
         // Animated source transforms remain intact below this base-centering group.
@@ -1173,12 +1180,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // of milliseconds. Compile against the real lighting before drawing the
         // new body; KHR_parallel_shader_compile lets existing figures keep moving.
         try { await prepareMiniatureLighting(renderer,root,camera,scene,key); }
-        catch(error) {console.warn('Miniature shader preparation failed',error);}
+        catch(error) {console.warn('Miniature shader preparation failed',error);}updateLoadingTaskStage(taskId,taskCategory,0.78,0.94);
         try{if(instances.has(token.id))await warmMiniatureGpuBuffers(renderer,root,camera,scene,()=>disposed||failed||!wanted());}
         catch(error){console.warn('Miniature buffer preparation failed',error);}
         const latest=tokenById.get(token.id);
-        if(disposed||failed||!latest||!wanted()||instances.get(token.id)?.url===definition.url) {disposeInstance(instance);return;}
-        loading.delete(token.id);
+        if(disposed||failed||!latest||!wanted()||instances.get(token.id)?.url===definition.url) {cancelLoadingTask(taskId);disposeInstance(instance);return;}
+        loading.delete(token.id);completeLoadingTask(taskId);
         const oldPrepared=preparedInstances.get(token.id);
         if(oldPrepared)disposeInstance(oldPrepared);
         preparedInstances.set(token.id,instance);
@@ -1209,7 +1216,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     batches.dispose();
     if(lodTimer)clearTimeout(lodTimer);
     if(preloadTimer)clearTimeout(preloadTimer);
-    preloadQueue.clear();
+    preloadQueue.clear();cancelLoadingTasksByPrefix('miniature:');cancelLoadingTasksByPrefix('lod:');cancelLoadingTasksByPrefix('preload:');
     abort.abort();
     cancelBattlefieldFrame(frame);
     renderer.domElement.removeEventListener('webglcontextlost', contextLost);

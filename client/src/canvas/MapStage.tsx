@@ -1,4 +1,6 @@
 import {renderedImage} from '../lib/renderImages';
+import {MapLoadingBar} from '../components/MapLoadingBar';
+import {beginMapStartupWave,cancelLoadingTask,completeLoadingTask,startLoadingTask} from '../lib/loadingProgress';
 import {spellCastCost} from '../lib/spellcasting';
 import {explicitTokenInspection} from '../lib/tokenInspection';
 import {retainedRenderingEnabled} from '../lib/retainedRendering';
@@ -622,7 +624,13 @@ function MapStageInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actualDm]);
 
-  const image = useImage(map?.imagePath ?? null);
+  const image = useImage(map?.imagePath ?? null, { category: 'map', weight: 4, showDelayMs: 0 });
+  useEffect(() => { beginMapStartupWave(map?.id ?? null); }, [map?.id]);
+  useEffect(() => {
+    if (partyPreview && !sourceSnapshot.partyView) startLoadingTask({ id: 'sync:party-view', category: 'sync', indeterminate: true, label: 'Syncing Party Sight…', showDelayMs: 60 });
+    else completeLoadingTask('sync:party-view');
+    return () => cancelLoadingTask('sync:party-view');
+  }, [partyPreview, sourceSnapshot.partyView]);
 
   // Remount the Stage when devicePixelRatio changes (e.g. snapping the window
   // to a monitor with different Windows scaling) — Konva sizes its canvas
@@ -1374,6 +1382,22 @@ function MapStageInner({
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
   }), [legacy,snapshot,legacyAffinity, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, hiddenGhosts, miniatureCatalogRevision, graphics.modelQuality]);
   const miniatureIds=useMemo(()=>new Set(miniatureTokens.map(m=>m.id)),[miniatureTokens]);
+  const trackedMiniaturesRef=useRef<Set<string>>(new Set());
+  useEffect(()=>{
+    const tracked=trackedMiniaturesRef.current;
+    for(const id of [...tracked]){
+      if(miniaturesUnavailable||failedMiniatures.has(id)||!miniatureIds.has(id)){tracked.delete(id);cancelLoadingTask(`miniature:${id}`);}
+      else if(readyMiniatures.has(id)){tracked.delete(id);completeLoadingTask(`miniature:${id}`);}
+    }
+    if(!miniaturesUnavailable){
+      for(const id of miniatureIds){
+        if(!readyMiniatures.has(id)&&!failedMiniatures.has(id)){
+          tracked.add(id);
+          startLoadingTask({id:`miniature:${id}`,category:'miniature',weight:4,progress:0.08,stageCeiling:0.42});
+        }
+      }
+    }
+  },[miniatureIds,readyMiniatures,failedMiniatures,miniaturesUnavailable]);
   const doorTokenIds=new Set(doors.flatMap(d=>d.tokenId?[d.tokenId]:[]));
   useEffect(() => {
     if (!miniatureTokens.length) handleMiniatureReady(new Set());
@@ -1990,9 +2014,9 @@ function MapStageInner({
   const addTileFromFile = async (file: File) => {
     if (!map) return;
     const fd=new FormData();fd.append('image',file);
-    notify('Uploading / preparing map tile...');
+    notify('Uploading / preparing map tile...');startLoadingTask({id:'upload:map-tile',category:'artwork',indeterminate:true,label:'Uploading Map Tile…',showDelayMs:0});
     const res=await apiFetch('/api/map-media',{method:'POST',body:fd}).catch(()=>null);
-    if(!res||!res.ok){const data=await res?.json().catch(()=>null);notify(data?.error??'Could not upload that map tile.');return;}
+    if(!res||!res.ok){cancelLoadingTask('upload:map-tile');const data=await res?.json().catch(()=>null);notify(data?.error??'Could not upload that map tile.');return;}completeLoadingTask('upload:map-tile');
     const {imagePath:icon,videoPath,width,height}=await res.json();
     const dims={w:width,h:height};
     // Clamp a giant upload so it's not many times the existing map.
@@ -2172,6 +2196,7 @@ function MapStageInner({
       // capture. Cover that target too, preserving token context-menu bubbling.
       onContextMenuCapture={e=>{const target=e.target;if(target instanceof Element&&(target===e.currentTarget||target.closest('.konvajs-content')||target instanceof HTMLCanvasElement))e.preventDefault();}}
       onDragStartCapture={e=>{if(e.target instanceof HTMLCanvasElement)e.preventDefault();}}>
+      <MapLoadingBar />
       {activeSelectionBox.box && <div className="dm-selection-box" data-testid="dm-selection-box" aria-hidden="true"
         style={{ left: Math.min(activeSelectionBox.box.start.x, activeSelectionBox.box.end.x), top: Math.min(activeSelectionBox.box.start.y, activeSelectionBox.box.end.y),
           width: Math.abs(activeSelectionBox.box.end.x - activeSelectionBox.box.start.x), height: Math.abs(activeSelectionBox.box.end.y - activeSelectionBox.box.start.y) }} />}

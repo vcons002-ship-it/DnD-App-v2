@@ -1,4 +1,5 @@
 import type {StateSnapshot} from '../../../shared/types';
+import {cancelLoadingTask,completeLoadingTask,startLoadingTask} from './loadingProgress';
 import {movementTiming} from './movementTiming';
 const images=new Map<string,HTMLImageElement>(),loading=new Map<string,Promise<void>>();
 export const renderImageUrl=(credential:string,key:string)=>`/api/render/${encodeURIComponent(credential)}/${encodeURIComponent(key)}`;
@@ -17,7 +18,19 @@ function loadRenderImage(key:string,credential:string,timing?:{id:string;revisio
   return promise.then(()=>{movementTiming('imageReady',{...timing,key});});
  }
  if(timing)movementTiming('imageStart',{...timing,key});
- promise=(async()=>{const image=new Image();image.decoding='async';image.src=renderImageUrl(credential,key);await image.decode();images.set(key,image);while(images.size>1536)images.delete(images.keys().next().value!);})().finally(()=>loading.delete(key));
+ const taskId=`render:${key}`;
+ startLoadingTask({id:taskId,category:'render',weight:0.8,progress:0.25,stageCeiling:0.9,showDelayMs:220});
+ promise=(async()=>{
+  const image=new Image();image.decoding='async';image.src=renderImageUrl(credential,key);
+  try{
+   await image.decode();images.set(key,image);
+   while(images.size>1536)images.delete(images.keys().next().value!);
+   completeLoadingTask(taskId);
+  }catch(err){
+   cancelLoadingTask(taskId);
+   throw err;
+  }
+ })().finally(()=>loading.delete(key));
  loading.set(key,promise);
  return timing?promise.then(()=>{movementTiming('imageReady',{...timing,key});}):promise;
 }
