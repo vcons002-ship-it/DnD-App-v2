@@ -7,7 +7,7 @@ import {openToolbarGroup} from './helpers/mobileToolbar';
 // Inspect actual rendered anchors throughout motion, not just endpoint state:
 // the endpoint can legitimately omit a creature that is still beside the walker.
 for(const mode of ['legacy','2d','3d'] as const)for(const assist of [false,true]){
- test(`${mode}, assist ${assist}: creatures follow walking sight for player and DM preview`,async({browser,request})=>{
+ test(`${mode}, assist ${assist}: creatures follow walking sight for player and DM preview`,async({browser,request},testInfo)=>{
   test.setTimeout(120000);
   const headers={'x-dm-passphrase':DM_SECRET};
   const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Movement membership regression'}})).json();
@@ -57,8 +57,18 @@ for(const mode of ['legacy','2d','3d'] as const)for(const assist of [false,true]
     for(const page of pages)await expect.poll(()=>page.evaluate(id=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.token')).find((n:any)=>n.getAttr('tokenId')===id)?.x(),hero.id),{timeout:15000}).toBeCloseTo(x,0);
     // Let the final membership frame paint before inspecting the captured route.
     await pages[0].waitForTimeout(100);
-    return Promise.all(pages.map(page=>page.evaluate(()=>{const p=(window as any).__membership;p.watch=false;return p.samples as {x:number;shown:string[]}[];})));
+    const samples=await Promise.all(pages.map(page=>page.evaluate(()=>{const p=(window as any).__membership;p.watch=false;return p.samples as {x:number;shown:string[]}[];})));
+    await testInfo.attach(`move-${x}-${relocate?'relocate':'walk'}`,{body:JSON.stringify(samples),contentType:'application/json'});
+    return samples;
    };
+   // The comparison video showed these models in daylight before the walk.
+   // Warm their GPU resources too, so cold model compilation cannot consume
+   // the entire short interval that this membership regression is sampling.
+   if(mode==='3d'){
+    await move(1500,true);
+    for(const page of pages)await expect(page.getByTestId('miniature-layer')).toHaveAttribute('data-miniature-count','3');
+    await pages[0].waitForTimeout(500);await move(300,true);
+   }
    // Both creatures are absent at both endpoints but must appear along the path.
    for(const samples of await move(2700))for(const guard of guards){
     const beside=samples.filter(s=>Math.abs(s.x-guard.x)<200);
