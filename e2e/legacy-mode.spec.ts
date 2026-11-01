@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect,type Page,type APIRequestContext} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
@@ -65,7 +66,7 @@ test('startup gates both roles before campaign imports and persists the chosen l
  expect(await page.evaluate(()=>localStorage.getItem('dnd-environment-quality'))).toBe('legacy');
  await page.reload();await expect(page.getByRole('heading',{name:'Join Game',exact:true})).toBeVisible();
  await expect(page.getByRole('main',{name:'Choose rendering mode'})).toBeHidden();
- await page.getByRole('checkbox',{name:'Legacy mode',exact:false}).click();
+ await openToolbarGroup(page,'View');await page.getByRole('checkbox',{name:'Legacy mode',exact:false}).click();
  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('dnd-environment-quality'))).toBe('high');
  expect(await page.evaluate(()=>(window as any).__webglRequests)).toEqual([]);
 });
@@ -100,7 +101,7 @@ test('legacy DM edits lights and walls with basic occluded visibility on a throt
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await expect(page.getByRole('button',{name:'3D player tokens',exact:true})).toBeDisabled();
   await page.locator('.modal-head').getByRole('button',{name:'✕'}).click();
-  await page.getByLabel('Battlefield visibility').selectOption('player');
+  await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility').selectOption('player');
   const vision=page.getByTestId('legacy-vision');await expect(vision).toHaveAttribute('data-origin-count','1');
   await expect(vision).toHaveAttribute('data-geometry-source','server');
   await expect(page.getByTestId('player-vision')).toHaveCount(0);
@@ -116,7 +117,7 @@ test('legacy DM edits lights and walls with basic occluded visibility on a throt
   await expect.poll(async()=>(await f.snapshot()).map.environment.lights.length).toBe(3);await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'Map features',exact:true}).click();await page.getByRole('button',{name:'Draw wall rectangles',exact:true}).click();
   const a=await position(page,120,480),b=await position(page,300,495);await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:5});await page.mouse.up();
-  await expect.poll(async()=>(await f.snapshot()).map.walls.length).toBe(2);await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');
+  await expect.poll(async()=>(await f.snapshot()).map.walls.length).toBe(2);await openToolbarGroup(page,'View');await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');
   await page.keyboard.press('Escape');await page.screenshot({path:'test-results/legacy-dm-player-visibility.png'});
   expect(requests.filter(graphicsRequest)).toEqual([]);expect(await page.evaluate(()=>(window as any).__webglRequests)).toEqual([]);
   // A fresh reload must apply Legacy before any campaign renderer mounts.
@@ -130,14 +131,14 @@ test('DM can place a character while viewing player visibility',async({page,requ
  const f=await fixture(request);
  try{
   await page.setViewportSize({width:1500,height:1000});await loginDm(page,f.code);
-  await page.getByLabel('Battlefield visibility').selectOption('player');
+  await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility').selectOption('player');
   await page.getByRole('button',{name:'Creatures',exact:true}).click();
   await page.locator('.spawn-row').filter({hasText:'Varis'}).click();
   await expect(page.locator('.place-banner')).toBeVisible();
   const before=(await f.snapshot()).tokens.length,p=await position(page,280,400);
   await page.mouse.click(p.x,p.y);
   await expect.poll(async()=>(await f.snapshot()).tokens.length).toBe(before+1);
-  await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');
+  await openToolbarGroup(page,'View');await expect(page.getByLabel('Battlefield visibility')).toHaveValue('player');
  }finally{f.dm.disconnect();}
 });
 

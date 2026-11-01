@@ -129,7 +129,7 @@ export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSna
   );
 
   return (
-    <header className={`topbar${compactToolbar?' compact-topbar':''}`}>
+    <header className={`topbar${compactToolbar||isDm?' compact-topbar':''}`}>
       <strong>{isDm ? 'DM' : 'Player'}</strong>
       <span className="session-title">
         {isDm ? (

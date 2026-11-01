@@ -19,6 +19,12 @@
 .layout .compact-toolbar-menu :is(.btn,select) {min-height:44px;min-width:44px;padding:8px 10px;font-size:14px;}
 .layout .compact-toolbar-menu .topbar-actions {display:grid;position:static;width:auto;margin:0;padding:0;gap:8px;}
 .compact-session-info {margin-bottom:12px;overflow-wrap:anywhere;color:var(--muted);}
+/* Desktop has room for session status even with grouped controls. */
+@media (min-width:1001px) and (pointer:fine) {
+  .layout.dm-fantasy > .compact-topbar :is(.code,.active-map,.round-chip) {display:inline;flex-shrink:0;}
+  .layout.dm-fantasy > .compact-topbar .map-tool-slot {flex:0 0 auto;}
+  .layout.dm-fantasy > .compact-topbar .active-map {flex:0 1 160px;min-width:0;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+}
 @media (max-width:700px) {
   .layout > .topbar.compact-topbar {flex-wrap:wrap;}
   .layout > .compact-topbar .session-title {flex:1;max-width:none;}

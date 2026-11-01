@@ -4,14 +4,14 @@ import {COMPACT_TOOLBAR_VIEWPORT,useCompactViewport} from '../lib/useCompactView
 
 /** Compact viewport grouping. Portals escape the toolbar's CSS zoom so
  * coordinates and touch targets remain physical CSS pixels. */
-export function CompactToolbarMenu({label,shortLabel=label,children}:{label:string;shortLabel?:string;children:ReactNode}){
- const compact=useCompactViewport(COMPACT_TOOLBAR_VIEWPORT),trigger=useRef<HTMLButtonElement>(null),content=useRef<HTMLDivElement>(null);
+export function CompactToolbarMenu({label,shortLabel=label,children,forceCompact=false}:{label:string;shortLabel?:string;children:ReactNode;forceCompact?:boolean}){
+ const viewportCompact=useCompactViewport(COMPACT_TOOLBAR_VIEWPORT),compact=viewportCompact||forceCompact,trigger=useRef<HTMLButtonElement>(null),content=useRef<HTMLDivElement>(null);
  const [open,setOpen]=useState(false),[pos,setPos]=useState({left:8,top:8});
  useLayoutEffect(()=>{
   if(!open||!compact)return;
   const position=()=>{const r=trigger.current?.getBoundingClientRect();if(r)setPos({left:Math.max(8,Math.min(r.left,innerWidth-328)),top:r.bottom+5});};
   const outside=(e:PointerEvent)=>{if(!content.current?.contains(e.target as Node)&&!trigger.current?.contains(e.target as Node))setOpen(false);};
-  const escape=(e:KeyboardEvent)=>{if(e.key==='Escape'){setOpen(false);trigger.current?.focus();}};
+  const escape=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!content.current?.querySelector('.measure-menu')){setOpen(false);trigger.current?.focus();}};
   position();document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
   window.addEventListener('resize',position);
   return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);window.removeEventListener('resize',position);};

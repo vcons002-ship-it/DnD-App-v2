@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 /** Opt-in release-to-first-motion timing, with no video encoder overhead. */
 import {test,expect} from '@playwright/test';
 import {io} from 'socket.io-client';
@@ -68,7 +69,7 @@ test('heavy mixed-mode assisted movement latency',async({browser,request})=>{
     },{mode,legacy,assisted,i});
    }
    await player.goto(`/join?code=${code}`);await player.getByRole('button',{name:'Join',exact:true}).click();await player.locator('.claim-row').filter({hasText:'Druk'}).click();
-   for(const dm of pages.slice(1)){await dm.goto(`/dm?code=${code}`);await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await dm.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');}
+   for(const dm of pages.slice(1)){await dm.goto(`/dm?code=${code}`);await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await openToolbarGroup(dm,'View');await dm.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');}
    for(const [i,p] of pages.entries()){
     const mode=viewModes[i],legacy=mode==='legacy';
     await expect(p.getByRole('checkbox',{name:'Server managed rendering',exact:true})).toBeChecked({checked:assisted});

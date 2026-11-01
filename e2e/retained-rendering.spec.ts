@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect,type Page} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
@@ -58,7 +59,7 @@ test('retained tokens match full canvas paints after movement, overlap, appearan
   admin.emit('rendering:policy',{mapId:map.id,value:'off'});await state();await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.server-token-body')).length)).toBe(0);await check();
   admin.emit('rendering:policy',{mapId:map.id,value:'inherit'});await state();await expect.poll(()=>page.evaluate(()=>(window as any).Konva.stages.flatMap((s:any)=>s.find('.server-token-body')).length)).toBe(20);await check();
   await page.setViewportSize({width:1300,height:850});await page.getByRole('button',{name:'Fit',exact:true}).click();await check();
-  await page.getByRole('checkbox',{name:'Legacy mode',exact:true}).uncheck();await expect(page.locator('.stage-wrap')).toHaveAttribute('data-retained-rendering','true');
-  await page.getByRole('checkbox',{name:'Legacy mode',exact:true}).check();await expect.poll(()=>stats(page).then(a=>a.length)).toBe(2);await check();expect(errors).toEqual([]);
+  await openToolbarGroup(page,'View');await page.getByRole('checkbox',{name:'Legacy mode',exact:true}).uncheck();await expect(page.locator('.stage-wrap')).toHaveAttribute('data-retained-rendering','true');
+  await openToolbarGroup(page,'View');await page.getByRole('checkbox',{name:'Legacy mode',exact:true}).check();await expect.poll(()=>stats(page).then(a=>a.length)).toBe(2);await check();expect(errors).toEqual([]);
  }finally{admin.disconnect();}
 });

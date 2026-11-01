@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect,type Page} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
@@ -42,7 +43,7 @@ for(const mode of ['legacy','standard'])test(`${mode} large manual fog retains i
   expect((await fog(dm))!.tileBuilds).toBe(before!.tileBuilds);
   const raw=await dm.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),layer=stage.getLayers()[0],p=layer.getAbsoluteTransform().point({x:1055,y:705}),r=stage.getContent().getBoundingClientRect();return{...p,left:r.left,top:r.top,width:stage.width(),height:stage.height()};});
   const projected=projectGround(raw.x,raw.y,raw.width,raw.height,mode==='legacy'?0:45,0),point={x:raw.left+projected.x,y:raw.top+projected.y};
-  await dm.getByTitle('Fog of war',{exact:true}).click();await dm.getByRole('button',{name:'Reveal',exact:true}).click();await dm.keyboard.press('Escape');
+  await openToolbarGroup(dm,'Map tools');await dm.getByTitle('Fog of war',{exact:true}).click();await dm.getByRole('button',{name:'Reveal',exact:true}).click();await dm.keyboard.press('Escape');
   // Hold the brush: preview paints before the first 250 ms persistence batch.
   await dm.mouse.move(point.x,point.y);await dm.mouse.down();
   await expect.poll(()=>fog(dm).then(s=>s!.coveredCells),{intervals:[10]}).toBeLessThan(28000);

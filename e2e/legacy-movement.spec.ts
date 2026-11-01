@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 /** Opt-in paired-client movement benchmark. Never uses a live campaign. */
 import {test,expect,type Page} from './helpers/test';
 import {io} from 'socket.io-client';
@@ -49,13 +50,13 @@ test('record and measure real player movement observed by a legacy DM in party v
    const cds=await Promise.all(pages.map(async(p,i)=>{p.on('request',r=>requests[i].push(r.url()));p.on('pageerror',e=>errors[i].push(e.message));await probe(p,i?'Player':'DM',i?playerRate:rate);const c=await p.context().newCDPSession(p);await c.send('Performance.enable');return c;}));
    try{
     console.log(`[legacy-movement] ${rate}x: joining independent DM and player clients`);
-    await dm.goto(`/dm?code=${code}`);await dm.getByRole('button',{name:'Start in legacy mode',exact:true}).click();await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await expect(dm.getByLabel('Battlefield visibility')).toBeVisible({timeout:90000});
+    await dm.goto(`/dm?code=${code}`);await dm.getByRole('button',{name:'Start in legacy mode',exact:true}).click();await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await openToolbarGroup(dm,'View');await expect(dm.getByLabel('Battlefield visibility')).toBeVisible({timeout:90000});
     await player.goto(`/join?code=${code}`);await player.getByRole('button',{name:'Start in legacy mode',exact:true}).click();await player.getByRole('button',{name:'Join',exact:true}).click();await player.locator('.claim-row').filter({hasText:'Varis'}).click();await expect(player.getByTestId('player-hud')).toBeVisible({timeout:90000});
     await expect.poll(()=>latest.characters.find((c:any)=>c.id===token.refId)?.claimedBy,{timeout:30000}).toBeTruthy();
     await Promise.all(cds.map((c,i)=>c.send('Emulation.setCPUThrottlingRate',{rate:i?playerRate:rate})));
     await Promise.all(pages.map(p=>p.evaluate(()=>{const p=(window as any).__move;p.throttled=true;p.label('Ready for measured movement');})));
     await dm.evaluate(()=>(window as any).__move.label('DM turns on Player view · player controls Varis'));
-    run.enablePlayerViewPageMs=await dm.evaluate(()=>performance.now());await dm.getByLabel('Battlefield visibility').selectOption('player');await expect(dm.getByTestId('legacy-vision')).toHaveAttribute('data-origin-count','3',{timeout:90000});
+    run.enablePlayerViewPageMs=await dm.evaluate(()=>performance.now());await openToolbarGroup(dm,'View');await dm.getByLabel('Battlefield visibility').selectOption('player');await expect(dm.getByTestId('legacy-vision')).toHaveAttribute('data-origin-count','3',{timeout:90000});
     await expect.poll(()=>player.evaluate(id=>(window as any).Konva.stages.some((s:any)=>s.find('.token').some((n:any)=>n.getAttr('tokenId')===id&&n.draggable())),token.id),{timeout:30000}).toBe(true);
     await dm.screenshot({path:path.join(output,`dm-${rate}x-player-view.png`)});await player.mouse.move(1370,110);await player.waitForTimeout(1500);
     const metric=(r:any,key:string)=>r.metrics.find((m:any)=>m.name===key)?.value??0;
@@ -87,7 +88,7 @@ test('record and measure real player movement observed by a legacy DM in party v
      run.clients[i].canvases=await p.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length);const layers=stage.getLayers().map((l:any)=>({scene:[l.getCanvas()._canvas.width,l.getCanvas()._canvas.height],hit:[l.getHitCanvas()._canvas.width,l.getHitCanvas()._canvas.height]}));return{viewport:[stage.width(),stage.height()],layers,sceneAndHitPixels:layers.reduce((n:number,l:any)=>n+l.scene[0]*l.scene[1]+l.hit[0]*l.hit[1],0)};});
      run.clients[i].documentHidden=await p.evaluate(()=>document.hidden);expect(run.clients[i].documentHidden).toBe(false);expect(run.clients[i].webglAttempts).toBe(0);expect(run.clients[i].graphicsRequests).toEqual([]);expect(errors[i]).toEqual([]);await p.screenshot({path:path.join(output,`${i?'player':'dm'}-${i?playerRate:rate}x-complete.png`)});
     }
-    await expect(dm.getByLabel('Battlefield visibility')).toHaveValue('player');run.status='passed';console.log(`[legacy-movement] ${rate}x passed: ${JSON.stringify(run.latency)}`);
+    await openToolbarGroup(dm,'View');await expect(dm.getByLabel('Battlefield visibility')).toHaveValue('player');run.status='passed';console.log(`[legacy-movement] ${rate}x passed: ${JSON.stringify(run.latency)}`);
    }catch(e){run.status='failed';run.error=String(e);await Promise.all(pages.map((p,i)=>p.screenshot({path:path.join(output,`${i?'player':'dm'}-${i?playerRate:rate}x-failure.png`),timeout:15000}).catch(()=>{})));console.log(`[legacy-movement] ${rate}x FAILED: ${e}`);}
    finally{await Promise.all(contexts.map(c=>c.close()));for(const [i,v] of videos.entries())if(v)await v.saveAs(path.join(output,`${i?'player':'dm'}-${i?playerRate:rate}x.webm`));await save();}
    admin.emit('token:move',{tokenId:token.id,x:1920,y:1280});await join();

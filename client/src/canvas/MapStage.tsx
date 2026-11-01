@@ -2231,7 +2231,7 @@ function MapStageInner({
                 title={legacy?'Legacy mode uses a fixed overhead view':'Rotate view right 15°'}
                 onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation+15)}>↷</button>
             </span>
-            <CompactToolbarMenu label="View">
+            <CompactToolbarMenu label="View" forceCompact={actualDm}>
             <LegacyModeControl toolbar/>
             <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
               <span className="muted">Your view</span>
@@ -2263,7 +2263,7 @@ function MapStageInner({
                       onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
                       onFinish={cancelWallStroke}
                       onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>}
-              <CompactToolbarMenu label="Map tools" shortLabel="Tools"><div className="map-tool-menus">
+              <CompactToolbarMenu label="Map tools" shortLabel="Tools" forceCompact={actualDm}><div className="map-tool-menus">
                 {/* Measuring tools — available to everyone; shapes are shared. */}
                 <MeasureMenu
                   tool={tool}

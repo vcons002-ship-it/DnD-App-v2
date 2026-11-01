@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect} from './helpers/test';import {io} from 'socket.io-client';import sharp from 'sharp';
 import {DM_SECRET,PORT} from './playwright.config';
 import {projectGround} from '../client/src/canvas/miniatureProjection';
@@ -15,7 +16,7 @@ test('DM click, multi-select and box-delete features with undo without deleting 
   dm.emit('map:setEnvironment',{mapId:map.id,settings:{lights:[{id:'l1',x:300,y:210},{id:'l2',x:400,y:300}]}});
   dm.emit('token:spawn',{mapId:map.id,kind:'pc',refId:s.characters.find((c:any)=>c.name==='Druk').id,x:400,y:440});s=await snap();
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
-  await page.getByRole('button',{name:'Flat battlefield view'}).click();await page.getByRole('button',{name:'Fit',exact:true}).click();await page.waitForTimeout(500);
+  await openToolbarGroup(page,'View');await page.getByRole('button',{name:'Flat battlefield view'}).click();await page.getByRole('button',{name:'Fit',exact:true}).click();await page.waitForTimeout(500);
   let tilt=0;
   const pos=async(x:number,y:number)=>{const c=await page.evaluate(({x,y})=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),node=stage.find('.token')[0],p=node.getParent().getAbsoluteTransform().point({x,y}),r=stage.getContent().getBoundingClientRect();return{p,width:stage.width(),height:stage.height(),left:r.left,top:r.top};},{x,y});const p=projectGround(c.p.x,c.p.y,c.width,c.height,tilt);return{x:c.left+p.x,y:c.top+p.y};};
   const click=async(x:number,y:number,modifier?:'Shift'|'Control')=>{const p=await pos(x,y);if(modifier)await page.keyboard.down(modifier);await page.mouse.click(p.x,p.y);if(modifier)await page.keyboard.up(modifier);};

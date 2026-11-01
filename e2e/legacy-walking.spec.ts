@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect} from './helpers/test';
 import {io} from 'socket.io-client';
 import sharp from 'sharp';
@@ -27,7 +28,7 @@ for(const role of ['player','dm'] as const)test(`Legacy ${role} animates by defa
   if(role==='player'){await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.claim-row').filter({hasText:'Druk'}).click();}
   else{
    companion=await browser.newContext();await companion.addInitScript(()=>localStorage.setItem('dnd-environment-quality','legacy'));const player=await companion.newPage();await player.goto(`/join?code=${code}`);await player.getByRole('button',{name:'Join',exact:true}).click();await player.locator('.claim-row').filter({hasText:'Druk'}).click();
-   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
+   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();await openToolbarGroup(page,'View');await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
   }
   await expect(page.getByRole('checkbox',{name:'Animate Legacy movement',exact:true})).toHaveCount(0);
   await expect(page.getByTestId('legacy-vision')).toHaveAttribute('data-geometry-source','server');

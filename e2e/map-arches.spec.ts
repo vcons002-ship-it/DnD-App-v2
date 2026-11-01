@@ -1,3 +1,4 @@
+import {openToolbarGroup} from './helpers/mobileToolbar';
 import {test,expect,type Page,type APIRequestContext} from './helpers/test';
 import {io,type Socket} from 'socket.io-client';
 import sharp from 'sharp';
@@ -35,7 +36,7 @@ test('arch review applies only confirmed spans; normal editing deletes the arch 
  const f=await fixture(page,request);await page.screenshot({path:info.outputPath('arch-review.png')});
  await f.review.getByRole('button',{name:'Apply selected setup',exact:true}).click();await expect(f.review).toBeHidden();
  const saved=(await f.snapshot()).map.walls;expect(saved).toHaveLength(2);expect(saved.filter((w:any)=>w.arch)).toHaveLength(1);expect(hasLineOfSight({x:350,y:200},{x:350,y:350},saved)).toBe(true);
- await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();await page.getByRole('button',{name:'Fit',exact:true}).click();await page.waitForTimeout(400);
+ await openToolbarGroup(page,'View');await page.getByRole('button',{name:'Flat battlefield view',exact:true}).click();await page.getByRole('button',{name:'Fit',exact:true}).click();await page.waitForTimeout(400);
  await page.getByRole('button',{name:'Map features',exact:true}).click();await page.getByRole('button',{name:'Adjust existing walls, doors, windows & lights',exact:true}).click();
  const p=await page.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),token=stage.find('.token')[0],p=token.getParent().getAbsoluteTransform().point({x:350,y:270}),r=stage.getContent().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};});
  await page.mouse.click(p.x,p.y);await expect(page.getByTestId('delete-map-features')).toHaveText('Delete 1 selected');await page.keyboard.press('Delete');
