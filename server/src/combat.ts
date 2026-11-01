@@ -650,6 +650,8 @@ export function resolveAttack(
     forceCrit: !!autoCrit, // paralyzed/unconscious target within 5 ft → auto-crit
     rerollDamageDice: stanceRerollDamage, // Savage Attacker (feat)
     extraCritDie: stanceExtraCritDie, // Savage Attacks (racial)
+    advantageReasons: adv.reasons.length ? adv.reasons : undefined,
+    advantageState: adv.state ?? 'straight',
   });
 
   if(!liveResume)breakInvisibility(at.kind,at.refId,'making an attack roll');
@@ -673,7 +675,7 @@ export function resolveAttack(
     if(ch)closePreviousHitOptions(sessionId,ch.id);
     consumeHitAdvantage(tt);
     addRollLog(sessionId,{roller,label:'Attack',expr:weapon.name,total:out.attackTotal,
-      detail:`${a.name} \u2192 ${t.name}: ${out.detailToHit} \u2014 roll damage`,hideMods:hidesMods(at.kind,at.refId),
+      detail:`${a.name} \u2192 ${t.name}: ${out.detailToHit} \u2014 roll damage` + (out.crit && autoCrit ? ` · auto-crit (${autoCrit})` : '') + (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),hideMods:hidesMods(at.kind,at.refId),
       reveal:{kind:'attack',d20:out.face,toHit:out.toHitSteps,attackTotal:out.attackTotal,outcome:out.crit?'crit':'hit',attacker:a.name,target:t.name},
       pending:{...(shield?{shield:{...shield,attackTotal:out.attackTotal,natural20:out.face===20}}:{}),target:{kind:t.kind,refId:t.refId,name:t.name},attacker:{kind:a.kind,refId:a.refId},weapon:weapon.name,weaponFx:{weaponAttack:{kind:weaponAttackKind(weapon,distance),critical:out.crit},sourcePosition:{mapId:at.mapId,x:at.x,y:at.y}},amount:0,crit:out.crit,dice:[],mods:[],owner:ownerCharacterId,
         live:{kind:'weapon',args:[sessionId,roller,attackerTokenId,targetTokenId,weaponIndex,advantage,offhand,twoHanded,ownerCharacterId,riposteAbilityId],fixed:{out,state:{at,tt,a,t,ch,maneuverRoll}}},
@@ -1894,7 +1896,7 @@ export function resolveTargetedSpellAttack(opts: {
   const adv = attackAdvantage(attacker?combatLabels(attacker.conditions).filter(v=>v.toLowerCase()!=='invisible'||!defender||!seesInvisible(defender,spellDistance)):[],
     t.conditionLabels.filter(v=>v.toLowerCase()!=='invisible'||!attacker||!seesInvisible(attacker,spellDistance)), within5, opts.advantage, targetGivesAdvantage(t.kind, t.refId),opts.attacker?spellAttackDis(opts.attacker.kind,opts.attacker.refId):[]);
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
-  const { face, detail: d20detail } = opts.liveResume?.fixed ?? withDiceMetadata({label:`${opts.title} — Spell Attack Roll`},()=>rollD20Detail(adv.state));
+  const { face, detail: d20detail } = opts.liveResume?.fixed ?? withDiceMetadata({label:`${opts.title} — Spell Attack Roll`,...(adv.reasons.length?{advantageReasons:adv.reasons,advantageState:adv.state??'straight'}:{})},()=>rollD20Detail(adv.state));
   if(!opts.liveResume&&opts.attacker)breakInvisibility(opts.attacker.kind,opts.attacker.refId,'making an attack roll');
   const fumble = face === 1;
   const attackTotal = face + opts.attackBonus;
@@ -1920,7 +1922,7 @@ export function resolveTargetedSpellAttack(opts: {
   const shield=!opts.liveResume&&hit?shieldGate(opts.sessionId,tt!.kind,tt!.refId,attackTotal,face===20):undefined;
   if(!opts.liveResume&&hit&&opts.attacker&&(shield||isLiveCommand()&&getSessionById(opts.sessionId)?.manualDamage)){
     addRollLog(opts.sessionId,{roller:opts.roller,label:'Attack',expr:opts.title,total:attackTotal,
-      detail:`${opts.title} \u2192 ${t.name}: ${d20detail} = ${attackTotal} \u2014 ${crit?'CRIT':'HIT'} \u2014 roll damage`,
+      detail:`${opts.title} \u2192 ${t.name}: ${d20detail} = ${attackTotal} \u2014 ${crit?'CRIT':'HIT'} \u2014 roll damage` + (crit && autoCrit ? ` · auto-crit (${autoCrit})` : '') + (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
       hideMods:hidesMods(opts.attacker.kind,opts.attacker.refId),
       reveal:{presentedLive:attackPresented,kind:'attack',attacker:opts.roller,target:t.name,d20:face,attackTotal,toHit:opts.toHitSteps,outcome:crit?'crit':'hit'},
       pending:{shield,spellLink:opts.linked,target:{kind:t.kind,refId:t.refId,name:t.name},attacker:opts.attacker,weapon:opts.title,amount:0,crit,dice:[],mods:[],owner:opts.attacker.kind==='pc'?opts.attacker.refId:undefined,sourceRollId:opts.sourceRollId,
@@ -2765,7 +2767,7 @@ export function resolveSkillRoll(
     advantage,
     strFeatureAdv('pc', character.id, skill.ability), [...hexDisadvantage(sessionId,'pc',character.id,skill.ability),...character.conditions.filter(c=>c.combatEffect?.checkDisadvantage).map(c=>c.combatEffect!.spell)],
   );
-  const { face, detail: d20detail } = rollD20Detail(adv.state);
+  const { face, detail: d20detail } = withDiceMetadata({label:`${skill.name} Check`,...(adv.reasons.length?{advantageReasons:adv.reasons,advantageState:adv.state??'straight'}:{})},()=>rollD20Detail(adv.state));
   const total = face + bonus;
   addRollLog(sessionId, {
     roller,

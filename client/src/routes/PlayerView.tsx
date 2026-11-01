@@ -102,6 +102,7 @@ export function PlayerView() {
     setClaimedId(null);releaseCharacter();if(claimKey)localStorage.removeItem(claimKey);
   });
 
+  useEffect(() => { window.scrollTo(0, 0); }, [snapshot?.map?.id]);
   if (!snapshot) return <div className="loading"><MapLoadingBar mode="screen" label="Opening Campaign…" /></div>;
 
   const mine = snapshot.characters.find(

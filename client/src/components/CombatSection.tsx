@@ -8,7 +8,7 @@ import type {
   Token,
   TokenKind,
 } from '../../../shared/types';
-import { targetLists, targetLabel } from '../lib/targets';
+import { targetLists, targetLabel, previewAttackAdvantage } from '../lib/targets';
 import {ShowDeadTargets} from './ShowDeadTargets';
 import { useWeaponAttackOptions } from '../lib/useWeaponAttackOptions';
 import { useStore } from '../state/socket';
@@ -153,6 +153,8 @@ export function CombatSection({
     ? healTargetId
     : healList[0]?.id ?? '';
   const effectiveBuffId = buffList.some(token => token.id === buffTargetId) ? buffTargetId : buffList[0]?.id ?? '';
+  const selectedTargetToken = targets.find((t) => t.id === effectiveTargetId);
+  const advPreview = previewAttackAdvantage(snapshot, attacker, selectedTargetToken, armedAdv);
 
   // A 2H toggle only matters when some weapon is versatile (has 2H damage).
   const anyVersatile = weapons.some(
@@ -181,9 +183,11 @@ export function CombatSection({
         <div className="dice-row combat-adv-row">
           <span className="muted spell-tag">{compactPlayer ? 'Roll' : 'Next roll'}</span>
           <AdvantageToggle entityId={attacker.refId} size="lg" />
-          {armedAdv && (
-            <span className={`${armedAdv === 'adv' ? 'adv-up' : 'adv-down'}${compactPlayer ? ' combat-armed-note' : ''}`} role="status">
-              {armedAdv === 'adv' ? 'advantage armed' : 'disadvantage armed'}
+          {advPreview.reasons.length > 0 && (
+            <span className={`${advPreview.state === 'adv' ? 'adv-up' : advPreview.state === 'dis' ? 'adv-down' : 'muted'}${compactPlayer ? ' combat-armed-note' : ''}`} role="status">
+              {advPreview.reasons.length === 1 && advPreview.reasons[0] === 'manual'
+                ? armedAdv === 'adv' ? 'advantage armed' : 'disadvantage armed'
+                : `${advPreview.state === 'adv' ? (armedAdv === 'adv' ? 'advantage armed' : 'auto advantage') : advPreview.state === 'dis' ? (armedAdv === 'dis' ? 'disadvantage armed' : 'auto disadvantage') : 'straight (adv + dis)'}: ${advPreview.reasons.join(', ')}`}
             </span>
           )}
         </div>

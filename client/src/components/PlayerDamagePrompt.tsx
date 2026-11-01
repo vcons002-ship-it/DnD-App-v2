@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '../state/socket';
-import { DamagePrompt, smiteOptionsFor } from './DamagePrompt';
+import { DamagePrompt, isDamagePromptDismissed, smiteOptionsFor, useDamagePromptDismissals } from './DamagePrompt';
 import { safeSetItem } from '../lib/storage';
 import './player-damage-prompt.css';
 
@@ -8,6 +8,7 @@ import './player-damage-prompt.css';
  * existing pending-hit and spell-apply actions, not another cast/damage system.
  * The server still controls ownership, rolled damage, saves and dart budgets. */
 export function PlayerDamagePrompt() {
+  useDamagePromptDismissals();
   const snapshot = useStore((s) => s.snapshot);
   const armed = useStore((s) => s.saveResolve);
   const arm = useStore((s) => s.armSaveResolve);
@@ -18,7 +19,9 @@ export function PlayerDamagePrompt() {
   // sessions have no parked damage, so the smite alone must surface it).
   const hit = snapshot && snapshot.role !== 'dm'
     ? [...rolls].reverse().find(
-        (r) => (r.pending && !r.pending.done) || smiteOptionsFor(r, snapshot).length > 0,
+        (r) =>
+          ((r.pending && !r.pending.done && !r.pending.awaitingShield) || smiteOptionsFor(r, snapshot).length > 0) &&
+          !isDamagePromptDismissed(snapshot, r.id),
       )
     : undefined;
   // Consider only the latest cast, not every old AoE still in the history.

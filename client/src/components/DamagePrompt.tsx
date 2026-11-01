@@ -5,11 +5,48 @@ import { useEffect, useState } from 'react';
 import type { RollEntry, StateSnapshot } from '../../../shared/types';
 import { smiteChoices, smiteChoiceLabel, type SmiteChoice } from '../../../shared/smite';
 import { spellSlotOptions } from '../../../shared/spellSlotPools';
+import { safeSetItem } from '../lib/storage';
 import { useStore } from '../state/socket';
 
 /** What a hit still offers: its parked damage, and/or a smite to cast on it. */
 const openDamage = (r: RollEntry) => !!r.pending && !r.pending.done && !r.pending.awaitingShield;
 const openSmite = (r: RollEntry) => openDamage(r) && !!r.smite && !r.smite.used;
+
+const dismissedListeners = new Set<() => void>();
+const dismissedInMemory = new Set<string>();
+
+function damagePromptDismissKey(snapshot: StateSnapshot, rollId: string): string {
+  return `dnd.damage-prompt-dismissed.v1:${snapshot.sessionCode}:${snapshot.role}:${rollId}`;
+}
+
+export function isDamagePromptDismissed(snapshot: StateSnapshot, rollId: string): boolean {
+  const key = damagePromptDismissKey(snapshot, rollId);
+  if (dismissedInMemory.has(key)) return true;
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function dismissDamagePrompt(snapshot: StateSnapshot, rollId: string): void {
+  const key = damagePromptDismissKey(snapshot, rollId);
+  dismissedInMemory.add(key);
+  safeSetItem(key, '1');
+  for (const fn of dismissedListeners) fn();
+}
+
+export function useDamagePromptDismissals(): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const notify = () => setTick((n) => n + 1);
+    dismissedListeners.add(notify);
+    return () => {
+      dismissedListeners.delete(notify);
+    };
+  }, []);
+  return tick;
+}
 
 /**
  * Whether this hit's follow-up belongs to the viewer. A player only ever
@@ -50,6 +87,7 @@ export function maneuverOptionsFor(r: RollEntry, snapshot: StateSnapshot) {
  * a text field has focus.
  */
 export function DamagePrompt() {
+  useDamagePromptDismissals();
   const combatHitFeature = useStore(s=>s.combatHitFeature);
   const [featurePicker,setFeaturePicker] = useState<string>();
   const [maneuverPicker, setManeuverPicker] = useState<string>();
@@ -66,7 +104,7 @@ export function DamagePrompt() {
   const entry = snapshot
     ? [...snapshot.rollLog]
         .reverse()
-        .find((r) => (openDamage(r) || openSmite(r)) && isMine(r, snapshot))
+        .find((r) => (openDamage(r) || openSmite(r)) && isMine(r, snapshot) && !isDamagePromptDismissed(snapshot, r.id))
     : undefined;
   const rollId = entry?.id;
   const damageReady = !!entry && openDamage(entry);
@@ -78,9 +116,15 @@ export function DamagePrompt() {
   const armed = !!entry && !!rollId && rollFx?.rollId !== rollId;
 
   useEffect(() => {
-    if (!armed || !rollId || !damageReady) return;
+    if (!armed || !rollId || !snapshot) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
+      if (e.defaultPrevented || e.repeat) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        dismissDamagePrompt(snapshot, rollId);
+        return;
+      }
+      if (!damageReady || (e.key !== 'Enter' && e.key !== ' ')) return;
       const el = document.activeElement;
       const tag = el?.tagName.toLowerCase();
       // Don't steal the key from chat, a dice expression, or any other field.
@@ -91,7 +135,7 @@ export function DamagePrompt() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [armed, rollId, damageReady, combatDamage]);
+  }, [armed, rollId, snapshot, damageReady, combatDamage]);
 
   if (!armed || !entry || !rollId || (!damageReady && smiteOptions.length === 0)) return null;
   const p = entry.pending;
@@ -157,6 +201,14 @@ export function DamagePrompt() {
           ))}
         </div>
       )}
+      <button
+        type="button"
+        className="damage-prompt-dismiss"
+        onClick={() => snapshot && dismissDamagePrompt(snapshot, rollId)}
+        title="Dismiss this damage prompt; you can still roll damage from the chat log (Esc)"
+      >
+        Close
+      </button>
     </div>
   );
 }

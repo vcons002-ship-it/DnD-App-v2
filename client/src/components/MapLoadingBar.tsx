@@ -101,46 +101,55 @@ export function MapLoadingBar({ mode = 'overlay', label: customLabel }: MapLoadi
   const indeterminate = isScreen ? true : state.indeterminate || state.percent === null;
   const percent = !indeterminate && state.percent !== null ? state.percent : null;
   const displayLabel = customLabel ?? state.label;
+  const isCorner = !isScreen && state.variant === 'corner';
 
   return (
     <div
-      className={`map-loading-bar-wrap ${isScreen ? 'is-screen' : 'is-overlay'} ${
+      className={`map-loading-bar-wrap ${isScreen ? 'is-screen' : 'is-overlay'}${isCorner ? ' is-corner' : ''} ${
         state.phase === 'completing' ? 'is-completing' : ''
       }`}
       data-testid={isScreen ? 'session-loading-bar' : 'map-loading-bar'}
       data-loading-category={isScreen ? 'session' : state.category}
+      data-loading-variant={isCorner ? 'corner' : 'bar'}
+      title={isCorner ? displayLabel : undefined}
       role="status"
       aria-live="polite"
       aria-busy={state.phase !== 'completing'}
     >
-      <div className="map-loading-card">
-        <span className="map-loading-corner tl" aria-hidden="true" />
-        <span className="map-loading-corner tr" aria-hidden="true" />
-        <span className="map-loading-corner bl" aria-hidden="true" />
-        <span className="map-loading-corner br" aria-hidden="true" />
-        <div className="map-loading-header">
+      {isCorner ? (
+        <div className="map-loading-corner-badge" aria-label={displayLabel}>
           <RollingD20Icon />
-          <span className="map-loading-label">{displayLabel}</span>
-          {percent !== null && (
-            <span className="map-loading-percent" data-testid="map-loading-percent">
-              {percent}%
-            </span>
-          )}
         </div>
-        <div
-          className={`map-loading-track ${indeterminate ? 'is-indeterminate' : 'is-determinate'}`}
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={percent ?? undefined}
-          aria-label={displayLabel}
-        >
+      ) : (
+        <div className="map-loading-card">
+          <span className="map-loading-corner tl" aria-hidden="true" />
+          <span className="map-loading-corner tr" aria-hidden="true" />
+          <span className="map-loading-corner bl" aria-hidden="true" />
+          <span className="map-loading-corner br" aria-hidden="true" />
+          <div className="map-loading-header">
+            <RollingD20Icon />
+            <span className="map-loading-label">{displayLabel}</span>
+            {percent !== null && (
+              <span className="map-loading-percent" data-testid="map-loading-percent">
+                {percent}%
+              </span>
+            )}
+          </div>
           <div
-            className="map-loading-fill"
-            style={percent !== null ? { width: `${percent}%` } : undefined}
-          />
+            className={`map-loading-track ${indeterminate ? 'is-indeterminate' : 'is-determinate'}`}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent ?? undefined}
+            aria-label={displayLabel}
+          >
+            <div
+              className="map-loading-fill"
+              style={percent !== null ? { width: `${percent}%` } : undefined}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

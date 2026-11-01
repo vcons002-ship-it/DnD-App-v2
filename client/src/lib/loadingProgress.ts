@@ -42,6 +42,7 @@ interface ActiveTask {
 
 export interface LoadingProgressSnapshot {
   visible: boolean;
+  variant: 'bar' | 'corner';
   phase: 'idle' | 'active' | 'completing';
   /** Percentage in [1..100], or null when purely indeterminate. */
   percent: number | null;
@@ -102,6 +103,7 @@ const activeTasks = new Map<string, ActiveTask>();
 const listeners = new Set<() => void>();
 
 let waveCompletedWeight = 0;
+let waveUseBar = false;
 let wavePeakPercent = 0;
 let waveVisible = false;
 let waveCompletingUntil = 0;
@@ -113,6 +115,7 @@ let tickTimer: ReturnType<typeof setTimeout> | null = null;
 
 const IDLE_SNAPSHOT: LoadingProgressSnapshot = {
   visible: false,
+  variant: 'bar',
   phase: 'idle',
   percent: null,
   indeterminate: false,
@@ -179,6 +182,7 @@ function clearTick() {
 function sameSnapshot(a: LoadingProgressSnapshot, b: LoadingProgressSnapshot): boolean {
   return (
     a.visible === b.visible &&
+    a.variant === b.variant &&
     a.phase === b.phase &&
     a.percent === b.percent &&
     a.indeterminate === b.indeterminate &&
@@ -210,6 +214,7 @@ function recompute() {
       scheduleTick(waveCompletingUntil - now + 8);
       emitIfChanged({
         visible: true,
+        variant: waveUseBar ? 'bar' : 'corner',
         phase: 'completing',
         percent: currentSnapshot.indeterminate ? null : 100,
         indeterminate: currentSnapshot.indeterminate,
@@ -221,6 +226,7 @@ function recompute() {
     waveCompletedWeight = 0;
     wavePeakPercent = 0;
     waveVisible = false;
+    waveUseBar = false;
     waveCompletingUntil = 0;
     clearTick();
     emitIfChanged(IDLE_SNAPSHOT);
@@ -235,6 +241,14 @@ function recompute() {
   let hasIndeterminateTask = false;
 
   for (const task of activeTasks.values()) {
+    if (
+      task.category === 'map' ||
+      task.category === 'session' ||
+      task.category === 'sync' ||
+      task.id.startsWith('upload:')
+    ) {
+      waveUseBar = true;
+    }
     if (now >= task.visibleAt) {
       anyReadyToShow = true;
     } else if (task.visibleAt < earliestVisibleAt) {
@@ -255,6 +269,9 @@ function recompute() {
     return;
   }
 
+  if (now < startupHoldUntil || waveCompletedWeight + determinateWeight >= 28) {
+    waveUseBar = true;
+  }
   waveVisible = true;
   waveCompletingUntil = 0;
   const { label, category } = pickDominantLabelAndCategory(now);
@@ -280,6 +297,7 @@ function recompute() {
   scheduleTick(TICK_INTERVAL_MS);
   emitIfChanged({
     visible: true,
+    variant: waveUseBar ? 'bar' : 'corner',
     phase: 'active',
     percent,
     indeterminate,
@@ -410,6 +428,7 @@ export function beginMapStartupWave(mapId: string | null | undefined): void {
   waveCompletedWeight = 0;
   wavePeakPercent = 0;
   startupHoldUntil = now + STARTUP_SETTLE_MS;
+  waveUseBar = true;
   startLoadingTask({
     id: 'map:startup',
     category: 'map',
@@ -446,6 +465,7 @@ export function resetLoadingProgressForTests(): void {
   waveCompletedWeight = 0;
   wavePeakPercent = 0;
   waveVisible = false;
+  waveUseBar = false;
   waveCompletingUntil = 0;
   waveLastLabel = CATEGORY_LABEL.map;
   waveLastCategory = 'map';

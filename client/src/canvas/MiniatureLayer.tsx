@@ -374,7 +374,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const visionTiming=timing?createPreviewGpuTiming(renderer.getContext()):null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let paintedReducedMotion: boolean | undefined;
-  let drawnCameraKey = '', drewInSync = false;
+  let drawnCameraKey = '';
   const currentCameraKey = () => `${view.x}:${view.y}:${view.scale}:${props.tiltDegrees}:${props.rotationDegrees ?? 0}:${props.width}:${props.height}`;
   let syncedScene: {tokens:Props['tokens'];preloadDefinitions:Props['preloadDefinitions'];environmentPreview:Props['environmentPreview'];spellImpacts:Props['spellImpacts'];spellFog:Props['spellFog'];preparedSpellImpacts:Props['preparedSpellImpacts'];spellColorOverlay:Props['spellColorOverlay'];spellMist:Props['spellMist'];personalVision:Props['personalVision'];rollBackground:Props['rollBackground'];rollBackgroundPrepared:Props['rollBackgroundPrepared'];graphics:Props['graphics'];width:number;height:number;pixelRatio:number;mapId:string|undefined}|null=null;
 
@@ -638,7 +638,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           }
         }
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
-        if(!sightFrame||sightFrame.explored.length)battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null,!!visionComposite);
+        if(sightFrame?.explored.length&&(props.environmentPreview?.heavyDarkness||sightFrame.keepRevealed))battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null,!!visionComposite);
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         // Keep the existing path until the remembered-art texture is ready;
         // this also covers daylight boards without an environment renderer.
@@ -754,7 +754,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     if(delay>0){idleTimer=setTimeout(()=>{idleTimer=undefined;queueDraw();},delay);return;}
     frame = requestBattlefieldFrame(draw);
   };
-  const invalidate = () => { if (drewInSync) { drewInSync = false; return; }
+  const invalidate = () => {
 
     if (disposed || failed || document.hidden) return;
     // Pointer/camera changes paint on the next frame even when an animated
@@ -1222,7 +1222,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       });
     }
     queuePreloads((next.preloadDefinitions??[]).map(d=>miniatureForPreload(d,next.graphics?.modelQuality??'high')));
-    if (hasRendered && currentCameraKey() !== drawnCameraKey) { cancelBattlefieldFrame(frame); frame = 0; lastPaint = 0; if (idleTimer) { clearTimeout(idleTimer); idleTimer = undefined; } draw(performance.now()); drewInSync = true; }
+    if (hasRendered && currentCameraKey() !== drawnCameraKey) { cancelBattlefieldFrame(frame); frame = 0; lastPaint = 0; if (idleTimer) { clearTimeout(idleTimer); idleTimer = undefined; } draw(performance.now()); }
     evictRetiredPlayerAssets();
     invalidate();
     if(plan.pending)scheduleLod();

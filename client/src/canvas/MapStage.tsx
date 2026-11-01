@@ -490,7 +490,7 @@ function MapStageInner({
     miniatureRef.current?.moveToken(token.id, x, y, finished, token.facing);
     visionRef.current?.move(token.id,x,y);
   }, []);
-  const [size, setSize] = useState({ w: 800, h: 600 });
+  const [size, setSize] = useState(() => ({ w: Math.max(1, window.innerWidth), h: Math.max(1, window.innerHeight - 48) }));
   const viewPreferenceKey = `dnd.battlefieldView:${getPlayerId()}`;
   const [preferredTilted, setTilted] = useState(() => {
     try { return localStorage.getItem(viewPreferenceKey) === 'tilted'; }
@@ -636,6 +636,7 @@ function MapStageInner({
   // to a monitor with different Windows scaling) — Konva sizes its canvas
   // buffer at creation, so without this the map renders blurry/misaligned.
   const [dprKey, setDprKey] = useState(0);
+  useLayoutEffect(() => { const r = containerRef.current?.getBoundingClientRect(); if (r && r.width > 0 && r.height > 0) { const w = Math.max(1, Math.floor(r.width)), h = Math.max(1, Math.floor(r.height)); setSize((c) => (c.w === w && c.h === h ? c : { w, h })); } }, [map?.id, map?.slidesUrl, map?.imagePath]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1093,7 +1094,7 @@ function MapStageInner({
 
   // The map-tool menus (Measure/Scale/Fog) are portaled into a slot in the top
   // toolbar above the map; grab that slot once the toolbar has mounted.
-  const [toolSlot, setToolSlot] = useState<HTMLElement | null>(null);
+  const [toolSlot, setToolSlot] = useState<HTMLElement | null>(() => document.getElementById('map-tool-slot'));
   useEffect(() => {
     setToolSlot(document.getElementById('map-tool-slot'));
   }, []);
@@ -1216,6 +1217,7 @@ function MapStageInner({
   // Screen-space pointer at an empty-space press, to tell a deliberate CLICK
   // (deselect) from a PAN drag (keep selection so you can look around).
   const clickStart = useRef<{ x: number; y: number } | null>(null);
+  const mapImageReady = !map?.imagePath || (baseW > 0 && baseH > 0);
 
   // Reset to fit when the map changes; otherwise refit on resize until the
   // user zooms/pans, after which we preserve their view.
@@ -1223,7 +1225,7 @@ function MapStageInner({
     userAdjusted.current = false;
     setView(fit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map?.id]);
+  }, [map?.id, mapImageReady]);
   useEffect(() => {
     if (!userAdjusted.current) setView(fit);
   }, [fit]);
@@ -1495,7 +1497,7 @@ function MapStageInner({
     const foreground = tokenLayerRef.current?.getNativeCanvasElement();
     if (background) background.style.zIndex = legacyTerrain?'1':'0';
     if (groundTokens) groundTokens.style.zIndex = legacyTerrain?'1':'0';
-    if (foreground) foreground.style.zIndex = legacy?'2':'4';
+    if (foreground) foreground.style.zIndex = '2';
     const shared=sharedTokenLayerRef.current?.getNativeCanvasElement();
     if(shared){shared.style.zIndex='4';shared.style.filter=map?.explorationMode==='revealed'?'none':'grayscale(1)';shared.style.opacity=map?.explorationMode==='revealed'?'1':'.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
   }, [dprKey, legacy, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode,legacyTerrain]);
@@ -1557,18 +1559,18 @@ function MapStageInner({
   const serverTokenLayerSet=useMemo(()=>new Set(snapshot.tokenLayerIds??[]),[snapshot.tokenLayerIds]);
   const selectedIdSet=useMemo(()=>new Set(selectedIds),[selectedIds]);
   useEffect(() => {
-    if (!focusRequest || focusRequest.nonce === focusNonce.current) return;
+    if (!focusRequest || focusRequest.nonce === focusNonce.current || !mapImageReady) return;
     focusNonce.current = focusRequest.nonce;
     const token = snapshot.tokens.find((t) => t.id === focusRequest.tokenId);
     if (!token || !size.w || !size.h) return;
     const ground = mapToScreen(token.x, token.y, view, tiltDegrees);
     const p = projectGround(ground.x, ground.y, size.w, size.h, tiltDegrees, rotationDegrees);
     const inset = 0.15;
-    if (p.x >= size.w * inset && p.x <= size.w * (1 - inset) && p.y >= size.h * inset && p.y <= size.h * (1 - inset)) return;
-    userAdjusted.current = true;
+    if (p.x >= size.w * inset && p.x <= size.w * (1 - inset) && p.y >= size.h * inset && p.y <= size.h * (1 - inset)) return; userAdjusted.current = true;
+
     setView((v) => ({ ...v, x: size.w / 2 - token.x * v.scale, y: size.h / 2 - token.y * v.scale * groundYScale(tiltDegrees) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusRequest?.nonce]);
+  }, [focusRequest?.nonce, mapImageReady]);
 
   // Google Slides maps render as an embedded iframe instead of a canvas.
   if (map?.slidesUrl && !map.imagePath) {
@@ -2021,8 +2023,8 @@ function MapStageInner({
       const maxScale = Math.max(fit.scale * 20, 6);
       const newScale = clamp(v.scale * factor, fit.scale * 0.25, maxScale);
       const mx = (px - v.x) / v.scale;
-      const my = (py - v.y) / v.scale;
-      userAdjusted.current = true;
+      const my = (py - v.y) / v.scale; userAdjusted.current = true;
+  
       return { scale: newScale, x: px - mx * newScale, y: py - my * newScale };
     });
   };
@@ -2093,8 +2095,9 @@ function MapStageInner({
     // event. Their scene pixels are already current; only input needs repaint.
     for (const layer of [layerRef.current, legacyFootstepsLayerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
       layer?.drawHit();
+    } if (Math.hypot(e.target.x() - view.x, e.target.y() - view.y) > 0.5) { userAdjusted.current = true;
     }
-    userAdjusted.current = true;
+
     setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }));
   };
 
@@ -2838,7 +2841,7 @@ function MapStageInner({
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?handlePrepareVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
-          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay ref={visionRef} presentation={presentation} terrainRaster={legacyTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay gpuComposite={!miniaturesUnavailable&&(use3dTokens||use3dMonsters)} serverGeometry={snapshot.legacyGeometry} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay ref={visionRef} presentation={presentation} terrainRaster={legacyTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}
           {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
           {!wallActive&&activeDoorControls.length>0&&!doorDragPreview&&<section data-testid="door-controls" className="nearby-door-controls" role="region" aria-label="Door controls">

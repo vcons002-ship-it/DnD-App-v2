@@ -34,6 +34,11 @@ export function TokenHoverCard({ snapshot, token, x, y }: Props) {
           )}
         </div>
       )}
+      {token.kind === 'pc' && (d.curHp ?? 1) <= 0 && !d.dead && d.deathSaves && (
+        <div className="hover-card-death-saves" data-testid="hover-card-death-saves">
+          Death saves: <span className="ds-ok">✓ {d.deathSaves.successes}/3</span> · <span className="ds-bad">✗ {d.deathSaves.failures}/3</span>
+        </div>
+      )}
       {d.conditions.length > 0 && (
         <ul className="hover-card-conds">
           {d.conditions.map((c) => (

@@ -16,6 +16,8 @@ export type TokenDisplay = {
    *  `dead` flag (visibility.ts) — the only way that viewer can know, so it must
    *  survive into the display or the death marker never renders for them. */
   dead?: boolean;
+  /** Death save tally for a downed PC (successes and failures out of 3). */
+  deathSaves?: { successes: number; failures: number };
   /** Token art (emoji or "/uploads/…"); empty for the default circle. */
   icon: string;
 };
@@ -42,6 +44,7 @@ export function resolveToken(
       maxHp: c.maxHp,
       tempHp: c.tempHp,
       dead: c.deathSaves.failures >= 3 || c.conditions.some(c => c.label.trim().toLowerCase() === 'dead'),
+      deathSaves: c.deathSaves,
       conditions: withMarks(c.conditions),
       icon: c.icon,
     };

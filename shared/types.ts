@@ -1071,6 +1071,7 @@ export type RevealStep = {
 /** Client-only presentation of both candidates already recorded by the server.
  * Optional so older persisted roll reveals remain fully compatible. */
 export type RollComparison = {
+  reasons?: string[];
   mode: 'adv' | 'dis';
   kind: 'd20' | 'dice';
   kept: 0 | 1;
@@ -1081,6 +1082,8 @@ export type RollComparison = {
 };
 
 export type RollReveal = {
+  advantageState?: 'adv' | 'dis' | 'straight';
+  advantageReasons?: string[];
   /** Resolved healing/temporary HP granted, distinct from the private dice total. */
   healing?: number;
   temporaryHp?: number;

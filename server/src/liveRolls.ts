@@ -94,7 +94,7 @@ export async function physicalFaces(
       const burst=typeof info?.triggerRule==='object'?info.triggerRule:undefined;
       const diceTrigger=state.done&&offset===0&&logical.length===sides.length
         ?info?.triggerRule==='orb-matches'?matchingDiceTrigger(state.values as number[]):burst?sorcerousDiceTrigger(state.values as number[],burst.used,burst.limit,burst.queued):undefined:undefined;
-      publish({...state,...(awaitStart&&state.elapsed===0?{awaitingStart:true}:{}),...(burst?{burstProgress:{used:burst.used,limit:burst.limit}}:{}),...(diceTrigger?{diceTrigger}:{}),poses:state.poses.map(v=>Math.round(v*10000)/10000),...(impacts.length?{impacts}:{}),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta,...(diceArt?{diceArt}:{} )});
+      publish({...state,...(awaitStart&&state.elapsed===0?{awaitingStart:true}:{}),...(burst?{burstProgress:{used:burst.used,limit:burst.limit}}:{}),...(diceTrigger?{diceTrigger}:{}),poses:state.poses.map(v=>Math.round(v*10000)/10000),...(impacts.length?{impacts}:{}),id,seq:seq++,sides:expanded,sets,critical,percentile,mode:info?.advantage,...(info?.advantageReasons?.length?{advantageReasons:info.advantageReasons,advantageState:info.advantageState??info.advantage??'straight'}:{}),kept,...(info?.saveDice?{dieOffset:offset}:{}),...displayMeta,...(diceArt?{diceArt}:{} )});
       return state;
     };
     const prepared=ready?.(id,awaitStart);

@@ -71,7 +71,7 @@ describe('loadingProgress', () => {
     vi.advanceTimersByTime(70);
     const stage1 = getLoadingProgressSnapshot();
     expect(stage1.visible).toBe(true);
-    expect(stage1.label).toBe('Summoning Miniatures…');
+    expect(stage1.label).toBe('Summoning Miniatures…'); expect(stage1.variant).toBe('corner');
     expect(stage1.percent).not.toBeNull();
 
     updateLoadingTaskStage('miniature:tok-dragon', 'miniature', 0.48, 0.76);
