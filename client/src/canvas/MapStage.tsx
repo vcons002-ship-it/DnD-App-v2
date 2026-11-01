@@ -478,7 +478,7 @@ function MapStageInner({
     if(!changed&&now-visionLightTime.current<(spell?16:66))return;
     visionSpellLights.current=spell;
     visionLightTime.current=now;visionRef.current?.lights(lights);
-  },[spellColorOverlay]);
+  },[spellColorOverlay]);const handlePrepareVisionLights=useCallback((lights:import('../../../shared/playerVision').VisionLight[])=>{visionRef.current?.prepareLights(lights);},[]);
   const [readyMiniatures, setReadyMiniatures] = useState<ReadonlySet<string>>(new Set());
   const handleMiniatureReady = useCallback((ids: ReadonlySet<string>) => {
     setReadyMiniatures((old) => old.size === ids.size && [...old].every((id) => ids.has(id)) ? old : ids);
@@ -1416,7 +1416,7 @@ function MapStageInner({
     return [...(!event.suppressSpellVisual&&spellImpactStyle(event)?[{...input,id:event.id,startAt:event.numberStartAt===undefined?undefined:event.numberStartAt+weaponTravelMs(event)}]:[]),
       ...(weaponImpactStyle(event)?[{...input,id:`weapon-${event.id}`,weaponOnly:true,startAt:event.numberStartAt}]:[])];
   };
-  const preparedSpellImpacts=legacy?[]:preparedHpFx.flatMap(mapSpellEvent);
+  const preparedSpellImpacts=useMemo(()=>legacy?[]:preparedHpFx.flatMap(mapSpellEvent),[legacy,preparedHpFx,snapshot,miniatureTokens,pxPerFoot,isDm]);
   const spellImpacts=useMemo<SpellImpact[]>(()=>legacy?[]:[...hpFx.flatMap(mapSpellEvent),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
     if(token.sharedSightOnly||(!isDm&&token.isHidden))return [];
     return resolveToken(snapshot,token).conditions.flatMap(condition=>{
@@ -1436,7 +1436,47 @@ function MapStageInner({
     }
   },[]);
 
+  const viewRef = useRef(view); viewRef.current = view;
+  const drawnViewRef = useRef({ x: view.x, y: view.y, scale: view.scale, sy: groundScaleY });
+  const paintView = useStableCallback((nextView: View) => {
+    viewRef.current = nextView;
+    const prev = drawnViewRef.current;
+    if (prev.x !== nextView.x || prev.y !== nextView.y || prev.scale !== nextView.scale || prev.sy !== groundScaleY) {
+      drawnViewRef.current = { x: nextView.x, y: nextView.y, scale: nextView.scale, sy: groundScaleY };
+      for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
+        if (!layer) continue;
+        layer.position({ x: nextView.x, y: nextView.y });
+        layer.scale({ x: nextView.scale, y: nextView.scale * groundScaleY });
+        layer.draw();
+      }
+      if (legacyFootstepsLayerRef.current) {
+        legacyFootstepsLayerRef.current.position({ x: nextView.x, y: nextView.y });
+        legacyFootstepsLayerRef.current.scale({ x: nextView.scale, y: nextView.scale });
+        legacyFootstepsLayerRef.current.draw();
+      }
+    }
+    visionRef.current?.camera({ view: nextView });
+    miniatureRef.current?.setView(nextView, true);
+  });
+  useLayoutEffect(() => {
+    const prev = drawnViewRef.current;
+    if (prev.x === view.x && prev.y === view.y && prev.scale === view.scale && prev.sy === groundScaleY) return;
+    drawnViewRef.current = { x: view.x, y: view.y, scale: view.scale, sy: groundScaleY };
+    for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
+      if (!layer) continue;
+      layer.position({ x: view.x, y: view.y });
+      layer.scale({ x: view.scale, y: view.scale * groundScaleY });
+      layer.draw();
+    }
+    if (legacyFootstepsLayerRef.current) {
+      legacyFootstepsLayerRef.current.position({ x: view.x, y: view.y });
+      legacyFootstepsLayerRef.current.scale({ x: view.scale, y: view.scale });
+      legacyFootstepsLayerRef.current.draw();
+    }
+  }, [view, groundScaleY]);
   const paintPan = useStableCallback((position:Pt) => {
+    viewRef.current = { ...view, ...position };
+    drawnViewRef.current = { x: position.x, y: position.y, scale: view.scale, sy: groundScaleY };
     for (const layer of [layerRef.current, legacyFootstepsLayerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
       if (layer) { layer.position(position); layer.draw(); }
     }
@@ -1971,6 +2011,9 @@ function MapStageInner({
   // Zoom by `factor`, keeping the container point (px,py) stationary. Shared by
   // the wheel, the +/− buttons (center) and two-finger pinch (the midpoint).
   const zoomAtPoint = (factor: number, px: number, py: number) => {
+    const cur = viewRef.current, maxS = Math.max(fit.scale * 20, 6), nextS = clamp(cur.scale * factor, fit.scale * 0.25, maxS);
+    const nextView = { scale: nextS, x: px - ((px - cur.x) / cur.scale) * nextS, y: py - ((py - cur.y) / cur.scale) * nextS };
+    userAdjusted.current = true; paintView(nextView); setView(nextView); if (nextView) return;
     setView((v) => {
       // Max zoom: generous relative to fit, but ALSO a floor over native (1:1)
       // pixels so you can get right in close even on a big high-res map (where
@@ -2056,6 +2099,7 @@ function MapStageInner({
   };
 
   const resetView = () => {
+    paintView(fit);
     userAdjusted.current = false;
     setView(fit);
   };
@@ -2063,6 +2107,7 @@ function MapStageInner({
 
   const paintProjection = (tilt:number,rotation:number,nextView:View) => {
     const previous=projectionState.current;
+    if(previous.tilt!==tilt){viewRef.current=nextView;drawnViewRef.current={x:nextView.x,y:nextView.y,scale:nextView.scale,sy:groundYScale(tilt)};}
     projectionState.current={tilt,rotation};
     for(const canvas of projectionCanvases.current)canvas.update(tilt,rotation);
     for(const layer of [layerRef.current,legacyFootstepsLayerRef.current,groundTokenLayerRef.current,tokenLayerRef.current,sharedTokenLayerRef.current,spellAreaLayerRef.current]){
@@ -2791,7 +2836,7 @@ function MapStageInner({
             <MiniatureLayer preparedSpellImpacts={preparedSpellImpacts} spellColorOverlay={spellColorOverlay} spellMist={spellMist} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={renderPlayerVision&&(usesMapVision(map)||!!snapshot.playerVision?.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} spellFog={spellFog} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas} visionCoverFrame={visionCoverFrame}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
-              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?lights=>visionRef.current?.prepareLights(lights):undefined} />
+              nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?handlePrepareVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
           {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay ref={visionRef} presentation={presentation} terrainRaster={legacyTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}

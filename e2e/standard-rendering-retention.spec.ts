@@ -100,6 +100,8 @@ for(const mode of ['2d','3d'])test(`standard ${mode} retains static artwork whil
   if(mode==='3d'){expect(await count('local-shadow-updates')).toBe(shadowBefore);expect(await count('body-mask-updates')).toBe(maskBefore);}
   admin.emit('token:move',{tokenId:pcToken.id,x:480,y:420});await state();
   await expect.poll(async()=>Number(await vision.getAttribute('data-vision-base-draw-count'))).toBeGreaterThan(visionBaseBefore);
+  const zoomSync=await page.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.getLayers().length>0),mapLayer=stage.getLayers()[0],m=document.querySelector('[data-testid="miniature-layer"]') as HTMLElement,v=document.querySelector('[data-testid="player-vision"]') as HTMLElement;let mapDraws=0,drawnScale=0;mapLayer.on('draw.zoomSyncTest',()=>{mapDraws++;drawnScale=mapLayer.scaleX();});const scaleBefore=mapLayer.scaleX(),renderBefore=Number(m.dataset.renderCount),visionBefore=Number(v.dataset.visionBaseDrawCount);(document.querySelector('button[title="Zoom in"]') as HTMLButtonElement).click();mapLayer.off('draw.zoomSyncTest');return{scaleBefore,scaleAfter:mapLayer.scaleX(),mapDraws,drawnScale,renderDelta:Number(m.dataset.renderCount)-renderBefore,visionDelta:Number(v.dataset.visionBaseDrawCount)-visionBefore};});
+  expect(zoomSync.scaleAfter).toBeGreaterThan(zoomSync.scaleBefore);expect(zoomSync.mapDraws).toBeGreaterThan(0);expect(zoomSync.drawnScale).toBe(zoomSync.scaleAfter);expect(zoomSync.renderDelta).toBeGreaterThan(0);expect(zoomSync.visionDelta).toBeGreaterThan(0);
   await page.screenshot({path:info.outputPath(`${mode}-retention.png`)});expect(errors).toEqual([]);
  }finally{admin.disconnect();}
 });

@@ -53,7 +53,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   parent?.style.setProperty('--spell-vision-visible',props.mapFogOfWar===false&&!props.vision.heavy?'none':`url(#${flashId})`);
   return ()=>{parent?.style.removeProperty('--spell-vision-visible');parent?.style.removeProperty('--player-vision-cover');};
  },[coverId,props.mapFogOfWar,props.vision.heavy]);
- const state=useRef(props);const live=useRef(new Map<string,{x:number;y:number}>());
+ const state=useRef(props),latestProps=useRef(props),syncedProps=useRef<typeof props|null>(null);latestProps.current=props;const live=useRef(new Map<string,{x:number;y:number}>());
  const propCamera=useRef({view:props.view,tilt:props.tilt,rotation:props.rotation});
  const renderedLights=useRef<VisionLight[]|null>(null);
  const pendingDraw=useRef(0),fullDraw=useRef(true),lastBaseLightDraw=useRef(0);
@@ -186,18 +186,19 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  // Movement, camera following and flickering lights can all update in one
  // frame. Rebuild the SVG masks once using the final state, not for every event.
  const schedule=()=>{if(!pendingDraw.current)pendingDraw.current=requestAnimationFrame(()=>{pendingDraw.current=0;draw();});};
+ const syncProps=()=>{const next=latestProps.current;if(syncedProps.current===next)return false;syncedProps.current=next;const previous=propCamera.current,current=state.current,sameView=next.view.x===previous.view.x&&next.view.y===previous.view.y&&next.view.scale===previous.view.scale;state.current={...next,view:sameView?current.view:next.view,tilt:next.tilt===previous.tilt?current.tilt:next.tilt,rotation:next.rotation===previous.rotation?current.rotation:next.rotation};propCamera.current={view:next.view,tilt:next.tilt,rotation:next.rotation};if(next.vision!==current.vision)renderedLights.current=null;for(const [id,p] of live.current){const o=next.vision.origins.find(x=>x.id===id)??next.vision.lights.find(x=>x.id===id);if(!o||(o.x===p.x&&o.y===p.y))live.current.delete(id);}fullDraw.current=true;return true;};
  useEffect(()=>()=>{cancelAnimationFrame(pendingDraw.current);ordinaryMask.current?.dispose();spellMask.current?.dispose();},[]);
  useImperativeHandle(ref,()=>({
-  cover(){if(pendingDraw.current){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();}return coverFrame.current;},
+  cover(){syncProps();if(pendingDraw.current||fullDraw.current){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();}return coverFrame.current;},
   memoryCanvas:()=>memoryCanvas.current,
-  frame(){fullDraw.current=true;cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},
+  frame(){syncProps();fullDraw.current=true;cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},
   prepareLights(next){
    if(state.current.spellLighting!==false&&prepareProjection.current){spellMask.current?.prepare(next,prepareProjection.current);
     if(root.current)root.current.dataset.preparedSpellMasks=String(spellMask.current?.stats.prepared??0);
    }
   },
   lights(next){
-   const filtered=(state.current.spellLighting===false?next.filter(l=>!l.transient):next).map(stabilizeLight);
+   syncProps();const filtered=(state.current.spellLighting===false?next.filter(l=>!l.transient):next).map(stabilizeLight);
    const previous=(renderedLights.current??state.current.vision.lights).filter(l=>state.current.spellLighting!==false||!l.transient).map(stabilizeLight);
    if(sameLights(filtered,previous))return;
    const prevOrdinary=previous.filter(l=>!l.transient),nextOrdinary=filtered.filter(l=>!l.transient);
@@ -212,15 +213,15 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   },
  }),[]);
  useLayoutEffect(()=>{
-  const previous=propCamera.current,current=state.current;
+
   // Server snapshots can arrive during a camera drag, before React receives its
   // final view. Preserve imperative camera fields when their props are unchanged.
-  const sameView=props.view.x===previous.view.x&&props.view.y===previous.view.y&&props.view.scale===previous.view.scale;
-  state.current={...props,view:sameView?current.view:props.view,tilt:props.tilt===previous.tilt?current.tilt:props.tilt,rotation:props.rotation===previous.rotation?current.rotation:props.rotation};
-  propCamera.current={view:props.view,tilt:props.tilt,rotation:props.rotation};
-  if(props.vision!==current.vision)renderedLights.current=null;
-  for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
-  fullDraw.current=true;cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},[props]);
+
+
+
+
+
+  if(syncProps()||pendingDraw.current||fullDraw.current){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();}},[props]);
  const terrain=props.terrain,b=terrain?.bounds,g=terrain?.grid;
  return <><div ref={root} data-testid="player-vision" data-wall-geometry-source={props.serverGeometry?.outlines?'server':'client'} data-explored-regions={terrain?.explored?.length??0} data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.heavy?props.vision.rangeFt:'unlimited'} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}
   style={{position:'absolute',inset:0,zIndex:2,pointerEvents:'none',overflow:'hidden'}}>
