@@ -3,7 +3,7 @@ import {io} from 'socket.io-client';
 import sharp from 'sharp';
 import {DM_SECRET,PORT} from './playwright.config';
 
-for(const size of [{width:320,height:740},{width:390,height:844},{width:430,height:900},{width:900,height:700},{width:1222,height:1144},{width:844,height:390}]){
+for(const size of [{width:320,height:740},{width:390,height:844},{width:430,height:900},{width:520,height:900},{width:521,height:900},{width:900,height:700},{width:1222,height:1144},{width:844,height:390}]){
  test(`compact touch toolbar ${size.width}x${size.height}`,async({browser,request},testInfo)=>{
   const context=await browser.newContext({viewport:size,hasTouch:true,isMobile:true,serviceWorkers:'block'});
   await context.addInitScript(()=>{localStorage.setItem('dnd-environment-quality','legacy');localStorage.setItem('dnd-dice-rendering','2d');});
@@ -18,12 +18,15 @@ for(const size of [{width:320,height:740},{width:390,height:844},{width:430,heig
    await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
    const bar=page.locator('header.topbar');await expect(bar.getByRole('button',{name:'Map tools',exact:true})).toBeVisible();
    const bounds=await bar.boundingBox();expect(bounds!.height).toBeLessThanOrEqual(size.width<=700?106:58);
-   if(size.width<=410)await expect(bar.locator('.session-title')).toBeHidden();
+   if(size.width<=520)await expect(bar.locator('.session-title')).toBeHidden();
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-   for(const name of ['View','Map tools','Campaign menu','Settings','Rotate map left','Rotate map right']){
+   for(const name of ['View','Map tools','Map features','Campaign menu','Settings','Rotate map left','Rotate map right']){
     const b=await bar.getByRole('button',{name,exact:true}).boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44);expect(b!.x).toBeGreaterThanOrEqual(0);expect(b!.x+b!.width).toBeLessThanOrEqual(size.width);
    }
+   expect(await bar.getByRole('button',{name:'Map features',exact:true}).evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+   const features=await bar.getByRole('button',{name:'Map features',exact:true}).boundingBox(),tools=await bar.getByRole('button',{name:'Map tools',exact:true}).boundingBox();
+   expect(features!.x+features!.width<=tools!.x || tools!.x+tools!.width<=features!.x || features!.y+features!.height<=tools!.y || tools!.y+tools!.height<=features!.y).toBe(true);
    await page.screenshot({path:testInfo.outputPath('compact-toolbar.png')});
    await bar.getByRole('button',{name:'View',exact:true}).click();
    const view=page.getByRole('dialog',{name:'View',exact:true});await expect(view).toBeVisible();
@@ -39,7 +42,11 @@ for(const size of [{width:320,height:740},{width:390,height:844},{width:430,heig
    await expect(page.getByRole('button',{name:'Reset battlefield rotation'})).toBeVisible();
    await page.keyboard.press('Escape');
    await bar.getByRole('button',{name:'Map tools',exact:true}).click();
-   await expect(page.getByRole('dialog',{name:'Map tools',exact:true}).getByText('Map features',{exact:false}).first()).toBeVisible();
+   await expect(page.getByRole('dialog',{name:'Map tools',exact:true}).getByRole('button',{name:'Map features',exact:true})).toHaveCount(0);
+   await bar.getByRole('button',{name:'Map features',exact:true}).click();
+   await expect(page.getByLabel('Map feature tools')).toBeVisible();
+   await page.keyboard.press('Escape');await expect(page.getByLabel('Map feature tools')).toBeHidden();
+   await bar.getByRole('button',{name:'Map tools',exact:true}).click();
    await bar.getByRole('button',{name:'Campaign menu',exact:true}).click();
    await expect(page.getByRole('dialog',{name:'Map tools',exact:true})).toBeHidden();
    const campaign=page.getByRole('dialog',{name:'Campaign menu',exact:true});await expect(campaign.getByText(`Code: ${code}`,{exact:false})).toBeVisible();await expect(campaign.getByText('The campaign with a deliberately long name',{exact:false})).toBeVisible();

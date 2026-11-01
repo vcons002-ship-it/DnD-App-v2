@@ -2257,6 +2257,12 @@ function MapStageInner({
               via a portal, but keep all their state/handlers here in MapStage. */}
           {toolSlot &&
             createPortal(
+              <>
+                {actualDm && <WallMenu map={map} doors={doors} onDoor={openDoorControls} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap} canGenerateDecal={comfyOk} onGenerateDecal={generateScenery}
+                      tiles={tiles} arrangingTiles={tilesMode} onToggleArrangeTiles={() => setTilesMode((t) => !t)} onAddTileFile={addTileFromFile} onReorderTile={reorderMapImage} onRemoveTile={removeMapImage}
+                      onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
+                      onFinish={cancelWallStroke}
+                      onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>}
               <CompactToolbarMenu label="Map tools" shortLabel="Tools"><div className="map-tool-menus">
                 {/* Measuring tools — available to everyone; shapes are shared. */}
                 <MeasureMenu
@@ -2378,11 +2384,7 @@ function MapStageInner({
                         setScaleMode((s) => !s);
                       }}
                     />
-                    <WallMenu map={map} doors={doors} onDoor={openDoorControls} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap} canGenerateDecal={comfyOk} onGenerateDecal={generateScenery}
-                      tiles={tiles} arrangingTiles={tilesMode} onToggleArrangeTiles={() => setTilesMode((t) => !t)} onAddTileFile={addTileFromFile} onReorderTile={reorderMapImage} onRemoveTile={removeMapImage}
-                      onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
-                      onFinish={cancelWallStroke}
-                      onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>
+
                     <FogMenu
                       onResetExploration={()=>map&&useStore.getState().resetExploration(map.id)}
                       explorationMode={map?.explorationMode??'remembered'}
@@ -2404,7 +2406,8 @@ function MapStageInner({
                     />
                   </>
                 )}
-              </div></CompactToolbarMenu>,
+              </div></CompactToolbarMenu>
+              </>,
               toolSlot,
             )}
           <Stage

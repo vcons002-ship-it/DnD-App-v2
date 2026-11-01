@@ -27,7 +27,7 @@ const DESKTOP = [
 
 const MOBILE = [
   ROW('View ▾ (phone)', 'Tilt or rotate the map, choose 2D/3D tokens and change DM visibility. Zoom and Fit stay on the toolbar.'),
-  ROW('Map tools ▾ (phone)', 'Measuring and Annotate tools; DM also gets scale, walls, doors, lights, fog and tiles.'),
+  ROW('Map tools ▾ (phone)', 'Measuring and Annotate tools; DM also gets scale and fog. Use Features for walls, doors, lights and tiles.'),
   ROW('Character (phone)', 'Open your sheet, inventory, spellbook, checks/saves and party tabs. Tap the health orb for health controls.'),
   ROW('Combat + (phone)', 'The combat panel starts folded to leave the map clear. Expand it to target, attack or cast; fold it again when exploring.'),
   ROW('Combat and Chat', 'Panels share available height when they would overlap. Their saved sizes return on a larger screen.'),
