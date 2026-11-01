@@ -339,6 +339,17 @@ function TokenShapeInner({
     if (!onContextMenu) return;
     e.evt.preventDefault();
     e.cancelBubble = true;
+    // A touch browser can dispatch contextmenu before our long-press timer.
+    // Treat it as the same hold, so release cannot select the target and the
+    // pending timer cannot open the menu a second time.
+    if (touchStart.current) {
+      if (longPress.current) clearTimeout(longPress.current);
+      longPress.current = null;
+      tapCandidate.current = null;
+      lastTap.current = null;
+      if (menuOpened.current) return;
+      menuOpened.current = true;
+    }
     openMenu(e.evt.clientX, e.evt.clientY);
   };
 

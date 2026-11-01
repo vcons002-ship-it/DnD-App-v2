@@ -32,7 +32,16 @@ for(const role of ['dm','player'] as const)for(const mode of ['legacy','standard
   const point=async(id:string)=>page.evaluate(id=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),n=stage.find('.token').find((n:any)=>n.getAttr('tokenId')===id),p=n.getAbsolutePosition(),r=stage.getContent().getBoundingClientRect();return {x:r.left+p.x*r.width/stage.width(),y:r.top+p.y*r.height/stage.height()};},id);
   const a=await point(actor.id),b=await point(target.id);await page.touchscreen.tap(a.x,a.y);
   const touch=await context.newCDPSession(page);const hold=async(p:{x:number;y:number})=>{await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...p,id:1}]});await page.waitForTimeout(650);await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
-  const menu=page.getByRole('dialog',{name:'Token actions',exact:true});await hold(b);await expect(menu).toBeVisible();
+  const menu=page.getByRole('dialog',{name:'Token actions',exact:true});
+  // Some touch browsers dispatch their native contextmenu before our hold timer.
+  await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...b,id:1}]});
+  await page.waitForTimeout(300);
+  await page.evaluate(({id,x,y})=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),node=stage.find('.token').find((n:any)=>n.getAttr('tokenId')===id);node.fire('contextmenu',{evt:{clientX:x,clientY:y,preventDefault(){}}},true);},{id:target.id,...b});
+  await expect(menu.getByLabel('Act as')).toHaveValue(actor.id);
+  await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await expect(menu.getByLabel('Act as')).toHaveValue(actor.id);
+  await menu.getByRole('button',{name:'Close token actions'}).click();
+  await hold(b);await expect(menu).toBeVisible();
   await expect(menu.getByLabel('Act as')).toHaveValue(actor.id);
   await expect(menu).toContainText('Touch Target');await expect(menu).toContainText('Attacking as');await expect(menu).toContainText('Touch Companion');
   await menu.getByRole('button',{name:'Close token actions'}).click();
