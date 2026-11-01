@@ -174,8 +174,8 @@ textarea:hover:not(:disabled) {
 }
 /* Keep floor-space grading on the underlying 2D artwork, below raised figures.
    The GPU compositor grades its own terrain pixels and figures separately. */
-[data-gpu-vision-grade="true"] > [data-testid="player-vision-shade"],
-[data-gpu-vision-grade="true"] > [data-testid="dim-light-darkvision"] { z-index: 2 !important; }
+[data-gpu-vision-grade="true"] [data-testid="explored-terrain"], [data-gpu-vision-grade="true"] > [data-testid="player-vision-shade"],
+[data-gpu-vision-grade="true"] > [data-testid="dim-light-darkvision"] { display: none !important; }
 
 /* ---- Mobile / touch responsive mode ---- */
 @media (max-width: 820px) {

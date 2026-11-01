@@ -638,7 +638,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           }
         }
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
-        if(sightFrame?.explored.length&&(props.environmentPreview?.heavyDarkness||sightFrame.keepRevealed))battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null);
+        if(!sightFrame||sightFrame.explored.length)battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null,!!visionComposite);
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         // Keep the existing path until the remembered-art texture is ready;
         // this also covers daylight boards without an environment renderer.
@@ -680,7 +680,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         // of it is visible already, so only heavy darkness needs the reach.
         const flashes=useComposite&&sightFrame?.enabled&&sightFrame.grade?.heavy?impactLights.filter(l=>l.revealsTerrain).map(l=>({source:l,
           polygon:battlefield?.lighting.wallPolygon(l.id)??FLASH_CIRCLE.map(v=>({x:l.x+v.x*spellLightReach(l),y:l.y+v.y*spellLightReach(l)}))})):NO_FLASHES;
-        visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera,flashes);
+        visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera,flashes,battlefield?.memoryTexture);
         if(!props.personalVision||useComposite){
           silhouette.render(renderer,outlineRects);
           if(deferSpells&&useComposite){

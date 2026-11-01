@@ -1,14 +1,14 @@
 import {acquireAnimatedMap} from './animatedMapMedia';
 import {lightFalloffGlsl} from '../../../shared/lightFalloff';
 import {exploredTerrainBrightness,HEAVY_DARKVISION_MEMORY_BRIGHTNESS,REGULAR_DARKVISION_TERRAIN_BRIGHTNESS} from '../../../shared/terrainLighting';
-import {Mesh,PlaneGeometry,ShaderMaterial,TextureLoader,VideoTexture,Vector2,Scene,type Texture,type Camera,type WebGLRenderer} from 'three';
+import {Mesh,PlaneGeometry,ShaderMaterial,TextureLoader,VideoTexture,Vector2,Scene,FramebufferTexture,type Texture,type Camera,type WebGLRenderer} from 'three';
 import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
 import {environmentVisibilityGlsl,type createEnvironmentVisibility} from './environmentVisibility';
 import {torchFieldGlsl,type createBattlefieldLighting} from './battlefieldLighting';
 /** Read original artwork, before the darkness grade removes its useful detail. */
 export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof createEnvironmentVisibility>['uniforms'],lights:ReturnType<typeof createBattlefieldLighting>['fieldUniforms'],grade:ReturnType<typeof createBattlefieldLighting>['terrainGrade'],depth:{texture:Texture;resolution:Vector2},invalidate:()=>void){
  const entries:{mesh:Mesh;memory:Mesh;texture:Texture;material:ShaderMaterial;memoryMaterial:ShaderMaterial;release:()=>void;videoTexture?:VideoTexture}[]=[];let key='',generation=0,memoryKey='';
- const memoryScene=new Scene();let lastCanvas:HTMLCanvasElement|null=null,memoryVersion=0;
+ const memoryScene=new Scene();let lastCanvas:HTMLCanvasElement|null=null,memoryVersion=0,memoryTexture:FramebufferTexture|undefined;
  const memoryBrightness={value:.2};
  const clear=()=>{generation++;memoryKey='';
   if(lastCanvas){lastCanvas.getContext('2d')?.clearRect(0,0,lastCanvas.width,lastCanvas.height);lastCanvas.dataset.ready='false';}
@@ -26,7 +26,7 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
      uniform sampler2D art,figureDepth;uniform vec2 texel,resolution,gridOffset;uniform float gridSize,memoryPass,memoryBrightness,gradeOpacity,sceneTintStrength;uniform vec3 gradeColor,sceneTint;varying vec2 artUv;varying vec3 world;
      float lum(vec2 p){return dot(texture2D(art,p).rgb,vec3(.2126,.7152,.0722));}
      void main(){if(memoryPass<.5&&(environmentVisible(world.xz)<.5||texture2D(figureDepth,gl_FragCoord.xy/resolution).r<.999999))discard;
-      vec3 illumination=torchIllumination(world.xz);float unlit=1.-lightColorCoverage(max(illumination.r,max(illumination.g,illumination.b)));
+      vec4 lightField=torchFieldAt(world.xz);vec3 illumination=lightField.rgb;float strength=max(illumination.r,max(illumination.g,illumination.b));float coverage=lightColorCoverage(strength),unlit=1.-coverage;
       vec4 source=texture2D(art,artUv);float l=dot(source.rgb,vec3(.2126,.7152,.0722)),detail=0.;
       // Regular sight does not need the heavy-darkness contour samples.
       if(memoryPass>.5||${settings.heavyDarkness?'true':'false'}){
@@ -35,7 +35,7 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
        detail=smoothstep(.025,.22,edge)*.20+smoothstep(.35,.85,l)*.13;
       }
       float grid=0.;if(gridSize>0.){vec2 cell=(world.xz-gridOffset)/gridSize;vec2 d=abs(fract(cell-.5)-.5)/max(fwidth(cell),vec2(.0001));grid=1.-smoothstep(.35,1.15,min(d.x,d.y));}
-      float recovery=max(detail,grid*.30);
+      float recovery=max(detail,grid*.30),shade=clamp(lightField.a/max(.001,strength+lightField.a),0.,.62)*coverage*(1.-stormFlash);vec3 baseArt=mix(source.rgb,vec3(1.),grid*(80./255.)),torchTint=linearToOutputTexel(vec4(illumination/max(.001,strength)*.30,1.)).rgb,litArt=mix(baseArt,torchTint,.10*coverage)*(1.-shade);
       if(memoryPass>1.5){
        vec3 remembered=mix(source.rgb,vec3(1.),grid*(80./255.));
        if(memoryPass<2.5)remembered=vec3(dot(remembered,vec3(.2126,.7152,.0722))*memoryBrightness);
@@ -55,13 +55,13 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
        // contour highlights. The shared light mask restores the original lit
        // scene, while the CSS vision grade leaves a small amount of color.
        float brightness=clamp((1.-gradeOpacity)*2.,${REGULAR_DARKVISION_TERRAIN_BRIGHTNESS},1.);
-       gl_FragColor=vec4(mix(source.rgb*brightness,vec3(.16),grid*.5),unlit*source.a);
+       gl_FragColor=vec4(mix(litArt,mix(source.rgb*brightness,vec3(.16),grid*.5),unlit),source.a);
       }else {
        // Preserve the artwork's hue in recovered detail without lifting its
        // brightness. The current-sight overlay keeps its color muted;
        // the memory pass above remains completely grayscale.
        vec3 recovered=mix(vec3(.55),clamp(source.rgb*.55/max(l,.05),0.,1.),.65);
-       gl_FragColor=vec4(recovered,recovery*unlit*source.a);
+       float alpha=gradeOpacity+sceneTintStrength*(1.-gradeOpacity);vec3 tint=(gradeColor*gradeOpacity*(1.-sceneTintStrength)+sceneTint*sceneTintStrength)/max(.001,alpha),ground=mix(baseArt,linearToOutputTexel(vec4(tint,1.)).rgb,alpha);gl_FragColor=vec4(mix(litArt,mix(ground,recovered,recovery),unlit),source.a);
       }
      }`});
    const mesh=new Mesh(new PlaneGeometry(tile.w,tile.h),material);mesh.rotation.x=-Math.PI/2;mesh.position.set(tile.x+tile.w/2,.006,tile.y+tile.h/2);mesh.renderOrder=3+index*.001;mesh.frustumCulled=false;mesh.visible=false;scene.add(mesh);
@@ -84,18 +84,20 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
    }
    entries.push({mesh,memory,texture,material,memoryMaterial,release,videoTexture});
   }
- },renderMemory(renderer:WebGLRenderer,camera:Camera,canvas:HTMLCanvasElement|null){
+ },renderMemory(renderer:WebGLRenderer,camera:Camera,canvas:HTMLCanvasElement|null,gpuComposite=false){
   if(!canvas||!entries.length||entries.some(e=>!e.memory.visible))return;
   const w=renderer.domElement.width,h=renderer.domElement.height;
-  const mode=canvas.dataset.mode==='retained'?3:canvas.dataset.mode==='regular'?2:1;
-  const next=JSON.stringify([key,w,h,mode,memoryBrightness.value,camera.projectionMatrix.elements,camera.matrixWorld.elements,grade.gradeColor.value.toArray(),grade.gradeOpacity.value,grade.sceneTint.value.toArray(),grade.sceneTintStrength.value]);
+  const mode=canvas.dataset.mode==='retained'?3:canvas.dataset.mode==='regular'?2:1,copy2d=!gpuComposite;
+  const next=JSON.stringify([key,w,h,mode,copy2d,memoryBrightness.value,camera.projectionMatrix.elements,camera.matrixWorld.elements,grade.gradeColor.value.toArray(),grade.gradeOpacity.value,grade.sceneTint.value.toArray(),grade.sceneTintStrength.value]);
   if(canvas===lastCanvas&&next===memoryKey)return;
   lastCanvas=canvas;memoryKey=next;
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
   for(const entry of entries)entry.memoryMaterial.uniforms.memoryPass.value=mode;
   renderer.render(memoryScene,camera);
-  const context=canvas.getContext('2d')!;context.clearRect(0,0,w,h);context.drawImage(renderer.domElement,0,0);
+  if(!memoryTexture||memoryTexture.image.width!==w||memoryTexture.image.height!==h){memoryTexture?.dispose();memoryTexture=new FramebufferTexture(w,h);}
+  renderer.state.activeTexture(renderer.getContext().TEXTURE0);renderer.copyFramebufferToTexture(memoryTexture);
+  if(copy2d){const context=canvas.getContext('2d')!;context.clearRect(0,0,w,h);context.drawImage(renderer.domElement,0,0);}
   canvas.dataset.ready='true';
   canvas.dataset.version=String(++memoryVersion);
- },dispose:clear};
+ },get memoryTexture(){return memoryTexture??null;},dispose(){clear();memoryTexture?.dispose();memoryTexture=undefined;}};
 }
