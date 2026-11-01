@@ -66,7 +66,7 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
    const m=motion.current,index=m?.frames?.length?legacyMotionIndex(now,m.start,m.durationMs,m.frames.length):undefined;
    if(index!==undefined){if(svg.current.getAttribute('data-frame')!==String(index))svg.current.setAttribute('data-frame',String(index));}
    else if(svg.current.hasAttribute('data-frame'))svg.current.removeAttribute('data-frame');
-   const serverGeom=(index!==undefined?m!.frames![index]:frame.geometry)??{sight:[],near:[],lights:[],memory:[]};
+   const serverGeom=(index!==undefined?m!.frames![index]:frame.geometry)??{sight:[],near:[],lights:[],memory:[],affinity:[]};
    if(drawnServer.current===serverGeom)return;
    drawnServer.current=serverGeom;
    const values={sight:serverGeom.sight,near:serverGeom.near,lights:serverGeom.lights,memory:serverGeom.memory??[]};
