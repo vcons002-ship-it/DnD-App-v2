@@ -1,4 +1,5 @@
 import { MarkTransferPrompt } from '../components/MarkTransferPrompt';
+import { MapLoadingBar } from '../components/MapLoadingBar';
 import { ChromaticOrbPrompt } from '../components/ChromaticOrbPrompt';
 import { CombatMoments } from '../components/CombatMoments';
 import { useEffect, useMemo, useState } from 'react';
@@ -101,7 +102,7 @@ export function PlayerView() {
     setClaimedId(null);releaseCharacter();if(claimKey)localStorage.removeItem(claimKey);
   });
 
-  if (!snapshot) return <div className="loading">Loading…</div>;
+  if (!snapshot) return <div className="loading"><MapLoadingBar mode="screen" label="Opening Campaign…" /></div>;
 
   const mine = snapshot.characters.find(
     (c) => c.id === claimedId && c.claimedBy === mySocketId,

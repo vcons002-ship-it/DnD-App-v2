@@ -1,4 +1,5 @@
 import {PlayerDamagePrompt} from '../components/PlayerDamagePrompt';
+import {MapLoadingBar} from '../components/MapLoadingBar';
 import { MarkTransferPrompt } from '../components/MarkTransferPrompt';
 import { ChromaticOrbPrompt } from '../components/ChromaticOrbPrompt';
 import { CombatMoments } from '../components/CombatMoments';
@@ -92,7 +93,7 @@ export function DmView() {
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedIds, deleteToken, setSelectedIds, undo]);
 
-  if (!snapshot) return <div className="loading">Loading…</div>;
+  if (!snapshot) return <div className="loading"><MapLoadingBar mode="screen" label="Opening Campaign…" /></div>;
 
   return (
     <div className="layout dm-fantasy">

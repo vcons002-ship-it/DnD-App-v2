@@ -2028,3 +2028,155 @@ html[data-render-mode="legacy"] :is(.dm-window,.player-hud,.damage-prompt-btn,.d
 .rendering-benchmark-reasons { margin: 0; padding-left: 20px; font-size: 0.9rem; display: flex; flex-direction: column; gap: 4px; }
 .rendering-benchmark-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 8px; padding: 10px; border-radius: 6px; background: #00000033; font-size: 0.82rem; }
 .rendering-benchmark-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+
+/* ---- Fantasy-themed Map & Asset Loading Bar + Rolling d20 ---- */
+.map-loading-bar-wrap {
+  pointer-events: none;
+  user-select: none;
+  z-index: 12;
+}
+.map-loading-bar-wrap.is-overlay {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(340px, calc(100% - 32px));
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.map-loading-bar-wrap.is-overlay.is-completing {
+  opacity: 0.92;
+}
+.map-loading-bar-wrap.is-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  height: 100%;
+  padding: 32px 16px;
+}
+.map-loading-bar-wrap.is-screen .map-loading-card {
+  width: min(360px, calc(100vw - 32px));
+}
+.map-loading-card {
+  position: relative;
+  padding: 10px 14px 11px;
+  background: linear-gradient(180deg, rgba(28, 32, 40, 0.95) 0%, rgba(16, 19, 24, 0.96) 100%);
+  border: 1px solid #92784e;
+  border-radius: 6px;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(246, 224, 173, 0.22),
+    inset 0 0 0 1px rgba(146, 120, 78, 0.28);
+}
+.map-loading-corner {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-color: #e4c482;
+  border-style: solid;
+  pointer-events: none;
+}
+.map-loading-corner.tl { top: 3px; left: 3px; border-width: 1.5px 0 0 1.5px; }
+.map-loading-corner.tr { top: 3px; right: 3px; border-width: 1.5px 1.5px 0 0; }
+.map-loading-corner.bl { bottom: 3px; left: 3px; border-width: 0 0 1.5px 1.5px; }
+.map-loading-corner.br { bottom: 3px; right: 3px; border-width: 0 1.5px 1.5px 0; }
+
+.map-loading-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+.map-loading-d20 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 6px rgba(216, 166, 87, 0.28));
+}
+.map-loading-d20-die {
+  transform-origin: 24px 24px;
+  animation: map-d20-tumble 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+.map-loading-d20-orbit {
+  transform-origin: 24px 24px;
+  animation: map-d20-orbit 6s linear infinite;
+}
+.map-loading-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 700 12.5px/1.25 'Cinzel HUD', Georgia, serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #f3e4c2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.map-loading-percent {
+  flex-shrink: 0;
+  font: 700 12px/1 'Cinzel HUD', Georgia, serif;
+  font-variant-numeric: tabular-nums;
+  color: #f6d57a;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(12, 14, 18, 0.7);
+  border: 1px solid rgba(176, 141, 84, 0.55);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.map-loading-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #090b0f 0%, #12161e 100%);
+  border: 1px solid #6b5635;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+.map-loading-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    #8c6224 0%,
+    #c9973e 35%,
+    #f6d57a 70%,
+    #e2af48 100%
+  );
+  box-shadow: 0 0 10px rgba(245, 197, 24, 0.45);
+  transition: width 0.14s ease-out;
+}
+.map-loading-track.is-indeterminate .map-loading-fill {
+  width: 42%;
+  animation: map-loading-indeterminate 1.35s ease-in-out infinite;
+}
+
+@keyframes map-d20-tumble {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(92deg) scale(1.05); }
+  50% { transform: rotate(180deg) scale(0.96); }
+  75% { transform: rotate(272deg) scale(1.05); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@keyframes map-d20-orbit {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+@keyframes map-loading-indeterminate {
+  0% { transform: translateX(-105%); }
+  50% { transform: translateX(140%); }
+  100% { transform: translateX(-105%); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-render-mode="legacy"] .map-loading-d20-die {
+    animation: map-d20-tumble 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite !important;
+  }
+  html[data-render-mode="legacy"] .map-loading-track.is-indeterminate .map-loading-fill {
+    animation: map-loading-indeterminate 1.35s ease-in-out infinite !important;
+  }
+}
