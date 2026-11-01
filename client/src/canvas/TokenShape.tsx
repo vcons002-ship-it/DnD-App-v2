@@ -540,7 +540,7 @@ function TokenShapeInner({
   // External/vector portraits retain their own bitmap fallback. Prepared flat
   // art and GPU miniature labels already have independent reusable pixels.
   const conditionAppearanceKey = display.conditions.map(c => `${c.id}:${c.label}:${c.aura ?? ''}:${c.isConcentration ? 1 : 0}`).join('|');
-  const appearance = `${display.name}|${display.curHp ?? ''}|${display.maxHp ?? ''}|${display.tempHp ?? ''}|${display.disposition ?? ''}|${display.dead ? 1 : 0}|${display.icon}|${conditionAppearanceKey}|${shape}|${radius}|${selected ? 1 : 0}|${isDead ? 1 : 0}|${activeTurn ? 1 : 0}|${initiativeRank ?? ''}|${hideAffinity ? 1 : 0}|${viewRotation}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}|${sharedDarkvision ? 1 : 0}|${token.revealTag ?? ''}|${token.combatRole ?? ''}|${(token.markLabels ?? []).join(',')}|${token.invisible ? 1 : 0}`;
+  const appearance = `${display.name}|${display.curHp ?? ''}|${display.maxHp ?? ''}|${display.tempHp ?? ''}|${display.disposition ?? ''}|${display.dead ? 1 : 0}|${display.deathSaves?.successes ?? ''}:${display.deathSaves?.failures ?? ''}|${display.icon}|${conditionAppearanceKey}|${shape}|${radius}|${selected ? 1 : 0}|${isDead ? 1 : 0}|${activeTurn ? 1 : 0}|${initiativeRank ?? ''}|${hideAffinity ? 1 : 0}|${viewRotation}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}|${sharedDarkvision ? 1 : 0}|${token.revealTag ?? ''}|${token.combatRole ?? ''}|${(token.markLabels ?? []).join(',')}|${token.invisible ? 1 : 0}`;
   useLayoutEffect(()=>{
     const art=tokenArt.current;if(!art)return;
     art.clearCache();
@@ -564,7 +564,7 @@ function TokenShapeInner({
       retainedRadius={radius*1.4+4}
       miniatureReady={miniatureReady}
       miniaturePending={miniaturePending}
-      tokenLabelVersion={`${display.name}|${token.kind}|${isDead ? 1 : 0}|${radius}|${nameY}|${nameWidth}|${tagWidth}|${labelY}|${labelFontSize}|${playerNameSize}|${monsterNameSize}|${token.revealTag ?? ''}|${hpFrac ?? ''}|${display.tempHp ?? ''}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}`}
+      tokenLabelVersion={`${display.name}|${token.kind}|${isDead ? 1 : 0}|${radius}|${nameY}|${nameWidth}|${tagWidth}|${labelY}|${labelFontSize}|${playerNameSize}|${monsterNameSize}|${token.revealTag ?? ''}|${hpFrac ?? ''}|${display.tempHp ?? ''}|${display.deathSaves?.successes ?? ''}:${display.deathSaves?.failures ?? ''}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}`}
       x={presentation?.position(token.id)?.x??token.x}
       y={presentation?.position(token.id)?.y??token.y}
       listening={listening}
@@ -731,6 +731,18 @@ function TokenShapeInner({
       {/* HP bar (only when HP is visible to this viewer). */}
       {!isDead && hpFrac !== null && (
         <Group name="token-health" y={radius + (token.kind === 'pc' ? playerNameSize + 8 : 4)} offsetX={radius}>
+          {token.kind === 'pc' && (display.curHp ?? 1) <= 0 && display.deathSaves && (
+            <Group name="token-death-saves" x={radius} y={9}>
+              <Rect x={-31} y={0} width={62} height={13} cornerRadius={6.5} fill="#0b0d12eb" stroke={display.deathSaves.successes >= 3 ? '#39c46b' : '#b89650'} strokeWidth={1} />
+              {[0, 1, 2].map((i) => (
+                <Circle key={`s${i}`} x={-22 + i * 8} y={6.5} radius={3} fill={i < display.deathSaves!.successes ? '#39c46b' : '#1b2420'} stroke={i < display.deathSaves!.successes ? '#b7f7cc' : '#39c46b88'} strokeWidth={1} />
+              ))}
+              <Rect x={-0.5} y={2.5} width={1} height={8} fill="#ffffff44" />
+              {[0, 1, 2].map((i) => (
+                <Circle key={`f${i}`} x={6 + i * 8} y={6.5} radius={3} fill={i < display.deathSaves!.failures ? '#e23b3b' : '#291a1c'} stroke={i < display.deathSaves!.failures ? '#ffb3b3' : '#e23b3b88'} strokeWidth={1} />
+              ))}
+            </Group>
+          )}
           <Rect width={radius * 2} height={6} fill="#0008" cornerRadius={3} />
           <Rect
             width={radius * 2 * hpFrac}
@@ -746,8 +758,8 @@ function TokenShapeInner({
               fontSize={Math.max(10, radius * 0.4)}
               fontStyle="bold"
               fill="#5ce1ff"
-              x={radius * 2 + 3}
-              y={-1}
+              x={radius * 2 + 3} y={-1}
+
             />
           )}
         </Group>

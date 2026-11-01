@@ -915,7 +915,7 @@ export const useStore = create<Store>((set, get) => ({
                 // Keep the actual settled tray through the modifier/result beat.
                 // Do not replace it with a second, synthetic dice screen.
                 tray:resultTrayFor(completedLiveTrays.values(),entry.reveal!),
-                reveal:snapshot.role==='player'?withRollComparison(entry.reveal!,entry.detail):entry.reveal!});
+                reveal:withRollComparison(entry.reveal!,entry.detail)});
             }
             if(!get().rollFx)set({rollFx:queuedRollFx.shift() ?? null});
             const fxId=get().rollFx?.id;

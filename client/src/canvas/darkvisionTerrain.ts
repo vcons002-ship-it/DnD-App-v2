@@ -35,7 +35,7 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
        detail=smoothstep(.025,.22,edge)*.20+smoothstep(.35,.85,l)*.13;
       }
       float grid=0.;if(gridSize>0.){vec2 cell=(world.xz-gridOffset)/gridSize;vec2 d=abs(fract(cell-.5)-.5)/max(fwidth(cell),vec2(.0001));grid=1.-smoothstep(.35,1.15,min(d.x,d.y));}
-      float recovery=max(detail,grid*.30),shade=clamp(lightField.a/max(.001,strength+lightField.a),0.,.62)*coverage*(1.-stormFlash);vec3 baseArt=mix(source.rgb,vec3(1.),grid*(80./255.)),torchTint=linearToOutputTexel(vec4(illumination/max(.001,strength)*.30,1.)).rgb,litArt=mix(baseArt,torchTint,.10*coverage)*(1.-shade);
+      float recovery=max(detail,grid*.30);
       if(memoryPass>1.5){
        vec3 remembered=mix(source.rgb,vec3(1.),grid*(80./255.));
        if(memoryPass<2.5)remembered=vec3(dot(remembered,vec3(.2126,.7152,.0722))*memoryBrightness);
@@ -55,13 +55,13 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
        // contour highlights. The shared light mask restores the original lit
        // scene, while the CSS vision grade leaves a small amount of color.
        float brightness=clamp((1.-gradeOpacity)*2.,${REGULAR_DARKVISION_TERRAIN_BRIGHTNESS},1.);
-       gl_FragColor=vec4(mix(litArt,mix(source.rgb*brightness,vec3(.16),grid*.5),unlit),source.a);
+       gl_FragColor=vec4(mix(source.rgb*brightness,vec3(.16),grid*.5),unlit*source.a);
       }else {
        // Preserve the artwork's hue in recovered detail without lifting its
        // brightness. The current-sight overlay keeps its color muted;
        // the memory pass above remains completely grayscale.
        vec3 recovered=mix(vec3(.55),clamp(source.rgb*.55/max(l,.05),0.,1.),.65);
-       float alpha=gradeOpacity+sceneTintStrength*(1.-gradeOpacity);vec3 tint=(gradeColor*gradeOpacity*(1.-sceneTintStrength)+sceneTint*sceneTintStrength)/max(.001,alpha),ground=mix(baseArt,linearToOutputTexel(vec4(tint,1.)).rgb,alpha);gl_FragColor=vec4(mix(litArt,mix(ground,recovered,recovery),unlit),source.a);
+       gl_FragColor=vec4(recovered,recovery*unlit*source.a);
       }
      }`});
    const mesh=new Mesh(new PlaneGeometry(tile.w,tile.h),material);mesh.rotation.x=-Math.PI/2;mesh.position.set(tile.x+tile.w/2,.006,tile.y+tile.h/2);mesh.renderOrder=3+index*.001;mesh.frustumCulled=false;mesh.visible=false;scene.add(mesh);
@@ -69,7 +69,7 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
    // Share texture/grade uniforms, but select the terrain-only output for memory.
    memoryMaterial.uniforms={...material.uniforms,memoryPass:{value:1}};
    const memory=new Mesh(mesh.geometry,memoryMaterial);memory.copy(mesh,false);memory.material=memoryMaterial;memory.visible=false;memoryScene.add(memory);
-   const texture=new TextureLoader().load(tile.url,loaded=>{if(version!==generation){loaded.dispose();return;}material.uniforms.texel.value.set(1/loaded.image.width,1/loaded.image.height);mesh.visible=memory.visible=true;memoryKey='';invalidate();},undefined,()=>{});
+   const texture=new TextureLoader().load(tile.url,loaded=>{if(version!==generation){loaded.dispose();return;}loaded.anisotropy=8;loaded.needsUpdate=true;material.uniforms.texel.value.set(1/loaded.image.width,1/loaded.image.height);mesh.visible=memory.visible=true;memoryKey='';invalidate();},undefined,()=>{});
    material.uniforms.art.value=texture;
    // Memory always reads the poster, never the live animation or scene effects.
    memoryMaterial.uniforms.art={value:texture};
@@ -87,7 +87,7 @@ export function createDarkvisionTerrain(scene:Scene,visibility:ReturnType<typeof
  },renderMemory(renderer:WebGLRenderer,camera:Camera,canvas:HTMLCanvasElement|null,gpuComposite=false){
   if(!canvas||!entries.length||entries.some(e=>!e.memory.visible))return;
   const w=renderer.domElement.width,h=renderer.domElement.height;
-  const mode=canvas.dataset.mode==='retained'?3:canvas.dataset.mode==='regular'?2:1,copy2d=!gpuComposite;
+  const mode=canvas.dataset.mode==='retained'?3:canvas.dataset.mode==='regular'?2:1,copy2d=mode===1||!gpuComposite;
   const next=JSON.stringify([key,w,h,mode,copy2d,memoryBrightness.value,camera.projectionMatrix.elements,camera.matrixWorld.elements,grade.gradeColor.value.toArray(),grade.gradeOpacity.value,grade.sceneTint.value.toArray(),grade.sceneTintStrength.value]);
   if(canvas===lastCanvas&&next===memoryKey)return;
   lastCanvas=canvas;memoryKey=next;

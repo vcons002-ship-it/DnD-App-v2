@@ -78,6 +78,8 @@ export const sameTokenDisplay = (a: TokenDisplay, b: TokenDisplay): boolean =>
   // Without this a player's enemy token never re-renders when it dies: HP is
   // hidden, position/conditions are unchanged, so `dead` is the only difference.
   a.dead === b.dead &&
+  a.deathSaves?.successes === b.deathSaves?.successes &&
+  a.deathSaves?.failures === b.deathSaves?.failures &&
   a.icon === b.icon &&
   sameConditions(a.conditions, b.conditions);
 

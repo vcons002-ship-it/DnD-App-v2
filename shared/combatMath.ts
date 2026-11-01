@@ -165,9 +165,11 @@ export function rollWeaponAttack(
      *  damage dice one extra time and add it. Independent of `rerollDamageDice`
      *  — a character can have both, and they compose. */
     extraCritDie?: boolean;
+    advantageReasons?: string[];
+    advantageState?: 'adv' | 'dis' | 'straight';
   },
 ): AttackOutcome {
-  const {face,detail:d20detail}=opts?.fixedAttack?{face:opts.fixedAttack.face,detail:opts.fixedAttack.detailToHit.match(/d20\[[^\]]+\](?:\u2192(?:adv|dis) \d+)?/)?.[0]??`d20[${opts.fixedAttack.face}]`}:withDiceMetadata({label:`${weapon.name} — Attack Roll`},()=>rollD20Detail(advantage));
+  const {face,detail:d20detail}=opts?.fixedAttack?{face:opts.fixedAttack.face,detail:opts.fixedAttack.detailToHit.match(/d20\[[^\]]+\](?:\u2192(?:adv|dis) \d+)?/)?.[0]??`d20[${opts.fixedAttack.face}]`}:withDiceMetadata({label:`${weapon.name} — Attack Roll`,...(opts?.advantageReasons?.length?{advantageReasons:opts.advantageReasons,advantageState:opts.advantageState??advantage??'straight'}:{})},()=>rollD20Detail(advantage));
   const { bonus, detail: bonusDetail, parts: bonusParts } = weaponAttackBonusDetail(attacker, weapon);
   const toHitExtra = opts?.attackRollBonus ?? 0;
   // Structured to-hit breakdown for the reveal animation (d20 + these).

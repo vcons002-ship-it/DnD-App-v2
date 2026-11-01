@@ -21,7 +21,7 @@ export type LiveDiceFrame = {
  /** Appearance only; gold ability dice are not critical dice. */
  diceTheme?:'gold';
  dmDice?:boolean;affinity?:'friendly'|'neutral'|'enemy';
- mode?:'adv'|'dis';sets:number[];critical:boolean[];percentile:('tens'|'ones'|null)[];kept?:number;
+ mode?:'adv'|'dis';advantageState?:'adv'|'dis'|'straight';advantageReasons?:string[];sets:number[];critical:boolean[];percentile:('tens'|'ones'|null)[];kept?:number;
  sides:number[];radius:number;trayScale?:number;poses:number[];values:(number|null)[];rerolls:number[];
  elapsed:number;done:boolean;
  /** Collisions since the previous frame (physics seconds) — the dice sounds. */

@@ -21,8 +21,24 @@ export function withRollComparison(reveal: RollReveal, detail: string): RollReve
     return { ...reveal, comparison: { mode, kind: 'dice', kept, sets } };
   }
   if (reveal.kind === 'damage' || reveal.d20 === undefined) return reveal;
+  const advReasonMatch = / · (adv|dis|straight): ([^·]+?)(?= · auto-crit|$)/.exec(detail);
+  const advantageState = advReasonMatch ? (advReasonMatch[1] as 'adv' | 'dis' | 'straight') : undefined;
+  const parsedReasons = advReasonMatch
+    ? advReasonMatch[2].split(',').map((s) => s.trim()).filter(Boolean)
+    : undefined;
+  const reasons = parsedReasons?.length ? parsedReasons : reveal.advantageReasons;
+  const resolvedState = advantageState ?? reveal.advantageState;
   const match = /\bd20\[(\d+),(\d+)\]→(adv|dis) (\d+)(?=\s|$)/.exec(detail);
-  if (!match) return reveal;
+  if (!match) {
+    if (reasons?.length && (!reveal.advantageReasons?.length || !reveal.advantageState)) {
+      return {
+        ...reveal,
+        ...(resolvedState ? { advantageState: resolvedState } : {}),
+        advantageReasons: reasons,
+      };
+    }
+    return reveal;
+  }
   const a = Number(match[1]), b = Number(match[2]);
   if (![a, b].every((n) => Number.isInteger(n) && n >= 1 && n <= 20)) return reveal;
   const mode = match[3] as 'adv' | 'dis';
@@ -30,8 +46,10 @@ export function withRollComparison(reveal: RollReveal, detail: string): RollReve
   if ([a, b][kept] !== Number(match[4]) || [a, b][kept] !== reveal.d20) return reveal;
   return {
     ...reveal,
+    ...(reasons?.length ? { advantageState: resolvedState ?? mode, advantageReasons: reasons } : {}),
     comparison: {
       kind: 'd20', mode, kept,
+      ...(reasons?.length ? { reasons } : {}),
       sets: [{ total: a, dice: [{ sides: 20, value: a }] }, { total: b, dice: [{ sides: 20, value: b }] }],
     },
   };

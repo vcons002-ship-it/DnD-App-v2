@@ -2879,6 +2879,7 @@ export function updateCharacter(
   if (patch.race !== undefined) put('race', patch.race);
   if (patch.className !== undefined) put('class_name', patch.className);
   if (patch.subclass !== undefined) put('subclass', patch.subclass);
+  if (patch.curHp !== undefined && Number.isFinite(patch.curHp) && Math.max(0, Math.round(patch.curHp)) > 0 && (c.curHp <= 0 || c.deathSaves.successes > 0 || c.deathSaves.failures > 0)) { put('death_successes', 0); put('death_failures', 0); if (c.curHp <= 0) put('conditions', JSON.stringify(clearDownedConditions(c.conditions.filter((x) => x.label.trim().toLowerCase() !== 'dead')))); }
   if (patch.level !== undefined) put('level', patch.level);
   if (patch.maxHp !== undefined) put('max_hp', Math.max(1, patch.maxHp));
   // Clamp curHp non-negative (a negative value slips past the `curHp === 0`

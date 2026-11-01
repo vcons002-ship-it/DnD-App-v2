@@ -1,7 +1,7 @@
 import {partySpell} from '../../../shared/partySpells';
 import {tokenDistanceFt} from '../../../shared/distance';
 import { AdvantageToggle } from './AdvantageToggle';
-import { targetLabel } from '../lib/targets';
+import { targetLabel, previewAttackAdvantage } from '../lib/targets';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { isHasteSpell, effectiveSheetAbility } from '../../../shared/spellExecution';
 import { spellCombatSupport } from '../../../shared/spellSupport';
@@ -195,6 +195,15 @@ export function FloatingMenu({ snapshot, token, attacker: defaultAttacker, x, y,
             </span>
           </div>
           {attacker && <div className="dice-row"><AdvantageToggle entityId={attacker.refId} />
+            {(() => {
+              const adv = previewAttackAdvantage(snapshot, attacker, token, useStore.getState().manualAdvantage[attacker.refId]);
+              const autoReasons = adv.reasons.filter((r) => r !== 'manual');
+              return autoReasons.length > 0 ? (
+                <span className={adv.state === 'adv' ? 'adv-up' : adv.state === 'dis' ? 'adv-down' : 'muted'} role="status">
+                  {adv.state === 'adv' ? 'Auto ADV' : adv.state === 'dis' ? 'Auto DIS' : 'Adv+Dis'}: {autoReasons.join(', ')}
+                </span>
+              ) : null;
+            })()}
             {canAttackAsSelected && <button className={`btn tiny ${offhand ? 'on' : ''}`} onClick={() => toggleOption('offhand')}>Off hand</button>}
             {aWeapons.some(w => w.versatileDamage) && <button className={`btn tiny ${twoHanded ? 'on' : ''}`} onClick={() => toggleOption('twoHanded')}>Two hands</button>}
           </div>}

@@ -93,6 +93,7 @@ export function DmView() {
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedIds, deleteToken, setSelectedIds, undo]);
 
+  useEffect(() => { window.scrollTo(0, 0); }, [snapshot?.map?.id]);
   if (!snapshot) return <div className="loading"><MapLoadingBar mode="screen" label="Opening Campaign…" /></div>;
 
   return (

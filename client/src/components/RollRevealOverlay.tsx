@@ -100,7 +100,7 @@ function ComparedDice({ comparison, locked, stopping, tick, onSettled }: {
   return (
     <div className="rr-comparison" data-mode={comparison.mode}>
       <div className="rr-comparison-title">
-        {comparison.mode === 'adv' ? 'Advantage · keep higher' : 'Disadvantage · keep lower'}
+        {comparison.mode === 'adv' ? 'Advantage · keep higher' : 'Disadvantage · keep lower'}{comparison.reasons?.length ? ` (${comparison.reasons.join(', ')})` : ''}
       </div>
       <div className="rr-comparison-sets">
         {comparison.sets.map((set, setIndex) => {
@@ -519,7 +519,7 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
         {!inlineTray && reveal.title && <div className="rr-title">{reveal.title.replace(/\bsave\b/i,'Saving Throw')}</div>}
         {!inlineTray && <div className="roll-reveal-who">
           {reveal.attacker}
-          {reveal.target ? <span className="rr-arrow"> &rarr; {reveal.target}</span> : reveal.kind==='damage' ? <span className="rr-arrow"> &middot; Targets not selected</span> : ''}
+          {reveal.target ? <span className="rr-arrow"> &rarr; {reveal.target}</span> : reveal.kind==='damage' ? <span className="rr-arrow"> &middot; Targets not selected</span> : ''}{reveal.advantageReasons?.length ? <span className={`rr-adv-reason is-${reveal.advantageState ?? comparison?.mode ?? 'straight'}`}> &middot; {(reveal.advantageState ?? comparison?.mode) === 'adv' ? 'Advantage' : (reveal.advantageState ?? comparison?.mode) === 'dis' ? 'Disadvantage' : 'Straight (adv + dis)'}: {reveal.advantageReasons.join(', ')}</span> : ''}
         </div>}
         {mapImpact && (!reveal.hideModifiers||reveal.kind==='damage') && <div className="roll-impact-summary" role="status">
           <strong>{reveal.damage !== undefined ? reveal.damage : reveal.attackTotal}</strong>
@@ -549,7 +549,8 @@ function RollSequence({ rollFx, entrySide, player, staticReveal, animatePhysical
           </div>
         )}
 
-        {!staticReveal && comparison && ((comparison.kind==='d20' && stage.phase!=='rolling' && stage.phase!=='landing') || (comparison.kind==='dice' && stage.diceLocked>0)) && <div className="rr-comparison-title">{comparison.mode==='adv'?'Advantage':'Disadvantage'} / Kept roll {comparison.kept+1}</div>}
+        {(inlineTray || !staticReveal) && comparison && ((comparison.kind==='d20' && stage.phase!=='rolling' && stage.phase!=='landing') || (comparison.kind==='dice' && stage.diceLocked>0)) && <div className="rr-comparison-title">{comparison.mode==='adv'?'Advantage':'Disadvantage'} / Kept roll {comparison.kept+1}{comparison.reasons?.length ? ` · ${comparison.reasons.join(', ')}` : ''}</div>}
+        {(inlineTray || !staticReveal) && !comparison && reveal.advantageReasons?.length && stage.phase!=='rolling' && stage.phase!=='landing' && <div className="rr-comparison-title">Straight roll (adv + dis): {reveal.advantageReasons.join(', ')}</div>}
         {showOutcome && !earlyCritical && <div className="roll-reveal-outcome" role="status" aria-label="Roll result">
           {outcomeLabel}
         </div>}

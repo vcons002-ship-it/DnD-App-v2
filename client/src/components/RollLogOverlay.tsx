@@ -28,6 +28,7 @@ export function RollLogOverlay({
   const [stale, setStale] = useState(false);
   const [hovered, setHovered] = useState(false);
   const rollingId = useStore(s => s.showRollAnim && s.rollFx && !s.rollFx.impactReady ? s.rollFx.rollId : null);
+  const combatDamage = useStore(s => s.combatDamage);
   const feed = useMemo(()=>mergeFeed(rollLog, chat),[rollLog,chat]);
   const latest = feed[feed.length - 1];
 
@@ -90,6 +91,16 @@ export function RollLogOverlay({
               <RollDamageBreakdown entry={entry} />
               {entry.hpNote && (
                 <span className="roll-hp-note">{entry.hpNote.text}</span>
+              )}
+              {entry.pending && !entry.pending.done && (
+                <button
+                  type="button"
+                  className="btn tiny roll-dmg"
+                  onClick={() => combatDamage(entry.id)}
+                  title="Roll the damage for this hit and apply it to the target"
+                >
+                  🎲 Roll damage
+                </button>
               )}
             </span>
           </div>
