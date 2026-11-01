@@ -116,9 +116,6 @@ export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSna
               </button>
             )}
             <RestMenu />
-            <button className="btn tiny" onClick={() => setSettingsOpen(true)}>
-              ⚙ Settings
-            </button>
             <button
               className="btn tiny"
               onClick={() => navigator.clipboard?.writeText(playerLink)}
@@ -184,6 +181,7 @@ export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSna
         </details>
       ) : actions}
 
+      {isDm && <button className="btn tiny dm-settings-trigger" type="button" aria-label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}><span aria-hidden="true">&#9881;</span><span className="dm-settings-label"> Settings</span></button>}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {guideOpen && <GuideModal onClose={() => setGuideOpen(false)} />}
       {isDm && <RulebookViewer />}

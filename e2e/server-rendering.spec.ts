@@ -40,7 +40,7 @@ test('server rendering defaults, player choice, owner enforcement, private asset
   await toggle.check();await expect(vision).toHaveAttribute('data-geometry-source','server');
   await owner.goto(`/dm?code=${code}`);await owner.locator('input[type=password]').fill(DM_SECRET);await owner.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await view(owner);
-  await owner.locator('summary',{hasText:'Campaign'}).click();await owner.getByRole('button',{name:'⚙ Settings'}).click();
+  await owner.getByRole('button',{name:'Settings',exact:true}).click();
   await owner.locator('.server-rendering-owner summary').click();
   await expect(owner.getByLabel('Board server rendering')).toHaveValue('inherit');
   expect(await owner.evaluate(()=>localStorage.getItem('dnd-environment-quality'))).toBeNull(); // unsaved default is Low
