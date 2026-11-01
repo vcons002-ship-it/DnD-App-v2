@@ -4,7 +4,7 @@ import {afterAll,it,expect} from 'vitest';
 import {config} from './config.js';
 import {renderedSnapshot} from './renderedSnapshot.js';
 import {renderAssetFor} from './renderAssets.js';
-import {createSession,createMap,createCharacter,claimCharacter,createToken,setActiveMap,updateMapEnvironment,moveToken,listMaps,createMonsterTemplate,instantiateMonster,setFogLayer,setFogRevealed} from './sessions.js';
+import {createSession,createMap,createCharacter,claimCharacter,createToken,setActiveMap,updateMapEnvironment,moveToken,listMaps,createMonsterTemplate,instantiateMonster,setFogLayer,setFogRevealed,setTokenHidden} from './sessions.js';
 import {buildSnapshot} from './visibility.js';
 import {recordWalkingMove,walkingRoute} from './walking.js';
 import {prepareLegacyMotion} from './legacyMotion.js';
@@ -34,7 +34,7 @@ it('does not explore a relocation, a DM wall crossing or a hidden token path',as
   expect(contains(f.snapshot().exploredTerrain,1100,100)).toBe(false);
  }
 });
-it('animates DM wall crossings and doorway moves in Legacy motion without exploring across closed walls',async()=>{
+it.each([false,true])('animates doorway moves without exploring across closed walls (membershipOnly=%s)',async(membershipOnly)=>{
  // 1. DM moves a token through an open doorway where its collision radius grazes the jamb (y=106 near jamb at y=100, radius=10px).
  const openDoor=fixture();
  editMapWalls(openDoor.session.id,openDoor.map.id,{add:{id:'jamb-top',ax:200,ay:0,bx:200,by:100}});
@@ -45,7 +45,7 @@ it('animates DM wall crossings and doorway moves in Legacy motion without explor
  const afterDoor=openDoor.snapshot();
  expect(walkingRoute(throughDoor.id)?.crossedWall).toBeUndefined();
  expect(contains(afterDoor.exploredTerrain,200,106)).toBe(true);
- const doorPlan=await prepareLegacyMotion('walker-door',beforeDoor,afterDoor);
+ const doorPlan=await prepareLegacyMotion('walker-door',beforeDoor,afterDoor,undefined,{membershipOnly});
  expect(doorPlan?.frames).toHaveLength(13);
  expect(doorPlan?.moves[throughDoor.id]).toEqual({from:{x:100,y:106},to:{x:300,y:106}});
  // 2. Subsequent move starting within 1ft (6px < 10px radius) of a wall still records a route and animates.
@@ -53,7 +53,7 @@ it('animates DM wall crossings and doorway moves in Legacy motion without explor
  const beforeParallel=openDoor.snapshot(),parallelMove=moveToken(openDoor.token.id,450,106)!;
  await recordWalkingMove(throughDoor,parallelMove,true);
  const afterParallel=openDoor.snapshot();
- const parallelPlan=await prepareLegacyMotion('walker-door',beforeParallel,afterParallel);
+ const parallelPlan=await prepareLegacyMotion('walker-door',beforeParallel,afterParallel,undefined,{membershipOnly});
  expect(parallelPlan?.frames).toHaveLength(13);
  // 3. DM moves a token across a solid wall: does not explore intermediate rooms, but still produces a 13-frame motion plan.
  const walled=fixture();
@@ -64,7 +64,7 @@ it('animates DM wall crossings and doorway moves in Legacy motion without explor
  const afterWall=walled.snapshot();
  expect(walkingRoute(acrossWall.id)?.crossedWall).toBe(true);
  expect(contains(afterWall.exploredTerrain,1100,100)).toBe(false);
- const wallPlan=await prepareLegacyMotion('walker-wall',beforeWall,afterWall);
+ const wallPlan=await prepareLegacyMotion('walker-wall',beforeWall,afterWall,undefined,{membershipOnly});
  expect(wallPlan?.frames).toHaveLength(13);
  expect(wallPlan?.moves[acrossWall.id]).toEqual({from:{x:100,y:100},to:{x:2100,y:100}});
 });
@@ -131,4 +131,24 @@ it('retains vector geometry across rendered snapshots and recomputes first motio
  expect(plan?.atlas).toBeUndefined();
  expect(plan?.frames[0].legacyGeometry?.near).toEqual(beforeGeometry.near);
  expect(plan?.frames.at(-1)?.legacyGeometry?.near).toEqual(afterGeometry.near);
+});
+
+it('lightweight movement keeps departing creatures and authorizes midpoint-only creatures without raster work',async()=>{
+ const f=fixture(),monster=instantiateMonster(createMonsterTemplate(f.session.id,{name:'Route guard',maxHp:7}).id)!;
+ const near=createToken({mapId:f.map.id,kind:'monster',refId:monster.id,x:400,y:100});
+ const middle=createToken({mapId:f.map.id,kind:'monster',refId:monster.id,x:1100,y:100});
+ const secret=createToken({mapId:f.map.id,kind:'monster',refId:monster.id,x:1100,y:120});setTokenHidden(secret.id,true);
+ const before=f.snapshot(),moved=moveToken(f.token.id,2100,100,true)!;await recordWalkingMove(f.token,moved,true);const after=f.snapshot();
+ const jobs=visibilityWorkers.metrics.jobs;
+ const plan=await prepareLegacyMotion('walker',before,after,undefined,{membershipOnly:true});
+ expect(plan?.membershipOnly).toBe(true);expect(visibilityWorkers.metrics.jobs).toBe(jobs);
+ expect(plan?.frames[0].tokenIds).toContain(near.id);expect(plan?.frames[6].tokenIds).toContain(middle.id);
+ expect(plan?.frames.every(frame=>!frame.tokenIds.includes(secret.id))).toBe(true);
+ expect(plan?.frames.at(-1)?.tokenIds).not.toContain(near.id);expect(plan?.frames.at(-1)?.tokenIds).not.toContain(middle.id);
+ expect(plan?.frames.every(frame=>!frame.legacyGeometry&&!frame.tokenSprites&&!frame.visionRaster)).toBe(true);
+ expect(plan?.frames[6].monsters?.find(m=>m.id===middle.refId)).not.toHaveProperty('curHp');
+ setFogLayer(f.map.id,'tokens',true);setFogRevealed(f.map.id,'tokens',[]);
+ const restricted=f.snapshot();const hidden=await prepareLegacyMotion('walker',{...before,map:restricted.map},restricted,undefined,{membershipOnly:true});
+ expect(hidden?.frames[6].tokenIds).not.toContain(middle.id);
+ expect(await prepareLegacyMotion('walker',{...before,playerVision:undefined},{...after,playerVision:undefined},undefined,{membershipOnly:true})).toBeUndefined();
 });

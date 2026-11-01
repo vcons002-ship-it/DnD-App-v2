@@ -13,14 +13,18 @@ export function useLegacyMovement(source:StateSnapshot,enabled:boolean){
   const sameView=enabled&&previous.source?.map?.id===source.map?.id&&previous.source?.role===source.role;
   const continuous=plan&&Object.entries(plan.moves).every(([id,m])=>oldTokens.get(id)?.x===m.from.x&&oldTokens.get(id)?.y===m.from.y);
   const startNew=Boolean(sameView&&plan&&plan.id!==previous.lastId&&continuous);
-  const keepOld=Boolean(!startNew&&sameView&&previous.plan&&now<previous.start+previous.plan.durationMs&&(!plan||plan.id===previous.lastId)&&previous.source?.explorationEpoch===source.explorationEpoch&&previous.source?.map?.mapFogEnabled===source.map?.mapFogEnabled&&JSON.stringify(previous.source?.map?.mapFogRevealed)===JSON.stringify(source.map?.mapFogRevealed)&&Object.entries(previous.plan.moves).every(([id,m])=>{const cur=curTokens.get(id),old=oldTokens.get(id);return cur&&cur.x===m.to.x&&cur.y===m.to.y&&cur.teleportedAt===old?.teleportedAt;}));
+  // A replacement snapshot without a plan may revoke an intermediate creature
+  // (hide/delete/fog change). Never carry those extra permissions forward.
+  const keepOld=Boolean(!startNew&&sameView&&previous.plan&&now<previous.start+previous.plan.durationMs&&(plan?.id===previous.lastId)&&previous.source?.explorationEpoch===source.explorationEpoch&&previous.source?.map?.mapFogEnabled===source.map?.mapFogEnabled&&JSON.stringify(previous.source?.map?.mapFogRevealed)===JSON.stringify(source.map?.mapFogRevealed)&&Object.entries(previous.plan.moves).every(([id,m])=>{const cur=curTokens.get(id),old=oldTokens.get(id);return cur&&cur.x===m.to.x&&cur.y===m.to.y&&cur.teleportedAt===old?.teleportedAt;}));
   state.current={source,lastId:plan?.id??(keepOld?previous.lastId:undefined),start:keepOld?previous.start:now,plan:startNew?plan:keepOld?previous.plan:undefined};
  }
  if(!enabled||window.matchMedia('(prefers-reduced-motion: reduce)').matches)state.current.plan=undefined;
  const active=state.current,plan=active.plan,elapsed=performance.now()-active.start,stage=!plan?0:legacyMotionIndex(performance.now(),active.start,plan.durationMs,plan.frames.length),complete=!plan||elapsed>=plan.durationMs;
  useLayoutEffect(()=>{
   if(!plan)return;
-  const hasMotionFrames=!!plan.atlas||plan.frames.some(f=>!!f.legacyGeometry);
+  // Membership-only plans also use the presentation clock for every position;
+  // unchanged authorization poses do not need additional React renders.
+  const hasMotionFrames=plan.membershipOnly||!!plan.atlas||plan.frames.some(f=>!!f.legacyGeometry);
   const signature=(f:LegacyMotion['frames'][number])=>JSON.stringify([f.tokenIds,f.tokens,f.monsters,f.tokenSprites,f.legacyGeometry?.affinity]);
   const times=plan.frames.flatMap((f,i)=>i&&(!hasMotionFrames||signature(f)!==signature(plan.frames[i-1]))?[f.at]:[]);times.push(1);
   const timers=new Set<ReturnType<typeof setTimeout>>();let cancelled=false;
@@ -42,6 +46,6 @@ export function useLegacyMovement(source:StateSnapshot,enabled:boolean){
   // creatures may exist only in this authorized intermediate frame.
   return {...source,tokens,monsters:[...monstersById.values()].filter(m=>monsterIds.has(m.id)),tokenSprites:frame.tokenSprites?{...source.tokenSprites,...frame.tokenSprites}:source.tokenSprites,legacyGeometry:frame.legacyGeometry,visionRaster:frame.visionRaster,visionTiles:frame.visionTiles};
  },[source,plan,stage,complete]);
- const playback=useMemo<LegacyPlayback|undefined>(()=>plan&&!complete?{id:plan.id,start:active.start,durationMs:plan.durationMs,moves:plan.moves,atlas:plan.atlas,frames:plan.frames.map(f=>f.legacyGeometry)}:undefined,[plan,complete,active.start]);
+ const playback=useMemo<LegacyPlayback|undefined>(()=>plan&&!complete?{id:plan.id,start:active.start,durationMs:plan.durationMs,moves:plan.moves,atlas:plan.atlas,frames:plan.membershipOnly?undefined:plan.frames.map(f=>f.legacyGeometry)}:undefined,[plan,complete,active.start]);
  return {snapshot,playback,stage,tick};
 }

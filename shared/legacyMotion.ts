@@ -9,6 +9,8 @@ export const legacyMotionIndex=(now:number,start:number,duration:number,count:nu
 export type LegacyMotionFrame={at:number;tokenIds:string[];tokens?:StateSnapshot['tokens'];monsters?:StateSnapshot['monsters'];tokenSprites?:StateSnapshot['tokenSprites'];legacyGeometry?:LegacyGeometry|null;visionRaster?:RasterAsset|null;visionTiles?:RasterTiles};
 /** All images are decoded before playback. The final snapshot is the implicit
  * frame at 1. Intermediate creature data is shaped by the normal server
- * visibility boundary, including figures absent at both endpoints. */
-export type LegacyMotion={id:string;durationMs:number;moves:Record<string,{from:MotionPoint;to:MotionPoint}>;frames:LegacyMotionFrame[];atlas?:LegacyMotionAtlas};
+ * visibility boundary, including figures absent at both endpoints.
+ * membershipOnly omits rendered geometry/images: clients keep smooth local
+ * sight and body animation on the same clock as authorized membership. */
+export type LegacyMotion={membershipOnly?:boolean;id:string;durationMs:number;moves:Record<string,{from:MotionPoint;to:MotionPoint}>;frames:LegacyMotionFrame[];atlas?:LegacyMotionAtlas};
 export type LegacyPlayback={id:string;start:number;durationMs:number;moves:LegacyMotion['moves'];atlas?:LegacyMotionAtlas;frames?:(LegacyGeometry|null|undefined)[]};
