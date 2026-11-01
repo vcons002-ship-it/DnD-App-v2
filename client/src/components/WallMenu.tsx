@@ -70,7 +70,7 @@ export function WallMenu({map,tool,count,snap,onTool,onSnap,onUndo,onFinish,door
     {setupDraftOpen&&map&&<MapSetupDraft key={map.id+setupScope+setupOnly} map={map} scope={setupScope} only={setupOnly} onClose={()=>setSetupDraftOpen(false)}/>}
     <button ref={button} className={`btn tiny map-features-trigger ${tool!=='off'||arrangingTiles?'on':''}`} onClick={()=>{
       const rect=button.current!.getBoundingClientRect();setPosition(position?null:{left:Math.max(8,Math.min(rect.left,window.innerWidth-304)),top:rect.bottom+4});
-    }} aria-label="Map features" aria-expanded={!!position} title="Add or adjust walls, doors, windows, lights and tiles"><span className="map-features-full">Map features</span><span className="map-features-short">Features</span><span className="map-features-state">{tool!=='off'?`: ${toolNames[tool]}`:arrangingTiles?': Tiles':''}</span><span className="map-features-chevron"> &#9662;</span></button>
+    }} aria-label="Map features" aria-expanded={!!position} title="Add or adjust walls, doors, windows, lights and tiles"><span className="map-features-full">Map Features</span><span className="map-features-short">Map Features</span><span className="map-features-state">{tool!=='off'?`: ${toolNames[tool]}`:arrangingTiles?': Tiles':''}</span><span className="map-features-chevron"> &#9662;</span></button>
     {position&&<><div className="popover-backdrop" onClick={()=>setPosition(null)}/>
       <div className="measure-menu wall-menu" style={position} aria-label="Map feature tools">
         <button className={`measure-row wall-menu-adjust ${tool==='edit'?'on':''}`} onClick={()=>{onTool('edit');setPosition(null);}}>Adjust existing walls, doors, windows &amp; lights</button>
