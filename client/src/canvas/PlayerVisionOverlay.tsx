@@ -13,6 +13,14 @@ import {exploredTerrainBrightness,HEAVY_DARKVISION_DESATURATION,REGULAR_DARKVISI
 import type {LegacyGeometry} from '../../../shared/legacyVision';
 type Camera={view:BattlefieldView;tilt:number;rotation:number;width:number;height:number};
 const circleVertices=Array.from({length:96},(_,i)=>({x:Math.cos(i*Math.PI/48),y:Math.sin(i*Math.PI/48)}));
+const stabilizeLight=(l:VisionLight):VisionLight=>{
+ if(l.transient)return l;
+ const radius=(l as {nominalRadius?:number}).nominalRadius??l.radius;
+ const strength=(l as {nominalStrength?:number}).nominalStrength??l.strength;
+ return radius===l.radius&&strength===l.strength?l:{...l,radius,strength};
+};
+const sameLight=(a:VisionLight,b:VisionLight)=>a.id===b.id&&a.x===b.x&&a.y===b.y&&a.radius===b.radius&&a.height===b.height&&a.strength===b.strength&&!!a.transient===!!b.transient&&a.beam?.ax===b.beam?.ax&&a.beam?.ay===b.beam?.ay&&a.beam?.bx===b.beam?.bx&&a.beam?.by===b.beam?.by;
+const sameLights=(a:readonly VisionLight[],b:readonly VisionLight[])=>a.length===b.length&&a.every((l,i)=>sameLight(l,b[i]));
 export type PlayerVisionHandle={cover:()=>VisionCoverFrame|undefined;memoryCanvas:()=>HTMLCanvasElement|null;frame:(now?:number)=>void;prepareLights:(lights:VisionLight[])=>void;lights:(lights:VisionLight[])=>void;camera:(c:Partial<Camera>)=>void;move:(id:string,x:number,y:number)=>void};
 /** Terrain visibility stays below lifted miniature pixels. The GPU path keeps
  * artwork grading below figures and grades their full silhouette at the base.
@@ -49,6 +57,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const propCamera=useRef({view:props.view,tilt:props.tilt,rotation:props.rotation});
  const renderedLights=useRef<VisionLight[]|null>(null);
  const pendingDraw=useRef(0),fullDraw=useRef(true),lastBaseLightDraw=useRef(0);
+ const lastBaseDraw=useRef<{key:string;geometry:ExploredTerrain|undefined;memory:HTMLCanvasElement|null}|null>(null);
  const ordinaryMask=useRef<ReturnType<typeof createVisionLightMask>>(),spellMask=useRef<ReturnType<typeof createVisionLightMask>>();
  const prepareProjection=useRef<Parameters<ReturnType<typeof createVisionLightMask>['prepare']>[1]>();
  const drawCount=useRef(0),baseDrawCount=useRef(0);
@@ -92,8 +101,9 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    const result=poly.length?'M'+poly.map(p=>`${(width/2+p.x/p.w).toFixed(2)},${(height/2+p.y/p.w).toFixed(2)}`).join('L')+'Z':'';
    projectedPolygons.current.set(vertices,{camera:projectionKey,path:result});return result;
   };
+  const livePoint=(p:{id:string;x:number;y:number})=>state.current.presentation?.position(p.id)??live.current.get(p.id)??p;
   const path=(point:{id:string;x:number;y:number;beam?:LightBeam},radius:number,actual=false,occlude=false)=>{
-   const p=actual?point:state.current.presentation?.position(point.id)??live.current.get(point.id)??point;
+   const p=actual?point:livePoint(point);
    if(occlude)return project(polygon({...p,id:point.id},radius));
    const slot=point.id+':'+radius,key=[projectionKey,p.x,p.y,JSON.stringify(point.beam)].join(':');activeKeys.add('circle:'+slot);
    const cached=circlePaths.current.get(slot);if(cached?.key===key)return cached.path;
@@ -101,7 +111,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    circlePaths.current.set(slot,{key,path:result});return result;
   };
   const sourceLights=renderedLights.current??vision.lights;
-  const positioned=(l:VisionLight)=>renderedLights.current?l:{...l,...(state.current.presentation?.position(l.id)??live.current.get(l.id)??l)};
+  const positioned=(l:VisionLight)=>l.transient?l:stabilizeLight({...l,...livePoint(l)});
   // Separate retained nodes keep spell flashes from rebuilding sight, history,
   // ordinary attenuation bands, or the GPU terrain cover on every frame.
   ordinaryMask.current??=createVisionLightMask(lightPaths.current,lightClips.current,`vision-lamp-${id}`);
@@ -117,28 +127,39 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    root.current.dataset.lightBandShape='ellipse';root.current.dataset.lightBandReuse='retained';
   }};
   if(!fullDraw.current){finish();return;}
-  fullDraw.current=false;lastBaseLightDraw.current=began;baseDrawCount.current++;
+  fullDraw.current=false;
+  const geometry=state.current.presentation?state.current.presentation.explored():state.current.terrain?.explored,camera=JSON.stringify([view,tilt,rotation,width,height]);
+  const wallFog=state.current.mapFogOfWar!==false;
+  const ordinaryLights=sourceLights.filter(l=>!l.transient).map(positioned);
+  const baseKey=[
+   projectionKey,wallsKey,vision.heavy,!!vision.daylight,vision.radius,wallFog,!!state.current.keepRevealed,
+   state.current.serverGeometry?.outlines?.wallsKey??'',
+   vision.origins.map(o=>{const p=livePoint(o);return `${o.id}:${p.x},${p.y}`;}).join('|'),
+   ordinaryLights.map(l=>`${l.id}:${l.x},${l.y},${l.radius},${l.height},${l.strength},${l.beam?`${l.beam.ax},${l.beam.ay},${l.beam.bx},${l.beam.by}`:''}`).join('|'),
+  ].join('~');
+  if(coverFrame.current&&lastBaseDraw.current?.key===baseKey&&lastBaseDraw.current.geometry===geometry&&lastBaseDraw.current.memory===memoryCanvas.current){
+   finish();return;
+  }
+  lastBaseDraw.current={key:baseKey,geometry,memory:memoryCanvas.current};
+  lastBaseLightDraw.current=began;baseDrawCount.current++;
   // Reproject remembered terrain only when history or camera changes, never for
   // every light flicker. It contains map images/grid only, not a live scene copy.
-  const geometry=state.current.presentation?state.current.presentation.explored():state.current.terrain?.explored,camera=JSON.stringify([view,tilt,rotation,width,height]);
   if(memoryPaths.current&&(memoryProjection.current?.geometry!==geometry||memoryProjection.current?.camera!==camera)){
    setMarkup(memoryPaths.current,(geometry??[]).map(p=>`<path clip-rule="evenodd" d="${p.map(r=>project(r.map(([x,y])=>({x,y})))).join('')}"/>`).join(''));
    memoryProjection.current={geometry,camera};
    if(memoryPlane.current)memoryPlane.current.style.transform=groundPerspectiveCss(width,height,tilt,rotation);
    if(memoryMap.current)memoryMap.current.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale},${view.scale*sy})`;
   }
-  const wallFog=state.current.mapFogOfWar!==false;
   const circles=vision.origins.map(o=>`<path fill="black" d="${path(o,vision.heavy?vision.radius:SIGHT_EXTENT,false,wallFog&&!!vision.walls?.length)}"/>`).join('');
   setMarkup(sightPaths.current,vision.origins.map(o=>`<path d="${path(o,SIGHT_EXTENT,false,wallFog)}"/>`).join(''));
   setMarkup(nearPaths.current,!vision.daylight&&!vision.heavy?vision.origins.map(o=>`<path d="${path(o,vision.radius,false,wallFog)}"/>`).join(''):'');
-  // Ordinary lanterns keep their existing ~15 Hz vision cadence while the
-  // renderer and cosmetic spell-light bands continue at full frame rate.
-  ordinaryMask.current.sync(sourceLights.filter(l=>!l.transient).map(positioned),projection);
+  // Ordinary lanterns keep steady nominal vision geometry while the 3D renderer
+  // and cosmetic spell-light bands animate independently.
+  ordinaryMask.current.sync(ordinaryLights,projection);
   // Keep the SVG mask in the DOM and share light geometry between both masks.
   // Encoding/decoding two large SVG image URLs per frame caused mobile stalls.
   setMarkup(originPaths.current,circles);
   setMarkup(retainedRange.current,vision.heavy?vision.origins.map(o=>`<path fill="white" d="${path(o,vision.radius)}"/>`).join(''):`<rect width="${width}" height="${height}" fill="white"/>`);
-  const livePoint=(p:{id:string;x:number;y:number})=>state.current.presentation?.position(p.id)??live.current.get(p.id)??p;
   const originPolygon=(o:{id:string;x:number;y:number},radius:number)=>{
    const p=livePoint(o);
    return wallFog?polygon({...p,id:o.id},radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius}));
@@ -149,10 +170,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    memoryRange:state.current.keepRevealed&&vision.heavy?vision.origins.map(o=>{const p=livePoint(o);return circleVertices.map(v=>({x:p.x+v.x*vision.radius,y:p.y+v.y*vision.radius}));}):undefined,
    origins:vision.origins.map(o=>originPolygon(o,vision.heavy?vision.radius:SIGHT_EXTENT)),
    sight:vision.origins.map(o=>originPolygon(o,SIGHT_EXTENT)),
-   lights:(renderedLights.current??vision.lights).filter(l=>!l.transient).map(l=>{
-    const source=renderedLights.current?l:{...l,...livePoint(l)};
-    return {source,polygon:polygon(source,SIGHT_EXTENT)};
-   })};
+   lights:ordinaryLights.map(source=>({source,polygon:polygon(source,SIGHT_EXTENT)}))};
   for(const slot of polygonCache.current.keys())if(!activeKeys.has(slot))polygonCache.current.delete(slot);
   for(const slot of circlePaths.current.keys())if(!activeKeys.has('circle:'+slot))circlePaths.current.delete(slot);
   // Cosmetic flashes restore color only inside already-visible terrain. They
@@ -179,16 +197,12 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
    }
   },
   lights(next){
-   if(state.current.spellLighting===false){
-    next=next.filter(l=>!l.transient);
-    const previous=renderedLights.current??state.current.vision.lights.filter(l=>!l.transient);
-    if(next.length===previous.length&&next.every((l,i)=>{const p=previous[i];return l.id===p.id&&l.x===p.x&&l.y===p.y&&l.radius===p.radius&&l.height===p.height&&l.strength===p.strength;}))return;
-   }
-   const wasSpell=renderedLights.current?.some(l=>l.transient),spell=next.some(l=>l.transient);
-   renderedLights.current=next;
-   // First/last flash frames always publish normal lighting, including a map
-   // whose animation loop becomes idle immediately after the spell expires.
-   if(!spell||!wasSpell||performance.now()-lastBaseLightDraw.current>=66)fullDraw.current=true;
+   const filtered=(state.current.spellLighting===false?next.filter(l=>!l.transient):next).map(stabilizeLight);
+   const previous=(renderedLights.current??state.current.vision.lights).filter(l=>state.current.spellLighting!==false||!l.transient).map(stabilizeLight);
+   if(sameLights(filtered,previous))return;
+   const prevOrdinary=previous.filter(l=>!l.transient),nextOrdinary=filtered.filter(l=>!l.transient);
+   renderedLights.current=filtered;
+   if(!sameLights(nextOrdinary,prevOrdinary))fullDraw.current=true;
    schedule();
   },
   camera(next){fullDraw.current=true;state.current={...state.current,...next};cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},
@@ -203,7 +217,8 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   // final view. Preserve imperative camera fields when their props are unchanged.
   const sameView=props.view.x===previous.view.x&&props.view.y===previous.view.y&&props.view.scale===previous.view.scale;
   state.current={...props,view:sameView?current.view:props.view,tilt:props.tilt===previous.tilt?current.tilt:props.tilt,rotation:props.rotation===previous.rotation?current.rotation:props.rotation};
-  propCamera.current={view:props.view,tilt:props.tilt,rotation:props.rotation};renderedLights.current=null;
+  propCamera.current={view:props.view,tilt:props.tilt,rotation:props.rotation};
+  if(props.vision!==current.vision)renderedLights.current=null;
   for(const [id,p] of live.current){const next=props.vision.origins.find(o=>o.id===id)??props.vision.lights.find(o=>o.id===id);if(!next||(next.x===p.x&&next.y===p.y))live.current.delete(id);}
   fullDraw.current=true;cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();},[props]);
  const terrain=props.terrain,b=terrain?.bounds,g=terrain?.grid;

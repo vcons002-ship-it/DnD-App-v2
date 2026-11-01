@@ -83,6 +83,22 @@ for(const mode of ['2d','3d'])test(`standard ${mode} retains static artwork whil
   admin.emit('token:move',{tokenId:token.id,x:-30,y:120});await state();await page.waitForTimeout(600);await pixels();
   await page.setViewportSize({width:1300,height:900});await pixels();
   admin.emit('token:delete',{tokenId:token.id});await state();await expect.poll(node).toBeNull();
+  const pc=s.characters.find((c:any)=>c.name==='Druk');
+  admin.emit('token:spawn',{mapId:map.id,kind:'pc',refId:pc.id,x:420,y:420});
+  const pcToken=(await state()).tokens.find((t:any)=>t.kind==='pc');
+  admin.emit('token:setLantern',{tokenId:pcToken.id,enabled:true});
+  admin.emit('map:setEnvironment',{mapId:map.id,settings:{...environment,heavyDarkness:true,lights:[{...environment.lights[0],x:520,y:420,flicker:true}]}});
+  await state();
+  await page.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');
+  const vision=page.getByTestId('player-vision');await expect(vision).toHaveAttribute('data-heavy','true');
+  await page.waitForTimeout(500);
+  const visionBaseBefore=Number(await vision.getAttribute('data-vision-base-draw-count'));
+  const shadowBefore=await count('local-shadow-updates'),maskBefore=await count('body-mask-updates');
+  await page.waitForTimeout(700);
+  expect(Number(await vision.getAttribute('data-vision-base-draw-count'))).toBe(visionBaseBefore);
+  if(mode==='3d'){expect(await count('local-shadow-updates')).toBe(shadowBefore);expect(await count('body-mask-updates')).toBe(maskBefore);}
+  admin.emit('token:move',{tokenId:pcToken.id,x:480,y:420});await state();
+  await expect.poll(async()=>Number(await vision.getAttribute('data-vision-base-draw-count'))).toBeGreaterThan(visionBaseBefore);
   await page.screenshot({path:info.outputPath(`${mode}-retention.png`)});expect(errors).toEqual([]);
  }finally{admin.disconnect();}
 });

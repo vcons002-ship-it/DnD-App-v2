@@ -219,15 +219,15 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       scene.environmentIntensity=baseLight.reflection+flash*.45;
     }
     flame.uniforms.flameTime.value=time;
-    const movingLight=carried.length>0||(settings.lights??[]).some(l=>l.flicker);
+    const movingLight=(settings.lights??[]).some(l=>l.flicker);
     const carriedKey=carried.map(c=>`${c.id}:${c.x}:${c.y}:${c.height}:${c.fixtureX??''}:${c.fixtureY??''}:${c.fixtureHeight}:${c.facing}`).join('|');
     const transientKey=transient.map(l=>`${l.id}:${l.x}:${l.y}:${l.height}:${l.radius}:${l.strength}:${l.color.x}:${l.color.y}:${l.color.z}:${l.beam?`${l.beam.ax},${l.beam.ay},${l.beam.bx},${l.beam.by}`:''}:${l.visibleTorch?1:0}:${l.fixture??''}:${l.fixtureX??''}:${l.fixtureY??''}:${l.fixtureHeight??''}:${l.carried?1:0}:${l.facing??0}`).join('|');
-    const sourceKey=`${sourceSettingsVersion}|${carriedKey}|${transientKey}|${movingLight?seconds:0}`;
+    const sourceKey=`${sourceSettingsVersion}|${carriedKey}|${transientKey}|${movingLight?Math.round(seconds*12):0}`;
     if(sourceKey===lastSourceKey)return;
     lastSourceKey=sourceKey;lightVersion++;
     const ppf=settings.pixelsPerFoot??12.8;
     const sources=[...(settings.lights??[]).map(l=>({...l,height:l.heightFt*ppf,fixtureHeight:l.heightFt*ppf,carried:false,facing:0})),
-      ...carried.map(l=>({...l,radiusFt:20,intensity:.85,color:'warm' as const,flicker:true,visibleTorch:false,fixture:'lantern' as const,carried:true}))];
+      ...carried.map(l=>({...l,radiusFt:20,intensity:.85,color:'warm' as const,flicker:false,visibleTorch:false,fixture:'lantern' as const,carried:true}))];
     lights=plane.visible?sources.map(source=>{
       const seed=phase(source.id),f=Math.sin(time*6.3+seed)*.10+Math.sin(time*11.1+seed*3)*.06+Math.sin(time*2.7+seed)*.08;
       const color=sourceColor(source.color);
@@ -333,7 +333,7 @@ export function createBattlefieldLighting(scene:Scene,key:DirectionalLight,ambie
       try{renderer.setClearColor(0,0);renderer.setRenderTarget(field);renderer.clear();renderer.render(fieldScene,fieldCamera);fieldKey=nextKey;fieldUpdates++;}
       finally{renderer.setRenderTarget(previous);renderer.setClearColor(fieldClearColor,clearAlpha);renderer.shadowMap.needsUpdate=pending;}
     },
-    get animated(){return plane.visible&&(carried.length>0||(settings?.lights??[]).some(l=>l.flicker)||(settings?.groundWetness??0)>0||!!settings?.lightning);},
+    get animated(){return plane.visible&&((settings?.lights??[]).some(l=>l.flicker)||(settings?.groundWetness??0)>0||!!settings?.lightning);},
     get state(){return {lighting:plane.visible?settings.lighting??'day':'off',darkness:settings.heavyDarkness?'heavy':'normal',lightCount:lights.length,visibleTorchCount:lights.filter(l=>l.visibleTorch&&l.fixture!=='lantern').length,placedLanternCount:lights.filter(l=>l.visibleTorch&&l.fixture==='lantern'&&!l.carried).length,carriedLanternCount:carried.length,
       wallLightGeometryUpdates,wallLightPositionUploads,wallLightMeshes:wallLights.size,preparedWallLightMeshes:preparedWallLights.size,preparedGeometryCount,lightFieldUpdates:fieldUpdates,lightSourceUpdates:lightVersion,
       sceneTint:settings.sceneTint??'#ffffff',sceneTintStrength:plane.visible?settings.sceneTintStrength??0:0,sceneGradeOpacity:plane.visible?uniforms.gradeOpacity.value:0,

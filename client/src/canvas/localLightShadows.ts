@@ -115,7 +115,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer,invalidate:()=>vo
    let routineUpdates=0;
    for(const source of ordered){
      const entry=pool.find(e=>e.id===source.id)??pool.find(e=>!e.id)!;entry.id=source.id;
-     const slot=pool.indexOf(entry),far=Math.max(entry.key?entry.light.distance:0,Math.ceil(source.radius*LIGHT_SPILL_MULTIPLIER/100+1)*100);
+     const slot=pool.indexOf(entry),far=Math.max(entry.key?entry.light.distance:0,Math.ceil((source.nominalRadius??source.radius)*LIGHT_SPILL_MULTIPLIER/100+1)*100);
      const allowed=prepared.filter(p=>castsLocalShadow(source,p.caster)&&Math.hypot(p.caster.x-source.x,p.caster.y-source.y)<far&&sight.visible(`${source.id}:${p.caster.id}`,source,p.caster,walls));
      const structural=[method,wallVersion,budget.localShadowFloorSize,source.carried,source.height,far,...allowed.map(p=>p.structural)].join('|');
      const sourceKey=[source.x,source.y,source.height,far].join(','),key=structural+':'+sourceKey+':'+allowed.map(p=>p.key).join('|');
