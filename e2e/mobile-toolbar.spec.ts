@@ -87,3 +87,26 @@ test('player can reach rotation buttons on a narrow phone',async({browser,reques
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  }finally{dm.disconnect();await context.close();}
 });
+
+for(const width of [1280,1440,1920])test(`desktop DM toolbar exposes Settings and Map features at ${width}px`,async({browser,request},testInfo)=>{
+ const context=await browser.newContext({viewport:{width,height:900},hasTouch:false,isMobile:false});
+ await context.addInitScript(()=>{localStorage.setItem('dnd-environment-quality','legacy');localStorage.setItem('dnd-dice-rendering','2d');});
+ const page=await context.newPage(),headers={'x-dm-passphrase':DM_SECRET};
+ const {code}=await(await request.post('/api/sessions',{headers,data:{name:'Desktop toolbar'}})).json();
+ const buffer=await sharp({create:{width:800,height:600,channels:3,background:'#565447'}}).png().toBuffer();
+ const map=await(await request.post(`/api/sessions/${code}/maps`,{headers,multipart:{name:'Room',image:{name:'room.png',mimeType:'image/png',buffer}}})).json();
+ const dm=io(`http://localhost:${PORT}`,{transports:['websocket']});
+ try{
+  await dm.timeout(10000).emitWithAck('join',{sessionCode:code,role:'dm',dmPassphrase:DM_SECRET});dm.emit('map:setActive',{mapId:map.id});
+  await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
+  const bar=page.locator('header.topbar'),features=bar.getByRole('button',{name:'Map features',exact:true}),settings=bar.getByRole('button',{name:'Settings',exact:true});
+  await expect(features).toBeVisible();await expect(settings).toBeVisible();await expect(bar.locator('.dm-campaign-menu')).not.toHaveAttribute('open','');
+  await expect(bar.locator('.dm-campaign-menu').getByRole('button',{name:'Settings',exact:true})).toHaveCount(0);
+  expect(await features.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  for(const control of [features,settings]){const rect=await control.boundingBox();expect(rect!.x).toBeGreaterThanOrEqual(0);expect(rect!.x+rect!.width).toBeLessThanOrEqual(width);}
+  await page.screenshot({path:testInfo.outputPath('desktop-toolbar.png')});
+  await features.click();await expect(page.getByLabel('Map feature tools')).toBeVisible();await page.getByRole('button',{name:'Lights',exact:true}).click();await expect(page.getByRole('region',{name:'Lights',exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');await settings.click();await expect(page.locator('.modal-head h3',{hasText:'Settings'})).toBeVisible();
+  await page.locator('.modal-head').getByRole('button',{name:'\u2715'}).click();await expect(page.locator('.modal-head h3',{hasText:'Settings'})).toBeHidden();
+ }finally{dm.disconnect();await context.close();}
+});
