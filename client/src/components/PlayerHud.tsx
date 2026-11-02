@@ -323,12 +323,12 @@ function PlayerHudInner({
         </button>
             <ArmorClassBadge value={effectiveAc(character) || character.armorClass} hastened={!!activeHasteCondition(character)} />
             <OrbKillCount name={character.name} value={character.killCount ?? 0} />
-            {inDarkness&&<CarriedLanternControl token={lanternToken} orb/>}
         </div>
         <div className="hud-attached-panel hud-resource-wing">
           <JeweledResources character={character} layout={resourceLayout} overflowCustomResources={overflowCustomResources} />
           <div className="hud-status-strip">
             <PlayerConditionControl character={character} />
+            {inDarkness&&<CarriedLanternControl token={lanternToken} orb/>}
             {!isPlaced && (
               <button type="button" className="hud-place-token" aria-pressed={placing} onClick={onPlace}>
                 {placing ? 'Tap map to place…' : 'Place token'}
