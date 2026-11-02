@@ -35,7 +35,7 @@ import type {WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,type MapWall} from '../../../shared/mapWalls';
 import {doorInReach} from '../../../shared/doorInteraction';
 import {wallVertices,wallCenter,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
-import {fogVisionContains,fogVisionContainsToken,fogVisionIntersectsToken,tokenRadiusPx,visionShowsAffinity,needsVisibilityLayer,usesMapVision,usesTokenVision} from '../../../shared/playerVision';
+import {fogVisionContains,fogVisionContainsToken,fogVisionIntersectsToken,tokenRadiusPx,visionShowsAffinity,needsVisibilityLayer,usesMapVision,usesTokenVision,usesDarknessVision} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
