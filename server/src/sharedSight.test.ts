@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,moveToken,setTokenHidden,setFogLayer,setFogRevealed,updateMapEnvironment} from './sessions.js';
+import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,moveToken,setTokenHidden,setFogLayer,setFogRevealed,updateMapEnvironment,setExplorationMode} from './sessions.js';
 import {editMapWalls} from './mapWalls.js';
 import {createSnapshotBuilder,buildSnapshot} from './visibility.js';
 
@@ -30,10 +30,13 @@ describe('live party creature awareness',()=>{
     }
    }
   }
-  moveToken(f.east.id,150,100);
+  moveToken(f.east.id,150,100);moveToken(f.enemy.id,980,100);
+  expect(f.snap().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:950,y:100,sharedSightOnly:true,revealedOnly:true});
+  expect(f.snap().exploredTerrain?.length).toBeGreaterThan(0);
+  setExplorationMode(f.s.id,f.map.id,'off');
   expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
   expect(f.snap().monsters.some(m=>m.id===f.enemy.refId)).toBe(false);
-  expect(f.snap().exploredTerrain?.length).toBeGreaterThan(0);
+  expect(f.snap().exploredTerrain).toEqual([]);
   expect(buildSnapshot(f.s.id,'dm',f.map.id)!.tokens.every(t=>!t.sharedSightOnly)).toBe(true);
  });
  it('always retains party positions but never leaks an explicitly hidden PC or creature, nor fogged enemies',()=>{
@@ -55,10 +58,10 @@ describe('live party creature awareness',()=>{
   expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
   moveToken(f.enemy.id,2550,100);
   expect(f.snap().tokens.find(t=>t.id===f.enemy.id)?.sharedSightOnly).toBe(true);
-  moveToken(f.east.id,100,100);
-  expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  moveToken(f.east.id,100,100);moveToken(f.enemy.id,2600,100);
+  expect(f.snap().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:2550,y:100,sharedSightOnly:true,revealedOnly:true});
   updateMapEnvironment(f.s.id,f.map.id,{enabled:false});
   expect(f.snap().tokens.find(t=>t.id===f.enemy.id)?.sharedSightOnly).toBeUndefined();
-  expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(true);
+  expect(f.snap().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:2600,y:100});
  });
 });

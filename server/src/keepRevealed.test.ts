@@ -29,7 +29,7 @@ describe('keep revealed fog',()=>{
   expect(snap.monsters.find(m=>m.id===f.enemy.refId)?.conditions).toEqual([]);
   expect(snap.map?.explorationMode).toBe('revealed');
   expect(buildSnapshot(f.s.id,'dm',f.map.id)!.tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:650});
-  setExplorationMode(f.s.id,f.map.id,'remembered');expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  setExplorationMode(f.s.id,f.map.id,'off');expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);expect(f.snap().exploredTerrain).toEqual([]);
  });
  it('does not retain unseen creatures, concealed creatures, or manually covered cells',()=>{
   const f=fixture();moveToken(f.pc.id,100,200);expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
@@ -37,11 +37,11 @@ describe('keep revealed fog',()=>{
   setFogLayer(f.map.id,'tokens',true);setFogRevealed(f.map.id,'tokens',[]);expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
   setFogLayer(f.map.id,'tokens',false);setTokenHidden(f.enemy.id,true);expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
  });
- it('still limits retained figures by the viewer heavy-darkness distance',()=>{
+ it('retains remembered figures and terrain beyond the viewer heavy-darkness distance until remembered map is turned off',()=>{
   const f=fixture('heavy');f.snap();
-  const friend=createCharacter(f.s.id,{name:'Distant observer'});createToken({mapId:f.map.id,kind:'pc',refId:friend.id,x:450,y:250});
-  moveToken(f.pc.id,-200,200);expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
-  updateMapEnvironment(f.s.id,f.map.id,{heavyDarkness:false});expect(f.snap().tokens.find(t=>t.id===f.enemy.id)?.revealedOnly).toBe(true);
+  moveToken(f.pc.id,-200,200);expect(f.snap().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:500,y:200,sharedSightOnly:true,revealedOnly:true});expect(f.snap().exploredTerrain?.length).toBeGreaterThan(0);
+  setExplorationMode(f.s.id,f.map.id,'off');expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);expect(f.snap().exploredTerrain).toEqual([]);
+  setExplorationMode(f.s.id,f.map.id,'remembered');expect(f.snap().tokens.find(t=>t.id===f.enemy.id)?.revealedOnly).toBe(true);
  });
  it('clears a last-seen figure when the party sees its now-empty old location',()=>{
   const f=fixture();f.snap();moveToken(f.pc.id,100,200);moveToken(f.enemy.id,500,500);f.snap();

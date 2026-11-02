@@ -349,9 +349,12 @@ export function setSharedPartyVision(sessionId:string,mapId:string,enabled:boole
   return updated;
 }
 
-export function setExplorationMode(sessionId:string,mapId:string,mode:'remembered'|'revealed'):boolean {
-  if(mode!=='remembered'&&mode!=='revealed')return false;
-  return db.prepare('UPDATE maps SET exploration_mode=? WHERE id=? AND session_id=?').run(mode,mapId,sessionId).changes>0;
+export function setExplorationMode(sessionId:string,mapId:string,mode:'remembered'|'revealed'|'off'):boolean {
+  if(mode!=='remembered'&&mode!=='revealed'&&mode!=='off')return false;
+  const updated=db.prepare('UPDATE maps SET exploration_mode=? WHERE id=? AND session_id=?').run(mode,mapId,sessionId).changes>0;
+  if(updated)invalidateExploration(mapId);
+  return updated;
+
 }
 
 /** Reveal or re-hide "col,row" cells on one fog layer of a map. */

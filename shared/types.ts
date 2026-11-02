@@ -849,7 +849,7 @@ export type MapState = {
   /** Hide the grid overlay entirely. */
   gridHidden: boolean;
   /** Automatic sight-based fog. Missing legacy values default to enabled. */
-  explorationMode?: 'remembered' | 'revealed';
+  explorationMode?: 'remembered' | 'revealed' | 'off';
   /** DM-controlled sharing of party sightings/history; omitted values default on. */
   sharedPartyVision?: boolean;
   mapVisionEnabled?: boolean;
@@ -1842,7 +1842,7 @@ export interface ClientToServerEvents {
   'fog:setVision': (payload: FogSetVisionPayload) => void;
   'fog:resetExploration': (payload: {mapId:string}) => void;
   'fog:setPartyVision': (payload: {mapId:string;enabled:boolean}) => void;
-  'fog:setExploration': (payload: {mapId:string;mode:'remembered'|'revealed'}) => void;
+  'fog:setExploration': (payload: {mapId:string;mode:'remembered'|'revealed'|'off'}) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;
   'token:move': (payload: TokenMovePayload, placed?: (p: {x:number;y:number}) => void) => void;

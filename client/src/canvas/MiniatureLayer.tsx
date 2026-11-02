@@ -604,8 +604,10 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const sw=renderer.domElement.width,sh=renderer.domElement.height;
         if(sharedCanvas.width!==sw||sharedCanvas.height!==sh){sharedCanvas.width=sw;sharedCanvas.height=sh;}
         sharedCanvas.dataset.tokenIds=[...sharedIds].filter(id=>visible.has(id)).join(',');
-        sharedCanvas.style.filter=useStore.getState().snapshot?.map?.explorationMode==='revealed'?'none':'grayscale(1)';
-        sharedCanvas.style.opacity=useStore.getState().snapshot?.map?.explorationMode==='revealed'?'1':'.78';
+        const colorMemory=useStore.getState().snapshot?.map?.explorationMode!=='off'&&!environment?.darkvisionTerrain;
+        sharedCanvas.style.filter=colorMemory?'none':'grayscale(1)';
+        sharedCanvas.style.opacity=colorMemory?'1':'.78';
+
         sharedCanvas.style.display=sharedCanvas.dataset.tokenIds?'block':'none';
         // Static awareness need not redraw for weather or torch flicker. Camera,
         // pose, name, appearance and foreground occlusion changes invalidate it.
@@ -625,11 +627,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
             scene.overrideMaterial=null;camera.layers.set(4);renderer.autoClear=false;
             // Shared sight uses the map's unlit darkvision appearance. Daylight
             // lighting here made party sightings much brighter than personal sight.
-            if(!environment?.heavyDarkness||useStore.getState().snapshot?.map?.explorationMode==='revealed'){
+            if(!environment?.heavyDarkness||colorMemory){
               ambient.intensity=NEUTRAL_MINIATURE_LIGHTING.ambient;key.intensity=NEUTRAL_MINIATURE_LIGHTING.key;
               scene.environmentIntensity=NEUTRAL_MINIATURE_LIGHTING.reflection;
             }
-            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,!!environment?.darkvisionTerrain&&useStore.getState().snapshot?.map?.explorationMode!=='revealed',[]);}
+            for(const id of sharedIds){const i=instances.get(id);if(i)i.torchLighting.update([],i.root,camera,!!environment?.darkvisionTerrain&&!colorMemory,[]);}
             renderer.render(scene,camera);
             sharedContext.drawImage(renderer.domElement,0,0);
             camera.layers.mask=layers;renderer.autoClear=autoClear;
@@ -638,7 +640,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           }
         }
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
-        if(sightFrame?.explored.length&&(props.environmentPreview?.heavyDarkness||sightFrame.keepRevealed))battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null,!!visionComposite);
+        if(sightFrame?.explored.length&&(props.environmentPreview?.heavyDarkness||(sightFrame.keepRevealed&&props.environmentPreview?.darkvisionTerrain)))battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null,!!visionComposite);
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         // Keep the existing path until the remembered-art texture is ready;
         // this also covers daylight boards without an environment renderer.

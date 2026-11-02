@@ -42,6 +42,7 @@ export function resetExploration(sessionId:string,mapId:string):boolean {
 }
 
 export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lightAllowed:(t:Token)=>boolean,readOnly=false,precomputedVision?:import('../../shared/playerVision.js').PlayerVision,characterId?:string):ExploredTerrain {
+ if(map.explorationMode==='off')return [];
  const terrainKey=explorationKey(map,tiles),store=memoryStore(map.id,characterId);
  const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden&&(!characterId||t.refId===characterId)).map(t=>t.refId));
  let fog:ExploredTerrain|undefined;
@@ -103,6 +104,7 @@ export const terrainIdentity=explorationKey;
 /** Merge one completed worker sweep into the latest history, preserving other
  * simultaneous walkers. The caller checks map identity and reset generation. */
 export function mergeWalkingTerrain(map:MapState,tiles:MapImage[],seen:ExploredTerrain,tokens?:Token[],characterId?:string){
+ if(map.explorationMode==='off')return;
  if(!seen.length)return;
  const id=memoryKey(map.id,characterId),store=memoryStore(map.id,characterId),key=explorationKey(map,tiles),row=store.read();
  const cached=mergedCache.get(id);
@@ -127,7 +129,7 @@ const sameRememberedState=(a:RevealedFigure,token:Token,monster?:MonsterPublic)=
 /** Only true party sightings update these frozen display records. No unseen
  * movement, HP, conditions, or appearance changes are sent to players. */
 export function rememberFigures(map:MapState,tiles:MapImage[],tokens:Token[],seen:(token:Token)=>boolean,seenPoint:(x:number,y:number)=>boolean,display:(token:Token)=>MonsterPublic|undefined,readOnly=false,characterId?:string,includeCleared=false):RevealedFigure[]{
- if(map.explorationMode!=='revealed')return [];
+ if(map.explorationMode==='off')return [];
  const key=explorationKey(map,tiles),store=memoryStore(map.id,characterId);
  const row=store.read();
  let saved:RevealedFigure[]=[];

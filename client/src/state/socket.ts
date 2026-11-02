@@ -301,7 +301,7 @@ type Store = {
   setVisionFog: (mapId:string,layer:FogLayer,enabled:boolean)=>void;
   setSharedPartyVision: (mapId:string,enabled:boolean)=>void;
   resetExploration: (mapId:string)=>void;
-  setExplorationMode: (mapId:string,mode:'remembered'|'revealed')=>void;
+  setExplorationMode: (mapId:string,mode:'remembered'|'revealed'|'off')=>void;
   paintFog: (
     mapId: string,
     layer: FogLayer,

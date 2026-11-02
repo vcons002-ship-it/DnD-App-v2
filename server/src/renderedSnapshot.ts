@@ -84,7 +84,7 @@ async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:bo
     const x=Math.min(0,...v.origins.map(o=>o.x-v.radius))-32,y=Math.min(0,...v.origins.map(o=>o.y-v.radius))-32;
     const right=Math.max(size.width,...v.origins.map(o=>o.x+v.radius))+32,bottom=Math.max(size.height,...v.origins.map(o=>o.y+v.radius))+32;
     const scale=Math.min(1,2048/Math.max(right-x,bottom-y)),width=Math.max(1,Math.ceil((right-x)*scale)),height=Math.max(1,Math.ceil((bottom-y)*scale));
-    const options={width,height,x,y,scale,heavy:v.heavy,daylight:!!v.daylight,wallFog:usesMapVision(map,v),keepRevealed:map.explorationMode==='revealed',graded};
+    const options={width,height,x,y,scale,heavy:v.heavy,daylight:!!v.daylight,wallFog:usesMapVision(map,v),keepRevealed:map.explorationMode!=='off'&&!!v.daylight,graded};
     visionRaster=await rasterAsset(id,legacyMaskSvg(s.legacyGeometry!,options),{width,height,x,y,scale});
    }
    if(timing)timing.maskEndAt=timingClock();

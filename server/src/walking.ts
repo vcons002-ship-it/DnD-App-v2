@@ -16,7 +16,7 @@ export type WalkingRoute={id:string;mapId:string;from:{x:number;y:number};to:{x:
 const routes=new Map<string,WalkingRoute>();
 export const walkingRoute=(id:string)=>routes.get(id);
 function rememberWalkingFigures(map:MapState,tiles:MapImage[],seen:ExploredTerrain,tokens:Token[],characterId?:string){
- if(!seen.length||map.explorationMode!=='revealed')return;
+ if(!seen.length||map.explorationMode==='off')return;
  const monById=new Map(listMonsters(map.sessionId).map(m=>[m.id,m]));
  const charById=new Map(listCharacters(map.sessionId).map(c=>[c.id,c]));
  const mapFog=map.mapFogEnabled?new Set(map.mapFogRevealed):null;

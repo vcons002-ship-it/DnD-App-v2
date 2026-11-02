@@ -30,8 +30,8 @@ export function FogMenu({
   sharedPartyVision:boolean;
   onSharedPartyVision:(enabled:boolean)=>void;
   onResetExploration:()=>void;
-  explorationMode:'remembered'|'revealed';
-  onExplorationMode:(mode:'remembered'|'revealed')=>void;
+  explorationMode:'remembered'|'revealed'|'off';
+  onExplorationMode:(mode:'remembered'|'revealed'|'off')=>void;
   mapVisionEnabled:boolean;
   tokenVisionEnabled:boolean;
   onToggleVision:(layer:FogLayer)=>void;
@@ -95,13 +95,15 @@ export function FogMenu({
             <div className="measure-label">{sharedPartyVision?'Players see party sightings and share remembered terrain.':'Players see and remember only what their own characters discover. Personal history starts when sharing is off; shared history stays saved separately.'}</div>
             <div className="measure-label">Automatic visibility</div>
             <div className="measure-label">These switches hide things behind walls or closed doors. With none on the map, there is no wall concealment. Darkness can still limit sight separately.</div>
-            <label className="measure-row">Revealed areas
-              <select aria-label="Revealed areas" value={explorationMode} onChange={e=>onExplorationMode(e.target.value as 'remembered'|'revealed')}>
-                <option value="remembered">Remembered (grayscale)</option>
-                <option value="revealed">Keep revealed (color)</option>
-              </select>
-            </label>
-            <div className="measure-label">{explorationMode==='revealed'?'Keeps explored map and last-seen figures in color. Heavy-darkness range still applies. Unseen figures cannot be targeted.':'Explored map stays dim and grayscale; enemies disappear when the party loses sight.'}</div>
+            <button className={`measure-row ${explorationMode!=='off'?'on':''}`} aria-pressed={explorationMode!=='off'} onClick={()=>onExplorationMode(explorationMode==='off'?'remembered':'off')}>
+              <span>Remembered map</span><span className="muted">{explorationMode!=='off'?'on':'off'}</span>
+            </button>
+
+
+
+
+
+            <div className="measure-label">{explorationMode!=='off'?'Remembers explored map areas and last-seen token positions. Remembered map is full color in daylight and grayscale in darkness. Unseen figures cannot be targeted.':'Unseen areas outside current sight stay hidden in fog.'}</div>
             <button className={`measure-row ${mapVisionEnabled?'on':''}`} aria-pressed={mapVisionEnabled} onClick={()=>onToggleVision('map')}>
               <span>Hide map behind walls</span><span className="muted">{mapVisionEnabled?'on':'off'}</span>
             </button>
