@@ -96,7 +96,9 @@ export const setConn = (socketId: string, conn: Conn): void => {
     mediaTokens.set(socketId,randomBytes(32).toString('hex'));
 };
 export const getConn = (socketId: string): Conn | undefined => conns.get(socketId);
-export const hasPlayerConnection=(sessionId:string)=>[...conns.values()].some(c=>c.sessionId===sessionId&&c.role==='player');
+/** Only live viewers of the active board accumulate walking history. */
+export const hasExplorationViewer=(sessionId:string,mapId:string)=>getActiveMapId(sessionId)===mapId&&[...conns.values()].some(c=>
+  c.sessionId===sessionId&&(c.role==='player'||c.role==='dm'&&c.partyView===true&&(c.viewMapId??mapId)===mapId));
 export const dropConn = (socketId: string): void => {
   resetRenderAssets(socketId);
   resetDelivery(socketId);

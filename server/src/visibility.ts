@@ -484,7 +484,9 @@ export function createSnapshotBuilder(
 
     let playerVision: PlayerVision | undefined;
     let previewVisionHit: MapData['previewVisionCache'] | undefined;
-    const readOnly = partyPreview || !!preview;
+    // The DM's player view on the active board is a live exploration viewer.
+    // Staging other maps and synthetic animation poses must not write history.
+    const readOnly = !!preview || (partyPreview && map?.id !== activeMapId);
     const boardKey = role !== 'dm' && !preview ? `${map?.explorationMode === 'revealed' && readOnly ? 1 : 0}:${[...owned].sort().join(',')}` : undefined;
     const cachedBoard = boardKey ? loaded.boardByOwned?.get(boardKey) : undefined;
     if (role !== 'dm') {
@@ -522,8 +524,8 @@ export function createSnapshotBuilder(
     }else if(role==='player'&&map&&!preview){
       const terrain=()=>rememberTerrain(map!,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
-      mapFog,tokenFog,grid,x:t.x,y:t.y}),partyPreview||!!preview,getPartyVision());
-      viewerTerrain=partyPreview?(map.id===activeMapId&&exploredTerrain?exploredTerrain:terrain()):(exploredTerrain??=terrain());
+      mapFog,tokenFog,grid,x:t.x,y:t.y}),readOnly,getPartyVision());
+      viewerTerrain=readOnly?terrain():(exploredTerrain??=terrain());
     }
     let tokens = data.tokens;
     let shapedMonsters: (Monster | MonsterPublic)[] = monsters;
