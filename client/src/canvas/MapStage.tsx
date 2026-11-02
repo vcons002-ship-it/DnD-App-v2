@@ -1,13 +1,19 @@
+import { MapToolbarPortals } from "./MapToolbarPortals";
+import { MeasureShape, MEASURE_FT, type DraftMeasure, type MeasureShapeKind, type MeasureSize, type MeasureTool } from "./MeasureShape";
+import { DecalImage } from "./DecalImage";
+import { PasteImageModal, useClipboardImagePaste, usePasteImageState } from "./PasteImageModal";
+import { useSpellTargeting } from "./useSpellTargeting";
+import { SharedSpellAreas, SpellTargetingPrompts } from "./SpellTargetingPrompts";
+import { WallAndDoorHud, WallAndDoorKonvaGroup } from "./WallEditorOverlay";
+export { MEASURE_FT, type MeasureShapeKind, type MeasureSize, type MeasureTool };
 import {renderedImage} from '../lib/renderImages';
 import {MapLoadingBar} from '../components/MapLoadingBar';
 import {beginMapStartupWave,cancelLoadingTask,completeLoadingTask,startLoadingTask} from '../lib/loadingProgress';
-import {spellCastCost} from '../lib/spellcasting';
 import {explicitTokenInspection} from '../lib/tokenInspection';
 import {retainedRenderingEnabled} from '../lib/retainedRendering';
 import {installRetainedTokenLayer,invalidateRetainedToken} from './retainedTokenLayer';
 import {sameBoardSnapshot} from '../../../shared/boardSnapshot';
 import {LegacyVisionOverlay} from './LegacyVisionOverlay';
-import {LegacyModeControl} from '../components/LegacyModeControl';
 import {useLegacyMovement} from '../lib/useLegacyMovement';
 import {useTokenAppearance} from '../components/TokenAppearanceControl';
 import {apiFetch} from '../lib/api';
@@ -18,20 +24,17 @@ import {requestBattlefieldFrame,cancelBattlefieldFrame} from './battlefieldFrame
 import {createLatestFrame} from '../lib/latestFrame';
 import {ManualFog,type ManualFogHandle} from './ManualFog';
 import {mirrorImageCount} from '../../../shared/linkedSpells';
-import {tokenInSpellArea,areaExcludesCaster,areaOrigin,type SpellAreaPlacement} from '../../../shared/spellAreas';
-import {tokenDistanceFt} from '../../../shared/distance';
 import {SpellAreaShapes} from './SpellAreaShapes';
 import {DEATH_SKULL} from '../lib/miniatures';
-import {ObjectControls} from '../components/ObjectControls';
 import './door-controls.css';
 import { activeHasteCondition, speedIsZero, walkingSpeedFeet } from '../../../shared/spellBuffs';
 import {PlayerVisionOverlay,type PlayerVisionHandle} from './PlayerVisionOverlay';
 import {TokenPresentation} from './tokenPresentation';
 import {reduceRollBackground} from '../lib/rollBackgroundBudget';
-import {WallMenu,type WallTool} from '../components/WallMenu';
-import {doorApproachPoints,distanceToWall,sanitizeWalls,hasLineOfSight,type MapWall} from '../../../shared/mapWalls';
-import {doorInReach,doorInteractionArea} from '../../../shared/doorInteraction';
-import {wallVertices,wallCenter,wallSvgPath,wallBoundarySegments,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
+import type {WallTool} from '../components/WallMenu';
+import {doorApproachPoints,distanceToWall,sanitizeWalls,type MapWall} from '../../../shared/mapWalls';
+import {doorInReach} from '../../../shared/doorInteraction';
+import {wallVertices,wallCenter,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
 import {fogVisionContains,visionShowsAffinity,needsVisibilityLayer,usesMapVision,usesTokenVision} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
@@ -39,12 +42,11 @@ import { tokenVisibleAt } from '../../../shared/fog';
 import { monsterTint, monsterVariation } from '../../../shared/monsterAppearance';
 import { productionFamily } from '../../../shared/assetProduction';
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Stage, Layer, Group, Line, Rect, Circle, Text, Label, Tag, Path, Image as KonvaImage } from 'react-konva';
+import { Stage, Layer, Group, Line, Rect, Circle, Text, Image as KonvaImage } from 'react-konva';
 import { rollerColor } from '../lib/rollStyle';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import Konva from 'konva';
-import type { AbilityRollPayload, FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
+import type { FogLayer, Measurement, StateSnapshot, Token } from '../../../shared/types';
 import { useImage } from './useImage';
 import { TokenShape, DISPOSITION_HEX } from './TokenShape';
 import type { MiniatureLayerHandle, MiniatureToken } from './MiniatureLayer';
@@ -66,20 +68,14 @@ import { useContentStable } from '../lib/useContentStable';
 import { FootprintLayer, type FootprintMark } from './FootprintTrails';
 import { resolveToken,tokenEntityIndex } from '../lib/entities';
 import { safeSetItem } from '../lib/storage';
-import { cropImage, removeBackground } from '../lib/imageEdit';
 import { useComfyAvailable, comfyGenerate } from '../lib/comfy';
 import { useStableCallback } from '../lib/useStableCallback';
 import { getPlayerId, useStore, isRollImpactPending } from '../state/socket';
 import { FloatingMenu } from '../components/FloatingMenu';
-import { MeasureMenu } from '../components/MeasureMenu';
-import { AnnotationMenu } from '../components/AnnotationMenu';
-import { CompactToolbarMenu } from '../components/CompactToolbarMenu';
-import { FogMenu } from '../components/FogMenu';
 import {useEnvironmentQuality} from '../lib/useEnvironmentQuality';
 import {useEnvironmentEditor} from '../lib/useEnvironmentEditor';
 import {DEFAULT_MAP_ENVIRONMENT} from '../../../shared/mapEnvironment';
 import type {EnvironmentPreviewSettings} from './battlefieldEnvironment';
-import { ScaleMenu } from '../components/ScaleMenu';
 import { TokenHoverCard } from '../components/TokenHoverCard';
 import { DecalPopup } from '../components/DecalPopup';
 import { RollLogOverlay } from '../components/RollLogOverlay';
@@ -138,280 +134,8 @@ function floatingAttacker(
   return myToken && myToken.id !== target.id ? myToken : null;
 }
 
-/** Shapes offered by the Measure menu (Line custom → a thin "ruler"). */
-export type MeasureShapeKind = 'circle' | 'cone' | 'line' | 'square' | 'emanation';
-export type MeasureSize = 'custom' | 'small' | 'large';
-export type MeasureTool = { shape: MeasureShapeKind; size: MeasureSize };
-type DraftMeasure = {
-  kind: Measurement['kind'];
-  origin: Pt;
-  target: Pt;
-  tokenId?: string;
-};
-
-/** Standard (small/large) sizes in feet — classic 5e spell footprints. */
-export const MEASURE_FT: Record<MeasureShapeKind, { small: number; large: number }> = {
-  circle: { small: 15, large: 20 },
-  cone: { small: 15, large: 60 },
-  line: { small: 30, large: 100 },
-  square: { small: 10, large: 20 },
-  emanation: { small: 10, large: 30 },
-};
-
-/** The off-map backdrop colour. MUST match `.center` in styles.css so covered
- *  map-fog cells blend seamlessly into the empty space beyond the map. */
-const CANVAS_BG = '#0e0f12';
-
-const clamp = (v: number, lo: number, hi: number) =>
-  Math.max(lo, Math.min(hi, v));
-
-/** A single measuring shape drawn in image-space, plus a distance label in feet.
- *  Non-listening by default so it never blocks tokens; in remove mode `onRemove`
- *  makes it clickable. `emanation` is rendered by the caller as a `circle`
- *  centred on its token. */
-function MeasureShape({
-  kind,
-  origin,
-  target,
-  color,
-  grid,
-  feetPerPixel,
-  onRemove,
-}: {
-  kind: Measurement['kind'];
-  origin: Pt;
-  target: Pt;
-  color: string;
-  grid: number;
-  feetPerPixel: number;
-  onRemove?: () => void;
-}) {
-  const dx = target.x - origin.x;
-  const dy = target.y - origin.y;
-  const len = Math.hypot(dx, dy);
-  const px2ft = (px: number) => Math.round(px * feetPerPixel);
-  const stroke = Math.max(1.5, grid * 0.05);
-  const fontSize = Math.max(11, grid * 0.34);
-  const fill = { stroke: color, strokeWidth: stroke, fill: color, opacity: 0.18 };
-  const listen = !!onRemove;
-  const hit = listen ? { listening: true, onClick: onRemove, onTap: onRemove } : { listening: false };
-
-  // Label text + anchor depend on the shape.
-  let label = `${px2ft(len)} ft`;
-  let labelAt = target;
-
-  let shape = null;
-  if (kind === 'circle' || kind === 'emanation') {
-    label = `${px2ft(len)} ft r`;
-    labelAt = { x: origin.x + len * 0.71, y: origin.y - len * 0.71 };
-    shape = <Circle x={origin.x} y={origin.y} radius={len} {...fill} {...hit} />;
-  } else if (kind === 'square') {
-    const half = len; // stored distance is the half-side
-    label = `${px2ft(half * 2)} ft`;
-    labelAt = { x: origin.x + half, y: origin.y - half };
-    shape = (
-      <Rect
-        x={origin.x - half}
-        y={origin.y - half}
-        width={half * 2}
-        height={half * 2}
-        {...fill}
-        {...hit}
-      />
-    );
-  } else if (kind === 'ruler') {
-    shape = <Line points={[origin.x, origin.y, target.x, target.y]} stroke={color} strokeWidth={stroke} {...hit} />;
-  } else if (len >= 1 && (kind === 'cone' || kind === 'line')) {
-    const ux = dx / len;
-    const uy = dy / len;
-    const px = -uy;
-    const py = ux;
-    const bx = origin.x + ux * len;
-    const by = origin.y + uy * len;
-    if (kind === 'cone') {
-      // 5e cone: an isosceles triangle whose base width equals its length.
-      const h = len / 2;
-      shape = (
-        <Line
-          closed
-          points={[origin.x, origin.y, bx + px * h, by + py * h, bx - px * h, by - py * h]}
-          {...fill}
-          {...hit}
-        />
-      );
-    } else {
-      // 5e line AOE: a 5-ft-wide rectangle along the direction.
-      const hw = 2.5 / feetPerPixel; // half of 5 ft, in px
-      shape = (
-        <Line
-          closed
-          points={[
-            origin.x + px * hw,
-            origin.y + py * hw,
-            bx + px * hw,
-            by + py * hw,
-            bx - px * hw,
-            by - py * hw,
-            origin.x - px * hw,
-            origin.y - py * hw,
-          ]}
-          {...fill}
-          {...hit}
-        />
-      );
-    }
-  }
-
-  return (
-    <>
-      {shape}
-      <Text
-        x={labelAt.x + 4}
-        y={labelAt.y + 4}
-        text={label}
-        fontSize={fontSize}
-        fill={color}
-        stroke="#000"
-        strokeWidth={0.5}
-        listening={false}
-      />
-    </>
-  );
-}
-
-/** A scenery image decal drawn under tokens. DM-draggable to reposition, with
- *  an aspect-locked corner handle to resize; click-through for players (and
- *  for the DM while a map tool is active or decals are locked). */
-function DecalImage({
-  url,
-  videoPath,
-  onPlaybackError,
-  x,
-  y,
-  width,
-  height,
-  draggable,
-  handleSize = 10,
-  alwaysListening = false,
-  badge = false,
-  hasShop = false,
-  onRemove,
-  onMove,
-  onResize,
-  onActivate,
-  onEditShop,
-}: {
-  url: string;
-  videoPath?: string | null;
-  onPlaybackError?:()=>void;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  draggable?: boolean;
-  /** Corner-handle size in image px (pre-divided by zoom for constant screen size). */
-  handleSize?: number;
-  /** Keep the image listening even when not draggable, so a press over it still
-   *  bubbles to the draggable layer and PANS (map tiles want this; click-through
-   *  decals don't). It still can't be dragged unless `draggable` is set. */
-  alwaysListening?: boolean;
-  /** Show a small (decorative, non-listening) tag — this decal has a popup. */
-  badge?: boolean;
-  /** Whether the decal already has a shop popup (picks the DM button label). */
-  hasShop?: boolean;
-  onRemove?: () => void;
-  onMove?: (x: number, y: number) => void;
-  onResize?: (width: number, height: number) => void;
-  /** Click (no drag) → open the decal's popup. */
-  onActivate?: () => void;
-  /** DM-only: render an always-clickable 🛒 corner button that opens the shop
-   *  editor regardless of the decal lock state (the discoverable add/edit path). */
-  onEditShop?: () => void;
-}) {
-  const img = useImage(url);
-  // Live size during a handle drag, so the image follows the corner before the
-  // server echoes the resize back; cleared when the real size arrives.
-  const [tmp, setTmp] = useState<{ w: number; h: number } | null>(null);
-  useEffect(() => setTmp(null), [width, height]);
-  if (!img) return null;
-  const w = tmp?.w ?? width;
-  const h = tmp?.h ?? height;
-  const interactive = !!draggable && !onRemove;
-  const setCursor = (e: KonvaEventObject<MouseEvent>, cursor: string) => {
-    const stage = e.target.getStage();
-    if (stage) stage.container().style.cursor = cursor;
-  };
-  return (
-    <>
-      <MapArtwork
-        url={url}
-        videoPath={videoPath}
-        onPlaybackError={onPlaybackError}
-        x={x}
-        y={y}
-        width={w}
-        height={h}
-        listening={alwaysListening || !!onRemove || interactive || !!onActivate}
-        draggable={interactive}
-        onClick={onRemove ?? onActivate}
-        onTap={onRemove ?? onActivate}
-        onMouseEnter={(e) => onActivate && !interactive && setCursor(e, 'pointer')}
-        onMouseLeave={(e) => onActivate && !interactive && setCursor(e, '')}
-        onDragEnd={(e) => onMove?.(e.target.x(), e.target.y())}
-      />
-      {onEditShop ? (
-        // DM: an always-clickable corner button — adds a shop (🛒 +) or edits an
-        // existing one (🛒), no matter whether decals are locked or unlocked.
-        <Label
-          x={x + 2}
-          y={y + 2}
-          opacity={0.95}
-          onClick={onEditShop}
-          onTap={onEditShop}
-          onMouseEnter={(e) => setCursor(e, 'pointer')}
-          onMouseLeave={(e) => setCursor(e, '')}
-        >
-          <Tag fill="#1c2a3a" stroke="#4cc9f0" strokeWidth={0.5} cornerRadius={3} />
-          <Text
-            text={hasShop ? ' 🛒 ' : ' 🛒 + '}
-            fontSize={Math.max(11, handleSize * 1.1)}
-            fill="#cfe8ff"
-            padding={1}
-          />
-        </Label>
-      ) : badge ? (
-        <Label x={x + 2} y={y + 2} listening={false} opacity={0.92}>
-          <Tag fill="#1c2a3a" stroke="#4cc9f0" strokeWidth={0.5} cornerRadius={3} />
-          <Text text=" 🛒 " fontSize={Math.max(11, handleSize * 1.1)} fill="#cfe8ff" padding={1} />
-        </Label>
-      ) : null}
-      {interactive && onResize && (
-        <Rect
-          x={x + w - handleSize / 2}
-          y={y + h - handleSize / 2}
-          width={handleSize}
-          height={handleSize}
-          fill="#4cc9f0"
-          stroke="#04060a"
-          strokeWidth={1}
-          draggable
-          onMouseEnter={(e) => setCursor(e, 'nwse-resize')}
-          onMouseLeave={(e) => setCursor(e, '')}
-          onDragMove={(e) => {
-            // Aspect-locked: the corner follows the diagonal from the anchor.
-            const nw = Math.max(16, e.target.x() + handleSize / 2 - x);
-            const nh = Math.max(16, nw * (height / Math.max(1, width)));
-            e.target.position({ x: x + nw - handleSize / 2, y: y + nh - handleSize / 2 });
-            setTmp({ w: nw, h: nh });
-          }}
-          onDragEnd={() => {
-            if (tmp) onResize(tmp.w, tmp.h);
-          }}
-        />
-      )}
-    </>
-  );
-}
+const CANVAS_BG = "#0e0f12";
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 function MapStageInner({
   snapshot: sourceSnapshot,
@@ -537,93 +261,6 @@ function MapStageInner({
     window.addEventListener('keydown',cancel,true);return()=>window.removeEventListener('keydown',cancel,true);
   },[map?.id,actualDm,lightPlacement,placeLight]);
 
-  // DM: paste an image from the clipboard → upload → choose Object or Decal.
-  // Falls back to <img>/image-URL pastes (e.g. copying art out of a web page
-  // or Google Slides puts only the image's URL on the clipboard, not pixels) —
-  // the server fetches those via /api/icons/from-url.
-  useEffect(() => {
-    if (!actualDm) return;
-    const openWith = openPasteDialog;
-    const onPaste = async (e: ClipboardEvent) => {
-      const item = [...(e.clipboardData?.items ?? [])].find((i) =>
-        i.type.startsWith('image/'),
-      );
-      const file = item?.getAsFile();
-      if (file) {
-        e.preventDefault();
-        const fd = new FormData();
-        fd.append('image', file);
-        try {
-          const res = await fetch('/api/icons', { method: 'POST', body: fd });
-          if (!res.ok) throw new Error('upload failed');
-          const { icon } = await res.json();
-          await openWith(icon);
-        } catch {
-          notify('Could not paste that image.');
-        }
-        return;
-      }
-      // No pixel data — look for an <img src> in an HTML paste, or a URL in a
-      // text paste. NEVER hijack a paste aimed at a text field (chat etc.).
-      const el = e.target as HTMLElement | null;
-      const editable =
-        !!el &&
-        (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-      if (editable) return;
-      const html = e.clipboardData?.getData('text/html') ?? '';
-      const text = e.clipboardData?.getData('text/plain')?.trim() ?? '';
-      const srcMatch = html.match(/<img[^>]+src=(?:"([^"]+)"|'([^']+)')/i);
-      const src = (srcMatch?.[1] ?? srcMatch?.[2])?.replace(/&amp;/g, '&');
-      // Inline data: URI (some apps embed the pixels in the HTML) — upload it
-      // directly, no server fetch needed.
-      if (src?.startsWith('data:image/')) {
-        e.preventDefault();
-        try {
-          const blob = await (await fetch(src)).blob();
-          const fd = new FormData();
-          fd.append('image', blob, 'paste.png');
-          const res = await fetch('/api/icons', { method: 'POST', body: fd });
-          if (!res.ok) throw new Error('upload failed');
-          const { icon } = await res.json();
-          await openWith(icon);
-        } catch {
-          notify('Could not paste that image.');
-        }
-        return;
-      }
-      // Any http(s) URL is worth trying — Slides/Docs image URLs carry no file
-      // extension; the server verifies the response really is an image.
-      const remote =
-        (src && /^https?:\/\//i.test(src) ? src : '') ||
-        (/^https?:\/\/\S+$/i.test(text) ? text : '');
-      if (!remote) {
-        if (html || text)
-          notify('No image on the clipboard — copy the image itself (right-click → Copy image).');
-        return;
-      }
-      e.preventDefault();
-      try {
-        const res = await fetch('/api/icons/from-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: remote }),
-        });
-        if (!res.ok) {
-          const why = (await res.json().catch(() => null))?.error;
-          notify(`Could not fetch that image link${why ? ` — ${why}` : ''}.`);
-          return;
-        }
-        const { icon } = await res.json();
-        await openWith(icon);
-      } catch {
-        notify('Could not fetch that image link.');
-      }
-    };
-    window.addEventListener('paste', onPaste);
-    return () => window.removeEventListener('paste', onPaste);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actualDm]);
-
   const image = useImage(map?.imagePath ?? null, { category: 'map', weight: 4, showDelayMs: 0 });
   useEffect(() => { beginMapStartupWave(map?.id ?? null); }, [map?.id]);
   useEffect(() => {
@@ -706,61 +343,8 @@ function MapStageInner({
   const saveResolve = useStore((s) => s.saveResolve);
   const resolvingRoll=useStore(s=>saveResolve?s.snapshot?.rollLog.find(r=>r.id===saveResolve.rollId):undefined);
   const actionSnapshot=actualDm?sourceSnapshot:snapshot;
-  const teleportCast=useStore(s=>s.teleportCast),clearTeleportCast=useStore(s=>s.clearTeleportCast);
-  const pendingSpellCost=(payload:AbilityRollPayload)=>{
-    const caster=(payload.kind==='pc'?actionSnapshot.characters:actionSnapshot.monsters).find(c=>c.id===payload.refId);
-    const ability=caster&&'sheetAbilities'in caster?caster.sheetAbilities.find(a=>a.id===payload.abilityId):undefined;
-    return caster&&'sheetAbilities'in caster&&ability?spellCastCost(caster,ability,payload.castLevel,payload.slotPool):undefined;
-  };
-  const [teleportPoint,setTeleportPoint]=useState<Pt|null>(null);
-  const teleportActor=teleportCast?actionSnapshot.tokens.find(t=>t.kind===teleportCast.kind&&t.refId===teleportCast.refId):undefined;
-  useEffect(()=>{setTeleportPoint(null);},[teleportCast]);
-  useEffect(()=>{if(!teleportCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearTeleportCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[teleportCast]);
-  useEffect(()=>{if(teleportCast&&(!teleportActor||teleportActor.mapId!==map?.id))clearTeleportCast();},[teleportCast,teleportActor?.id,map?.id]);
-  const teleportError=teleportPoint&&teleportActor&&map?(tokenDistanceFt({...teleportActor,widthFt:0},{...teleportPoint,widthFt:0},map)>30?'Choose a destination within 30 ft.':!hasLineOfSight(teleportActor,teleportPoint,map.walls)?'Choose a destination you can see.':null):null;
-  const areaSocketId=useStore(s=>s.socket?.id);
-  const areaCast=useStore(s=>s.areaCast),clearAreaCast=useStore(s=>s.clearAreaCast);
-  const [areaPoints,setAreaPoints]=useState<Pt[]>([]),[areaPointer,setAreaPointer]=useState<Pt|null>(null),[areaAngle,setAreaAngle]=useState(0),[areaDirectionLocked,setAreaDirectionLocked]=useState(false),[areaExcluded,setAreaExcluded]=useState<string[]>([]);
-  const areaActor=areaCast?actionSnapshot.tokens.find(t=>t.kind===areaCast.payload.kind&&t.refId===areaCast.payload.refId):undefined;
-  useEffect(()=>{setAreaPoints(areaCast?.spec.kind==='emanation'&&areaCast.spec.self&&areaActor?[{x:areaActor.x,y:areaActor.y}]:[]);setAreaPointer(null);setAreaAngle(0);setAreaDirectionLocked(false);setAreaExcluded([]);},[areaCast]);
-  useEffect(()=>{if(areaCast&&(!areaActor||!map||areaActor.mapId!==map.id))clearAreaCast();},[areaCast,areaActor?.mapId,map?.id]);
-  useEffect(()=>{if(!areaCast)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')clearAreaCast();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[areaCast]);
-  const placeSpellArea=(p:Pt)=>{
-    if(!areaCast||!areaActor)return;
-    if(areaCast.spec.self){setAreaPoints([{x:areaActor.x,y:areaActor.y}]);setAreaDirectionLocked(true);return;}
-    if(areaCast.spec.kind==='line'||areaCast.spec.kind==='cone'){
-      if((areaCast.spec.count??1)>1){setAreaPoints(old=>old.length<(areaCast.spec.count??1)?[...old,p]:old);setAreaDirectionLocked(true);}
-      else if(!areaPoints.length)setAreaPoints([p]);else setAreaDirectionLocked(true);
-    }else if((areaCast.spec.count??1)>1)setAreaPoints(old=>{
-      if(old.length>=(areaCast.spec.count??1))return old;
-      if(areaCast.name.trim().toLowerCase()==='fire storm'&&old.length&&map){
-        const grid=areaCast.spec.sizeFt*map.gridSizePx/map.feetPerSquare,dx=p.x-old[0].x,dy=p.y-old[0].y;
-        const x=Math.round((dx*Math.cos(areaAngle)+dy*Math.sin(areaAngle))/grid)*grid,y=Math.round((-dx*Math.sin(areaAngle)+dy*Math.cos(areaAngle))/grid)*grid;
-        p={x:old[0].x+x*Math.cos(areaAngle)-y*Math.sin(areaAngle),y:old[0].y+x*Math.sin(areaAngle)+y*Math.cos(areaAngle)};
-      }
-      return old.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<1e-6)?old:[...old,p];
-    });
-    else setAreaPoints([p]);
-  };
-  const areaPlacement:SpellAreaPlacement={mapId:map?.id??'',points:areaPoints,angle:areaAngle};
-  const areaPreview=areaCast&&areaActor?{...areaPlacement,points:areaPoints.length?areaPoints:areaCast.spec.self?[areaActor]:areaPointer?[areaPointer]:[]}:areaPlacement;
-  const areaTargets=areaCast&&areaActor&&map?actionSnapshot.tokens.filter(t=>{
-    const e=resolveToken(actionSnapshot,t);
-    return !t.sharedSightOnly&&!e.dead&&!(t.kind==='monster'&&actionSnapshot.monsters.find(m=>m.id===t.refId)?.objectKind)&&
-      !(areaExcludesCaster(areaCast.spec)&&t.id===areaActor.id)&&tokenInSpellArea(areaCast.spec,areaPreview,areaActor,t,map.gridSizePx/map.feetPerSquare)&&
-      areaPreview.points.some((_,i)=>hasLineOfSight(areaCast.spec.self?areaActor:areaOrigin(areaCast.spec,areaPreview,areaActor,map.gridSizePx/map.feetPerSquare,i),t,map.walls));
-  }):[];
-  // Send the latest geometry at most every 70 ms while the pointer is moving.
-  const areaShareTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const latestAreaShare=useRef<import('../../../shared/types').SpellAreaPreviewIntent|null>(null);
-  useEffect(()=>{
-    const hadPreview=!!latestAreaShare.current;
-    latestAreaShare.current=areaCast&&areaActor&&map?{...areaCast.payload,area:areaPreview}:null;
-    if(!latestAreaShare.current){if(hadPreview)useStore.getState().shareSpellArea(null);if(areaShareTimer.current)clearTimeout(areaShareTimer.current);areaShareTimer.current=null;return;}
-    if(!areaShareTimer.current)areaShareTimer.current=setTimeout(()=>{areaShareTimer.current=null;if(latestAreaShare.current)useStore.getState().shareSpellArea(latestAreaShare.current);},70);
-  },[areaCast,areaActor?.x,areaActor?.y,map?.id,areaPoints,areaPointer,areaAngle]);
-  useEffect(()=>()=>{if(areaShareTimer.current)clearTimeout(areaShareTimer.current);useStore.getState().shareSpellArea(null);},[]);
-  const areaRangeError=areaCast&&areaActor&&map&&!areaCast.spec.self&&areaPoints.some(p=>tokenDistanceFt({...areaActor,widthFt:0},{...p,widthFt:0},map)>areaCast.spec.rangeFt+1e-6||!hasLineOfSight(areaActor,p,map.walls));
+  const spellTargeting = useSpellTargeting(actionSnapshot, map);
+  const { teleportCast, teleportPoint, setTeleportPoint, teleportActor, teleportError, areaSocketId, areaCast, areaPoints, setAreaPointer, setAreaAngle, areaDirectionLocked, areaExcluded, areaActor, placeSpellArea, areaPreview, areaTargets } = spellTargeting;
   const hpFx = useStore((s) => s.hpFx);
   const preparedHpFx=useStore(s=>s.preparedHpFx);
   const rollBackground = useStore(s => reduceRollBackground(s));
@@ -972,29 +556,8 @@ function MapStageInner({
   // A reference-line drag that sets the map scale (DM only).
   const [scaleMode, setScaleMode] = useState(false);
   const [matchMode, setMatchMode] = useState(false);
-  const [pasteImg, setPasteImg] = useState<{ url: string; w: number; h: number } | null>(null);
-  const [pasteName, setPasteName] = useState('');
-  // Paste-dialog edits: the original (for Undo), a busy flag while the canvas
-  // work + re-upload runs, and the drag-selected crop box in PREVIEW pixels.
-  const [pasteOrig, setPasteOrig] = useState<{ url: string; w: number; h: number } | null>(null);
-  const [pasteBusy, setPasteBusy] = useState(false);
-  const [cropSel, setCropSel] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const cropStart = useRef<{ x: number; y: number } | null>(null);
-  const pastePreviewRef = useRef<HTMLImageElement>(null);
-  // Open the paste/decal dialog with an image (used by clipboard paste AND by
-  // ComfyUI scenery generation). Stable identity so the paste effect can call it.
-  const openPasteDialog = useCallback(async (icon: string) => {
-    const dims = await new Promise<{ w: number; h: number }>((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-      img.onerror = () => resolve({ w: 200, h: 200 });
-      img.src = icon;
-    });
-    setPasteName('');
-    setCropSel(null);
-    setPasteImg({ url: icon, w: dims.w, h: dims.h });
-    setPasteOrig({ url: icon, w: dims.w, h: dims.h });
-  }, []);
+  const { pasteImg, setPasteImg, pasteOrig, openPasteDialog } = usePasteImageState();
+  useClipboardImagePaste(actualDm, openPasteDialog, notify);
   // ComfyUI scenery generation (DM) — routes the result into the paste dialog.
   const comfyOk = useComfyAvailable();
   const generateScenery = async (prompt: string) => {
@@ -2252,212 +1815,7 @@ function MapStageInner({
       {!map && <div className="stage-empty">No active map yet.</div>}
       {map && (
         <>
-          {toolSlot && createPortal(<div className="map-view-controls" role="group" aria-label="Map view controls">
-            <button
-              className="btn tiny zoom-btn"
-              onClick={() => zoomBy(1 / 1.25)}
-              title="Zoom out"
-            >
-              −
-            </button>
-            <span className="zoom-label">{Math.round(view.scale * 100)}%</span>
-            <button
-              className="btn tiny zoom-btn"
-              onClick={() => zoomBy(1.25)}
-              title="Zoom in"
-            >
-              +
-            </button>
-            <button className="btn tiny" onClick={resetView} title="Fit to window">
-              Fit
-            </button>
-            <span className="map-rotation-controls" role="group" aria-label="Map rotation">
-              <button className="btn tiny" aria-label="Rotate map left" disabled={legacy}
-                title={legacy?'Legacy mode uses a fixed overhead view':'Rotate view left 15°'}
-                onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation-15)}>↶</button>
-              <button className="btn tiny" aria-label="Rotate map right" disabled={legacy}
-                title={legacy?'Legacy mode uses a fixed overhead view':'Rotate view right 15°'}
-                onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,projectionState.current.rotation+15)}>↷</button>
-            </span>
-            <CompactToolbarMenu label="View" forceCompact={actualDm}>
-            <LegacyModeControl toolbar/>
-            <div className="battlefield-view-options" role="group" aria-label="Your battlefield view">
-              <span className="muted">Your view</span>
-              {actualDm&&<select className="btn tiny" aria-label="Battlefield visibility" value={dmViewMode}
-                title="Only changes this DM window. Player view combines the party's current sight without changing fog or character claims."
-                onChange={e=>setDmViewMode(e.target.value as typeof dmViewMode)}>
-                <option value="dm">DM visibility</option><option value="scene">Scene lighting</option><option value="player">Player view</option>
-              </select>}
-              {partyPreview&&<span className="muted" role="status">{sourceSnapshot.partyView?'Combined party sight':'Loading party sight…'}</span>}
-              <button className={`btn tiny ${tilted ? 'on' : ''}`} aria-pressed={tilted}
-                aria-label="Tilted battlefield view" disabled={legacy} title="45° tilt — only changes your view"
-                onClick={() => chooseTilt(true)}>45°</button>
-              <button className={`btn tiny ${!tilted ? 'on' : ''}`} aria-pressed={!tilted}
-                aria-label="Flat battlefield view" title="Flat overhead view — only changes your view"
-                onClick={() => chooseTilt(false)}>Overhead</button>
-              <button ref={rotationLabel} className="btn tiny" hidden={Math.abs(rotationDegrees%360)<.01} aria-label="Reset battlefield rotation" title="Reset the map's rotation. Hold right mouse button and drag empty space to rotate freely."
-                onClick={()=>animateView(tilted?BATTLEFIELD_TILT_DEGREES:0,0)}>Reset rotation</button>
-            </div>
-            {!legacy&&(map?.videoPath||tiles.some(t=>t.videoPath))&&<button className={`btn tiny ${animateMap?'on':''}`} aria-label="Toggle map animation" aria-pressed={animateMap} title="Animate the map in your view, or use its still image for better performance" onClick={()=>mapAnimation.setEnabled(!mapAnimation.enabled)}>Map animation: {animateMap?'On':'Off'}</button>}
-            </CompactToolbarMenu>
-          </div>, toolSlot)}
-          {/* The Measure/Scale/Fog menus live in the top toolbar (above the map)
-              via a portal, but keep all their state/handlers here in MapStage. */}
-          {toolSlot &&
-            createPortal(
-              <>
-                {actualDm && <WallMenu map={map} doors={doors} onDoor={openDoorControls} tool={wallTool} count={map?.walls?.length??0} snap={wallSnap} onSnap={setWallSnap} canGenerateDecal={comfyOk} onGenerateDecal={generateScenery}
-                      tiles={tiles} arrangingTiles={tilesMode} onToggleArrangeTiles={() => setTilesMode((t) => !t)} onAddTileFile={addTileFromFile} onReorderTile={reorderMapImage} onRemoveTile={removeMapImage}
-                      onTool={next=>{setTool(null);setRemoveMode(false);setScaleMode(false);setMatchMode(false);setAnnotate(null);setFogBrush('off');setTilesMode(false);placeLight(null);setMenu(null);setWallTool(next);setWallAnchor(null);setWallPointer(null);hideCursor();}}
-                      onFinish={cancelWallStroke}
-                      onUndo={()=>{const last=map?.walls?.at(-1);if(map&&last)useStore.getState().editMapWalls(map.id,{removeId:last.id});setWallAnchor(null);}}/>}
-              <CompactToolbarMenu label="Map tools" shortLabel="Tools" forceCompact={actualDm}><div className="map-tool-menus">
-                {/* Measuring tools — available to everyone; shapes are shared. */}
-                <MeasureMenu
-                  tool={tool}
-                  snap={snap}
-                  removeMode={removeMode}
-                  hasMeasurements={snapshot.measurements.length > 0}
-                  isDm={actualDm}
-                  onPick={(shape, sz) => {
-                    setRemoveMode(false);
-                    pendingRef.current = false;
-                    setDraft(null);
-                    setTool((cur) =>
-                      cur && cur.shape === shape && cur.size === sz
-                        ? null
-                        : { shape, size: sz },
-                    );
-                  }}
-                  onToggleSnap={() => setSnap((s) => !s)}
-                  onToggleRemove={() => {
-                    setTool(null);
-                    pendingRef.current = false;
-                    setDraft(null);
-                    setRemoveMode((r) => !r);
-                  }}
-                  onClearMine={() => map && clearMeasurements(map.id, true)}
-                  onClearAll={() => map && clearMeasurements(map.id, false)}
-                />
-                {/* Annotation tools — freehand pen + text labels (shared). */}
-                <div className="annotate-tools">
-                  <AnnotationMenu tool={annotate} color={annoColor} onColor={setAnnoColor}
-                    onTool={next => {
-                      setTool(null);
-                      setRemoveMode(false);
-                      setDraft(null);
-                      setAnnotate(next);
-                    }}/>
-                  {snapshot.annotations.length > 0 && (
-                    <button
-                      className="btn tiny"
-                      title="Clear my annotations"
-                      onClick={() => map && clearAnnotations(map.id, true)}
-                    >
-                      Clear mine
-                    </button>
-                  )}
-                  {actualDm && snapshot.annotations.length > 0 && (
-                    <button
-                      className="btn tiny"
-                      title="Clear everyone's annotations"
-                      onClick={() => map && clearAnnotations(map.id, false)}
-                    >
-                      Clear all
-                    </button>
-                  )}
-                  {actualDm && snapshot.annotations.some((a) => a.kind === 'image') && (
-                    <>
-                      <button
-                        className={`btn tiny ${decalsLocked ? 'on' : ''}`}
-                        title={
-                          decalsLocked
-                            ? 'Decals locked: click-through and undraggable — click to unlock'
-                            : 'Lock decals so they become click-through and undraggable'
-                        }
-                        onClick={toggleDecalsLocked}
-                      >
-                        {decalsLocked ? '🔒' : '🔓'} Decals
-                      </button>
-                      <button
-                        className="btn tiny"
-                        title="Remove all scenery decals on this map (strokes/text stay)"
-                        onClick={() => map && clearAnnotations(map.id, false, 'image')}
-                      >
-                        Clear decals
-                      </button>
-                    </>
-                  )}
-                </div>
-                {actualDm && (
-                  <>
-                    <ScaleMenu
-                      feetPerSquare={derivedFtPerSquare}
-                      widthFt={widthFt}
-                      gridPx={gridPx}
-                      scaleMode={scaleMode}
-                      matchMode={matchMode}
-                      gridHidden={!!map?.gridHidden}
-                      gridLocked={!!map?.gridLocked}
-                      onCommit={(ft, width) => {
-                        setWidthFt(width);
-                        commitScaleFeet(ft, width);
-                      }}
-                      onToggleHidden={() =>
-                        map &&
-                        setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
-                          hidden: !map.gridHidden,
-                        })
-                      }
-                      onUnlock={() =>
-                        map &&
-                        setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
-                          locked: false,
-                        })
-                      }
-                      onToggleMatchMode={() => {
-                        setTool(null);
-                        setRemoveMode(false);
-                        setScaleMode(false);
-                        setScaleLine(null);
-                        setScalePrompt(null);
-                        setMatchMode((s) => !s);
-                      }}
-                      onToggleScaleMode={() => {
-                        setTool(null);
-                        setRemoveMode(false);
-                        setMatchMode(false);
-                        setScaleLine(null);
-                        setScalePrompt(null);
-                        setScaleMode((s) => !s);
-                      }}
-                    />
-
-                    <FogMenu
-                      onResetExploration={()=>map&&useStore.getState().resetExploration(map.id)}
-                      explorationMode={map?.explorationMode??'remembered'}
-                      onExplorationMode={mode=>map&&useStore.getState().setExplorationMode(map.id,mode)}
-                      mapVisionEnabled={usesMapVision(map)}
-                      tokenVisionEnabled={map?.tokenVisionEnabled!==false}
-                      onToggleVision={layer=>map&&setVisionFog(map.id,layer,!(layer==='map'?usesMapVision(map):map.tokenVisionEnabled!==false))}
-                      mapFogEnabled={mapFogEnabled}
-                      tokenFogEnabled={tokenFogEnabled}
-                      paintLayer={paintLayer}
-                      fogBrush={fogBrush}
-                      brushSize={brushSize}
-                      onToggleLayer={toggleLayer}
-                      onSetPaintLayer={setPaintLayer}
-                      onSetBrush={(b) => setFogBrush(b)}
-                      onSetBrushSize={setBrushSize}
-                      onCoverAll={() => map && coverFog(map.id, paintLayer)}
-                      onRevealAll={() => revealAll(paintLayer)}
-                    />
-                  </>
-                )}
-              </div></CompactToolbarMenu>
-              </>,
-              toolSlot,
-            )}
+          <MapToolbarPortals toolSlot={toolSlot} zoomBy={zoomBy} view={view} resetView={resetView} legacy={legacy} animateView={animateView} tilted={tilted} projectionState={projectionState} actualDm={actualDm} dmViewMode={dmViewMode} setDmViewMode={setDmViewMode} partyPreview={partyPreview} sourceSnapshot={sourceSnapshot} chooseTilt={chooseTilt} rotationLabel={rotationLabel} rotationDegrees={rotationDegrees} map={map} tiles={tiles} animateMap={animateMap} mapAnimation={mapAnimation} doors={doors} openDoorControls={openDoorControls} wallTool={wallTool} wallSnap={wallSnap} setWallSnap={setWallSnap} comfyOk={comfyOk} generateScenery={generateScenery} tilesMode={tilesMode} setTilesMode={setTilesMode} addTileFromFile={addTileFromFile} reorderMapImage={reorderMapImage} removeMapImage={removeMapImage} setTool={setTool} setRemoveMode={setRemoveMode} setScaleMode={setScaleMode} setMatchMode={setMatchMode} setAnnotate={setAnnotate} setFogBrush={setFogBrush} placeLight={placeLight} setMenu={setMenu} setWallTool={setWallTool} setWallAnchor={setWallAnchor} setWallPointer={setWallPointer} hideCursor={hideCursor} cancelWallStroke={cancelWallStroke} tool={tool} snap={snap} setSnap={setSnap} removeMode={removeMode} snapshot={snapshot} pendingRef={pendingRef} setDraft={setDraft} clearMeasurements={clearMeasurements} annotate={annotate} annoColor={annoColor} setAnnoColor={setAnnoColor} clearAnnotations={clearAnnotations} decalsLocked={decalsLocked} toggleDecalsLocked={toggleDecalsLocked} derivedFtPerSquare={derivedFtPerSquare} widthFt={widthFt} setWidthFt={setWidthFt} gridPx={gridPx} scaleMode={scaleMode} matchMode={matchMode} commitScaleFeet={commitScaleFeet} setMapGrid={setMapGrid} setScaleLine={setScaleLine} setScalePrompt={setScalePrompt} setVisionFog={setVisionFog} mapFogEnabled={mapFogEnabled} tokenFogEnabled={tokenFogEnabled} paintLayer={paintLayer} setPaintLayer={setPaintLayer} fogBrush={fogBrush} brushSize={brushSize} setBrushSize={setBrushSize} toggleLayer={toggleLayer} coverFog={coverFog} revealAll={revealAll} />
           <Stage
             ref={stageRef}
             key={`${dprKey}:${legacy}`}
@@ -2747,50 +2105,7 @@ function MapStageInner({
                       listening={false}
                     />
                   )}
-              {wallActive&&<Group name="wall-edit-outlines" listening={false}>
-                {(map?.walls??[]).map(original=>{const w=wallPreview?.id===original.id?wallPreview:original,selected=featureSelection.includes(`wall:${w.id}`);return <Path key={w.id} name="wall-edit-piece" wallId={w.id} featureSelected={selected} data={wallSvgPath(w)} fillRule="evenodd" stroke={selected?'#6ee7ff':w.arch?'#f64fe0':w.window?'#398cff':'#ffc76e'} fill={selected?'#6ee7ff35':w.arch?'#f64fe040':w.window?'#398cff55':w.kind||w.thickness?'#ffc76e25':undefined} strokeWidth={(selected?3:2)/view.scale}/>;})}
-                {wallTool==='edit'&&(map?.environment?.lights??[]).map((light,i)=><Group key={light.id} name="light-edit-marker" lightId={light.id} featureSelected={featureSelection.includes(`light:${light.id}`)} x={light.x} y={light.y}>
-                  <Circle radius={10/view.scale} fill={featureSelection.includes(`light:${light.id}`)?'#6ee7ff':'#ffbf65'} stroke="#152230" strokeWidth={2/view.scale}/>
-                  <Text text={String(i+1)} x={-10/view.scale} y={-6/view.scale} width={20/view.scale} align="center" fontSize={12/view.scale} fill="#142331"/>
-                </Group>)}
-                {wallAnchor&&wallPointer&&(wallTool==='erase-area'
-                  ?<Rect name="wall-erase-preview" x={Math.min(wallAnchor.x,wallPointer.x)} y={Math.min(wallAnchor.y,wallPointer.y)} width={Math.abs(wallPointer.x-wallAnchor.x)} height={Math.abs(wallPointer.y-wallAnchor.y)} fill="#ff667733" stroke="#ff6677" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>
-                  :wallTool==='door'
-                  ?<Line points={[wallAnchor.x,wallAnchor.y,wallPointer.x,wallPointer.y]} stroke="#fff1c2" strokeWidth={3/view.scale} dash={[8/view.scale,5/view.scale]}/>
-                  :<Path data={wallSvgPath(strokeWall(wallAnchor,wallPointer))} fillRule="evenodd" stroke="#fff1c2" fill="#ffe5b333" strokeWidth={2/view.scale} dash={[8/view.scale,5/view.scale]}/>)}
-                {wallTool==='edit'&&selectedWall&&<Group name="wall-rotation-control">
-                  <Line points={[wallCenter(selectedWall).x,wallCenter(selectedWall).y,rotationHandle(selectedWall).x,rotationHandle(selectedWall).y]} stroke="#6ee7ff" strokeWidth={1/view.scale} dash={[5/view.scale,4/view.scale]}/>
-                  <Circle name="wall-rotation-handle" x={rotationHandle(selectedWall).x} y={rotationHandle(selectedWall).y} radius={8/view.scale} fill="#142833" stroke="#6ee7ff" strokeWidth={2/view.scale}/>
-                </Group>}
-                {wallPointer&&wallTool!=='edit'&&<Circle x={wallPointer.x} y={wallPointer.y} radius={4/view.scale} fill={wallTool==='erase'||wallTool==='erase-area'?'#ff6677':'#fff1c2'}/>}
-              </Group>}
-              {doors.filter(doorVisible).map(d=>{
-                const doorSnapshot=actualDm?sourceSnapshot:snapshot;
-                const token=doorSnapshot.tokens.find(t=>t.id===d.tokenId),object=doorSnapshot.monsters.find(m=>m.id===token?.refId);
-                const locked=!!object?.conditions.some(c=>c.label.toLowerCase()==='locked'),hidden=!!token?.isHidden;
-                const previewed=!!doorDragPreview?.ids.includes(d.id);
-                const approached=nearbyDoors.some(door=>door.id===d.id);
-                const color=previewed?'#78e6ff':hidden?'#a2a8b1':locked?'#efb05f':d.open?'#94d6b0':'#f1d49c';
-                const label=hidden?'Hidden':locked?'Locked':d.open?'Open':'Door';
-                // One full-width line on each outer face. The ordinary vision
-                // mask hides the far face of a closed door, including in daylight.
-                const pad=2/view.scale;
-                let faces:number[][];
-                if(d.kind==='rectangle'&&!d.rotation){
-                  const x0=Math.min(d.ax,d.bx),x1=Math.max(d.ax,d.bx),y0=Math.min(d.ay,d.by),y1=Math.max(d.ay,d.by);
-                  faces=x1-x0>=y1-y0?[[x0,y0-pad,x1,y0-pad],[x0,y1+pad,x1,y1+pad]]:[[x0-pad,y0,x0-pad,y1],[x1+pad,y0,x1+pad,y1]];
-                }else{
-                  faces=wallBoundarySegments(d).map(({a,b})=>[a.x,a.y,b.x,b.y]);
-                }
-                const activate=()=>{if(actualDm||nearbyDoors.some(door=>door.id===d.id))openDoorControls(d.id);else notify('Move your character’s footprint within 5 ft of this door’s approach area to open it or pick its lock.');};
-                return <Group key={d.id} name="wall-door-marker" doorId={d.id} doorState={label} doorPreview={previewed} opacity={hidden ? .45 : 1} listening={!wallActive}
-                  onMouseDown={e=>{e.cancelBubble=true;}} onTouchStart={e=>{e.cancelBubble=true;}} onClick={e=>{e.cancelBubble=true;activate();}} onTap={e=>{e.cancelBubble=true;activate();}}>
-                  <Line name="door-approach-area" points={wallVertices(doorInteractionArea(d,pxPerFoot)).flatMap(p=>[p.x,p.y])} closed listening={false}
-                    stroke={color} strokeWidth={(previewed?2:1)/view.scale} dash={[5/view.scale,4/view.scale]} opacity={previewed ? .85 : approached ? .6 : .25}
-                    fill={previewed?'#78e6ff20':approached?'#f1d49c15':undefined}/>
-                  {faces.filter(points=>!renderPlayerVision||d.open||(()=>{const dx=points[2]-points[0],dy=points[3]-points[1],l=Math.hypot(dx,dy)||1,mx=(points[0]+points[2])/2,my=(points[1]+points[3])/2;return [{x:mx-dy/l*.1,y:my+dx/l*.1},{x:mx+dy/l*.1,y:my-dx/l*.1}].some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map)));})()).map((points,i)=><Line key={i} name="wall-door-face" points={points} stroke={color} strokeWidth={(previewed?6:4)/view.scale} shadowColor={previewed?'#78e6ff':undefined} shadowBlur={previewed?8/view.scale:0} hitStrokeWidth={16/view.scale} lineCap="butt" dash={d.open||hidden?[7/view.scale,5/view.scale]:undefined}/>)}
-                </Group>;
-              })}
+              <WallAndDoorKonvaGroup wallActive={wallActive} wallTool={wallTool} map={map} wallPreview={wallPreview} featureSelection={featureSelection} viewScale={view.scale} wallAnchor={wallAnchor} wallPointer={wallPointer} strokeWall={strokeWall} selectedWall={selectedWall} rotationHandle={rotationHandle} doors={doors} doorVisible={doorVisible} actualDm={actualDm} sourceSnapshot={sourceSnapshot} snapshot={snapshot} doorDragPreview={doorDragPreview} nearbyDoors={nearbyDoors} pxPerFoot={pxPerFoot} renderPlayerVision={renderPlayerVision} openDoorControls={openDoorControls} notify={notify} />
               {/* Live ghost tethers for tokens OTHERS are dragging. */}
               <DragGhostLayer
                 tokens={snapshot.tokens}
@@ -2843,23 +2158,7 @@ function MapStageInner({
           </Suspense></MiniatureFallback>}
           {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay ref={visionRef} presentation={presentation} terrainRaster={legacyTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry??(sourceViewSnapshot.legacyMotion?.membershipOnly?sourceViewSnapshot.legacyGeometry:undefined)} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:[...(map?.imagePath&&baseW&&baseH?[{url:map.imagePath,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,x:t.x,y:t.y,w:t.w,h:t.h}))],bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}
-          {!wallActive&&doorDragPreview&&doorDragPreview.ids.length>0&&<div data-testid="door-preview-hint" role="status" style={{position:'absolute',bottom:92,left:'50%',transform:'translateX(-50%)',zIndex:5,padding:'9px 14px',background:'#102633ee',border:'1px solid #78e6ff',borderRadius:6,color:'#c7f5ff',pointerEvents:'none'}}>Release to interact · {doorDragPreview.ids.map(id=>`Door ${doors.findIndex(d=>d.id===id)+1}`).join(', ')}</div>}
-          {!wallActive&&activeDoorControls.length>0&&!doorDragPreview&&<section data-testid="door-controls" className="nearby-door-controls" role="region" aria-label="Door controls">
-            <header><strong>Door controls</strong><button className="btn tiny" aria-label="Close door controls" title="Close — click a nearby door or leave and return to reopen" onClick={dismissDoorControls}>×</button></header>
-            <div className="nearby-door-list">{activeDoorControls.map(d=>{const doorSnapshot=actualDm?sourceSnapshot:snapshot,token=doorSnapshot.tokens.find(t=>t.id===d.tokenId);return <div className="nearby-door" key={d.id}>
-              <strong>Door {doors.indexOf(d)+1}</strong>
-              {token?<><ObjectControls snapshot={doorSnapshot} token={token} editable={actualDm} compact/>{actualDm&&<button className="btn tiny" onClick={()=>onSelectToken(token)}>Door details</button>}</>:<button className="btn" onClick={()=>operateDoor(d.id,!d.open)}>{d.open?'Close':'Open'} door</button>}
-            </div>;})}</div>
-          </section>}
-          {wallActive&&<div data-testid="wall-drawing-hint" style={{position:'absolute',bottom:88,left:'50%',transform:'translateX(-50%)',zIndex:5,background:'#161b23ee',color:'#ffe5b3',padding:'8px 12px',border:'1px solid #aa8550',borderRadius:6,fontSize:13,display:'flex',gap:10,alignItems:'center',maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}}>
-            <span>{wallTool==='erase-area'?'Drag a rectangle to erase only that section. Doors are kept.':wallTool==='rectangle'?'Drag across the wall’s length and thickness':wallTool==='door'?'Drag along a wall to cut a door opening':wallTool==='draw'?'Drag a line at any angle':wallTool==='circle'?'Drag from the room center to its wall':wallTool==='freehand'?'Hold and trace the wall; release to save':wallTool==='edit'?'Click to select · Shift/Ctrl-click to add · Ctrl-drag a box · Delete to remove · Ctrl+Z to undo':'Click a wall to delete the entire piece'}</span>
-            {['draw','circle','freehand'].includes(wallTool)&&<label>Thickness <input aria-label="Wall thickness in feet" type="number" min={.1} max={20} step={.25} value={wallThickness} onChange={e=>setWallThickness(Math.max(.1,Math.min(20,Number(e.target.value)||.1)))} style={{width:55}}/> ft</label>}
-            {wallTool==='edit'&&selectedWall&&<>
-              <label>Rotation <input aria-label="Wall rotation in degrees" type="number" min={-360} max={360} step={1} value={Math.round(selectedWall.rotation??0)} onChange={e=>{const rotation=Number(e.target.value);if(Number.isFinite(rotation)&&map)useStore.getState().editMapWalls(map.id,{update:{...selectedWall,rotation:Math.max(-360,Math.min(360,rotation))}});}} style={{width:62}}/> degrees</label>
-            </>}
-            {wallTool==='edit'&&featureSelection.length>0&&<button data-testid="delete-map-features" className="btn tiny" onClick={deleteFeatures}>Delete {featureSelection.length} selected</button>}
-            <button className="btn tiny" onClick={()=>{setWallTool('off');setWallAnchor(null);}}>Done</button>
-          </div>}
+          <WallAndDoorHud wallActive={wallActive} wallTool={wallTool} setWallTool={setWallTool} setWallAnchor={setWallAnchor} wallThickness={wallThickness} setWallThickness={setWallThickness} selectedWall={selectedWall} featureSelection={featureSelection} deleteFeatures={deleteFeatures} map={map} doorDragPreview={doorDragPreview} doors={doors} activeDoorControls={activeDoorControls} dismissDoorControls={dismissDoorControls} actualDm={actualDm} sourceSnapshot={sourceSnapshot} snapshot={snapshot} onSelectToken={onSelectToken} operateDoor={operateDoor} />
           <DecalPopup snapshot={actualDm?sourceSnapshot:snapshot} />
           {hover && !menu && (
             <TokenHoverCard
@@ -2886,29 +2185,7 @@ function MapStageInner({
             />
           )}
           {mapOverlays}
-          {teleportCast&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Misty Step destination" style={{zIndex:30}}><strong>Misty Step · 30 ft</strong><span>Click a visible, unoccupied destination. No slot is spent until you confirm the cast below.</span>{teleportError&&<span role="alert">{teleportError}</span>}<button className="btn" disabled={!teleportPoint||!!teleportError||pendingSpellCost(teleportCast)?.unavailable} onClick={()=>{if(teleportPoint&&map)useStore.getState().rollAbility({...teleportCast,destination:{mapId:map.id,...teleportPoint}});clearTeleportCast();}}>Cast Misty Step · {pendingSpellCost(teleportCast)?.label}</button><button className="btn" onClick={clearTeleportCast}>Cancel (Esc)</button></div>}
-          {areaCast&&areaActor&&map&&<div className="save-resolve-banner spell-area-prompt" role="region" aria-label="Place spell area" style={{flexWrap:'wrap',maxWidth:'min(760px,calc(100% - 30px))',zIndex:30,borderColor:'#e0be6b'}}>
-            <strong>{areaCast.name} · {areaCast.spec.sizeFt} ft {['sphere','cylinder','emanation'].includes(areaCast.spec.kind)?'radius':areaCast.spec.kind}</strong>
-            <span>{areaCast.repeat?'Repeat use · no additional spell slot.':`${pendingSpellCost(areaCast.payload)?.label??'Spell casting'} · no slot is spent until you confirm this area.`}</span>
-            <span>{areaCast.name.toLowerCase()==='pass without trace'?'Choose allies to share your moving Stealth aura.':areaCast.spec.self?'Aim, then click to lock the direction.':['line','cone'].includes(areaCast.spec.kind)?'Click a start, then aim and click again to lock the direction.':`Click to place${areaCast.spec.count?` up to ${areaCast.spec.count} areas`:''}.`} Overlapping combat footprints are affected; allies can be hit.{areaCast.spec.ongoing?' Ongoing effects are resolved with the DM.':''}</span>
-            {areaRangeError&&<span role="alert">Choose an origin within {areaCast.spec.rangeFt} ft and outside Total Cover.</span>}
-            <span>{areaTargets.filter(t=>!areaExcluded.includes(t.id)).length} {actualDm?'targets':'visible targets'}{areaCast.spec.maxTargets?` / choose up to ${areaCast.spec.maxTargets}`:''}</span>
-            {areaCast.spec.selective&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{areaTargets.map(t=>{const e=resolveToken(actionSnapshot,t);return <label key={t.id}><input type="checkbox" checked={!areaExcluded.includes(t.id)} onChange={()=>setAreaExcluded(old=>old.includes(t.id)?old.filter(id=>id!==t.id):[...old,t.id])}/>{e.name}{t.revealTag&&t.revealTag!=='U'?` ${t.revealTag}`:''}</label>;})}</div>}
-            {['cube','line','cone'].includes(areaCast.spec.kind)&&<label>Direction <input aria-label="Spell area rotation" type="range" min="-180" max="180" step="1" value={areaAngle*180/Math.PI} onChange={e=>{
-              const next=+e.target.value*Math.PI/180,delta=next-areaAngle;
-              if(areaCast.name.trim().toLowerCase()==='fire storm')setAreaPoints(old=>old.map(p=>{
-                const anchor=old[0],dx=p.x-anchor.x,dy=p.y-anchor.y;
-                return {x:anchor.x+dx*Math.cos(delta)-dy*Math.sin(delta),y:anchor.y+dx*Math.sin(delta)+dy*Math.cos(delta)};
-              }));
-              setAreaAngle(next);setAreaDirectionLocked(true);
-            }}/></label>}
-            <button className="btn tiny" disabled={!areaCast.repeat&&pendingSpellCost(areaCast.payload)?.unavailable||!areaPoints.length||!!areaRangeError||!!areaCast.spec.maxTargets&&areaTargets.filter(t=>!areaExcluded.includes(t.id)).length>areaCast.spec.maxTargets||['line','cone'].includes(areaCast.spec.kind)&&!areaDirectionLocked} onClick={()=>{
-              const placement={...areaPlacement,...(areaCast.spec.selective?{selected:areaTargets.filter(t=>!areaExcluded.includes(t.id)).map(t=>t.id)}:{})};
-              if(areaCast.repeat)useStore.getState().repeatSpell({...areaCast.repeat,area:placement});else useStore.getState().rollAbility({...areaCast.payload,area:placement});clearAreaCast();
-            }}>Confirm area · {areaCast.repeat?'Repeat · no slot':`Cast · ${pendingSpellCost(areaCast.payload)?.label??areaCast.name}`}</button>
-            <button className="btn tiny" onClick={()=>{setAreaPoints(old=>old.slice(0,-1));setAreaDirectionLocked(false);}}>Undo placement</button>
-            <button className="btn tiny" onClick={clearAreaCast}>Cancel (Esc)</button>
-          </div>}
+          <SpellTargetingPrompts targeting={spellTargeting} actionSnapshot={actionSnapshot} map={map} actualDm={actualDm} />
           {actualDm && saveResolve && (
             <div className="save-resolve-banner">
               <span>
@@ -2927,160 +2204,7 @@ function MapStageInner({
           {matchMode && (
             <div className="scale-hint">Drag across ONE square of the map's printed grid…</div>
           )}
-          {pasteImg && (
-            <div className="modal-backdrop" onClick={() => setPasteImg(null)}>
-              <div className="modal" onClick={(e) => e.stopPropagation()}>
-                <div className="modal-head">
-                  <h3>Paste image</h3>
-                  <button className="btn tiny" onClick={() => setPasteImg(null)}>✕</button>
-                </div>
-                {/* Drag on the preview to select a crop; checkerboard shows
-                    transparency after "Cut background". */}
-                <div
-                  className="paste-preview"
-                  onMouseDown={(e) => {
-                    const r = e.currentTarget.getBoundingClientRect();
-                    cropStart.current = { x: e.clientX - r.left, y: e.clientY - r.top };
-                    setCropSel(null);
-                  }}
-                  onMouseMove={(e) => {
-                    const s = cropStart.current;
-                    if (!s) return;
-                    const r = e.currentTarget.getBoundingClientRect();
-                    const cx = Math.max(0, Math.min(r.width, e.clientX - r.left));
-                    const cy = Math.max(0, Math.min(r.height, e.clientY - r.top));
-                    setCropSel({
-                      x: Math.min(s.x, cx),
-                      y: Math.min(s.y, cy),
-                      w: Math.abs(cx - s.x),
-                      h: Math.abs(cy - s.y),
-                    });
-                  }}
-                  onMouseUp={() => {
-                    cropStart.current = null;
-                    setCropSel((c) => (c && c.w > 4 && c.h > 4 ? c : null));
-                  }}
-                  onMouseLeave={() => {
-                    cropStart.current = null;
-                  }}
-                >
-                  <img ref={pastePreviewRef} src={pasteImg.url} alt="pasted" draggable={false} />
-                  {cropSel && (
-                    <div
-                      className="paste-crop-box"
-                      style={{ left: cropSel.x, top: cropSel.y, width: cropSel.w, height: cropSel.h }}
-                    />
-                  )}
-                </div>
-                <div className="paste-tools">
-                  <button
-                    className="btn tiny"
-                    disabled={!cropSel || pasteBusy}
-                    title="Crop to the dragged selection"
-                    onClick={async () => {
-                      const img = pastePreviewRef.current;
-                      if (!cropSel || !img) return;
-                      // Preview px → natural px.
-                      const f = pasteImg.w / img.clientWidth;
-                      setPasteBusy(true);
-                      try {
-                        const next = await cropImage(pasteImg.url, {
-                          x: cropSel.x * f,
-                          y: cropSel.y * f,
-                          w: cropSel.w * f,
-                          h: cropSel.h * f,
-                        });
-                        setPasteImg(next);
-                        setCropSel(null);
-                      } catch {
-                        notify('Crop failed.');
-                      } finally {
-                        setPasteBusy(false);
-                      }
-                    }}
-                  >
-                    ✂ Crop
-                  </button>
-                  <button
-                    className="btn tiny"
-                    disabled={pasteBusy}
-                    title="Make the (flat) background transparent — flood-fills from the corners"
-                    onClick={async () => {
-                      setPasteBusy(true);
-                      try {
-                        setPasteImg(await removeBackground(pasteImg.url));
-                        setCropSel(null);
-                      } catch {
-                        notify('Could not cut the background.');
-                      } finally {
-                        setPasteBusy(false);
-                      }
-                    }}
-                  >
-                    🪄 Cut background
-                  </button>
-                  {pasteOrig && pasteOrig.url !== pasteImg.url && (
-                    <button
-                      className="btn tiny"
-                      disabled={pasteBusy}
-                      onClick={() => {
-                        setPasteImg(pasteOrig);
-                        setCropSel(null);
-                      }}
-                    >
-                      ↺ Undo edits
-                    </button>
-                  )}
-                  <span className="muted">{pasteBusy ? 'working…' : 'drag preview to crop'}</span>
-                </div>
-                <label className="settings-field">
-                  Name (for object)
-                  <input value={pasteName} onChange={(e) => setPasteName(e.target.value)} placeholder="Object" />
-                </label>
-                <div className="modal-actions">
-                  <button
-                    className="btn green"
-                    onClick={() => {
-                      if (!map) return;
-                      // Place at the centre of the current view, in image space.
-                      const { x: cx, y: cy } = screenToMap(size.w / 2, size.h / 2, view, tiltDegrees);
-                      pasteObject({ mapId: map.id, x: cx, y: cy, icon: pasteImg.url, name: pasteName.trim() || 'Object' });
-                      setPasteImg(null);
-                    }}
-                    title="Add as a draggable object token (image, unclipped)"
-                  >
-                    🪙 Object
-                  </button>
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      if (!map) return;
-                      const { x: cx, y: cy } = screenToMap(size.w / 2, size.h / 2, view, tiltDegrees);
-                      // Clamp the decal to ~6 grid squares wide, keeping aspect.
-                      const maxW = grid * 6;
-                      const scale = pasteImg.w > maxW ? maxW / pasteImg.w : 1;
-                      const w = pasteImg.w * scale;
-                      const h = pasteImg.h * scale;
-                      addAnnotation({
-                        kind: 'image',
-                        x: cx - w / 2,
-                        y: cy - h / 2,
-                        url: pasteImg.url,
-                        width: w,
-                        height: h,
-                        color: '#ffffff',
-                      });
-                      setPasteImg(null);
-                    }}
-                    title="Add as flat scenery under the tokens (set dressing)"
-                  >
-                    🖼 Scenery decal
-                  </button>
-                  <button className="btn" onClick={() => setPasteImg(null)}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
+          {pasteImg && <PasteImageModal pasteImg={pasteImg} pasteOrig={pasteOrig} setPasteImg={setPasteImg} mapId={map?.id} size={size} view={view} tiltDegrees={tiltDegrees} grid={grid} pasteObject={pasteObject} addAnnotation={addAnnotation} notify={notify} />}
           {scalePrompt && (
             <div className="scale-prompt">
               <span>This line is</span>
@@ -3126,9 +2250,3 @@ export const MapStage=memo(MapStageInner,(a,b)=>{
   return [...keys].every(key=>key==='snapshot'?sameBoardSnapshot(a.snapshot,b.snapshot):a[key as keyof Props]===b[key as keyof Props]);
 });
 
-/** Other casters' live spell-area aims (~14 updates/s each while aiming).
- *  Subscribed here so those packets re-render only this layer, not the map. */
-const SharedSpellAreas = memo(function SharedSpellAreas({mapId,hideId,scale,pxPerFoot}:{mapId:string;hideId:string|undefined;scale:number;pxPerFoot:number}) {
-  const previews=useStore(s=>s.spellAreaPreviews);
-  return <>{Object.values(previews).filter(p=>!p.resolving&&p.area.mapId===mapId&&p.id!==hideId).map(p=><SpellAreaShapes key={p.id} spellName={p.name} previewState="aiming" scale={scale} spec={p.spec} placement={p.area} caster={p.caster} pxPerFoot={pxPerFoot} targets={[]}/>)}</>;
-});
