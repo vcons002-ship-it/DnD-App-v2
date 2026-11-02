@@ -38,6 +38,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
  const memoryCanvas=useRef<HTMLCanvasElement>(null);
  const retainedRange=useRef<SVGGElement>(null);
  const memoryProjection=useRef<{geometry:ExploredTerrain|undefined;camera:string}|null>(null);
+ const exploredRingsCache=useRef(new WeakMap<ExploredTerrain,WallPoint[][][]>());
  const wallsCache=useRef<{walls:PlayerVision['walls'];key:string}>({walls:undefined,key:'[]'});
  const polygonCache=useRef(new Map<string,{key:string;points:WallPoint[]}>());
  const projectedPolygons=useRef(new WeakMap<WallPoint[],{camera:string;path:string}>());
@@ -70,6 +71,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   const {vision,view,tilt,rotation,width,height}=state.current;
   if(root.current){root.current.dataset.cameraRotation=String(rotation);root.current.dataset.cameraTilt=String(tilt);}
   const sy=groundYScale(tilt),a=rotation*Math.PI/180,c=Math.cos(a),s=Math.sin(a),k=perspectiveSlope(width,height,tilt);
+  const orthoUnrotated=k===0&&s===0&&c===1&&sy===1;
   const projectionKey=[view.x,view.y,view.scale,tilt,rotation,width,height].join(':');
   const lightEllipse=createVisionLightProjector(view,tilt,rotation,width,height);
   if(wallsCache.current.walls!==vision.walls)wallsCache.current={walls:vision.walls,key:JSON.stringify(vision.walls??[])};
@@ -89,6 +91,18 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   const project=(vertices:WallPoint[])=>{
    const cached=projectedPolygons.current.get(vertices);
    if(cached?.camera===projectionKey)return cached.path;
+   if(orthoUnrotated){
+    if(!vertices.length){projectedPolygons.current.set(vertices,{camera:projectionKey,path:''});return '';}
+    let result='M';
+    for(let i=0;i<vertices.length;i++){
+     const v=vertices[i];
+     if(i>0)result+='L';
+     result+=`${(view.x+v.x*view.scale).toFixed(2)},${(view.y+v.y*view.scale).toFixed(2)}`;
+    }
+    result+='Z';
+    projectedPolygons.current.set(vertices,{camera:projectionKey,path:result});
+    return result;
+   }
    let poly=vertices.map(vertex=>{
     const dx=view.x+vertex.x*view.scale-width/2;
     const dy=view.y+vertex.y*view.scale*sy-height/2;
@@ -105,7 +119,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   const path=(point:{id:string;x:number;y:number;beam?:LightBeam},radius:number,actual=false,occlude=false)=>{
    const p=actual?point:livePoint(point);
    if(occlude)return project(polygon({...p,id:point.id},radius));
-   const slot=point.id+':'+radius,key=[projectionKey,p.x,p.y,JSON.stringify(point.beam)].join(':');activeKeys.add('circle:'+slot);
+   const slot=point.id+':'+radius,key=[projectionKey,p.x,p.y,point.beam?`${point.beam.ax},${point.beam.ay},${point.beam.bx},${point.beam.by}`:''].join(':');activeKeys.add('circle:'+slot);
    const cached=circlePaths.current.get(slot);if(cached?.key===key)return cached.path;
    const result=project(point.beam?lightBeamOutline(point.beam,radius):circleVertices.map(v=>({x:p.x+v.x*radius,y:p.y+v.y*radius})));
    circlePaths.current.set(slot,{key,path:result});return result;
@@ -128,7 +142,7 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   }};
   if(!fullDraw.current){finish();return;}
   fullDraw.current=false;
-  const geometry=state.current.presentation?state.current.presentation.explored():state.current.terrain?.explored,camera=JSON.stringify([view,tilt,rotation,width,height]);
+  const geometry=state.current.presentation?state.current.presentation.explored():state.current.terrain?.explored,camera=projectionKey;
   const wallFog=state.current.mapFogOfWar!==false;
   const ordinaryLights=sourceLights.filter(l=>!l.transient).map(positioned);
   const worldKey=[
@@ -145,13 +159,26 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   // Reproject remembered terrain only when history or camera changes, never for
   // every light flicker. It contains map images/grid only, not a live scene copy.
   if(memoryPaths.current&&(memoryProjection.current?.geometry!==geometry||memoryProjection.current?.camera!==camera)){
-   setMarkup(memoryPaths.current,(geometry??[]).map(p=>`<path clip-rule="evenodd" d="${p.map(r=>project(r.map(([x,y])=>({x,y})))).join('')}"/>`).join(''));
+   let rings:WallPoint[][][]= [];
+   if(geometry?.length){
+    let cachedRings=exploredRingsCache.current.get(geometry);
+    if(!cachedRings){
+     cachedRings=geometry.map(p=>p.map(r=>r.map(([x,y])=>({x,y}))));
+     exploredRingsCache.current.set(geometry,cachedRings);
+    }
+    rings=cachedRings;
+   }
+   setMarkup(memoryPaths.current,rings.map(p=>`<path clip-rule="evenodd" d="${p.map(r=>project(r)).join('')}"/>`).join(''));
    memoryProjection.current={geometry,camera};
    if(memoryPlane.current)memoryPlane.current.style.transform=groundPerspectiveCss(width,height,tilt,rotation);
    if(memoryMap.current)memoryMap.current.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.scale},${view.scale*sy})`;
   }
-  const circles=vision.origins.map(o=>`<path fill="black" d="${path(o,vision.heavy?vision.radius:SIGHT_EXTENT,false,wallFog&&!!vision.walls?.length)}"/>`).join('');
-  setMarkup(sightPaths.current,vision.origins.map(o=>`<path d="${path(o,SIGHT_EXTENT,false,wallFog)}"/>`).join(''));
+  const sightD=vision.origins.map(o=>path(o,SIGHT_EXTENT,false,wallFog));
+  setMarkup(sightPaths.current,sightD.map(d=>`<path d="${d}"/>`).join(''));
+  const circles=vision.origins.map((o,i)=>{
+   const d=!vision.heavy&&(wallFog&&!!vision.walls?.length===wallFog)?sightD[i]:path(o,vision.heavy?vision.radius:SIGHT_EXTENT,false,wallFog&&!!vision.walls?.length);
+   return `<path fill="black" d="${d}"/>`;
+  }).join('');
   setMarkup(nearPaths.current,!vision.daylight&&!vision.heavy?vision.origins.map(o=>`<path d="${path(o,vision.radius,false,wallFog)}"/>`).join(''):'');
   // Ordinary lanterns keep steady nominal vision geometry while the 3D renderer
   // and cosmetic spell-light bands animate independently.
@@ -213,14 +240,8 @@ export const PlayerVisionOverlay=forwardRef<PlayerVisionHandle,Camera&{vision:Pl
   },
  }),[]);
  useLayoutEffect(()=>{
-
   // Server snapshots can arrive during a camera drag, before React receives its
   // final view. Preserve imperative camera fields when their props are unchanged.
-
-
-
-
-
   if(syncProps()||pendingDraw.current||fullDraw.current){cancelAnimationFrame(pendingDraw.current);pendingDraw.current=0;draw();}},[props]);
  const terrain=props.terrain,b=terrain?.bounds,g=terrain?.grid;
  return <><div ref={root} data-testid="player-vision" data-wall-geometry-source={props.serverGeometry?.outlines?'server':'client'} data-explored-regions={terrain?.explored?.length??0} data-wall-count={props.vision.walls?.length??0} data-range-ft={props.vision.heavy?props.vision.rangeFt:'unlimited'} data-heavy={String(props.vision.heavy)} data-origin-count={props.vision.origins.length}

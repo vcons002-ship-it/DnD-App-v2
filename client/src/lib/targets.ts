@@ -1,4 +1,4 @@
-import { attackAdvantage } from '../../../shared/conditionEffects';
+import { attackAdvantage, evaluateAttackContext } from '../../../shared/conditionEffects';
 import type { Advantage } from '../../../shared/dice';
 import { tokenDistanceFt, tokensWithin5ft } from '../../../shared/distance';
 import { hasLineOfSight } from '../../../shared/mapWalls';
@@ -65,34 +65,40 @@ export function previewAttackAdvantage(
 ): { state?: Advantage; reasons: string[] } {
   const entities = tokenEntityIndex(snapshot);
   const attackerEnt = attacker.kind === 'pc' ? entities.characters.get(attacker.refId) : entities.monsters.get(attacker.refId);
-  const targetDisplay = target ? resolveToken(snapshot, target) : undefined;
-  const attackerConds = (attackerEnt?.conditions ?? resolveToken(snapshot, attacker).conditions)
-    .filter((c) => !c.isConcentration)
-    .map((c) => c.label);
-  const targetConds = (targetDisplay?.conditions ?? [])
-    .filter((c) => !c.isConcentration)
-    .map((c) => c.label);
-  const within5 = !!(target && tokensWithin5ft(attacker, target, snapshot.map));
-  const featureAdv: string[] = [];
-  const featureDis: string[] = [];
-  const abilities = attackerEnt && 'sheetAbilities' in attackerEnt ? attackerEnt.sheetAbilities : [];
-  for (const ab of abilities) {
-    if (ab.type === 'stance' && ab.stance?.active) {
-      if (ab.stance.targeted && target && ab.stance.targetId !== target.id) continue;
-      if (ab.stance.grantsAdvantage) featureAdv.push(ab.name);
-    }
-    if (ab.type === 'maneuver' && ab.maneuver?.active && ab.maneuver.grantsAdvantage) {
-      featureAdv.push(ab.name);
-    }
-  }
-  for (const c of attackerEnt?.conditions ?? []) {
-    if (c.combatEffect?.attackDisadvantage) featureDis.push(c.combatEffect.spell || c.label);
-  }
-  for (const c of targetDisplay?.conditions ?? []) {
-    if (c.combatEffect?.nextAttackAdvantage) featureAdv.push(c.combatEffect.spell || c.label);
-  }
+  const targetEnt = target
+    ? target.kind === 'pc'
+      ? entities.characters.get(target.refId)
+      : entities.monsters.get(target.refId)
+    : undefined;
+  const attackerConds = attackerEnt?.conditions ?? resolveToken(snapshot, attacker).conditions;
+  const targetConds = target ? (targetEnt?.conditions ?? resolveToken(snapshot, target).conditions) : [];
   if (!target) {
-    return attackAdvantage(attackerConds, [], false, manual, featureAdv, featureDis);
+    return attackAdvantage(
+      attackerConds.filter((c) => !c.isConcentration).map((c) => c.label),
+      [],
+      false,
+      manual,
+    );
   }
-  return attackAdvantage(attackerConds, targetConds, within5, manual, featureAdv, featureDis);
+  const within5ft = tokensWithin5ft(attacker, target, snapshot.map);
+  const distanceFt = tokenDistanceFt(attacker, target, snapshot.map);
+  return evaluateAttackContext({
+    attackerConditions: attackerConds,
+    targetConditions: targetConds,
+    attackerEntity: {
+      conditions: attackerConds,
+      abilities: attackerEnt && 'abilities' in attackerEnt ? attackerEnt.abilities : undefined,
+      sheetAbilities: attackerEnt && 'sheetAbilities' in attackerEnt ? attackerEnt.sheetAbilities : undefined,
+    },
+    targetEntity: {
+      conditions: targetConds,
+      abilities: targetEnt && 'abilities' in targetEnt ? targetEnt.abilities : undefined,
+      sheetAbilities: targetEnt && 'sheetAbilities' in targetEnt ? targetEnt.sheetAbilities : undefined,
+    },
+    within5ft,
+    distanceFt,
+    manual,
+    targetTokenId: target.id,
+    includeArmedManeuvers: true,
+  }).adv;
 }
