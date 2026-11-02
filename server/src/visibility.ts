@@ -514,7 +514,7 @@ export function createSnapshotBuilder(
 
     const personalMemories=new Map<string,PlayerVision|undefined>();
     if(!sharedPartyVision&&role==='player'&&map)for(const id of owned){
-      personalMemories.set(id,createPlayerVision(map,data.tokens,new Set([id]),t=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc'&&t.refId===id,foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y})));
+      personalMemories.set(id,owned.size===1?playerVision:createPlayerVision(map,data.tokens,new Set([id]),t=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc'&&t.refId===id,foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y})));
     }
     let viewerTerrain=exploredTerrain;
     if(role==='player'&&map&&!preview&&!sharedPartyVision){
