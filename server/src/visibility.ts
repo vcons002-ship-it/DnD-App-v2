@@ -487,7 +487,7 @@ export function createSnapshotBuilder(
     // The DM's player view on the active board is a live exploration viewer.
     // Staging other maps and synthetic animation poses must not write history.
     const readOnly = !!preview || (partyPreview && map?.id !== activeMapId);
-    const boardKey = role !== 'dm' && !preview ? `${map?.explorationMode === 'revealed' && readOnly ? 1 : 0}:${[...owned].sort().join(',')}` : undefined;
+    const boardKey = role !== 'dm' && !preview ? `${map?.explorationMode !== 'off' && readOnly ? 1 : 0}:${[...owned].sort().join(',')}` : undefined;
     const cachedBoard = boardKey ? loaded.boardByOwned?.get(boardKey) : undefined;
     if (role !== 'dm') {
       if (preview) {
@@ -590,7 +590,7 @@ export function createSnapshotBuilder(
         const isStationaryPreview = !!previewVisionHit && !preview!.positions.has(t.id);
         const retained=rememberedById.get(t.id);
         const retain=()=>{
-          if(!retained||map?.explorationMode!=='revealed'||!manualVisible(retained.token)||!fogVisionContains(playerVision,retained.token.x,retained.token.y,false))return [];
+          if(!retained||map?.explorationMode==='off'||!manualVisible(retained.token)||(playerVision&&!playerVision.origins.length))return [];
           if(retained.monster)retainedDisplays.set(t.refId,retained.monster);
           return [{...retained.token,initiative:partySees(t)?t.initiative:null,sharedSightOnly:true,revealedOnly:true}];
         };
@@ -626,10 +626,10 @@ export function createSnapshotBuilder(
         }
         // Party positions are always known. Explicit DM hiding still wins.
         // The normal remembered mode retains only terrain, not lost creatures.
-        if(t.kind==='pc')return [{...t,sharedSightOnly:true,...(map?.explorationMode==='revealed'?{revealedOnly:true}:{})}];
+        if(t.kind==='pc')return [{...t,sharedSightOnly:true,...(map?.explorationMode!=='off'?{revealedOnly:true}:{})}];
         const part=partial();if(part.length)return part;
         const kept=retain();if(kept.length)return kept;
-        if(map?.explorationMode==='revealed'&&playerVision?.heavy&&!fogVisionContains(playerVision,t.x,t.y,false))return [];
+
         if(monById.get(t.refId)?.objectKind || !party.size || sameAsParty)return [];
         let partyVisible: boolean | undefined;
         if (!preview) {

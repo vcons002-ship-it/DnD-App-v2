@@ -82,12 +82,18 @@ describe('persistent shared party terrain memory',()=>{
   moveToken(f.ta.id,800,100); // DM relocation for this unit fixture.
   expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(true);
   expect(contains(f.snap().exploredTerrain,900,100)).toBe(true);
-  moveToken(f.ta.id,100,100);
+  moveToken(f.ta.id,100,100);moveToken(f.enemy.id,950,100);
   const snap=f.snap();expect(contains(snap.exploredTerrain,900,100)).toBe(true);
-  expect(snap.tokens.some(t=>t.id===f.enemy.id)).toBe(false);
-  expect(snap.monsters.some(m=>m.id===f.enemy.refId)).toBe(false);
+  expect(snap.tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:900,y:100,sharedSightOnly:true,revealedOnly:true});
+  expect(snap.monsters.some(m=>m.id===f.enemy.refId)).toBe(true);
+  expect(f.snap('explorer-b').tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:900,y:100,sharedSightOnly:true,revealedOnly:true});
   expect(contains(f.snap('explorer-b').exploredTerrain,900,100)).toBe(true);
+  setExplorationMode(f.s.id,f.map.id,'off');
+  expect(f.snap().exploredTerrain).toEqual([]);
   expect(f.snap('explorer-b').tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  setExplorationMode(f.s.id,f.map.id,'remembered');
+  expect(contains(f.snap('explorer-b').exploredTerrain,900,100)).toBe(true);
+  expect(f.snap('explorer-b').tokens.some(t=>t.id===f.enemy.id&&!t.revealedOnly)).toBe(false);
  });
  it('persists through cache loss, reclaim and map switching; DM-only prep does not explore',()=>{
   const f=fixture();
@@ -162,7 +168,7 @@ describe('DM-controlled personal vision',()=>{
   expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
   expect(resetExploration(f.s.id,f.map.id)).toBe(true);
   expect(db.prepare('SELECT * FROM personal_explored_terrain WHERE map_id=?').all(f.map.id)).toEqual([]);
-  expect(f.snap('explorer-b').tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  expect(f.snap('explorer-b').tokens.some(t=>t.id===f.enemy.id&&!t.revealedOnly)).toBe(false);
   expect(contains(f.snap('explorer-b').exploredTerrain,900,100)).toBe(false);
  });
  it('records a walking path per character and carries personal memory through backup/restore',async()=>{

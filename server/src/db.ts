@@ -767,7 +767,7 @@ export function rowToMap(r: MapRow): MapState {
     mapFogEnabled: !!r.map_fog_enabled,
     tokenFogEnabled: !!r.token_fog_enabled,
     sharedPartyVision: r.shared_party_vision!==0,
-    explorationMode: r.exploration_mode==='revealed'?'revealed':'remembered',
+    explorationMode: r.exploration_mode==='off'?'off':r.exploration_mode==='revealed'?'revealed':'remembered',
     mapVisionEnabled: r.map_vision_enabled!==0,
     tokenVisionEnabled: r.token_vision_enabled!==0,
     mapFogRevealed: parseJsonColumn(r.map_fog_revealed, [], 'maps.map_fog_revealed ' + r.id) as string[],

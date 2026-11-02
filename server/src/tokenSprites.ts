@@ -42,7 +42,7 @@ export async function tokenSprites(id:string,snapshot:StateSnapshot,preShade=fal
    // Oversized tokens use the exact client fallback rather than allocating unbounded rasters.
    if(size>2048)continue;
    const affinityVisible=!!(d.disposition&&!t.sharedSightOnly&&(affinitySet?affinitySet.has(t.id):true));
-   const grayscale=preShade&&!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy&&map.explorationMode!=='revealed'&&(!d.icon||!!d.dead||!hasEmoji(d.icon));
+   const grayscale=preShade&&!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy&&(!d.icon||!!d.dead||!hasEmoji(d.icon));
    const hasHunterMark=!!(t.markLabels?.some(label=>/hunter.s mark/i.test(label))&&!t.sharedSightOnly);
    const cacheKey=`${px}:${map.gridSizePx}:${t.kind}:${t.widthFt}:${t.shape??'circle'}:${t.invisible?1:0}:${d.icon}:${d.name}:${d.curHp??''}:${d.maxHp??''}:${d.tempHp??''}:${d.dead?1:0}:${t.revealTag??''}:${affinityVisible?d.disposition:''}:${t.combatRole??''}:${hasHunterMark?1:0}:${grayscale?1:0}`;
    const cachedPair=spritePairCache.get(cacheKey);

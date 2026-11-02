@@ -1082,8 +1082,8 @@ function MapStageInner({
     if (groundTokens) groundTokens.style.zIndex = legacy?'1':'0';
     if (foreground) foreground.style.zIndex = '2';
     const shared=sharedTokenLayerRef.current?.getNativeCanvasElement();
-    if(shared){shared.style.zIndex='4';shared.style.filter=map?.explorationMode==='revealed'?'none':'grayscale(1)';shared.style.opacity=map?.explorationMode==='revealed'?'1':'.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
-  }, [dprKey, legacy, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode,legacyTerrain]);
+    if(shared){const colorMemory=map?.explorationMode!=='off'&&!usesDarknessVision(map);shared.style.zIndex='4';shared.style.filter=colorMemory?'none':'grayscale(1)';shared.style.opacity=colorMemory?'1':'.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
+  }, [dprKey, legacy, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode,map?.environment,legacyTerrain]);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -1788,7 +1788,7 @@ function MapStageInner({
         cacheArtwork={snapshot.serverRendering?.enabled===true}
         presentation={presentation}
         reducedEffects={legacy}
-        sharedDarkvision={!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy&&map?.explorationMode!=='revealed'}
+        sharedDarkvision={!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy}
         display={d}
         gridSizePx={grid}
         pxPerFoot={pxPerFoot}
@@ -2183,8 +2183,8 @@ function MapStageInner({
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?handlePrepareVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
-          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay terrain={{tiles:terrainTiles,grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}} ref={visionRef} presentation={presentation} terrainRaster={legacyServerTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map,snapshot.playerVision)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry??(sourceViewSnapshot.legacyMotion?.membershipOnly?sourceViewSnapshot.legacyGeometry:undefined)} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map,snapshot.playerVision)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
-            terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:terrainTiles,bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}
+          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay terrain={{tiles:terrainTiles,grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}} ref={visionRef} presentation={presentation} terrainRaster={legacyServerTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map,snapshot.playerVision)} explored={map?.explorationMode==='off'?[]:snapshot.exploredTerrain} keepRevealed={map?.explorationMode!=='off'&&!!snapshot.playerVision?.daylight}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry??(sourceViewSnapshot.legacyMotion?.membershipOnly?sourceViewSnapshot.legacyGeometry:undefined)} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode!=='off'&&!!snapshot.playerVision?.daylight} mapFogOfWar={usesMapVision(map,snapshot.playerVision)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+            terrain={{environment:map?.environment,explored:map?.explorationMode==='off'?[]:snapshot.exploredTerrain,tiles:terrainTiles,bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}
           <WallAndDoorHud wallActive={wallActive} wallTool={wallTool} setWallTool={setWallTool} setWallAnchor={setWallAnchor} wallThickness={wallThickness} setWallThickness={setWallThickness} selectedWall={selectedWall} featureSelection={featureSelection} deleteFeatures={deleteFeatures} map={map} doorDragPreview={doorDragPreview} doors={doors} activeDoorControls={activeDoorControls} dismissDoorControls={dismissDoorControls} actualDm={actualDm} sourceSnapshot={sourceSnapshot} snapshot={snapshot} onSelectToken={onSelectToken} operateDoor={operateDoor} />
           <DecalPopup snapshot={actualDm?sourceSnapshot:snapshot} />
           {hover && !menu && (
