@@ -12,7 +12,7 @@ export const walkingRoute=(id:string)=>routes.get(id);
 /** Preview messages and teleport/relocation commands never call this function. */
 export async function recordWalkingMove(previous:Token,next:Token,persist:boolean,relocate=false){
  routes.delete(next.id);
- const map=getMap(next.mapId);if(!map||relocate||previous.mapId!==next.mapId||next.teleportedAt!==previous.teleportedAt||Math.hypot(next.x-previous.x,next.y-previous.y)<.001)return;
+ const map=getMap(next.mapId);if(!map||relocate||previous.mapId!==next.mapId||next.teleportedAt!==undefined&&next.teleportedAt!==previous.teleportedAt||Math.hypot(next.x-previous.x,next.y-previous.y)<.001)return;
  const center=stopAtWalls(previous,next,0,map.walls);
  const crossedWall=Math.hypot(center.x-next.x,center.y-next.y)>.01||!hasLineOfSight(previous,next,map.walls);
  const route:WalkingRoute={id:randomUUID(),mapId:map.id,from:{x:previous.x,y:previous.y},to:{x:next.x,y:next.y},walls:JSON.stringify(map.walls??[]),generation:explorationGeneration(map.id),...(crossedWall?{crossedWall:true}:{})};

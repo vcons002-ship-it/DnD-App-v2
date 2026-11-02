@@ -10,7 +10,7 @@ import {isLiveCommand,noteRollFacing,noteLiveRollReveal,noteRollResult} from './
 import { processHitEffects, expireOnCasterTurn } from './hitEffectTurns.js';
 import { abilityKey, markSpell } from '../../shared/hitFeatures.js';
 import { checkReveal } from '../../shared/rollReveal.js';
-import {teleportTime,clearTeleport} from './tokenTeleports.js';
+import {teleportTime,clearTeleport,markTeleport} from './tokenTeleports.js';
 import { clearRipostes, RIPOSTE_SPENT } from './reactions.js';
 import { creatureBaseline, readCreatureBaseline, scaleCreature, scaledCurrentHp, validCR } from "../../shared/creatureScaling.js";
 import { requestCreatureAsset } from './assets/hooks.js';
@@ -501,18 +501,27 @@ export function getActiveMapId(sessionId: string): string | null {
 
 // ---- Tokens ----
 
+// Read condition-derived sight together with token placement, including worker
+// inputs and client animation snapshots, without one creature query per token.
+const tokenSightQuery=`SELECT t.*, COALESCE(c.conditions,m.conditions,'[]') AS vision_conditions FROM tokens t
+ LEFT JOIN characters c ON t.kind='pc' AND c.id=t.ref_id
+ LEFT JOIN monsters m ON t.kind='monster' AND m.id=t.ref_id`;
+type SightTokenRow=Parameters<typeof rowToToken>[0]&{vision_conditions:string};
+const sightToken=(row:SightTokenRow):Token=>({...rowToToken(row),teleportedAt:teleportTime(row.id),
+ ...((parseJsonColumn(row.vision_conditions,[],'token vision conditions') as {label?:string}[]).some(c=>c.label?.trim().toLowerCase()==='blinded')?{visionDisabled:true}:{})});
+
 export function listTokens(mapId: string): Token[] {
   const rows = db
-    .prepare('SELECT * FROM tokens WHERE map_id = ? ORDER BY created_at ASC')
-    .all(mapId) as Parameters<typeof rowToToken>[0][];
-  return rows.map(row=>({...rowToToken(row),teleportedAt:teleportTime(row.id)}));
+    .prepare(`${tokenSightQuery} WHERE t.map_id = ? ORDER BY t.created_at ASC`)
+    .all(mapId) as SightTokenRow[];
+  return rows.map(sightToken);
 }
 
 export function getToken(tokenId: string): Token | null {
-  const row = db.prepare('SELECT * FROM tokens WHERE id = ?').get(tokenId) as
-    | Parameters<typeof rowToToken>[0]
+  const row = db.prepare(`${tokenSightQuery} WHERE t.id = ?`).get(tokenId) as
+    | SightTokenRow
     | undefined;
-  return row ? {...rowToToken(row),teleportedAt:teleportTime(row.id)} : null;
+  return row ? sightToken(row) : null;
 }
 
 export function createToken(opts: {
@@ -658,8 +667,8 @@ export function wallLimitedMove(token:Token,x:number,y:number) {
   return resolveWallMovement(token,{x,y},radius,map?.walls);
 }
 
-export function moveToken(tokenId: string, x: number, y: number, blockWalls=false): Token | null {
-  clearTeleport(tokenId);
+export function moveToken(tokenId: string, x: number, y: number, blockWalls=false,relocate=false): Token | null {
+  if(!relocate)clearTeleport(tokenId);
   // Never trust client coordinates: reject NaN/Infinity and clamp to a sane
   // canvas range so a buggy/forged payload can't park a token at ±1e9 (which
   // would break the map view for everyone) or bind a non-finite value.
@@ -675,8 +684,9 @@ export function moveToken(tokenId: string, x: number, y: number, blockWalls=fals
   }
   const facing = facingAfterMove(previous.x, previous.y, nextX, nextY, previous.facing);
   db.prepare('UPDATE tokens SET x = ?, y = ?, facing = ? WHERE id = ?').run(nextX, nextY, facing, tokenId);
+  if(relocate)markTeleport(tokenId);
   const next=getToken(tokenId)!;
-  spikeMovement(previous,next);
+  if(!relocate)spikeMovement(previous,next);
   return next;
 }
 

@@ -17,7 +17,7 @@ export async function visionTiles(id:string,s:StateSnapshot,size:{width:number;h
  const width=Math.max(tileSize,(Math.ceil(right/worldTile)-col)*tileSize),height=Math.max(tileSize,(Math.ceil(bottom/worldTile)-row)*tileSize);
  // Sparse or enormous off-map extents retain the bounded single-mask fallback.
  if(width*height>8_000_000)return;
- const options={width,height,x,y,scale,heavy:v.heavy,daylight:!!v.daylight,wallFog:usesMapVision(s.map),keepRevealed:s.map.explorationMode==='revealed',graded};
+ const options={width,height,x,y,scale,heavy:v.heavy,daylight:!!v.daylight,wallFog:usesMapVision(s.map,v),keepRevealed:s.map.explorationMode==='revealed',graded};
  const result=await visibilityWorkers.run({maskTiles:{svg:legacyMaskSvg(g,options),width,height,tileSize}},timing?span=>timing.workers.push(span):undefined);
  const tiles:RasterTiles['tiles']={};
  for(const t of result.tiles){

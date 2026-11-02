@@ -70,8 +70,8 @@ export function walkingTerrain({walkSight:{map,tokens,owned:ownedIds,tokenId,fro
   const key=`${point.x},${point.y}:${radius}`;let shape=cache.get(key);
   if(!shape){shape=markQuantized([[wallVisibilityPolygon(point,map.walls??[],radius).map(p=>[Math.round(p.x*64)/64,Math.round(p.y*64)/64])]]);cache.set(key,shape);if(share)onCache?.(cachedWallKey,key,shape);}return shape;
  };
- const fallbackOrigins=(at:Token[])=>at.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y}));
- const dynamicLanterns=tokens.some(t=>t.carriedLantern&&!t.isHidden&&(t.kind!=='pc'||!owned.has(t.refId)));
+ const fallbackOrigins=(at:Token[])=>at.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden&&!t.visionDisabled).map(t=>({id:t.id,x:t.x,y:t.y}));
+ const dynamicLanterns=tokens.some(t=>t.carriedLantern&&!t.isHidden&&(t.visionDisabled||t.kind!=='pc'||!owned.has(t.refId)));
  const baseAt=tokens.map(token=>token.id===tokenId?{...token,x:from.x,y:from.y}:token);
  const baseVision=!dynamicLanterns?(createPlayerVision(map,baseAt,owned)??{rangeFt:60 as const,radius:60*map.gridSizePx/map.feetPerSquare,heavy:false,origins:fallbackOrigins(baseAt),lights:[],daylight:true}):undefined;
  let staticLights:ExploredTerrain=[];

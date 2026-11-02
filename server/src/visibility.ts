@@ -585,6 +585,8 @@ export function createSnapshotBuilder(
       const tokenWallVision = usesTokenVision(map);
       tokens = tokens.flatMap(t => {
         if(t.isHidden)return [];
+        // Blindness removes sight, not control of one's own token.
+        if(t.kind==='pc'&&owned.has(t.refId)&&t.visionDisabled)return [t];
         const isStationaryPreview = !!previewVisionHit && !preview!.positions.has(t.id);
         const retained=rememberedById.get(t.id);
         const retain=()=>{

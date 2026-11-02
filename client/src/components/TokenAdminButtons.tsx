@@ -24,6 +24,7 @@ export function TokenAdminButtons({
   const setTokenHidden = useStore((s) => s.setTokenHidden);
   const setTokensHideCombatRole = useStore((s) => s.setTokensHideCombatRole);
   const deleteToken = useStore((s) => s.deleteToken);
+  const setDmTeleportToken = useStore((s) => s.setDmTeleportToken);
   const speakAs = useStore((s) => s.speakAs);
   const menu = variant === 'menu';
   const run = (fn: () => void) => () => {
@@ -38,6 +39,10 @@ export function TokenAdminButtons({
 
   return (
     <>
+      <button className={cls()} onClick={run(()=>setDmTeleportToken(token.id))}
+        title="Choose a destination on this map. Jump there without exploring the route.">
+        Teleport token
+      </button>
       <button
         className={cls()}
         onClick={run(() => duplicateToken(token.id))}
