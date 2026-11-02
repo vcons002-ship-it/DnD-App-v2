@@ -151,6 +151,8 @@ export type FogLayer = 'map' | 'tokens';
 /** A token is a per-map placement that references a character or monster. */
 export type Token = {
   teleportedAt?: number;
+  /** Derived from the creature's Blinded condition; never client-authoritative. */
+  visionDisabled?: boolean;
   leavesNoTracks?: boolean;
   /** Derived active spell marks; display only, never a persisted condition. */
   markLabels?: string[];

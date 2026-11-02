@@ -47,7 +47,7 @@ export function rememberTerrain(map:MapState,tokens:Token[],tiles:MapImage[],lig
  let fog:ExploredTerrain|undefined;
  const clipFog=(shape:ExploredTerrain)=>map.mapFogEnabled?clipping.intersection(shape,fog??=fogArea(map)):shape;
 
-  const vision=precomputedVision!==undefined?precomputedVision:(createPlayerVision(map,tokens,owned,lightAllowed)??{rangeFt:60,radius:60*map.gridSizePx/map.feetPerSquare,heavy:false,daylight:true,lights:[],origins:tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y}))});
+  const vision=precomputedVision!==undefined?precomputedVision:(createPlayerVision(map,tokens,owned,lightAllowed)??{rangeFt:60,radius:60*map.gridSizePx/map.feetPerSquare,heavy:false,daylight:true,lights:[],origins:tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden&&!t.visionDisabled).map(t=>({id:t.id,x:t.x,y:t.y}))});
   const id=memoryKey(map.id,characterId),key=JSON.stringify([terrainKey,vision,map.mapFogEnabled,map.mapFogEnabled?map.mapFogRevealed:[]]);
   const previous=cache.get(id);
   if(previous?.key===key)return previous.terrain;
@@ -112,7 +112,7 @@ export function mergeWalkingTerrain(map:MapState,tiles:MapImage[],seen:ExploredT
  readOnlyCache.delete(id);
  if(tokens&&!tokens.some(t=>t.carriedLantern&&t.kind==='monster')){
   const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden&&(!characterId||t.refId===characterId)).map(t=>t.refId));
-  const vision=createPlayerVision(map,tokens,owned)??{rangeFt:60,radius:60*map.gridSizePx/map.feetPerSquare,heavy:false,daylight:true,lights:[],origins:tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y}))};
+  const vision=createPlayerVision(map,tokens,owned)??{rangeFt:60,radius:60*map.gridSizePx/map.feetPerSquare,heavy:false,daylight:true,lights:[],origins:tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden&&!t.visionDisabled).map(t=>({id:t.id,x:t.x,y:t.y}))};
   const cacheKey=JSON.stringify([key,vision,map.mapFogEnabled,map.mapFogEnabled?map.mapFogRevealed:[]]);
   const clipped=map.mapFogEnabled?clipping.intersection(result,fogArea(map)):result;
   if(cache.size>=512)cache.delete(cache.keys().next().value!);

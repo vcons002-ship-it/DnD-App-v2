@@ -105,6 +105,9 @@ type Store = {
   skipLiveDice: () => void;
   teleportCast:AbilityRollPayload|null;
   clearTeleportCast:()=>void;
+  dmTeleportTokenId:string|null;
+  setDmTeleportToken:(id:string|null)=>void;
+  teleportToken:(tokenId:string,x:number,y:number)=>void;
   spellAreaPreviews:Record<string,import('../../../shared/types').SpellAreaPreview>;
   shareSpellArea:(payload:import('../../../shared/types').SpellAreaPreviewIntent|null)=>void;
   areaCast:{payload:AbilityRollPayload;spec:SpellArea;name:string;repeat?:import('../../../shared/types').SpellRepeatPayload}|null;
@@ -554,6 +557,9 @@ export const useStore = create<Store>((set, get) => ({
   },
   teleportCast:null,
   clearTeleportCast:()=>set({teleportCast:null}),
+  dmTeleportTokenId:null,
+  setDmTeleportToken:id=>{if(id&&get().snapshot?.role!=='dm')return;set({dmTeleportTokenId:id,teleportCast:null,areaCast:null});},
+  teleportToken:(tokenId,x,y)=>{if(get().snapshot?.role==='dm')get().socket?.emit('token:move',{tokenId,x,y,movement:'relocate'});set({dmTeleportTokenId:null});},
   spellAreaPreviews:{},
   shareSpellArea:payload=>get().socket?.emit('spell:areaPreview',payload),
   areaCast:null,
@@ -796,7 +802,7 @@ export const useStore = create<Store>((set, get) => ({
     }
     set({
       status: 'connecting',
-      areaCast:null,spellAreaPreviews:{},teleportCast:null,liveDice:null,resolvingDice:null,skippedLiveDiceId:null,
+      areaCast:null,spellAreaPreviews:{},teleportCast:null,dmTeleportTokenId:null,liveDice:null,resolvingDice:null,skippedLiveDiceId:null,
       error: null,
       dmPassphrase: dmPassphrase ?? null,
       chatAccessToken: null,
@@ -1155,7 +1161,7 @@ export const useStore = create<Store>((set, get) => ({
       renderSerial++;renderPending=false;renderHpQueue.length=0;
       set({hiddenRollReview:null,hiddenRollSubmitting:false});
       completedLiveTrays.clear();
-      set({liveDice:null,resolvingDice:null, skippedLiveDiceId:null, areaCast:null,spellAreaPreviews:{},teleportCast:null, chatAccessToken: null});
+      set({liveDice:null,resolvingDice:null, skippedLiveDiceId:null, areaCast:null,spellAreaPreviews:{},teleportCast:null,dmTeleportTokenId:null, chatAccessToken: null});
       if (reason === 'io client disconnect') return; // we asked to leave
       set((s) => (s.status === 'connected' ? { status: 'reconnecting' } : {}));
     });
@@ -1180,7 +1186,7 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   selectMap: (mapId) => {
-    set({ viewMapId: mapId, areaCast:null,teleportCast:null });
+    set({ viewMapId: mapId, areaCast:null,teleportCast:null,dmTeleportTokenId:null });
     get().socket?.emit('map:select', { mapId });
   },
   setDmPartyView: enabled => get().socket?.emit('dm:partyView',enabled),

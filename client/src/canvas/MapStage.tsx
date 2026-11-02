@@ -156,6 +156,15 @@ function MapStageInner({
   Konva.pixelRatio=konvaPixelRatio;
   const [dmViewMode,setDmViewMode]=useState<'dm'|'scene'|'player'>('dm');
   const actualDm=sourceSnapshot.role==='dm';
+  const dmTeleportTokenId=useStore(s=>s.dmTeleportTokenId);
+  const setDmTeleportToken=useStore(s=>s.setDmTeleportToken);
+  const dmTeleportToken=actualDm?sourceSnapshot.tokens.find(t=>t.id===dmTeleportTokenId&&t.mapId===sourceSnapshot.map?.id):undefined;
+  useEffect(()=>{
+    if(!dmTeleportTokenId)return;
+    if(!dmTeleportToken){setDmTeleportToken(null);return;}
+    const cancel=(e:KeyboardEvent)=>{if(e.key==='Escape')setDmTeleportToken(null);};
+    window.addEventListener('keydown',cancel);return()=>window.removeEventListener('keydown',cancel);
+  },[dmTeleportTokenId,dmTeleportToken?.id,setDmTeleportToken]);
   const partyPreview=actualDm&&dmViewMode==='player';
   const setDmPartyView=useStore(s=>s.setDmPartyView);
   const previewSocketId=useStore(s=>s.socket?.id);
@@ -857,9 +866,11 @@ function MapStageInner({
     const owned = new Set(snapshot.characters.filter(c => c.claimedBy === ownerId).map(c => c.id));
     const friendly = new Set(snapshot.monsters.filter(m => m.disposition === 'friendly').map(m => m.id));
     const tokens = new Map(snapshot.tokens.map(t => [t.id, { x:t.x, y:t.y, kind:t.kind, hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly, revealedOnly:t.revealedOnly,
+      controlledBlind:t.visionDisabled&&t.kind==='pc'&&(actualDm||owned.has(t.refId)),
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
       const token = tokens.get(id);
+      if(token?.controlledBlind)return true;
       // Accepted Legacy positions have already passed per-viewer server filtering.
       // Avoid repeating wall/light raycasts for every token during a flat redraw.
       if((legacy&&snapshot.legacyGeometry!==undefined)||(!presentation.moving()&&token&&x===token.x&&y===token.y))return !!token;
@@ -870,7 +881,7 @@ function MapStageInner({
         (token.owned || fogVisionContains(presentation.personalVision(),x,y,usesTokenVision(snapshot.map))) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
     };
-  }, [legacy,snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
+  }, [actualDm,legacy,snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
   const visibleAtRef = useRef(miniatureVisibleAt);
   visibleAtRef.current = miniatureVisibleAt;
   // Keep TokenShape's memo stable across unrelated snapshots while reading current fog.
@@ -1278,6 +1289,10 @@ function MapStageInner({
   const handleMouseDown = async (e: KonvaEventObject<MouseEvent | TouchEvent>) => {
     const stage = e.target.getStage();
     if (!stage) return;
+    if(dmTeleportToken&&(!('button'in e.evt)||e.evt.button===0)){
+      if('touches'in e.evt&&e.evt.touches.length>1)return;
+      const p=pointerToImage(stage);if(p)useStore.getState().teleportToken(dmTeleportToken.id,p.x,p.y);return;
+    }
     if(teleportCast&&(!('button'in e.evt)||e.evt.button===0)){const p=pointerToImage(stage);if(p)setTeleportPoint(p);return;}
     if(areaCast&&(!('button'in e.evt)||e.evt.button===0)){const p=pointerToImage(stage);if(p)placeSpellArea(p);return;}
     // Two fingers down → start a pinch-zoom (and suspend panning/drawing).
@@ -1746,8 +1761,10 @@ function MapStageInner({
   };
 
   const entities=tokenEntityIndex(snapshot),myClaimedCharId=snapshot.characters.find(ch=>ch.claimedBy===mySocketId)?.id;
-  const renderTokens = (miniatures: boolean, shared = false) => snapshot.tokens.filter(t=>!!t.sharedSightOnly===shared).filter(t=>!doorTokenIds.has(t.id)).filter((token) =>
-    !hiddenGhosts.has(token.id) && (readyMiniatures.has(token.id) && miniatureIds.has(token.id)) === miniatures,
+  // Keep an actionable marker above the blackout without revealing terrain.
+  const blindControl=(t:Token)=>snapshot.role==='player'&&!!t.visionDisabled&&t.kind==='pc'&&(actualDm||t.refId===myClaimedCharId);
+  const renderTokens = (miniatures: boolean, shared = false) => snapshot.tokens.filter(t=>(!!t.sharedSightOnly||blindControl(t))===shared).filter(t=>!doorTokenIds.has(t.id)).filter((token) =>
+    !hiddenGhosts.has(token.id) && (!blindControl(token)&&readyMiniatures.has(token.id) && miniatureIds.has(token.id)) === miniatures,
   ).map((t) => {
     const d = resolveToken(snapshot, t);
     const creature = t.kind === 'pc' ? entities.characters.get(t.refId) : entities.monsters.get(t.refId);
@@ -1765,7 +1782,7 @@ function MapStageInner({
       <TokenShape
         key={t.id}
         token={t}
-        serverLayer={legacy&&!!snapshot.tokenLayerRaster&&serverTokenLayerSet.has(t.id)}
+        serverLayer={!blindControl(t)&&legacy&&!!snapshot.tokenLayerRaster&&serverTokenLayerSet.has(t.id)}
         serverSprite={snapshot.tokenSprites?.[t.id]}
         cacheArtwork={snapshot.serverRendering?.enabled===true}
         presentation={presentation}
@@ -1786,7 +1803,7 @@ function MapStageInner({
         draggable={
           !t.sharedSightOnly && draggableTokens && movable && (actualDm || !speedIsZero(creature ?? {})) && !fogActive && !measureActive && !saveResolve && !orbTarget
         }
-        listening={!t.sharedSightOnly && !measureActive}
+        listening={!t.sharedSightOnly && !measureActive && !dmTeleportToken}
         selected={!t.sharedSightOnly && (orbTarget ? orbTarget.targetId === t.id : selectedIdSet.has(t.id))}
         activeTurn={!t.sharedSightOnly && t.id === activeTurnTokenId}
         initiativeRank={initiativeRank.get(t.id) ?? null}
@@ -1820,6 +1837,7 @@ function MapStageInner({
         style={{ left: Math.min(activeSelectionBox.box.start.x, activeSelectionBox.box.end.x), top: Math.min(activeSelectionBox.box.start.y, activeSelectionBox.box.end.y),
           width: Math.abs(activeSelectionBox.box.end.x - activeSelectionBox.box.start.x), height: Math.abs(activeSelectionBox.box.end.y - activeSelectionBox.box.start.y) }} />}
       {placingLight&&<div className="environment-placement-hint" role="status">{lightPlacement?.lightId?'Click map to move light':'Click repeatedly to place lights'} · <button onClick={()=>placeLight(null)}>Done</button></div>}
+      {dmTeleportToken&&<div className="environment-placement-hint" style={{maxWidth:'calc(100% - 24px)',whiteSpace:'normal'}} role="status">Tap map to teleport {resolveToken(sourceSnapshot,dmTeleportToken).name}. No exploration along the route. <button onClick={()=>setDmTeleportToken(null)}>Cancel teleport</button></div>}
       {!map && <div className="stage-empty">No active map yet.</div>}
       {map && (
         <>
@@ -1841,7 +1859,7 @@ function MapStageInner({
             }}
             onWheel={handleWheel}
             style={{
-              cursor: orbTarget || onPlaceAt || fogActive || measureActive ? 'crosshair' : 'default',
+              cursor: dmTeleportToken || orbTarget || onPlaceAt || fogActive || measureActive ? 'crosshair' : 'default',
             }}
           >
             <Layer
@@ -2138,7 +2156,7 @@ function MapStageInner({
                 <CursorPointers currentMapId={map?.id} scale={view.scale} />
               )}
             </Layer>
-            <Layer ref={sharedTokenLayerRef} name="shared-sight-layer" listening={false}
+            <Layer ref={sharedTokenLayerRef} name="shared-sight-layer"
               x={view.x} y={view.y} scaleX={view.scale} scaleY={view.scale * groundScaleY}>
               {renderTokens(false, true)}{renderTokens(true, true)}
             </Layer>
@@ -2159,12 +2177,12 @@ function MapStageInner({
             </Layer>
           </Stage>
           {!legacy&&(miniatureTokens.length > 0 || preloadMiniatures.length > 0 || environment || spellImpacts.length > 0) && <MiniatureFallback onUnavailable={handleMiniatureUnavailable}><Suspense fallback={null}>
-            <MiniatureLayer preparedSpellImpacts={preparedSpellImpacts} spellColorOverlay={spellColorOverlay} spellMist={spellMist} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={renderPlayerVision&&(usesMapVision(map)||!!snapshot.playerVision?.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
+            <MiniatureLayer preparedSpellImpacts={preparedSpellImpacts} spellColorOverlay={spellColorOverlay} spellMist={spellMist} key={map?.id} ref={miniatureRef} rollBackground={rollBackground} rollBackgroundPrepared={rollBackgroundPrepared} personalVision={renderPlayerVision&&(usesMapVision(map,snapshot.playerVision)||!!snapshot.playerVision?.heavy)} tokens={miniatureTokens} preloadDefinitions={preloadMiniatures} onFailed={setFailedMiniatures} onUnavailable={handleMiniatureUnavailable} view={view} isVisibleAt={tokenVisibleAtPosition}
               environmentPreview={environment} footprints={readFootprints} spellImpacts={spellImpacts} spellFog={spellFog} visualPosition={presentation.position} memoryTerrainCanvas={memoryTerrainCanvas} visionCoverFrame={visionCoverFrame}
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?handlePrepareVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
-          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay terrain={{tiles:terrainTiles,grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}} ref={visionRef} presentation={presentation} terrainRaster={legacyServerTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry??(sourceViewSnapshot.legacyMotion?.membershipOnly?sourceViewSnapshot.legacyGeometry:undefined)} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay terrain={{tiles:terrainTiles,grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}} ref={visionRef} presentation={presentation} terrainRaster={legacyServerTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map,snapshot.playerVision)} explored={snapshot.exploredTerrain} keepRevealed={map?.explorationMode==='revealed'}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry??(sourceViewSnapshot.legacyMotion?.membershipOnly?sourceViewSnapshot.legacyGeometry:undefined)} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode==='revealed'} mapFogOfWar={usesMapVision(map,snapshot.playerVision)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:snapshot.exploredTerrain,tiles:terrainTiles,bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}
           <WallAndDoorHud wallActive={wallActive} wallTool={wallTool} setWallTool={setWallTool} setWallAnchor={setWallAnchor} wallThickness={wallThickness} setWallThickness={setWallThickness} selectedWall={selectedWall} featureSelection={featureSelection} deleteFeatures={deleteFeatures} map={map} doorDragPreview={doorDragPreview} doors={doors} activeDoorControls={activeDoorControls} dismissDoorControls={dismissDoorControls} actualDm={actualDm} sourceSnapshot={sourceSnapshot} snapshot={snapshot} onSelectToken={onSelectToken} operateDoor={operateDoor} />
           <DecalPopup snapshot={actualDm?sourceSnapshot:snapshot} />

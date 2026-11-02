@@ -1219,7 +1219,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
           return;
         }
       }
-      const dmMove=isDm(),sid=sessionId()!,relocate=dmMove&&movement==='relocate',moved=moveToken(tokenId,x,y,!dmMove);
+      const dmMove=isDm(),sid=sessionId()!,relocate=dmMove&&movement==='relocate',moved=moveToken(tokenId,x,y,!dmMove,relocate);
       movementApplied();
       expireTimedSpellEffects(sid);
       return afterRollCommit(async()=>{if(moved)try{await recordWalkingMove(moving,moved,hasExplorationViewer(sid,moved.mapId),relocate);}catch(error){console.warn('Could not remember walking route:',String(error));}finishInitiative(sid);broadcastSnapshots(io,sid);if(moved&&typeof placed==='function')placed({x:moved.x,y:moved.y});});

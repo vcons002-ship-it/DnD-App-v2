@@ -39,7 +39,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
  for(const t of after.tokens){
   const previous=old.get(t.id);if(!previous||previous.x===t.x&&previous.y===t.y)continue;
   const route=walkingRoute(t.id);
-  if(!route||route.generation!==explorationGeneration(after.map.id)||t.teleportedAt!==previous.teleportedAt||route.mapId!==after.map.id||route.walls!==JSON.stringify(after.map.walls??[])||route.from.x!==previous.x||route.from.y!==previous.y||route.to.x!==t.x||route.to.y!==t.y)return;
+  if(!route||route.generation!==explorationGeneration(after.map.id)||t.teleportedAt!==undefined&&t.teleportedAt!==previous.teleportedAt||route.mapId!==after.map.id||route.walls!==JSON.stringify(after.map.walls??[])||route.from.x!==previous.x||route.from.y!==previous.y||route.to.x!==t.x||route.to.y!==t.y)return;
   moves[t.id]={from:route.from,to:route.to};routes.push(route);
  }
  if(!routes.length)return;
@@ -76,7 +76,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
     rawViews.push(t<.5?{...after,...first,partyView:undefined,legacyMotion:undefined,exploredTerrain:remembered}:{...after,partyView:undefined,legacyMotion:undefined,exploredTerrain:after.exploredTerrain});
    }
   }else{
-   const originIds=new Set(after.playerVision?.origins.map(o=>o.id));
+   const originIds=new Set([...(after.playerVision?.origins.map(o=>o.id)??[]),...(after.playerVision?.blindTokenIds??[])]);
    const ownedIds=[...current.values()].filter(t=>originIds.has(t.id)).map(t=>t.refId).sort();
    const routeKey=routes.map(r=>`${r.id}:${r.generation}:${r.from.x},${r.from.y}->${r.to.x},${r.to.y}`).join('|');
    const cacheKey=JSON.stringify([after.map,after.role,ownedIds,routeKey,after.tokens,after.monsters,before.exploredTerrain??[],after.exploredTerrain??[]]);
@@ -128,7 +128,7 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
       const vKey=JSON.stringify(view.playerVision);
       let geomPromise=stepGeomByVision.get(vKey);
       if(!geomPromise){
-       geomPromise=visibilityWorkers.run({mapId:view.map!.id,vision:view.playerVision,wallFog:usesMapVision(view.map),tokens:[]},timing?span=>timing.workers.push(span):undefined);
+       geomPromise=visibilityWorkers.run({mapId:view.map!.id,vision:view.playerVision,wallFog:usesMapVision(view.map,view.playerVision),tokens:[]},timing?span=>timing.workers.push(span):undefined);
        stepGeomByVision.set(vKey,geomPromise);
       }
       const geom=await geomPromise;

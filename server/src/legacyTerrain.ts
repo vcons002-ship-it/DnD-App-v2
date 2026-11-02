@@ -36,7 +36,7 @@ export async function legacyTerrainFrames(id:string,frames:StateSnapshot[],inclu
  const right=Math.ceil(Math.max(...images.map(i=>i.x+i.w))),bottom=Math.ceil(Math.max(...images.map(i=>i.y+i.h)));
  const scale=Math.min(1,1024/Math.max(right-x,bottom-y)),width=Math.max(1,Math.ceil((right-x)*scale)),height=Math.max(1,Math.ceil((bottom-y)*scale));
  const columns=Math.min(4,frames.length),rows=Math.ceil(frames.length/columns);if(width*height*columns*rows>17_000_000)return;
- const bounds={x,y,width,height,scale},wallFog=usesMapVision(first.map);
+ const bounds={x,y,width,height,scale},wallFog=usesMapVision(first.map,first.playerVision);
  const options=(f:StateSnapshot)=>({...bounds,wallFog,heavy:!!f.playerVision?.heavy,daylight:!!f.playerVision?.daylight,keepRevealed:f.map?.explorationMode==='revealed',graded:true});
  const lightSvgs=frames.map(f=>legacyLightSvg(f.legacyGeometry!,options(f))),maskSvgs=includeMask?frames.map(f=>legacyMaskSvg(f.legacyGeometry!,options(f))):[];
  const key=createHash('sha256').update(JSON.stringify([images,bounds])).digest('hex');
