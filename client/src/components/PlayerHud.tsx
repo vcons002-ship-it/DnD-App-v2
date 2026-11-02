@@ -328,7 +328,6 @@ function PlayerHudInner({
           <JeweledResources character={character} layout={resourceLayout} overflowCustomResources={overflowCustomResources} />
           <div className="hud-status-strip">
             <PlayerConditionControl character={character} />
-            {inDarkness&&<CarriedLanternControl token={lanternToken} orb/>}
             {!isPlaced && (
               <button type="button" className="hud-place-token" aria-pressed={placing} onClick={onPlace}>
                 {placing ? 'Tap map to place…' : 'Place token'}
@@ -336,6 +335,7 @@ function PlayerHudInner({
             )}
           </div>
         </div>
+        {inDarkness&&lanternToken&&<div className="hud-lantern-footer"><CarriedLanternControl token={lanternToken} orb/></div>}
       </div>
       {character.curHp <= 0 && (
         <div className="hud-death fantasy-window">
