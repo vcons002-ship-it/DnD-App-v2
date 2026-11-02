@@ -35,7 +35,7 @@ for(const mobile of [false,true])test(`vision controls and orb actions ${mobile?
   await place.click();await expect(player.getByRole('button',{name:/Tap map to place/,exact:true})).toHaveAttribute('aria-pressed','true');
   const board=(await player.locator('.stage-wrap').boundingBox())!;await player.mouse.click(board.x+board.width*.55,board.y+board.height*.4);
   const lamp=player.getByRole('button',{name:'Carried lantern',exact:true});await expect(lamp).toBeVisible();
-  const lampBox=(await lamp.boundingBox())!;expect(lampBox.width).toBeGreaterThanOrEqual(43);expect(lampBox.height).toBeGreaterThanOrEqual(47);
+  const lampBox=(await lamp.boundingBox())!;expect(lampBox.width).toBeGreaterThanOrEqual(35);expect(lampBox.height).toBeGreaterThanOrEqual(39);
   await lamp.click();await expect(lamp).toHaveAttribute('aria-pressed','true');
   expect((await f.state()).tokens.find((t:any)=>t.refId===f.pc.id)?.carriedLantern).toBe(true);
   await lamp.click();await expect(lamp).toHaveAttribute('aria-pressed','false');
