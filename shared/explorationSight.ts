@@ -58,13 +58,13 @@ export function fogTerrain(map:MapState):ExploredTerrain{
  for(const [y,cols] of rows){const xs=[...new Set(cols)].sort((a,b)=>a-b);let i=0;while(i<xs.length){const start=xs[i];let end=start;while(i+1<xs.length&&xs[i+1]===end+1)end=xs[++i];i++;parts.push(markQuantized([[[[start*g,y*g],[(end+1)*g,y*g],[(end+1)*g,(y+1)*g],[start*g,(y+1)*g]]]]));}}
  return unionTerrain(parts);
 }
-export type WalkSightJob={walkSight:{map:MapState;tokens:Token[];tokenId:string;from:{x:number;y:number};to:{x:number;y:number}}};
+export type WalkSightJob={walkSight:{map:MapState;tokens:Token[];owned?:string[];tokenId:string;from:{x:number;y:number};to:{x:number;y:number}}};
 /** Half-grid walking samples, capped at 128 intervals for pathological drags.
  * This is terrain history only; it never authorizes creature data. */
-export function walkingTerrain({walkSight:{map,tokens,tokenId,from,to}}:WalkSightJob,onCache?:TerrainCacheObserver){
+export function walkingTerrain({walkSight:{map,tokens,owned:ownedIds,tokenId,from,to}}:WalkSightJob,onCache?:TerrainCacheObserver){
  const count=Math.min(128,Math.max(2,Math.ceil(Math.hypot(to.x-from.x,to.y-from.y)/Math.max(1,map.gridSizePx/2))));
  const steps=count%2?Math.min(128,count+1):count,cache=terrainCacheFor(map.walls);
- const owned=new Set(tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId));
+ const owned=new Set(ownedIds??tokens.filter(t=>t.kind==='pc'&&!t.isHidden).map(t=>t.refId));
  const combine=(parts:ExploredTerrain[])=>parts.length===1?parts[0]:unionTerrain(parts);
  const polygon=(point:{x:number;y:number},radius:number,share=false)=>{
   const key=`${point.x},${point.y}:${radius}`;let shape=cache.get(key);

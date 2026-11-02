@@ -1,3 +1,4 @@
+import {invalidateExploration} from './exploration.js';
 import { starterCreatures } from './creatures/starterLibrary.js';
 import {spikeMovement} from './advancedSpells.js';
 import {parseChatPrivacy, type ChatPrivacy, type StoredChatMessage} from './privateChat.js';
@@ -339,6 +340,13 @@ export function setVisionFog(sessionId:string,mapId:string,layer:FogLayer,enable
   if((layer!=='map'&&layer!=='tokens')||typeof enabled!=='boolean')return false;
   const column=layer==='map'?'map_vision_enabled':'token_vision_enabled';
   return db.prepare(`UPDATE maps SET ${column}=? WHERE id=? AND session_id=?`).run(enabled?1:0,mapId,sessionId).changes>0;
+}
+
+export function setSharedPartyVision(sessionId:string,mapId:string,enabled:boolean):boolean {
+  if(typeof enabled!=='boolean')return false;
+  const updated=db.prepare('UPDATE maps SET shared_party_vision=? WHERE id=? AND session_id=?').run(enabled?1:0,mapId,sessionId).changes>0;
+  if(updated)invalidateExploration(mapId);
+  return updated;
 }
 
 export function setExplorationMode(sessionId:string,mapId:string,mode:'remembered'|'revealed'):boolean {

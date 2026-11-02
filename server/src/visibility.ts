@@ -1,3 +1,4 @@
+import {unionTerrain} from '../../shared/explorationSight.js';
 import {isInvisible} from '../../shared/advancedSpells.js';
 import {seesInvisible} from '../../shared/invisibleSight.js';
 import {tokenDistanceFt} from '../../shared/distance.js';
@@ -448,6 +449,7 @@ export function createSnapshotBuilder(
     const grid = map?.gridSizePx ?? 50;
     const party = loaded.party;
     const owned=preview?new Set(preview.owned):partyPreview?party:new Set(characters.filter(c=>c.claimedBy===socketId||(!!playerId&&!c.claimedBy&&c.ownerId===playerId)).map(c=>c.id));
+    const sharedPartyVision=map?.sharedPartyVision!==false;
     const sameAsParty = owned.size === party.size && [...owned].every(id => party.has(id));
 
     const computePartyVision = () => createPlayerVision(map, data.tokens, party, t => tokenVisibleAt({
@@ -510,8 +512,14 @@ export function createSnapshotBuilder(
       }
     }
 
+    const personalMemories=new Map<string,PlayerVision|undefined>();
+    if(!sharedPartyVision&&role==='player'&&map)for(const id of owned){
+      personalMemories.set(id,createPlayerVision(map,data.tokens,new Set([id]),t=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc'&&t.refId===id,foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y})));
+    }
     let viewerTerrain=exploredTerrain;
-    if(role==='player'&&map&&!preview){
+    if(role==='player'&&map&&!preview&&!sharedPartyVision){
+      viewerTerrain=unionTerrain([...personalMemories].map(([id,vision])=>rememberTerrain(map!,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc'&&t.refId===id,foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}),readOnly,vision,id)));
+    }else if(role==='player'&&map&&!preview){
       const terrain=()=>rememberTerrain(map!,data.tokens,data.mapImages,t=>tokenVisibleAt({role,hidden:t.isHidden,
       owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',
       mapFog,tokenFog,grid,x:t.x,y:t.y}),partyPreview||!!preview,getPartyVision());
@@ -529,15 +537,15 @@ export function createSnapshotBuilder(
         tokens = cachedBoard.tokens;
         shapedMonsters = cachedBoard.shapedMonsters;
       } else {
-      const partyVision = sameAsParty ? playerVision : getPartyVision();
+      const partyVision = !sharedPartyVision||sameAsParty ? playerVision : getPartyVision();
       // A concealed torch must not leak its position or light nearby visible figures.
       // Clone the viewer's map; never mutate the shared map used by DM snapshots.
       if (!previewVisionHit && map?.environment && mapFog) map = { ...map, environment: { ...map.environment,
         lights: map.environment.lights.filter(light => mapFog.has(`${Math.floor(light.x / grid)},${Math.floor(light.y / grid)}`)) } };
       const manualVisible=(t:Token)=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y});
-      const partySeesRaw=(t:Token)=>manualVisible(t)&&fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&party.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
+      const partySeesRaw=(t:Token)=>manualVisible(t)&&fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&(sharedPartyVision?party:owned).has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
       const partySees=(t:Token):boolean=>{
-        if (!preview) {
+        if (!preview && sharedPartyVision) {
           let cache = loaded.partySeesById;
           if (!cache) loaded.partySeesById = cache = new Map();
           const hit = cache.get(t.id);
@@ -551,7 +559,13 @@ export function createSnapshotBuilder(
 
 
       let rememberedById: Map<string, RevealedFigure>;
-      if (!preview && map) {
+      if(!sharedPartyVision&&map){
+        const records=[...personalMemories].flatMap(([id,vision])=>{
+          const sees=(t:Token)=>manualVisible(t)&&fogVisionContains(vision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&o.refId===id&&seesInvisible(charById.get(id)!,tokenDistanceFt(o,t,map))));
+          return rememberFigures(map!,data.mapImages,data.tokens,sees,(x,y)=>fogVisionContains(vision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?getPlayerMonster(m):undefined;},readOnly,id);
+        });
+        rememberedById=new Map(records.map(r=>[r.token.id,r]));
+      }else if (!preview && map) {
         let byRo = loaded.rememberedByReadonly;
         if (!byRo) loaded.rememberedByReadonly = byRo = new Map();
         let cachedRem = byRo.get(readOnly);
@@ -598,6 +612,7 @@ export function createSnapshotBuilder(
           if (isStationaryPreview) previewVisionHit!.personalVisible.set(t.id, personallyVisible);
         }
         if(personallyVisible)return [t];
+        if(!sharedPartyVision)return retain();
         // Party positions are always known. Explicit DM hiding still wins.
         // The normal remembered mode retains only terrain, not lost creatures.
         if(t.kind==='pc')return [{...t,sharedSightOnly:true,...(map?.explorationMode==='revealed'?{revealedOnly:true}:{})}];

@@ -1,3 +1,41 @@
+/* Keep orb actions easy to tap even when the HUD is scaled down. */
+.player-fantasy .hud-orb-cluster .orb-lantern-toggle {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  z-index: 5;
+  width: max(44px, calc(44px / var(--player-ui-scale)));
+  min-height: max(48px, calc(48px / var(--player-ui-scale)));
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  pointer-events: auto;
+  background: #171a20ed;
+  border: 1px solid #887550;
+  border-radius: 9px;
+  color: #b5b1a6;
+  font-size: 10px;
+}
+.player-fantasy .hud-orb-cluster .orb-lantern-toggle[aria-pressed='true'] {
+  color: #ffe0a1;
+  border-color: #dfb665;
+  background: #362b19ed;
+}
+.player-fantasy .player-hud .hud-status-strip .hud-place-token {
+  min-height: max(48px, calc(48px / var(--player-ui-scale)));
+  min-width: 132px;
+  padding: 10px 16px;
+  border: 1px solid #d1ad69;
+  border-radius: 8px;
+  background: #362b1a;
+  color: #fff0cb;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.player-fantasy .player-hud .hud-status-strip .hud-place-token[aria-pressed='true'] { background: #51401f; }
 /* A light engraved title above the sculpture, never a plate laid over it. */
 .player-fantasy .hud-orb-cluster .hud-identity-line {
   position: absolute;

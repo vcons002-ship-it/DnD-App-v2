@@ -846,6 +846,8 @@ export type MapState = {
   gridHidden: boolean;
   /** Automatic sight-based fog. Missing legacy values default to enabled. */
   explorationMode?: 'remembered' | 'revealed';
+  /** DM-controlled sharing of party sightings/history; omitted values default on. */
+  sharedPartyVision?: boolean;
   mapVisionEnabled?: boolean;
   tokenVisionEnabled?: boolean;
   /** Whether each manually painted cover layer is active on this map. */
@@ -1835,6 +1837,7 @@ export interface ClientToServerEvents {
   'fog:setLayer': (payload: FogSetLayerPayload) => void;
   'fog:setVision': (payload: FogSetVisionPayload) => void;
   'fog:resetExploration': (payload: {mapId:string}) => void;
+  'fog:setPartyVision': (payload: {mapId:string;enabled:boolean}) => void;
   'fog:setExploration': (payload: {mapId:string;mode:'remembered'|'revealed'}) => void;
   'fog:paint': (payload: FogPaintPayload) => void;
   'fog:cover': (payload: FogCoverPayload) => void;

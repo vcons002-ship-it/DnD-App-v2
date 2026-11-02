@@ -361,6 +361,7 @@ if (ensureColumn('maps', 'fog_mode', "fog_mode TEXT NOT NULL DEFAULT 'off'")) {
 ensureColumn('maps', 'map_fog_enabled', 'map_fog_enabled INTEGER NOT NULL DEFAULT 0');
 ensureColumn('maps', 'token_fog_enabled', 'token_fog_enabled INTEGER NOT NULL DEFAULT 0');
 ensureColumn('maps', 'map_vision_enabled', 'map_vision_enabled INTEGER NOT NULL DEFAULT 1');
+ensureColumn('maps', 'shared_party_vision', 'shared_party_vision INTEGER NOT NULL DEFAULT 1');
 ensureColumn('maps', 'exploration_mode', "exploration_mode TEXT NOT NULL DEFAULT 'remembered'");
 ensureColumn('maps', 'token_vision_enabled', 'token_vision_enabled INTEGER NOT NULL DEFAULT 1');
 // Real-world map width in feet (0 = unset → fall back to feet-per-square scale).
@@ -472,6 +473,14 @@ db.exec(`CREATE TABLE IF NOT EXISTS explored_terrain (
   geometry TEXT NOT NULL DEFAULT '[]'
 )`);
 ensureColumn('explored_terrain','token_memory',"token_memory TEXT NOT NULL DEFAULT '[]'");
+db.exec(`CREATE TABLE IF NOT EXISTS personal_explored_terrain (
+  map_id TEXT NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
+  character_id TEXT NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+  terrain_key TEXT NOT NULL,
+  geometry TEXT NOT NULL DEFAULT '[]',
+  token_memory TEXT NOT NULL DEFAULT '[]',
+  PRIMARY KEY(map_id,character_id)
+)`);
 // No token FK: deleted enemies must not free a public encounter number for reuse.
 db.exec(`CREATE TABLE IF NOT EXISTS encounter_tags (
   map_id TEXT NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
@@ -708,6 +717,7 @@ type MapRow = {
   map_fog_enabled: number;
   token_fog_enabled: number;
   exploration_mode?: string;
+  shared_party_vision?: number;
   map_vision_enabled?: number;
   token_vision_enabled?: number;
   map_fog_revealed: string;
@@ -756,6 +766,7 @@ export function rowToMap(r: MapRow): MapState {
     gridHidden: !!r.grid_hidden,
     mapFogEnabled: !!r.map_fog_enabled,
     tokenFogEnabled: !!r.token_fog_enabled,
+    sharedPartyVision: r.shared_party_vision!==0,
     explorationMode: r.exploration_mode==='revealed'?'revealed':'remembered',
     mapVisionEnabled: r.map_vision_enabled!==0,
     tokenVisionEnabled: r.token_vision_enabled!==0,

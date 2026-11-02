@@ -21,6 +21,7 @@ export type SessionBundle = {
   tokens: Row[];
   encounterTags?: Row[];
   exploredTerrain?: Row[];
+  personalExploredTerrain?: Row[];
   renderingPolicies?: Row[];
   characters: Row[];
   monsters: Row[];
@@ -83,6 +84,7 @@ export function exportSession(code: string): SessionBundle | null {
     ),
     encounterTags: all('SELECT t.* FROM encounter_tags t JOIN maps m ON t.map_id = m.id WHERE m.session_id = ?', sid),
     exploredTerrain: all('SELECT t.* FROM explored_terrain t JOIN maps m ON t.map_id = m.id WHERE m.session_id = ?', sid),
+    personalExploredTerrain: all('SELECT t.* FROM personal_explored_terrain t JOIN maps m ON t.map_id = m.id WHERE m.session_id = ?', sid),
     renderingPolicies: all('SELECT * FROM rendering_policies WHERE session_id = ?', sid),
     characters: all('SELECT * FROM characters WHERE session_id = ?', sid),
     monsters: all('SELECT * FROM monsters WHERE session_id = ?', sid),
@@ -336,8 +338,9 @@ const importSessionRows = db.transaction(
     }
 
     // 7. Per-map extras + the session-wide logs.
-    for(const explored of data.exploredTerrain??[]){
-      const map=newRef(explored.map_id,mapIds);
+    for(const [table,rows] of [['explored_terrain',data.exploredTerrain??[]],['personal_explored_terrain',data.personalExploredTerrain??[]]] as const)for(const explored of rows){
+      const map=newRef(explored.map_id,mapIds),character=table==='personal_explored_terrain'?newRef(explored.character_id,charIds):undefined;
+      if(table==='personal_explored_terrain'&&!character)continue;
       if(map){
         let memory:unknown[]=[];
         try{const value=JSON.parse(String(explored.token_memory??'[]'));if(Array.isArray(value))memory=value;}catch{}
@@ -346,7 +349,7 @@ const importSessionRows = db.transaction(
           if(!id||!ref||t.mapId!==explored.map_id)return [];
           return [{token:{...t,id,mapId:map,refId:ref},...(item.monster?{monster:{...item.monster,id:ref}}:{})}];
         });
-        insertRow('explored_terrain',explored,{map_id:map,token_memory:JSON.stringify(remapped)});
+        insertRow(table,explored,{map_id:map,...(character?{character_id:character}:{}),token_memory:JSON.stringify(remapped)});
       }
     }
     for (const r of data.measurements)

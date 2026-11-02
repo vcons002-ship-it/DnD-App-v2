@@ -7,6 +7,8 @@ import type { FogLayer } from '../../../shared/types';
  * popover pattern. Presentational — all state lives in MapStage.
  */
 export function FogMenu({
+  sharedPartyVision,
+  onSharedPartyVision,
   onResetExploration,
   explorationMode,
   onExplorationMode,
@@ -25,6 +27,8 @@ export function FogMenu({
   onCoverAll,
   onRevealAll,
 }: {
+  sharedPartyVision:boolean;
+  onSharedPartyVision:(enabled:boolean)=>void;
   onResetExploration:()=>void;
   explorationMode:'remembered'|'revealed';
   onExplorationMode:(mode:'remembered'|'revealed')=>void;
@@ -84,6 +88,11 @@ export function FogMenu({
         <>
           <div className="popover-backdrop" onClick={() => setOpen(false)} />
           <div className="measure-menu" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
+            <div className="measure-label">Player vision</div>
+            <button className={`measure-row ${sharedPartyVision?'on':''}`} aria-pressed={sharedPartyVision} onClick={()=>onSharedPartyVision(!sharedPartyVision)}>
+              <span>Shared party vision</span><span className="muted">{sharedPartyVision?'on':'off'}</span>
+            </button>
+            <div className="measure-label">{sharedPartyVision?'Players see party sightings and share remembered terrain.':'Players see and remember only what their own characters discover. Personal history starts when sharing is off; shared history stays saved separately.'}</div>
             <div className="measure-label">Automatic visibility</div>
             <div className="measure-label">These switches hide things behind walls or closed doors. With none on the map, there is no wall concealment. Darkness can still limit sight separately.</div>
             <label className="measure-row">Revealed areas
@@ -103,8 +112,8 @@ export function FogMenu({
             <button className="measure-row" onClick={()=>{
               if(!confirmReset){setConfirmReset(true);return;}
               onResetExploration();setConfirmReset(false);setOpen(false);
-            }}>{confirmReset?'Confirm reset explored fog':'Reset explored fog'}</button>
-            {confirmReset&&<div className="measure-label">Forgets the party's explored map and last-seen figures on this map. Current sight stays visible. Click again to reset.</div>}
+            }}>{confirmReset?'Confirm reset remembered map':'Reset player remembered map'}</button>
+            {confirmReset&&<div className="measure-label">Forgets shared and personal remembered terrain and last-seen figures for every player on this map. Current sight stays visible. Click again to reset.</div>}
 
             <div className="measure-sep" />
             <div className="measure-label">Manual cover</div>

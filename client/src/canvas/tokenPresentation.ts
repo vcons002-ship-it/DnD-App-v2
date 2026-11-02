@@ -57,6 +57,7 @@ export class TokenPresentation {
     // Shared exploration arrives for the destination. Show existing memory plus
     // live sight until the party finishes moving. Clears/restrictions are immediate.
     if(!sameMap || !snapshot.exploredTerrain?.length || !this.moving() ||
+      previous?.explorationEpoch!==snapshot.explorationEpoch || previous?.map?.sharedPartyVision!==snapshot.map?.sharedPartyVision ||
       previous?.map?.mapFogEnabled!==snapshot.map?.mapFogEnabled ||
       JSON.stringify(previous?.map?.mapFogRevealed)!==JSON.stringify(snapshot.map?.mapFogRevealed))this.memory=snapshot.exploredTerrain;
     this.visionDirty=true;

@@ -184,6 +184,7 @@ import {
   setFogLayer,
   setVisionFog,
   setExplorationMode,
+  setSharedPartyVision,
   setTokenHidden,
   setTokenInCombat,
   setTokensHideCombatRole,
@@ -1100,6 +1101,11 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       afterChange();
     });
 
+    on('fog:setPartyVision',({mapId,enabled})=>{
+      const sid=sessionId();
+      if(!sid||!isDm()||!setSharedPartyVision(sid,mapId,enabled))return;
+      afterChange();
+    });
     on('fog:setExploration', ({mapId,mode})=>{
       const sid=sessionId();
       if(!sid||!isDm()||!setExplorationMode(sid,mapId,mode))return;
@@ -1109,7 +1115,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
     on('fog:resetExploration', ({mapId})=>{
       const sid=sessionId();
       if(!sid||!isDm()||!resetExploration(sid,mapId))return;
-      socket.emit('notice',{message:'Explored fog reset for this map. Areas currently in party sight remain visible.'});
+      socket.emit('notice',{message:'Player remembered map reset. Areas currently in sight remain visible.'});
       afterChange();
     });
 
