@@ -1120,7 +1120,7 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('connect', () => {
       socket.emit(
         'join',
-          { sessionCode: code, role, dmPassphrase, playerId: getPlayerId(),stateProtocol:1,renderProtocol:retainedRenderingEnabled()?3:1,legacyRendering:readGraphicsQuality()==='legacy',sprites2d:(()=>{const legacy=readGraphicsQuality()==='legacy',pid=getPlayerId();try{const pc=localStorage.getItem(`dnd.tokenView:${pid}`)==='2d',monster=(localStorage.getItem(`dnd.monsterTokenView:${pid}`)??localStorage.getItem(`dnd.tokenView:${pid}`))==='2d';return{pc:legacy||pc,monster:legacy||monster};}catch{return{pc:legacy,monster:legacy};}})(),serverRendering:readServerRendering(),legacyMotion:true,compactMotion:true },
+          { sessionCode: code, role, dmPassphrase, playerId: getPlayerId(),stateProtocol:1,renderProtocol:retainedRenderingEnabled()?3:1,legacyRendering:readGraphicsQuality()==='legacy',sprites2d:(()=>{const legacy=readGraphicsQuality()==='legacy',pid=getPlayerId();try{const pc=localStorage.getItem(`dnd.tokenView:${pid}`)==='2d',monster=(localStorage.getItem(`dnd.monsterTokenView:${pid}`)??localStorage.getItem(`dnd.tokenView:${pid}`))==='2d';return{pc:legacy||pc,monster:legacy||monster};}catch{return{pc:legacy,monster:legacy};}})(),serverRendering:readServerRendering(),legacyMotion:true,compactMotion:true,motionEntityRefs:true },
         (ack: JoinAck) => {
           if (ack.ok) {
             wireSnapshot=null;wireRevision=0;renderSerial++;renderFailures=0;renderPending=false;renderHpQueue.length=0;

@@ -7,6 +7,7 @@ import {flushRenderWarmer,setRenderWarmer} from './renderAssets.js';
 import {currentMovementTiming,timingClock} from './movementTiming.js';
 import type {MovementFrameTiming} from '../../shared/movementTiming.js';
 import {clearLegacyMotionCache,prepareLegacyMotion} from './legacyMotion.js';
+import {compactMotionEntities} from '../../shared/legacyMotion.js';
 type Emitter={to:(id:string)=>{emit:(event:any,payload:any)=>unknown}};
 type Delivery={serial:number;revision:number;active:boolean;wake?:()=>void;pending?:StateSnapshot;pendingTiming?:MovementFrameTiming;previous?:StateSnapshot;previousSource?:StateSnapshot;inputKey?:string;ready?:StateSnapshot;readySource?:StateSnapshot;forceFull:boolean;legacy:boolean;managed:boolean;lastAt:number;effects:(()=>void)[]};
 const deliveries=new Map<string,Delivery>();
@@ -38,7 +39,7 @@ async function addGeometry(snapshot:StateSnapshot,detailed=false,timing?:Movemen
 }
 /** Legacy geometry and its accepted positions travel in one revision. Old clients
  * retain synchronous full snapshots. A busy connection keeps only its newest state. */
-export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options:{stateProtocol?:1;renderProtocol?:1|2|3;legacyRendering?:boolean;sprites2d?:{pc:boolean;monster:boolean};serverRendering?:boolean;legacyMotion?:boolean;compactMotion?:boolean},after?:()=>void){
+export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options:{stateProtocol?:1;renderProtocol?:1|2|3;legacyRendering?:boolean;sprites2d?:{pc:boolean;monster:boolean};serverRendering?:boolean;legacyMotion?:boolean;compactMotion?:boolean;motionEntityRefs?:boolean},after?:()=>void){
  if(options.stateProtocol!==1){io.to(id).emit('state:snapshot',snapshot);after?.();return;}
  let d=deliveries.get(id);
  const managed=options.serverRendering??!!options.legacyRendering;
@@ -113,6 +114,7 @@ export function deliverState(io:Emitter,id:string,snapshot:StateSnapshot,options
     }else{deliveryMetrics.stale++;continue;}
    }
    d!.previousSource=source;
+   if(options.motionEntityRefs)prepared={...prepared,legacyMotion:prepared.legacyMotion?compactMotionEntities(prepared.legacyMotion):undefined,...(prepared.partyView?{partyView:{...prepared.partyView,legacyMotion:prepared.partyView.legacyMotion?compactMotionEntities(prepared.partyView.legacyMotion):undefined}}:{})};
    const revision=++d!.revision,full:StateFrame={revision,full:prepared};let frame:StateFrame=full;
    const fullBytes=Buffer.byteLength(JSON.stringify(full));let wireBytes=fullBytes;
    if(d!.previous&&!d!.forceFull){const delta:StateFrame={revision,base:revision-1,delta:diffSnapshot(d!.previous,prepared)};const deltaBytes=Buffer.byteLength(JSON.stringify(delta));if(deltaBytes<fullBytes){frame=delta;wireBytes=deltaBytes;}}

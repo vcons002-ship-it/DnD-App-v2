@@ -1,6 +1,7 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import type {StateSnapshot} from '../../../shared/types';
 import type {LegacyMotion,LegacyPlayback} from '../../../shared/legacyMotion';
+import {createMotionSnapshots} from './motionSnapshots';
 import {legacyMotionIndex} from '../../../shared/legacyMotion';
 /** Positions and image atlases use the shared presentation clock; React only
  * switches authorized token membership or appearance, never atlas pixels. */
@@ -20,13 +21,15 @@ export function useLegacyMovement(source:StateSnapshot,enabled:boolean){
  }
  if(!enabled||window.matchMedia('(prefers-reduced-motion: reduce)').matches)state.current.plan=undefined;
  const active=state.current,plan=active.plan,elapsed=performance.now()-active.start,stage=!plan?0:legacyMotionIndex(performance.now(),active.start,plan.durationMs,plan.frames.length),complete=!plan||elapsed>=plan.durationMs;
+ const frames=useMemo(()=>plan?createMotionSnapshots(source,plan):undefined,[source,plan]);
  useLayoutEffect(()=>{
-  if(!plan)return;
+  if(!plan||!frames)return;
   // Membership-only plans also use the presentation clock for every position;
   // unchanged authorization poses do not need additional React renders.
   const hasMotionFrames=plan.membershipOnly||!!plan.atlas||plan.frames.some(f=>!!f.legacyGeometry);
-  const signature=(f:LegacyMotion['frames'][number])=>JSON.stringify([f.tokenIds,f.tokens,f.monsters,f.tokenSprites,f.legacyGeometry?.affinity]);
-  const times=plan.frames.flatMap((f,i)=>i&&(!hasMotionFrames||signature(f)!==signature(plan.frames[i-1]))?[f.at]:[]);times.push(1);
+  const sameAffinity=(a:string[]|undefined,b:string[]|undefined)=>a===b||(!!a&&!!b&&a.length===b.length&&a.every((v,i)=>v===b[i]));
+  const samePose=(i:number)=>frames[i].tokens===frames[i-1].tokens&&frames[i].monsters===frames[i-1].monsters&&frames[i].tokenSprites===frames[i-1].tokenSprites&&sameAffinity(plan.frames[i].legacyGeometry?.affinity,plan.frames[i-1].legacyGeometry?.affinity);
+  const times=plan.frames.flatMap((f,i)=>i&&(!hasMotionFrames||!samePose(i))?[f.at]:[]);times.push(1);
   const timers=new Set<ReturnType<typeof setTimeout>>();let cancelled=false;
   for(const at of new Set(times)){
    const deadline=active.start+plan.durationMs*at;
@@ -34,18 +37,9 @@ export function useLegacyMovement(source:StateSnapshot,enabled:boolean){
    timers.add(setTimeout(wake,Math.max(1,deadline-performance.now())));
   }
   return()=>{cancelled=true;timers.forEach(clearTimeout);};
- },[plan,active.start]);
+ },[plan,frames,active.start]);
  useEffect(()=>{const media=window.matchMedia('(prefers-reduced-motion: reduce)'),changed=()=>setTick(n=>n+1);media.addEventListener('change',changed);return()=>media.removeEventListener('change',changed);},[]);
- const snapshot=useMemo(()=>{
-  if(!plan||complete)return source;
-  const frame=plan.frames[stage],tokensById=new Map(source.tokens.map(t=>[t.id,t]));
-  for(const token of frame.tokens??[])tokensById.set(token.id,plan.moves[token.id]?{...token,...plan.moves[token.id].to}:token);
-  const tokens=frame.tokenIds.flatMap(id=>tokensById.has(id)?[tokensById.get(id)!]:[]),monsterIds=new Set(tokens.filter(t=>t.kind==='monster').map(t=>t.refId));
-  const monstersById=new Map(source.monsters.map(m=>[m.id,m]));for(const monster of frame.monsters??[])monstersById.set(monster.id,monster);
-  // Keep destination coordinates for the shared presentation clock. Stationary
-  // creatures may exist only in this authorized intermediate frame.
-  return {...source,tokens,monsters:[...monstersById.values()].filter(m=>monsterIds.has(m.id)),tokenSprites:frame.tokenSprites?{...source.tokenSprites,...frame.tokenSprites}:source.tokenSprites,legacyGeometry:frame.legacyGeometry,visionRaster:frame.visionRaster,visionTiles:frame.visionTiles};
- },[source,plan,stage,complete]);
+ const snapshot=plan&&!complete?frames![stage]:source;
  const playback=useMemo<LegacyPlayback|undefined>(()=>plan&&!complete?{id:plan.id,start:active.start,durationMs:plan.durationMs,moves:plan.moves,atlas:plan.atlas,frames:plan.membershipOnly?undefined:plan.frames.map(f=>f.legacyGeometry)}:undefined,[plan,complete,active.start]);
  return {snapshot,playback,stage,tick};
 }

@@ -635,6 +635,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         sprites2d:payload.sprites2d&&typeof payload.sprites2d.pc==='boolean'&&typeof payload.sprites2d.monster==='boolean'?{pc:payload.sprites2d.pc,monster:payload.sprites2d.monster}:undefined,
         legacyMotion:payload.legacyMotion===true,
         compactMotion:payload.compactMotion===true,
+        motionEntityRefs:payload.motionEntityRefs===true,
         sessionId: session.id,
         role: payload.role,
         viewMapId: session.activeMapId,
