@@ -2,7 +2,7 @@ import { attackAdvantage, evaluateAttackContext } from '../../../shared/conditio
 import type { Advantage } from '../../../shared/dice';
 import { tokenDistanceFt, tokensWithin5ft } from '../../../shared/distance';
 import { hasLineOfSight } from '../../../shared/mapWalls';
-import { visionContains } from '../../../shared/playerVision';
+import { fogVisionContainsToken, tokenRadiusPx, usesTokenVision } from '../../../shared/playerVision';
 import { resolveToken, tokenEntityIndex } from './entities';
 import type { StateSnapshot, Token } from '../../../shared/types';
 
@@ -15,10 +15,10 @@ import type { StateSnapshot, Token } from '../../../shared/types';
 function eligible(snapshot:StateSnapshot,attacker:Token,showDead:boolean){
  const entities=tokenEntityIndex(snapshot);
  const tokens=snapshot.tokens.filter(t=>t.id!==attacker.id&&t.mapId===attacker.mapId&&
-  !(snapshot.role==='player'&&t.sharedSightOnly)&&
+  !(snapshot.role==='player'&&(t.sharedSightOnly||t.partiallyRevealed))&&
   !(t.kind==='monster'&&entities.monsters.get(t.refId)?.modelType==='spiritual-weapon')&&
   (showDead||!resolveToken(snapshot,t).dead)&&hasLineOfSight(attacker,t,snapshot.map?.walls)&&
-  (snapshot.role!=='player'||visionContains(snapshot.playerVision,t.x,t.y)));
+  (snapshot.role!=='player'||fogVisionContainsToken(snapshot.playerVision,t.x,t.y,tokenRadiusPx(t,snapshot.map),usesTokenVision(snapshot.map))));
  return tokens;
 }
 function attackList(snapshot:StateSnapshot,attacker:Token,tokens:Token[]){

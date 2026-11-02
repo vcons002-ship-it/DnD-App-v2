@@ -81,7 +81,7 @@ type Props = {
   onSelect: (token: Token, additive: boolean) => void;
   /** Double-click / double-tap — select + expand the player's details panel. */
   onActivate?: (token: Token) => void;
-  onMove: (token: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => void;
+  onMove: (token: Token, x: number, y: number, placed?: (p: {x:number;y:number}) => void, movement?: 'walk' | 'relocate') => void;
   /** Right-click / long-press — opens the floating action menu at screen coords. */
   onContextMenu?: (token: Token, clientX: number, clientY: number) => void;
   /** Pointer hover over the token (desktop) — drives the hover card. */
@@ -306,7 +306,8 @@ function TokenShapeInner({
     // simply leaves the token here, so no stale acknowledgement can move it.
     e.target.position(committed.current);
     e.target.getLayer()?.batchDraw();
-    onMove(token,x,y);
+    const relocate = !!(e.evt && 'altKey' in e.evt && e.evt.altKey);
+    onMove(token, x, y, undefined, relocate ? 'relocate' : undefined);
   };
 
   // Long-press (touch) mirrors right-click to open the floating menu. We keep a
@@ -540,7 +541,7 @@ function TokenShapeInner({
   // External/vector portraits retain their own bitmap fallback. Prepared flat
   // art and GPU miniature labels already have independent reusable pixels.
   const conditionAppearanceKey = display.conditions.map(c => `${c.id}:${c.label}:${c.aura ?? ''}:${c.isConcentration ? 1 : 0}`).join('|');
-  const appearance = `${display.name}|${display.curHp ?? ''}|${display.maxHp ?? ''}|${display.tempHp ?? ''}|${display.disposition ?? ''}|${display.dead ? 1 : 0}|${display.deathSaves?.successes ?? ''}:${display.deathSaves?.failures ?? ''}|${display.icon}|${conditionAppearanceKey}|${shape}|${radius}|${selected ? 1 : 0}|${isDead ? 1 : 0}|${activeTurn ? 1 : 0}|${initiativeRank ?? ''}|${hideAffinity ? 1 : 0}|${viewRotation}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}|${sharedDarkvision ? 1 : 0}|${token.revealTag ?? ''}|${token.combatRole ?? ''}|${(token.markLabels ?? []).join(',')}|${token.invisible ? 1 : 0}`;
+  const appearance = `${display.name}|${display.curHp ?? ''}|${display.maxHp ?? ''}|${display.tempHp ?? ''}|${display.disposition ?? ''}|${display.dead ? 1 : 0}|${display.deathSaves?.successes ?? ''}:${display.deathSaves?.failures ?? ''}|${display.icon}|${conditionAppearanceKey}|${shape}|${radius}|${selected ? 1 : 0}|${isDead ? 1 : 0}|${activeTurn ? 1 : 0}|${initiativeRank ?? ''}|${hideAffinity ? 1 : 0}|${viewRotation}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}|${sharedDarkvision ? 1 : 0}|${token.revealTag ?? ''}|${token.combatRole ?? ''}|${(token.markLabels ?? []).join(',')}|${token.invisible ? 1 : 0}|${token.partiallyRevealed ? 1 : 0}`;
   useLayoutEffect(()=>{
     const art=tokenArt.current;if(!art)return;
     art.clearCache();
@@ -564,7 +565,7 @@ function TokenShapeInner({
       retainedRadius={radius*1.4+4}
       miniatureReady={miniatureReady}
       miniaturePending={miniaturePending}
-      tokenLabelVersion={`${display.name}|${token.kind}|${isDead ? 1 : 0}|${radius}|${nameY}|${nameWidth}|${tagWidth}|${labelY}|${labelFontSize}|${playerNameSize}|${monsterNameSize}|${token.revealTag ?? ''}|${hpFrac ?? ''}|${display.tempHp ?? ''}|${display.deathSaves?.successes ?? ''}:${display.deathSaves?.failures ?? ''}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}`}
+      tokenLabelVersion={`${display.name}|${token.kind}|${isDead ? 1 : 0}|${radius}|${nameY}|${nameWidth}|${tagWidth}|${labelY}|${labelFontSize}|${playerNameSize}|${monsterNameSize}|${token.revealTag ?? ''}|${hpFrac ?? ''}|${display.tempHp ?? ''}|${display.deathSaves?.successes ?? ''}:${display.deathSaves?.failures ?? ''}|${miniatureReady ? 1 : 0}|${miniaturePending ? 1 : 0}|${token.partiallyRevealed ? 1 : 0}`}
       x={presentation?.position(token.id)?.x??token.x}
       y={presentation?.position(token.id)?.y??token.y}
       listening={listening}
@@ -601,7 +602,7 @@ function TokenShapeInner({
           status/turn rings must not steal clicks from nearby token bodies. */}
       <Group ref={tokenArt} name="token-art" listening={false}>
       {/* Concentric status rings: red (negative), green (buff), blue (concentration). */}
-      {!miniatureReady && !miniaturePending && auras.map((a, i) => (
+      {!token.partiallyRevealed && !miniatureReady && !miniaturePending && auras.map((a, i) => (
         <Circle
           key={a}
           radius={radius + 5 + i * 5}
@@ -624,11 +625,11 @@ function TokenShapeInner({
       {serverLayer&&selected&&<Silhouette outlineOnly/>}
       {serverLayer&&<Group rotation={-viewRotation}>{initiativeBadge}</Group>}
       {!serverLayer&&<>
-      {miniaturePending && <Group name="token-miniature-loading" listening={false}>
+      {!token.partiallyRevealed && miniaturePending && <Group name="token-miniature-loading" listening={false}>
         <Circle radius={Math.min(radius * .3, 12)} stroke="#c9bb9b" strokeWidth={1.5} dash={[3, 3]} />
         <Text text="Loading 3D..." x={-45} y={16} width={90} align="center" fontSize={11} fill="#e8ddc6" stroke="#111" strokeWidth={2} fillAfterStrokeEnabled />
       </Group>}
-      {!miniatureReady&&!miniaturePending&&Array.from({length:mirrorImageCount(display.conditions)}).map((_,i)=><Group key={`mirror-${i}`} name="mirror-image-duplicate" opacity={.35} x={Math.cos(i*Math.PI*2/3)*radius*2*MIRROR_IMAGE_SPREAD} y={Math.sin(i*Math.PI*2/3)*radius*2*MIRROR_IMAGE_SPREAD} listening={false}>
+      {!token.partiallyRevealed&&!miniatureReady&&!miniaturePending&&Array.from({length:mirrorImageCount(display.conditions)}).map((_,i)=><Group key={`mirror-${i}`} name="mirror-image-duplicate" opacity={.35} x={Math.cos(i*Math.PI*2/3)*radius*2*MIRROR_IMAGE_SPREAD} y={Math.sin(i*Math.PI*2/3)*radius*2*MIRROR_IMAGE_SPREAD} listening={false}>
         {iconImg?<KonvaImage image={iconImg} x={-radius} y={-radius} width={radius*2} height={radius*2}/>:<><Silhouette fill={fill}/><Text text={display.icon||display.name.slice(0,2)} x={-radius} y={-radius} width={radius*2} height={radius*2} fontSize={radius} align="center" verticalAlign="middle"/></>}
       </Group>)}
       <Group ref={tokenBody} name="token-body" visible={!miniatureReady && !miniaturePending}>
@@ -690,7 +691,7 @@ function TokenShapeInner({
       )}
       </>}
       </Group>
-      <Group name="token-upright-hud" rotation={-viewRotation}>
+      <Group name="token-upright-hud" rotation={-viewRotation} visible={!token.partiallyRevealed}>
       {serverHud&&serverSprite?<><KonvaImage name="server-token-hud" image={serverHud} x={serverSprite.hud.x} y={serverSprite.hud.y} width={serverSprite.hud.width/serverSprite.hud.scale} height={serverSprite.hud.height/serverSprite.hud.scale}/>{isDead&&!miniatureReady&&!miniaturePending&&<Text text="💀" fontSize={radius*1.4} width={radius*2} height={radius*2} offsetX={radius} offsetY={radius} align="center" verticalAlign="middle"/>}{!isDead&&token.kind!=='pc'&&token.combatRole&&!miniatureReady&&!miniaturePending&&<Group name="token-combat-role" x={-radius*0.72} y={radius*0.72}><Text text={COMBAT_ROLE_ICON[token.combatRole]} fontSize={roleBadgeR*1.3} width={roleBadgeR*2} height={roleBadgeR*2} offsetX={roleBadgeR} offsetY={roleBadgeR} align="center" verticalAlign="middle"/></Group>}</>:<>
           {!miniatureReady && !token.sharedSightOnly && token.markLabels?.some(label=>/hunter.s mark/i.test(label)) && <Group y={-radius-22} listening={false} name="hunters-mark-sigil">
         <RegularPolygon sides={4} radius={14} stroke="#ffe7a1" strokeWidth={2} fill="#352106" rotation={0} shadowColor="#ffa62b" shadowBlur={8}/>
@@ -831,7 +832,7 @@ function TokenShapeInner({
           scene function paints nothing; Konva uses hitFunc on its separate hit
           canvas, and events still bubble to the existing draggable token group.
           Group listening=false (e.g. measuring) also disables this hit region. */}
-      <Shape
+      {!token.partiallyRevealed && <Shape
         name="token-hit-region"
         tokenId={token.id}
         fill="#000"
@@ -870,7 +871,7 @@ function TokenShapeInner({
           }
           ctx.fillStrokeShape(hitShape);
         }}
-      />
+      />}
     </Group>
     {/* Drag-distance readout (only on draggable tokens; hidden until a drag
         starts, then driven imperatively in paintDrag — never re-renders). A

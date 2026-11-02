@@ -66,8 +66,8 @@ async function renderLayer(id:string,s:StateSnapshot,legacy:boolean,composite:bo
       const pair=tokenImages[t.id];tokenLayerIds.push(t.id);
       const image=(a:typeof pair.body)=>`<image xlink:href="data:image/png;base64,${renderAssetFor(id,a.key)!.toString('base64')}" x="${a.x}" y="${a.y}" width="${a.width/a.scale}" height="${a.height/a.scale}"/>`;
       const r=t.widthFt*map.gridSizePx/map.feetPerSquare/2;
-      const mirrors=Array.from({length:mirrorImageCount(resolveToken(s,t).conditions)},(_,i)=>`<g opacity=".35" transform="translate(${Math.cos(i*Math.PI*2/3)*r*2*MIRROR_IMAGE_SPREAD} ${Math.sin(i*Math.PI*2/3)*r*2*MIRROR_IMAGE_SPREAD})">${image(pair.body)}</g>`).join('');
-      return `<g transform="translate(${t.x} ${t.y})" opacity="${t.isHidden?.45:1}">${mirrors}${image(pair.body)}${image(pair.hud)}</g>`;
+      const mirrors=t.partiallyRevealed?'':Array.from({length:mirrorImageCount(resolveToken(s,t).conditions)},(_,i)=>`<g opacity=".35" transform="translate(${Math.cos(i*Math.PI*2/3)*r*2*MIRROR_IMAGE_SPREAD} ${Math.sin(i*Math.PI*2/3)*r*2*MIRROR_IMAGE_SPREAD})">${image(pair.body)}</g>`).join('');
+      return `<g transform="translate(${t.x} ${t.y})" opacity="${t.isHidden?.45:1}">${mirrors}${image(pair.body)}${t.partiallyRevealed?'':image(pair.hud)}</g>`;
      }).join('');
      const svg=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="${left} ${top} ${width/scale} ${height/scale}">${art}</svg>`;
      tokenLayerRaster=await rasterAsset(id,svg,{width,height,x:left,y:top,scale});

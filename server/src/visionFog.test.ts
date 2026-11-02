@@ -2,7 +2,7 @@ import {describe,it,expect} from 'vitest';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,setVisionFog,getMap,setTokenHidden,setFogLayer,moveToken} from './sessions.js';
 import {buildSnapshot} from './visibility.js';
 import {editMapWalls,setWallDoor} from './mapWalls.js';
-import {usesMapVision,usesTokenVision,visionContains,fogVisionContains} from '../../shared/playerVision.js';
+import {usesMapVision,usesTokenVision,visionContains,fogVisionContains,fogVisionContainsToken,fogVisionIntersectsToken,tokenRadiusPx} from '../../shared/playerVision.js';
 import {stopAtWalls,hasLineOfSight} from '../../shared/mapWalls.js';
 import {exportSession,importSession} from './backup.js';
 
@@ -64,5 +64,37 @@ describe('independent automatic map and token fog',()=>{
   setTokenHidden(f.enemy.id,true);expect(f.snapshot().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
   setTokenHidden(f.enemy.id,false);setFogLayer(f.map.id,'tokens',true);
   expect(f.snapshot().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+ });
+ it('exposes partially revealed tokens on the map as masked/non-targetable until a large enough portion is visible',()=>{
+  const f=fixture();
+  setWallDoor(f.session.id,f.map.id,'closed-door',true);
+  updateMapEnvironment(f.session.id,f.map.id,{enabled:true,lighting:'dungeon',heavyDarkness:true,lights:[]});
+  // Vision radius in heavy darkness is 60 ft = 600 px from actor at (100, 200) -> edge at x = 700.
+  // Enemy has widthFt = 5 -> radiusPx = 25.
+  // At x = 715, the enemy's left edge (690..700) intersects the 700 px vision circle,
+  // but its center (715) and most of its footprint are outside (< 35% revealed).
+  moveToken(f.enemy.id,715,200);
+  let snap=f.snapshot();
+  const radius=tokenRadiusPx(f.enemy,snap.map);
+  expect(fogVisionIntersectsToken(snap.playerVision,715,200,radius,true)).toBe(true);
+  expect(fogVisionContainsToken(snap.playerVision,715,200,radius,true)).toBe(false);
+  const partial=snap.tokens.find(t=>t.id===f.enemy.id);
+  expect(partial).toBeDefined();
+  expect(partial?.partiallyRevealed).toBe(true);
+  expect(partial?.revealTag).toBeUndefined();
+  const partialMon=snap.monsters.find(m=>m.id===f.enemy.refId) as {curHp?:number;ac?:number}|undefined;
+  expect(partialMon?.curHp).toBeUndefined();
+  expect(partialMon?.ac).toBeUndefined();
+  // Even when the 3D miniature edge (0.6r -> x = 710) is inside the vision boundary, it stays partiallyRevealed until >= 35% is revealed.
+  moveToken(f.enemy.id,710,200);
+  snap=f.snapshot();
+  expect(snap.tokens.find(t=>t.id===f.enemy.id)?.partiallyRevealed).toBe(true);
+  // Once the enemy moves to x = 702 (~41% of footprint inside the 600 px vision circle), it becomes fully visible and targetable.
+  moveToken(f.enemy.id,702,200);
+  snap=f.snapshot();
+  expect(fogVisionContainsToken(snap.playerVision,702,200,radius,true)).toBe(true);
+  const full=snap.tokens.find(t=>t.id===f.enemy.id);
+  expect(full).toBeDefined();
+  expect(full?.partiallyRevealed).toBeUndefined();
  });
 });

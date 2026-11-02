@@ -138,6 +138,7 @@ export function useSpellTargeting(actionSnapshot: StateSnapshot, map: StateSnaps
           const e = resolveToken(actionSnapshot, t);
           return (
             !t.sharedSightOnly &&
+            !t.partiallyRevealed &&
             !e.dead &&
             !(t.kind === 'monster' && actionSnapshot.monsters.find((m) => m.id === t.refId)?.objectKind) &&
             !(areaExcludesCaster(areaCast.spec) && t.id === areaActor.id) &&

@@ -27,7 +27,7 @@ import {chatAudience,privateChatVisible} from './privateChat.js';
 import {chatImageForSend} from './chatImages.js';
 import {doorApproachPoints,hasLineOfSight} from '../../shared/mapWalls.js';
 import {doorInReach} from '../../shared/doorInteraction.js';
-import {visionContains} from '../../shared/playerVision.js';
+import {visionContains,fogVisionContainsToken,tokenRadiusPx,usesTokenVision} from '../../shared/playerVision.js';
 import {pendingGeometry,resyncDelivery,resetDelivery} from './stateDelivery.js';
 import {visibilityWorkers} from './visibilityWorkers.js';
 import {lastSnapshotFor,withRenderingState} from './connections.js';
@@ -1171,7 +1171,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const conn=getConn(socket.id),snapshot=lastSnapshotFor(socket.id);
       if(!conn||!snapshot||!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||typeof point.tokenId!=='string'||previewBusy||Date.now()-lastPreviewAt<150){ack(null);return;}
       if(!renderingState(conn.sessionId,snapshot.map?.id,conn.role==='player'?conn.playerId:null,conn.serverRendering!==false).enabled){ack(null);return;}
-      const token=snapshot.tokens.find(t=>t.id===point.tokenId&&!t.isHidden&&!t.sharedSightOnly);
+      const token=snapshot.tokens.find(t=>t.id===point.tokenId&&!t.isHidden&&!t.sharedSightOnly&&!t.partiallyRevealed);
       const allowed=token&&(conn.role==='dm'||token.kind==='pc'&&snapshot.characters.some(c=>c.id===token.refId&&c.claimedBy===socket.id)||token.kind==='monster'&&snapshot.monsters.some(m=>m.id===token.refId&&m.disposition==='friendly'&&!('objectKind' in m&&m.objectKind)));
       if(!token||!allowed||token.mapId!==snapshot.map?.id){ack(null);return;}
       previewBusy=true;lastPreviewAt=Date.now();const connection=conn;
@@ -1677,8 +1677,8 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const conn = commandConnection();
       if (!conn) return false;
       const snapshot = buildSnapshot(conn.sessionId, conn.role, conn.viewMapId, commandSocketId(), conn.playerId);
-      return !!snapshot?.tokens.some((token) => token.id === tokenId && !token.sharedSightOnly &&
-        (conn.role==='dm'||visionContains(snapshot.playerVision,token.x,token.y)));
+      return !!snapshot?.tokens.some((token) => token.id === tokenId && !token.sharedSightOnly && !token.partiallyRevealed &&
+        (conn.role==='dm'||fogVisionContainsToken(snapshot.playerVision,token.x,token.y,tokenRadiusPx(token,snapshot.map),usesTokenVision(snapshot.map))));
     };
 
     const targetBehindWall=(targetId:string,origin:{kind:'pc'|'monster';refId:string}|string):boolean=>{
@@ -2059,7 +2059,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
         if (!slot || slot.remaining<=0) {
           socket.emit('notice',{message:'No spell slot available for this mark.'}); return;
         }
-        if(!tgt || (!isDm()&&!buildSnapshot(sid,'player',null,commandSocketId())?.tokens.some(t=>t.id===tgt))) {
+        if(!tgt || (!isDm()&&!buildSnapshot(sid,'player',null,commandSocketId())?.tokens.some(t=>t.id===tgt&&!t.sharedSightOnly&&!t.partiallyRevealed))) {
           socket.emit('notice',{message:'Choose a visible creature for the mark.'}); return;
         }
       }
