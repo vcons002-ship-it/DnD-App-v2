@@ -22,6 +22,13 @@
   line-height: 1;
 }
 .player-fantasy .hud-lantern-footer .orb-lantern-toggle svg { width: 20px; height: 20px; }
+.orb-lantern-toggle .lantern-glass { fill: #171a20; }
+.orb-lantern-toggle .lantern-flame { opacity: 0; }
+.orb-lantern-toggle[aria-pressed='true'] .lantern-glass {
+  fill: #f6bd4c;
+  filter: drop-shadow(0 0 1.5px #ffb32c);
+}
+.orb-lantern-toggle[aria-pressed='true'] .lantern-flame { opacity: 1; }
 .player-fantasy .player-hud .hud-lantern-footer .orb-lantern-toggle[aria-pressed='true'] {
   color: #ffe7b6;
   border-color: #d6b578;
