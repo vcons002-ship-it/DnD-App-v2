@@ -14,14 +14,22 @@ export default defineConfig({
     },
   },
   build: {
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       input: ['index.html', 'dice-comparison.html', 'dice-models.html', 'dice-power.html'],
       output: {
         // Split the heavy vendors into their own chunks so the main bundle
         // stays under Vite's 500 kB warning and the libs cache/parallel-load.
-        manualChunks: {
-          konva: ['konva', 'react-konva'],
-          react: ['react', 'react-dom', 'react-router-dom'],
+        manualChunks(id) {
+          if (id.includes('node_modules/konva') || id.includes('node_modules/react-konva')) return 'konva';
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react-router')
+          )
+            return 'react';
+          if (id.includes('node_modules/three/examples/')) return 'three-addons';
+          if (id.includes('node_modules/three/')) return 'three-core';
         },
       },
     },

@@ -1,3 +1,59 @@
+import {
+  activeStances,
+  appendDamageBreakdownRoll,
+  applyDamageNoted,
+  automatedHoldPerson,
+  combatLabels,
+  damageBreakdownTotal,
+  hidesMods,
+  noteConcentration,
+  resolve,
+  rollFaces,
+  saveBonus,
+  spellApplyTargetError,
+  spellAttackDis,
+  spellControlTargetError,
+  spellTarget,
+  stanceBonusAt,
+  stanceResistances,
+  strFeatureAdv,
+  targetGivesAdvantage,
+  timedConcentration,
+  type DamageBreakdown,
+  type PlacedAreaSave,
+  type Resolved,
+} from './combatHelpers.js';
+import {
+  areaSaveRequest,
+  isConcentrationSpell,
+  resolveCheck,
+  resolveDeathSave,
+  resolveObjectCheck,
+  resolveSave,
+  resolveSaves,
+  resolveSkillRoll,
+  resolveTrapDisarm,
+  useConsumable,
+} from './combatChecks.js';
+export {
+  applyDamageNoted,
+  areaSaveRequest,
+  isConcentrationSpell,
+  noteConcentration,
+  resolveCheck,
+  resolveDeathSave,
+  resolveObjectCheck,
+  resolveSave,
+  resolveSaves,
+  resolveSkillRoll,
+  resolveTrapDisarm,
+  spellApplyTargetError,
+  spellControlTargetError,
+  stanceResistances,
+  strFeatureAdv,
+  timedConcentration,
+  useConsumable,
+};
 import {weaponAttackKind} from '../../shared/weaponImpact.js';
 import {matchingDiceTrigger} from '../../shared/diceTriggers.js';
 import {partySpell} from '../../shared/partySpells.js';
@@ -15,12 +71,11 @@ import { isCanonicalHasteProfile } from '../../shared/spellExecution.js';
 import {isValidDiceExpression,withDiceMetadata,usingPhysicalDice} from '../../shared/dice.js';
 import {rollSaveBatch} from './saveDiceBatch.js';
 import {isLiveCommand,presentLiveCalculation} from './liveRollContext.js';
-import {commandTargetError} from './commandSpell.js';
 import {commandInstruction} from '../../shared/commandSpell.js';
 import type {AttackOutcome} from '../../shared/combatMath.js';
 import { consumeHitAdvantage } from './hitEffectTurns.js';
 import { hitOptions, turnKey } from './hitFeatures.js';
-import { castMark, markedDamage, hexDisadvantage } from './marks.js';
+import { castMark, markedDamage } from './marks.js';
 import { markSpell, hitFeature } from '../../shared/hitFeatures.js';
 import type { OrbChain, HpDamagePart } from '../../shared/types.js';
 import { offerRiposte, listRipostes, removeRiposte, RIPOSTE_SPENT } from './reactions.js';
@@ -43,7 +98,6 @@ import {
   getMap,
   listRollLog,
   listTokens,
-  incrementKillCount,
   setLastAttackRole,
   setResource,
   setSheetAbility,
@@ -52,10 +106,6 @@ import {
   endConcentration,
   setCondition,
   setTempHp,
-  setDeathSaves,
-  setItem,
-  removeItem,
-  updateCharacter,
 } from './sessions.js';
 import { newId } from './db.js';
 import {
@@ -65,24 +115,20 @@ import {
   type DamageSource,
   profBonusFor,
   rollD20Detail,
-  rollSavingThrow,
   rollWeaponAttack,
   weaponAbilityMod,
   type Advantage,
-  type Combatant,
 } from '../../shared/combatMath.js';
 import {
   attackAdvantage,
   saveAdvantage,
   saveAutoFail,
-  checkAdvantage,
   autoCritFromConditions,
   evaluateAttackContext,
 } from '../../shared/conditionEffects.js';
 import { tokensWithin5ft, tokenDistanceFt } from '../../shared/distance.js';
 import { rollDice, rollDicePool, type DiceResult } from '../../shared/dice.js';
 import { checkReveal, diceReveal } from '../../shared/rollReveal.js';
-import { parseConsumable } from '../../shared/consumables.js';
 import { smiteChoices, smiteDiceTerms, type SmiteChoice } from '../../shared/smite.js';
 import { criticalDiceExpression, effectiveSheetAbility, isMultiTargetSpell, spellcastingKeyFor, spellInstanceCount, spellDamageTypeChoices } from '../../shared/spellExecution.js';
 import { spellCombatSupport } from '../../shared/spellSupport.js';
@@ -93,13 +139,10 @@ import {
   spellcastingMod,
   spellSaveDC,
 } from '../../shared/spellMath.js';
-import { SKILLS, abilityMod, signed, proficiencyBonus } from '../../shared/skills.js';
+import { abilityMod, signed, proficiencyBonus } from '../../shared/skills.js';
 import {
   type ModSource,
   effectiveStats,
-  effectiveAc,
-  saveExtra,
-  skillExtra,
   attackExtra,
 } from '../../shared/modifiers.js';
 import type {
@@ -115,331 +158,6 @@ import type {
   TokenKind,
   Weapon,
 } from '../../shared/types.js';
-
-type Resolved = {
-  c: Combatant;
-  name: string;
-  weapons: Weapon[];
-  ac: number;
-  kind: Token['kind'];
-  refId: string;
-  /** Active condition labels (for advantage/disadvantage rules). */
-  conditionLabels: string[];
-  resistances: string[];
-  weaknesses: string[];
-  /** Damage types it takes no damage from (see `damageMultiplier`). */
-  immunities: string[];
-  /** Ability codes proficient in for saving throws. */
-  saveProficiencies: string[];
-  /** Modifier source (a PC's character) for flat save/skill/attack bonuses from
-   *  feats + equipped magic items; undefined for monsters (no modifiers). */
-  mod?: ModSource;
-};
-
-/** A creature's stances that are currently switched ON. */
-function activeStances(kind: TokenKind, refId: string): SheetAbility[] {
-  const e = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  return (e?.sheetAbilities ?? []).filter((ab) => ab.type === 'stance' && !!ab.stance?.active);
-}
-
-/** Resistances an active stance grants on top of the stat block (Rage). */
-export function stanceResistances(kind: TokenKind, refId: string): string[] {
-  return activeStances(kind, refId).flatMap((ab) => ab.stance!.grantsResistances ?? []);
-}
-
-/** Named advantage on a Strength check or save from an active stance (Rage). */
-export function strFeatureAdv(kind: TokenKind, refId: string, ability: string): string[] {
-  if (ability.trim().toUpperCase() !== 'STR') return [];
-  return activeStances(kind, refId)
-    .filter((ab) => ab.stance!.advOnStrChecks)
-    .map((ab) => ab.name);
-}
-
-/** Advantage attackers get against a creature because of ITS own active stance
- *  (Reckless Attack's price), as named reasons. */
-function targetGivesAdvantage(kind: TokenKind, refId: string): string[] {
-  const e=kind==='pc'?getCharacter(refId):getMonster(refId);
-  return [...activeStances(kind, refId).filter(ab=>ab.stance!.enemiesHaveAdvantage).map(ab=>`target ${ab.name}`),
-    ...(e?.conditions.filter(c=>c.combatEffect?.nextAttackAdvantage).map(c=>c.combatEffect!.spell)??[])];
-}
-
-/** A stance's flat bonus at this level: the highest `bonusDamageAtLevels`
- *  threshold at or below it, else its plain `bonusDamage`. */
-function stanceBonusAt(st: NonNullable<SheetAbility['stance']>, level: number): string | undefined {
-  const steps = (st.bonusDamageAtLevels ?? []).filter((x) => level >= x.level);
-  if (steps.length === 0) return st.bonusDamage;
-  return steps.reduce((best, x) => (x.level > best.level ? x : best)).bonus;
-}
-
-function combatLabels(conditions: Character['conditions']) {
- return conditions.map(c=>c.label);
-}
-function spellAttackDis(kind:TokenKind,id:string) {
- return (kind==='pc'?getCharacter(id):getMonster(id))?.conditions.filter(c=>c.combatEffect?.attackDisadvantage).map(c=>c.combatEffect!.spell)??[];
-}
-
-function resolve(token: Token): Resolved | null {
-  if (token.kind === 'pc') {
-    const ch = getCharacter(token.refId);
-    if (!ch) return null;
-    // Effective scores/AC fold in feat/ASI + equipped-item modifiers, so every
-    // ability-derived roll (attack, save, spell DC, initiative) uses them.
-    return {
-      c: { stats: effectiveStats(ch).scores, level: ch.level, isMonster: false },
-      name: ch.name,
-      weapons: ch.weapons,
-      ac: effectiveAc(ch),
-      kind: 'pc',
-      refId: ch.id,
-      conditionLabels: combatLabels(ch.conditions),
-      resistances: [...ch.resistances, ...stanceResistances('pc', ch.id)],
-      weaknesses: ch.weaknesses,
-      immunities: ch.immunities ?? [],
-      saveProficiencies: ch.saveProficiencies,
-      mod: ch,
-    };
-  }
-  const m = getMonster(token.refId);
-  if (!m) return null;
-  return {
-    c: { stats: m.stats, level: m.level, isMonster: true },
-    name: m.name,
-    weapons: m.weapons,
-    ac: effectiveAc(m),
-    kind: 'monster',
-    refId: m.id,
-    conditionLabels: combatLabels(m.conditions),
-    resistances: [...m.resistances, ...stanceResistances('monster', m.id)],
-    weaknesses: m.weaknesses,
-    immunities: m.immunities ?? [],
-    saveProficiencies: m.saveProficiencies,
-  };
-}
-
-/** Defense in depth for spell targets, including malformed cross-session tokens.
- * Visibility/current-map checks belong to the socket boundary. */
-function spellTarget(sessionId: string, tokenId: string): Token | null {
-  const token = getToken(tokenId);
-  if (!token || getMap(token.mapId)?.sessionId !== sessionId) return null;
-  const entity = token.kind === 'pc' ? getCharacter(token.refId) : getMonster(token.refId);
-  return entity?.sessionId === sessionId ? token : null;
-}
-
-/** Only the reviewed, damage-free Hold Person profile gains automatic control.
- * An authored roll, custom spell, or manual execution profile keeps its intent. */
-function automatedHoldPerson(a: SheetAbility): boolean {
-  if (a.type !== 'spell' || !['hold person','hold monster'].includes(a.name.trim().toLowerCase()) || a.level !== (spellKey(a.name)==='hold monster'?5:2) ||
-      a.source === 'custom' || a.executionProfile === 'manual') return false;
-  const roll = effectiveSheetAbility(a).roll;
-  return roll?.kind === 'save' && roll.save?.toUpperCase() === 'WIS' &&
-    (!roll.dice || roll.dice.trim() === '0');
-}
-
-export function spellControlTargetError(sessionId: string, ability: SheetAbility, tokenId: string): string | undefined {
-  if (!automatedHoldPerson(ability)) return;
-  const token = spellTarget(sessionId, tokenId);
-  const target = token && (token.kind === 'pc' ? getCharacter(token.refId) : getMonster(token.refId));
-  if (!token || !target) return 'Choose a creature in this campaign.';
-  if (isDeadEntity(token.kind, target) || token.kind==='monster' && (target as Monster).objectKind) return `${ability.name} requires a living creature.`;
-  if (spellKey(ability.name)==='hold person' && token.kind === 'monster' && (!/^humanoid\b/i.test((target as Monster).creatureType.trim()) || (target as Monster).objectKind))
-    return 'Hold Person only affects Humanoids.';
-}
-
-/** Server-computed origins for an already validated placed spell, never a
- * client-provided override of direct targeting or visibility checks. */
-type PlacedAreaSave = {mapId:string;origins:readonly {x:number;y:number}[]};
-
-export function spellApplyTargetError(sessionId: string, entry: RollEntry, tokenId: string, area?:PlacedAreaSave): string | undefined {
-  const apply = entry.apply, effect = apply?.effect;
-  const origin=apply?.attack?.attacker??(effect?{kind:effect.casterKind,refId:effect.casterId}:apply?.owner?{kind:'pc' as const,refId:apply.owner}:undefined);
-  const destination=spellTarget(sessionId,tokenId);
-  const source=origin&&destination&&listTokens(destination.mapId).find(t=>t.kind===origin.kind&&t.refId===origin.refId);
-  if(area){
-    if(!destination||area.mapId!==destination.mapId||!area.origins.some(p=>hasLineOfSight(p,destination,getMap(destination.mapId)?.walls)))return 'A wall or closed door blocks this target.';
-  }else if(source&&destination&&!hasLineOfSight(source,destination,getMap(destination.mapId)?.walls))return 'A wall or closed door blocks this target.';
-  if (apply?.healing) {
-    const token = spellTarget(sessionId, tokenId);
-    if (!token || (token.kind === 'monster' && getMonster(token.refId)?.objectKind))
-      return 'Choose a creature for healing, not an object.';
-  }
-  if (!effect) return;
-  if(effect.commandWord)return commandTargetError(sessionId,entry,tokenId);
-  const caster = effect.casterKind === 'pc' ? getCharacter(effect.casterId) : getMonster(effect.casterId);
-  const concentration = caster?.conditions.find(c => c.id === effect.concentrationConditionId && c.isConcentration);
-  const round = getSessionById(sessionId)?.combatRound ?? 0;
-  const expiry=concentration?.combatEffect ?? effect;
-  if (!concentration || (round > 0 && expiry.expiresRound ? round >= expiry.expiresRound : (expiry.expiresAt??effect.expiresAt) <= Date.now()))
-    return 'That casting has ended. Cast the spell again to affect another target.';
-  const token = spellTarget(sessionId, tokenId);
-  const target = token && (token.kind === 'pc' ? getCharacter(token.refId) : getMonster(token.refId));
-  if (!token || !target) return 'Choose a creature in this campaign.';
-  if(isDeadEntity(token.kind,target)||token.kind==='monster'&&(target as Monster).objectKind)return 'Choose a living creature.';
-  if (effect.eligibleCreatureType === 'humanoid' && (isDeadEntity(token.kind, target) ||
-      token.kind === 'monster' && ((target as Monster).objectKind || !/^humanoid\b/i.test((target as Monster).creatureType.trim()))))
-    return `${effect.spell} only affects living Humanoids.`;
-  if ((apply?.consumedTargets ?? []).some(id => {
-    const previous = getToken(id); return previous?.kind === token.kind && previous.refId === token.refId;
-  })) return 'That creature has already saved against this casting.';
-  if (apply?.maxTargets && (apply.consumedTargets?.length ?? 0) >= apply.maxTargets)
-    return 'All targets for this casting have been resolved.';
-}
-
-/** Every cast has its own concentration identity. Old targeting buttons cannot
- * reapply an effect after concentration ends or the same spell is recast. */
-export function timedConcentration(kind: TokenKind, refId: string, spell: string, rounds = 10, castLevel?:number) {
-  const eligible=()=>{
-    const current=kind==='pc'?getCharacter(refId):getMonster(refId);
-    return !!current && current.curHp>0 && !isDeadEntity(kind,current) && !current.conditions.some(c=>
-      /^(incapacitated|paralyzed|petrified|stunned|unconscious|haste lethargy)$/i.test(c.label.trim()));
-  };
-  if(!eligible()) return;
-  endConcentration(kind, refId, `replaced by ${spell}`);
-  // Losing self-Haste can incapacitate the caster before the replacement buff
-  // exists. Do not attach an orphan effect to a concentration that cannot start.
-  if(!eligible()) return;
-  setConcentration(kind, refId, spell);
-  const caster = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const concentration = caster!.conditions.find(c => c.isConcentration)!;
-  const round = getSessionById(caster!.sessionId)?.combatRound ?? 0;
-  const effect = { casterKind:kind, casterId:refId, spell, castLevel, castId:concentration.id,
-    expiresAt:Date.now() + rounds * 6000, ...(round > 0 ? {expiresRound:round + rounds} : {}) };
-  setCondition(kind, refId, {...concentration, combatEffect:effect});
-  return {...effect, concentrationConditionId:concentration.id};
-}
-
-/** Flat saving-throw bonus from a PC's feats / equipped magic items (e.g. Cloak
- *  of Protection +1 all saves), plus a log fragment naming the source(s). The
- *  ability-score part is already baked into `r.c.stats`; this is the extra. */
-function saveBonus(r: Resolved, ability: string): { add: number; note: string } {
-  if (!r.mod) return { add: 0, note: '' };
-  const e = saveExtra(r.mod, ability);
-  if (!e.total) return { add: 0, note: '' };
-  const names = e.parts.map((p) => `${signed(p.value)} ${p.source}`).join(', ');
-  return { add: e.total, note: ` · ${names}` };
-}
-
-/** Roll a dice expression and keep the per-die face breakdown for the log,
- *  e.g. "2d6[3,5] +1" — so Acid Splash shows WHICH dice landed, not just a sum. */
-function rollFaces(expr: string): { total: number; text: string } {
-  const r = rollDice(expr);
-  if (!r) return { total: 0, text: expr }; // unrollable expression → no-op, never throw
-  return { total: r.total, text: r.detail.replace(/ = -?\d+$/, '') };
-}
-
-/** Apply rolled damage/healing and return an accounting note for the roll log
- *  ("Druk HP 42→38"; temp HP shows as "42+5") so mistakes are easy to spot and
- *  correct. Carries the target so visibility can hide ENEMY changes from
- *  players. Undefined when nothing was found/changed. */
-type DamageBreakdown = NonNullable<RollReveal['damageBreakdown']>;
-
-/** Itemize already-rolled faces for the log and animation without rolling again. */
-function appendDamageBreakdownRoll(detail: DamageBreakdown, rolled: DiceResult, source: string): void {
-  const terms = /([+-]?)(\d*)d(\d+)|([+-]?)(\d+)/gi;
-  let faceIndex = 0;
-  for (const match of rolled.expr.replace(/\s+/g, '').matchAll(terms)) {
-    if (match[3] !== undefined) {
-      const count = match[2] ? Number(match[2]) : 1;
-      const faces = rolled.rolls.slice(faceIndex, faceIndex + count);
-      faceIndex += count;
-      const negative = match[1] === '-';
-      const step = {
-        label: `${count}d${match[3]} (${source})`,
-        value: faces.reduce((sum, face) => sum + face, 0) * (negative ? -1 : 1),
-        faces,
-      };
-      (negative ? detail.mods : detail.dice).push(step);
-    } else {
-      const value = Number(match[5]) * (match[4] === '-' ? -1 : 1);
-      if (value) detail.mods.push({ label: source, value });
-    }
-  }
-}
-
-function damageBreakdownTotal(detail: DamageBreakdown): number {
-  return [...detail.dice, ...detail.mods].reduce((sum, step) => sum + step.value, 0);
-}
-
-/** Creature roll modifiers are DM-only, including friendly creatures and summons. */
-function hidesMods(kind: TokenKind, refId: string): boolean {
-  return kind === 'monster';
-}
-
-export function applyDamageNoted(
-  kind: TokenKind,
-  refId: string,
-  amount: number,
-  /** Damage type when known — rides the fx:hp event for the elemental burst. */
-  damageType?: string,
-  /** The attacking token (kind/refId) — credits a PC's kill count if this damage
-   *  drops a monster to 0 HP. */
-  attacker?: { kind: TokenKind; refId: string },
-  /** Crit hit — a crit vs a downed PC is two death-save failures (RAW). */
-  crit = false,
-  /** The exact reveal that should release this transient damage floater. */
-  rollId?: string,
-  spell?: string,
-  damageParts?: HpDamagePart[],
-  impact?: import('../../shared/types.js').HpFxEvent['impact'],
-  weaponFx?: import('../../shared/types.js').PendingDamage['weaponFx'],
-): RollEntry['hpNote'] {
-  const before = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  const after = applyDamage(kind, refId, amount, damageType, crit, rollId, {spell,damageParts,impact,...weaponFx});
-  if (!before || !after) return undefined;
-  if(amount>0&&attacker)breakInvisibility(attacker.kind,attacker.refId,'dealing damage');
-  // Kill credit: a PC attacker that drops a (living) monster to 0 HP scores a kill.
-  if (
-    attacker?.kind === 'pc' &&
-    kind === 'monster' &&
-    amount > 0 &&
-    before.curHp > 0 &&
-    after.curHp <= 0
-  ) {
-    incrementKillCount(attacker.refId);
-  }
-  const hp = (e: { curHp: number; tempHp: number }) =>
-    `${e.curHp}${e.tempHp > 0 ? `+${e.tempHp}` : ''}`;
-  // A PC this hit KILLED (third failure, or massive damage) — say so, so the
-  // death is visible in the log and not just implied by the pips.
-  const killed =
-    kind === 'pc' &&
-    (before as Character).deathSaves.failures < 3 &&
-    (after as Character).deathSaves.failures >= 3;
-  const massive =
-    killed && amount - before.tempHp - before.curHp >= before.maxHp && before.curHp > 0;
-  return {
-    kind,
-    refId,
-    text:
-      `${after.name} HP ${hp(before)}→${hp(after)}` +
-      (killed ? (massive ? ' — DEAD (massive damage)' : ' — DEAD') : ''),
-  };
-}
-
-/**
- * When a creature takes damage while concentrating on a spell, log the
- * Constitution save needed to maintain it (5e: DC = the greater of 10 and half
- * the damage taken, rounded down). Players/DM then roll the creature's CON save.
- * No-op for healing or a creature that isn't concentrating.
- */
-export function noteConcentration(
-  sessionId: string,
-  kind: 'pc' | 'monster',
-  refId: string,
-  damage: number,
-): void {
-  if (damage <= 0) return;
-  const e = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  if (!e || !e.conditions.some((c) => c.isConcentration)) return;
-  // DC = half the damage, minimum 10 — and at most 30 (2024 PHB).
-  const dc = Math.min(30, Math.max(10, Math.floor(damage / 2)));
-  addRollLog(sessionId, {
-    roller: 'DM',
-    label: 'Concentration',
-    expr: `DC ${dc}`,
-    total: dc,
-    detail: `⚠️ ${e.name} took ${damage} damage while concentrating — make a DC ${dc} CON save or lose concentration`,
-  });
-}
 
 type LiveWeaponState = {
   at:Token; tt:Token; a:Resolved; t:Resolved; ch:Character|null;
@@ -1374,186 +1092,6 @@ export function presentAttackDamage(sessionId:string,rollId:string){
  }))setRollPending(rollId,{...p,damagePresented:true});
 }
 
-/** Roll a saving throw for each token vs a DC and log pass/fail. Each token may
- *  carry its own manual advantage (its creature's armed adv/dis toggle) via
- *  `advantageByToken`, falling back to the shared `advantage`. */
-export function resolveSaves(
-  sessionId: string,
-  roller: string,
-  tokenIds: string[],
-  ability: string,
-  dc: number,
-  advantage?: Advantage,
-  advantageByToken?: Record<string, Advantage>,
-): void {
-  for (const id of tokenIds) {
-    const tok = getToken(id);
-    if (!tok) continue;
-    const r = resolve(tok);
-    if (!r) continue;
-    // Paralyzed/Stunned/Unconscious/Petrified auto-fail STR & DEX saves (no roll).
-    const autoFail = saveAutoFail(r.conditionLabels, ability);
-    if (autoFail) {
-      addRollLog(sessionId, {
-        roller,
-        label: `${ability.toUpperCase()} save`,
-        expr: `DC ${dc}`,
-        total: 0,
-        detail: `${r.name}: auto-fails (${autoFail}) vs DC ${dc} — FAIL`,
-      });
-      continue;
-    }
-    const proficient = r.saveProficiencies.some(
-      (s) => s.trim().toUpperCase() === ability.trim().toUpperCase(),
-    );
-    // The creature's own armed adv/dis (if any) plus conditions (e.g. restrained
-    // → DEX-save disadvantage) fold into the request (any adv + any dis cancel).
-    const adv = saveAdvantage(
-      r.conditionLabels, ability, advantageByToken?.[id] ?? advantage,
-      strFeatureAdv(r.kind, r.refId, ability),
-    );
-    const out = rollSavingThrow(r.c, ability, dc, adv.state, proficient);
-    const sb = saveBonus(r, ability);
-    const total = out.total + sb.add;
-    const pass = total >= dc;
-    addRollLog(sessionId, {
-      roller,
-      label: `${ability.toUpperCase()} save`,
-      expr: `DC ${dc}`,
-      total,
-      detail:
-        `${r.name}: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${sb.note} = ${total} vs DC ${dc} — ${pass ? 'PASS' : 'FAIL'}` +
-        (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
-      reveal: checkReveal({
-        who: r.name,
-        title: `${ability.toUpperCase()} save`,
-        face: out.face,
-        total,
-        steps: [
-          { label: ability.toUpperCase(), value: out.mod },
-          ...(sb.add ? [{ label: 'bonus', value: sb.add }] : []),
-        ],
-        outcome: pass ? 'pass' : 'fail',
-      }),
-      hideMods: hidesMods(r.kind, r.refId),
-    });
-  }
-}
-
-/**
- * Roll ONE creature's saving throw for an ability (no contested DC — just the
- * roll), used by click-to-roll on a stat block. d20 + ability modifier (+ the
- * proficiency bonus when proficient in that save), with the creature's armed
- * adv/dis toggle and conditions folded in. Works for a PC or a monster.
- */
-export function resolveSave(
-  sessionId: string,
-  roller: string,
-  kind: Token['kind'],
-  refId: string,
-  ability: string,
-  advantage?: Advantage,
-): boolean {
-  const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  if (!ent) return false;
-  const ab = ability.trim().toUpperCase();
-  // Effective scores + flat save bonuses (feats/equipped items); monsters have
-  // no modifiers so these reduce to the base values.
-  const c: Combatant = {
-    stats: effectiveStats(ent).scores,
-    level: ent.level,
-    isMonster: kind !== 'pc',
-  };
-  const proficient = ent.saveProficiencies.some((s) => s.trim().toUpperCase() === ab);
-  const adv = saveAdvantage(
-    ent.conditions.map((x) => x.label), ab, advantage, strFeatureAdv(kind, refId, ab),
-  );
-  const out = rollSavingThrow(c, ab, 0, adv.state, proficient); // dc 0 → pass unused
-  const e = saveExtra(ent, ab);
-  const total = out.total + e.total;
-  const note = e.parts.map((p) => `${signed(p.value)} ${p.source}`).join(', ');
-  addRollLog(sessionId, {
-    roller,
-    label: `${ab} save`,
-    expr: proficient ? `${ab} (prof)` : ab,
-    total,
-    detail:
-      `${ent.name} — ${ab} save: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}${out.proficient ? ' prof' : ''})${note ? ` · ${note}` : ''} = ${total}` +
-      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
-    reveal: checkReveal({
-      who: ent.name,
-      title: `${ab} save`,
-      face: out.face,
-      total,
-      steps: [
-        { label: ab, value: out.mod },
-        ...e.parts.map((p) => ({ label: p.source, value: p.value })),
-      ],
-    }),
-    hideMods: hidesMods(kind, refId),
-  });
-  return true;
-}
-
-/**
- * Roll ONE creature's PLAIN ability check — d20 + the ability modifier, with NO
- * proficiency (that's what separates it from a skill check or a save). The armed
- * adv/dis toggle and ability-check conditions (poisoned/frightened → disadvantage)
- * fold in. Click-to-roll from the stat block's Stat/Save menu; PC or monster.
- */
-export function resolveCheck(
-  sessionId: string,
-  roller: string,
-  kind: Token['kind'],
-  refId: string,
-  ability: string,
-  advantage?: Advantage,
-): boolean {
-  const ent = kind === 'pc' ? getCharacter(refId) : getMonster(refId);
-  if (!ent) return false;
-  const ab = ability.trim().toUpperCase();
-  const c: Combatant = {
-    stats: effectiveStats(ent).scores,
-    level: ent.level,
-    isMonster: kind !== 'pc',
-  };
-  const adv = checkAdvantage(
-    ent.conditions.map((x) => x.label), advantage, strFeatureAdv(kind, refId, ab), [...hexDisadvantage(sessionId,kind,refId,ab),...ent.conditions.filter(c=>c.combatEffect?.checkDisadvantage).map(c=>c.combatEffect!.spell)],
-  );
-  // dc 0 → unused; `proficient: false` makes it a plain ability check.
-  const out = rollSavingThrow(c, ab, 0, adv.state, false, `${ab} Check`);
-  addRollLog(sessionId, {
-    roller,
-    label: `${ab} check`,
-    expr: ab,
-    total: out.total,
-    detail:
-      `${ent.name} — ${ab} check: ${out.d20Detail} (${out.mod >= 0 ? '+' : ''}${out.mod}) = ${out.total}` +
-      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
-    reveal: checkReveal({
-      who: ent.name,
-      title: `${ab} check`,
-      face: out.face,
-      total: out.total,
-      steps: [{ label: ab, value: out.mod }],
-    }),
-    hideMods: hidesMods(kind, refId),
-  });
-  return true;
-}
-
-/**
- * Resolve a save/damage roll's "Apply damage" against ONE clicked target: roll the
- * target's save vs the stored DC (its own ability + proficiency + conditions), then
- * auto-apply full (fail) / half (pass) of the rolled amount, × resist/vuln. For a
- * save-less (auto-hit) payload, apply full with no save roll. Logs one entry. The
- * source roll keeps its `apply` so the DM can keep clicking more targets.
- */
-export function areaSaveRequest(tok:Token,ability:string,dc:number){
- const r=resolve(tok);if(!r)return;
- return {target:tok,c:r.c,ability,dc,mode:saveAdvantage(r.conditionLabels,ability,undefined,strFeatureAdv(r.kind,r.refId,ability)).state,
-  proficient:r.saveProficiencies.some(s=>s.trim().toUpperCase()===ability.toUpperCase()),extra:saveBonus(r,ability).add,autoFail:!!saveAutoFail(r.conditionLabels,ability)};
-}
 export function resolveForcedSave(
   sessionId: string,
   rollId: string,
@@ -2086,74 +1624,6 @@ export function resolveTargetedSpellAttack(opts: {
  * a failure; a natural 20 revives at 1 HP; a natural 1 is two failures. Three
  * successes stabilizes (saves reset); three failures is death. Logs the result.
  */
-export function resolveDeathSave(sessionId: string, characterId: string): boolean {
-  const ch = getCharacter(characterId);
-  // Only a downed PC that isn't already stable (3✓) or dead (3✗) keeps rolling.
-  if (!ch || ch.curHp > 0 || ch.deathSaves.successes >= 3 || ch.deathSaves.failures >= 3)
-    return false;
-  const face = rollDice('1d20')!.total;
-  // A death save IS a saving throw, so all-saves modifiers (Cloak of Protection
-  // etc.) apply to the 10+ check; an ability-specific save bonus doesn't (a
-  // death save has no ability), and nat 20 / nat 1 stay face-based per RAW.
-  const extra = saveExtra(ch, '');
-  const total = face + extra.total;
-  const extraNote = extra.parts
-    .map((p) => ` ${signed(p.value)}[${p.source}]`)
-    .join('');
-  const log = (detail: string, outcome: 'pass' | 'fail') =>
-    addRollLog(sessionId, {
-      roller: ch.name,
-      label: 'Death save',
-      expr: 'd20',
-      total,
-      detail,
-      reveal: checkReveal({
-        who: ch.name,
-        title: 'Death save',
-        face,
-        total,
-        steps: extra.parts.map((p) => ({ label: p.source, value: p.value })),
-        outcome,
-      }),
-    });
-
-  if (face === 20) {
-    applyDamage('pc', characterId, -1); // back to 1 HP (healing also resets saves)
-    setDeathSaves(characterId, 0, 0);
-    log(`${ch.name} rolls a natural 20 — regains 1 HP and is conscious!`, 'pass');
-    return true;
-  }
-
-  let { successes, failures } = ch.deathSaves;
-  let kind: string;
-  if (face === 1) (failures = Math.min(3, failures + 2)), (kind = 'FAILURE ×2');
-  else if (total >= 10) (successes = Math.min(3, successes + 1)), (kind = 'SUCCESS');
-  else (failures = Math.min(3, failures + 1)), (kind = 'FAILURE');
-
-  // 3✓ stabilizes and 3✗ dies — both are persistent states (kept as the tally so
-  // the UI can show a "Stabilized"/"Dead" badge), and stop further rolling.
-  let outcome = '';
-  if (failures >= 3) outcome = ` — ${ch.name} has DIED`;
-  else if (successes >= 3) outcome = ` — ${ch.name} is STABLE`;
-
-  setDeathSaves(characterId, successes, failures);
-  log(
-    `${ch.name}: d20[${face}]${extraNote}${extra.total ? ` = ${total}` : ''} ${kind} (${successes}✓/${failures}✗)${outcome}`,
-    kind === 'SUCCESS' ? 'pass' : 'fail',
-  );
-  return true;
-}
-
-/** A concentration spell, by its tag or its meta line ("… · Concentration").
- *  Covers spells AND spell-backed stances (e.g. Hunter's Mark). */
-export function isConcentrationSpell(a: SheetAbility): boolean {
-  if (a.type !== 'spell' && a.type !== 'stance') return false;
-  return (
-    (a.tags ?? []).some((t) => t.trim().toLowerCase() === 'concentration') ||
-    (a.meta ?? '').toLowerCase().includes('concentration')
-  );
-}
-
 /**
  * Resolve a rich sheet spell/ability (PC or monster — ONE shared body, since the
  * merge of the legacy free-text action system). Only the numbers differ by kind:
@@ -2658,200 +2128,6 @@ function applyPayload(
   if (roll.kind === 'damage' && roll.dice) return { amount: Math.max(0, amount), dc, damageType: roll.damageType,
     ...(roll.targetMode ? { targetMode: roll.targetMode } : {}) };
   return undefined;
-}
-
-/**
- * Resolve a trap-disarm attempt: a Dexterity (Sleight of Hand) check vs the
- * trap's disarm DC (defaulting to 12 when unset), logged to the shared roll log.
- * Returns whether the check succeeded so the caller can flip the trap to
- * "Disarmed".
- */
-export function resolveTrapDisarm(
-  sessionId: string,
-  roller: string,
-  character: Character,
-  trap: Monster,
-  advantage?: Advantage,
-): { success: boolean } {
-  return resolveObjectCheck(sessionId, roller, character, trap, 'disarm', advantage);
-}
-
-/**
- * A 5e DEX (Thieves' Tools / Sleight of Hand) check against an object's DC,
- * shared by trap-disarming and lock-picking. Proficiency in Sleight of Hand
- * grants the bonus; logged to the shared roll log. Returns whether it beat the
- * object's `objectDc` (default 12).
- */
-export function resolveObjectCheck(
-  sessionId: string,
-  roller: string,
-  character: Character,
-  object: Monster,
-  kind: 'disarm' | 'unlock',
-  advantage?: Advantage,
-): { success: boolean } {
-  const dc = object.objectDc && object.objectDc > 0 ? object.objectDc : 12;
-  const proficient = character.proficientSkills.includes('Sleight of Hand');
-  // Effective DEX (feat/item ability mods) + proficiency + flat Sleight-of-Hand
-  // bonuses, broken out like attack/save logs (e.g. "+2[DEX] +2[PROF]").
-  const stats = effectiveStats(character).scores;
-  const extra = skillExtra(character, 'Sleight of Hand');
-  const abil = abilityMod(stats.DEX);
-  const prof = proficient ? proficiencyBonus(character.level) : 0;
-  const bonus = abil + prof + extra.total;
-  const breakdown =
-    `${signed(abil)}[DEX]` +
-    (prof ? ` ${signed(prof)}[PROF]` : '') +
-    extra.parts.map((p) => ` ${signed(p.value)}[${p.source}]`).join('');
-  const { face, detail: d20detail } = rollD20Detail(advantage);
-  const total = face + bonus;
-  const success = total >= dc;
-  const verb = kind === 'disarm' ? 'disarm' : 'pick the lock on';
-  const ok = kind === 'disarm' ? 'DISARMED' : 'UNLOCKED';
-  addRollLog(sessionId, {
-    roller,
-    label: kind === 'disarm' ? 'Disarm trap' : 'Pick lock',
-    expr: `DEX${proficient ? ' (prof)' : ''} vs DC ${dc}`,
-    total,
-    detail:
-      `${character.name} tries to ${verb} ${object.name}: ${d20detail} ${breakdown} = ` +
-      `${total} vs DC ${dc} — ${success ? ok : 'FAILED'}`,
-    reveal: checkReveal({
-      who: character.name,
-      title: kind === 'disarm' ? 'Disarm trap' : 'Pick lock',
-      target: object.name,
-      face,
-      total,
-      steps: [
-        { label: 'DEX', value: abil },
-        { label: 'PROF', value: prof },
-        ...extra.parts.map((p) => ({ label: p.source, value: p.value })),
-      ],
-      outcome: success ? 'pass' : 'fail',
-    }),
-  });
-  return { success };
-}
-
-/**
- * Resolve a 5e skill check authoritatively and log it: d20 (with adv/dis) +
- * the character's ability modifier + proficiency bonus when proficient in that
- * skill. Returns false for an unknown skill name.
- */
-export function resolveSkillRoll(
-  sessionId: string,
-  roller: string,
-  character: Character,
-  skillName: string,
-  advantage?: Advantage,
-): boolean {
-  const skill = SKILLS.find(
-    (s) => s.name.toLowerCase() === skillName.trim().toLowerCase(),
-  );
-  if (!skill) return false;
-  const proficient = character.proficientSkills.includes(skill.name);
-  // Effective ability mod (feat/item score bonuses) + proficiency + flat skill
-  // bonuses, shown as a labelled breakdown matching attack/save logs (e.g.
-  // "+2[DEX] +2[PROF] +1[Boots]") rather than one cooked-in number.
-  const stats = effectiveStats(character).scores;
-  const extra = skillExtra(character, skill.name);
-  const abil = abilityMod(stats[skill.ability]);
-  const prof = proficient ? proficiencyBonus(character.level) : 0;
-  const bonus = abil + prof + extra.total;
-  const breakdown =
-    `${signed(abil)}[${skill.ability}]` +
-    (prof ? ` ${signed(prof)}[PROF]` : '') +
-    extra.parts.map((p) => ` ${signed(p.value)}[${p.source}]`).join('');
-  // Conditions (Poisoned/Frightened) impose disadvantage on ability checks, folded
-  // in with any manual adv/dis (any adv + any dis cancel to a straight roll).
-  const adv = checkAdvantage(
-    character.conditions.map((x) => x.label),
-    advantage,
-    strFeatureAdv('pc', character.id, skill.ability), [...hexDisadvantage(sessionId,'pc',character.id,skill.ability),...character.conditions.filter(c=>c.combatEffect?.checkDisadvantage).map(c=>c.combatEffect!.spell)],
-  );
-  const { face, detail: d20detail } = withDiceMetadata({label:`${skill.name} Check`,...(adv.reasons.length?{advantageReasons:adv.reasons,advantageState:adv.state??'straight'}:{})},()=>rollD20Detail(adv.state));
-  const total = face + bonus;
-  addRollLog(sessionId, {
-    roller,
-    label: `${skill.name} check`,
-    expr: `${skill.ability}${proficient ? ' (prof)' : ''}`,
-    total,
-    detail:
-      `${character.name} — ${skill.name}: ${d20detail} ${breakdown} = ${total}` +
-      (adv.reasons.length ? ` · ${adv.state ?? 'straight'}: ${adv.reasons.join(', ')}` : ''),
-    reveal: checkReveal({
-      who: character.name,
-      title: `${skill.name} check`,
-      face,
-      total,
-      steps: [
-        { label: skill.ability, value: abil },
-        { label: 'PROF', value: prof },
-        ...extra.parts.map((p) => ({ label: p.source, value: p.value })),
-      ],
-    }),
-  });
-  return true;
-}
-
-/**
- * Drink/use a consumable from a character's inventory: roll what the item does
- * (parsed SERVER-SIDE from the item — the client's word is never taken for it),
- * apply it, log the roll with a dice reveal so it animates like any other roll,
- * and spend one from the stack.
- *
- * 5e temporary HP doesn't stack — a Potion of Heroism's 10 replaces a smaller
- * pool and is ignored if you already have more.
- */
-export function useConsumable(
-  sessionId: string,
-  roller: string,
-  characterId: string,
-  itemId: string,
-): boolean {
-  const c = getCharacter(characterId);
-  // A dead character can't drink anything (and can't regain HP) — the item is
-  // kept; the socket handler tells the player why.
-  if (!c || isDeadEntity('pc', c)) return false;
-  const item = c.items.find((i) => i.id === itemId);
-  if (!item || item.qty <= 0) return false;
-  const effect = parseConsumable(item);
-  if (!effect) return false;
-  const result = rollDice(effect.dice);
-  if (!result) return false;
-  const val = Math.max(0, result.total);
-
-  let hpNote: RollEntry['hpNote'];
-  let outcome: string;
-  if (effect.kind === 'tempHp') {
-    const before = c.tempHp;
-    const next = Math.max(before, val);
-    updateCharacter(characterId, { tempHp: next });
-    outcome =
-      next > before
-        ? `${c.name} gains ${val} temporary HP`
-        : `${c.name} keeps ${before} temporary HP (${val} is no better)`;
-    hpNote = { kind: 'pc', refId: characterId, text: `${c.name} temp HP ${before}→${next}` };
-  } else {
-    const healingBlocked=c.conditions.some(c=>c.combatEffect?.preventsHealing);
-    hpNote = val > 0 && !healingBlocked ? applyDamageNoted('pc', characterId, -val) : undefined;
-    outcome = healingBlocked ? `${c.name}: Chill Touch prevents healing` : `${c.name} regains ${val} HP`;
-  }
-
-  // Spend one; an emptied stack leaves the sheet.
-  if (item.qty <= 1) removeItem(characterId, itemId);
-  else setItem(characterId, { ...item, qty: item.qty - 1 });
-
-  addRollLog(sessionId, {
-    roller,
-    label: item.name,
-    expr: effect.dice,
-    total: val,
-    detail: `Used ${item.name}: ${result.detail} — ${outcome}`,
-    hpNote,
-    reveal: diceReveal(c.name, result, item.name),
-  });
-  return true;
 }
 
 export function materializeLiveDamage(sid:string,rollId:string):void {
