@@ -32,6 +32,7 @@ it.each([false,true])('shares unchanged frame records and arrays, without leakin
  const input=source(),motion=packed?compactMotionEntities(plan()):plan();
  const wire=JSON.parse(JSON.stringify(motion)),frames=createMotionSnapshots(input,wire);
  expect(frames[0].tokens[0]).toBe(input.tokens[0]);
+ if(packed)expect(frames[1]).toBe(frames[0]);
  expect(frames[1].tokens).toBe(frames[0].tokens);expect(frames[1].monsters).toBe(frames[0].monsters);
  expect(frames[2].tokens[1]).not.toBe(frames[1].tokens[1]);expect(frames[2].tokens[1].sharedSightOnly).toBe(true);
  expect(frames.at(-1)?.tokens.map(t=>t.id)).toEqual(['pc']);expect(frames.at(-1)?.monsters).toEqual([]);

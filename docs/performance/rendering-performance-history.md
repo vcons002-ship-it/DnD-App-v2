@@ -118,16 +118,6 @@ The prior benchmark numbers remain observations of the earlier code; this fix ha
 
 ## Conditions for another mask experiment
 
-### Visibility repair follow-up, 2026-11-01
-
-Candidate branch `codex/visibility-plan-reuse`, based on main `1463ee57`, packs repeated movement entities, retains immutable presentation records, stabilizes the server-preview callback, and keeps validated server outlines available during membership playback. It preserves the creature-visibility repair. This has not been deployed.
-
-The measurements in this entry predate rebasing onto `61bb09f2` / PR #190. The rebase preserves main's rendering changes, including removal of the `gpuComposite` prop. Targeted tests, typechecks, production build, and all six browser membership cases pass after integration; timing has not been rerun on that head.
-
-The repeated 6x CPU comparison improved first-motion means: Legacy 887 -> 808 ms, 2D 1,461 -> 1,273 ms, 3D 2,001 -> 1,784 ms. Standard movement messages fell about 22-23%. Unthrottled results were mixed: the first block regressed, the follow-up improved, and pooling all normal-speed observations still leaves the candidate about 14-16% slower. Treat this as a constrained-CPU improvement with unresolved normal-speed latency, not a universal success. All 96 measured moves made zero new model requests; slower loading is not the demonstrated warm-map bottleneck. See the [full experiment, limitations, and validation](visibility-plan-reuse-2026-11-01.md).
-
-### Future mask work
-
 Keep the current renderer as the control. Before considering enablement, incorporate the carried-light fix, investigate caching stationary coverage across movement poses, send each mode only the assets it consumes, and remove redundant fallback composition only where safe. Smaller changed-region updates are another untested option. These are candidates, not measured successes.
 
 A replacement must preserve normal vision, darkvision, party-view grayscale, remembered terrain, walls/doors, daylight bypasses, and spell lighting through initial load, pan/zoom, and motion. Repeat full-app paired trials with separate server preparation, image transfer/decode, and first-motion measurements; include constrained network and real low-end GPU tests before extending claims to those devices. Keep aggregate CPU-seconds, elapsed server time, geometry time, and visible response time labeled separately.
