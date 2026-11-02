@@ -77,6 +77,7 @@ import {
   saveAutoFail,
   checkAdvantage,
   autoCritFromConditions,
+  evaluateAttackContext,
 } from '../../shared/conditionEffects.js';
 import { tokensWithin5ft, tokenDistanceFt } from '../../shared/distance.js';
 import { rollDice, rollDicePool, type DiceResult } from '../../shared/dice.js';
@@ -604,11 +605,12 @@ export function resolveAttack(
   const distance=tokenDistanceFt(at,tt,getMap(at.mapId));
   if(targetEntity&&seesInvisible(targetEntity,distance))a.conditionLabels=a.conditionLabels.filter(v=>v.toLowerCase()!=='invisible');
   if(attackerEntity&&seesInvisible(attackerEntity,distance))t.conditionLabels=t.conditionLabels.filter(v=>v.toLowerCase()!=='invisible');
+  const weaponEval = evaluateAttackContext({ attackerConditions: attackerEntity?.conditions ?? [], targetConditions: targetEntity?.conditions ?? [], attackerEntity: attackerEntity ?? undefined, targetEntity: targetEntity ?? undefined, within5ft: within5, distanceFt: distance, manual: advantage, includeAttackerStances: false, extraFeatureAdv: [...(maneuverFired?.spec.grantsAdvantage ? [maneuverFired.ability.name] : []), ...stanceAdvNames] });
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
   // Feature advantage (a maneuver, Reckless Attack) is a named REASON, not a
   // replacement for what the player requested: a requested disadvantage now
   // cancels it to a straight roll instead of silently erasing it.
-  const adv = attackAdvantage(
+  const adv = weaponEval.adv ?? attackAdvantage(
     a.conditionLabels,
     t.conditionLabels,
     within5,
@@ -1892,8 +1894,8 @@ export function resolveTargetedSpellAttack(opts: {
   if(attackerToken&&!opts.liveResume&&(!opts.orb||opts.orb.visited.length===0))faceTokenToward(opts.sessionId,attackerToken.id,tt!.id);
   const within5 = !!attackerToken && tokensWithin5ft(attackerToken, tt!, getMap(tt!.mapId));
   const spellDistance=attackerToken?tokenDistanceFt(attackerToken,tt!,getMap(tt!.mapId)):Infinity;
-  const defender=tt!.kind==='pc'?getCharacter(tt!.refId):getMonster(tt!.refId);
-  const adv = attackAdvantage(attacker?combatLabels(attacker.conditions).filter(v=>v.toLowerCase()!=='invisible'||!defender||!seesInvisible(defender,spellDistance)):[],
+  const defender=tt!.kind==='pc'?getCharacter(tt!.refId):getMonster(tt!.refId), spellEval = evaluateAttackContext({ attackerConditions: attacker?.conditions ?? [], targetConditions: defender?.conditions ?? [], attackerEntity: attacker ?? undefined, targetEntity: defender ?? undefined, within5ft: within5, distanceFt: spellDistance, manual: opts.advantage, includeAttackerStances: false }); void spellEval;
+  const adv = spellEval.adv ?? attackAdvantage(attacker?combatLabels(attacker.conditions).filter(v=>v.toLowerCase()!=='invisible'||!defender||!seesInvisible(defender,spellDistance)):[],
     t.conditionLabels.filter(v=>v.toLowerCase()!=='invisible'||!attacker||!seesInvisible(attacker,spellDistance)), within5, opts.advantage, targetGivesAdvantage(t.kind, t.refId),opts.attacker?spellAttackDis(opts.attacker.kind,opts.attacker.refId):[]);
   const autoCrit = autoCritFromConditions(t.conditionLabels, within5);
   const { face, detail: d20detail } = opts.liveResume?.fixed ?? withDiceMetadata({label:`${opts.title} — Spell Attack Roll`,...(adv.reasons.length?{advantageReasons:adv.reasons,advantageState:adv.state??'straight'}:{})},()=>rollD20Detail(adv.state));

@@ -5,6 +5,9 @@
 // effects that depend on those (e.g. a hidden attacker, frightened line-of-sight)
 // use the simple reading. Matched against a condition's `label`, case-insensitive.
 import type { Advantage } from './combatMath.js';
+import { hitFeature, markSpell } from './hitFeatures.js';
+import { seesInvisible } from './invisibleSight.js';
+import type { Condition, CreatureAbility, SheetAbility } from './types.js';
 
 const norm = (labels: string[]): Set<string> =>
   new Set(labels.map((l) => l.trim().toLowerCase()));
@@ -82,6 +85,80 @@ export function autoCritFromConditions(targetLabels: string[], within5ft: boolea
   if (!within5ft) return null;
   const t = norm(targetLabels);
   return AUTO_CRIT_WITHIN_5.find((c) => t.has(c)) ?? null;
+}
+
+export type AttackEntityContext = {
+  conditions?: readonly Condition[];
+  abilities?: readonly CreatureAbility[];
+  sheetAbilities?: readonly SheetAbility[];
+};
+
+/**
+ * Shared attack modifier & advantage evaluator used by both the client pre-roll
+ * UI preview and server combat resolution.
+ */
+export function evaluateAttackContext(opts: {
+  attackerConditions: readonly Condition[];
+  targetConditions: readonly Condition[];
+  attackerEntity?: AttackEntityContext;
+  targetEntity?: AttackEntityContext;
+  within5ft: boolean;
+  distanceFt?: number;
+  manual?: Advantage;
+  targetTokenId?: string;
+  weaponKind?: 'melee' | 'ranged';
+  includeAttackerStances?: boolean;
+  includeArmedManeuvers?: boolean;
+  extraFeatureAdv?: readonly string[];
+  extraFeatureDis?: readonly string[];
+}): { adv: AdvResult; autoCrit: string | null } {
+  const dist = opts.distanceFt ?? (opts.within5ft ? 5 : Infinity);
+  const attackerLabels = opts.attackerConditions
+    .filter((c) => !c.isConcentration)
+    .map((c) => c.label)
+    .filter(
+      (v) =>
+        v.trim().toLowerCase() !== 'invisible' ||
+        !opts.targetEntity ||
+        !seesInvisible({ conditions: opts.targetConditions, abilities: opts.targetEntity.abilities }, dist),
+    );
+  const targetLabels = opts.targetConditions
+    .filter((c) => !c.isConcentration)
+    .map((c) => c.label)
+    .filter(
+      (v) =>
+        v.trim().toLowerCase() !== 'invisible' ||
+        !opts.attackerEntity ||
+        !seesInvisible({ conditions: opts.attackerConditions, abilities: opts.attackerEntity.abilities }, dist),
+    );
+  const featureAdv: string[] = [...(opts.extraFeatureAdv ?? [])];
+  const featureDis: string[] = [...(opts.extraFeatureDis ?? [])];
+  for (const ab of opts.attackerEntity?.sheetAbilities ?? []) {
+    if (hitFeature(ab) || (markSpell(ab) && ab.mark)) continue;
+    if ((opts.includeAttackerStances ?? true) && ab.type === 'stance' && ab.stance?.active) {
+      if (opts.weaponKind && ab.stance.appliesTo && ab.stance.appliesTo !== 'all' && ab.stance.appliesTo !== opts.weaponKind) continue;
+      if (ab.stance.targeted && opts.targetTokenId && ab.stance.targetId !== opts.targetTokenId) continue;
+      if (ab.stance.grantsAdvantage) featureAdv.push(ab.name);
+    }
+    if (opts.includeArmedManeuvers && ab.type === 'maneuver' && ab.maneuver?.active && ab.maneuver.grantsAdvantage) {
+      featureAdv.push(ab.name);
+    }
+  }
+  for (const ab of opts.targetEntity?.sheetAbilities ?? []) {
+    if (ab.type === 'stance' && ab.stance?.active && ab.stance.enemiesHaveAdvantage) {
+      featureAdv.push(`target ${ab.name}`);
+    }
+  }
+  for (const c of opts.targetConditions) {
+    if (c.combatEffect?.nextAttackAdvantage) featureAdv.push(c.combatEffect.spell || c.label);
+  }
+  for (const c of opts.attackerConditions) {
+    if (c.combatEffect?.attackDisadvantage) featureDis.push(c.combatEffect.spell || c.label);
+  }
+  return {
+    adv: attackAdvantage(attackerLabels, targetLabels, opts.within5ft, opts.manual, featureAdv, featureDis),
+    autoCrit: autoCritFromConditions(targetLabels, opts.within5ft),
+  };
 }
 
 /**

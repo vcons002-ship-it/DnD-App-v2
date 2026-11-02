@@ -42,9 +42,11 @@ export function diffSnapshot(before:StateSnapshot,after:StateSnapshot):SnapshotD
 export function applySnapshotDelta(before:StateSnapshot,patch:SnapshotDelta):StateSnapshot{
  const next={...before,...patch.set};for(const key of patch.unset)delete next[key];
  for(const [key,change] of Object.entries(patch.entities)){
-  const rows=new Map(((before as any)[key]??[]).map((e:Entity)=>[e.id,e]));
+  const prevList=((before as any)[key]??[]) as Entity[];
+  const rows=new Map(prevList.map((e:Entity)=>[e.id,e]));
   for(const id of change.remove)rows.delete(id);for(const entity of change.upsert)rows.set(entity.id,entity);
-  (next as any)[key]=change.order.map(id=>rows.get(id));
+  const updated=change.order.map(id=>rows.get(id));
+  (next as any)[key]=updated.length===prevList.length&&updated.every((v,i)=>v===prevList[i])?prevList:updated;
  }
  if(patch.party&&before.partyView)next.partyView=applySnapshotDelta(before.partyView as StateSnapshot,patch.party);
  if(patch.geometry&&before.legacyGeometry)next.legacyGeometry={...before.legacyGeometry,...patch.geometry};
@@ -52,4 +54,9 @@ export function applySnapshotDelta(before:StateSnapshot,patch:SnapshotDelta):Sta
  if(patch.maskTiles){const tiles={...before.visionTiles?.tiles,...patch.maskTiles.set};for(const id of patch.maskTiles.remove)delete tiles[id];next.visionTiles={key:patch.maskTiles.key,bounds:patch.maskTiles.bounds,tiles};}
  if(patch.outlines&&next.legacyGeometry){const shapes={...before.legacyGeometry?.outlines?.shapes,...patch.outlines.set};for(const id of patch.outlines.remove)delete shapes[id];next.legacyGeometry={...next.legacyGeometry,outlines:{wallsKey:patch.outlines.wallsKey,shapes}};}
  return next;
+}
+/** Reuse unchanged entity, array, and sub-object references when a full snapshot frame arrives. */
+export function stabilizeSnapshot(before:StateSnapshot,after:StateSnapshot):StateSnapshot{
+ if(before===after)return after;
+ return applySnapshotDelta(before,diffSnapshot(before,after));
 }

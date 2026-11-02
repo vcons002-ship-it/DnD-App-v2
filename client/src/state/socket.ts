@@ -10,7 +10,7 @@ import {readDiceRenderingMode} from '../lib/useDiceRendering';
 import {readServerRendering} from '../lib/useServerRendering';
 import {prepareRenderImages,warmRenderImages} from '../lib/renderImages';
 import {retainedRenderingEnabled} from '../lib/retainedRendering';
-import {applySnapshotDelta} from '../../../shared/stateDelta';
+import {applySnapshotDelta,stabilizeSnapshot} from '../../../shared/stateDelta';
 import type { ClassRosterEntry, LevelUpCommitRequest, LevelUpPlan, LevelUpPreview, LevelUpResult } from '../../../shared/levelingTypes';
 import type { CoreClass } from '../../../shared/characterProgression';
 import type { SmiteChoice } from '../../../shared/smite';
@@ -934,7 +934,7 @@ export const useStore = create<Store>((set, get) => ({
       rollSfxReady = true;
       for (const timer of dragGhostTimers.values()) clearTimeout(timer);
       dragGhostTimers.clear();
-      set({ snapshot, dragGhosts: {} });
+      set((st) => (Object.keys(st.dragGhosts).length ? { snapshot, dragGhosts: {} } : { snapshot }));
       explainLethargy(snapshot);
     };
     let renderSerial=0,renderFailures=0,renderPending=false;
@@ -966,7 +966,7 @@ export const useStore = create<Store>((set, get) => ({
     socket.on('state:frame',frame=>{
       const timing=frame.timing?{id:frame.timing.id,revision:frame.revision}:undefined;
       if(timing)movementTiming('frameReceived',{...timing,server:frame.timing});
-      if('full' in frame){wireSnapshot=frame.full;wireRevision=frame.revision;}
+      if('full' in frame){wireSnapshot=wireSnapshot?stabilizeSnapshot(wireSnapshot,frame.full):frame.full;wireRevision=frame.revision;}
       else if(wireSnapshot&&frame.base===wireRevision){wireSnapshot=applySnapshotDelta(wireSnapshot,frame.delta);wireRevision=frame.revision;}
       else{socket.emit('state:resync');return;}
       if(timing)movementTiming('deltaApplied',{...timing,maskKey:wireSnapshot.visionTiles?.key??wireSnapshot.visionRaster?.key});
