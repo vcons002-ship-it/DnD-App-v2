@@ -135,6 +135,9 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
    </mask>
    {frame.terrain?.grid&&<pattern id={gridId} patternUnits="userSpaceOnUse" x={frame.terrain.grid.x} y={frame.terrain.grid.y} width={frame.terrain.grid.size} height={frame.terrain.grid.size}><path d={`M ${frame.terrain.grid.size} 0 L 0 0 0 ${frame.terrain.grid.size}`} fill="none" stroke="#fff" strokeOpacity=".15" strokeWidth="1"/></pattern>}
   </defs>
+  <g data-legacy-world="" transform={transform}>
+   {frame.terrain!.tiles.map((t,i)=><image key={`color:${t.url}:${i}`} href={t.url} x={t.x} y={t.y} width={t.w} height={t.h} preserveAspectRatio="none"/>)}
+  </g>
   <g mask={`url(#${gradeMask})`}><g data-legacy-world="" transform={transform}>
    {frame.terrain!.tiles.map((t,i)=><g key={`${t.url}:${i}`}><image href={t.url} x={t.x} y={t.y} width={t.w} height={t.h} preserveAspectRatio="none" style={{filter:'grayscale(1) brightness(.78)'}}/>{frame.terrain?.grid&&<rect x={t.x} y={t.y} width={t.w} height={t.h} fill={`url(#${gridId})`}/>}</g>)}
   </g></g>
