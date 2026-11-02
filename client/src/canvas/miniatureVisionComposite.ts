@@ -137,12 +137,9 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
           c.rgb=mix(terrain,grade(c.rgb,token.r,token.g),bodyCoverage);
         }
         vec3 fog=mix(vec3(5.,6.,8.)/255.,texture2D(memory,uvScreen).rgb,sight.g*hasMemory);
-        // Collapse the old three-layer composition algebraically: scene below
-        // fog, then body-only scene above fog. Preserve premultiplied alpha,
-        // including invisible figures and the old soft-boundary appearance.
-        float gain=v+bodyCoverage*f*(1.-c.a*v);
-        float alpha=c.a*(1.+bodyCoverage*f*(1.-c.a));
-        gl_FragColor=vec4(c.rgb*gain+fog*f*c.a*(1.-c.a*bodyCoverage*f),alpha);
+        // Keep the WebGL scene (including miniature bodies) below fog so unrevealed
+        // portions of a figure stay masked by fog/memory just like terrain.
+        gl_FragColor=vec4(c.rgb*v+fog*f*c.a,c.a);
       }`,
   });
   const quadGeometry=new PlaneGeometry(2,2);quadScene.add(new Mesh(quadGeometry,composite));

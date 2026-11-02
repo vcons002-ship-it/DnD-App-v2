@@ -1,5 +1,5 @@
 import clipping from 'polygon-clipping';
-import {createPlayerVision,lightCoverage,type PlayerVision} from './playerVision.js';
+import {createPlayerVision,lightCoverage,tokenFootprintPoints,TOKEN_TARGETABLE_FRACTION,type PlayerVision} from './playerVision.js';
 import {wallVisibilityPolygon,SIGHT_EXTENT} from './mapWalls.js';
 import type {ExploredTerrain} from './exploration.js';
 import type {MapState,Token} from './types.js';
@@ -142,4 +142,34 @@ export function walkingTerrain({walkSight:{map,tokens,owned:ownedIds,tokenId,fro
  };
  const half=sweep(0,steps/2),seen=sweep(steps/2+1,steps,half),fog=map.mapFogEnabled?fogTerrain(map):undefined;
  return {seen:fog?clipping.intersection(quantizeTerrain(seen),quantizeTerrain(fog)):seen,half:fog?clipping.intersection(quantizeTerrain(half),quantizeTerrain(fog)):half,samples:steps+1};
+}
+function pointInRing(ring:[number,number][],x:number,y:number):boolean{
+ let inside=false;
+ for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+  const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+  const dx=xj-xi,dy=yj-yi,len2=dx*dx+dy*dy;
+  if(len2>0){
+   const t=Math.max(0,Math.min(1,((x-xi)*dx+(y-yi)*dy)/len2));
+   if(Math.hypot(x-(xi+t*dx),y-(yi+t*dy))<=1e-3)return true;
+  }
+  if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))inside=!inside;
+ }
+ return inside;
+}
+export function pointInExploredTerrain(shape:ExploredTerrain|undefined|null,x:number,y:number):boolean{
+ if(!shape?.length)return false;
+ for(const poly of shape){
+  if(!poly.length||!pointInRing(poly[0],x,y))continue;
+  let inHole=false;
+  for(let h=1;h<poly.length;h++)if(pointInRing(poly[h],x,y)){inHole=true;break;}
+  if(!inHole)return true;
+ }
+ return false;
+}
+export function tokenInExploredTerrain(shape:ExploredTerrain|undefined|null,x:number,y:number,radiusPx:number):boolean{
+ if(!shape?.length)return false;
+ const pts=tokenFootprintPoints(x,y,radiusPx);
+ let seen=0;
+ for(const p of pts)if(pointInExploredTerrain(shape,p.x,p.y))seen++;
+ return seen/pts.length>=TOKEN_TARGETABLE_FRACTION;
 }

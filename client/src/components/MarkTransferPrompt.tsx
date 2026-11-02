@@ -12,7 +12,7 @@ export function MarkTransferPrompt() {
   const offers=snapshot?.characters.filter(c=>snapshot.role==='dm'||c.claimedBy===socket?.id).flatMap(c=>c.sheetAbilities.filter(a=>{
     const mark=a.mark;
     if(!markSpell(a)||!mark?.active||mark.expiresAt<=Date.now()||!c.conditions.some(v=>v.isConcentration&&abilityKey({name:v.label.replace(/^Concentration:\s*/i,'')})===abilityKey(a))) return false;
-    const t=snapshot.tokens.find(t=>t.kind===mark.kind&&t.refId===mark.refId);
+    const t=snapshot.tokens.find(t=>t.kind===mark.kind&&t.refId===mark.refId&&!t.partiallyRevealed);
     return t && (resolveToken(snapshot,t).curHp===0||resolveToken(snapshot,t).dead);
   }).map(a=>({c,a})))??[];
   const offer=offers.find(o=>o.a.id===selection?.mark?.abilityId&&o.c.id===selection.mark.refId)??offers[0];
@@ -22,7 +22,7 @@ export function MarkTransferPrompt() {
   if(!snapshot||!offer||selection&&!selection.mark) return null;
   const {c,a}=offer, source=snapshot.tokens.find(t=>t.kind==='pc'&&t.refId===c.id);
   const target=snapshot.tokens.find(t=>t.id===selection?.targetId);
-  const valid=!!source&&!!target&&target.mapId===source.mapId&&!resolveToken(snapshot,target).objectKind&&!resolveToken(snapshot,target).dead&&resolveToken(snapshot,target).curHp!==0&&!(target.kind===a.mark?.kind&&target.refId===a.mark.refId)&&tokenDistanceFt(source,target,snapshot.map)<=90;
+  const valid=!!source&&!!target&&!target.sharedSightOnly&&!target.partiallyRevealed&&target.mapId===source.mapId&&!resolveToken(snapshot,target).objectKind&&!resolveToken(snapshot,target).dead&&resolveToken(snapshot,target).curHp!==0&&!(target.kind===a.mark?.kind&&target.refId===a.mark.refId)&&tokenDistanceFt(source,target,snapshot.map)<=90;
   const choose=()=>setSelection({rollId:`mark:${c.id}:${a.id}`,mark:{kind:'pc',refId:c.id,abilityId:a.id}});
   return <section className="orb-prompt orb-picking" aria-label="Move mark">
     <strong>{a.name}: target defeated</strong>

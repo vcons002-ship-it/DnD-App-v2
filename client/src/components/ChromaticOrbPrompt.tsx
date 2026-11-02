@@ -43,7 +43,7 @@ export function ChromaticOrbPrompt() {
   const casterSide = caster ? side(caster.kind, caster.refId) : 'friendly';
   const allied = (kind: string, refId: string) => (caster?.kind === kind && caster.refId === refId) ||
     (casterSide !== 'neutral' && side(kind, refId) === casterSide);
-  const targets = snapshot.tokens.filter(t => (includeAllies || !allied(t.kind, t.refId)) && t.mapId === orb.origin.mapId &&
+  const targets = snapshot.tokens.filter(t => !t.sharedSightOnly && !t.partiallyRevealed && (includeAllies || !allied(t.kind, t.refId)) && t.mapId === orb.origin.mapId &&
     !orb.visited.includes(`${t.kind}:${t.refId}`) && !resolveToken(snapshot, t).objectKind &&
     tokenDistanceFt(orb.origin, t, snapshot.map) <= range + 1e-6)
     .sort((a,b) => tokenDistanceFt(orb.origin,a,snapshot.map) - tokenDistanceFt(orb.origin,b,snapshot.map));

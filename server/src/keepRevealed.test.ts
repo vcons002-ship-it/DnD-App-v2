@@ -1,9 +1,10 @@
 import {describe,it,expect} from 'vitest';
-import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,moveToken,setTokenHidden,setFogLayer,setFogRevealed,updateMapEnvironment,setExplorationMode,getMap,getSessionByCode,listTokens,listCharacters,listMaps} from './sessions.js';
+import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,moveToken,setTokenHidden,setFogLayer,setFogRevealed,updateMapEnvironment,setExplorationMode,setSharedPartyVision,getMap,getSessionByCode,listTokens,listCharacters,listMaps} from './sessions.js';
 import {editMapWalls} from './mapWalls.js';
 import {buildSnapshot} from './visibility.js';
 import {exportSession,importSession} from './backup.js';
 import {clearExplorationCache} from './exploration.js';
+import {recordWalkingMove} from './walking.js';
 import {db} from './db.js';
 
 function fixture(mode:'day'|'regular'|'heavy'='day'){
@@ -62,5 +63,39 @@ describe('keep revealed fog',()=>{
   expect(snap.map?.explorationMode).toBe('revealed');
   const enemy=listTokens(map.id).find(t=>t.kind==='monster')!;
   expect(snap.tokens.find(t=>t.id===enemy.id)).toMatchObject({x:500,revealedOnly:true});
+ });
+ it('updates remembered creature location in DB when found at a new spot or cleared via walking sweep and multi-PC memory',async ()=>{
+  const f=fixture();
+  // Initial sighting at (500, 200), then lose sight and enemy moves to (500, 600).
+  expect(f.snap().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:500,y:200});
+  moveToken(f.pc.id,100,200);moveToken(f.enemy.id,500,600);
+  expect(f.snap().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:500,y:200,revealedOnly:true});
+  // Add a horizontal wall at y=400 separating (500, 200) from (500, 600).
+  editMapWalls(f.s.id,f.map.id,{add:{id:'h-wall',ax:300,ay:400,bx:2000,by:400}});
+  // Player sees the creature in the lower room at (400, 600), then returns behind the vertical wall at (100, 600).
+  moveToken(f.pc.id,400,600);
+  expect(f.snap().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:500,y:600});
+  moveToken(f.pc.id,100,600);moveToken(f.enemy.id,800,600);
+  clearExplorationCache();
+  expect(f.snap().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:500,y:600,revealedOnly:true});
+  // Walking sweep through the lower room when enemy has moved away behind another wall clears the remembered spot.
+  editMapWalls(f.s.id,f.map.id,{add:{id:'far-wall',ax:700,ay:400,bx:700,by:1000}});
+  const beforeWalk=moveToken(f.pc.id,400,600)!;
+  const afterWalk=moveToken(f.pc.id,450,600)!;
+  await recordWalkingMove(beforeWalk,afterWalk,true);
+  moveToken(f.pc.id,100,600);
+  clearExplorationCache();
+  expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  // Multi-PC personal vision (e.g. DM Party View combining personal memories): when one PC sees the old location is empty, stale memory from another PC is cleared.
+  setSharedPartyVision(f.s.id,f.map.id,false);
+  const partyView=()=>buildSnapshot(f.s.id,'dm',f.map.id,undefined,undefined,true)!.partyView!;
+  const c2=createCharacter(f.s.id,{name:'Scout'});claimCharacter(c2.id,'scout-viewer');
+  const pc2=createToken({mapId:f.map.id,kind:'pc',refId:c2.id,x:800,y:600});
+  expect(partyView().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:800,y:600});
+  moveToken(pc2.id,100,600);moveToken(f.enemy.id,500,200);
+  expect(partyView().tokens.find(t=>t.id===f.enemy.id)).toMatchObject({x:800,y:600,revealedOnly:true});
+  // Explorer (pc) moves to (800, 600) and sees the spot is now empty, then moves back to (100, 600).
+  moveToken(f.pc.id,800,600);partyView();moveToken(f.pc.id,100,600);
+  expect(partyView().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
  });
 });

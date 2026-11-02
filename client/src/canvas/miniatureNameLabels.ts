@@ -49,7 +49,7 @@ export function createMiniatureNameReader() {
       const key=JSON.stringify([density,version]);
       const reusable=entry?.node===node&&entry.key===key&&version!==undefined;
       const hud=reusable?entry!.hud:node.findOne<Konva.Group>('.token-upright-hud');
-      if(!hud)continue;
+      if(!hud||!hud.visible())continue;
       present.add(id);
       // TokenShape publishes typography/layout and visible HP changes. Motion,
       // selection and torch flicker reuse these HUD pixels.

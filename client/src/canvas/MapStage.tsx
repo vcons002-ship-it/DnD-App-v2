@@ -35,7 +35,7 @@ import type {WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,type MapWall} from '../../../shared/mapWalls';
 import {doorInReach} from '../../../shared/doorInteraction';
 import {wallVertices,wallCenter,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
-import {fogVisionContains,visionShowsAffinity,needsVisibilityLayer,usesMapVision,usesTokenVision} from '../../../shared/playerVision';
+import {fogVisionContains,fogVisionContainsToken,fogVisionIntersectsToken,tokenRadiusPx,visionShowsAffinity,needsVisibilityLayer,usesMapVision,usesTokenVision} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
@@ -118,7 +118,7 @@ function floatingAttacker(
   mySocketId: string | undefined,
 ): Token | null {
   const selected = snapshot.tokens.filter(
-    (t) => !t.sharedSightOnly && selectedIds.includes(t.id) && t.id !== target.id,
+    (t) => !t.sharedSightOnly && !t.partiallyRevealed && selectedIds.includes(t.id) && t.id !== target.id,
   );
   if (isDm) return selected[0] ?? null;
   const friendly = selected.find(
@@ -545,7 +545,7 @@ function MapStageInner({
   const dmSceneLighting=dmViewMode!=='dm';
   const environment = useMemo<EnvironmentPreviewSettings|undefined>(()=>{
     const saved=snapshot.map?.environment??DEFAULT_MAP_ENVIRONMENT;
-    const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden&&!t.sharedSightOnly).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
+    const carriedLanterns=snapshot.tokens.filter(t=>t.carriedLantern&&!t.isHidden&&!t.sharedSightOnly&&!t.partiallyRevealed).map(t=>({id:t.id,x:t.x,y:t.y,diameter:(t.miniatureWidthFt??t.widthFt)*pxPerFoot,facing:t.facing??0}));
     if(legacy||!map || (!saved.enabled&&!carriedLanterns.length) || map.slidesUrl)return undefined;
     const settings=saved.enabled?saved:{...DEFAULT_MAP_ENVIRONMENT,enabled:true,shadows:false,mist:false};
     return {...settings,dmVisibility:isDm&&!dmSceneLighting,...(snapshot.playerVision&&!snapshot.playerVision.daylight?{darkvisionTerrain:[...(map.imagePath&&baseW&&baseH?[{url:map.imagePath,videoPath:animateMap?map.videoPath:undefined,x:0,y:0,w:baseW,h:baseH}]:[]),...tiles.map(t=>({url:t.imagePath,videoPath:animateMap?t.videoPath:undefined,x:t.x,y:t.y,w:t.w,h:t.h}))],darkvisionGrid:{size:map.gridHidden?0:grid,x:map.gridOffsetX??0,y:map.gridOffsetY??0}}:{}),carriedLanterns,overlay:true,mapUrl:'',mapX:extX0,mapY:extY0,mapWidth:imgW,mapHeight:imgH,
@@ -616,7 +616,7 @@ function MapStageInner({
   // when its own token/display actually changes (not on every snapshot).
   const handleTokenSelect = useStableCallback((tok: Token, additive: boolean) => {
     if(areaCast){placeSpellArea(tok);return;}
-    if(tok.sharedSightOnly)return;
+    if(tok.sharedSightOnly||tok.partiallyRevealed)return;
     if (orbTarget) setOrbTarget({...orbTarget,targetId:tok.id});
     else if (saveResolve) resolveSaveAt(tok.id);
     else onSelectToken(tok, additive);
@@ -624,7 +624,7 @@ function MapStageInner({
   });
   const handleTokenActivate = useStableCallback((tok: Token) => {
     if(areaCast)return;
-    if(tok.sharedSightOnly)return;
+    if(tok.sharedSightOnly||tok.partiallyRevealed)return;
     if (saveResolve || orbTarget) return;
     onSelectToken(tok, false);
     setDetailsExpanded(true); // open the player's read-only Details
@@ -650,7 +650,7 @@ function MapStageInner({
     setDoorDragPreview(old=>old?.tokenId===tok.id&&old.ids.join('|')===ids.join('|')?old:{tokenId:tok.id,ids});
   });
   const handleTokenMenu = useStableCallback((tok: Token, cx: number, cy: number) => {
-    if(tok.sharedSightOnly)return;
+    if(tok.sharedSightOnly||tok.partiallyRevealed)return;
     setHover(null);
     // Also aim the Combat section's target dropdown at the right-clicked token,
     // so closing the menu still leaves the side panel set up to attack it.
@@ -658,12 +658,12 @@ function MapStageInner({
     setMenu({ token: tok, x: cx, y: cy });
   });
   const handleTokenHover = useStableCallback((tok: Token, cx: number, cy: number) => {
-    if(tok.sharedSightOnly)return;
+    if(tok.sharedSightOnly||tok.partiallyRevealed)return;
     if(!privateDrag.current)setHover({ token: tok, x: cx, y: cy });
   });
   const handleTokenHoverEnd = useStableCallback(() => setHover(null));
   useEffect(()=>{
-    const direct=(id:string)=>snapshot.tokens.some(t=>t.id===id&&!t.sharedSightOnly);
+    const direct=(id:string)=>snapshot.tokens.some(t=>t.id===id&&!t.sharedSightOnly&&!t.partiallyRevealed);
     if(menu&&!direct(menu.token.id))setMenu(null);
     if(!actualDm && selectedIds.some(id=>!direct(id))){
       if(onSelectTokens)onSelectTokens(selectedIds.filter(direct));else onSelectToken(null);
@@ -711,7 +711,7 @@ function MapStageInner({
     // grid×size — on a map whose grid isn't 5 ft/square those diverge and the
     // clickable disc mis-targets an emanation onto a neighbour.
     snapshot.tokens.find(
-      (t) => !t.sharedSightOnly && Math.hypot(p.x - t.x, p.y - t.y) <= (readyMiniatures.has(t.id) ? miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name }) : t.widthFt) / fpp / 2,
+      (t) => !t.sharedSightOnly && !t.partiallyRevealed && Math.hypot(p.x - t.x, p.y - t.y) <= (readyMiniatures.has(t.id) ? miniatureBaseWidthFt(t, t.kind === 'monster' ? snapshot.monsters.find(m => m.id === t.refId) : { name: resolveToken(snapshot, t).name }) : t.widthFt) / fpp / 2,
     );
 
   // DM scale control (committed on blur/Enter; synced from the live map). The
@@ -865,7 +865,7 @@ function MapStageInner({
     const ownerId = useStore.getState().socket?.id;
     const owned = new Set(snapshot.characters.filter(c => c.claimedBy === ownerId).map(c => c.id));
     const friendly = new Set(snapshot.monsters.filter(m => m.disposition === 'friendly').map(m => m.id));
-    const tokens = new Map(snapshot.tokens.map(t => [t.id, { x:t.x, y:t.y, kind:t.kind, hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly, revealedOnly:t.revealedOnly,
+    const tokens = new Map(snapshot.tokens.map(t => [t.id, { x:t.x, y:t.y, kind:t.kind, hidden: t.isHidden, sharedSightOnly: t.sharedSightOnly, revealedOnly:t.revealedOnly, partiallyRevealed:t.partiallyRevealed, radiusPx:tokenRadiusPx(t,snapshot.map),
       controlledBlind:t.visionDisabled&&t.kind==='pc'&&(actualDm||owned.has(t.refId)),
       owned: t.kind === 'pc' && owned.has(t.refId), foe: t.kind === 'monster' && !friendly.has(t.refId) }]));
     return (id: string, x: number, y: number) => {
@@ -877,8 +877,8 @@ function MapStageInner({
       // Area art is pixel-clipped to the player's sight and revealed fog in the 3D layer,
       // so it plays wherever any part of it is in view (the server already checked).
       if(!token&&(id.startsWith('area:')||id.startsWith('spike-area:')))return true;
-      return !!token && (token.sharedSightOnly ? (token.kind==='pc' || (token.revealedOnly?fogVisionContains(presentation.personalVision(),x,y,false)&&tokenVisibleAt({...token,role:snapshot.role,mapFog:mapFogEnabled?mapRevealed:null,tokenFog:tokenFogEnabled?tokenRevealed:null,grid,x,y}):fogVisionContains(presentation.partyVision(),x,y,usesTokenVision(snapshot.map)))) :
-        (token.owned || fogVisionContains(presentation.personalVision(),x,y,usesTokenVision(snapshot.map))) && tokenVisibleAt({ ...token, role: snapshot.role,
+      return !!token && (token.sharedSightOnly ? (token.kind==='pc' || (token.revealedOnly?fogVisionContainsToken(presentation.personalVision(),x,y,token.radiusPx,false)&&tokenVisibleAt({...token,role:snapshot.role,mapFog:mapFogEnabled?mapRevealed:null,tokenFog:tokenFogEnabled?tokenRevealed:null,grid,x,y}):fogVisionContainsToken(presentation.partyVision(),x,y,token.radiusPx,usesTokenVision(snapshot.map)))) :
+        (token.owned || fogVisionIntersectsToken(presentation.personalVision(),x,y,token.radiusPx,usesTokenVision(snapshot.map))) && tokenVisibleAt({ ...token, role: snapshot.role,
         mapFog: mapFogEnabled ? mapRevealed : null, tokenFog: tokenFogEnabled ? tokenRevealed : null, grid, x, y }));
     };
   }, [actualDm,legacy,snapshot, mapFogEnabled, tokenFogEnabled, mapRevealed, tokenRevealed, grid]);
@@ -951,18 +951,19 @@ function MapStageInner({
     const definition = dead ? DEATH_SKULL : miniatureForQuality(resolveMiniature(display.name, token.kind, appearance, token.refId),graphics.modelQuality);
     return definition ? [{ id: token.id, x: token.x, y: token.y,
       facing: token.facing ?? 0,
-      mirrorImages:dead ? 0 : mirrorImageCount(display.conditions),
+      mirrorImages:dead || token.partiallyRevealed ? 0 : mirrorImageCount(display.conditions),
       sharedSightOnly: token.sharedSightOnly,
+      partiallyRevealed: token.partiallyRevealed,
       invisible:token.invisible,
-      carriedLantern:!dead && !token.sharedSightOnly && token.carriedLantern,
-      combatRole: !dead && !token.sharedSightOnly && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
-      hunterMarked: !dead && !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
-      conditionColors: dead || token.sharedSightOnly ? [] : presentAuras(display.conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
-      outline: token.sharedSightOnly || (snapshot.serverRendering?.enabled&&snapshot.legacyGeometry!==undefined?!legacyAffinity.has(token.id):!visionShowsAffinity(snapshot.playerVision,token.x,token.y)) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
+      carriedLantern:!dead && !token.sharedSightOnly && !token.partiallyRevealed && token.carriedLantern,
+      combatRole: !dead && !token.sharedSightOnly && !token.partiallyRevealed && token.kind==='monster'&&!monster?.objectKind?token.combatRole:undefined,
+      hunterMarked: !dead && !token.partiallyRevealed && !!token.markLabels?.some(label=>/hunter.s mark/i.test(label)),
+      conditionColors: dead || token.sharedSightOnly || token.partiallyRevealed ? [] : presentAuras(display.conditions.filter(c=>!c.id.startsWith("spell-mark:") || !/hunter.s mark/i.test(c.label))).map(a=>AURA_HEX[a]),
+      outline: token.sharedSightOnly || token.partiallyRevealed || (snapshot.serverRendering?.enabled&&snapshot.legacyGeometry!==undefined?!legacyAffinity.has(token.id):!visionShowsAffinity(snapshot.playerVision,token.x,token.y)) || monster?.objectKind ? undefined : monster ? DISPOSITION_HEX[monster.disposition] : DISPOSITION_HEX.friendly,
       tint: !dead && monster ? monsterTint(monster) : undefined,
       shade: !dead && monster && !monster.objectKind ? monsterVariation(productionFamily(monster), token.refId).shade : undefined,
-      activeTurn: !token.sharedSightOnly && token.id === activeTurnTokenId,
-      selected: !token.sharedSightOnly && (orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id)),
+      activeTurn: !token.sharedSightOnly && !token.partiallyRevealed && token.id === activeTurnTokenId,
+      selected: !token.sharedSightOnly && !token.partiallyRevealed && (orbTarget ? orbTarget.targetId === token.id : selectedIds.includes(token.id)),
       diameter: miniatureBaseWidthFt(token, monster ?? { name: resolveToken(snapshot, token).name }) * pxPerFoot, hidden: token.isHidden, definition }] : [];
   }), [legacy,snapshot,legacyAffinity, isDm, pxPerFoot, activeTurnTokenId, selectedIds, orbTarget, use3dTokens, use3dMonsters, hiddenGhosts, miniatureCatalogRevision, graphics.modelQuality]);
   const miniatureIds=useMemo(()=>new Set(miniatureTokens.map(m=>m.id)),[miniatureTokens]);
@@ -991,7 +992,7 @@ function MapStageInner({
   const mapSpellEvent=(event:typeof hpFx[number]):SpellImpact[]=>{
     if(!weaponImpactStyle(event)&&(event.suppressSpellVisual||!spellImpactStyle(event)))return [];
     if(event.areaPosition){const p=event.areaPosition;if(p.mapId!==snapshot.map?.id)return [];return [{id:event.id,event,startAt:event.numberStartAt,tokenId:`area:${event.id}`,x:p.x,y:p.y,diameter:event.spell==='Dispel Magic'?Math.min(12,p.radiusFt*2)*pxPerFoot:p.radiusFt*2*pxPerFoot,fixed:true}];}
-    const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&(isDm||!t.isHidden));
+    const token=snapshot.tokens.find(t=>t.kind===event.kind&&t.refId===event.refId&&!t.sharedSightOnly&&!t.partiallyRevealed&&(isDm||!t.isHidden));
     if(!token)return [];
     // The active restraint is already the visible impact; stacking an identical
     // transient mesh would briefly double its brightness and number of links.
@@ -1002,7 +1003,7 @@ function MapStageInner({
   };
   const preparedSpellImpacts=useMemo(()=>legacy?[]:preparedHpFx.flatMap(mapSpellEvent),[legacy,preparedHpFx,snapshot,miniatureTokens,pxPerFoot,isDm]);
   const spellImpacts=useMemo<SpellImpact[]>(()=>legacy?[]:[...hpFx.flatMap(mapSpellEvent),...snapshot.measurements.filter(m=>m.spellName==='Spike Growth').map(m=>({id:`spike-area:${m.id}`,tokenId:`spike-area:${m.id}`,x:m.origin.x,y:m.origin.y,diameter:40*pxPerFoot,persistent:true,fixed:true,event:{kind:'pc' as const,refId:'',delta:0,spell:'Spike Growth',effect:'spell-area' as const}})),...snapshot.tokens.flatMap(token=>{
-    if(token.sharedSightOnly||(!isDm&&token.isHidden))return [];
+    if(token.sharedSightOnly||token.partiallyRevealed||(!isDm&&token.isHidden))return [];
     return resolveToken(snapshot,token).conditions.flatMap(condition=>{
       const spell=persistentSpellVisual(condition);if(!spell||isRollImpactPending(condition.combatEffect?.visualRollId))return [];
       return [{id:`active:${token.id}:${condition.id}`,tokenId:token.id,x:token.x,y:token.y,persistent:true,
@@ -1801,12 +1802,12 @@ function MapStageInner({
         terrainZones={terrainZones}
         movementAllowanceFt={movementSpeed === undefined ? undefined : movementSpeed * (hasteDash ? 2 : 1)}
         draggable={
-          !t.sharedSightOnly && draggableTokens && movable && (actualDm || !speedIsZero(creature ?? {})) && !fogActive && !measureActive && !saveResolve && !orbTarget
+          !t.sharedSightOnly && !t.partiallyRevealed && draggableTokens && movable && (actualDm || !speedIsZero(creature ?? {})) && !fogActive && !measureActive && !saveResolve && !orbTarget
         }
-        listening={!t.sharedSightOnly && !measureActive && !dmTeleportToken}
-        selected={!t.sharedSightOnly && (orbTarget ? orbTarget.targetId === t.id : selectedIdSet.has(t.id))}
-        activeTurn={!t.sharedSightOnly && t.id === activeTurnTokenId}
-        initiativeRank={initiativeRank.get(t.id) ?? null}
+        listening={!t.sharedSightOnly && !t.partiallyRevealed && !measureActive && !dmTeleportToken}
+        selected={!t.sharedSightOnly && !t.partiallyRevealed && (orbTarget ? orbTarget.targetId === t.id : selectedIdSet.has(t.id))}
+        activeTurn={!t.sharedSightOnly && !t.partiallyRevealed && t.id === activeTurnTokenId}
+        initiativeRank={t.partiallyRevealed ? null : (initiativeRank.get(t.id) ?? null)}
         onSelect={handleTokenSelect}
         onActivate={handleTokenActivate}
         onMove={handleTokenMove}

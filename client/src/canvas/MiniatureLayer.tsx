@@ -669,25 +669,22 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
         archArtStudy?.draw(useStore.getState().snapshot?.map?.id,view,props.width,props.height,props.tiltDegrees,props.rotationDegrees??0,
           [...instances.values()].map(i=>({x:i.root.position.x,y:i.root.position.z,visible:i.root.visible})),battlefield?.lighting,!!props.environmentPreview?.heavyDarkness);
-        if(props.personalVision&&!useComposite)visionLift??=createMiniatureVisionLift(renderer,host,outlineMask.texture);
         timing?.end();visionTiming?.begin();
-        // Fog covers ground, never the silhouette of an already visible figure.
-        // Its outside rim is not part of the opaque body mask; draw it after fog
-        // rather than letting a wall boundary erase heads/shoulders' outlines.
-        const foreground=()=>{silhouette.render(renderer,outlineRects);spellImpacts.renderForeground(renderer,camera);};
-        visionLift?.render(!!props.personalVision&&!useComposite,foreground);
+        visionLift?.render(false);
+        silhouette.render(renderer,outlineRects);
         // Flashing spells light terrain in sight. Outside magical darkness all
         // of it is visible already, so only heavy darkness needs the reach.
         const flashes=useComposite&&sightFrame?.enabled&&sightFrame.grade?.heavy?impactLights.filter(l=>l.revealsTerrain).map(l=>({source:l,
           polygon:battlefield?.lighting.wallPolygon(l.id)??FLASH_CIRCLE.map(v=>({x:l.x+v.x*spellLightReach(l),y:l.y+v.y*spellLightReach(l)}))})):NO_FLASHES;
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera,flashes,battlefield?.memoryTexture);
-        if(!props.personalVision||useComposite){
-          silhouette.render(renderer,outlineRects);
-          if(deferSpells&&useComposite){
+        if(deferSpells){
+          if(useComposite){
             // Drawn above terrain fog, so clip to the live sight cover here.
             spellImpacts.setCoverClip(sightFrame?.enabled&&visionComposite?visionComposite.cover:null);
             spellImpacts.renderForeground(renderer,camera);
             spellImpacts.setCoverClip(null);
+          }else{
+            spellImpacts.renderForeground(renderer,camera);
           }
         }
         host.dataset.spellFogPass=deferSpells?(useComposite?'foreground':'legacy-lift'):'scene';
@@ -819,7 +816,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
     model.updateMatrix();
     }
     if(battlefield && (instance.root.position.x!==position.x || instance.root.position.z!==position.y || instance.root.rotation.y!==(position.facing??0)))renderer.shadowMap.needsUpdate=true;
-    instance.hunterMark.visible=!!token.hunterMarked && !token.sharedSightOnly;
+    instance.hunterMark.visible=!!token.hunterMarked && !token.sharedSightOnly && !token.partiallyRevealed;
     instance.root.visible = visible;
     instance.root.position.set(position.x, 0, position.y);
     instance.root.rotation.y = position.facing ?? 0;

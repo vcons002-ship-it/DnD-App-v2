@@ -161,6 +161,8 @@ export type Token = {
   sharedSightOnly?: boolean;
   /** Full-color last-seen reference in Keep revealed fog; never a direct target. */
   revealedOnly?: boolean;
+  /** Partially revealed edge in current sight (<35% visible); rendered on map under fog, never a direct target or listed in player menus. */
+  partiallyRevealed?: boolean;
   /** Owner/party/DM ghost rendering; unseen hostile tokens never arrive. */
   invisible?: boolean;
   /** Server-assigned public encounter tag; U means not yet revealed (DM only). */

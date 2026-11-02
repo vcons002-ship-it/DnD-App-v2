@@ -132,7 +132,7 @@ export function CombatSection({
   // Heals pick from allies instead (self first = default) and apply on cast.
   const hasHeal = abilities.some((a) => effectiveSheetAbility(a).roll?.kind === 'heal');
   const [healTargetId, setHealTargetId] = useState(healList[0]?.id ?? '');
-  const buffList = healList.filter(token => token.mapId === attacker.mapId && !token.sharedSightOnly);
+  const buffList = healList.filter(token => token.mapId === attacker.mapId && !token.sharedSightOnly && !token.partiallyRevealed);
   const hasHasteSpell = abilities.some(isCanonicalHasteProfile);
   const [buffTargetId, setBuffTargetId] = useState(attacker.id);
 

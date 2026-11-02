@@ -47,6 +47,34 @@ export function fogVisionContains(vision:PlayerVision|undefined|null,x:number,y:
  const visibleOrigins=vision.origins.filter(seen);
  return visibleOrigins.length>0&&(!vision.heavy||visibleOrigins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6)||visionLit(vision,x,y));
 }
+export const TOKEN_TARGETABLE_FRACTION=0.35;
+export function tokenRadiusPx(token:Pick<Token,'widthFt'>,map:Pick<MapState,'gridSizePx'|'feetPerSquare'>|null|undefined):number{
+ const grid=map?.gridSizePx??50,fps=Math.max(.001,map?.feetPerSquare??5);
+ return ((token.widthFt||5)*grid/fps)/2;
+}
+export function tokenFootprintPoints(x:number,y:number,radiusPx:number):{x:number;y:number}[]{
+ if(!(radiusPx>0))return [{x,y}];
+ const pts:{x:number;y:number}[]=[{x,y}];
+ const r1=radiusPx*0.3,r2=radiusPx*0.6,r3=radiusPx*0.9;
+ for(let i=0;i<6;i++){const a=(i*Math.PI)/3;pts.push({x:x+Math.cos(a)*r1,y:y+Math.sin(a)*r1});}
+ for(let i=0;i<8;i++){const a=(i*Math.PI)/4;pts.push({x:x+Math.cos(a)*r2,y:y+Math.sin(a)*r2});}
+ for(let i=0;i<12;i++){const a=(i*Math.PI)/6;pts.push({x:x+Math.cos(a)*r3,y:y+Math.sin(a)*r3});}
+ return pts;
+}
+export function tokenVisionRevealedFraction(vision:PlayerVision|undefined|null,x:number,y:number,radiusPx:number,wallFog:boolean):number{
+ if(!vision)return 1;
+ const pts=tokenFootprintPoints(x,y,radiusPx);
+ let seen=0;
+ for(const p of pts)if(fogVisionContains(vision,p.x,p.y,wallFog))seen++;
+ return seen/pts.length;
+}
+export function fogVisionContainsToken(vision:PlayerVision|undefined|null,x:number,y:number,radiusPx:number,wallFog:boolean):boolean{
+ return tokenVisionRevealedFraction(vision,x,y,radiusPx,wallFog)>=TOKEN_TARGETABLE_FRACTION;
+}
+export function fogVisionIntersectsToken(vision:PlayerVision|undefined|null,x:number,y:number,radiusPx:number,wallFog:boolean):boolean{
+ if(!vision)return true;
+ return tokenFootprintPoints(x,y,radiusPx).some(p=>fogVisionContains(vision,p.x,p.y,wallFog));
+}
 /** In any origin's line of sight, however dark: a spell's own flash lights it. */
 export function visionInSight(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
  if(!vision)return true;

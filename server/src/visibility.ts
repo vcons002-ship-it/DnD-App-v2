@@ -6,8 +6,8 @@ import {heldCasts,eligibleCounterspellers} from './counterspell.js';
 import {doorApproachPoints} from '../../shared/mapWalls.js';
 import {chatForViewer} from './privateChat.js';
 import {activeMarks} from './marks.js';
-import {rememberTerrain,rememberFigures,explorationGeneration,type RevealedFigure} from './exploration.js';
-import {createPlayerVision,visionContains,fogVisionContains,usesMapVision,usesTokenVision,type PlayerVision} from '../../shared/playerVision.js';
+import {rememberTerrain,rememberFigures,mergePersonalFigures,explorationGeneration,type RevealedFigure} from './exploration.js';
+import {createPlayerVision,visionContains,fogVisionContains,fogVisionContainsToken,fogVisionIntersectsToken,tokenRadiusPx,usesMapVision,usesTokenVision,type PlayerVision} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
 import { resolveMonsterModelType } from '../../shared/monsterAppearance.js';
@@ -132,7 +132,7 @@ export function hiddenRollOutcome(e: RollEntry, visible: Token[], monsters: Mons
   const knownName=(name:string|undefined):string|undefined=>{
     if(!name)return undefined;
     const monster=monsters.find(m=>m.name===name);
-    if(monster)return visible.some(t=>t.kind==='monster'&&t.refId===monster.id)?monster.name:undefined;
+    if(monster)return visible.some(t=>!t.partiallyRevealed&&t.kind==='monster'&&t.refId===monster.id)?monster.name:undefined;
     return characters.find(c=>c.name===name)?.name;
   };
   const recipient=e.hpNote?(e.hpNote.kind==='pc'?characters:monsters).find(c=>c.id===e.hpNote!.refId)?.name:
@@ -142,7 +142,7 @@ export function hiddenRollOutcome(e: RollEntry, visible: Token[], monsters: Mons
   // An unseen actor/target must not be identified by a private roll. Unknown
   // spell/tool titles are not creature names and are never copied verbatim.
   if(monsters.some(m=>(m.name===r?.attacker&&!subject)||(m.name===(r?.target??recipient)&&!target)))return null;
-  if(r?.visibilityTarget&&!visible.some(t=>!t.sharedSightOnly&&t.kind===r.visibilityTarget!.kind&&t.refId===r.visibilityTarget!.refId))return null;
+  if(r?.visibilityTarget&&!visible.some(t=>!t.sharedSightOnly&&!t.partiallyRevealed&&t.kind===r.visibilityTarget!.kind&&t.refId===r.visibilityTarget!.refId))return null;
   const labels:Record<string,string>={hit:'Hit',miss:'Miss',crit:'Critical hit',fumble:'Fumble',pass:'Pass',fail:'Fail',none:'Resolved'};
   const ability=e.label.match(/^(STR|DEX|CON|INT|WIS|CHA) save$/i)?.[1].toUpperCase();
   const label=healing?'Healing':r?.kind==='attack'?'Attack':r?.kind==='damage'||damageApplication?'Damage':ability?`${ability} save`:/save/i.test(e.label)?'Saving throw':'Check';
@@ -196,7 +196,7 @@ function playerMonsterName(m: Monster): string {
   return m.objectKind ? m.name : creatureBaseName(m.name);
 }
 
-function toPlayerMonster(m: Monster): Monster | MonsterPublic {
+export function toPlayerMonster(m: Monster): Monster | MonsterPublic {
   // Friendly = full stat block, but loot stays behind the same reveal gate as
   // every other tier (a friendly NPC's pockets aren't public until the DM says).
   if (m.disposition === 'friendly')
@@ -545,7 +545,7 @@ export function createSnapshotBuilder(
       if (!previewVisionHit && map?.environment && mapFog) map = { ...map, environment: { ...map.environment,
         lights: map.environment.lights.filter(light => mapFog.has(`${Math.floor(light.x / grid)},${Math.floor(light.y / grid)}`)) } };
       const manualVisible=(t:Token)=>tokenVisibleAt({role,hidden:t.isHidden,owned:t.kind==='pc',foe:t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y});
-      const partySeesRaw=(t:Token)=>manualVisible(t)&&fogVisionContains(partyVision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&(sharedPartyVision?party:owned).has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
+      const partySeesRaw=(t:Token)=>manualVisible(t)&&fogVisionContainsToken(partyVision,t.x,t.y,tokenRadiusPx(t,map),usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&!o.visionDisabled&&(sharedPartyVision?party:owned).has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map))));
       const partySees=(t:Token):boolean=>{
         if (!preview && sharedPartyVision) {
           let cache = loaded.partySeesById;
@@ -562,11 +562,11 @@ export function createSnapshotBuilder(
 
       let rememberedById: Map<string, RevealedFigure>;
       if(!sharedPartyVision&&map){
-        const records=[...personalMemories].flatMap(([id,vision])=>{
-          const sees=(t:Token)=>manualVisible(t)&&fogVisionContains(vision,t.x,t.y,usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&o.refId===id&&seesInvisible(charById.get(id)!,tokenDistanceFt(o,t,map))));
-          return rememberFigures(map!,data.mapImages,data.tokens,sees,(x,y)=>fogVisionContains(vision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?getPlayerMonster(m):undefined;},readOnly,id);
+        const groups=[...personalMemories].map(([id,vision])=>{
+          const sees=(t:Token)=>manualVisible(t)&&fogVisionContainsToken(vision,t.x,t.y,tokenRadiusPx(t,map),usesTokenVision(map))&&(!isInvisible(monById.get(t.refId)!)||data.tokens.some(o=>o.kind==='pc'&&!o.visionDisabled&&o.refId===id&&seesInvisible(charById.get(id)!,tokenDistanceFt(o,t,map))));
+          return rememberFigures(map!,data.mapImages,data.tokens,sees,(x,y)=>fogVisionContains(playerVision,x,y,usesTokenVision(map)),t=>{const m=monById.get(t.refId);return m?getPlayerMonster(m):undefined;},readOnly,id,true);
         });
-        rememberedById=new Map(records.map(r=>[r.token.id,r]));
+        rememberedById=new Map(mergePersonalFigures(groups).map(r=>[r.token.id,r]));
       }else if (!preview && map) {
         let byRo = loaded.rememberedByReadonly;
         if (!byRo) loaded.rememberedByReadonly = byRo = new Map();
@@ -595,7 +595,7 @@ export function createSnapshotBuilder(
           return [{...retained.token,initiative:partySees(t)?t.initiative:null,sharedSightOnly:true,revealedOnly:true}];
         };
         if(isInvisible(t.kind==='pc'?charById.get(t.refId):monById.get(t.refId))&&t.kind==='monster'&&monById.get(t.refId)?.disposition!=='friendly'){
-          const sees=data.tokens.some(o=>o.kind==='pc'&&owned.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map)));
+          const sees=data.tokens.some(o=>o.kind==='pc'&&!o.visionDisabled&&owned.has(o.refId)&&seesInvisible(charById.get(o.refId)!,tokenDistanceFt(o,t,map)));
           if(!sees)return retain();
         }
         const door=loaded.doorByTokenId.get(t.id);
@@ -607,19 +607,27 @@ export function createSnapshotBuilder(
           }
           return doorVis?[t]:[];
         }
+        const radiusPx = tokenRadiusPx(t, map);
+        const manualVis = tokenVisibleAt({ role, hidden: false,
+          owned: t.kind === 'pc' && owned.has(t.refId),
+          foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
+          mapFog, tokenFog, grid, x: t.x, y: t.y });
         let personallyVisible = isStationaryPreview ? previewVisionHit!.personalVisible.get(t.id) : undefined;
         if (personallyVisible === undefined) {
-          personallyVisible = tokenVisibleAt({ role, hidden: false,
-            owned: t.kind === 'pc' && owned.has(t.refId),
-            foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
-            mapFog, tokenFog, grid, x: t.x, y: t.y }) && fogVisionContains(playerVision,t.x,t.y,tokenWallVision);
+          personallyVisible = manualVis && ((t.kind === 'pc' && owned.has(t.refId)) || fogVisionContainsToken(playerVision,t.x,t.y,radiusPx,tokenWallVision));
           if (isStationaryPreview) previewVisionHit!.personalVisible.set(t.id, personallyVisible);
         }
         if(personallyVisible)return [t];
-        if(!sharedPartyVision)return retain();
+        const partial=():Token[]=>manualVis&&fogVisionIntersectsToken(playerVision,t.x,t.y,radiusPx,tokenWallVision)
+          ?[{...t,partiallyRevealed:true,initiative:null,combatRole:null,revealTag:undefined,markLabels:undefined}]:[];
+        if(!sharedPartyVision){
+          const part=partial();
+          return part.length?part:retain();
+        }
         // Party positions are always known. Explicit DM hiding still wins.
         // The normal remembered mode retains only terrain, not lost creatures.
         if(t.kind==='pc')return [{...t,sharedSightOnly:true,...(map?.explorationMode==='revealed'?{revealedOnly:true}:{})}];
+        const part=partial();if(part.length)return part;
         const kept=retain();if(kept.length)return kept;
         if(map?.explorationMode==='revealed'&&playerVision?.heavy&&!fogVisionContains(playerVision,t.x,t.y,false))return [];
         if(monById.get(t.refId)?.objectKind || !party.size || sameAsParty)return [];
@@ -630,7 +638,7 @@ export function createSnapshotBuilder(
           partyVisible = cache.get(t.id);
           if (partyVisible === undefined) {
             partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
-              foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContains(partyVision,t.x,t.y,tokenWallVision);
+              foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContainsToken(partyVision,t.x,t.y,radiusPx,tokenWallVision);
             cache.set(t.id, partyVisible);
           }
         } else {
@@ -638,7 +646,7 @@ export function createSnapshotBuilder(
           partyVisible = isStationaryParty ? loaded.previewPartyCache!.partyVisible.get(t.id) : undefined;
           if (partyVisible === undefined) {
             partyVisible = tokenVisibleAt({role,hidden:false,owned:false,
-              foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContains(partyVision,t.x,t.y,tokenWallVision);
+              foe:monById.get(t.refId)?.disposition!=='friendly',mapFog,tokenFog,grid,x:t.x,y:t.y}) && fogVisionContainsToken(partyVision,t.x,t.y,radiusPx,tokenWallVision);
             if (isStationaryParty) loaded.previewPartyCache!.partyVisible.set(t.id, partyVisible);
           }
         }
@@ -660,9 +668,15 @@ export function createSnapshotBuilder(
       const visibleMonIds = new Set(
         tokens.filter((t) => t.kind === 'monster').map((t) => t.refId),
       );
+      const directMonIds = new Set(
+        tokens.filter((t) => t.kind === 'monster' && !t.partiallyRevealed).map((t) => t.refId),
+      );
       shapedMonsters = monsters
         .filter((m) => visibleMonIds.has(m.id))
-        .map(m=>retainedDisplays.get(m.id)??getPlayerMonster(m));
+        .map(m => {
+          const base = retainedDisplays.get(m.id) ?? getPlayerMonster(m);
+          return directMonIds.has(m.id) ? base : { ...base, curHp: undefined, maxHp: undefined, tempHp: undefined, ac: undefined, conditions: [] };
+        });
       if (boardKey) (loaded.boardByOwned ??= new Map()).set(boardKey, { playerVision, map, tokens, shapedMonsters });
       }
       if(!preview){
@@ -735,7 +749,7 @@ export function createSnapshotBuilder(
     }
 
     if (!preview && role==='player' && shapedRollLog.some(e=>e.reveal?.visibilityTarget)) shapedRollLog=shapedRollLog.filter(e=>!e.reveal?.visibilityTarget || tokens.some(t=>
-      !t.sharedSightOnly && t.kind===e.reveal!.visibilityTarget!.kind && t.refId===e.reveal!.visibilityTarget!.refId));
+      !t.sharedSightOnly && !t.partiallyRevealed && t.kind===e.reveal!.visibilityTarget!.kind && t.refId===e.reveal!.visibilityTarget!.refId));
     if (!preview && role==='dm') {
       const labels=new Map(data.tokens.filter(t=>t.kind==='monster'&&t.revealTag).map(t=>{
         const name=monById.get(t.refId)?.name??'';
@@ -795,7 +809,7 @@ export function createSnapshotBuilder(
       shieldReactions:rawRollLog.filter(e=>e.pending?.shield&&!e.pending.done&&(role==='dm'||e.pending.target.kind==='pc'&&charById.get(e.pending.target.refId)?.claimedBy===socketId)).map(e=>({rollId:e.id,kind:e.pending!.target.kind,refId:e.pending!.target.refId,name:e.pending!.target.name,magicMissile:e.pending!.shield!.attackTotal===undefined})),
       ripostes: listRipostes(sessionId).filter(o =>
         (role === 'dm' || charById.get(o.owner)?.claimedBy === socketId) &&
-        tokens.some(t => t.id === o.defenderTokenId) && tokens.some(t => t.id === o.attackerTokenId && !t.sharedSightOnly)),
+        tokens.some(t => t.id === o.defenderTokenId) && tokens.some(t => t.id === o.attackerTokenId && !t.sharedSightOnly && !t.partiallyRevealed)),
       sessionCode: session.code,
       sessionName: session.name,
       map,

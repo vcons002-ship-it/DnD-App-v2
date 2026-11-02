@@ -62,7 +62,11 @@ export function useSelection(snapshot: StateSnapshot | null, syncKey?: string) {
   }, []);
 
   const handleMove = useStableCallback(
-    (tokenId: string, x: number, y: number, placed?: (p: {x:number;y:number}) => void) => {
+    (tokenId: string, x: number, y: number, placed?: (p: {x:number;y:number}) => void, movement?: 'walk' | 'relocate') => {
+      const state = useStore.getState();
+      const armedTeleport = state.teleportingTokenIds.includes(tokenId);
+      const effectiveMovement = movement ?? (armedTeleport ? 'relocate' : undefined);
+      if (armedTeleport) state.setTeleportingTokens([]);
       const tokens = snapshot?.tokens ?? [];
       const moved = tokens.find((t) => t.id === tokenId);
       if (moved && selectedIds.length > 1 && selectedIds.includes(tokenId)) {
@@ -71,11 +75,11 @@ export function useSelection(snapshot: StateSnapshot | null, syncKey?: string) {
         for (const id of selectedIds) {
           const t = tokens.find((tk) => tk.id === id);
           if (!t) continue;
-          if (id === tokenId) moveTokenSocket(id, x, y, placed);
-          else moveTokenSocket(id, t.x + dx, t.y + dy);
+          if (id === tokenId) moveTokenSocket(id, x, y, placed, effectiveMovement);
+          else moveTokenSocket(id, t.x + dx, t.y + dy, undefined, effectiveMovement);
         }
       } else {
-        moveTokenSocket(tokenId, x, y, placed);
+        moveTokenSocket(tokenId, x, y, placed, effectiveMovement);
       }
     },
   );
