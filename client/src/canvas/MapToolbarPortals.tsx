@@ -453,6 +453,8 @@ export function MapToolbarPortals({
                   />
 
                   <FogMenu
+                    sharedPartyVision={map?.sharedPartyVision!==false}
+                    onSharedPartyVision={enabled=>map&&useStore.getState().setSharedPartyVision(map.id,enabled)}
                     onResetExploration={() => map && useStore.getState().resetExploration(map.id)}
                     explorationMode={map?.explorationMode ?? 'remembered'}
                     onExplorationMode={(mode) => map && useStore.getState().setExplorationMode(map.id, mode)}

@@ -61,6 +61,12 @@ describe('movement-aligned reveal presentation',()=>{
     const next=snapshot(550);next.tokens=next.tokens.filter(t=>t.id!=='goblin');next.exploredTerrain=[];
     p.sync(next,10,1050);expect(p.position('goblin')).toBeUndefined();expect(p.explored()).toEqual([]);
   });
+  it.each(['sharing','reset'])('replaces nonempty memory immediately when %s changes during movement',change=>{
+    const p=new TokenPresentation();p.sync(snapshot(),10,1000);p.sync(snapshot(550),10,1001);
+    const next=snapshot(550);next.exploredTerrain=[newMemory[1]];
+    if(change==='sharing')next.map={...next.map!,sharedPartyVision:false};else next.explorationEpoch=1;
+    p.sync(next,10,1050);expect(p.moving()).toBe(true);expect(p.explored()).toBe(next.exploredTerrain);
+  });
   it('resets on map switches and applies reduced motion without delayed sight',()=>{
     const p=new TokenPresentation();p.sync(snapshot(),10,1000);p.sync(snapshot(550),10,1001,true);
     expect(p.moving()).toBe(false);expect(p.position('varis')!.y).toBe(550);expect(p.explored()).toBe(newMemory);

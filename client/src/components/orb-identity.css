@@ -1,3 +1,51 @@
+/* Pin the compact lantern to the screen corner independently of HUD layout. */
+.player-fantasy .hud-lantern-footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  z-index: 5;
+  pointer-events: auto;
+}
+.player-fantasy .player-hud .hud-lantern-footer .orb-lantern-toggle {
+  flex-shrink: 0;
+  width: max(36px, calc(36px / var(--player-ui-scale)));
+  height: max(40px, calc(40px / var(--player-ui-scale)));
+  min-height: 0;
+  padding: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  pointer-events: auto;
+  font-size: 9px;
+  line-height: 1;
+}
+.player-fantasy .hud-lantern-footer .orb-lantern-toggle svg { width: 20px; height: 20px; }
+.orb-lantern-toggle .lantern-glass { fill: #171a20; }
+.orb-lantern-toggle .lantern-flame { opacity: 0; }
+.orb-lantern-toggle[aria-pressed='true'] .lantern-glass {
+  fill: #f6bd4c;
+  filter: drop-shadow(0 0 1.5px #ffb32c);
+}
+.orb-lantern-toggle[aria-pressed='true'] .lantern-flame { opacity: 1; }
+.player-fantasy .player-hud .hud-lantern-footer .orb-lantern-toggle[aria-pressed='true'] {
+  color: #ffe7b6;
+  border-color: #d6b578;
+}
+.player-fantasy .player-hud .hud-status-strip .hud-place-token {
+  min-height: max(48px, calc(48px / var(--player-ui-scale)));
+  min-width: 132px;
+  padding: 10px 16px;
+  border: 1px solid #d1ad69;
+  border-radius: 8px;
+  background: #362b1a;
+  color: #fff0cb;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.player-fantasy .player-hud .hud-status-strip .hud-place-token[aria-pressed='true'] { background: #51401f; }
 /* A light engraved title above the sculpture, never a plate laid over it. */
 .player-fantasy .hud-orb-cluster .hud-identity-line {
   position: absolute;

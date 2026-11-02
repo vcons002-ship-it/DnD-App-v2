@@ -1,3 +1,5 @@
+import {setSharedPartyVision,setExplorationMode,getToken} from './sessions.js';
+import {recordWalkingMove,walkingRoute} from './walking.js';
 import {describe,it,expect,vi} from 'vitest';
 import {db} from './db.js';
 import {buildSnapshot} from './visibility.js';
@@ -131,5 +133,52 @@ describe('persistent shared party terrain memory',()=>{
   claimCharacter(a.id,'restored');
   expect(contains(buildSnapshot(s.id,'player',map.id,'restored')!.exploredTerrain,900,100)).toBe(true);
   delete bundle.exploredTerrain;expect(()=>importSession(bundle)).not.toThrow();
+ });
+});
+
+
+describe('DM-controlled personal vision',()=>{
+ it('defaults to shared sightings, then isolates live figures and memory by character',()=>{
+  const f=fixture(),b=buildSnapshot(f.s.id,'dm')!.tokens.find(t=>t.refId===f.b.id)!;
+  moveToken(b.id,800,100);
+  const shared=f.snap();expect(shared.map?.sharedPartyVision).toBe(true);
+  expect(shared.tokens.find(t=>t.id===f.enemy.id)?.sharedSightOnly).toBe(true);
+  expect(contains(shared.exploredTerrain,900,100)).toBe(true);
+  const other=createSession('Unrelated vision');expect(setSharedPartyVision(other.id,f.map.id,false)).toBe(false);
+  expect(setSharedPartyVision(f.s.id,f.map.id,false)).toBe(true);
+  const personal=f.snap();expect(personal.tokens.some(t=>t.id===f.enemy.id||t.id===b.id)).toBe(false);
+  expect(contains(personal.exploredTerrain,900,100)).toBe(false);
+  const second=f.snap('explorer-b');expect(second.tokens.find(t=>t.id===f.enemy.id)?.sharedSightOnly).toBeFalsy();
+  expect(contains(second.exploredTerrain,900,100)).toBe(true);
+  // Disabling sharing never imports the old party row into personal history.
+  setSharedPartyVision(f.s.id,f.map.id,true);expect(contains(f.snap().exploredTerrain,900,100)).toBe(true);
+  setSharedPartyVision(f.s.id,f.map.id,false);expect(contains(f.snap().exploredTerrain,900,100)).toBe(false);
+ });
+ it('keeps personal last-seen figures private and resets both kinds of remembered map',()=>{
+  const f=fixture(),b=buildSnapshot(f.s.id,'dm')!.tokens.find(t=>t.refId===f.b.id)!;
+  setSharedPartyVision(f.s.id,f.map.id,false);setExplorationMode(f.s.id,f.map.id,'revealed');
+  moveToken(b.id,800,100);f.snap('explorer-b');moveToken(b.id,100,100);
+  expect(f.snap('explorer-b').tokens.some(t=>t.id===f.enemy.id&&t.revealedOnly)).toBe(true);
+  expect(f.snap().tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  expect(resetExploration(f.s.id,f.map.id)).toBe(true);
+  expect(db.prepare('SELECT * FROM personal_explored_terrain WHERE map_id=?').all(f.map.id)).toEqual([]);
+  expect(f.snap('explorer-b').tokens.some(t=>t.id===f.enemy.id)).toBe(false);
+  expect(contains(f.snap('explorer-b').exploredTerrain,900,100)).toBe(false);
+ });
+ it('records a walking path per character and carries personal memory through backup/restore',async()=>{
+  const f=fixture(),b=buildSnapshot(f.s.id,'dm')!.tokens.find(t=>t.refId===f.b.id)!;
+  moveToken(b.id,800,100);setSharedPartyVision(f.s.id,f.map.id,false);
+  const from=getToken(f.ta.id)!;moveToken(f.ta.id,100,800);const to=getToken(f.ta.id)!;
+  await recordWalkingMove(from,to,true);
+  const route=walkingRoute(to.id)!;expect(route.halfByCharacter?.[f.a.id]).toBeDefined();
+  expect(contains(route.halfByCharacter?.[f.a.id],900,100)).toBe(false);
+  expect(contains(f.snap().exploredTerrain,900,100)).toBe(false);
+  expect(contains(f.snap('explorer-b').exploredTerrain,900,100)).toBe(true);
+  const bundle=exportSession(f.s.code)!;expect(bundle.personalExploredTerrain).toHaveLength(2);
+  const restored=importSession(bundle),session=getSessionByCode(restored.code)!;
+  const map=listMaps(session.id)[0],a=listCharacters(session.id).find(c=>c.name==='Viewer A')!;
+  expect(map.sharedPartyVision).toBe(false);
+  const rows=db.prepare('SELECT character_id FROM personal_explored_terrain WHERE map_id=?').all(map.id) as {character_id:string}[];
+  expect(rows.map(r=>r.character_id)).toContain(a.id);expect(rows.map(r=>r.character_id)).not.toContain(f.a.id);
  });
 });

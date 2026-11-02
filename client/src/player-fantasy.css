@@ -271,7 +271,8 @@
   border-left: 1px solid #aa87583d;
   background: linear-gradient(90deg, #0d1018ba, transparent);
 }
-.player-fantasy .hud-actions .hud-icon-button {
+.player-fantasy .hud-actions .hud-icon-button,
+.player-fantasy .hud-lantern-footer .hud-icon-button {
   position: relative;
   display: grid;
   place-items: center;

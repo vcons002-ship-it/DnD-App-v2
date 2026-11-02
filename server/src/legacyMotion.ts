@@ -60,7 +60,8 @@ export async function prepareLegacyMotion(id:string,before:StateSnapshot,after:S
   // Exploration changes only at the route's halfway and final poses. Reuse
   // these unions rather than clipping the same remembered terrain 13 times.
   const remembered=unionTerrain([before.exploredTerrain??[]]);
-  const halfway=unionTerrain([before.exploredTerrain??[],...routes.flatMap(r=>r.half?[r.half]:[])]);
+  const personalIds=new Set((after.playerVision?.origins??[]).flatMap(o=>{const t=current.get(o.id);return t?.kind==='pc'?[t.refId]:[];}));
+  const halfway=unionTerrain([before.exploredTerrain??[],...routes.flatMap(r=>after.map?.sharedPartyVision===false?Object.entries(r.halfByCharacter??{}).filter(([id])=>personalIds.has(id)).map(([,shape])=>shape):r.half?[r.half]:[])]);
   if(!after.playerVision){
    for(let index=0;index<=LEGACY_MOTION_STEPS;index++){
     if(options?.current&&!options.current())return;

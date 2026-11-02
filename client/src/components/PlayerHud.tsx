@@ -23,6 +23,8 @@ import { DeathSaves } from './DeathSaves';
 import { HudIcon } from './HudIcon';
 import type { ResourceLayout } from '../lib/usePlayerLayout';
 import './orb-identity.css';
+import {CarriedLanternControl} from './CarriedLanternControl';
+import {usesDarknessVision} from '../../../shared/playerVision';
 
 type WindowTab =
   | 'Character'
@@ -211,6 +213,8 @@ function PlayerHudInner({
 }) {
   const applyDamage = useStore((s) => s.applyDamage);
   const setTempHp = useStore((s) => s.setTempHp);
+  const lanternToken=useStore(s=>s.snapshot?.tokens.find(t=>t.mapId===s.snapshot?.map?.id&&t.kind==='pc'&&t.refId===character.id&&!t.isHidden));
+  const inDarkness=useStore(s=>usesDarknessVision(s.snapshot?.map));
   const classSummary = multiclassClassSummary(character);
   const [windowTab, setWindowTab] = useState<WindowTab | null>(null);
   const [vitals, setVitals] = useState(false);
@@ -325,12 +329,13 @@ function PlayerHudInner({
           <div className="hud-status-strip">
             <PlayerConditionControl character={character} />
             {!isPlaced && (
-              <button onClick={onPlace}>
-                {placing ? 'Click map…' : 'Place token'}
+              <button type="button" className="hud-place-token" aria-pressed={placing} onClick={onPlace}>
+                {placing ? 'Tap map to place…' : 'Place token'}
               </button>
             )}
           </div>
         </div>
+        {inDarkness&&lanternToken&&<div className="hud-lantern-footer"><CarriedLanternControl token={lanternToken} orb/></div>}
       </div>
       {character.curHp <= 0 && (
         <div className="hud-death fantasy-window">
