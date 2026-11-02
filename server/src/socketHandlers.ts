@@ -2,7 +2,7 @@ import {traceMovement,movementApplied} from './movementTiming.js';
 import {diceArtForSaveOwner} from '../../shared/diceThemes.js';
 import {resetExploration} from './exploration.js';
 import {recordWalkingMove} from './walking.js';
-import {hasPlayerConnection} from './connections.js';
+import {hasExplorationViewer} from './connections.js';
 import {createGuidedCharacter,rollCreatorStats} from './characterCreator.js';
 import {CORE_CLASSES_2024} from '../../shared/characterProgression.js';
 import {assetQueue} from './assets/production.js';
@@ -1222,7 +1222,7 @@ export function registerSocketHandlers(io: IOServer, options:{livePhysics?:boole
       const dmMove=isDm(),sid=sessionId()!,relocate=dmMove&&movement==='relocate',moved=moveToken(tokenId,x,y,!dmMove);
       movementApplied();
       expireTimedSpellEffects(sid);
-      return afterRollCommit(async()=>{if(moved)try{await recordWalkingMove(moving,moved,hasPlayerConnection(sid),relocate);}catch(error){console.warn('Could not remember walking route:',String(error));}finishInitiative(sid);broadcastSnapshots(io,sid);if(moved&&typeof placed==='function')placed({x:moved.x,y:moved.y});});
+      return afterRollCommit(async()=>{if(moved)try{await recordWalkingMove(moving,moved,hasExplorationViewer(sid,moved.mapId),relocate);}catch(error){console.warn('Could not remember walking route:',String(error));}finishInitiative(sid);broadcastSnapshots(io,sid);if(moved&&typeof placed==='function')placed({x:moved.x,y:moved.y});});
     });
 
     // Live, throttled drag preview (no DB write / snapshot) — same sender gate

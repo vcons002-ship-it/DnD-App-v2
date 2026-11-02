@@ -1,6 +1,9 @@
 import {describe,it,expect} from 'vitest';
 import {db} from './db.js';
-import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,setTokenHidden,setFogLayer,setFogRevealed,getCharacter} from './sessions.js';
+import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,setTokenHidden,setFogLayer,setFogRevealed,getCharacter,moveToken,setSharedPartyVision} from './sessions.js';
+import {clearExplorationCache} from './exploration.js';
+import clipping from 'polygon-clipping';
+import {setConn,dropConn,hasExplorationViewer} from './connections.js';
 import {editMapWalls} from './mapWalls.js';
 import {buildSnapshot,createSnapshotBuilder} from './visibility.js';
 import {visionContains} from '../../shared/playerVision.js';
@@ -17,6 +20,22 @@ function fixture(){
  return{s,map,a,b,left,right,far,hidden,preview};
 }
 describe('DM combined player view',()=>{
+ it('records walking for an active DM player-view connection while leaving prep read-only',()=>{
+  const f=fixture(),prep=createMap(f.s.id,{name:'Unplayed map'}),id='dm-exploration-viewer';
+  try{
+   setConn(id,{sessionId:f.s.id,role:'dm',viewMapId:null,playerId:null});
+   expect(hasExplorationViewer(f.s.id,f.map.id)).toBe(false);
+   setConn(id,{sessionId:f.s.id,role:'dm',viewMapId:null,playerId:null,partyView:true});
+   expect(hasExplorationViewer(f.s.id,f.map.id)).toBe(true);
+   expect(hasExplorationViewer(f.s.id,prep.id)).toBe(false);
+   setConn(id,{sessionId:f.s.id,role:'dm',viewMapId:prep.id,playerId:null,partyView:true});
+   expect(hasExplorationViewer(f.s.id,f.map.id)).toBe(false);
+   expect(hasExplorationViewer(f.s.id,prep.id)).toBe(false);
+   setConn(id,{sessionId:f.s.id,role:'player',viewMapId:null,playerId:null});
+   expect(hasExplorationViewer(f.s.id,f.map.id)).toBe(true);
+   expect(hasExplorationViewer(f.s.id,prep.id)).toBe(false);
+  }finally{dropConn(id);}
+ });
  it('combines direct party sight across walls while preserving DM concealment',()=>{
   const f=fixture(),preview=f.preview();
   expect(preview.playerVision?.origins).toHaveLength(2);
@@ -35,15 +54,39 @@ describe('DM combined player view',()=>{
   const f=fixture();setFogLayer(f.map.id,'tokens',true);setFogRevealed(f.map.id,'tokens',[]);
   expect(f.preview().tokens.some(t=>t.id===f.left.id||t.id===f.right.id)).toBe(false);
  });
- it('never writes exploration memory or changes character claims during preview',()=>{
-  const f=fixture();const before=db.prepare('SELECT * FROM explored_terrain WHERE map_id=?').get(f.map.id);
+ it('persists active-map player-view history without changing character claims',()=>{
+  const f=fixture();
   f.preview();
-  expect(db.prepare('SELECT * FROM explored_terrain WHERE map_id=?').get(f.map.id)).toEqual(before);
+  expect(db.prepare('SELECT * FROM explored_terrain WHERE map_id=?').get(f.map.id)).toBeDefined();
   expect(getCharacter(f.a.id)?.claimedBy).toBe('left-player');expect(getCharacter(f.b.id)?.claimedBy).toBe('right-player');
   const build=createSnapshotBuilder(f.s.id)!;build('dm',f.map.id,'dm',null,true);build('player',null,'left-player');
   expect(db.prepare('SELECT * FROM explored_terrain WHERE map_id=?').get(f.map.id)).toBeDefined();
  });
- it('preserves existing revealed-mode token memory without updating it',()=>{
+ it.each([true,false])('retains visited terrain after moving away and reconnecting with sharing %s',shared=>{
+  const f=fixture();setSharedPartyVision(f.s.id,f.map.id,shared);
+  f.preview();
+  const tokens=buildSnapshot(f.s.id,'dm')!.tokens.filter(t=>t.kind==='pc');
+  for(const token of tokens)moveToken(token.id,900,100);
+  clearExplorationCache();
+  const remembered=f.preview().exploredTerrain??[];
+  expect(clipping.intersection(remembered,[[[[190,90],[210,90],[210,110],[190,110],[190,90]]]])).not.toEqual([]);
+  if(!shared){
+   const other=buildSnapshot(f.s.id,'player',null,'right-player')!.exploredTerrain??[];
+   expect(clipping.intersection(other,[[[[190,90],[210,90],[210,110],[190,110],[190,90]]]])).toEqual([]);
+  }
+ });
+ it.each([true,false])('uses map activation to control DM exploration with sharing %s',shared=>{
+  const f=fixture(),other=createMap(f.s.id,{name:'Other active map'});
+  setSharedPartyVision(f.s.id,f.map.id,shared);setActiveMap(f.s.id,other.id);
+  const rows=()=>({party:db.prepare('SELECT * FROM explored_terrain WHERE map_id=?').all(f.map.id),personal:db.prepare('SELECT * FROM personal_explored_terrain WHERE map_id=?').all(f.map.id)});
+  f.preview();expect(rows()).toEqual({party:[],personal:[]});
+  setActiveMap(f.s.id,f.map.id);f.preview();const saved=rows();
+  expect(shared?saved.party.length:saved.personal.length).toBeGreaterThan(0);
+  setActiveMap(f.s.id,other.id);
+  for(const token of buildSnapshot(f.s.id,'dm',f.map.id)!.tokens.filter(t=>t.kind==='pc'))moveToken(token.id,1800,100);
+  clearExplorationCache();f.preview();expect(rows()).toEqual(saved);
+ });
+ it('does not rewrite unchanged revealed-mode memory',()=>{
   const f=fixture();db.prepare("UPDATE maps SET exploration_mode='revealed' WHERE id=?").run(f.map.id);
   buildSnapshot(f.s.id,'player',null,'left-player');
   const before=db.prepare('SELECT * FROM explored_terrain WHERE map_id=?').get(f.map.id);
@@ -61,5 +104,6 @@ describe('DM combined player view',()=>{
   expect(preview.map?.id).toBe(prep.id);expect(preview.playerVision?.origins).toHaveLength(1);
   expect(visionContains(preview.playerVision,900,100)).toBe(false);
   expect(preview.tokens.every(t=>t.mapId===prep.id)).toBe(true);
+  expect(db.prepare('SELECT * FROM explored_terrain WHERE map_id=?').get(prep.id)).toBeUndefined();
  });
 });
