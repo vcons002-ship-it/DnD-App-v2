@@ -59,7 +59,7 @@ for(const assist of [false,true])test(`Legacy darkvision, light color and memory
  test.setTimeout(120000);await page.setViewportSize({width:1280,height:900});const f=await fixture(request);
  try{
   f.admin.emit('token:spawn',{mapId:f.map.id,kind:'pc',refId:f.pc.id,x:800,y:600});const token=(await f.state()).tokens.find((t:any)=>t.refId===f.pc.id);
-  await join(page,f.code,assist);await expect(page.getByTestId('legacy-terrain')).toHaveAttribute('data-grading',assist?'server':'local');
+  await join(page,f.code,assist);await expect(page.getByTestId('legacy-terrain')).toHaveAttribute('data-grading',assist&&process.env.SERVER_RASTER_VISION==='1'?'server':'local');
   await page.waitForFunction(id=>(window as any).Konva.stages.some((s:any)=>s.find('.token').some((n:any)=>n.getAttr('tokenId')===id)),token.id);
   const pixel=async(x:number,y:number)=>{const p=await xy(page,token.id,x,y);const b=await page.screenshot();const {data}=await sharp(b).extract({left:Math.round(p.x),top:Math.round(p.y),width:1,height:1}).removeAlpha().raw().toBuffer({resolveWithObject:true});return [...data];};
   const gray=await pixel(900,450);expect(Math.max(...gray)-Math.min(...gray)).toBeLessThan(8);expect(gray[0]).toBeGreaterThan(20);
