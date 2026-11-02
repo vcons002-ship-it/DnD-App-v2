@@ -1,8 +1,9 @@
 /* Keep orb actions easy to tap even when the HUD is scaled down. */
 .player-fantasy .hud-lantern-footer {
-  position: absolute;
-  left: calc(100% + 8px);
+  position: fixed;
+  left: 0;
   bottom: 0;
+  z-index: 5;
   pointer-events: auto;
 }
 .player-fantasy .player-hud .hud-lantern-footer .orb-lantern-toggle {
