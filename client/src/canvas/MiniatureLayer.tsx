@@ -37,7 +37,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 let meshoptWorkersConfigured = false;
 import type { MiniatureDefinition } from '../lib/miniatures';
 import { facingAfterMove } from '../../../shared/tokenFacing';
-import { createMiniatureNameLayer } from './miniatureNameLayer';
+import { createMiniatureNameLayer, MINIATURE_NAME_LAYER } from './miniatureNameLayer';
 import {createMiniatureMaskCache} from './miniatureMaskCache';
 import { createMiniatureVisibilityMaterial, createMiniatureVisionLift } from './miniatureVisionLift';
 import {createMiniatureVisionComposite,type SpellFlash,type VisionCoverFrame} from './miniatureVisionComposite';
@@ -70,6 +70,7 @@ import {
 
 export type MiniatureToken = {
   sharedSightOnly?: boolean;
+  partiallyRevealed?: boolean;
   invisible?: boolean;
   id: string; x: number; y: number; diameter: number; hidden: boolean;
   facing?: number;
@@ -647,8 +648,11 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
         const deferSpells=!!props.personalVision&&(!useComposite||!!sightFrame?.enabled||!!sightFrame?.grade&&!sightFrame.grade.daylight);
         if(deferSpells)camera.layers.disable(SPELL_IMPACT_LAYER);else camera.layers.enable(SPELL_IMPACT_LAYER);
+        const deferNames=!!props.personalVision&&useComposite&&!!(sightFrame?.enabled||(sightFrame?.grade&&!sightFrame.grade.daylight));
+        if(deferNames)camera.layers.disable(MINIATURE_NAME_LAYER);else camera.layers.enable(MINIATURE_NAME_LAYER);
         renderer.render(scene, camera);
         camera.layers.enable(SPELL_IMPACT_LAYER);
+        camera.layers.enable(MINIATURE_NAME_LAYER);
         host.dataset.colorDrawCalls=String(renderer.info.render.calls);
         host.dataset.colorTriangles=String(renderer.info.render.triangles);
         host.dataset.loadedModelUrls=JSON.stringify([...instances.values()].map(i=>i.url).sort());
@@ -679,6 +683,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
         const flashes=useComposite&&sightFrame?.enabled&&sightFrame.grade?.heavy?impactLights.filter(l=>l.revealsTerrain).map(l=>({source:l,
           polygon:battlefield?.lighting.wallPolygon(l.id)??FLASH_CIRCLE.map(v=>({x:l.x+v.x*spellLightReach(l),y:l.y+v.y*spellLightReach(l)}))})):NO_FLASHES;
         visionComposite?.render(!!props.personalVision&&useComposite,sightFrame,camera,flashes,battlefield?.memoryTexture);
+        if(deferNames)names.renderForeground(renderer,camera);
         if(deferSpells){
           if(useComposite){
             // Drawn above terrain fog, so clip to the live sight cover here.

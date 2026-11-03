@@ -1,5 +1,9 @@
-import {CanvasTexture,DoubleSide,Mesh,MeshBasicMaterial,PlaneGeometry,Scene,SRGBColorSpace,type DepthTexture,type Vector2} from 'three';
+import {type Camera,CanvasTexture,DoubleSide,Mesh,MeshBasicMaterial,PlaneGeometry,Scene,SRGBColorSpace,type DepthTexture,type Vector2,type WebGLRenderer} from 'three';
 import type {MiniatureNameLabel} from './miniatureNameLabels';
+
+/** Dedicated camera layer for personal miniature HUD labels so they can be
+ * rendered after the GPU vision/fog composite when a token is targetable. */
+export const MINIATURE_NAME_LAYER=8;
 
 /** Name and health HUD pixels share the miniature depth mask. Covered pixels
  * remain faint; uncovered pixels retain their full opacity. */
@@ -40,7 +44,7 @@ export function createMiniatureNameLayer(scene:Scene,depth:DepthTexture,resoluti
           entry.canvas=label.canvas;entry.mesh.material.map=entry.texture;textureUpdates++;
         }
         entry.covered.value=label.emphasized?1:.22;
-        entry.mesh.layers.set(shared.has(label.id)?4:0);
+        entry.mesh.layers.set(shared.has(label.id)?4:MINIATURE_NAME_LAYER);
         entry.mesh.material.opacity=label.opacity;
         const position=entry.mesh.geometry.getAttribute('position');
         // Keep exact map-space points separately from the Float32 GPU buffer.
@@ -52,6 +56,14 @@ export function createMiniatureNameLayer(scene:Scene,depth:DepthTexture,resoluti
       }
       for(const id of labels.keys())if(!rendered.has(id))remove(id);
       return rendered;
+    },
+    renderForeground(renderer:WebGLRenderer,camera:Camera){
+      if(![...labels.values()].some(e=>e.mesh.layers.isEnabled(MINIATURE_NAME_LAYER)))return;
+      const layers=camera.layers.mask,autoClear=renderer.autoClear,pending=renderer.shadowMap.needsUpdate;
+      try{
+        camera.layers.set(MINIATURE_NAME_LAYER);renderer.autoClear=false;renderer.shadowMap.needsUpdate=false;
+        renderer.render(scene,camera);
+      }finally{camera.layers.mask=layers;renderer.autoClear=autoClear;renderer.shadowMap.needsUpdate=pending;}
     },
     dispose(){for(const id of labels.keys())remove(id);},
     get state(){return {nameTextureUpdates:textureUpdates,namePositionUpdates:positionUpdates};},

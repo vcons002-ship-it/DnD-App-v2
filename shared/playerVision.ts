@@ -48,32 +48,82 @@ export function fogVisionContains(vision:PlayerVision|undefined|null,x:number,y:
  return visibleOrigins.length>0&&(!vision.heavy||visibleOrigins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6)||visionLit(vision,x,y));
 }
 export const TOKEN_TARGETABLE_FRACTION=0.35;
+const TOKEN_FOOTPRINT_UNIT_OFFSETS:readonly {dx:number;dy:number}[]=(()=>{
+ const u:{dx:number;dy:number}[]=[{dx:0,dy:0}];
+ for(let i=0;i<6;i++){const a=(i*Math.PI)/3;u.push({dx:Math.cos(a)*0.3,dy:Math.sin(a)*0.3});}
+ for(let i=0;i<8;i++){const a=(i*Math.PI)/4;u.push({dx:Math.cos(a)*0.6,dy:Math.sin(a)*0.6});}
+ for(let i=0;i<12;i++){const a=(i*Math.PI)/6;u.push({dx:Math.cos(a)*0.9,dy:Math.sin(a)*0.9});}
+ return u;
+})();
+const TOKEN_TARGETABLE_MIN_POINTS=Math.ceil(TOKEN_FOOTPRINT_UNIT_OFFSETS.length*TOKEN_TARGETABLE_FRACTION);
 export function tokenRadiusPx(token:Pick<Token,'widthFt'>,map:Pick<MapState,'gridSizePx'|'feetPerSquare'>|null|undefined):number{
  const grid=map?.gridSizePx??50,fps=Math.max(.001,map?.feetPerSquare??5);
  return ((token.widthFt||5)*grid/fps)/2;
 }
+function tokenMayIntersectVision(vision:PlayerVision|undefined|null,x:number,y:number,radiusPx:number):boolean{
+ if(!vision)return true;
+ if(!vision.origins.length)return false;
+ if(!vision.heavy||vision.daylight)return true;
+ const r=Math.max(0,radiusPx);
+ if(vision.origins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+r+1e-6))return true;
+ return vision.lights.some(l=>lightCoverage(Math.max(0,Math.hypot(x-l.x,y-l.y)-r),l)>.10);
+}
 export function tokenFootprintPoints(x:number,y:number,radiusPx:number):{x:number;y:number}[]{
  if(!(radiusPx>0))return [{x,y}];
- const pts:{x:number;y:number}[]=[{x,y}];
- const r1=radiusPx*0.3,r2=radiusPx*0.6,r3=radiusPx*0.9;
- for(let i=0;i<6;i++){const a=(i*Math.PI)/3;pts.push({x:x+Math.cos(a)*r1,y:y+Math.sin(a)*r1});}
- for(let i=0;i<8;i++){const a=(i*Math.PI)/4;pts.push({x:x+Math.cos(a)*r2,y:y+Math.sin(a)*r2});}
- for(let i=0;i<12;i++){const a=(i*Math.PI)/6;pts.push({x:x+Math.cos(a)*r3,y:y+Math.sin(a)*r3});}
- return pts;
+ return TOKEN_FOOTPRINT_UNIT_OFFSETS.map(u=>({x:x+u.dx*radiusPx,y:y+u.dy*radiusPx}));
 }
 export function tokenVisionRevealedFraction(vision:PlayerVision|undefined|null,x:number,y:number,radiusPx:number,wallFog:boolean):number{
  if(!vision)return 1;
- const pts=tokenFootprintPoints(x,y,radiusPx);
+ if(!tokenMayIntersectVision(vision,x,y,radiusPx))return 0;
+ if(!(radiusPx>0))return fogVisionContains(vision,x,y,wallFog)?1:0;
  let seen=0;
- for(const p of pts)if(fogVisionContains(vision,p.x,p.y,wallFog))seen++;
- return seen/pts.length;
+ const n=TOKEN_FOOTPRINT_UNIT_OFFSETS.length;
+ for(let i=0;i<n;i++){
+  const u=TOKEN_FOOTPRINT_UNIT_OFFSETS[i];
+  if(fogVisionContains(vision,x+u.dx*radiusPx,y+u.dy*radiusPx,wallFog))seen++;
+ }
+ return seen/n;
+}
+export function classifyTokenVision(vision:PlayerVision|undefined|null,x:number,y:number,radiusPx:number,wallFog:boolean):'full'|'partial'|'none'{
+ if(!vision)return 'full';
+ if(!tokenMayIntersectVision(vision,x,y,radiusPx))return 'none';
+ if(!(radiusPx>0))return fogVisionContains(vision,x,y,wallFog)?'full':'none';
+ let seen=0;
+ const n=TOKEN_FOOTPRINT_UNIT_OFFSETS.length;
+ for(let i=0;i<n;i++){
+  const u=TOKEN_FOOTPRINT_UNIT_OFFSETS[i];
+  if(fogVisionContains(vision,x+u.dx*radiusPx,y+u.dy*radiusPx,wallFog)){
+   if(++seen>=TOKEN_TARGETABLE_MIN_POINTS)return 'full';
+  }
+  if(seen+(n-1-i)<TOKEN_TARGETABLE_MIN_POINTS&&seen>0)return 'partial';
+ }
+ return seen>=TOKEN_TARGETABLE_MIN_POINTS?'full':seen>0?'partial':'none';
 }
 export function fogVisionContainsToken(vision:PlayerVision|undefined|null,x:number,y:number,radiusPx:number,wallFog:boolean):boolean{
- return tokenVisionRevealedFraction(vision,x,y,radiusPx,wallFog)>=TOKEN_TARGETABLE_FRACTION;
+ if(!vision)return true;
+ if(!tokenMayIntersectVision(vision,x,y,radiusPx))return false;
+ if(!(radiusPx>0))return fogVisionContains(vision,x,y,wallFog);
+ let seen=0;
+ const n=TOKEN_FOOTPRINT_UNIT_OFFSETS.length;
+ for(let i=0;i<n;i++){
+  const u=TOKEN_FOOTPRINT_UNIT_OFFSETS[i];
+  if(fogVisionContains(vision,x+u.dx*radiusPx,y+u.dy*radiusPx,wallFog)){
+   if(++seen>=TOKEN_TARGETABLE_MIN_POINTS)return true;
+  }
+  if(seen+(n-1-i)<TOKEN_TARGETABLE_MIN_POINTS)return false;
+ }
+ return seen>=TOKEN_TARGETABLE_MIN_POINTS;
 }
 export function fogVisionIntersectsToken(vision:PlayerVision|undefined|null,x:number,y:number,radiusPx:number,wallFog:boolean):boolean{
  if(!vision)return true;
- return tokenFootprintPoints(x,y,radiusPx).some(p=>fogVisionContains(vision,p.x,p.y,wallFog));
+ if(!tokenMayIntersectVision(vision,x,y,radiusPx))return false;
+ if(!(radiusPx>0))return fogVisionContains(vision,x,y,wallFog);
+ const n=TOKEN_FOOTPRINT_UNIT_OFFSETS.length;
+ for(let i=0;i<n;i++){
+  const u=TOKEN_FOOTPRINT_UNIT_OFFSETS[i];
+  if(fogVisionContains(vision,x+u.dx*radiusPx,y+u.dy*radiusPx,wallFog))return true;
+ }
+ return false;
 }
 /** In any origin's line of sight, however dark: a spell's own flash lights it. */
 export function visionInSight(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
