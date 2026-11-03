@@ -849,7 +849,7 @@ function MapStageInner({
     return { x: -view.x / s - m, y: -view.y / (s * groundScaleY) - m, w: vw + 2 * m, h: vh + 2 * m };
   }, [view, size, groundScaleY]);
 
-  const doors=(map?.walls??[]).filter(w=>w.door);
+  const doors=useMemo(()=>(map?.walls??[]).filter(w=>w.door),[map?.walls]);
   const doorVisible=(door:typeof doors[number])=>actualDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
   const nearbyDoors=doors.filter(d=>doorVisible(d)&&(actualDm?d.id===selectedDoor||sourceSnapshot.tokens.some(t=>t.id===doorApproachTokenId&&!doors.some(door=>door.tokenId===t.id)&&doorInReach(t,d,pxPerFoot)):snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
   const nearbyDoorKey=nearbyDoors.map(d=>d.id).sort().join('|');
@@ -898,12 +898,13 @@ function MapStageInner({
   useLayoutEffect(()=>{
     let frame=0,lastPaint=-Infinity;
     const tokens=new Map(presentationSnapshot.tokens.map(t=>[t.id,t]));
+    const tokenNodes=stageRef.current?.find<Konva.Group>('.token')??[];
     const paint=()=>{
       const now=performance.now();
       if(legacy&&legacyMovement.playback&&now-lastPaint<1000/60){frame=requestAnimationFrame(paint);return;}
       lastPaint=now;presentation.advance(now);
       const moving=presentation.moving();
-      for(const node of stageRef.current?.find<Konva.Group>('.token')??[]){
+      for(const node of tokenNodes){
         const token=tokens.get(node.getAttr('tokenId'));if(!token)continue;
         const p=presentation.position(token.id)??token;
         const opacity=tokenVisibleAtPosition(token.id,p.x,p.y)?(token.isHidden?.45:1):0;
@@ -1080,10 +1081,34 @@ function MapStageInner({
     const foreground = tokenLayerRef.current?.getNativeCanvasElement();
     if (background) background.style.zIndex = legacyTerrain?'1':'0';
     if (groundTokens) groundTokens.style.zIndex = legacy?'1':'0';
-    if (foreground) foreground.style.zIndex = '2';
+    if (foreground) foreground.style.zIndex = '4';
     const shared=sharedTokenLayerRef.current?.getNativeCanvasElement();
     if(shared){const colorMemory=map?.explorationMode!=='off'&&!usesDarknessVision(map);shared.style.zIndex='4';shared.style.filter=colorMemory?'none':'grayscale(1)';shared.style.opacity=colorMemory?'1':'.78';shared.style.pointerEvents='none';shared.dataset.testid='shared-sight-hud';}
   }, [dprKey, legacy, map?.id, map?.slidesUrl, map?.imagePath,map?.explorationMode,map?.environment,legacyTerrain]);
+
+  useLayoutEffect(() => {
+    const groundLayer = groundTokenLayerRef.current;
+    const overlayLayer = spellAreaLayerRef.current;
+    if (!groundLayer || !overlayLayer || !renderPlayerVision) return;
+    const paintVisionHud = () => {
+      const canvas = overlayLayer.getCanvas();
+      const buffer = overlayLayer.getAttr('retainedPerspectiveBuffer');
+      for (const child of groundLayer.getChildren()) {
+        if (!(child instanceof Konva.Group) || !child.hasName('token') || !child.isVisible() || child.getAbsoluteOpacity() <= 0) continue;
+        const hud = child.findOne<Konva.Group>('.token-upright-hud');
+        if (hud && hud.isVisible()) hud.drawScene(canvas, undefined, buffer);
+      }
+    };
+    const syncOverlay = () => overlayLayer.batchDraw();
+    overlayLayer.on('draw.groundVisionHud', paintVisionHud);
+    groundLayer.on('draw.groundVisionHud', syncOverlay);
+    overlayLayer.batchDraw();
+    return () => {
+      overlayLayer.off('.groundVisionHud');
+      groundLayer.off('.groundVisionHud');
+      overlayLayer.batchDraw();
+    };
+  }, [renderPlayerVision, dprKey, legacy, map?.id]);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;

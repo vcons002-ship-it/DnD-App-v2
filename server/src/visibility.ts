@@ -7,7 +7,7 @@ import {doorApproachPoints} from '../../shared/mapWalls.js';
 import {chatForViewer} from './privateChat.js';
 import {activeMarks} from './marks.js';
 import {rememberTerrain,rememberFigures,mergePersonalFigures,explorationGeneration,type RevealedFigure} from './exploration.js';
-import {createPlayerVision,visionContains,fogVisionContains,fogVisionContainsToken,fogVisionIntersectsToken,tokenRadiusPx,usesMapVision,usesTokenVision,type PlayerVision} from '../../shared/playerVision.js';
+import {createPlayerVision,visionContains,fogVisionContains,fogVisionContainsToken,classifyTokenVision,tokenRadiusPx,usesMapVision,usesTokenVision,type PlayerVision} from '../../shared/playerVision.js';
 import { listRipostes } from './reactions.js';
 import { encounterTags, creatureBaseName } from './encounterTags.js';
 import { resolveMonsterModelType } from '../../shared/monsterAppearance.js';
@@ -246,7 +246,7 @@ type MapData = {
     key: string;
     vision: PlayerVision | undefined;
     litMap: MapState | null;
-    personalVisible: Map<string, boolean>;
+    personalVisible: Map<string, 'full' | 'partial' | 'none'>;
     doorVisible: Map<string, boolean>;
   };
   previewPartyCache?: {
@@ -612,14 +612,18 @@ export function createSnapshotBuilder(
           owned: t.kind === 'pc' && owned.has(t.refId),
           foe: t.kind === 'monster' && monById.get(t.refId)?.disposition !== 'friendly',
           mapFog, tokenFog, grid, x: t.x, y: t.y });
-        let personallyVisible = isStationaryPreview ? previewVisionHit!.personalVisible.get(t.id) : undefined;
-        if (personallyVisible === undefined) {
-          personallyVisible = manualVis && ((t.kind === 'pc' && owned.has(t.refId)) || fogVisionContainsToken(playerVision,t.x,t.y,radiusPx,tokenWallVision));
-          if (isStationaryPreview) previewVisionHit!.personalVisible.set(t.id, personallyVisible);
+        let personalTier = isStationaryPreview ? previewVisionHit!.personalVisible.get(t.id) : undefined;
+        if (personalTier === undefined) {
+          personalTier = !manualVis
+            ? 'none'
+            : (t.kind === 'pc' && owned.has(t.refId))
+              ? 'full'
+              : classifyTokenVision(playerVision, t.x, t.y, radiusPx, tokenWallVision);
+          if (isStationaryPreview) previewVisionHit!.personalVisible.set(t.id, personalTier);
         }
-        if(personallyVisible)return [t];
-        const partial=():Token[]=>manualVis&&fogVisionIntersectsToken(playerVision,t.x,t.y,radiusPx,tokenWallVision)
-          ?[{...t,partiallyRevealed:true,initiative:null,combatRole:null,revealTag:undefined,markLabels:undefined}]:[];
+        if (personalTier === 'full') return [t];
+        const partial = (): Token[] => personalTier === 'partial'
+          ? [{ ...t, partiallyRevealed: true, initiative: null, combatRole: null, revealTag: undefined, markLabels: undefined }] : [];
         if(!sharedPartyVision){
           const part=partial();
           return part.length?part:retain();
