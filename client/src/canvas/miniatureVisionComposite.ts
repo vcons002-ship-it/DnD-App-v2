@@ -1,7 +1,7 @@
 import {
   AlwaysStencilFunc, EqualStencilFunc, KeepStencilOp, ReplaceStencilOp,
-  BufferGeometry, CanvasTexture, CustomBlending, DataTexture, DoubleSide, Float32BufferAttribute, FramebufferTexture, Mesh, NearestFilter,
-  MeshBasicMaterial, NoBlending, OrthographicCamera, PlaneGeometry, Scene,
+  BufferGeometry, CanvasTexture, CustomBlending, DataTexture, DoubleSide, Float32BufferAttribute, FloatType, FramebufferTexture, Mesh, NearestFilter,
+  MeshBasicMaterial, NoBlending, OrthographicCamera, PlaneGeometry, RGBAFormat, Scene,
   OneFactor, OneMinusSrcColorFactor, OneMinusSrcAlphaFactor, ShaderMaterial, ShapeUtils, Vector2, WebGLRenderTarget,
   Matrix4,Vector4,type Camera, type Texture, type WebGLRenderer,
 } from 'three';
@@ -35,7 +35,7 @@ export type SpellFlash = {source: VisionLight; polygon: WallPoint[]};
  * No second color canvas, Canvas2D scene copy, or framebuffer restore pass.
  * The SVG terrain cover/memory and CSS artwork grading remain below it.
  */
-export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTMLElement, body:Texture) {
+export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTMLElement, body:Texture, bodyDepth?:Texture|null) {
   const cover = new WebGLRenderTarget(1,1,{depthBuffer:true,stencilBuffer:true});
   const coverScene = new Scene();
   // Pack current sight in R and remembered terrain in G. Per-channel union
@@ -106,16 +106,17 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
   let frame:FramebufferTexture|undefined, previous:VisionCoverFrame|undefined, cameraKey='';
   let memory:CanvasTexture|undefined,memoryCanvas:HTMLCanvasElement|null=null,memoryVersion='';
   const gradeBytes=new Uint8Array(256*4),bodyGrades=new DataTexture(gradeBytes,256,1);gradeBytes[0]=gradeBytes[255*4]=255;bodyGrades.minFilter=bodyGrades.magFilter=NearestFilter;bodyGrades.needsUpdate=true;
+  const centerFloats=new Float32Array(256*4),bodyCenters=new DataTexture(centerFloats,256,1,RGBAFormat,FloatType);bodyCenters.minFilter=bodyCenters.magFilter=NearestFilter;bodyCenters.needsUpdate=true;
   const bodyCoverCache=new Map<number,{x:number;y:number;polygons:WeakMap<WallPoint[],boolean>}>();
   const flashSight=new Map<number,ReturnType<typeof createLightSightCache>>();
   const inside=(p:WallPoint,polygon:WallPoint[])=>{let yes=false;for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
     const a=polygon[i],b=polygon[j];if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)yes=!yes;
   }return yes;};
-  const composite = new ShaderMaterial({uniforms:{frame:{value:null as Texture|null},cover:{value:cover.texture},body:{value:body},memory:{value:body},hasMemory:{value:0},fogEnabled:{value:0},gradeMode:{value:0},retained:{value:0},bodyGrades:{value:bodyGrades},groundLight:{value:body},hasGroundLight:{value:0},lightBounds:{value:new Vector4()},cameraWorld:{value:new Matrix4()},projectionInverse:{value:new Matrix4()}},
+  const composite = new ShaderMaterial({uniforms:{frame:{value:null as Texture|null},cover:{value:cover.texture},body:{value:body},bodyDepth:{value:bodyDepth??body},hasBodyDepth:{value:bodyDepth?1:0},bodyCenters:{value:bodyCenters},memory:{value:body},hasMemory:{value:0},fogEnabled:{value:0},gradeMode:{value:0},retained:{value:0},bodyGrades:{value:bodyGrades},groundLight:{value:body},hasGroundLight:{value:0},lightBounds:{value:new Vector4()},cameraWorld:{value:new Matrix4()},projectionInverse:{value:new Matrix4()},viewProjection:{value:new Matrix4()}},
     depthTest:false,depthWrite:false,toneMapped:false,blending:NoBlending,
     vertexShader:'varying vec2 uvScreen;void main(){uvScreen=uv;gl_Position=vec4(position.xy,0.,1.);}',
     // The finished framebuffer already has output color conversion and premultiplied alpha.
-    fragmentShader:`${lightFalloffGlsl}uniform sampler2D frame,cover,body,memory,bodyGrades,groundLight;uniform float hasMemory,fogEnabled,gradeMode,retained,hasGroundLight;uniform mat4 cameraWorld,projectionInverse;uniform vec4 lightBounds;varying vec2 uvScreen;
+    fragmentShader:`${lightFalloffGlsl}uniform sampler2D frame,cover,body,bodyDepth,bodyCenters,memory,bodyGrades,groundLight;uniform float hasBodyDepth,hasMemory,fogEnabled,gradeMode,retained,hasGroundLight;uniform mat4 cameraWorld,projectionInverse,viewProjection;uniform vec4 lightBounds;varying vec2 uvScreen;
       float lightCoverage(){
         vec4 n=cameraWorld*projectionInverse*vec4(uvScreen*2.-1.,-1.,1.),f=cameraWorld*projectionInverse*vec4(uvScreen*2.-1.,1.,1.);
         vec3 a=n.xyz/n.w,b=f.xyz/f.w,d=b-a;
@@ -128,18 +129,53 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
         float brightness=gradeMode>1.5?1.:mix(.78,1.18,near);
         return mix(c,mix(c,vec3(dot(c,vec3(.2126,.7152,.0722))),saturation)*brightness,unlit);
       }
+      vec2 projectGround(vec2 xz){
+        vec4 clip=viewProjection*vec4(xz.x,0.,xz.y,1.);
+        return clamp((clip.xy/max(.0001,abs(clip.w)))*.5+.5,0.,1.);
+      }
       void main(){vec4 c=texture2D(frame,uvScreen),b=texture2D(body,uvScreen),sight=texture2D(cover,uvScreen);
-        float v=mix(1.,sight.r,fogEnabled),bodyCoverage=b.r*b.a,f=1.-v;
+        float bodyCoverage=b.r*b.a;
+        float sightR=sight.r;
+        if(fogEnabled>.5&&bodyCoverage>.001&&hasBodyDepth>.5){
+          float slotU=(floor(b.b*255.+.5)+.5)/256.;
+          vec4 centerInfo=texture2D(bodyCenters,vec2(slotU,.5));
+          float d=texture2D(bodyDepth,uvScreen).r;
+          vec2 groundXZ=centerInfo.xy,frontXZ=centerInfo.xy;
+          if(d<.9999){
+            vec4 n=cameraWorld*projectionInverse*vec4(uvScreen*2.-1.,-1.,1.);
+            vec4 w=cameraWorld*projectionInverse*vec4(uvScreen*2.-1.,d*2.-1.,1.);
+            vec3 nearPos=n.xyz/max(.0001,abs(n.w));
+            vec3 worldPos=w.xyz/max(.0001,abs(w.w));
+            groundXZ=worldPos.xz;frontXZ=worldPos.xz;
+            if(centerInfo.z>.5&&worldPos.y>.01){
+              vec2 rayXZ=worldPos.xz-nearPos.xz;
+              float rayLen=length(rayXZ);
+              if(rayLen>.0001){
+                vec2 camForwardXZ=rayXZ/rayLen;
+                vec2 rel=worldPos.xz-centerInfo.xy;
+                float back=dot(rel,camForwardXZ);
+                vec2 lateral=rel-camForwardXZ*back;
+                if(back>0.)groundXZ-=camForwardXZ*min(back,worldPos.y);
+                float frontShift=min(max(centerInfo.w*.55,4.),worldPos.y*.65);
+                frontXZ=centerInfo.xy+lateral+camForwardXZ*min(back,-frontShift);
+              }
+            }
+          }
+          float groundSight=max(texture2D(cover,projectGround(groundXZ)).r,texture2D(cover,projectGround(frontXZ)).r);
+          sightR=mix(sight.r,groundSight,bodyCoverage);
+        }
+        float v=mix(1.,sightR,fogEnabled),f=1.-v;
         if(gradeMode>.5){
           vec2 token=texture2D(bodyGrades,vec2((floor(b.b*255.+.5)+.5)/256.,.5)).rg;
           float lit=hasGroundLight>.5?lightCoverage():sight.a;
           vec3 terrain=grade(c.rgb,(1.-lit)*(1.-retained*sight.g),sight.b);
           c.rgb=mix(terrain,grade(c.rgb,token.r,token.g),bodyCoverage);
         }
-        vec3 fog=mix(vec3(5.,6.,8.)/255.,texture2D(memory,uvScreen).rgb,sight.g*hasMemory);
-        // Keep the WebGL scene (including miniature bodies) below fog so unrevealed
-        // portions of a figure stay masked by fog/memory just like terrain.
-        gl_FragColor=vec4(c.rgb*v+fog*f*c.a,c.a);
+        vec3 fog=mix(vec3(5.,6.,8.)/255.,texture2D(memory,uvScreen).rgb,max(sight.g,sight.r)*hasMemory);
+        // Project raised miniature pixels down to their ground footprint so walls
+        // or fog behind a figure never slice off its upper half, while unrevealed
+        // portions of a partially-visible figure remain masked.
+        gl_FragColor=hasMemory>.5?vec4(c.rgb*v+fog*f*c.a,c.a):vec4(c.rgb*v,c.a*v);
       }`,
   });
   const quadGeometry=new PlaneGeometry(2,2);quadScene.add(new Mesh(quadGeometry,composite));
@@ -175,9 +211,18 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
   const originalZ=host.style.zIndex;
   let lastGradeCover:VisionCoverFrame|undefined,lastBodiesKey='',lastGradeFlashes=false;
   return {
-    gradeBodies(next:VisionCoverFrame|undefined,bodies:readonly {slot:number;x:number;y:number}[],field?:{torchField:{value:Texture};torchBounds:{value:Vector4}},flashes:readonly VisionLight[]=[],walls:import('../../../shared/mapWalls').MapWall[]=[]){
+    gradeBodies(next:VisionCoverFrame|undefined,bodies:readonly {slot:number;x:number;y:number;radius?:number}[],field?:{torchField:{value:Texture};torchBounds:{value:Vector4}},flashes:readonly VisionLight[]=[],walls:import('../../../shared/mapWalls').MapWall[]=[]){
       composite.uniforms.hasGroundLight.value=field?1:0;
       if(field){composite.uniforms.groundLight.value=field.torchField.value;composite.uniforms.lightBounds.value.copy(field.torchBounds.value);}
+      let centersChanged=false;
+      for(const p of bodies){
+        if(!p.slot)continue;
+        const cOffset=p.slot*4,r=p.radius??25.6;
+        if(centerFloats[cOffset]!==p.x||centerFloats[cOffset+1]!==p.y||centerFloats[cOffset+2]!==1||centerFloats[cOffset+3]!==r){
+          centerFloats[cOffset]=p.x;centerFloats[cOffset+1]=p.y;centerFloats[cOffset+2]=1;centerFloats[cOffset+3]=r;centersChanged=true;
+        }
+      }
+      if(centersChanged)bodyCenters.needsUpdate=true;
       if(!next?.grade)return;
       const bodiesKey=bodies.map(p=>`${p.slot}:${p.x},${p.y}`).join('|');
       if(!flashes.length&&!lastGradeFlashes&&lastGradeCover===next&&lastBodiesKey===bodiesKey)return;
@@ -208,6 +253,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       composite.uniforms.retained.value=next?.keepRevealed?1:0;
       composite.uniforms.cameraWorld.value.copy(camera.matrixWorld);
       composite.uniforms.projectionInverse.value.copy(camera.projectionMatrixInverse);
+      composite.uniforms.viewProjection.value.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
       if(!enabled||!next)return;
       const {width,height}=renderer.domElement;
       if(!frame||frame.image.width!==width||frame.image.height!==height){frame?.dispose();frame=new FramebufferTexture(width,height);composite.uniforms.frame.value=frame;cover.setSize(width,height);previous=undefined;}
@@ -224,9 +270,6 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       if(next.memory&&next.memory.dataset.ready==='true'){
         if(memoryTexture){composite.uniforms.memory.value=memoryTexture;}else{if(memoryCanvas!==next.memory){memory?.dispose();memoryCanvas=next.memory;memory=new CanvasTexture(memoryCanvas);composite.uniforms.memory.value=memory;memoryVersion='';}const version=next.memory.dataset.version??'ready';if(memoryVersion!==version){memory!.needsUpdate=true;memoryVersion=version;}}composite.uniforms.hasMemory.value=1;}else composite.uniforms.hasMemory.value=0;
 
-
-
-
       // A reused framebuffer texture may already be bound to unit 0 while a
       // mask/grade sampler is the active unit. bindTexture's cache can then
       // skip activating unit 0, causing the copy to overwrite that mask.
@@ -238,6 +281,6 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       try{renderer.autoClear=false;renderer.render(quadScene,quadCamera);}
       finally{renderer.autoClear=autoClear;}
     },
-    dispose(){host.style.zIndex=originalZ;if(host.parentElement)delete host.parentElement.dataset.gpuVisionGrade;for(const [id,e] of entries){e.mesh.geometry.dispose();if(id.startsWith('light:'))(e.mesh.material as ShaderMaterial).dispose();}entries.clear();white.dispose();near.dispose();remembered.dispose();rangedMemory.dispose();rangeStencil.dispose();stencil.dispose();lamp.dispose();flashLamp.dispose();for(const e of flashEntries){e.mesh.geometry.dispose();e.mesh.material.dispose();}flashEntries.length=0;cover.dispose();frame?.dispose();memory?.dispose();bodyGrades.dispose();composite.dispose();quadGeometry.dispose();},
+    dispose(){host.style.zIndex=originalZ;if(host.parentElement)delete host.parentElement.dataset.gpuVisionGrade;for(const [id,e] of entries){e.mesh.geometry.dispose();if(id.startsWith('light:'))(e.mesh.material as ShaderMaterial).dispose();}entries.clear();white.dispose();near.dispose();remembered.dispose();rangedMemory.dispose();rangeStencil.dispose();stencil.dispose();lamp.dispose();flashLamp.dispose();for(const e of flashEntries){e.mesh.geometry.dispose();e.mesh.material.dispose();}flashEntries.length=0;cover.dispose();frame?.dispose();memory?.dispose();bodyGrades.dispose();bodyCenters.dispose();composite.dispose();quadGeometry.dispose();},
   };
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { SoundSettings } from './SoundSettings';
+import { BuildVersionNote } from './ToolbarPerfStats';
 import {DmInterfaceControls} from './DmInterfaceControls';
 import { refreshComfyStatus } from '../lib/comfy';
 import {
@@ -579,6 +580,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
         {status === 'error' && <p className="err">{errorMsg}</p>}
         {status === 'saved' && <p className="hint">Saved ✓</p>}
 
+        <BuildVersionNote />
         <div className="modal-actions">
           <button className="btn green" disabled={status === 'saving'} onClick={save}>
             {status === 'saving' ? 'Saving…' : 'Save'}

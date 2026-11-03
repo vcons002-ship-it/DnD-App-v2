@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
@@ -82,7 +83,8 @@ app.get('/api/render/:token/:key',(req,res)=>{
  if(!buffer){res.sendStatus(404);return;}
  res.setHeader('Cache-Control','private, max-age=3600');res.setHeader('Referrer-Policy','no-referrer');res.type(buffer.subarray(0,4).toString()==='RIFF'?'webp':'png').send(buffer);
 });
-app.get('/api/health', (_req, res) => res.json({ ok: true, preview: config.preview }));
+const SERVER_COMMIT = (() => { try { return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return 'local'; } })();
+app.get('/api/health', (_req, res) => res.json({ ok: true, preview: config.preview, version: 'v2.0', commit: SERVER_COMMIT }));
 // Opt-in diagnostics for isolated performance runs; never enabled by normal startup.
 if(process.env.E2E_PERFORMANCE_METRICS==='1'){
  const lag=monitorEventLoopDelay({resolution:20});lag.enable();

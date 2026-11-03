@@ -242,7 +242,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
   const names=createMiniatureNameLayer(scene,outlineMask.depthTexture,outlineResolution);
   const legacyVision=new URLSearchParams(location.search).get('legacyVisionLift')==='1'||!initial.visionCoverFrame;
   let visionLift=legacyVision?createMiniatureVisionLift(renderer,host,outlineMask.texture):null;
-  const visionComposite=legacyVision?null:createMiniatureVisionComposite(renderer,host,outlineMask.texture);
+  const visionComposite=legacyVision?null:createMiniatureVisionComposite(renderer,host,outlineMask.texture,outlineMask.depthTexture);
   // Copy only the party-awareness pass above the personal vision cover. Reuse
   // this renderer and its loaded assets; never copy terrain, lights or effects.
   const sharedCanvas=document.createElement('canvas');
@@ -556,7 +556,7 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
       }
       try {
         const sightFrame=props.visionCoverFrame?.();
-        visionComposite?.gradeBodies(sightFrame,[...instances].filter(([,i])=>i.root.visible).map(([id,i])=>({slot:bodySlots.get(id)??0,x:i.root.position.x,y:i.root.position.z})),battlefield?.lighting.fieldUniforms,impactLights,props.environmentPreview?.walls);
+        visionComposite?.gradeBodies(sightFrame,[...instances].filter(([,i])=>i.root.visible).map(([id,i])=>({slot:bodySlots.get(id)??0,x:i.root.position.x,y:i.root.position.z,radius:i.baseDiameter*i.root.scale.x*.5})),battlefield?.lighting.fieldUniforms,impactLights,props.environmentPreview?.walls);
         scene.updateMatrixWorld();
         spellImpacts.faceCamera(camera);
         timing?.begin();
@@ -641,11 +641,12 @@ function createEngine(host: HTMLDivElement, initial: Props, report: (ids: string
           }
         }
         for(const id of sharedIds){const i=instances.get(id);if(i)i.root.visible=false;}
-        if(sightFrame?.explored.length&&(props.environmentPreview?.heavyDarkness||(sightFrame.keepRevealed&&props.environmentPreview?.darkvisionTerrain)))battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null,!!visionComposite);
+        const needsGpuMemory=!!sightFrame?.explored.length&&!!(props.environmentPreview?.heavyDarkness||props.environmentPreview?.darkvisionTerrain);
+        if(needsGpuMemory)battlefield?.renderMemory(renderer,camera,props.memoryTerrainCanvas?.()??null,!!visionComposite);
         raisedStudy?.update(useStore.getState().snapshot?.playerVision,props.visualPosition);
         // Keep the existing path until the remembered-art texture is ready;
         // this also covers daylight boards without an environment renderer.
-        const useComposite=!!visionComposite&&!!sightFrame&&(!sightFrame.explored.length||sightFrame.memory?.dataset.ready==='true');
+        const useComposite=!!visionComposite&&!!sightFrame&&(!needsGpuMemory||sightFrame.memory?.dataset.ready==='true');
         const deferSpells=!!props.personalVision&&(!useComposite||!!sightFrame?.enabled||!!sightFrame?.grade&&!sightFrame.grade.daylight);
         if(deferSpells)camera.layers.disable(SPELL_IMPACT_LAYER);else camera.layers.enable(SPELL_IMPACT_LAYER);
         const deferNames=!!props.personalVision&&useComposite&&!!(sightFrame?.enabled||(sightFrame?.grade&&!sightFrame.grade.daylight));
