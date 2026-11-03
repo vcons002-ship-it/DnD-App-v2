@@ -45,7 +45,7 @@ export function createMiniatureNameLayer(scene:Scene,depth:DepthTexture,resoluti
         }
         entry.covered.value=label.emphasized?1:.22;
         entry.mesh.layers.set(shared.has(label.id)?4:MINIATURE_NAME_LAYER);
-        entry.mesh.material.opacity=label.opacity;
+        entry.mesh.material.opacity=shared.has(label.id)?label.opacity*0.78:label.opacity;
         const position=entry.mesh.geometry.getAttribute('position');
         // Keep exact map-space points separately from the Float32 GPU buffer.
         // Stationary labels need no geometry upload during lighting animation.

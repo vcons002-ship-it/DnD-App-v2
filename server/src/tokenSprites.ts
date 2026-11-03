@@ -41,10 +41,10 @@ export async function tokenSprites(id:string,snapshot:StateSnapshot,preShade=fal
    const d=resolveToken(snapshot,t,entityIndex),r=Math.max(1,Math.min(512,t.widthFt*px/2)),size=Math.ceil(Math.max(256,r*8));
    // Oversized tokens use the exact client fallback rather than allocating unbounded rasters.
    if(size>2048)continue;
-   const affinityVisible=!!(d.disposition&&!t.sharedSightOnly&&(affinitySet?affinitySet.has(t.id):true));
+   const affinityVisible=!!(d.disposition&&!t.sharedSightOnly&&!t.partiallyRevealed&&(affinitySet?affinitySet.has(t.id):true));
    const grayscale=preShade&&!!t.sharedSightOnly&&!!snapshot.playerVision?.heavy&&(!d.icon||!!d.dead||!hasEmoji(d.icon));
-   const hasHunterMark=!!(t.markLabels?.some(label=>/hunter.s mark/i.test(label))&&!t.sharedSightOnly);
-   const cacheKey=`${px}:${map.gridSizePx}:${t.kind}:${t.widthFt}:${t.shape??'circle'}:${t.invisible?1:0}:${d.icon}:${d.name}:${d.curHp??''}:${d.maxHp??''}:${d.tempHp??''}:${d.dead?1:0}:${t.revealTag??''}:${affinityVisible?d.disposition:''}:${t.combatRole??''}:${hasHunterMark?1:0}:${grayscale?1:0}`;
+   const hasHunterMark=!!(t.markLabels?.some(label=>/hunter.s mark/i.test(label))&&!t.sharedSightOnly&&!t.partiallyRevealed);
+   const cacheKey=`${px}:${map.gridSizePx}:${t.kind}:${t.widthFt}:${t.shape??'circle'}:${t.invisible?1:0}:${t.partiallyRevealed?1:0}:${t.sharedSightOnly?1:0}:${d.icon}:${d.name}:${d.curHp??''}:${d.maxHp??''}:${d.tempHp??''}:${d.dead?1:0}:${t.revealTag??''}:${affinityVisible?d.disposition:''}:${t.combatRole??''}:${hasHunterMark?1:0}:${grayscale?1:0}`;
    const cachedPair=spritePairCache.get(cacheKey);
    if(cachedPair&&grantCachedAsset(id,cachedPair.body)&&grantCachedAsset(id,cachedPair.hud)){
     spritePairCache.delete(cacheKey);spritePairCache.set(cacheKey,cachedPair);
@@ -68,11 +68,12 @@ export async function tokenSprites(id:string,snapshot:StateSnapshot,preShade=fal
    if(t.kind==='pc'){let line='';for(const word of words){if(line&&(line+' '+word).length>chars){lines.push(line);line=word;}else line+=(line?' ':'')+word;}if(line)lines.push(line);}
    else lines.push(d.name.length>chars?d.name.slice(0,chars-1)+'…':d.name);
    const tag=t.revealTag??'',tagW=tag?(tag.length+2)*font*.65:0,nameW=Math.min(labelWidth,d.name.length*font*.55+2);
-   let hud=d.dead?'':lines.map((line,i)=>text(line,t.kind==='pc'?0:-tagW/2,labelY+font*(.85+i*1.1),font,'fill="white" stroke="black" stroke-width="3" paint-order="stroke" stroke-linejoin="round"')).join('');
-   if(!d.dead&&hasHp){const frac=Math.max(0,Math.min(1,d.curHp!/d.maxHp!)),y=r+(t.kind==='pc'?font+8:4);hud+=`<rect x="${-r}" y="${y}" width="${2*r}" height="6" rx="3" fill="black" fill-opacity=".53"/><rect x="${-r}" y="${y}" width="${2*r*frac}" height="6" rx="3" fill="${frac>.5?'#39c46b':frac>.25?'#f5c518':'#e23b3b'}"/>`;if(d.tempHp)hud+=text(`+${d.tempHp}`,r+3+String(d.tempHp).length*3,y+9,Math.max(10,r*.4),'fill="#5ce1ff" font-weight="bold"');}
-   if(!d.dead&&tag)hud+=text(tag,(nameW+tagW)/2,labelY+font*.85,font,'fill="white" stroke="black" stroke-width="3" paint-order="stroke" font-weight="bold"');
+   const labelFill=t.sharedSightOnly?'#8a919e':'white',labelFade=t.sharedSightOnly?' opacity=".75"':'';
+   let hud=(d.dead||t.partiallyRevealed)?'':lines.map((line,i)=>text(line,t.kind==='pc'?0:-tagW/2,labelY+font*(.85+i*1.1),font,`fill="${labelFill}"${labelFade} stroke="black" stroke-width="3" paint-order="stroke" stroke-linejoin="round"`)).join('');
+   if(!d.dead&&!t.partiallyRevealed&&hasHp){const frac=Math.max(0,Math.min(1,d.curHp!/d.maxHp!)),y=r+(t.kind==='pc'?font+8:4);hud+=`<rect x="${-r}" y="${y}" width="${2*r}" height="6" rx="3" fill="black" fill-opacity=".53"/><rect x="${-r}" y="${y}" width="${2*r*frac}" height="6" rx="3" fill="${frac>.5?'#39c46b':frac>.25?'#f5c518':'#e23b3b'}"/>`;if(d.tempHp)hud+=text(`+${d.tempHp}`,r+3+String(d.tempHp).length*3,y+9,Math.max(10,r*.4),'fill="#5ce1ff" font-weight="bold"');}
+   if(!d.dead&&!t.partiallyRevealed&&tag)hud+=text(tag,(nameW+tagW)/2,labelY+font*.85,font,`fill="${labelFill}"${labelFade} stroke="black" stroke-width="3" paint-order="stroke" font-weight="bold"`);
    if(affinityVisible)hud+=`<circle cx="${-r*.8}" cy="${-r*.8}" r="${Math.max(5,r*.16)}" fill="${{friendly:'#39c46b',neutral:'#f5c518',enemy:'#e23b3b'}[d.disposition!]}" stroke="black"/>`;
-   if(!d.dead&&t.kind!=='pc'&&t.combatRole)hud+=`<g transform="translate(${-r*.72} ${r*.72})"><circle r="${roleR}" fill="#0b0d12" stroke="white" stroke-width="1.5"/></g>`;
+   if(!d.dead&&!t.partiallyRevealed&&t.kind!=='pc'&&t.combatRole)hud+=`<g transform="translate(${-r*.72} ${r*.72})"><circle r="${roleR}" fill="#0b0d12" stroke="white" stroke-width="1.5"/></g>`;
 
    if(hasHunterMark)hud+=`<g transform="translate(0 ${-r-22})"><path d="M0 -14L14 0L0 14L-14 0Z" fill="#352106" stroke="#ffe7a1" stroke-width="2"/><circle r="4" fill="#fff5d2"/></g>`;
    const edge=Math.ceil(r*1.3+4),hudEdge=Math.ceil(Math.max(r*2+20,nameW/2+tagW+16)),top=Math.ceil(r+52),bottom=Math.ceil(labelY+font*(lines.length+1)+24);
