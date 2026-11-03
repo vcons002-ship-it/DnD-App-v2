@@ -57,7 +57,7 @@ export function createMiniatureNameReader() {
         const labels=hud.find(depthHudSelector);
         if(!labels.length){cache.delete(id);continue;}
         const group=new Konva.Group({listening:false});
-        for(const label of labels)group.add(label.clone({opacity:1,visible:true,listening:false}));
+        for(const label of labels)group.add(label.clone({opacity:label.opacity(),visible:true,listening:false}));
         const b=group.getClientRect();
         const bounds={x:Math.floor(b.x)-1,y:Math.floor(b.y)-1,width:Math.ceil(b.width)+3,height:Math.ceil(b.height)+3};
         const canvas=group.toCanvas({...bounds,pixelRatio:density});
