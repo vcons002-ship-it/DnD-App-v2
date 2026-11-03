@@ -1,10 +1,29 @@
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+
+function resolveGitCommit(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {
+    return 'local';
+  }
+}
+
+const buildCommit = resolveGitCommit();
+const buildTime = new Date().toISOString();
 
 // In dev, proxy API + Socket.IO + uploads to the local server (port 4000).
 // In production the server serves the built client, so no proxy is needed.
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __APP_VERSION__: JSON.stringify('v2.0'),
+    __APP_COMMIT__: JSON.stringify(buildCommit),
+    __APP_BUILD_TIME__: JSON.stringify(buildTime),
+  },
   server: {
     port: 5173,
     proxy: {

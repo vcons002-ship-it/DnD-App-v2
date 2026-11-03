@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { StateSnapshot } from '../../../shared/types';
 import { useStore } from '../state/socket';
 import { SettingsModal } from './SettingsModal';
+import { APP_BUILD_INFO, ToolbarPerfStats } from './ToolbarPerfStats';
 import { GuideModal } from './GuideModal';
 import { RulebookViewer } from './RulebookViewer';
 import { EditableName } from './EditableName';
@@ -130,7 +131,7 @@ export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSna
 
   return (
     <header className={`topbar${compactToolbar||isDm?' compact-topbar':''}`}>
-      <strong>{isDm ? 'DM' : 'Player'}</strong>
+      <strong title={`DnD-App ${APP_BUILD_INFO.version} (${APP_BUILD_INFO.commit})`}>{isDm ? 'DM' : 'Player'}</strong>
       <span className="session-title">
         {isDm ? (
           <EditableName
@@ -181,6 +182,7 @@ export function TopToolbar({ snapshot, compactDm = false }: { snapshot: StateSna
         </details>
       ) : actions}
 
+      <ToolbarPerfStats />
       {isDm && <button className="btn tiny dm-settings-trigger" type="button" aria-label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}><span aria-hidden="true">&#9881;</span><span className="dm-settings-label"> Settings</span></button>}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {guideOpen && <GuideModal onClose={() => setGuideOpen(false)} />}

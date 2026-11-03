@@ -7,6 +7,7 @@ import {DiceRenderingControl} from './DiceRenderingControl';
 import {HardwareBenchmarkPanel} from './LegacyModeControl';
 import {TokenAppearanceControl} from './TokenAppearanceControl';
 import {ServerRenderingAdvice} from './ServerRenderingControl';
+import {BuildVersionNote, PerfStatsSettingControl} from './ToolbarPerfStats';
 import type { PlayerLayoutController, PlayerPanelName, PlayerPanelSize } from '../lib/usePlayerLayout';
 
 export function ChatBubbleIcon() {
@@ -166,6 +167,7 @@ export function PlayerLayoutControls({ layout }: { layout: PlayerLayoutControlle
       <label className="player-scale-label" htmlFor="player-ui-scale">UI scale <output>{Math.round(layout.scale * 100)}%</output></label>
       <input id="player-ui-scale" type="range" min="70" max="115" step="5" value={Math.round(layout.scale * 100)} onChange={(event) => layout.setScale(Number(event.target.value) / 100)} />
       <div className="player-scale-limits"><span>Compact 70%</span><span>Large 115%</span></div>
+      <PerfStatsSettingControl />
       <h3 className="player-settings-sub">Graphics</h3>
       <EnvironmentQualityControl/>
       <TokenAppearanceControl/>
@@ -194,6 +196,7 @@ export function PlayerLayoutControls({ layout }: { layout: PlayerLayoutControlle
       <p>Drag a panel header to dock left or right, and its corner to resize. Focus either handle to use arrow keys. Sizes are before UI scaling; panels stay inside the window.</p>
       <button type="button" className="btn tiny" onClick={layout.reset}>Reset interface layout</button>
       <small>Saved on this browser only. Map scale and campaign data are unchanged.</small>
+      <BuildVersionNote />
     </section>}
   </div>;
   return toolbar ? createPortal(controls, toolbar) : controls;
