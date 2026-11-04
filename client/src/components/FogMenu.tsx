@@ -70,24 +70,26 @@ export function FogMenu({
   };
 
   const anyFog = mapFogEnabled || tokenFogEnabled;
-  const label =
-    fogBrush !== 'off' ? `🌫 Fog: ${fogBrush === 'reveal' ? 'Reveal' : 'Hide'} ${brushSize}×` : '🌫 Fog';
+
+
 
   return (
     <>
       <button
         ref={btn}
         type="button"
-        className={`btn tiny ${anyFog||mapVisionEnabled||tokenVisionEnabled ? 'on' : ''}`}
+        className={`btn tiny fog-menu-trigger ${open || fogBrush !== 'off' ? 'on' : ''}`}
+        aria-label="Fog"
+        aria-expanded={open}
         onClick={toggle}
         title="Fog of war"
       >
-        {label} ▾
+        <span className="fog-menu-icon">🌫 </span>Fog{fogBrush !== 'off' ? <span className="fog-menu-state">: {fogBrush === 'reveal' ? 'Reveal' : 'Hide'} {brushSize}×</span> : null} ▾
       </button>
       {open && (
         <>
           <div className="popover-backdrop" onClick={() => setOpen(false)} />
-          <div className="measure-menu" style={{ left: pos.x, top: pos.y }} onClick={(e) => e.stopPropagation()}>
+          <div className="measure-menu fog-menu" role="dialog" aria-label="Fog of war" style={{ left: pos.x, top: pos.y, maxHeight: `calc(100dvh - ${pos.y + 8}px)` }} onClick={(e) => e.stopPropagation()}>
             <div className="measure-label">Player vision</div>
             <button className={`measure-row ${sharedPartyVision?'on':''}`} aria-pressed={sharedPartyVision} onClick={()=>onSharedPartyVision(!sharedPartyVision)}>
               <span>Shared party vision</span><span className="muted">{sharedPartyVision?'on':'off'}</span>

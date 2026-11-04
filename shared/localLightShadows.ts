@@ -12,11 +12,13 @@ export const localShadowDepthGlsl=`
    return params.y*(biasedZ-params.x)/(biasedZ*(params.y-params.x));
  }
 `;
-export type ShadowCaster={id?:string;x:number;y:number;visible:boolean};
+export type ShadowCaster={id?:string;x:number;y:number;visible:boolean;diameter?:number};
 type Source={id:string;x:number;y:number;height:number;radius:number;strength:number;nominalRadius?:number;nominalStrength?:number;carried?:boolean};
 /** A hip lantern passes through its carrier, but other lights still cast their shadow. */
-export function castsLocalShadow(source:Pick<Source,'id'|'carried'>,caster:ShadowCaster){
- return caster.visible&&!(source.carried&&source.id===caster.id);
+export function castsLocalShadow(source:Pick<Source,'id'|'carried'>&Partial<Pick<Source,'x'|'y'>>,caster:ShadowCaster){
+ if(!caster.visible||(source.carried&&source.id===caster.id))return false;
+ if(caster.diameter&&source.x!==undefined&&source.y!==undefined&&Math.hypot(source.x-caster.x,source.y-caster.y)<caster.diameter*.55)return false;
+ return true;
 }
 /** Compress the whole caster only during its shadow pass. The highest point
  * projects to a short footprint instead of losing the end of its silhouette. */

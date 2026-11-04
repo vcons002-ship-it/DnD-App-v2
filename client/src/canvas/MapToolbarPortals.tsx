@@ -6,6 +6,7 @@ import { AnnotationMenu } from '../components/AnnotationMenu';
 import { CompactToolbarMenu } from '../components/CompactToolbarMenu';
 import { FogMenu } from '../components/FogMenu';
 import { LegacyModeControl } from '../components/LegacyModeControl';
+import { TokenAppearanceControl } from '../components/TokenAppearanceControl';
 import { MeasureMenu } from '../components/MeasureMenu';
 import { ScaleMenu } from '../components/ScaleMenu';
 import { WallMenu, type WallTool } from '../components/WallMenu';
@@ -272,6 +273,7 @@ export function MapToolbarPortals({
                 Reset rotation
               </button>
             </div>
+            <TokenAppearanceControl toolbar forceCompact={actualDm} />
             {!legacy && (map?.videoPath || tiles.some((t) => t.videoPath)) && (
               <button
                 className={`btn tiny ${animateMap ? 'on' : ''}`}
@@ -290,44 +292,70 @@ export function MapToolbarPortals({
       {createPortal(
         <>
           {actualDm && (
-            <WallMenu
-              map={map}
-              doors={doors}
-              onDoor={openDoorControls}
-              tool={wallTool}
-              count={map?.walls?.length ?? 0}
-              snap={wallSnap}
-              onSnap={setWallSnap}
-              canGenerateDecal={comfyOk}
-              onGenerateDecal={generateScenery}
-              tiles={tiles}
-              arrangingTiles={tilesMode}
-              onToggleArrangeTiles={() => setTilesMode((t) => !t)}
-              onAddTileFile={addTileFromFile}
-              onReorderTile={reorderMapImage}
-              onRemoveTile={removeMapImage}
-              onTool={(next) => {
-                setTool(null);
-                setRemoveMode(false);
-                setScaleMode(false);
-                setMatchMode(false);
-                setAnnotate(null);
-                setFogBrush('off');
-                setTilesMode(false);
-                placeLight(null);
-                setMenu(null);
-                setWallTool(next);
-                setWallAnchor(null);
-                setWallPointer(null);
-                hideCursor();
-              }}
-              onFinish={cancelWallStroke}
-              onUndo={() => {
-                const last = map?.walls?.at(-1);
-                if (map && last) useStore.getState().editMapWalls(map.id, { removeId: last.id });
-                setWallAnchor(null);
-              }}
-            />
+            <>
+              <WallMenu
+                map={map}
+                doors={doors}
+                onDoor={openDoorControls}
+                tool={wallTool}
+                count={map?.walls?.length ?? 0}
+                snap={wallSnap}
+                onSnap={setWallSnap}
+                canGenerateDecal={comfyOk}
+                onGenerateDecal={generateScenery}
+                tiles={tiles}
+                arrangingTiles={tilesMode}
+                onToggleArrangeTiles={() => setTilesMode((t) => !t)}
+                onAddTileFile={addTileFromFile}
+                onReorderTile={reorderMapImage}
+                onRemoveTile={removeMapImage}
+                onTool={(next) => {
+                  setTool(null);
+                  setRemoveMode(false);
+                  setScaleMode(false);
+                  setMatchMode(false);
+                  setAnnotate(null);
+                  setFogBrush('off');
+                  setTilesMode(false);
+                  placeLight(null);
+                  setMenu(null);
+                  setWallTool(next);
+                  setWallAnchor(null);
+                  setWallPointer(null);
+                  hideCursor();
+                }}
+                onFinish={cancelWallStroke}
+                onUndo={() => {
+                  const last = map?.walls?.at(-1);
+                  if (map && last) useStore.getState().editMapWalls(map.id, { removeId: last.id });
+                  setWallAnchor(null);
+                }}
+              />
+              <FogMenu
+                sharedPartyVision={map?.sharedPartyVision !== false}
+                onSharedPartyVision={(enabled) => map && useStore.getState().setSharedPartyVision(map.id, enabled)}
+                onResetExploration={() => map && useStore.getState().resetExploration(map.id)}
+                explorationMode={map?.explorationMode ?? 'remembered'}
+                onExplorationMode={(mode) => map && useStore.getState().setExplorationMode(map.id, mode)}
+                mapVisionEnabled={usesMapVision(map)}
+                tokenVisionEnabled={map?.tokenVisionEnabled !== false}
+                onToggleVision={(layer) =>
+                  map &&
+                  setVisionFog(map.id, layer, !(layer === 'map' ? usesMapVision(map) : map.tokenVisionEnabled !== false))
+                }
+                mapFogEnabled={mapFogEnabled}
+                tokenFogEnabled={tokenFogEnabled}
+                paintLayer={paintLayer}
+                fogBrush={fogBrush}
+                brushSize={brushSize}
+                onToggleLayer={toggleLayer}
+                onSetPaintLayer={setPaintLayer}
+                onSetBrush={(b) => setFogBrush(b)}
+                onSetBrushSize={setBrushSize}
+                onCoverAll={() => map && coverFog(map.id, paintLayer)}
+                onRevealAll={() => revealAll(paintLayer)}
+              />
+            </>
           )}
           <CompactToolbarMenu label="Map tools" shortLabel="Tools" forceCompact={actualDm}>
             <div className="map-tool-menus">
@@ -409,74 +437,47 @@ export function MapToolbarPortals({
                 )}
               </div>
               {actualDm && (
-                <>
-                  <ScaleMenu
-                    feetPerSquare={derivedFtPerSquare}
-                    widthFt={widthFt}
-                    gridPx={gridPx}
-                    scaleMode={scaleMode}
-                    matchMode={matchMode}
-                    gridHidden={!!map?.gridHidden}
-                    gridLocked={!!map?.gridLocked}
-                    onCommit={(ft, width) => {
-                      setWidthFt(width);
-                      commitScaleFeet(ft, width);
-                    }}
-                    onToggleHidden={() =>
-                      map &&
-                      setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
-                        hidden: !map.gridHidden,
-                      })
-                    }
-                    onUnlock={() =>
-                      map &&
-                      setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
-                        locked: false,
-                      })
-                    }
-                    onToggleMatchMode={() => {
-                      setTool(null);
-                      setRemoveMode(false);
-                      setScaleMode(false);
-                      setScaleLine(null);
-                      setScalePrompt(null);
-                      setMatchMode((s) => !s);
-                    }}
-                    onToggleScaleMode={() => {
-                      setTool(null);
-                      setRemoveMode(false);
-                      setMatchMode(false);
-                      setScaleLine(null);
-                      setScalePrompt(null);
-                      setScaleMode((s) => !s);
-                    }}
-                  />
-
-                  <FogMenu
-                    sharedPartyVision={map?.sharedPartyVision!==false}
-                    onSharedPartyVision={enabled=>map&&useStore.getState().setSharedPartyVision(map.id,enabled)}
-                    onResetExploration={() => map && useStore.getState().resetExploration(map.id)}
-                    explorationMode={map?.explorationMode ?? 'remembered'}
-                    onExplorationMode={(mode) => map && useStore.getState().setExplorationMode(map.id, mode)}
-                    mapVisionEnabled={usesMapVision(map)}
-                    tokenVisionEnabled={map?.tokenVisionEnabled !== false}
-                    onToggleVision={(layer) =>
-                      map &&
-                      setVisionFog(map.id, layer, !(layer === 'map' ? usesMapVision(map) : map.tokenVisionEnabled !== false))
-                    }
-                    mapFogEnabled={mapFogEnabled}
-                    tokenFogEnabled={tokenFogEnabled}
-                    paintLayer={paintLayer}
-                    fogBrush={fogBrush}
-                    brushSize={brushSize}
-                    onToggleLayer={toggleLayer}
-                    onSetPaintLayer={setPaintLayer}
-                    onSetBrush={(b) => setFogBrush(b)}
-                    onSetBrushSize={setBrushSize}
-                    onCoverAll={() => map && coverFog(map.id, paintLayer)}
-                    onRevealAll={() => revealAll(paintLayer)}
-                  />
-                </>
+                <ScaleMenu
+                  feetPerSquare={derivedFtPerSquare}
+                  widthFt={widthFt}
+                  gridPx={gridPx}
+                  scaleMode={scaleMode}
+                  matchMode={matchMode}
+                  gridHidden={!!map?.gridHidden}
+                  gridLocked={!!map?.gridLocked}
+                  onCommit={(ft, width) => {
+                    setWidthFt(width);
+                    commitScaleFeet(ft, width);
+                  }}
+                  onToggleHidden={() =>
+                    map &&
+                    setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
+                      hidden: !map.gridHidden,
+                    })
+                  }
+                  onUnlock={() =>
+                    map &&
+                    setMapGrid(map.id, gridPx, Math.round(derivedFtPerSquare) || 5, widthFt, {
+                      locked: false,
+                    })
+                  }
+                  onToggleMatchMode={() => {
+                    setTool(null);
+                    setRemoveMode(false);
+                    setScaleMode(false);
+                    setScaleLine(null);
+                    setScalePrompt(null);
+                    setMatchMode((s) => !s);
+                  }}
+                  onToggleScaleMode={() => {
+                    setTool(null);
+                    setRemoveMode(false);
+                    setMatchMode(false);
+                    setScaleLine(null);
+                    setScalePrompt(null);
+                    setScaleMode((s) => !s);
+                  }}
+                />
               )}
             </div>
           </CompactToolbarMenu>

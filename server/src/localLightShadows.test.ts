@@ -26,7 +26,7 @@ describe('local shadow light selection',()=>{
   const lantern={...light('varis',95),carried:true};
   expect(castsLocalShadow(lantern,owner)).toBe(false);
   expect(castsLocalShadow(lantern,other)).toBe(true);
-  expect(castsLocalShadow({...lantern,carried:false},owner)).toBe(true);
+  expect(castsLocalShadow({...lantern,carried:false},owner)).toBe(true);expect(castsLocalShadow({...lantern,carried:false},{...owner,diameter:60})).toBe(false);
   expect(selectShadowLights([lantern],[owner],[])).toEqual([]);
   expect(selectShadowLights([lantern],[owner,other],[])).toEqual([lantern]);
  });

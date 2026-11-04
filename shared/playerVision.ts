@@ -11,9 +11,9 @@ export type VisionLight=VisionPoint&{radius:number;height:number;strength:number
 export function lightCoverage(distance:number,light:Pick<VisionLight,'radius'|'height'|'strength'|'transient'>){
  return lightColorCoverage((light.transient?spellEmissionIrradiance:lightIrradiance)(Math.hypot(distance,light.height),light.radius,light.strength));
 }
-export type PlayerVision={rangeFt:60;radius:number;heavy:boolean;origins:VisionPoint[];lights:VisionLight[];walls?:MapWall[];daylight?:boolean;blind?:boolean;blindTokenIds?:string[]};
+export type PlayerVision={rangeFt:60;radius:number;heavy:boolean;origins:VisionPoint[];lights:VisionLight[];walls?:MapWall[];daylight?:boolean};
 /** Map cover also conceals creatures on unseen terrain. Painted cover is separate. */
-export const usesMapVision=(map:Pick<MapState,'mapVisionEnabled'>|null|undefined,vision?:PlayerVision|null)=>!!vision?.blind||map?.mapVisionEnabled!==false;
+export const usesMapVision=(map:Pick<MapState,'mapVisionEnabled'>|null|undefined)=>map?.mapVisionEnabled!==false;
 export const usesTokenVision=(map:Pick<MapState,'mapVisionEnabled'|'tokenVisionEnabled'>|null|undefined)=>usesMapVision(map)||map?.tokenVisionEnabled!==false;
 /** Dynamic sight/light layers only. Painted fog and token authorization remain
  * independent. Missing origins stay fail-closed when terrain sight is enabled;
@@ -23,7 +23,6 @@ export function needsVisibilityLayer(
  vision:PlayerVision|null|undefined,
 ):boolean {
  if(!vision)return false;
- if(vision.blind)return true;
  if(vision.heavy||vision.daylight!==true)return true;
  if(!usesMapVision(map))return false;
  if(!vision.origins.length)return true;
@@ -134,20 +133,21 @@ export function visionHasDarkvision(vision:PlayerVision|undefined|null,x:number,
  return !!vision?.origins.some(o=>Math.hypot(x-o.x,y-o.y)<=vision.radius+1e-6);
 }
 /** Dim-light darkvision shows affinity; heavy-darkness affinity needs actual light. */
-export function visionShowsAffinity(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
- return visionLit(vision,x,y)||(!vision?.heavy&&visionHasDarkvision(vision,x,y));
+export function visionShowsAffinity(vision:PlayerVision|undefined|null,x:number,y:number,radiusPx=0):boolean{
+ return visionLit(vision,x,y)||(radiusPx>0&&tokenFootprintPoints(x,y,radiusPx).some(p=>visionLit(vision,p.x,p.y)))||(!vision?.heavy&&(visionHasDarkvision(vision,x,y)||(radiusPx>0&&tokenFootprintPoints(x,y,radiusPx).some(p=>visionHasDarkvision(vision,p.x,p.y)))));
 }
 export function visionLit(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
  return !vision||!!vision.daylight||vision.lights.some(l=>lightCoverage(Math.hypot(x-l.x,y-l.y),l)>.10&&(!(vision.walls?.length)||sightCache.visible(`l:${l.id}:${x},${y}`,l,{x,y},vision.walls)));
 }
 export function createPlayerVision(map:MapState|null|undefined,tokens:Token[],owned:Set<string>,lightTokenAllowed?:(token:Token)=>boolean):PlayerVision|undefined{
- const viewers=tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden);
- const blind=viewers.length>0&&viewers.every(t=>t.visionDisabled);
- if(!map||(!blind&&!usesDarknessVision(map)&&!map.walls?.length))return undefined;
+ if(!map)return undefined;
+ const ownedPcs=tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden);
+ const origins=ownedPcs.filter(t=>!t.blind).map(t=>({id:t.id,x:t.x,y:t.y}));
+ const allBlind=ownedPcs.length>0&&origins.length===0;
+ if(!allBlind&&!usesDarknessVision(map)&&!map.walls?.length)return undefined;
  const px=map!.gridSizePx/Math.max(.001,map!.feetPerSquare);
- const origins=viewers.filter(t=>!t.visionDisabled).map(t=>({id:t.id,x:t.x,y:t.y}));
  const darkness=usesDarknessVision(map);
- const vision:PlayerVision={rangeFt:60,radius:60*px,heavy:darkness&&!!map.environment?.heavyDarkness,origins,lights:[],walls:map.walls,daylight:!darkness,...(viewers.some(t=>t.visionDisabled)?{blindTokenIds:viewers.filter(t=>t.visionDisabled).map(t=>t.id)}:{}),...(blind?{blind:true}:{})};
+ const vision:PlayerVision={rangeFt:60,radius:60*px,heavy:(darkness&&!!map.environment?.heavyDarkness)||allBlind,origins,lights:[],walls:map.walls,daylight:!darkness&&!allBlind};
  const fog=map!.mapFogEnabled?new Set(map!.mapFogRevealed):null;
  const permitted=(x:number,y:number)=>origins.length>0&&(!fog||fog.has(`${Math.floor(x/map!.gridSizePx)},${Math.floor(y/map!.gridSizePx)}`));
  const tokenFog=map!.tokenFogEnabled?new Set(map!.tokenFogRevealed):null;

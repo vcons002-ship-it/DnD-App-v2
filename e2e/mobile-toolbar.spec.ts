@@ -20,7 +20,7 @@ for(const size of [{width:320,height:740},{width:390,height:844},{width:430,heig
    const bounds=await bar.boundingBox();expect(bounds!.height).toBeLessThanOrEqual(size.width<=700?106:58);
    if(size.width<=520)await expect(bar.locator('.session-title')).toBeHidden();
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-   for(const name of ['View','Map tools','Map features','Campaign menu','Settings','Rotate map left','Rotate map right']){
+   for(const name of ['View','Map tools','Map features','Fog','Campaign menu','Settings','Rotate map left','Rotate map right']){
     const b=await bar.getByRole('button',{name,exact:true}).boundingBox();
     expect(b!.height).toBeGreaterThanOrEqual(44);expect(b!.x).toBeGreaterThanOrEqual(0);expect(b!.x+b!.width).toBeLessThanOrEqual(size.width);
    }
@@ -62,7 +62,7 @@ for(const size of [{width:320,height:740},{width:390,height:844},{width:430,heig
    await expect(bar.getByRole('button',{name:'Settings',exact:true})).toBeVisible();
    await bar.getByRole('button',{name:'View',exact:true}).click();
    const desktopView=page.getByRole('dialog',{name:'View',exact:true});
-   await expect(desktopView.getByLabel('Battlefield visibility')).toBeVisible();
+   await expect(desktopView.getByLabel('Battlefield visibility')).toBeVisible();await expect(desktopView.getByRole('button',{name:'3D player tokens',exact:true})).toBeVisible();await expect(desktopView.getByRole('button',{name:'3D monster tokens',exact:true})).toBeVisible();
    await expect(desktopView.getByRole('checkbox',{name:/Legacy mode/})).toBeVisible();
   }finally{dm.disconnect();await context.close();}
  });
@@ -107,7 +107,7 @@ for(const width of [1024,1280,1440,1920])test(`desktop DM toolbar exposes Settin
   await expect(features.locator('span:visible').first()).toHaveText('Map Features');
   expect((await bar.boundingBox())!.height).toBeLessThanOrEqual(58);
   await expect(bar.locator('.code')).toBeVisible();await expect(bar.locator('.active-map')).toBeVisible();
-  await expect(bar.getByRole('button',{name:'View',exact:true})).toBeVisible();await expect(bar.getByRole('button',{name:'Map tools',exact:true})).toBeVisible();
+  await expect(bar.getByRole('button',{name:'View',exact:true})).toBeVisible();await expect(bar.getByRole('button',{name:'Fog',exact:true})).toBeVisible();await expect(bar.getByRole('button',{name:'Map tools',exact:true})).toBeVisible();
   await bar.getByRole('button',{name:'View',exact:true}).click();await expect(page.getByRole('dialog',{name:'View',exact:true}).getByLabel('Battlefield visibility')).toBeVisible();await page.keyboard.press('Escape');
   await bar.getByRole('button',{name:'Map tools',exact:true}).click();await expect(page.getByRole('dialog',{name:'Map tools',exact:true}).getByText('Measure',{exact:false}).first()).toBeVisible();await page.keyboard.press('Escape');
   await expect(bar.locator('.dm-campaign-menu').getByRole('button',{name:'Settings',exact:true})).toHaveCount(0);
