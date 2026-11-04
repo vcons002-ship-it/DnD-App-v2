@@ -74,7 +74,7 @@ export function createLocalLightShadows(renderer:WebGLRenderer,invalidate:()=>vo
    }
    if(wallsRef!==walls){wallsRef=walls;const nextKey=JSON.stringify(walls);if(nextKey!==wallKey){wallKey=nextKey;wallVersion++;planar.invalidate();}}
    for(const light of lights)light.shadowSlot=-1;
-   const nextSelectionKey=JSON.stringify([enabled,budget.localShadowLights,wallVersion,lights.map(l=>[l.id,l.x,l.y,l.height,l.nominalRadius??l.radius,l.nominalStrength??l.strength,l.carried]),casters.map(c=>[c.id,c.x,c.y,c.visible])]);
+   const nextSelectionKey=JSON.stringify([enabled,budget.localShadowLights,wallVersion,lights.map(l=>[l.id,l.x,l.y,l.height,l.nominalRadius??l.radius,l.nominalStrength??l.strength,l.carried]),casters.map(c=>[c.id,c.x,c.y,c.visible,c.diameter])]);
    if(nextSelectionKey!==selectionKey){
      selectionKey=nextSelectionKey;selectionUpdates++;
      selectedIds=enabled?selectShadowLights(lights,casters,walls,(a,b,w)=>sight.visible(`${(a as {id?:string}).id??`${a.x},${a.y}`}:${(b as {id?:string}).id??`${b.x},${b.y}`}`,a,b,w??[])).slice(0,budget.localShadowLights).map(l=>l.id):[];

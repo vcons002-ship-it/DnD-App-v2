@@ -53,7 +53,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
   const lamp = new ShaderMaterial({...blend,side:DoubleSide,depthTest:false,depthWrite:false,toneMapped:false,
     stencilWrite:true,stencilRef:1,stencilFunc:EqualStencilFunc,
     stencilFail:KeepStencilOp,stencilZFail:KeepStencilOp,stencilZPass:KeepStencilOp,
-    uniforms:{source:{value:new Float32Array(4)},strength:{value:0}},
+    uniforms:{source:{value:new Vector4()},strength:{value:0}},
     vertexShader:'varying vec2 world; void main(){world=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
     fragmentShader:`${lightFalloffGlsl}
       uniform vec4 source;uniform float strength;varying vec2 world;
@@ -71,7 +71,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
   const flashLamp = new ShaderMaterial({...blend,side:DoubleSide,depthTest:false,depthWrite:false,toneMapped:false,
     stencilWrite:true,stencilRef:1,stencilFunc:EqualStencilFunc,
     stencilFail:KeepStencilOp,stencilZFail:KeepStencilOp,stencilZPass:KeepStencilOp,
-    uniforms:{source:{value:new Float32Array(4)},beam:{value:new Float32Array(4)},strength:{value:0}},
+    uniforms:{source:{value:new Vector4()},beam:{value:new Vector4()},strength:{value:0}},
     vertexShader:'varying vec2 world; void main(){world=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
     fragmentShader:`${lightFalloffGlsl}
       uniform vec4 source,beam;uniform float strength;varying vec2 world;
@@ -95,8 +95,8 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
         polygon.forEach((p,j)=>{const q=polygon[(j+1)%polygon.length],v=j*3;points!.setXYZ(v,source.x,0,source.y);points!.setXYZ(v+1,p.x,0,p.y);points!.setXYZ(v+2,q.x,0,q.y);});
         points.needsUpdate=true;entry.mesh.geometry.setDrawRange(0,count);entry.points=polygon;
       }
-      const m=entry.mesh.material;m.uniforms.source.value.set([source.x,source.height,source.y,source.radius]);m.uniforms.strength.value=source.strength;
-      const b=source.beam;m.uniforms.beam.value.set([b?.ax??source.x,b?.ay??source.y,b?.bx??source.x,b?.by??source.y]);
+      const m=entry.mesh.material;m.uniforms.source.value.set(source.x,source.height,source.y,source.radius);m.uniforms.strength.value=source.strength;
+      const b=source.beam;m.uniforms.beam.value.set(b?.ax??source.x,b?.ay??source.y,b?.bx??source.x,b?.by??source.y);
     });
     for(let i=flashes.length;i<flashEntries.length;i++)flashEntries[i].mesh.visible=false;
     flashCount=flashes.length;
@@ -122,7 +122,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
         vec3 a=n.xyz/n.w,b=f.xyz/f.w,d=b-a;
         vec2 world=(a+d*(-a.y/(abs(d.y)<.0001?.0001:d.y))).xz,uv=(world-lightBounds.xy)/max(lightBounds.zw,vec2(.001));
         if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.))))return 0.;
-        vec3 light=texture2D(groundLight,uv).rgb;return lightColorCoverage(max(light.r,max(light.g,light.b)));
+        vec4 light=texture2D(groundLight,uv);return lightColorCoverage(max(light.r,max(light.g,light.b))+light.a);
       }
       vec3 grade(vec3 c,float unlit,float near){
         float saturation=gradeMode>1.5?${HEAVY_DARKVISION_DESATURATION}:mix(.88,${REGULAR_DARKVISION_DESATURATION},near);
@@ -161,8 +161,9 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
               }
             }
           }
-          float groundSight=max(texture2D(cover,projectGround(groundXZ)).r,texture2D(cover,projectGround(frontXZ)).r);
-          sightR=mix(sight.r,groundSight,bodyCoverage);
+          float groundSight=max(texture2D(cover,projectGround(centerInfo.xy)).r,max(texture2D(cover,projectGround(groundXZ)).r,texture2D(cover,projectGround(frontXZ)).r));
+          float bodySight=smoothstep(.02,.12,max(sight.r,groundSight));
+          sightR=mix(sight.r,bodySight,bodyCoverage);
         }
         float v=mix(1.,sightR,fogEnabled),f=1.-v;
         if(gradeMode>.5){
@@ -194,7 +195,7 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       if(!entry){const mesh=new Mesh(geometry(points,holes),source?material.clone():material);mesh.frustumCulled=false;mesh.renderOrder=order;coverScene.add(mesh);entry={mesh,points};entries.set(id,entry);}
       else if(entry.points!==points){entry.mesh.geometry.dispose();entry.mesh.geometry=geometry(points,holes);entry.points=points;}
       entry.mesh.renderOrder=order;if(!source)entry.mesh.material=material;
-      if(source){const m=entry.mesh.material as ShaderMaterial;m.uniforms.source.value.set([source.x,source.height,source.y,source.radius]);m.uniforms.strength.value=source.strength;}
+      if(source){const m=entry.mesh.material as ShaderMaterial;m.uniforms.source.value.set(source.x,source.height,source.y,source.radius);m.uniforms.strength.value=source.strength;}
     };
     next.explored.forEach((rings,i)=>{
       let converted=exploredRings.get(rings);
@@ -224,16 +225,16 @@ export function createMiniatureVisionComposite(renderer:WebGLRenderer, host:HTML
       }
       if(centersChanged)bodyCenters.needsUpdate=true;
       if(!next?.grade)return;
-      const bodiesKey=bodies.map(p=>`${p.slot}:${p.x},${p.y}`).join('|');
+      const bodiesKey=bodies.map(p=>`${p.slot}:${p.x},${p.y},${p.radius??0}`).join('|');
       if(!flashes.length&&!lastGradeFlashes&&lastGradeCover===next&&lastBodiesKey===bodiesKey)return;
       lastGradeCover=next;lastBodiesKey=bodiesKey;lastGradeFlashes=flashes.length>0;
       let changed=false;
-      for(const p of bodies){if(!p.slot)continue;let irradiance=0;
+      for(const p of bodies){if(!p.slot)continue;let irradiance=0;const r=p.radius??0;
         let cache=bodyCoverCache.get(p.slot);if(!cache||cache.x!==p.x||cache.y!==p.y){cache={x:p.x,y:p.y,polygons:new WeakMap()};bodyCoverCache.set(p.slot,cache);}
-        const covered=(poly:WallPoint[])=>{let yes=cache!.polygons.get(poly);if(yes===undefined){yes=inside(p,poly);cache!.polygons.set(poly,yes);}return yes;};
-        for(const {source,polygon} of next.lights)if(covered(polygon))irradiance+=lightIrradiance(Math.hypot(p.x-source.x,p.y-source.y,source.height),source.radius,source.strength);
+        const covered=(poly:WallPoint[])=>{let yes=cache!.polygons.get(poly);if(yes===undefined){yes=inside(p,poly)||(r>0&&([{x:p.x+r,y:p.y},{x:p.x-r,y:p.y},{x:p.x,y:p.y+r},{x:p.x,y:p.y-r}]).some(q=>inside(q,poly)));cache!.polygons.set(poly,yes);}return yes;};
+        for(const {source,polygon} of next.lights)if(covered(polygon))irradiance+=lightIrradiance(Math.hypot(Math.max(0,Math.hypot(p.x-source.x,p.y-source.y)-r),source.height),source.radius,source.strength);
         let sight=flashSight.get(p.slot);if(!sight){sight=createLightSightCache();flashSight.set(p.slot,sight);}
-        for(const source of flashes)if(Math.hypot(p.x-source.x,p.y-source.y)<source.radius*1.5+lightBeamExtent(source)&&sight.visible(source.id,source,p,walls))irradiance+=spellEmissionIrradiance(lightSourceDistance(source,p.x,p.y),source.radius,source.strength);
+        for(const source of flashes)if(Math.hypot(p.x-source.x,p.y-source.y)<source.radius*1.5+lightBeamExtent(source)+r&&sight.visible(source.id,source,p,walls))irradiance+=spellEmissionIrradiance(Math.max(0,lightSourceDistance(source,p.x,p.y)-r),source.radius,source.strength);
         const offset=p.slot*4,unlit=next.grade.daylight?0:Math.round((1-lightColorCoverage(irradiance))*255),near=next.grade.near.some(covered)?255:0;
         if(gradeBytes[offset]!==unlit||gradeBytes[offset+1]!==near){gradeBytes[offset]=unlit;gradeBytes[offset+1]=near;changed=true;}
       }

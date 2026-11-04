@@ -13,7 +13,7 @@
 .layout > .compact-topbar .toolbar-session-menu {margin-left:auto;flex-shrink:0;}
 .layout > .compact-topbar .dm-settings-trigger {flex-shrink:0;}
 .layout > .compact-topbar .dm-settings-label {display:none;}
-.layout > .compact-topbar :is(.map-features-full,.map-features-state,.map-features-chevron) {display:none;}
+.layout > .compact-topbar :is(.map-features-full,.map-features-state,.map-features-chevron,.fog-menu-icon,.fog-menu-state) {display:none;}
 .layout > .compact-topbar .map-features-short {display:inline;}
 .layout .compact-toolbar-menu :is(.map-tool-menus,.dm-campaign-menu) {zoom:1;}
 .layout .compact-toolbar-menu :is(.btn,select) {min-height:44px;min-width:44px;padding:8px 10px;font-size:14px;}
@@ -28,14 +28,17 @@
 @media (max-width:700px) {
   .layout > .topbar.compact-topbar {flex-wrap:wrap;}
   .layout > .compact-topbar .session-title {flex:1;max-width:none;}
-  .layout > .compact-topbar .map-tool-slot {order:10;flex:0 0 100%;width:100%;}
+  .layout > .compact-topbar .map-tool-slot {order:10;flex:0 0 100%;width:100%;gap:2px;}
+  .layout > .compact-topbar .map-view-controls {gap:2px;}
+  .layout > .compact-topbar .zoom-label {min-width:24px;}
+  .layout > .compact-topbar .map-features-trigger {font-size:11px;padding-inline:4px;}
 }
 /* On very narrow DM screens, put rotation beside Campaign so all map
    controls remain visible in two rows without shrinking their touch targets. */
 @media (max-width:520px) {
   .layout.dm-fantasy > .topbar.compact-topbar {
-    display:grid; grid-template-columns:44px 20px 44px 44px minmax(50px,1fr) 80px;
-    gap:4px; align-items:center;
+    display:grid; grid-template-columns:44px 20px 44px 44px minmax(44px,1fr) minmax(44px,1fr) minmax(46px,1fr);
+    gap:3px; align-items:center;
   }
   .layout.dm-fantasy > .compact-topbar .map-tool-slot,
   .layout.dm-fantasy > .compact-topbar .map-view-controls {display:contents;}
@@ -45,12 +48,13 @@
   .layout.dm-fantasy > .compact-topbar > .session-title {display:none;}
   .layout.dm-fantasy > .compact-topbar .map-rotation-controls {grid-area:1 / 3 / 2 / 5;}
   .layout.dm-fantasy > .compact-topbar .dm-settings-trigger {grid-area:1 / 5;justify-self:end;}
-  .layout.dm-fantasy > .compact-topbar .toolbar-session-menu {grid-area:1 / 6;margin:0;}
+  .layout.dm-fantasy > .compact-topbar .toolbar-session-menu {grid-area:1 / 6 / 2 / 8;margin:0;justify-self:end;}
   .layout.dm-fantasy > .compact-topbar .map-view-controls > .zoom-btn:first-child {grid-area:2 / 1;}
   .layout.dm-fantasy > .compact-topbar .zoom-label {grid-area:2 / 2;min-width:0;}
   .layout.dm-fantasy > .compact-topbar .map-view-controls > .zoom-btn:nth-of-type(2) {grid-area:2 / 3;}
   .layout.dm-fantasy > .compact-topbar .map-view-controls > .btn[title="Fit to window"] {grid-area:2 / 4;}
-  .layout.dm-fantasy > .compact-topbar .map-view-controls > .compact-toolbar-trigger {grid-area:2 / 5;}
-  .layout.dm-fantasy > .compact-topbar .map-tool-slot > .compact-toolbar-trigger {grid-area:2 / 6;}
+  .layout.dm-fantasy > .compact-topbar .map-view-controls > .compact-toolbar-trigger {grid-area:2 / 5;padding-inline:2px;}
+  .layout.dm-fantasy > .compact-topbar .map-tool-slot > .fog-menu-trigger {grid-area:2 / 6;padding-inline:2px;}
+  .layout.dm-fantasy > .compact-topbar .map-tool-slot > .compact-toolbar-trigger {grid-area:2 / 7;padding-inline:2px;}
   .layout.player-fantasy > .compact-topbar :is(.map-tool-slot,.map-view-controls) {flex-wrap:wrap;}
 }

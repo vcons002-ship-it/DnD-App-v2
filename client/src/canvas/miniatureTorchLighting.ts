@@ -40,7 +40,7 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
         torchGroundRadiance=vec3(0.);
         if(torchGroundEnabled>.5){
           vec2 groundUv=(groundPoint-torchGroundBounds.xy)/max(torchGroundBounds.zw,vec2(.001));
-          if(all(greaterThanEqual(groundUv,vec2(0.)))&&all(lessThanEqual(groundUv,vec2(1.))))torchGroundRadiance=texture2D(torchGroundField,groundUv).rgb;
+          if(all(greaterThanEqual(groundUv,vec2(0.)))&&all(lessThanEqual(groundUv,vec2(1.)))){vec4 groundSample=texture2D(torchGroundField,groundUv);float groundStrength=max(groundSample.r,max(groundSample.g,groundSample.b));torchGroundRadiance=groundStrength>.0001?groundSample.rgb*((groundStrength+groundSample.a)/groundStrength):groundSample.rgb;}
         }`);
       shader.fragmentShader=localShadowGlsl+lightFalloffGlsl+'varying vec3 torchWorldPosition; varying vec3 torchGroundRadiance; uniform float torchShadowSlots[8]; uniform float darkvisionDetail; uniform int torchCount; uniform vec4 torchPositions[8]; uniform vec3 torchColors[8];\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_begin>',`#include <lights_fragment_begin>
@@ -63,7 +63,7 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
         }
         #endif`);
       shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
-        outgoingLight+=diffuseColor.rgb*torchGroundRadiance*.30;
+        outgoingLight+=diffuseColor.rgb*torchGroundRadiance*.48;
         float sourceLuma=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
         float contour=pow(1.-abs(dot(normalize(normal),normalize(vViewPosition))),3.);
         // Gentle midtone/facing detail for creatures in unlit heavy darkness.
@@ -72,7 +72,7 @@ export function createMiniatureTorchLighting(shadowUniforms:ReturnType<typeof cr
         outgoingLight+=vec3(detail*darkvisionDetail*(1.-lightColorCoverage(darkvisionLight)));
         #include <opaque_fragment>`);
     };
-    material.customProgramCacheKey=()=>cache+'-nearby-torches-v11-ground-presets';
+    material.customProgramCacheKey=()=>cache+'-nearby-torches-v12-ground-presets';
   },update(lights:readonly TorchLight[],root:Group,camera:Camera,darkvision=false,walls:readonly MapWall[]=EMPTY_WALLS,mode:MiniatureLightMode='directional',field?:GroundField){
     uniforms.darkvisionDetail.value=darkvision?1:0;
     uniforms.torchGroundEnabled.value=mode==='ground'&&field&&lights.length?1:0;

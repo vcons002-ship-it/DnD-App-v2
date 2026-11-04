@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getPlayerId } from '../state/socket';
 import { safeSetItem } from '../lib/storage';
 import { useEnvironmentQuality } from '../lib/useEnvironmentQuality';
+import { COMPACT_TOOLBAR_VIEWPORT, useCompactViewport } from '../lib/useCompactViewport';
 
 const TOKEN_APPEARANCE_EVENT = 'dnd:token-appearance';
 
@@ -70,45 +71,53 @@ export function useTokenAppearance() {
   };
 }
 
-export function TokenAppearanceControl({ onChanged }: { onChanged?: () => void } = {}) {
+export function TokenAppearanceControl({
+  onChanged,
+  toolbar = false,
+  forceCompact = false,
+}: {
+  onChanged?: () => void;
+  toolbar?: boolean;
+  forceCompact?: boolean;
+} = {}) {
+  const viewportCompact = useCompactViewport(COMPACT_TOOLBAR_VIEWPORT);
   const { legacy, use3dTokens, use3dMonsters, setUse3dTokens, setUse3dMonsters } = useTokenAppearance();
-  return (
-    <div className="token-appearance-settings">
-      {([
-        { label: 'Players', kind: 'player', enabled: use3dTokens, set: setUse3dTokens },
-        { label: 'Monsters', kind: 'monster', enabled: use3dMonsters, set: setUse3dMonsters },
-      ] as const).map((group) => (
-        <div
-          key={group.kind}
-          className="battlefield-view-options token-appearance-options"
-          role="group"
-          aria-label={`${group.label} token appearance`}
+  if (toolbar && !forceCompact && !viewportCompact) return null;
+  const rows = ([
+    { label: 'Players', kind: 'player', enabled: use3dTokens, set: setUse3dTokens },
+    { label: 'Monsters', kind: 'monster', enabled: use3dMonsters, set: setUse3dMonsters },
+  ] as const).map((group) => (
+    <div
+      key={group.kind}
+      className="battlefield-view-options token-appearance-options"
+      role="group"
+      aria-label={`${group.label} token appearance`}
+    >
+      <span className="muted">{group.label}</span>
+      {[false, true].map((enabled) => (
+        <button
+          type="button"
+          disabled={legacy && enabled}
+          key={String(enabled)}
+          className={`btn tiny ${group.enabled === enabled ? 'on' : ''}`}
+          aria-label={`${enabled ? '3D' : '2D'} ${group.kind} tokens`}
+          aria-pressed={group.enabled === enabled}
+          title={
+            group.kind === 'monster'
+              ? 'Changes monsters, chests and traps in your view'
+              : 'Only changes player tokens in your view'
+          }
+          onClick={() => {
+            if (group.enabled === enabled) return;
+            group.set(enabled);
+            onChanged?.();
+          }}
         >
-          <span className="muted">{group.label}</span>
-          {[false, true].map((enabled) => (
-            <button
-              type="button"
-              disabled={legacy && enabled}
-              key={String(enabled)}
-              className={`btn tiny ${group.enabled === enabled ? 'on' : ''}`}
-              aria-label={`${enabled ? '3D' : '2D'} ${group.kind} tokens`}
-              aria-pressed={group.enabled === enabled}
-              title={
-                group.kind === 'monster'
-                  ? 'Changes monsters, chests and traps in your view'
-                  : 'Only changes player tokens in your view'
-              }
-              onClick={() => {
-                if (group.enabled === enabled) return;
-                group.set(enabled);
-                onChanged?.();
-              }}
-            >
-              {enabled ? '3D' : '2D'}
-            </button>
-          ))}
-        </div>
+          {enabled ? '3D' : '2D'}
+        </button>
       ))}
     </div>
-  );
+  ));
+  if (toolbar) return <>{rows}</>;
+  return <div className="token-appearance-settings">{rows}</div>;
 }

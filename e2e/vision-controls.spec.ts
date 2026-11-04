@@ -42,7 +42,7 @@ for(const mobile of [false,true])test(`vision controls and orb actions ${mobile?
   await player.screenshot({path:info.outputPath('orb-controls.png')});
   const dm=await context.newPage();await dm.addInitScript(()=>sessionStorage.setItem('dnd.rendering-started','1'));await dm.goto(`/dm?code=${f.code}`);await dm.locator('input[type=password]').fill(DM_SECRET);await dm.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await openToolbarGroup(dm,'View');await dm.getByLabel('Battlefield visibility',{exact:true}).selectOption('player');await dm.keyboard.press('Escape');
-  await openToolbarGroup(dm,'Map tools');await dm.getByRole('button',{name:/Fog/}).click();
+  await dm.getByRole('button',{name:/Fog/}).click();
   const shared=dm.getByRole('button',{name:'Shared party vision on',exact:true});await expect(shared).toHaveAttribute('aria-pressed','true');await shared.click();
   await expect(dm.getByRole('button',{name:'Shared party vision off',exact:true})).toHaveAttribute('aria-pressed','false');
   expect((await f.state()).map.sharedPartyVision).toBe(false);
