@@ -1,5 +1,5 @@
 /** Opaque, infinitely tall sight barriers in map pixels. Gaps remain open doorways. */
-import {wallBoundarySegments,insideWallGeometry,segmentDistance,pointInRing,wallContours} from './wallGeometry.js';
+import {wallBoundarySegments,wallCenter,insideWallGeometry,segmentDistance,pointInRing,wallContours} from './wallGeometry.js';
 import {closestWallHit,visitWallCrossings} from './wallSpatialIndex.js';
 import {sightWalls} from './windowGeometry.js';
 import {passageWalls} from './archGeometry.js';
@@ -266,12 +266,25 @@ export function cutDoor(w:MapWall,d:NonNullable<WallEdit['door']>):MapWall[]|nul
  return [...(lo*len>=.1?[slice(0,lo,d.id+'-a')]:[]),...(len*(1-hi)>=.1?[slice(hi,1,d.id+'-b')]:[]),slice(lo,hi,d.id,true)];
 }
 /** Door surfaces visible from either side, including thick closed doors. */
-export function doorApproachPoints(w:MapWall):WallPoint[]{
- if(w.kind&&w.kind!=='rectangle'||w.rotation||(w.thickness??0)>0){
-  return wallBoundarySegments(w).flatMap(({a,b})=>{const dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy)||1,x=(a.x+b.x)/2,y=(a.y+b.y)/2;
-   return [{x:x-dy/l*.1,y:y+dx/l*.1},{x:x+dy/l*.1,y:y-dx/l*.1}];});
+const DOOR_FACE_ALONG=[0.5,0.2,0.8] as const;
+const DOOR_FACE_OFFSETS=[0.1,2,6,10] as const;
+/** Sample along a door face and outward from its center so partial sight/torchlight
+ * and slight AI wall-mask overlaps still register on the visible side only. */
+export function doorSegmentApproachPoints(a:WallPoint,b:WallPoint,door?:MapWall,multiOffset=true):WallPoint[]{
+ const dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy)||1,nx=-dy/l,ny=dx/l,mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+ const solid=door&&(door.kind||(door.thickness??0)>0);
+ const signs=solid?[((mx-wallCenter(door).x)*nx+(my-wallCenter(door).y)*ny)>=0?1:-1]:[-1,1];
+ const offsets=solid&&multiOffset?DOOR_FACE_OFFSETS:[0.1];
+ const pts:WallPoint[]=[];
+ for(const dist of offsets)for(const t of DOOR_FACE_ALONG){
+  const x=a.x+dx*t,y=a.y+dy*t;
+  for(const sign of signs)pts.push({x:x+nx*sign*dist,y:y+ny*sign*dist});
  }
- if(w.kind==='rectangle')return [{x:Math.min(w.ax,w.bx)-.1,y:(w.ay+w.by)/2},{x:Math.max(w.ax,w.bx)+.1,y:(w.ay+w.by)/2},{x:(w.ax+w.bx)/2,y:Math.min(w.ay,w.by)-.1},{x:(w.ax+w.bx)/2,y:Math.max(w.ay,w.by)+.1}];
- const dx=w.bx-w.ax,dy=w.by-w.ay,l=Math.hypot(dx,dy),x=(w.ax+w.bx)/2,y=(w.ay+w.by)/2;
- return [{x:x-dy/l*.1,y:y+dx/l*.1},{x:x+dy/l*.1,y:y-dx/l*.1}];
+ return pts;
+}
+/** Door surfaces visible from either side, including thick closed doors. */
+export function doorApproachPoints(w:MapWall):WallPoint[]{
+ const segs=wallBoundarySegments(w);
+ const maxLen=Math.max(0,...segs.map(({a,b})=>Math.hypot(b.x-a.x,b.y-a.y)));
+ return segs.flatMap(({a,b})=>doorSegmentApproachPoints(a,b,w,Math.hypot(b.x-a.x,b.y-a.y)>=maxLen*0.5));
 }

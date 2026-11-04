@@ -1,6 +1,6 @@
 import { Circle, Group, Line, Path, Rect, Text } from 'react-konva';
 import { doorInteractionArea } from '../../../shared/doorInteraction';
-import type { MapWall } from '../../../shared/mapWalls';
+import { doorSegmentApproachPoints, type MapWall } from '../../../shared/mapWalls';
 import { fogVisionContains, usesTokenVision } from '../../../shared/playerVision';
 import type { StateSnapshot, Token } from '../../../shared/types';
 import { wallBoundarySegments, wallCenter, wallSvgPath, wallVertices } from '../../../shared/wallGeometry';
@@ -266,18 +266,9 @@ export function WallAndDoorKonvaGroup({
               .filter(
                 (points) =>
                   !renderPlayerVision ||
+                  wallActive ||
                   d.open ||
-                  (() => {
-                    const dx = points[2] - points[0];
-                    const dy = points[3] - points[1];
-                    const l = Math.hypot(dx, dy) || 1;
-                    const mx = (points[0] + points[2]) / 2;
-                    const my = (points[1] + points[3]) / 2;
-                    return [
-                      { x: mx - (dy / l) * 0.1, y: my + (dx / l) * 0.1 },
-                      { x: mx + (dy / l) * 0.1, y: my - (dx / l) * 0.1 },
-                    ].some((p) => fogVisionContains(snapshot.playerVision, p.x, p.y, usesTokenVision(map)));
-                  })(),
+                  doorSegmentApproachPoints({ x: points[0], y: points[1] }, { x: points[2], y: points[3] }, d).some((p) => fogVisionContains(snapshot.playerVision, p.x, p.y, usesTokenVision(map))),
               )
               .map((points, i) => (
                 <Line

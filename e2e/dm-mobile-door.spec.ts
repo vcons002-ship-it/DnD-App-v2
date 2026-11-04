@@ -16,16 +16,18 @@ for(const visibility of ['dm','player'] as const) test(`DM can tap and approach 
  try{
   const s=await state();socket.emit('map:setActive',{mapId:map.id});
   socket.emit('map:editWalls',{mapId:map.id,add:{id:'wall',kind:'rectangle',ax:100,ay:290,bx:700,by:310}});
-  await expect.poll(async()=> (await state()).map?.walls?.some((w:any)=>w.id==='wall')).toBe(true);
+  socket.emit('map:editWalls',{mapId:map.id,add:{id:'wall-far',kind:'rectangle',ax:100,ay:90,bx:700,by:110}});
+  await expect.poll(async()=> (await state()).map?.walls?.some((w:any)=>w.id==='wall-far')).toBe(true);
   socket.emit('map:editWalls',{mapId:map.id,door:{id:'door',wallId:'wall',ax:350,ay:300,bx:450,by:300}});
+  socket.emit('map:editWalls',{mapId:map.id,door:{id:'far-door',wallId:'wall-far',ax:350,ay:100,bx:450,by:100}});
   socket.emit('token:spawn',{mapId:map.id,kind:'pc',refId:s.characters.find((c:any)=>c.name==='Druk').id,x:400,y:470});
-  await expect.poll(async()=> (await state()).map?.walls?.some((w:any)=>w.id==='door'&&w.tokenId)).toBe(true);
+  await expect.poll(async()=> (await state()).map?.walls?.some((w:any)=>w.id==='far-door'&&w.tokenId)).toBe(true);
   const initial=await state(),token=initial.tokens.find((t:any)=>t.kind==='pc');
   await page.goto(`/dm?code=${code}`);await page.locator('input[type=password]').fill(DM_SECRET);await page.getByRole('button',{name:'Rejoin as DM',exact:true}).click();
   await openToolbarGroup(page,'View');
   await page.getByLabel('Battlefield visibility').selectOption(visibility);
   await page.getByRole('button',{name:'View',exact:true}).click();
-  await expect.poll(()=>page.evaluate(()=>!!(window as any).Konva?.stages?.some((s:any)=>s.find('.wall-door-face').length))).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>((window as any).Konva?.stages??[]).flatMap((s:any)=>s.find('.wall-door-marker')).map((n:any)=>n.getAttr('doorId')).sort())).toEqual(visibility==='dm'?['door','far-door']:['door']);
   const pos=async(x:number,y:number)=>page.evaluate(({x,y})=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.wall-door-face').length),layer=stage.findOne('.wall-door-face').getParent().getParent(),p=layer.getAbsoluteTransform().point({x,y}),r=stage.getContent().getBoundingClientRect();return{x:r.left+p.x,y:r.top+p.y};},{x,y});
   const tokenPoint=await pos(token.x,token.y);await page.mouse.click(tokenPoint.x,tokenPoint.y,{button:'right'});
   const actions=page.getByRole('dialog',{name:'Token actions'});
