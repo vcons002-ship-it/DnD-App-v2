@@ -28,9 +28,11 @@ it('bounds global sight rays so zoomed SVG clipPaths stay within rasterizer coor
  const vision:PlayerVision={origins:[{id:'pc',x:300,y:300}],rangeFt:60,radius:192,heavy:true,daylight:false,
   walls:[{id:'door-wall',ax:500,ay:0,bx:500,by:1000}],lights:[{id:'behind-wall',x:700,y:300,radius:100,height:20,strength:1}]};
  const raw=geometry(vision,true);
- const clipped=boundedPaths(raw.sight,{x:-4096,y:-4096,width:12288,height:12288,scale:1});
+ const rawCoords=raw.sight.flatMap(p=>ring(p).flatMap(pt=>[Math.abs(pt.x),Math.abs(pt.y)]));
+ expect(Math.max(...rawCoords)).toBeLessThanOrEqual(8192);
+ const clipped=boundedPaths(raw.sight,{x:-512,y:-512,width:3072,height:3072,scale:1});
  const coords=clipped.flatMap(p=>ring(p).flatMap(pt=>[Math.abs(pt.x),Math.abs(pt.y)]));
- expect(Math.max(...coords)).toBeLessThanOrEqual(8192);
+ expect(Math.max(...coords)).toBeLessThanOrEqual(2560);
  expect(contains(clipped,400,300)).toBe(true);
  expect(contains(clipped,700,300)).toBe(false);
 });

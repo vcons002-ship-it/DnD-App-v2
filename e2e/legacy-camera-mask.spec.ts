@@ -16,7 +16,7 @@ for(const assisted of [false,true])for(const role of ['player','dm'] as const)te
   const s=await state(),pc=s.characters.find((c:any)=>c.name==='Druk');admin.emit('map:setActive',{mapId:map.id});admin.emit('map:setGrid',{mapId:map.id,gridSizePx:20,feetPerSquare:5,widthFt:450,locked:true});
   for(const layer of ['map','tokens'])admin.emit('fog:setLayer',{mapId:map.id,layer,enabled:false});
   admin.emit('map:editWalls',{mapId:map.id,add:{id:'occluder',ax:600,ay:0,bx:600,by:1200}});
-  admin.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,heavyDarkness:true,lighting:'dungeon',mist:false,lights:[]}});admin.emit('token:spawn',{mapId:map.id,kind:'pc',refId:pc.id,x:300,y:300});await state();
+  admin.emit('map:setEnvironment',{mapId:map.id,settings:{enabled:true,heavyDarkness:true,lighting:'dungeon',mist:false,lights:[{id:'occluded-torch',x:900,y:300,radiusFt:40,heightFt:10,intensity:1,color:'warm',flicker:false,visibleTorch:true}]}});admin.emit('token:spawn',{mapId:map.id,kind:'pc',refId:pc.id,x:300,y:300});await state();
   const init=(assisted:boolean)=>{localStorage.setItem('dnd-environment-quality','legacy');localStorage.setItem('dnd-server-rendering',assisted?'on':'off');};
   await page.addInitScript(init,assisted);await page.setViewportSize({width:1440,height:900});
   if(role==='player'){await page.goto(`/join?code=${code}`);await page.getByRole('button',{name:'Join',exact:true}).click();await page.locator('.claim-row').filter({hasText:'Druk'}).click();}
@@ -46,7 +46,7 @@ for(const assisted of [false,true])for(const role of ['player','dm'] as const)te
   const pixel=await page.screenshot({clip:{...result.hidden,width:2,height:2}}),raw=await sharp(pixel).removeAlpha().raw().toBuffer();expect(Math.max(...raw)).toBeLessThan(30);
   // Commit the pan and exercise real wheel zoom. Check every canvas-draw turn.
   await page.evaluate(()=>{const stage=(window as any).Konva.stages.find((s:any)=>s.find('.token').length),layer=stage.getLayers().find((l:any)=>l.draggable());layer.fire('dragend',{target:layer,evt:new MouseEvent('mouseup')},true);});
-  await page.mouse.move(700,400);for(const delta of [-240,240,-240]){await page.mouse.wheel(0,delta);await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));const sample=await page.evaluate(()=>(window as any).__checkLegacyCamera());expect(sample.maxError).toBeLessThan(.01);}
+  await page.mouse.move(700,400);for(const delta of [-240,-240,240,240,-240]){await page.mouse.wheel(0,delta);await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));const sample=await page.evaluate(()=>{const w=window as any,stage=w.Konva.stages.find((s:any)=>s.find('.token').length),layer=stage.getLayers().find((l:any)=>l.draggable()),rect=stage.getContent().getBoundingClientRect(),hidden=layer.getAbsoluteTransform().point({x:900,y:300});return {...w.__checkLegacyCamera(),hidden:{x:Math.round(rect.left+hidden.x),y:Math.round(rect.top+hidden.y)}};});expect(sample.maxError).toBeLessThan(.01);const zoomPixel=await page.screenshot({clip:{...sample.hidden,width:2,height:2}}),zoomRaw=await sharp(zoomPixel).removeAlpha().raw().toBuffer();expect(Math.max(...zoomRaw)).toBeLessThan(30);}
   const samples=await page.evaluate(()=>(window as any).__cameraSamples);expect(samples.length).toBeGreaterThan(0);expect(Math.max(...samples.map((s:any)=>s.maxError))).toBeLessThan(.01);
   if(assisted){
    // Observe before triggering the short (400 ms) animation. Polling a removed

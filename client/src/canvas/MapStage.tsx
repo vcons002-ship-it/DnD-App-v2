@@ -400,7 +400,8 @@ function MapStageInner({
     [map?.imagePath, baseW, baseH, tiles],
   );
   const legacyServerTerrain=legacy&&renderPlayerVision&&!!snapshot.terrainRaster&&!tilesMode;
-  const legacyTerrain=legacy&&renderVisionLayer&&!tilesMode&&(!!snapshot.terrainRaster||(!!activeVision&&!activeVision.daylight&&terrainTiles.length>0));
+  const legacyTerrain=legacy&&renderVisionLayer&&!tilesMode&&(legacyServerTerrain||(!!activeVision&&!activeVision.daylight&&terrainTiles.length>0));
+  const legacyTerrainSpec=useMemo(()=>({tiles:terrainTiles,grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}),[terrainTiles,map?.gridHidden,grid,map?.gridOffsetX,map?.gridOffsetY]);
   // Annotation tool: a freehand pen or text-label placer, with a colour.
   const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
   const [annoColor, setAnnoColor] = useState('#ffd166');
@@ -1015,10 +1016,12 @@ function MapStageInner({
     }
   },[]);
 
-  const viewRef = useRef(view); viewRef.current = view;
+  const viewRef = useRef(view), prevViewProp = useRef(view);
+  if (prevViewProp.current !== view) { prevViewProp.current = view; viewRef.current = view; }
   const drawnViewRef = useRef({ x: view.x, y: view.y, scale: view.scale, sy: groundScaleY });
   const paintView = useStableCallback((nextView: View) => {
     viewRef.current = nextView;
+    visionRef.current?.camera({ view: nextView });
     const prev = drawnViewRef.current;
     if (prev.x !== nextView.x || prev.y !== nextView.y || prev.scale !== nextView.scale || prev.sy !== groundScaleY) {
       drawnViewRef.current = { x: nextView.x, y: nextView.y, scale: nextView.scale, sy: groundScaleY };
@@ -1034,33 +1037,34 @@ function MapStageInner({
         legacyFootstepsLayerRef.current.draw();
       }
     }
-    visionRef.current?.camera({ view: nextView });
     miniatureRef.current?.setView(nextView, true);
   });
   useLayoutEffect(() => {
-    const prev = drawnViewRef.current;
-    if (prev.x === view.x && prev.y === view.y && prev.scale === view.scale && prev.sy === groundScaleY) return;
-    drawnViewRef.current = { x: view.x, y: view.y, scale: view.scale, sy: groundScaleY };
+    const target = viewRef.current, prev = drawnViewRef.current;
+    if (prev.x === target.x && prev.y === target.y && prev.scale === target.scale && prev.sy === groundScaleY) return;
+    drawnViewRef.current = { x: target.x, y: target.y, scale: target.scale, sy: groundScaleY };
+    visionRef.current?.camera({ view: target });
     for (const layer of [layerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
       if (!layer) continue;
-      layer.position({ x: view.x, y: view.y });
-      layer.scale({ x: view.scale, y: view.scale * groundScaleY });
+      layer.position({ x: target.x, y: target.y });
+      layer.scale({ x: target.scale, y: target.scale * groundScaleY });
       layer.draw();
     }
     if (legacyFootstepsLayerRef.current) {
-      legacyFootstepsLayerRef.current.position({ x: view.x, y: view.y });
-      legacyFootstepsLayerRef.current.scale({ x: view.scale, y: view.scale });
+      legacyFootstepsLayerRef.current.position({ x: target.x, y: target.y });
+      legacyFootstepsLayerRef.current.scale({ x: target.scale, y: target.scale });
       legacyFootstepsLayerRef.current.draw();
     }
   }, [view, groundScaleY]);
   const paintPan = useStableCallback((position:Pt) => {
-    viewRef.current = { ...view, ...position };
-    drawnViewRef.current = { x: position.x, y: position.y, scale: view.scale, sy: groundScaleY };
+    const nextView = { ...viewRef.current, ...position };
+    viewRef.current = nextView;
+    drawnViewRef.current = { x: position.x, y: position.y, scale: nextView.scale, sy: groundScaleY };
+    visionRef.current?.camera({ view: nextView });
     for (const layer of [layerRef.current, legacyFootstepsLayerRef.current, groundTokenLayerRef.current, tokenLayerRef.current, sharedTokenLayerRef.current, spellAreaLayerRef.current]) {
       if (layer) { layer.position(position); layer.draw(); }
     }
-    miniatureRef.current?.setView({ ...view, ...position });
-    visionRef.current?.camera({view:{...view,...position}});
+    miniatureRef.current?.setView(nextView);
   });
   const panFrames=useMemo(()=>createLatestFrame(paintPan,run=>requestBattlefieldFrame(run,'camera'),cancelBattlefieldFrame),[paintPan]);
   useEffect(()=>()=>panFrames.cancel(),[panFrames,map?.id,legacy]);
@@ -1683,7 +1687,7 @@ function MapStageInner({
     const position={x:e.target.x(),y:e.target.y()};
     // Legacy's precomputed mask/terrain only need cheap DOM transforms here.
     // Keep them aligned immediately; defer the canvas redraws to one RAF.
-    if(legacy)visionRef.current?.camera({view:{...view,...position}});
+    if(legacy)visionRef.current?.camera({view:{...viewRef.current,...position}});
     panFrames.push(position);
   };
   const handleLayerDragEnd = (e: KonvaEventObject<DragEvent>) => {
@@ -2194,7 +2198,7 @@ function MapStageInner({
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?handlePrepareVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
-          {renderVisionLayer&&activeVision&&(legacy?<LegacyVisionOverlay terrain={{tiles:terrainTiles,grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}} ref={visionRef} presentation={presentation} terrainRaster={legacyServerTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={sceneVision?undefined:snapshot.visionTiles} raster={sceneVision?undefined:snapshot.visionRaster} geometry={sceneVision?undefined:snapshot.legacyGeometry} vision={activeVision} view={view} width={size.w} height={size.h} mapFogOfWar={!sceneVision&&usesMapVision(map)} explored={map?.explorationMode==='off'?[]:snapshot.exploredTerrain} keepRevealed={map?.explorationMode!=='off'&&!!activeVision.daylight}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry??(sourceViewSnapshot.legacyMotion?.membershipOnly?sourceViewSnapshot.legacyGeometry:undefined)} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={activeVision} keepRevealed={map?.explorationMode!=='off'&&!!activeVision.daylight} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+          {renderVisionLayer&&activeVision&&(legacy?<LegacyVisionOverlay terrain={legacyTerrainSpec} ref={visionRef} presentation={presentation} terrainRaster={legacyServerTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={sceneVision?undefined:snapshot.visionTiles} raster={sceneVision?undefined:snapshot.visionRaster} geometry={sceneVision?undefined:snapshot.legacyGeometry} vision={activeVision} view={view} width={size.w} height={size.h} mapFogOfWar={!sceneVision&&usesMapVision(map)} explored={map?.explorationMode==='off'?[]:snapshot.exploredTerrain} keepRevealed={map?.explorationMode!=='off'&&!!activeVision.daylight}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry??(sourceViewSnapshot.legacyMotion?.membershipOnly?sourceViewSnapshot.legacyGeometry:undefined)} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={activeVision} keepRevealed={map?.explorationMode!=='off'&&!!activeVision.daylight} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:map?.explorationMode==='off'?[]:snapshot.exploredTerrain,tiles:terrainTiles,bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}
           <WallAndDoorHud wallActive={wallActive} wallTool={wallTool} setWallTool={setWallTool} setWallAnchor={setWallAnchor} wallThickness={wallThickness} setWallThickness={setWallThickness} selectedWall={selectedWall} featureSelection={featureSelection} deleteFeatures={deleteFeatures} map={map} doorDragPreview={doorDragPreview} doors={doors} activeDoorControls={activeDoorControls} dismissDoorControls={dismissDoorControls} actualDm={actualDm} sourceSnapshot={sourceSnapshot} snapshot={snapshot} onSelectToken={onSelectToken} operateDoor={operateDoor} />
           <TokenHtmlHudOverlay snapshot={snapshot} view={view} pxPerFoot={pxPerFoot} groundScaleY={groundScaleY} isVisibleAt={tokenVisibleAtPosition} />

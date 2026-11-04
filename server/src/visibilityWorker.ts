@@ -1,6 +1,7 @@
 import {parentPort} from 'node:worker_threads';
-import {createLegacyVisionGeometry,legacyPath} from '../../shared/legacyVision.js';
+import {createLegacyVisionGeometry,legacyPath,visionBounds} from '../../shared/legacyVision.js';
 import type {OutlineSet,CachedPolygon} from '../../shared/legacyVision.js';
+import {boundedPaths} from '../../shared/legacyMaskSvg.js';
 import {SIGHT_EXTENT} from '../../shared/mapWalls.js';
 import type {GeometryJob,RasterJob,MaskTilesJob,MaskTilesResult,WorkerCacheSync} from './visibilityWorkers.js';
 import {createHash} from 'node:crypto';
@@ -129,7 +130,7 @@ parentPort!.on('message',async(msg:{id?:number;job?:GeometryJob|MovementPreviewJ
   // A detailed job may also serve a coalesced Legacy request. Only an explicit
   // outline augmentation can omit base paths; delivery strips unused paths.
   const paths=job.outlinesOnly?{sight:[],near:[],lights:[]}:geometry(job.vision,job.wallFog);
-  const memory=(job.explored??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join(''));
+  const memory=boundedPaths((job.explored??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join('')),visionBounds(job.vision));
   const affinity=job.tokens.filter(t=>!t.sharedSightOnly&&visionShowsAffinity(job.vision,t.x,t.y)).map(t=>t.id);
   let prepared:OutlineSet|undefined;
   if(job.detailed){
