@@ -35,7 +35,7 @@ import type {WallTool} from '../components/WallMenu';
 import {doorApproachPoints,distanceToWall,sanitizeWalls,type MapWall} from '../../../shared/mapWalls';
 import {doorInReach} from '../../../shared/doorInteraction';
 import {wallVertices,wallCenter,translateWall,simplifyWallPath} from '../../../shared/wallGeometry';
-import {fogVisionContains,fogVisionContainsToken,fogVisionIntersectsToken,tokenRadiusPx,visionShowsAffinity,needsVisibilityLayer,usesMapVision,usesTokenVision,usesDarknessVision} from '../../../shared/playerVision';
+import {createSceneVision,fogVisionContains,fogVisionContainsToken,fogVisionIntersectsToken,tokenRadiusPx,visionShowsAffinity,needsVisibilityLayer,usesMapVision,usesTokenVision,usesDarknessVision} from '../../../shared/playerVision';
 import {presentAuras,AURA_HEX} from '../lib/conditions';
 import { miniatureBaseWidthFt } from '../../../shared/monsterAppearance';
 import { tokenVisibleAt } from '../../../shared/fog';
@@ -187,11 +187,14 @@ function MapStageInner({
   const visionRef=useRef<PlayerVisionHandle>(null);
   // Skip dynamic sight/light composition only when it cannot conceal terrain.
   // Painted fog, token filtering, movement and targeting remain independent.
+  const sceneVision=useMemo(()=>legacy&&actualDm&&dmViewMode==='scene'?createSceneVision(sourceSnapshot.map,snapshot.tokens):undefined,[legacy,actualDm,dmViewMode,sourceSnapshot.map,snapshot.tokens]);
+  const activeVision=snapshot.playerVision??sceneVision;
   const renderPlayerVision=needsVisibilityLayer(snapshot.map,snapshot.playerVision);
+  const renderVisionLayer=renderPlayerVision||!!sceneVision;
   const memoryTerrainCanvas=useCallback(()=>visionRef.current?.memoryCanvas()??null,[]);
   const visionCoverFrame=useCallback(()=>visionRef.current?.cover(),[]);
   const presentation=useRef(new TokenPresentation()).current;
-  const presentationSnapshot=useMemo(()=>snapshot,[snapshot.map,snapshot.tokens,snapshot.playerVision,snapshot.exploredTerrain,snapshot.role]);
+  const presentationSnapshot=useMemo(()=>sceneVision&&!snapshot.playerVision?{...snapshot,playerVision:sceneVision}:snapshot,[snapshot.map,snapshot.tokens,snapshot.playerVision,sceneVision,snapshot.exploredTerrain,snapshot.role]);
   // Retain the simpler flash experiment for repeatable measurements only.
   const spellColorOverlay=new URLSearchParams(window.location.search).get('spellColorOverlay')==='1';
   const spellMist=new URLSearchParams(window.location.search).get('spellMist')!=='off';
@@ -397,7 +400,7 @@ function MapStageInner({
     [map?.imagePath, baseW, baseH, tiles],
   );
   const legacyServerTerrain=legacy&&renderPlayerVision&&!!snapshot.terrainRaster&&!tilesMode;
-  const legacyTerrain=legacy&&renderPlayerVision&&!tilesMode&&(!!snapshot.terrainRaster||(!!snapshot.playerVision&&!snapshot.playerVision.daylight&&terrainTiles.length>0));
+  const legacyTerrain=legacy&&renderVisionLayer&&!tilesMode&&(!!snapshot.terrainRaster||(!!activeVision&&!activeVision.daylight&&terrainTiles.length>0));
   // Annotation tool: a freehand pen or text-label placer, with a colour.
   const [annotate, setAnnotate] = useState<'pen' | 'text' | null>(null);
   const [annoColor, setAnnoColor] = useState('#ffd166');
@@ -1079,7 +1082,7 @@ function MapStageInner({
   useLayoutEffect(() => {
     const groundLayer = groundTokenLayerRef.current;
     const overlayLayer = spellAreaLayerRef.current;
-    if (!groundLayer || !overlayLayer || !renderPlayerVision) return;
+    if (!groundLayer || !overlayLayer || !renderVisionLayer) return;
     const paintVisionHud = () => {
       const canvas = overlayLayer.getCanvas();
       const buffer = overlayLayer.getAttr('retainedPerspectiveBuffer');
@@ -1098,7 +1101,7 @@ function MapStageInner({
       groundLayer.off('.groundVisionHud');
       overlayLayer.batchDraw();
     };
-  }, [renderPlayerVision, dprKey, legacy, map?.id]);
+  }, [renderVisionLayer, dprKey, legacy, map?.id]);
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -2191,7 +2194,7 @@ function MapStageInner({
               tiltDegrees={tiltDegrees} rotationDegrees={rotationDegrees} width={size.w} height={size.h} onReady={handleMiniatureReady}
               nameLabels={miniatureNameLabels} onRenderedNames={handleRenderedNames} onVisionLights={renderPlayerVision?handleVisionLights:undefined} onPrepareVisionLights={renderPlayerVision?handlePrepareVisionLights:undefined} />
           </Suspense></MiniatureFallback>}
-          {renderPlayerVision&&snapshot.playerVision&&(legacy?<LegacyVisionOverlay terrain={{tiles:terrainTiles,grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}} ref={visionRef} presentation={presentation} terrainRaster={legacyServerTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={snapshot.visionTiles} raster={snapshot.visionRaster} geometry={snapshot.legacyGeometry} vision={snapshot.playerVision} view={view} width={size.w} height={size.h} mapFogOfWar={usesMapVision(map)} explored={map?.explorationMode==='off'?[]:snapshot.exploredTerrain} keepRevealed={map?.explorationMode!=='off'&&!!snapshot.playerVision?.daylight}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry??(sourceViewSnapshot.legacyMotion?.membershipOnly?sourceViewSnapshot.legacyGeometry:undefined)} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={snapshot.playerVision} keepRevealed={map?.explorationMode!=='off'&&!!snapshot.playerVision?.daylight} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
+          {renderVisionLayer&&activeVision&&(legacy?<LegacyVisionOverlay terrain={{tiles:terrainTiles,grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}} ref={visionRef} presentation={presentation} terrainRaster={legacyServerTerrain?snapshot.terrainRaster:undefined} motion={legacyMovement.playback} tiles={sceneVision?undefined:snapshot.visionTiles} raster={sceneVision?undefined:snapshot.visionRaster} geometry={sceneVision?undefined:snapshot.legacyGeometry} vision={activeVision} view={view} width={size.w} height={size.h} mapFogOfWar={!sceneVision&&usesMapVision(map)} explored={map?.explorationMode==='off'?[]:snapshot.exploredTerrain} keepRevealed={map?.explorationMode!=='off'&&!!activeVision.daylight}/>:<PlayerVisionOverlay serverGeometry={snapshot.legacyGeometry??(sourceViewSnapshot.legacyMotion?.membershipOnly?sourceViewSnapshot.legacyGeometry:undefined)} spellLighting={!spellColorOverlay} ref={visionRef} presentation={presentation} vision={activeVision} keepRevealed={map?.explorationMode!=='off'&&!!activeVision.daylight} mapFogOfWar={usesMapVision(map)} view={view} tilt={tiltDegrees} rotation={rotationDegrees} width={size.w} height={size.h}
             terrain={{environment:map?.environment,explored:map?.explorationMode==='off'?[]:snapshot.exploredTerrain,tiles:terrainTiles,bounds:{x:extX0,y:extY0,w:imgW,h:imgH},grid:map?.gridHidden?undefined:{size:grid,x:map?.gridOffsetX??0,y:map?.gridOffsetY??0}}}/>)}
           <WallAndDoorHud wallActive={wallActive} wallTool={wallTool} setWallTool={setWallTool} setWallAnchor={setWallAnchor} wallThickness={wallThickness} setWallThickness={setWallThickness} selectedWall={selectedWall} featureSelection={featureSelection} deleteFeatures={deleteFeatures} map={map} doorDragPreview={doorDragPreview} doors={doors} activeDoorControls={activeDoorControls} dismissDoorControls={dismissDoorControls} actualDm={actualDm} sourceSnapshot={sourceSnapshot} snapshot={snapshot} onSelectToken={onSelectToken} operateDoor={operateDoor} />
           <TokenHtmlHudOverlay snapshot={snapshot} view={view} pxPerFoot={pxPerFoot} groundScaleY={groundScaleY} isVisibleAt={tokenVisibleAtPosition} />

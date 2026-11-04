@@ -5,6 +5,7 @@ import type {ExploredTerrain} from '../../../shared/exploration';
 import type {BattlefieldView} from './miniatureProjection';
 import {legacyPath,createLegacyVisionGeometry} from './legacyVision';
 import type {LegacyGeometry} from '../../../shared/legacyVision';
+import {boundedPaths} from '../../../shared/legacyMaskSvg';
 import type {RasterAsset,RasterTiles} from '../../../shared/serverRendering';
 import {renderedImage} from '../lib/renderImages';
 import {movementTiming} from '../lib/movementTiming';
@@ -23,6 +24,15 @@ function rasterCover(bounds:Omit<RasterAsset,'key'>,view:BattlefieldView,width:n
  const clampX=(v:number)=>Math.max(0,Math.min(width,v)),clampY=(v:number)=>Math.max(0,Math.min(height,v));
  const l=clampX(left),r=clampX(left+bounds.width/bounds.scale*view.scale),t=clampY(top),b=clampY(top+bounds.height/bounds.scale*view.scale);
  return [{left:0,top:0,width,height:t},{left:0,top:b,width,height:height-b},{left:0,top:t,width:l,height:b-t},{left:r,top:t,width:width-r,height:b-t}];
+}
+function worldBounds(terrain:Props['terrain'],vision:PlayerVision){
+ let minX=0,minY=0,maxX=4096,maxY=4096;
+ for(const t of terrain?.tiles??[]){minX=Math.min(minX,t.x);minY=Math.min(minY,t.y);maxX=Math.max(maxX,t.x+t.w);maxY=Math.max(maxY,t.y+t.h);}
+ for(const o of vision.origins){minX=Math.min(minX,o.x-vision.radius);minY=Math.min(minY,o.y-vision.radius);maxX=Math.max(maxX,o.x+vision.radius);maxY=Math.max(maxY,o.y+vision.radius);}
+ for(const l of vision.lights){minX=Math.min(minX,l.x-l.radius);minY=Math.min(minY,l.y-l.radius);maxX=Math.max(maxX,l.x+l.radius);maxY=Math.max(maxY,l.y+l.radius);}
+ for(const w of vision.walls??[]){minX=Math.min(minX,w.ax,w.bx);minY=Math.min(minY,w.ay,w.by);maxX=Math.max(maxX,w.ax,w.bx);maxY=Math.max(maxY,w.ay,w.by);}
+ const pad=4096;
+ return {x:minX-pad,y:minY-pad,width:maxX-minX+pad*2,height:maxY-minY+pad*2,scale:1};
 }
 /** Visibility refresh is bounded; camera placement updates synchronously using
  * the existing pixels/paths, so panning cannot expose ground behind the mask. */
@@ -62,8 +72,9 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
  const geometry=useRef(createLegacyVisionGeometry()).current;
  const localVision=frame.presentation?.personalVision()??frame.vision;
  const localMemory=frame.presentation?frame.presentation.explored():frame.explored;
- const paths=useMemo(()=>frame.presentation?{sight:[],near:[],lights:[]}:suppliedGeometry!==undefined?suppliedGeometry??{sight:[],near:[],lights:[]}:geometry(localVision,frame.mapFogOfWar),[frame.presentation,suppliedGeometry,localVision,frame.mapFogOfWar,geometry]);
- const memory=useMemo(()=>frame.presentation?[]:suppliedGeometry!==undefined?suppliedGeometry?.memory??[]:(localMemory??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join('')),[frame.presentation,suppliedGeometry,localMemory]);
+ const clipBounds=useMemo(()=>worldBounds(frame.terrain,localVision),[frame.terrain,localVision]);
+ const paths=useMemo(()=>{if(frame.presentation)return {sight:[],near:[],lights:[]};const raw=suppliedGeometry!==undefined?suppliedGeometry??{sight:[],near:[],lights:[]}:geometry(localVision,frame.mapFogOfWar);return {...raw,sight:boundedPaths(raw.sight,clipBounds)};},[frame.presentation,suppliedGeometry,localVision,frame.mapFogOfWar,geometry,clipBounds]);
+ const memory=useMemo(()=>frame.presentation?[]:boundedPaths(suppliedGeometry!==undefined?suppliedGeometry?.memory??[]:(localMemory??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join('')),clipBounds),[frame.presentation,suppliedGeometry,localMemory,clipBounds]);
  const markup=useRef(new WeakMap<Element,string>()),drawn=useRef<{vision:PlayerVision;memory:ExploredTerrain|undefined}>(),drawnServer=useRef<LegacyGeometry|null|undefined>();
  const memoryPaths=useRef<{source:ExploredTerrain|undefined;paths:string[]}>();
  paintLocal.current=(now=performance.now())=>{
@@ -75,7 +86,8 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
    const serverGeom=(index!==undefined?m!.frames![index]:suppliedGeometry)??{sight:[],near:[],lights:[],memory:[],affinity:[]};
    if(drawnServer.current===serverGeom)return;
    drawnServer.current=serverGeom;
-   const values={sight:serverGeom.sight,near:serverGeom.near,lights:serverGeom.lights,memory:serverGeom.memory??[]};
+   const bounds=worldBounds(frame.terrain,frame.vision);
+   const values={sight:boundedPaths(serverGeom.sight,bounds),near:serverGeom.near,lights:serverGeom.lights,memory:boundedPaths(serverGeom.memory??[],bounds)};
    for(const node of [svg.current,gradeSvg.current].flatMap(root=>root?[...root.querySelectorAll<SVGGElement>('[data-legacy-paths]')]:[])){
     const key=node.dataset.legacyPaths as keyof typeof values;
     const html=values[key].map(d=>`<path d="${d}" fill-rule="evenodd"/>`).join('');
@@ -91,7 +103,8 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
   drawn.current={vision,memory:explored};
   const paths=geometry(vision,frame.mapFogOfWar);
   if(!memoryPaths.current||memoryPaths.current.source!==explored)memoryPaths.current={source:explored,paths:(explored??[]).map(p=>p.map(r=>legacyPath(r.map(([x,y])=>({x,y})))).join(''))};
-  const values={...paths,memory:memoryPaths.current.paths};
+  const bounds=worldBounds(frame.terrain,vision);
+  const values={...paths,sight:boundedPaths(paths.sight,bounds),memory:boundedPaths(memoryPaths.current.paths,bounds)};
   // Only the small SVG sight paths change during local movement. Camera and
   // map pixels stay retained; the shared token clock supplies the exact pose.
   for(const node of [svg.current,gradeSvg.current].flatMap(root=>root?[...root.querySelectorAll<SVGGElement>('[data-legacy-paths]')]:[])){
@@ -100,7 +113,7 @@ export const LegacyVisionOverlay=forwardRef<PlayerVisionHandle,Props>(function L
    if(markup.current.get(node)!==html){node.innerHTML=html;markup.current.set(node,html);}
   }
  };
- useLayoutEffect(()=>{drawn.current=undefined;drawnServer.current=undefined;paintLocal.current();});
+ useLayoutEffect(()=>{drawn.current=undefined;drawnServer.current=undefined;paintLocal.current();},[suppliedGeometry,localGrading,frame.mapFogOfWar,frame.vision,frame.explored,frame.presentation,props.motion]);
  const id=useId().replace(/:/g,''),sight=`legacy-sight-${id}`,visible=`legacy-visible-${id}`,lit=`legacy-lit-${id}`,cover=`legacy-cover-${id}`;
  const transform=`translate(${frame.view.x} ${frame.view.y}) scale(${frame.view.scale})`;
  // Local and server-motion groups are owned by paintLocal when presentation is active.

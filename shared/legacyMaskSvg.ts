@@ -21,7 +21,7 @@ function clipRingRect(ring:[number,number][],minX:number,minY:number,maxX:number
  clipEdge(p=>p[1]<=maxY,(a,b)=>[a[0]+(b[0]-a[0])*(maxY-a[1])/(b[1]-a[1]),maxY]);
  return pts;
 }
-function boundedPaths(paths:string[],o:{width:number;height:number;x:number;y:number;scale:number}){
+export function boundedPaths(paths:string[],o:{width:number;height:number;x:number;y:number;scale:number}){
  const x=o.x,y=o.y,r=x+o.width/o.scale,b=y+o.height/o.scale;
  return paths.flatMap(path=>{
   const cacheKey=`${x},${y},${r},${b}:${path}`,hit=boundedCache.get(cacheKey);if(hit)return hit;

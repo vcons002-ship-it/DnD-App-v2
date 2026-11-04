@@ -139,6 +139,18 @@ export function visionShowsAffinity(vision:PlayerVision|undefined|null,x:number,
 export function visionLit(vision:PlayerVision|undefined|null,x:number,y:number):boolean{
  return !vision||!!vision.daylight||vision.lights.some(l=>lightCoverage(Math.hypot(x-l.x,y-l.y),l)>.10&&(!(vision.walls?.length)||sightCache.visible(`l:${l.id}:${x},${y}`,l,{x,y},vision.walls)));
 }
+export function createSceneVision(map:MapState|null|undefined,tokens:Token[]):PlayerVision|undefined{
+ if(!map)return undefined;
+ const e=map.environment;
+ const dark=usesDarknessVision(map)||!!(e?.enabled&&e.lighting==='dusk');
+ if(!dark)return undefined;
+ const px=map.gridSizePx/Math.max(.001,map.feetPerSquare);
+ const lights:VisionLight[]=[
+  ...(e?.enabled?e.lights:[]).map(l=>({id:l.id,x:l.x,y:l.y,radius:l.radiusFt*px,height:l.heightFt*px,strength:l.intensity})),
+  ...tokens.filter(t=>t.carriedLantern&&!t.isHidden).map(t=>({id:t.id,x:t.x,y:t.y,radius:20*px,height:CARRIED_LANTERN_LIGHT_HEIGHT_FT*px,strength:.85,carried:true})),
+ ];
+ return {rangeFt:60,radius:60*px,heavy:false,origins:[],lights,walls:map.walls,daylight:false};
+}
 export function createPlayerVision(map:MapState|null|undefined,tokens:Token[],owned:Set<string>,lightTokenAllowed?:(token:Token)=>boolean):PlayerVision|undefined{
  if(!map)return undefined;
  const ownedPcs=tokens.filter(t=>t.kind==='pc'&&owned.has(t.refId)&&!t.isHidden);
