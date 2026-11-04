@@ -1,6 +1,6 @@
 import {captureTokenDelete,popUndo} from './undo.js';
 import {describe,it,expect} from 'vitest';
-import {cutDoor,wallCollisionRadiusFt,stopAtWalls,hasLineOfSight,sanitizeWalls,wallVisibilityPolygon,wallEdgeCount,distanceToWall,type MapWall} from '../../shared/mapWalls.js';
+import {cutDoor,wallCollisionRadiusFt,stopAtWalls,hasLineOfSight,sanitizeWalls,wallVisibilityPolygon,wallEdgeCount,distanceToWall,doorApproachPoints,doorSegmentApproachPoints,type MapWall} from '../../shared/mapWalls.js';
 import {visionContains,visionLit} from '../../shared/playerVision.js';
 import {editMapWalls,setWallDoor} from './mapWalls.js';
 import {createSession,createMap,createCharacter,claimCharacter,createToken,createMonsterTemplate,instantiateMonster,setActiveMap,updateMapEnvironment,deleteToken,getToken,getMonster,setCondition,clearCondition,getMap,getSessionByCode,listMaps,moveToken,setTokenHidden,setFogLayer,setFogRevealed} from './sessions.js';
@@ -244,4 +244,25 @@ it('restores the functional wall door when undoing deletion of its object',()=>{
  popUndo(f.session.id)!.run();
  expect(getToken(tokenId)).toBeTruthy();
  expect(hasLineOfSight({x:500,y:400},{x:900,y:400},getMap(f.map.id)!.walls)).toBe(false);
+});
+
+it('reveals a distant door in heavy darkness when illuminated by a torch past darkvision range',()=>{
+ const f=fixture();deleteToken(f.east.id);moveToken(f.west.id,-200,400);
+ editMapWalls(f.session.id,f.map.id,{removeId:wall.id});
+ editMapWalls(f.session.id,f.map.id,{add:{id:'thick-wall',kind:'rectangle',ax:690,ay:-1000,bx:710,by:2000}});
+ editMapWalls(f.session.id,f.map.id,{door:{wallId:'thick-wall',id:'door',ax:700,ay:300,bx:700,by:600}});
+ const door=getMap(f.map.id)!.walls!.find(w=>w.id==='door')!;
+ const darkPlayer=buildSnapshot(f.session.id,'player',null,'west')!;
+ const darkParty=buildSnapshot(f.session.id,'dm',null,undefined,undefined,true)!.partyView!;
+ expect(darkPlayer.tokens.some(tk=>tk.id===door.tokenId)).toBe(false);
+ expect(darkParty.tokens.some(tk=>tk.id===door.tokenId)).toBe(false);
+ expect(doorApproachPoints(door).some(p=>visionContains(darkPlayer.playerVision,p.x,p.y))).toBe(false);
+ updateMapEnvironment(f.session.id,f.map.id,{enabled:true,lighting:'dungeon',heavyDarkness:true,mist:false,lights:[{id:'torch',x:650,y:340,radiusFt:15,heightFt:6,color:'warm',intensity:1,flicker:true}]});
+ const litPlayer=buildSnapshot(f.session.id,'player',null,'west')!;
+ const litParty=buildSnapshot(f.session.id,'dm',null,undefined,undefined,true)!.partyView!;
+ expect(litPlayer.tokens.some(tk=>tk.id===door.tokenId)).toBe(true);
+ expect(litParty.tokens.some(tk=>tk.id===door.tokenId)).toBe(true);
+ expect(doorApproachPoints(door).some(p=>visionContains(litPlayer.playerVision,p.x,p.y))).toBe(true);
+ expect(doorSegmentApproachPoints({x:688,y:300},{x:688,y:600},door).some(p=>visionContains(litPlayer.playerVision,p.x,p.y))).toBe(true);
+ expect(doorSegmentApproachPoints({x:712,y:300},{x:712,y:600},door).some(p=>visionContains(litPlayer.playerVision,p.x,p.y))).toBe(false);
 });

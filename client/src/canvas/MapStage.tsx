@@ -842,7 +842,7 @@ function MapStageInner({
   }, [view, size, groundScaleY]);
 
   const doors=useMemo(()=>(map?.walls??[]).filter(w=>w.door),[map?.walls]);
-  const doorVisible=(door:typeof doors[number])=>actualDm||(!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&(!mapFogEnabled||mapRevealed.has(`${Math.floor(p.x/grid)},${Math.floor(p.y/grid)}`)));
+  const doorVisible=(door:typeof doors[number])=>(isDm||wallActive)||((!door.tokenId||snapshot.tokens.some(t=>t.id===door.tokenId&&!t.sharedSightOnly))&&doorApproachPoints(door).some(p=>fogVisionContains(snapshot.playerVision,p.x,p.y,usesTokenVision(map))&&tokenVisibleAt({role:snapshot.role,hidden:false,owned:false,foe:true,mapFog:mapFogEnabled?mapRevealed:null,tokenFog:tokenFogEnabled?tokenRevealed:null,grid,x:p.x,y:p.y})));
   const nearbyDoors=doors.filter(d=>doorVisible(d)&&(actualDm?d.id===selectedDoor||sourceSnapshot.tokens.some(t=>t.id===doorApproachTokenId&&!doors.some(door=>door.tokenId===t.id)&&doorInReach(t,d,pxPerFoot)):snapshot.tokens.some(t=>t.kind==='pc'&&!t.isHidden&&snapshot.characters.some(c=>c.id===t.refId&&c.claimedBy===mySocketId)&&doorInReach(t,d,pxPerFoot))));
   const nearbyDoorKey=nearbyDoors.map(d=>d.id).sort().join('|');
   useEffect(()=>{
